@@ -61,6 +61,10 @@ const optionalCopies = [
     ".next/standalone/research-worker/leaseWorker.js",
   ],
   [
+    ".stocksembly-verification/research-worker/assets",
+    ".next/standalone/research-worker/assets",
+  ],
+  [
     "scripts/standalone-worker-entry.mjs",
     ".next/standalone/research-worker/worker.mjs",
   ],

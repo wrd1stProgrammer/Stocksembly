@@ -19,7 +19,7 @@
     "research:configure-sec-identity": "node scripts/research-sec-identity.mjs configure",
     "research:require-sec-identity": "node scripts/research-sec-identity.mjs require",
     "research:worker:typecheck": "tsc -p tsconfig.worker.json --noEmit --pretty false",
-    "research:worker:build": "pnpm research:worker:typecheck && vite build --ssr src/research/worker/leaseWorker.ts --outDir .stocksembly-verification/research-worker && vite build --ssr src/research/worker/runtimeProbe.ts --outDir .stocksembly-verification/research-worker --emptyOutDir false",
+    "research:worker:build": "pnpm research:worker:typecheck && vite build --config vite.worker.config.ts --ssr src/research/worker/leaseWorker.ts --outDir .stocksembly-verification/research-worker && vite build --config vite.worker.config.ts --ssr src/research/worker/runtimeProbe.ts --outDir .stocksembly-verification/research-worker --emptyOutDir false",
     "research:worker": "pnpm build && pnpm start:worker",
     "research:worker:start": "pnpm start:worker",
     "research:worker:readiness": "node .next/standalone/research-worker/worker.mjs readiness",
