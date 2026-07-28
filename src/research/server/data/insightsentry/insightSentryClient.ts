@@ -2,6 +2,7 @@ import {
   readInsightSentryCache,
   writeInsightSentryCache,
 } from "./insightSentryCache";
+import { withCacheFillLock } from "../cacheFillLock";
 import {
   canonicalInsightSentryCacheKey,
   insightSentryDiagnostics,
@@ -121,6 +122,8 @@ export function createInsightSentryClient(
           );
         case "available": {
           const host = options.configuration.config.rapidApiHost;
+          const requestHeaders =
+            options.configuration.config.requestHeaders();
           const details = insightSentryDiagnostics(host, request, cacheKey);
           const cached = await readInsightSentryCache(
             options.dataRoot,
@@ -150,51 +153,87 @@ export function createInsightSentryClient(
             });
           }
 
-          let pending = inFlight.get(cacheKey);
-          if (pending === undefined) {
-            pending = executeWithRetry({
-              request,
-              cacheKey,
-              host,
-              headers: options.configuration.config.requestHeaders(),
-            });
-            inFlight.set(cacheKey, pending);
-          }
-          try {
-            const raw = await pending;
-            const data = parseInsightSentryPayload({
-              request,
-              bytes: raw.bytes,
-              diagnostics: details,
-              now: clock.now(),
-            });
-            await writeInsightSentryCache({
-              dataRoot: options.dataRoot,
-              cacheKey,
-              bytes: raw.bytes,
-              retrievedAt: raw.retrievedAt,
-              expiresAt: new Date(
-                clock.now() + request.cacheTtlMilliseconds,
-              ).toISOString(),
-            });
-            await clearInsightSentryRetryIntent(options.dataRoot, cacheKey);
-            options.onResponse?.({
-              cacheKey,
-              endpoint: request.endpoint,
-              cacheStatus: "miss",
-              retrievedAt: raw.retrievedAt,
-              bytes: Uint8Array.from(raw.bytes),
-            });
-            return Object.freeze({
-              data,
-              cacheKey,
-              cacheStatus: "miss",
-              retrievedAt: raw.retrievedAt,
-              responseBytes: raw.responseBytes,
-            });
-          } finally {
-            if (inFlight.get(cacheKey) === pending) inFlight.delete(cacheKey);
-          }
+          return await withCacheFillLock({
+            dataRoot: options.dataRoot,
+            namespace: "insightsentry",
+            key: cacheKey,
+            operation: async () => {
+              const filled = await readInsightSentryCache(
+                options.dataRoot,
+                cacheKey,
+                clock.now(),
+              );
+              if (filled !== undefined) {
+                const data = parseInsightSentryPayload({
+                  request,
+                  bytes: filled.bytes,
+                  diagnostics: details,
+                  now: clock.now(),
+                });
+                options.onResponse?.({
+                  cacheKey,
+                  endpoint: request.endpoint,
+                  cacheStatus: "hit",
+                  retrievedAt: filled.retrievedAt,
+                  bytes: Uint8Array.from(filled.bytes),
+                });
+                return Object.freeze({
+                  data,
+                  cacheKey,
+                  cacheStatus: "hit" as const,
+                  retrievedAt: filled.retrievedAt,
+                  responseBytes: filled.responseBytes,
+                });
+              }
+
+              let pending = inFlight.get(cacheKey);
+              if (pending === undefined) {
+                pending = executeWithRetry({
+                  request,
+                  cacheKey,
+                  host,
+                  headers: requestHeaders,
+                });
+                inFlight.set(cacheKey, pending);
+              }
+              try {
+                const raw = await pending;
+                const data = parseInsightSentryPayload({
+                  request,
+                  bytes: raw.bytes,
+                  diagnostics: details,
+                  now: clock.now(),
+                });
+                await writeInsightSentryCache({
+                  dataRoot: options.dataRoot,
+                  cacheKey,
+                  bytes: raw.bytes,
+                  retrievedAt: raw.retrievedAt,
+                  expiresAt: new Date(
+                    clock.now() + request.cacheTtlMilliseconds,
+                  ).toISOString(),
+                });
+                await clearInsightSentryRetryIntent(options.dataRoot, cacheKey);
+                options.onResponse?.({
+                  cacheKey,
+                  endpoint: request.endpoint,
+                  cacheStatus: "miss",
+                  retrievedAt: raw.retrievedAt,
+                  bytes: Uint8Array.from(raw.bytes),
+                });
+                return Object.freeze({
+                  data,
+                  cacheKey,
+                  cacheStatus: "miss" as const,
+                  retrievedAt: raw.retrievedAt,
+                  responseBytes: raw.responseBytes,
+                });
+              } finally {
+                if (inFlight.get(cacheKey) === pending)
+                  inFlight.delete(cacheKey);
+              }
+            },
+          });
         }
         default:
           return assertNeverConfiguration(options.configuration);

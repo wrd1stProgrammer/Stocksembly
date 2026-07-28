@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -156,6 +156,53 @@ describe("InsightSentry client", () => {
       limit: 50000,
       remaining: 49999,
     });
+  });
+
+  it("single-flights identical cache fills across independent clients", async () => {
+    // Given
+    const root = await dataRoot();
+    let upstreamCalls = 0;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let firstStarted: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      firstStarted = resolve;
+    });
+    const adapter: InsightSentryWireAdapter = async () => {
+      upstreamCalls += 1;
+      if (upstreamCalls === 1) firstStarted();
+      await gate;
+      return response(
+        200,
+        '{"value":"ok","updatedAt":"2026-07-24T00:00:00.000Z"}',
+      );
+    };
+
+    try {
+      const first = client({ root, adapter }).get(request());
+      await started;
+      const second = client({ root, adapter }).get(request());
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+      const callsBeforeRelease = upstreamCalls;
+      release();
+
+      // When
+      const results = await Promise.all([first, second]);
+
+      // Then
+      expect(callsBeforeRelease).toBe(1);
+      expect(upstreamCalls).toBe(1);
+      expect(results.map((result) => result.data.value)).toEqual(["ok", "ok"]);
+      expect(results.map((result) => result.cacheStatus).sort()).toEqual([
+        "hit",
+        "miss",
+      ]);
+    } finally {
+      release();
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("runs sequentially while quota headers are unknown", async () => {

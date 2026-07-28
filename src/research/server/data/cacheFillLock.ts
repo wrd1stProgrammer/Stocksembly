@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { mkdir, open, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 const LOCK_RETRY_MILLISECONDS = 20;
-const LOCK_WAIT_MILLISECONDS = 30_000;
+const LOCK_WAIT_MILLISECONDS = 2 * 60_000;
 const STALE_LOCK_MILLISECONDS = 5 * 60_000;
 
 function sleep(milliseconds: number): Promise<void> {
@@ -38,7 +38,7 @@ export async function withCacheFillLock<T>(input: {
   readonly operation: () => Promise<T>;
 }): Promise<T> {
   const path = lockPath(input.dataRoot, input.namespace, input.key);
-  await mkdir(join(path, ".."), { recursive: true, mode: 0o700 });
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const startedAt = Date.now();
   while (true) {
     let handle;
