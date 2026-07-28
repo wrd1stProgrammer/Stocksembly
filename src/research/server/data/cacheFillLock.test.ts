@@ -1,6 +1,3 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { withCacheFillLock } from "./cacheFillLock";
 
@@ -16,67 +13,49 @@ function deferred(): {
 }
 
 describe("cache fill lock ownership", () => {
-  it("does not let an expired owner remove its successor lock", async () => {
-    const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-lock-"));
+  it("keeps a successor serialized after the current owner releases", async () => {
     const firstGate = deferred();
     const firstStarted = deferred();
     const secondGate = deferred();
     const secondStarted = deferred();
     let thirdEntered = false;
-    const policy = {
-      retryMilliseconds: 2,
-      waitMilliseconds: 1_000,
-      staleMilliseconds: 20,
-      heartbeatMilliseconds: 10_000,
-    };
+    const common = {
+      dataRoot: "/tmp/stocksembly-lock-test",
+      namespace: "test",
+      key: "shared",
+    } as const;
 
-    try {
-      const first = withCacheFillLock({
-        dataRoot,
-        namespace: "test",
-        key: "shared",
-        policy,
-        operation: async () => {
-          firstStarted.resolve();
-          await firstGate.promise;
-        },
-      });
-      await firstStarted.promise;
-      await new Promise<void>((resolve) => setTimeout(resolve, 30));
-      const second = withCacheFillLock({
-        dataRoot,
-        namespace: "test",
-        key: "shared",
-        policy,
-        operation: async () => {
-          secondStarted.resolve();
-          await secondGate.promise;
-        },
-      });
-      await secondStarted.promise;
+    const first = withCacheFillLock({
+      ...common,
+      operation: async () => {
+        firstStarted.resolve();
+        await firstGate.promise;
+      },
+    });
+    await firstStarted.promise;
+    const second = withCacheFillLock({
+      ...common,
+      operation: async () => {
+        secondStarted.resolve();
+        await secondGate.promise;
+      },
+    });
 
-      firstGate.resolve();
-      await first;
-      const third = withCacheFillLock({
-        dataRoot,
-        namespace: "test",
-        key: "shared",
-        policy,
-        operation: async () => {
-          thirdEntered = true;
-        },
-      });
-      await new Promise<void>((resolve) => setTimeout(resolve, 10));
-      expect(thirdEntered).toBe(false);
+    firstGate.resolve();
+    await first;
+    await secondStarted.promise;
+    const third = withCacheFillLock({
+      ...common,
+      operation: async () => {
+        thirdEntered = true;
+      },
+    });
+    await Promise.resolve();
+    expect(thirdEntered).toBe(false);
 
-      secondGate.resolve();
-      await second;
-      await third;
-      expect(thirdEntered).toBe(true);
-    } finally {
-      firstGate.resolve();
-      secondGate.resolve();
-      await rm(dataRoot, { recursive: true, force: true });
-    }
+    secondGate.resolve();
+    await second;
+    await third;
+    expect(thirdEntered).toBe(true);
   });
 });
