@@ -1,8 +1,8 @@
+import { withCacheFillLock } from "../cacheFillLock";
 import {
   readInsightSentryCache,
   writeInsightSentryCache,
 } from "./insightSentryCache";
-import { withCacheFillLock } from "../cacheFillLock";
 import {
   canonicalInsightSentryCacheKey,
   insightSentryDiagnostics,
@@ -122,8 +122,7 @@ export function createInsightSentryClient(
           );
         case "available": {
           const host = options.configuration.config.rapidApiHost;
-          const requestHeaders =
-            options.configuration.config.requestHeaders();
+          const requestHeaders = options.configuration.config.requestHeaders();
           const details = insightSentryDiagnostics(host, request, cacheKey);
           const cached = await readInsightSentryCache(
             options.dataRoot,

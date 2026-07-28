@@ -41,7 +41,7 @@ export async function withCacheFillLock<T>(input: {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const startedAt = Date.now();
   while (true) {
-    let handle;
+    let handle: Awaited<ReturnType<typeof open>>;
     try {
       handle = await open(
         path,
