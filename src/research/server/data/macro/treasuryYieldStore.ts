@@ -40,7 +40,9 @@ export async function readTreasuryYieldCache(
   dataRoot: string,
   year: number,
   now: number,
-): Promise<{ readonly body: string; readonly retrievedAt: string } | undefined> {
+): Promise<
+  { readonly body: string; readonly retrievedAt: string } | undefined
+> {
   const target = paths(dataRoot, year);
   let body: string;
   let metadataText: string;
