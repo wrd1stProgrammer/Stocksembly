@@ -53,7 +53,8 @@ COPY --from=build --chown=node:node /app/.next/standalone ./
 
 RUN install -d -m 0700 -o node -g node /home/ec2-user/.codex/tmp \
     && install -d -m 0755 /etc/pki/ca-trust/extracted/pem \
-    && touch /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+    && touch /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    && chown node:node /app /home/ec2-user
 
 ENV TMPDIR=/home/ec2-user/.codex/tmp
 
