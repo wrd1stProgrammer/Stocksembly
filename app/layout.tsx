@@ -35,15 +35,15 @@ const inter = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL("https://stocksembly.com"),
   title: {
-    default: "Stocksembly — See the whole company",
+    default: "Stocksembly — AI Team Research for US Stocks",
     template: "%s · Stocksembly",
   },
   description:
-    "Decision-ready US equity research assembled by specialist AI analysts with opposing views.",
+    "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind US stocks, then an independent chair delivers an evidence-linked judgment.",
   openGraph: {
-    title: "Stocksembly — See the whole company",
+    title: "Stocksembly — AI Team Research for US Stocks",
     description:
-      "Decision-ready US equity research assembled by specialist AI analysts with opposing views.",
+      "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind US stocks, then an independent chair delivers an evidence-linked judgment.",
     siteName: "Stocksembly",
     type: "website",
     locale: "en_US",
