@@ -45,7 +45,7 @@ start_containers() {
     --env PORT=3000 \
     --env LANG=en_US.UTF-8 \
     --env LC_ALL=en_US.UTF-8 \
-    --env TMPDIR=/home/node/.codex/tmp \
+    --env TMPDIR=/home/ec2-user/.codex/tmp \
     --volume /home/ec2-user/.codex:/home/ec2-user/.codex \
     --volume /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:ro \
     --volume /var/lib/stocksembly/research:/var/lib/stocksembly/research \
@@ -60,7 +60,7 @@ start_containers() {
     --env NODE_ENV=production \
     --env LANG=en_US.UTF-8 \
     --env LC_ALL=en_US.UTF-8 \
-    --env TMPDIR=/home/node/.codex/tmp \
+    --env TMPDIR=/home/ec2-user/.codex/tmp \
     --volume /home/ec2-user/.codex:/home/ec2-user/.codex \
     --volume /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:ro \
     --volume /var/lib/stocksembly/research:/var/lib/stocksembly/research \
@@ -80,9 +80,15 @@ for attempt in {1..30}; do
   if [[ "$(docker inspect --format '{{.State.Running}}' stocksembly-web 2>/dev/null)" == "true" ]] &&
     [[ "$(docker inspect --format '{{.State.Running}}' stocksembly-worker 2>/dev/null)" == "true" ]] &&
     curl --fail --silent --max-time 3 http://127.0.0.1:3000/ >/dev/null; then
-    systemctl disable stocksembly-web stocksembly-worker >/dev/null
-    docker image prune --force --filter "until=168h" >/dev/null
-    exit 0
+    sleep 5
+    if [[ "$(docker inspect --format '{{.State.Running}}' stocksembly-web 2>/dev/null)" == "true" ]] &&
+      [[ "$(docker inspect --format '{{.State.Running}}' stocksembly-worker 2>/dev/null)" == "true" ]] &&
+      [[ "$(docker inspect --format '{{.RestartCount}}' stocksembly-worker 2>/dev/null)" == "0" ]] &&
+      docker exec stocksembly-worker node research-worker/worker.mjs readiness >/dev/null 2>&1; then
+      systemctl disable stocksembly-web stocksembly-worker >/dev/null
+      docker image prune --force --filter "until=168h" >/dev/null
+      exit 0
+    fi
   fi
   sleep 2
 done

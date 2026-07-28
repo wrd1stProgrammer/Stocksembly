@@ -66,9 +66,10 @@ jobs:
           echo "image=$image" >> "$GITHUB_ENV"
       - name: Deploy through Systems Manager
         run: |
+          deploy_script="$(base64 -w 0 infra/aws/container-deploy.sh)"
           parameters="$(
             jq -nc \
-              --arg command "sudo /usr/local/bin/stocksembly-container-deploy ${image}" \
+              --arg command "printf '%s' '${deploy_script}' | base64 --decode | sudo tee /usr/local/bin/stocksembly-container-deploy >/dev/null && sudo chmod 0755 /usr/local/bin/stocksembly-container-deploy && sudo /usr/local/bin/stocksembly-container-deploy ${image}" \
               '{commands:[$command]}'
           )"
           command_id="$(
