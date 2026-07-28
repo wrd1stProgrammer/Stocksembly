@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { SecClient, SecFetchResult } from "../server/data/sec/secClient";
-import { collectSecEvidenceBatch } from "./initialCollectionData";
+import {
+  collectSecEvidenceBatch,
+  observeCollectionBranch,
+} from "./initialCollectionData";
 
 function result(kind: "company_facts" | "filing_document"): SecFetchResult {
   return {
@@ -42,8 +45,13 @@ describe("initial collection concurrency", () => {
     let factsStarted = false;
     const client: Pick<SecClient, "fetch"> = {
       fetch: async (request) => {
-        const typed = request as { readonly kind: string };
-        if (typed.kind === "filing_document") {
+        if (
+          typeof request !== "object" ||
+          request === null ||
+          !("kind" in request)
+        )
+          throw new TypeError("unexpected SEC request");
+        if (request.kind === "filing_document") {
           filingStarted();
           await filingGate;
           return result("filing_document");
@@ -72,5 +80,21 @@ describe("initial collection concurrency", () => {
 
     // Then
     expect(factsStartedBeforeFilingCompleted).toBe(true);
+  });
+
+  it("observes a background rejection even when another branch fails first", async () => {
+    // Given
+    const macroFailure = new Error("macro failed");
+    const secFailure = new Error("SEC failed");
+    const observedMacro = observeCollectionBranch(
+      Promise.reject<readonly never[]>(macroFailure),
+    );
+
+    // When
+    await expect(Promise.reject(secFailure)).rejects.toBe(secFailure);
+    const macro = await observedMacro;
+
+    // Then
+    expect(macro).toEqual({ status: "rejected", reason: macroFailure });
   });
 });

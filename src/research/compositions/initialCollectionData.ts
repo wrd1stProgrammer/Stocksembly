@@ -142,6 +142,19 @@ type SelectedFiling = {
   readonly primaryDocument: string;
 };
 
+type ObservedCollectionBranch<T> =
+  | { readonly status: "fulfilled"; readonly value: T }
+  | { readonly status: "rejected"; readonly reason: unknown };
+
+export function observeCollectionBranch<T>(
+  branch: Promise<T>,
+): Promise<ObservedCollectionBranch<T>> {
+  return branch.then(
+    (value) => ({ status: "fulfilled", value }),
+    (reason: unknown) => ({ status: "rejected", reason }),
+  );
+}
+
 export async function collectSecEvidenceBatch<T extends SelectedFiling>(input: {
   readonly client: Pick<SecClient, "fetch">;
   readonly cik: string;
@@ -210,23 +223,25 @@ export async function collectInitialEvidence(
   const transport = httpTransport();
   const clock = macroClock();
   const year = new Date().getUTCFullYear();
-  const macroPromise = Promise.all([
-    createTreasuryYieldAdapter({
-      dataRoot: input.dataRoot,
-      transport,
-      clock,
-    }).collect({ year }),
-    createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
-      seriesId: "CUUR0000SA0",
-      startYear: year - 2,
-      endYear: year,
-    }),
-    createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
-      seriesId: "LNS14000000",
-      startYear: year - 2,
-      endYear: year,
-    }),
-  ]);
+  const macroPromise = observeCollectionBranch(
+    Promise.all([
+      createTreasuryYieldAdapter({
+        dataRoot: input.dataRoot,
+        transport,
+        clock,
+      }).collect({ year }),
+      createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
+        seriesId: "CUUR0000SA0",
+        startYear: year - 2,
+        endYear: year,
+      }),
+      createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
+        seriesId: "LNS14000000",
+        startYear: year - 2,
+        endYear: year,
+      }),
+    ]),
+  );
   const { filingResults, factsResult } = await collectSecEvidenceBatch({
     client,
     cik: reference.cik,
@@ -323,7 +338,9 @@ export async function collectInitialEvidence(
     ),
   ]);
 
-  const [treasury, inflation, unemployment] = await macroPromise;
+  const macro = await macroPromise;
+  if (macro.status === "rejected") throw macro.reason;
+  const [treasury, inflation, unemployment] = macro.value;
   const treasuryAvailable = treasury.status === "available";
   const blsAvailable =
     inflation.status === "available" && unemployment.status === "available";

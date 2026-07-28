@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { mkdir, open, rm, stat } from "node:fs/promises";
+import { mkdir, open, readFile, rm, stat, utimes } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const LOCK_RETRY_MILLISECONDS = 20;
@@ -20,10 +20,46 @@ function isCode(error: unknown, code: string): boolean {
   return error instanceof Error && "code" in error && error.code === code;
 }
 
-async function removeStaleLock(path: string, now: number): Promise<void> {
+type CacheFillLockPolicy = {
+  readonly retryMilliseconds: number;
+  readonly waitMilliseconds: number;
+  readonly staleMilliseconds: number;
+  readonly heartbeatMilliseconds: number;
+};
+
+const DEFAULT_POLICY: CacheFillLockPolicy = {
+  retryMilliseconds: LOCK_RETRY_MILLISECONDS,
+  waitMilliseconds: LOCK_WAIT_MILLISECONDS,
+  staleMilliseconds: STALE_LOCK_MILLISECONDS,
+  heartbeatMilliseconds: 60_000,
+};
+
+async function lockOwner(path: string): Promise<string | undefined> {
   try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return undefined;
+    throw error;
+  }
+}
+
+async function removeOwnedLock(path: string, owner: string): Promise<void> {
+  if ((await lockOwner(path)) === owner) await rm(path, { force: true });
+}
+
+async function removeStaleLock(
+  path: string,
+  now: number,
+  staleMilliseconds: number,
+): Promise<void> {
+  try {
+    const owner = await lockOwner(path);
+    if (owner === undefined) return;
     const metadata = await stat(path);
-    if (now - metadata.mtimeMs > STALE_LOCK_MILLISECONDS) {
+    if (
+      now - metadata.mtimeMs > staleMilliseconds &&
+      (await lockOwner(path)) === owner
+    ) {
       await rm(path, { force: true });
     }
   } catch (error) {
@@ -36,7 +72,9 @@ export async function withCacheFillLock<T>(input: {
   readonly namespace: string;
   readonly key: string;
   readonly operation: () => Promise<T>;
+  readonly policy?: Partial<CacheFillLockPolicy>;
 }): Promise<T> {
+  const policy = { ...DEFAULT_POLICY, ...input.policy };
   const path = lockPath(input.dataRoot, input.namespace, input.key);
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const startedAt = Date.now();
@@ -54,19 +92,32 @@ export async function withCacheFillLock<T>(input: {
     } catch (error) {
       if (!isCode(error, "EEXIST")) throw error;
       const now = Date.now();
-      await removeStaleLock(path, now);
-      if (now - startedAt >= LOCK_WAIT_MILLISECONDS)
+      await removeStaleLock(path, now, policy.staleMilliseconds);
+      if (now - startedAt >= policy.waitMilliseconds)
         throw new Error("CACHE_FILL_LOCK_TIMEOUT");
-      await sleep(LOCK_RETRY_MILLISECONDS);
+      await sleep(policy.retryMilliseconds);
       continue;
     }
+    const owner = `${process.pid}:${randomUUID()}\n`;
+    let heartbeat: ReturnType<typeof setInterval> | undefined;
     try {
-      await handle.writeFile(`${process.pid}\n`);
+      await handle.writeFile(owner);
       await handle.sync();
+      heartbeat = setInterval(() => {
+        void lockOwner(path)
+          .then(async (currentOwner) => {
+            if (currentOwner !== owner) return;
+            const now = new Date();
+            await utimes(path, now, now);
+          })
+          .catch(() => undefined);
+      }, policy.heartbeatMilliseconds);
+      heartbeat.unref();
       return await input.operation();
     } finally {
+      if (heartbeat !== undefined) clearInterval(heartbeat);
       await handle.close();
-      await rm(path, { force: true });
+      await removeOwnedLock(path, owner);
     }
   }
 }
