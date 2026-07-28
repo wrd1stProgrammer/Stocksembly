@@ -86,8 +86,9 @@ it("routes only support specialist memos through Luna low reasoning", () => {
   const supportRuntime = researchRuntimeOverride(
     "memo",
     "memo:company_product",
+    true,
   );
-  const leadRuntime = researchRuntimeOverride("memo", "memo:company");
+  const leadRuntime = researchRuntimeOverride("memo", "memo:company", true);
   const argv = buildCodexArgv(
     "/redacted/output-schema.json",
     "memo",
@@ -99,7 +100,7 @@ it("routes only support specialist memos through Luna low reasoning", () => {
     reasoning: "low",
   });
   expect(leadRuntime).toBeUndefined();
-  expect(trustedResearchRuntime("memo", "memo:company_product")).toEqual(
+  expect(trustedResearchRuntime("memo", "memo:company_product", true)).toEqual(
     supportRuntime,
   );
   expect(trustedResearchRuntime("memo", "memo:company")).toEqual({
@@ -108,4 +109,16 @@ it("routes only support specialist memos through Luna low reasoning", () => {
   });
   expect(argv[argv.indexOf("--model") + 1]).toBe("gpt-5.6-luna");
   expect(argv).toContain('model_reasoning_effort="low"');
+});
+
+it("keeps experimental Luna routing disabled by default", () => {
+  expect(
+    researchRuntimeOverride("memo", "memo:company_product", false),
+  ).toBeUndefined();
+  expect(trustedResearchRuntime("memo", "memo:company_product", false)).toEqual(
+    {
+      model: "gpt-5.6-terra",
+      reasoning: "medium",
+    },
+  );
 });

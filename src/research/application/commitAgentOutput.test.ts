@@ -512,7 +512,7 @@ describe("commitAgentOutput", () => {
     expect(result).toMatchObject({ kind: "committed" });
   });
 
-  it("accepts the pinned Luna low runtime for a support specialist memo", async () => {
+  it("rejects dormant Luna low provenance while the experiment is disabled", async () => {
     const store = new MemoryCommitStore();
     store.current = binding({
       logicalArtifactId: "memo:valuation",
@@ -525,12 +525,8 @@ describe("commitAgentOutput", () => {
       command(),
     );
 
-    expect(result).toMatchObject({ kind: "committed" });
-    expect(store.accepted[0]?.envelope).toMatchObject({
-      roleId: "valuation",
-      model: "gpt-5.6-luna",
-      reasoning: "low",
-    });
+    expect(result).toEqual({ kind: "rejected" });
+    expect(store.accepted).toEqual([]);
   });
 
   it.each([

@@ -45,8 +45,11 @@ const SUPPORT_SPECIALIST_ARTIFACTS = new Set([
 export function researchRuntimeOverride(
   stage: CodexStage,
   logicalArtifactId: string,
+  enabled = process.env["STOCKSEMBLY_LUNA_SUPPORT_SPECIALISTS"] === "1",
 ): typeof SUPPORT_SPECIALIST_RUNTIME | undefined {
-  return stage === "memo" && SUPPORT_SPECIALIST_ARTIFACTS.has(logicalArtifactId)
+  return enabled &&
+    stage === "memo" &&
+    SUPPORT_SPECIALIST_ARTIFACTS.has(logicalArtifactId)
     ? SUPPORT_SPECIALIST_RUNTIME
     : undefined;
 }
@@ -54,12 +57,19 @@ export function researchRuntimeOverride(
 export function trustedResearchRuntime(
   stage: AgentResearchStage,
   logicalArtifactId: string,
+  lunaSupportSpecialistsEnabled = process.env[
+    "STOCKSEMBLY_LUNA_SUPPORT_SPECIALISTS"
+  ] === "1",
 ): Readonly<{
   model: AgentResearchModel;
   reasoning: AgentResearchReasoning;
 }> {
   return (
-    researchRuntimeOverride(stage, logicalArtifactId) ?? {
+    researchRuntimeOverride(
+      stage,
+      logicalArtifactId,
+      lunaSupportSpecialistsEnabled,
+    ) ?? {
       model: "gpt-5.6-terra",
       reasoning: "medium",
     }

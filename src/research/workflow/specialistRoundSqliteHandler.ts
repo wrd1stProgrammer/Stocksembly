@@ -107,7 +107,11 @@ export function createSpecialistRoundAttemptHandler(
         token: claim.token,
         now: now(),
         stage: "memo",
-        expectedRuntime: trustedResearchRuntime("memo", job.logicalArtifactId),
+        expectedRuntime: trustedResearchRuntime(
+          "memo",
+          job.logicalArtifactId,
+          process.env["STOCKSEMBLY_LUNA_SUPPORT_SPECIALISTS"] === "1",
+        ),
         promptHash: hashCanonical(prompt),
         inputHash: job.inputHash,
       },
