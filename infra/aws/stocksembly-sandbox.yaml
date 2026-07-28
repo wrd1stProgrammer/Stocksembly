@@ -416,6 +416,9 @@ Resources:
           STOCKSEMBLY_COGNITO_USER_POOL_ID=${UserPool}
           STOCKSEMBLY_COGNITO_CLIENT_ID=${UserPoolClient}
           STOCKSEMBLY_DB_SECRET_ARN=${Database.MasterUserSecret.SecretArn}
+          STOCKSEMBLY_DB_HOST=${Database.Endpoint.Address}
+          STOCKSEMBLY_DB_PORT=${Database.Endpoint.Port}
+          STOCKSEMBLY_DB_NAME=stocksembly
           STOCKSEMBLY_DATA_DIR=/var/lib/stocksembly/research
           ENV
           chmod 0600 /etc/stocksembly/aws.env

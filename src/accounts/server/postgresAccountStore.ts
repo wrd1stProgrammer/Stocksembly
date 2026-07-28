@@ -16,8 +16,8 @@ import {
 import { applyPostgresAccountMigrations } from "./postgresAccountMigrations";
 
 const SecretSchema = z.object({
-  host: z.string().min(1),
-  port: z.coerce.number().int().positive().default(5432),
+  host: z.string().min(1).optional(),
+  port: z.coerce.number().int().positive().optional(),
   username: z.string().min(1),
   password: z.string().min(1),
   dbname: z.string().min(1).optional(),
@@ -48,9 +48,14 @@ async function poolConfiguration(): Promise<PoolConfig | undefined> {
     );
     if (!response.SecretString) throw new Error("DATABASE_SECRET_EMPTY");
     const secret = SecretSchema.parse(JSON.parse(response.SecretString));
+    const host = process.env["STOCKSEMBLY_DB_HOST"] ?? secret.host;
+    if (!host) throw new Error("STOCKSEMBLY_DB_HOST_REQUIRED");
     return {
-      host: secret.host,
-      port: secret.port,
+      host,
+      port:
+        Number.parseInt(process.env["STOCKSEMBLY_DB_PORT"] ?? "", 10) ||
+        secret.port ||
+        5432,
       user: secret.username,
       password: secret.password,
       database:

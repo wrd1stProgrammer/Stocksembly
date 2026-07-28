@@ -25,6 +25,9 @@ Local development continues to use `.env.local` and the local SQLite research
 store. Production settings live only on the instance in
 `/etc/stocksembly/aws.env`. If production database inspection is required,
 connect through an SSH tunnel instead of exposing PostgreSQL publicly.
+The managed RDS secret supplies the generated username and password, while
+CloudFormation injects the private database host, port, and database name as
+separate runtime variables.
 
 The account store is optional in local development. With no database
 variables, login and research keep working against the local SQLite principal.
