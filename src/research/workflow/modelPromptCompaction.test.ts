@@ -16,8 +16,7 @@ const id = (prefix: number) =>
   `${String(prefix).padStart(8, "0")}-0000-4000-8000-000000000001`;
 
 function hasUntypedAdditionalProperties(value: unknown): boolean {
-  if (Array.isArray(value))
-    return value.some(hasUntypedAdditionalProperties);
+  if (Array.isArray(value)) return value.some(hasUntypedAdditionalProperties);
   if (typeof value !== "object" || value === null) return false;
   const object = value as Record<string, unknown>;
   const additional = object["additionalProperties"];
