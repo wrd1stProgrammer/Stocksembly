@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { withCacheFillLock } from "../cacheFillLock";
 import {
   MACRO_MAX_ATTEMPTS,
   MACRO_REQUEST_TIMEOUT_MILLISECONDS,
@@ -10,6 +11,10 @@ import {
   UNAVAILABLE_RELEASE_TIME,
   type UnavailableReleaseTime,
 } from "./macroHttp";
+import {
+  readTreasuryYieldCache,
+  writeTreasuryYieldCache,
+} from "./treasuryYieldStore";
 
 export type { MacroHttpTransport } from "./macroHttp";
 
@@ -68,9 +73,12 @@ export type TreasuryYieldAdapter = {
 };
 
 type TreasuryYieldAdapterOptions = {
+  readonly dataRoot?: string;
   readonly transport: MacroHttpTransport;
   readonly clock: MacroClock;
 };
+
+const TREASURY_CACHE_TTL_MILLISECONDS = 30 * 60_000;
 
 export function treasuryYieldSourceUrl(year: number): string {
   return `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/${year}/all?type=daily_treasury_yield_curve&field_tdr_date_value=${year}&page&_format=csv`;
@@ -194,6 +202,34 @@ async function retrieve(
   options: TreasuryYieldAdapterOptions,
   year: number,
 ): Promise<TreasuryCollection> {
+  const now = Date.parse(options.clock.isoNow());
+  if (options.dataRoot !== undefined) {
+    const cached = await readTreasuryYieldCache(options.dataRoot, year, now);
+    if (cached !== undefined)
+      return parseCsv(cached.body, year, cached.retrievedAt);
+    return await withCacheFillLock({
+      dataRoot: options.dataRoot,
+      namespace: "treasury",
+      key: String(year),
+      operation: async () => {
+        const filled = await readTreasuryYieldCache(
+          options.dataRoot ?? "",
+          year,
+          Date.parse(options.clock.isoNow()),
+        );
+        if (filled !== undefined)
+          return parseCsv(filled.body, year, filled.retrievedAt);
+        return await retrieveAndCache(options, year);
+      },
+    });
+  }
+  return await retrieveAndCache(options, year);
+}
+
+async function retrieveAndCache(
+  options: TreasuryYieldAdapterOptions,
+  year: number,
+): Promise<TreasuryCollection> {
   options.clock.isoNow();
   const sourceUrl = treasuryYieldSourceUrl(year);
   for (let attempt = 1; attempt <= MACRO_MAX_ATTEMPTS; attempt += 1) {
@@ -210,7 +246,20 @@ async function retrieve(
       }
       if (response.status !== 200)
         return { status: "degraded", reason: "transport_unavailable" };
-      return parseCsv(response.body, year, options.clock.isoNow());
+      const retrievedAt = options.clock.isoNow();
+      const parsed = parseCsv(response.body, year, retrievedAt);
+      if (parsed.status === "available" && options.dataRoot !== undefined) {
+        await writeTreasuryYieldCache({
+          dataRoot: options.dataRoot,
+          year,
+          body: response.body,
+          retrievedAt,
+          expiresAt: new Date(
+            Date.parse(retrievedAt) + TREASURY_CACHE_TTL_MILLISECONDS,
+          ).toISOString(),
+        });
+      }
+      return parsed;
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       if (attempt === MACRO_MAX_ATTEMPTS)

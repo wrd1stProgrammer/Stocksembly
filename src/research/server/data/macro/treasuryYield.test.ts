@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createTreasuryYieldAdapter,
@@ -184,5 +187,32 @@ describe("Treasury daily par-yield CSV adapter", () => {
     expect(result.status).toBe("available");
     expect(attempts).toBe(3);
     expect(delays).toEqual([250, 500]);
+  });
+
+  it("reuses a fresh yearly curve across adapter instances without another upstream request", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-treasury-"));
+    let requests = 0;
+    const options = {
+      dataRoot,
+      transport: async () => {
+        requests += 1;
+        return { status: 200, headers: {}, body: csv };
+      },
+      clock: { isoNow: () => now, sleep: async () => undefined },
+    };
+    try {
+      const first = await createTreasuryYieldAdapter(options).collect({
+        year: 2026,
+      });
+      const second = await createTreasuryYieldAdapter(options).collect({
+        year: 2026,
+      });
+
+      expect(first.status).toBe("available");
+      expect(second.status).toBe("available");
+      expect(requests).toBe(1);
+    } finally {
+      await rm(dataRoot, { recursive: true });
+    }
   });
 });
