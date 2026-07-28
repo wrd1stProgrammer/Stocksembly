@@ -1,5 +1,6 @@
 import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
+import { HeaderAuthAction } from "./auth/HeaderAuthAction";
 import { Brand } from "./Brand";
 import { LanguageToggle } from "./LanguageToggle";
 
@@ -19,9 +20,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
       </nav>
       <div className="site-header__actions">
         <LanguageToggle locale={locale} onChange={onLocaleChange} />
-        <a className="sign-in" href="#research">
-          {labels.getStarted}
-        </a>
+        <HeaderAuthAction label={labels.getStarted} />
       </div>
     </header>
   );

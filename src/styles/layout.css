@@ -92,9 +92,15 @@
   border-radius: var(--radius-control);
   font-size: var(--type-label);
   font-weight: 650;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
   transition:
     border-color var(--motion-micro),
     background var(--motion-micro);
+}
+.sign-in--button {
+  font-family: inherit;
 }
 .sign-in:hover {
   border-color: var(--color-border-bright);

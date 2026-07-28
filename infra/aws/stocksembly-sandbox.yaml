@@ -212,6 +212,18 @@ Resources:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       AccessTokenValidity: 60
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      CallbackURLs:
+        - https://stocksembly.com/auth/callback
+        - https://www.stocksembly.com/auth/callback
+        - http://localhost:3000/auth/callback
+        - http://localhost:3001/auth/callback
       ClientName: stocksembly-web
       EnableTokenRevocation: true
       ExplicitAuthFlows:
@@ -219,10 +231,16 @@ Resources:
         - ALLOW_USER_SRP_AUTH
       GenerateSecret: false
       IdTokenValidity: 60
+      LogoutURLs:
+        - https://stocksembly.com/login
+        - https://www.stocksembly.com/login
+        - http://localhost:3000/login
+        - http://localhost:3001/login
       PreventUserExistenceErrors: ENABLED
       RefreshTokenValidity: 30
       SupportedIdentityProviders:
         - COGNITO
+        - Google
       TokenValidityUnits:
         AccessToken: minutes
         IdToken: minutes
@@ -423,6 +441,8 @@ Outputs:
     Value: !Ref UserPoolClient
   CognitoUserPoolId:
     Value: !Ref UserPool
+  CognitoDomain:
+    Value: !Sub "stocksembly-prod-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com"
   DatabaseEndpoint:
     Value: !GetAtt Database.Endpoint.Address
   DatabaseSecretArn:

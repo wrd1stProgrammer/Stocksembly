@@ -59,9 +59,18 @@ jobs:
       - name: Build and push immutable image
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
+          COGNITO_USER_POOL_ID: us-east-1_aBlbfohE8
+          COGNITO_USER_POOL_CLIENT_ID: 5njm1pei6ltopdks0g4a1m5cab
+          COGNITO_DOMAIN: stocksembly-prod-359463332817.auth.us-east-1.amazoncognito.com
+          APP_ORIGIN: https://stocksembly.com
         run: |
           image="${REGISTRY}/${ECR_REPOSITORY}:sha-${GITHUB_SHA}"
-          docker build --tag "$image" .
+          docker build \
+            --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}" \
+            --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=${COGNITO_USER_POOL_CLIENT_ID}" \
+            --build-arg "NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN}" \
+            --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
+            --tag "$image" .
           docker push "$image"
           echo "image=$image" >> "$GITHUB_ENV"
       - name: Deploy through Systems Manager

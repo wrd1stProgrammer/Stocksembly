@@ -22,6 +22,7 @@ import "@/src/styles/research-responsive.css";
 import "@/src/styles/research-workspace-v2.css";
 import "@/src/styles/research-tablet-status.css";
 import "@/src/styles/research-mobile-report.css";
+import "@/src/styles/auth.css";
 
 const inter = localFont({
   src: "./fonts/inter-latin-variable.woff2",
