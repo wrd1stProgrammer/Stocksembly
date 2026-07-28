@@ -39,7 +39,10 @@ ENV PORT=3000
 ENV HOME=/home/ec2-user
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates locales \
+    && apt-get install -y --no-install-recommends ca-certificates curl locales \
+    && curl --fail --silent --show-error \
+      https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+      --output /etc/ssl/certs/aws-rds-global-bundle.pem \
     && sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
     && locale-gen \
     && rm -rf /var/lib/apt/lists/*

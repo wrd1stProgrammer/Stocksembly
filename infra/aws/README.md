@@ -27,7 +27,8 @@ store. Production settings live only on the instance in
 connect through an SSH tunnel instead of exposing PostgreSQL publicly.
 The managed RDS secret supplies the generated username and password, while
 CloudFormation injects the private database host, port, and database name as
-separate runtime variables.
+separate runtime variables. The production image also carries AWS's official
+RDS global CA bundle and verifies the database certificate chain.
 
 The account store is optional in local development. With no database
 variables, login and research keep working against the local SQLite principal.

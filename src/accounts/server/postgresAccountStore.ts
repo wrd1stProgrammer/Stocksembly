@@ -2,6 +2,7 @@ import {
   GetSecretValueCommand,
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
+import { readFile } from "node:fs/promises";
 import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 import type {
@@ -50,6 +51,11 @@ async function poolConfiguration(): Promise<PoolConfig | undefined> {
     const secret = SecretSchema.parse(JSON.parse(response.SecretString));
     const host = process.env["STOCKSEMBLY_DB_HOST"] ?? secret.host;
     if (!host) throw new Error("STOCKSEMBLY_DB_HOST_REQUIRED");
+    const certificateAuthority = await readFile(
+      process.env["STOCKSEMBLY_DB_CA_PATH"] ??
+        "/etc/ssl/certs/aws-rds-global-bundle.pem",
+      "utf8",
+    );
     return {
       host,
       port:
@@ -60,7 +66,7 @@ async function poolConfiguration(): Promise<PoolConfig | undefined> {
       password: secret.password,
       database:
         process.env["STOCKSEMBLY_DB_NAME"] ?? secret.dbname ?? "stocksembly",
-      ssl: { rejectUnauthorized: true },
+      ssl: { ca: certificateAuthority, rejectUnauthorized: true },
       max: 4,
       connectionTimeoutMillis: 5_000,
       idleTimeoutMillis: 30_000,

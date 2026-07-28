@@ -419,6 +419,7 @@ Resources:
           STOCKSEMBLY_DB_HOST=${Database.Endpoint.Address}
           STOCKSEMBLY_DB_PORT=${Database.Endpoint.Port}
           STOCKSEMBLY_DB_NAME=stocksembly
+          STOCKSEMBLY_DB_CA_PATH=/etc/ssl/certs/aws-rds-global-bundle.pem
           STOCKSEMBLY_DATA_DIR=/var/lib/stocksembly/research
           ENV
           chmod 0600 /etc/stocksembly/aws.env
