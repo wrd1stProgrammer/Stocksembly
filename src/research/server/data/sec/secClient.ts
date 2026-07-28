@@ -97,6 +97,33 @@ function responseHeader(
   return headers[name];
 }
 
+function cacheFreshnessMilliseconds(request: SecRequest): number {
+  switch (request.kind) {
+    case "filing_document":
+      return Number.POSITIVE_INFINITY;
+    case "company_tickers_exchange":
+      return 24 * 60 * 60 * 1_000;
+    case "company_facts":
+      return 6 * 60 * 60 * 1_000;
+    case "submissions":
+      return 60 * 60 * 1_000;
+    case "submissions_file":
+      return 24 * 60 * 60 * 1_000;
+  }
+}
+
+function isFreshCache(
+  request: SecRequest,
+  cache: SecCacheEntry,
+  now: number,
+): boolean {
+  const storedAt = Date.parse(cache.storedAt);
+  return (
+    Number.isFinite(storedAt) &&
+    now - storedAt < cacheFreshnessMilliseconds(request)
+  );
+}
+
 function freezeResult(options: {
   readonly request: SecRequest;
   readonly bytes: Uint8Array;
@@ -126,6 +153,33 @@ function freezeResult(options: {
   });
 }
 
+function freezeCacheHit(options: {
+  readonly request: SecRequest;
+  readonly cache: SecCacheEntry;
+  readonly sourceUrl: string;
+  readonly requestedAt: string;
+  readonly identityHash: string;
+}): SecFetchResult {
+  const provenance: SecResponseProvenance = Object.freeze({
+    sourceUrl: options.sourceUrl,
+    requestedAt: options.requestedAt,
+    retrievedAt: options.cache.storedAt,
+    responseStatus: 200,
+    responseHeaders: Object.freeze({
+      "content-type": options.cache.contentType,
+    }),
+    contentHash: options.cache.contentHash,
+    byteLength: options.cache.bytes.byteLength,
+    identityHash: options.identityHash,
+    cacheStatus: "hit",
+  });
+  return Object.freeze({
+    request: Object.freeze(options.request),
+    bytes: Uint8Array.from(options.cache.bytes),
+    provenance,
+  });
+}
+
 async function readCache(dataRoot: string, sourceUrl: string) {
   try {
     return await readSecCache(dataRoot, sourceUrl);
@@ -151,12 +205,24 @@ export function createSecClient(options: SecClientOptions): SecClient {
       const url = buildSecUrl(parsed.data);
       const sourceUrl = url.href;
       const cache = await readCache(options.dataRoot, sourceUrl);
+      const requestedAt = clock.isoNow();
+      if (
+        cache !== undefined &&
+        isFreshCache(parsed.data, cache, clock.now())
+      ) {
+        return freezeCacheHit({
+          request: parsed.data,
+          cache,
+          sourceUrl,
+          requestedAt,
+          identityHash: identity.identityHash,
+        });
+      }
       const scheduler = organizationScheduler(
         `${resolve(options.dataRoot)}\0${identity.identityHash}`,
         { clock, maxConcurrency },
       );
       const headers = requestHeaders(deriveSecUserAgent(identity), cache);
-      const requestedAt = clock.isoNow();
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
         let outcome: SecAttemptOutcome;
@@ -191,18 +257,36 @@ export function createSecClient(options: SecClientOptions): SecClient {
               });
             await clock.sleep(retryDelay(outcome.retryAfter, attempt, clock));
             continue;
-          case "revalidated":
+          case "revalidated": {
+            const retrievedAt = clock.isoNow();
+            const etag =
+              responseHeader(outcome.response.headers, "etag") ??
+              outcome.cache.etag;
+            const lastModified =
+              responseHeader(outcome.response.headers, "last-modified") ??
+              outcome.cache.lastModified;
+            await writeSecCache({
+              dataRoot: options.dataRoot,
+              sourceUrl,
+              bytes: outcome.cache.bytes,
+              contentType: outcome.cache.contentType,
+              contentHash: outcome.cache.contentHash,
+              storedAt: retrievedAt,
+              ...(etag === undefined ? {} : { etag }),
+              ...(lastModified === undefined ? {} : { lastModified }),
+            });
             return freezeResult({
               request: parsed.data,
               bytes: outcome.cache.bytes,
               sourceUrl,
               requestedAt,
-              retrievedAt: clock.isoNow(),
+              retrievedAt,
               response: outcome.response,
               identityHash: identity.identityHash,
               cacheStatus: "revalidated",
               contentHash: outcome.cache.contentHash,
             });
+          }
           case "completed": {
             const contentHash = sha256(outcome.bytes);
             const retrievedAt = clock.isoNow();

@@ -32,7 +32,7 @@ export type SecResponseProvenance = {
   readonly contentHash: string;
   readonly byteLength: number;
   readonly identityHash: string;
-  readonly cacheStatus: "miss" | "revalidated";
+  readonly cacheStatus: "hit" | "miss" | "revalidated";
 };
 
 export type SecFetchResult = {

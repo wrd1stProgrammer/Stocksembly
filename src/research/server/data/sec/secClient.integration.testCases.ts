@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createSecClient, type SecWireAdapter } from "./secClient";
+import { fakeClock } from "./secClient.testSupport";
 import { configureSecIdentity } from "./secIdentityConfig";
 
 const TEST_IDENTITY = {
@@ -117,9 +118,11 @@ describe("SEC transport local HTTP integration double", () => {
     const address = server.address();
     if (address === null || typeof address === "string")
       throw new Error("local SEC test server did not bind TCP");
+    const clock = fakeClock();
     const client = createSecClient({
       dataRoot,
       adapter: localAdapter(address.port),
+      clock,
     });
 
     // When
@@ -127,6 +130,7 @@ describe("SEC transport local HTTP integration double", () => {
       kind: "submissions",
       cik: "0000320193",
     });
+    await clock.sleep(60 * 60 * 1_000 + 1);
     const second = await client.fetch({
       kind: "submissions",
       cik: "0000320193",

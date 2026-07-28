@@ -20,6 +20,7 @@ export type SecCacheEntry = {
   readonly bytes: Uint8Array;
   readonly contentType: string;
   readonly contentHash: string;
+  readonly storedAt: string;
   readonly etag?: string;
   readonly lastModified?: string;
 };
@@ -108,6 +109,7 @@ export async function readSecCache(
     bytes: Uint8Array.from(body),
     contentType: parsed.data.contentType,
     contentHash: parsed.data.contentHash,
+    storedAt: parsed.data.storedAt,
     ...(parsed.data.etag === undefined ? {} : { etag: parsed.data.etag }),
     ...(parsed.data.lastModified === undefined
       ? {}

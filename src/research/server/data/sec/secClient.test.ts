@@ -16,6 +16,68 @@ import {
 } from "./secClient.testSupport";
 
 describe("SEC fair-access transport", () => {
+  it("serves fresh mutable SEC data without another network request", async () => {
+    // Given
+    const dataRoot = await temporaryDataRoot();
+    const clock = fakeClock();
+    let calls = 0;
+    const adapter: SecWireAdapter = async () => {
+      calls += 1;
+      return jsonResponse(undefined, { etag: '"submissions-v1"' });
+    };
+    const client = createSecClient({ dataRoot, adapter, clock });
+
+    // When
+    const first = await client.fetch({
+      kind: "submissions",
+      cik: "0000320193",
+    });
+    const second = await client.fetch({
+      kind: "submissions",
+      cik: "0000320193",
+    });
+
+    // Then
+    expect(calls).toBe(1);
+    expect(Buffer.from(second.bytes)).toEqual(Buffer.from(first.bytes));
+    expect(second.provenance.cacheStatus).toBe("hit");
+  });
+
+  it("keeps immutable filing documents reusable without revalidation", async () => {
+    // Given
+    const dataRoot = await temporaryDataRoot();
+    const clock = fakeClock();
+    let calls = 0;
+    const adapter: SecWireAdapter = async () => {
+      calls += 1;
+      return {
+        status: 200,
+        headers: { "content-type": "text/html" },
+        body: (async function* () {
+          yield Buffer.from("<html><body>filing fixture</body></html>");
+        })(),
+        abort: () => undefined,
+      };
+    };
+    const client = createSecClient({ dataRoot, adapter, clock });
+    const filing = {
+      kind: "filing_document",
+      cik: "0000320193",
+      accessionNumber: "0000320193-26-000001",
+      primaryDocument: "aapl-20260724.htm",
+    } as const;
+
+    // When
+    const first = await client.fetch(filing);
+    await clock.sleep(366 * 24 * 60 * 60 * 1_000);
+    const second = await client.fetch(filing);
+
+    // Then
+    expect(calls).toBe(1);
+    expect(Buffer.from(second.bytes)).toEqual(Buffer.from(first.bytes));
+    expect(second.provenance.cacheStatus).toBe("hit");
+  });
+
   it("derives the request-only User-Agent and redacts identity from outputs", async () => {
     // Given
     const dataRoot = await temporaryDataRoot();
