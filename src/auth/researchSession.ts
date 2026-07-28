@@ -3,20 +3,37 @@
 import { fetchAuthSession } from "aws-amplify/auth";
 import { configureAmplifyAuth } from "./amplifyClient";
 
-export async function currentAccessToken(): Promise<string | undefined> {
-  if (!configureAmplifyAuth()) return undefined;
+export type CurrentAuthTokens = {
+  readonly accessToken?: string;
+  readonly identityToken?: string;
+};
+
+export async function currentAuthTokens(): Promise<CurrentAuthTokens> {
+  if (!configureAmplifyAuth()) return {};
   const session = await fetchAuthSession();
-  return session.tokens?.accessToken.toString();
+  return {
+    ...(session.tokens?.accessToken
+      ? { accessToken: session.tokens.accessToken.toString() }
+      : {}),
+    ...(session.tokens?.idToken
+      ? { identityToken: session.tokens.idToken.toString() }
+      : {}),
+  };
 }
 
 export async function syncResearchSession(): Promise<boolean> {
-  const token = await currentAccessToken();
-  if (token === undefined) return false;
+  const tokens = await currentAuthTokens();
+  if (tokens.accessToken === undefined) return false;
   const response = await fetch("/api/research/session", {
     method: "GET",
     credentials: "same-origin",
     cache: "no-store",
-    headers: { authorization: `Bearer ${token}` },
+    headers: {
+      authorization: `Bearer ${tokens.accessToken}`,
+      ...(tokens.identityToken
+        ? { "x-stocksembly-identity-token": tokens.identityToken }
+        : {}),
+    },
   });
   if (!response.ok) throw new Error("RESEARCH_SESSION_SYNC_FAILED");
   return response.headers.get("x-stocksembly-session-changed") === "true";

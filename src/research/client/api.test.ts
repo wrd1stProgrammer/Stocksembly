@@ -97,7 +97,10 @@ describe("research command client", () => {
     const requests: Request[] = [];
     const client = createResearchClient({
       prefixUrl: "http://localhost/",
-      getAccessToken: async () => "current-access-token",
+      getAuthTokens: async () => ({
+        accessToken: "current-access-token",
+        identityToken: "current-identity-token",
+      }),
       fetch: async (input, init) => {
         const request = new Request(input, init);
         requests.push(request);
@@ -109,6 +112,9 @@ describe("research command client", () => {
 
     expect(requests[0]?.headers.get("authorization")).toBe(
       "Bearer current-access-token",
+    );
+    expect(requests[0]?.headers.get("x-stocksembly-identity-token")).toBe(
+      "current-identity-token",
     );
   });
 

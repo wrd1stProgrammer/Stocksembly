@@ -4,8 +4,8 @@ import {
   createResearchClient,
   type ResearchClient,
 } from "../research/client/api";
-import { currentAccessToken } from "./researchSession";
+import { currentAuthTokens } from "./researchSession";
 
 export function createAuthenticatedResearchClient(): ResearchClient {
-  return createResearchClient({ getAccessToken: currentAccessToken });
+  return createResearchClient({ getAuthTokens: currentAuthTokens });
 }

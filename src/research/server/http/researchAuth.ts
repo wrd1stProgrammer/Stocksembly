@@ -9,6 +9,8 @@ export type ResearchPrincipal = {
   readonly kind: "local" | "cognito";
   readonly subject?: string;
   readonly username?: string;
+  readonly email?: string;
+  readonly displayName?: string;
 };
 
 export type ResearchAuthentication =
@@ -60,6 +62,14 @@ function principalId(subject: string): string {
   return createHash("sha256")
     .update(`stocksembly-cognito-principal-v1:${subject}`)
     .digest("hex");
+}
+
+function stringClaim(
+  payload: Readonly<Record<string, unknown>> | undefined,
+  key: string,
+): string | undefined {
+  const value = payload?.[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 function cognitoCookie(
@@ -133,13 +143,28 @@ export function createResearchAuth(
     tokenUse: "access",
     clientId: configuration.clientId,
   });
+  const identityVerifier = CognitoJwtVerifier.create({
+    userPoolId: configuration.userPoolId,
+    tokenUse: "id",
+    clientId: configuration.clientId,
+  });
 
   const verify = async (
     token: string,
     via: "bearer" | "cookie",
+    request: Request,
   ): Promise<ResearchAuthentication> => {
     try {
       const payload = await verifier.verify(token);
+      const identityToken = request.headers.get("x-stocksembly-identity-token");
+      const identity =
+        identityToken === null
+          ? undefined
+          : await identityVerifier.verify(identityToken).catch(() => undefined);
+      const trustedIdentity =
+        identity?.sub === payload.sub ? identity : undefined;
+      const email = stringClaim(trustedIdentity, "email");
+      const displayName = stringClaim(trustedIdentity, "name");
       return {
         kind: "authenticated",
         via,
@@ -150,6 +175,8 @@ export function createResearchAuth(
           ...(typeof payload.username === "string"
             ? { username: payload.username }
             : {}),
+          ...(email === undefined ? {} : { email }),
+          ...(displayName === undefined ? {} : { displayName }),
         },
       };
     } catch {
@@ -209,12 +236,12 @@ export function createResearchAuth(
       if (token !== undefined) {
         const automation = localAuth.authenticate(request);
         if (automation.kind === "authenticated") return automation;
-        return await verify(token, "bearer");
+        return await verify(token, "bearer", request);
       }
       const cookie = cookieToken(request);
       return cookie === undefined
         ? { kind: "unauthorized" }
-        : await verify(cookie, "cookie");
+        : await verify(cookie, "cookie", request);
     },
     rotateIdentity: async () => {
       if (rotateLocalIdentity !== undefined) {

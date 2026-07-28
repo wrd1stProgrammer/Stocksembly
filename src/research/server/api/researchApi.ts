@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  type AccountStore,
+  AccountStoreUnavailableError,
+} from "../../../accounts/server/accountStore";
+import {
   attachQuestionExternalApiEvidence,
   questionLookupPlan,
 } from "../../domain/questionLookupPlan";
@@ -31,6 +35,7 @@ export type CreateResearchApiOptions = {
   readonly loadReport?: PublicReportLoader;
   readonly now?: () => string;
   readonly createId?: () => string;
+  readonly accountStore?: AccountStore;
   readonly cognito?: {
     readonly userPoolId: string;
     readonly clientId: string;
@@ -75,11 +80,11 @@ function policyError(status: 403 | 413 | 415): Response {
   }
 }
 
-function listRuns(
+async function listRuns(
   context: ApiContext,
   request: Request,
   principal: string,
-): Response {
+): Promise<Response> {
   const url = new URL(request.url);
   const limitRaw = url.searchParams.get("limit") ?? "20";
   const limit = Number.parseInt(limitRaw, 10);
@@ -91,6 +96,11 @@ function listRuns(
     return apiError(400, "CURSOR_INVALID");
   const values = context.repository.listRuns(principal, limit + 1, cursor);
   const runs = values.slice(0, limit);
+  await Promise.all(
+    runs.map(async (run) => {
+      await context.options.accountStore?.recordResearchRun(principal, run);
+    }),
+  );
   const last = runs.at(-1);
   return apiJson({
     runs,
@@ -100,13 +110,19 @@ function listRuns(
   });
 }
 
-function runDetail(
+async function runDetail(
   context: ApiContext,
   principal: string,
   runId: string,
-): Response {
+): Promise<Response> {
   if (!UuidSchema.safeParse(runId).success) return apiError(404, "NOT_FOUND");
   const detail = context.repository.detail(principal, runId);
+  if (detail !== undefined) {
+    await context.options.accountStore?.recordResearchRun(
+      principal,
+      detail.run,
+    );
+  }
   return detail === undefined ? apiError(404, "NOT_FOUND") : apiJson(detail);
 }
 
@@ -119,6 +135,11 @@ async function reportDetail(
     return apiError(404, "NOT_FOUND");
   const report = context.repository.report(principal, reportId);
   if (report === undefined) return apiError(404, "NOT_FOUND");
+  const run = context.repository.findRun(principal, report.runId);
+  if (run !== undefined) {
+    await context.options.accountStore?.recordResearchRun(principal, run);
+  }
+  await context.options.accountStore?.recordReportOwnership(principal, report);
   if (context.options.loadReport === undefined)
     return apiJson({ report: report.payload });
   const loaded = await context.options.loadReport(report);
@@ -166,14 +187,15 @@ async function dispatch(
   if (command !== undefined) return command;
   const path = new URL(request.url).pathname;
   if (path === "/api/research/runs") {
-    if (request.method === "GET") return listRuns(context, request, principal);
+    if (request.method === "GET")
+      return await listRuns(context, request, principal);
     if (request.method === "POST")
       return await createRun(context, request, principal);
     return apiError(405, "METHOD_NOT_ALLOWED");
   }
   const run = path.match(/^\/api\/research\/runs\/([^/]+)$/)?.[1];
   if (run !== undefined && request.method === "GET")
-    return runDetail(context, principal, run);
+    return await runDetail(context, principal, run);
   const runEvents = path.match(/^\/api\/research\/runs\/([^/]+)\/events$/)?.[1];
   if (runEvents !== undefined && request.method === "GET")
     return context.runEvents.response(request, principal, runEvents);
@@ -240,13 +262,28 @@ export async function createResearchApi(
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return apiError(401, "AUTHENTICATION_REQUIRED");
-      return await dispatch(context, request, authentication.principal.id);
+      try {
+        await options.accountStore?.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+      } catch {
+        return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+      }
+      try {
+        return await dispatch(context, request, authentication.principal.id);
+      } catch (error) {
+        if (error instanceof AccountStoreUnavailableError) {
+          return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+        }
+        throw error;
+      }
     },
     close: () => {
       context.runEvents.close();
       context.commands.close();
       context.repository.close();
-      return Promise.resolve();
+      return options.accountStore?.close() ?? Promise.resolve();
     },
   };
 }

@@ -35,7 +35,10 @@ export type ClientOptions = {
   readonly prefixUrl?: string;
   readonly fetch?: typeof globalThis.fetch;
   readonly headers?: HeadersInit;
-  readonly getAccessToken?: () => Promise<string | undefined>;
+  readonly getAuthTokens?: () => Promise<{
+    readonly accessToken?: string;
+    readonly identityToken?: string;
+  }>;
 };
 
 type StartRunInput = {
@@ -130,9 +133,18 @@ export function createResearchClient(
     hooks: {
       beforeRequest: [
         async (request) => {
-          const token = await options.getAccessToken?.();
-          if (token !== undefined) {
-            request.headers.set("authorization", `Bearer ${token}`);
+          const tokens = await options.getAuthTokens?.();
+          if (tokens?.accessToken !== undefined) {
+            request.headers.set(
+              "authorization",
+              `Bearer ${tokens.accessToken}`,
+            );
+          }
+          if (tokens?.identityToken !== undefined) {
+            request.headers.set(
+              "x-stocksembly-identity-token",
+              tokens.identityToken,
+            );
           }
         },
       ],

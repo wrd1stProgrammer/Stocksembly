@@ -26,6 +26,19 @@ store. Production settings live only on the instance in
 `/etc/stocksembly/aws.env`. If production database inspection is required,
 connect through an SSH tunnel instead of exposing PostgreSQL publicly.
 
+The account store is optional in local development. With no database
+variables, login and research keep working against the local SQLite principal.
+To exercise the PostgreSQL account layer through a private tunnel, forward a
+local port to the RDS endpoint through the application host and set:
+
+```dotenv
+STOCKSEMBLY_DATABASE_URL=postgresql://stocksembly_admin:<password>@127.0.0.1:5433/stocksembly
+STOCKSEMBLY_DATABASE_SSL=false
+```
+
+Never commit the managed RDS password. Retrieve it from the database secret
+only for the lifetime of the local inspection session.
+
 The browser auth bundle expects these public build-time values:
 
 ```dotenv

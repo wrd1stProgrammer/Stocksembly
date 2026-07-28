@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { AccountStore } from "../../../accounts/server/accountStore";
 import { checkCommandBodySize, checkDiskAdmission } from "../../domain/limits";
 import { parseIdempotencyKey, parseResearchInput } from "./researchApiInput";
 import type { ResearchApiRepository } from "./researchApiRepository";
@@ -17,6 +18,7 @@ type CreationContext = {
     ) => Promise<
       "supported" | "unsupported" | "etf" | "ambiguous" | "unavailable"
     >;
+    readonly accountStore?: Pick<AccountStore, "recordResearchRun">;
   };
   readonly repository: ResearchApiRepository;
 };
@@ -72,7 +74,13 @@ export async function createRun(
     key,
     parsed.request,
   );
-  if (previous.kind === "replayed") return apiJson({ run: previous.run }, 202);
+  if (previous.kind === "replayed") {
+    await context.options.accountStore?.recordResearchRun(
+      principal,
+      previous.run,
+    );
+    return apiJson({ run: previous.run }, 202);
+  }
   if (previous.kind === "conflict")
     return apiError(409, "IDEMPOTENCY_CONFLICT");
   const symbolResolution =
@@ -114,6 +122,10 @@ export async function createRun(
   switch (result.kind) {
     case "created":
     case "replayed":
+      await context.options.accountStore?.recordResearchRun(
+        principal,
+        result.run,
+      );
       return apiJson({ run: result.run }, 202);
     case "idempotency_conflict":
       return apiError(409, "IDEMPOTENCY_CONFLICT");

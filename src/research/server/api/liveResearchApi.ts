@@ -1,5 +1,6 @@
 import { statfs } from "node:fs/promises";
 import { join } from "node:path";
+import { createLiveAccountStore } from "../../../accounts/server/postgresAccountStore";
 import {
   prepareArtifactPaths,
   resolveStocksemblyDataDirectory,
@@ -40,6 +41,7 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
   )
     throw new Error("STOCKSEMBLY_PUBLIC_ORIGIN_INVALID");
   const tickerCatalog = await getLiveTickerCatalog();
+  const accountStore = await createLiveAccountStore();
   return await createResearchApi({
     dataRoot: paths.root,
     databasePath: runtime.databasePath,
@@ -61,6 +63,7 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
     loadReport: async (publication) =>
       await loadPublicResearchReport({ dataRoot: paths.root }, publication),
     resolveSymbol: tickerCatalog.resolve,
+    ...(accountStore === undefined ? {} : { accountStore }),
     ...(cognitoUserPoolId && cognitoClientId
       ? {
           cognito: {
