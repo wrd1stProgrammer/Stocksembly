@@ -6,6 +6,10 @@ Parameters:
     Type: String
   GitHubRepository:
     Type: String
+  GitHubOwnerId:
+    Type: String
+  GitHubRepositoryId:
+    Type: String
   ApplicationInstanceId:
     Type: AWS::EC2::Instance::Id
   ApplicationRoleName:
@@ -63,7 +67,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}/${GitHubRepository}:ref:refs/heads/main
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepository}@${GitHubRepositoryId}:ref:refs/heads/main
       Policies:
         - PolicyName: stocksembly-build-and-deploy
           PolicyDocument:
