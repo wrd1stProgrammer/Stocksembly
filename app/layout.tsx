@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import type { ReactNode } from "react";
+import { AuthSessionBridge } from "@/src/components/auth/AuthSessionBridge";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/src/styles/tokens.css";
 import "@/src/styles/global.css";
@@ -81,7 +82,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
           </>
         )}
       </head>
-      <body>{children}</body>
+      <body>
+        <AuthSessionBridge />
+        {children}
+      </body>
     </html>
   );
 }

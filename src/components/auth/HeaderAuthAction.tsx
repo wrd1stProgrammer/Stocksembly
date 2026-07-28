@@ -4,6 +4,7 @@ import { getCurrentUser, signOut } from "aws-amplify/auth";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { configureAmplifyAuth } from "@/src/auth/amplifyClient";
+import { clearResearchSession } from "@/src/auth/researchSession";
 
 export function HeaderAuthAction({ label }: { readonly label: string }) {
   const [signedIn, setSignedIn] = useState(false);
@@ -35,7 +36,10 @@ export function HeaderAuthAction({ label }: { readonly label: string }) {
     <button
       className="sign-in sign-in--button"
       onClick={() => {
-        void signOut().finally(() => setSignedIn(false));
+        void clearResearchSession()
+          .catch(() => undefined)
+          .finally(() => signOut())
+          .finally(() => setSignedIn(false));
       }}
       type="button"
     >

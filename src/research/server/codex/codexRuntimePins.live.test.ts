@@ -14,6 +14,10 @@ describe.runIf(process.platform === "darwin")(
     it("pins the canonical signed binary and same-device protected-link topology", async () => {
       // Given
       const platform = productionCodexPlatform();
+      const inspectSignature = platform.inspectSignature;
+      if (inspectSignature === undefined) {
+        throw new Error("Darwin signature inspection is unavailable");
+      }
       const origin = await realpath(platform.pins.originPath);
       const parent = await realpath(
         join(process.cwd(), ".stocksembly-verification"),
@@ -34,7 +38,7 @@ describe.runIf(process.platform === "darwin")(
           platform.pins.originSha256,
           "origin_untrusted",
         );
-        const signature = await platform.inspectSignature(origin, {
+        const signature = await inspectSignature(origin, {
           PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
           LANG: platform.pins.locale,
           LC_ALL: platform.pins.locale,

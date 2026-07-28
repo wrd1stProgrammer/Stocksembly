@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
 import {
-  createResearchClient,
   type ResearchClient,
   ResearchRequestError,
 } from "../../research/client/api";
@@ -71,7 +71,7 @@ export function useAgentConsultation({
   reportId,
 }: Options) {
   const [client] = useState<QuestionClient>(
-    () => providedClient ?? createResearchClient(),
+    () => providedClient ?? createAuthenticatedResearchClient(),
   );
   const mounted = useRef(true);
   const [messages, setMessages] = useState<readonly ConsultationMessage[]>(() =>

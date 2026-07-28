@@ -1,6 +1,7 @@
 import { useRouter } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { createAuthenticatedResearchClient } from "../auth/researchClient";
 import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
 import {
@@ -10,7 +11,6 @@ import {
   searchUsTickers,
   type Ticker,
 } from "../lib/tickers";
-import { createResearchClient } from "../research/client/api";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
 import {
   BorderBeam,
@@ -46,7 +46,7 @@ export function SearchConsole({
   const [isSearching, setIsSearching] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
   const router = useRouter();
-  const client = useMemo(() => createResearchClient(), []);
+  const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const normalizedQuery = query.trim().toLowerCase();
   const localMatches = useMemo(() => filterTickers(query), [query]);
   const matches =

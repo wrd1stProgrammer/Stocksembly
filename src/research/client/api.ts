@@ -31,10 +31,11 @@ export class ResearchClientConfigurationError extends Error {
   readonly name = "ResearchClientConfigurationError";
 }
 
-type ClientOptions = {
+export type ClientOptions = {
   readonly prefixUrl?: string;
   readonly fetch?: typeof globalThis.fetch;
   readonly headers?: HeadersInit;
+  readonly getAccessToken?: () => Promise<string | undefined>;
 };
 
 type StartRunInput = {
@@ -126,6 +127,16 @@ export function createResearchClient(
     credentials: "same-origin",
     retry: { limit: 0 },
     timeout: 15_000,
+    hooks: {
+      beforeRequest: [
+        async (request) => {
+          const token = await options.getAccessToken?.();
+          if (token !== undefined) {
+            request.headers.set("authorization", `Bearer ${token}`);
+          }
+        },
+      ],
+    },
   });
   const launchClient = client.extend({ timeout: 60_000 });
   return {

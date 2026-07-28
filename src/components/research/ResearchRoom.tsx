@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
-import { createResearchClient } from "../../research/client/api";
 import type { PublicRunDetail } from "../../research/client/schemas";
 import type {
   CompositionViewData,
@@ -161,7 +161,7 @@ function FixtureResearchRoom({
 function RecoveryResearchRoom({ initialLocale, recovery }: RecoveryProps) {
   const [isReauthenticating, setIsReauthenticating] = useState(false);
   const [recoveryError, setRecoveryError] = useState<string>();
-  const client = useMemo(() => createResearchClient(), []);
+  const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const messages =
     initialLocale === "ko"
       ? {

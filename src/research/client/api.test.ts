@@ -93,6 +93,25 @@ describe("research command client", () => {
     );
   });
 
+  it("attaches the current Cognito access token to session and API requests", async () => {
+    const requests: Request[] = [];
+    const client = createResearchClient({
+      prefixUrl: "http://localhost/",
+      getAccessToken: async () => "current-access-token",
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        requests.push(request);
+        return new Response(null, { status: 204 });
+      },
+    });
+
+    await client.bootstrapSession();
+
+    expect(requests[0]?.headers.get("authorization")).toBe(
+      "Bearer current-access-token",
+    );
+  });
+
   it("rejects a malformed snapshot instead of admitting browser-local state", async () => {
     // Given
     const fetch: typeof globalThis.fetch = async () =>

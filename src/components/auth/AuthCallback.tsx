@@ -4,6 +4,7 @@ import { getCurrentUser } from "aws-amplify/auth";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { configureAmplifyAuth } from "@/src/auth/amplifyClient";
+import { syncResearchSession } from "@/src/auth/researchSession";
 import { AuthFrame, AuthNotice } from "./AuthFrame";
 
 export function AuthCallback() {
@@ -22,6 +23,7 @@ export function AuthCallback() {
         attempts += 1;
         try {
           await getCurrentUser();
+          await syncResearchSession();
           router.replace("/");
           return;
         } catch {

@@ -25,6 +25,8 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
   const {
     PORT: configuredPort,
     STOCKSEMBLY_PUBLIC_ORIGIN: configuredPublicOrigin,
+    STOCKSEMBLY_COGNITO_USER_POOL_ID: cognitoUserPoolId,
+    STOCKSEMBLY_COGNITO_CLIENT_ID: cognitoClientId,
   } = process.env;
   const runtime = await prepareLiveResearchRuntime();
   const { paths } = runtime;
@@ -59,6 +61,15 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
     loadReport: async (publication) =>
       await loadPublicResearchReport({ dataRoot: paths.root }, publication),
     resolveSymbol: tickerCatalog.resolve,
+    ...(cognitoUserPoolId && cognitoClientId
+      ? {
+          cognito: {
+            userPoolId: cognitoUserPoolId,
+            clientId: cognitoClientId,
+            secureCookie: publicOrigin.protocol === "https:",
+          },
+        }
+      : {}),
   });
 }
 

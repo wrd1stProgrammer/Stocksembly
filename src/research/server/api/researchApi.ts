@@ -4,12 +4,9 @@ import {
   attachQuestionExternalApiEvidence,
   questionLookupPlan,
 } from "../../domain/questionLookupPlan";
-import {
-  ensureLocalAuth,
-  type LocalAuth,
-  rotateLocalAuth,
-} from "../http/localAuth";
+import { ensureLocalAuth, rotateLocalAuth } from "../http/localAuth";
 import { enforceRequestPolicy } from "../http/requestPolicy";
+import { createResearchAuth, type ResearchAuth } from "../http/researchAuth";
 import { questionInputHash } from "../qa/questionAnswerContracts";
 import { collectQuestionMarketEvidence } from "../qa/questionMarketEvidence";
 import type { PublicReportLoader } from "./researchApiContracts";
@@ -34,6 +31,11 @@ export type CreateResearchApiOptions = {
   readonly loadReport?: PublicReportLoader;
   readonly now?: () => string;
   readonly createId?: () => string;
+  readonly cognito?: {
+    readonly userPoolId: string;
+    readonly clientId: string;
+    readonly secureCookie: boolean;
+  };
   readonly resolveSymbol?: (
     symbol: string,
   ) => Promise<
@@ -55,7 +57,7 @@ type ApiContext = {
   readonly repository: ResearchApiRepository;
   readonly commands: ResearchCommandRepository;
   readonly runEvents: RunEventsSse;
-  localAuth: LocalAuth;
+  readonly auth: ResearchAuth;
 };
 
 function mutationFor(request: Request): boolean {
@@ -184,6 +186,7 @@ async function dispatch(
 export async function createResearchApi(
   options: CreateResearchApiOptions,
 ): Promise<ResearchApi> {
+  const localAuth = await ensureLocalAuth(options.dataRoot);
   const context: ApiContext = {
     options,
     repository: new ResearchApiRepository({
@@ -204,32 +207,28 @@ export async function createResearchApi(
         ? {}
         : { migrationsDirectory: options.migrationsDirectory }),
     }),
-    localAuth: await ensureLocalAuth(options.dataRoot),
+    auth: createResearchAuth(
+      localAuth,
+      options.cognito,
+      async () => await rotateLocalAuth(options.dataRoot),
+    ),
   };
-  const bootstrapSession = () =>
-    Promise.resolve(context.localAuth.createBootstrapCookie());
   return {
     get automationTokenPath() {
-      return context.localAuth.automationTokenPath;
+      return context.auth.automationTokenPath;
     },
-    bootstrapSession,
+    bootstrapSession: context.auth.bootstrapSession,
     async bootstrapSessionResponse(request) {
-      if (request.method !== "GET") return apiError(405, "METHOD_NOT_ALLOWED");
       const policy = await enforceRequestPolicy(request, {
-        mutation: false,
+        mutation: mutationFor(request),
         allowedHost: options.allowedHost,
         allowedOrigin: options.allowedOrigin,
       });
       if (policy.kind === "rejected") return policyError(policy.status);
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "set-cookie": await bootstrapSession(),
-        },
-      });
+      return await context.auth.bootstrapSessionResponse(request);
     },
     async rotateIdentity() {
-      context.localAuth = await rotateLocalAuth(options.dataRoot);
+      await context.auth.rotateIdentity();
     },
     async handle(request) {
       const policy = await enforceRequestPolicy(request, {
@@ -238,7 +237,7 @@ export async function createResearchApi(
         allowedOrigin: options.allowedOrigin,
       });
       if (policy.kind === "rejected") return policyError(policy.status);
-      const authentication = context.localAuth.authenticate(request);
+      const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return apiError(401, "AUTHENTICATION_REQUIRED");
       return await dispatch(context, request, authentication.principal.id);

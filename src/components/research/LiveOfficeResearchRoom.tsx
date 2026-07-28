@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
 import { findTicker, searchUsTickers, type Ticker } from "../../lib/tickers";
-import { createResearchClient } from "../../research/client/api";
 import type { PublicRunDetail } from "../../research/client/schemas";
 import { useResearchRun } from "../../research/client/useResearchRun";
 import type { ResearchFileData } from "../../research/compositions/types";
@@ -114,7 +114,7 @@ export function LiveOfficeResearchRoom({
   const [catalogTicker, setCatalogTicker] = useState<Ticker>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
-  const client = useMemo(() => createResearchClient(), []);
+  const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const runOptions = useMemo(() => ({ client }), [client]);
   const projection = useResearchRun(initialSnapshot, runOptions);
   const office = liveOfficeProjection(projection.snapshot);

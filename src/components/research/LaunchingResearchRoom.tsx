@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
-import { createResearchClient } from "../../research/client/api";
 
 type Props = {
   readonly symbol: string;
@@ -19,7 +19,7 @@ export function LaunchingResearchRoom({
   idempotencyKey,
 }: Props) {
   const router = useRouter();
-  const client = useMemo(() => createResearchClient(), []);
+  const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
