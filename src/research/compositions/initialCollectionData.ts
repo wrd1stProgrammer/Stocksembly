@@ -20,7 +20,11 @@ import { parseCompanyFacts } from "../server/data/sec/companyFacts";
 import { parseMainSubmission } from "../server/data/sec/filingsPayload";
 import { normalizeFinancials } from "../server/data/sec/financialNormalizer";
 import { resolveTickerReference } from "../server/data/sec/issuerResolverReference";
-import { createSecClient } from "../server/data/sec/secClient";
+import {
+  createSecClient,
+  type SecClient,
+  type SecFetchResult,
+} from "../server/data/sec/secClient";
 import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
 import {
   collectInsightSentryInitialEvidence,
@@ -136,6 +140,42 @@ function packageBytes(
   );
 }
 
+type SelectedFiling = {
+  readonly accessionNumber: string;
+  readonly primaryDocument: string;
+};
+
+export async function collectSecEvidenceBatch<T extends SelectedFiling>(input: {
+  readonly client: Pick<SecClient, "fetch">;
+  readonly cik: string;
+  readonly filings: readonly T[];
+}): Promise<{
+  readonly filingResults: readonly {
+    readonly filing: T;
+    readonly result: SecFetchResult;
+  }[];
+  readonly factsResult: SecFetchResult;
+}> {
+  const [filingResults, factsResult] = await Promise.all([
+    Promise.all(
+      input.filings.map(async (filing) => ({
+        filing,
+        result: await input.client.fetch({
+          kind: "filing_document",
+          cik: input.cik,
+          accessionNumber: filing.accessionNumber,
+          primaryDocument: filing.primaryDocument,
+        }),
+      })),
+    ),
+    input.client.fetch({
+      kind: "company_facts",
+      cik: input.cik,
+    }),
+  ]);
+  return { filingResults, factsResult };
+}
+
 export async function collectInitialEvidence(
   input: InitialCollectionInput,
 ): Promise<InitialCollectionResult> {
@@ -170,20 +210,30 @@ export async function collectInitialEvidence(
     ...(quarterly === undefined ? [] : [quarterly]),
     ...currentReports,
   ];
-  const filingResults = await Promise.all(
-    selectedFilings.map(async (filing) => ({
-      filing,
-      result: await client.fetch({
-        kind: "filing_document",
-        cik: reference.cik,
-        accessionNumber: filing.accessionNumber,
-        primaryDocument: filing.primaryDocument,
-      }),
-    })),
-  );
-  const factsResult = await client.fetch({
-    kind: "company_facts",
+  const transport = httpTransport();
+  const clock = macroClock();
+  const year = new Date().getUTCFullYear();
+  const macroPromise = Promise.all([
+    createTreasuryYieldAdapter({
+      dataRoot: input.dataRoot,
+      transport,
+      clock,
+    }).collect({ year }),
+    createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
+      seriesId: "CUUR0000SA0",
+      startYear: year - 2,
+      endYear: year,
+    }),
+    createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
+      seriesId: "LNS14000000",
+      startYear: year - 2,
+      endYear: year,
+    }),
+  ]);
+  const { filingResults, factsResult } = await collectSecEvidenceBatch({
+    client,
     cik: reference.cik,
+    filings: selectedFilings,
   });
   const retrievedAt =
     [
@@ -276,22 +326,7 @@ export async function collectInitialEvidence(
     ),
   ]);
 
-  const transport = httpTransport();
-  const clock = macroClock();
-  const year = new Date().getUTCFullYear();
-  const [treasury, inflation, unemployment] = await Promise.all([
-    createTreasuryYieldAdapter({ transport, clock }).collect({ year }),
-    createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
-      seriesId: "CUUR0000SA0",
-      startYear: year - 2,
-      endYear: year,
-    }),
-    createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
-      seriesId: "LNS14000000",
-      startYear: year - 2,
-      endYear: year,
-    }),
-  ]);
+  const [treasury, inflation, unemployment] = await macroPromise;
   const treasuryAvailable = treasury.status === "available";
   const blsAvailable =
     inflation.status === "available" && unemployment.status === "available";
