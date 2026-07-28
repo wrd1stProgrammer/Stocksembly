@@ -20,6 +20,7 @@ import {
   parseStagePayload,
   referencedArtifactIds,
   TRUSTED_AGENT_RUNTIME_POLICY,
+  trustedAgentRuntime,
 } from "./commitAgentOutputContracts";
 import { verifyCitedParents } from "./commitAgentOutputParents";
 
@@ -81,6 +82,10 @@ export async function commitAgentOutput(
   if (!stored.success) return { kind: "rejected" } as const;
   const binding = stored.data;
   const slot = requiredArtifactSlotById(binding.logicalArtifactId);
+  const expectedRuntime = trustedAgentRuntime(
+    stage.data,
+    binding.logicalArtifactId,
+  );
   if (
     binding.runId !== runId.data ||
     binding.jobId !== jobId.data ||
@@ -93,9 +98,8 @@ export async function commitAgentOutput(
     binding.runnerStage !== stage.data ||
     binding.runnerBinaryHash !== TRUSTED_AGENT_RUNTIME_POLICY.cliBinaryHash ||
     binding.runnerCliVersion !== TRUSTED_AGENT_RUNTIME_POLICY.cliVersion ||
-    binding.runnerModel !== TRUSTED_AGENT_RUNTIME_POLICY.model ||
-    binding.runnerReasoning !==
-      TRUSTED_AGENT_RUNTIME_POLICY.reasoningByStage[stage.data] ||
+    binding.runnerModel !== expectedRuntime.model ||
+    binding.runnerReasoning !== expectedRuntime.reasoning ||
     binding.runnerBrowsingPolicy !==
       TRUSTED_AGENT_RUNTIME_POLICY.browsingByStage[stage.data] ||
     (binding.runnerBrowsingPolicy === "disabled" &&

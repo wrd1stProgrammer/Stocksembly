@@ -11,6 +11,10 @@ import {
 } from "../domain/ids";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { CodexRunnerError } from "../server/codex/codexErrors";
+import {
+  researchRuntimeOverride,
+  trustedResearchRuntime,
+} from "../server/codex/codexPolicy";
 import type { SafeCodexEvidence } from "../server/codex/codexTypes";
 import { captureAttemptWebEvidence } from "../server/codex/codexWebCapture";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
@@ -103,6 +107,7 @@ export function createSpecialistRoundAttemptHandler(
         token: claim.token,
         now: now(),
         stage: "memo",
+        expectedRuntime: trustedResearchRuntime("memo", job.logicalArtifactId),
         promptHash: hashCanonical(prompt),
         inputHash: job.inputHash,
       },
@@ -146,10 +151,12 @@ export function createSpecialistRoundAttemptHandler(
         const relativePath = `evidence/${source.artifactId}.json`;
         writeFileSync(join(attemptDir, relativePath), artifact.bytes);
       }
+      const runtime = researchRuntimeOverride("memo", job.logicalArtifactId);
       const result = await context.options.codex.run({
         attemptDir,
         reservation: { key, fence: claim },
         stage: "memo",
+        ...(runtime === undefined ? {} : { runtime }),
         prompt,
         outputSchema: MemoOutputSchema,
         captureWebEvidence: async (webEvidence) =>

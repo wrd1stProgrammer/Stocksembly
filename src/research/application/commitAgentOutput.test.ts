@@ -514,6 +514,27 @@ describe("commitAgentOutput", () => {
     expect(result).toMatchObject({ kind: "committed" });
   });
 
+  it("accepts the pinned Luna low runtime for a support specialist memo", async () => {
+    const store = new MemoryCommitStore();
+    store.current = binding({
+      logicalArtifactId: "memo:valuation",
+      runnerModel: "gpt-5.6-luna",
+      runnerReasoning: "low",
+    });
+
+    const result = await commitAgentOutput(
+      { cas: await casWithSource(), store },
+      command(),
+    );
+
+    expect(result).toMatchObject({ kind: "committed" });
+    expect(store.accepted[0]?.envelope).toMatchObject({
+      roleId: "valuation",
+      model: "gpt-5.6-luna",
+      reasoning: "low",
+    });
+  });
+
   it.each([
     ["model", { ...binding(), runnerModel: "gpt-5.6-sol" }],
     ["reasoning", { ...binding(), runnerReasoning: "high" }],

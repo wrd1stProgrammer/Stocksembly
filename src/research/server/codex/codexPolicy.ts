@@ -11,18 +11,74 @@ export const CODEX_STAGES = [
 ] as const;
 
 export type CodexStage = (typeof CODEX_STAGES)[number];
-export type CodexModel = "gpt-5.6-sol" | "gpt-5.6-terra";
+export type AgentResearchStage = Exclude<CodexStage, "qa" | "probe">;
+export type AgentResearchModel = "gpt-5.6-terra" | "gpt-5.6-luna";
+export type AgentResearchReasoning = "low" | "medium";
+export type CodexModel = "gpt-5.6-sol" | "gpt-5.6-terra" | "gpt-5.6-luna";
 export type CodexReasoning = "low" | "medium" | "high";
 export type CodexBrowsingPolicy = "disabled" | "audited_web";
 export type CodexRuntimeOverride = {
-  readonly model: "gpt-5.6-sol";
-  readonly reasoning: "low";
+  readonly model: CodexModel;
+  readonly reasoning: CodexReasoning;
 };
 
 export const QA_ADVANCED_RUNTIME = Object.freeze({
   model: "gpt-5.6-sol",
   reasoning: "low",
 } satisfies CodexRuntimeOverride);
+
+export const SUPPORT_SPECIALIST_RUNTIME = Object.freeze({
+  model: "gpt-5.6-luna",
+  reasoning: "low",
+} satisfies CodexRuntimeOverride);
+
+const SUPPORT_SPECIALIST_ARTIFACTS = new Set([
+  "memo:market_news",
+  "memo:benchmark",
+  "memo:company_product",
+  "memo:company_competition",
+  "memo:valuation",
+  "memo:financial_quality",
+  "memo:risk_policy",
+]);
+
+export function researchRuntimeOverride(
+  stage: CodexStage,
+  logicalArtifactId: string,
+): typeof SUPPORT_SPECIALIST_RUNTIME | undefined {
+  return stage === "memo" && SUPPORT_SPECIALIST_ARTIFACTS.has(logicalArtifactId)
+    ? SUPPORT_SPECIALIST_RUNTIME
+    : undefined;
+}
+
+export function trustedResearchRuntime(
+  stage: AgentResearchStage,
+  logicalArtifactId: string,
+): Readonly<{
+  model: AgentResearchModel;
+  reasoning: AgentResearchReasoning;
+}> {
+  return (
+    researchRuntimeOverride(stage, logicalArtifactId) ?? {
+      model: "gpt-5.6-terra",
+      reasoning: "medium",
+    }
+  );
+}
+
+export function isAllowedRuntimeOverride(
+  stage: CodexStage,
+  runtime: CodexRuntimeOverride,
+): boolean {
+  return (
+    (stage === "qa" &&
+      runtime.model === QA_ADVANCED_RUNTIME.model &&
+      runtime.reasoning === QA_ADVANCED_RUNTIME.reasoning) ||
+    (stage === "memo" &&
+      runtime.model === SUPPORT_SPECIALIST_RUNTIME.model &&
+      runtime.reasoning === SUPPORT_SPECIALIST_RUNTIME.reasoning)
+  );
+}
 
 export const CODEX_RUNTIME_POLICY = Object.freeze({
   model: "gpt-5.6-terra",

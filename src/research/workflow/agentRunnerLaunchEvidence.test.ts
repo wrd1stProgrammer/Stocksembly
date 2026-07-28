@@ -88,6 +88,36 @@ describe("actual Codex runner launch evidence", () => {
     expect(store.inputs).toEqual([]);
   });
 
+  it("persists Luna low evidence when the assigned specialist runtime matches", () => {
+    const store = new RecordingEvidenceStore();
+    const lunaEvidence = {
+      ...validResult.evidence,
+      stage: "memo",
+      model: "gpt-5.6-luna",
+      reasoning: "low",
+      browsingPolicy: "audited_web",
+    } as const;
+
+    const recorded = recordSuccessfulRunnerEvidence(
+      store,
+      {
+        ...binding,
+        stage: "memo",
+        expectedRuntime: {
+          model: "gpt-5.6-luna",
+          reasoning: "low",
+        },
+      },
+      lunaEvidence,
+    );
+
+    expect(recorded).toBe(true);
+    expect(store.inputs[0]).toMatchObject({
+      model: "gpt-5.6-luna",
+      reasoning: "low",
+    });
+  });
+
   it("does not persist successful provenance when the runner throws", async () => {
     // Given
     const store = new RecordingEvidenceStore();

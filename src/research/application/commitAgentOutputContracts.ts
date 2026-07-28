@@ -24,6 +24,7 @@ import {
   CODEX_RUNTIME_PINS,
   CODEX_RUNTIME_POLICY,
   LINUX_CODEX_RUNTIME_PINS,
+  trustedResearchRuntime,
 } from "../server/codex/codexPolicy";
 
 export const HashSchema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -59,8 +60,8 @@ export const BindingSchema = z
       "semantic_audit",
       "chair_synthesis",
     ]),
-    runnerModel: z.literal("gpt-5.6-terra"),
-    runnerReasoning: z.literal("medium"),
+    runnerModel: z.enum(["gpt-5.6-terra", "gpt-5.6-luna"]),
+    runnerReasoning: z.enum(["low", "medium"]),
     runnerBrowsingPolicy: z.enum(["disabled", "audited_web"]),
     runnerToolTranscriptHash: HashSchema,
     status: z.literal("running"),
@@ -115,6 +116,13 @@ export const TRUSTED_AGENT_RUNTIME_POLICY = Object.freeze({
       ? LINUX_CODEX_RUNTIME_PINS.originSha256
       : CODEX_RUNTIME_PINS.originSha256,
 });
+
+export function trustedAgentRuntime(
+  stage: AgentOutputStage,
+  logicalArtifactId: string,
+) {
+  return trustedResearchRuntime(stage, logicalArtifactId);
+}
 export const CitationLocatorSchema = z.union([
   SourceLocatorSchema,
   z

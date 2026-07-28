@@ -28,8 +28,8 @@ export type AgentOutputCommitBinding = {
   readonly runnerCliVersion: string;
   readonly runnerInputHash: string;
   readonly runnerStage: AgentOutputStage;
-  readonly runnerModel: "gpt-5.6-terra";
-  readonly runnerReasoning: "medium";
+  readonly runnerModel: "gpt-5.6-terra" | "gpt-5.6-luna";
+  readonly runnerReasoning: "low" | "medium";
   readonly runnerBrowsingPolicy: "disabled" | "audited_web";
   readonly runnerToolTranscriptHash: string;
   readonly status: "running";
@@ -71,8 +71,8 @@ export type TrustedAgentOutputEnvelope = {
   readonly logicalArtifactId: string;
   readonly roleId: ArtifactOwnerId;
   readonly stage: AgentOutputStage;
-  readonly model: "gpt-5.6-terra";
-  readonly reasoning: "medium";
+  readonly model: "gpt-5.6-terra" | "gpt-5.6-luna";
+  readonly reasoning: "low" | "medium";
   readonly browsingPolicy: "disabled" | "audited_web";
   readonly toolTranscriptHash: string;
   readonly cliVersion: "codex-cli 0.146.0-alpha.3.1" | "codex-cli 0.145.0";
@@ -171,8 +171,8 @@ export type RecordAgentRunnerEvidenceInput = {
   readonly inputHash: string;
   readonly binaryHash: string;
   readonly cliVersion: string;
-  readonly model: "gpt-5.6-terra";
-  readonly reasoning: "medium";
+  readonly model: "gpt-5.6-terra" | "gpt-5.6-luna";
+  readonly reasoning: "low" | "medium";
   readonly browsingPolicy: "disabled" | "audited_web";
   readonly toolTranscriptHash: string;
 };

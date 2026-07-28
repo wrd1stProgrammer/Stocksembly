@@ -19,6 +19,10 @@ type EvidenceBinding = Omit<
   | "toolTranscriptHash"
 > & {
   readonly stage: AgentOutputStage;
+  readonly expectedRuntime?: Readonly<{
+    readonly model: RecordAgentRunnerEvidenceInput["model"];
+    readonly reasoning: RecordAgentRunnerEvidenceInput["reasoning"];
+  }>;
 };
 
 type SynchronousEvidenceRecorder = {
@@ -32,12 +36,15 @@ export function recordSuccessfulRunnerEvidence(
   input: EvidenceBinding,
   evidence: SafeCodexEvidence,
 ): boolean {
+  const expectedRuntime = input.expectedRuntime ?? {
+    model: TRUSTED_AGENT_RUNTIME_POLICY.model,
+    reasoning: TRUSTED_AGENT_RUNTIME_POLICY.reasoningByStage[input.stage],
+  };
   if (
     evidence.ordinal !== input.ordinal ||
     evidence.stage !== input.stage ||
-    evidence.model !== TRUSTED_AGENT_RUNTIME_POLICY.model ||
-    evidence.reasoning !==
-      TRUSTED_AGENT_RUNTIME_POLICY.reasoningByStage[input.stage] ||
+    evidence.model !== expectedRuntime.model ||
+    evidence.reasoning !== expectedRuntime.reasoning ||
     evidence.browsingPolicy !==
       TRUSTED_AGENT_RUNTIME_POLICY.browsingByStage[input.stage] ||
     (evidence.browsingPolicy === "disabled" &&
@@ -47,8 +54,9 @@ export function recordSuccessfulRunnerEvidence(
     evidence.binaryVersion !== TRUSTED_AGENT_RUNTIME_POLICY.cliVersion
   )
     return false;
+  const { expectedRuntime: _expectedRuntime, ...binding } = input;
   return store.recordRunnerEvidence({
-    ...input,
+    ...binding,
     schemaHash: evidence.schemaHash,
     binaryHash: evidence.binaryHash,
     cliVersion: evidence.binaryVersion,

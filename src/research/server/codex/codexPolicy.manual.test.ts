@@ -6,6 +6,8 @@ import {
   buildCodexArgv,
   CODEX_RUNTIME_POLICY,
   CODEX_STAGES,
+  researchRuntimeOverride,
+  trustedResearchRuntime,
 } from "./codexPolicy";
 
 it("inspects the complete argv and provenance policy matrix", async () => {
@@ -48,9 +50,7 @@ it("inspects the complete argv and provenance policy matrix", async () => {
   expect(
     matrix
       .filter((row) =>
-        ["semantic_audit", "chair_synthesis", "qa", "probe"].includes(
-          row.stage,
-        ),
+        ["semantic_audit", "chair_synthesis", "probe"].includes(row.stage),
       )
       .every((row) => row.provenance.browsingPolicy === "disabled"),
   ).toBe(true);
@@ -80,4 +80,32 @@ it("inspects the complete argv and provenance policy matrix", async () => {
     )}\n`,
     { encoding: "utf8", mode: 0o600 },
   );
+});
+
+it("routes only support specialist memos through Luna low reasoning", () => {
+  const supportRuntime = researchRuntimeOverride(
+    "memo",
+    "memo:company_product",
+  );
+  const leadRuntime = researchRuntimeOverride("memo", "memo:company");
+  const argv = buildCodexArgv(
+    "/redacted/output-schema.json",
+    "memo",
+    supportRuntime,
+  );
+
+  expect(supportRuntime).toEqual({
+    model: "gpt-5.6-luna",
+    reasoning: "low",
+  });
+  expect(leadRuntime).toBeUndefined();
+  expect(trustedResearchRuntime("memo", "memo:company_product")).toEqual(
+    supportRuntime,
+  );
+  expect(trustedResearchRuntime("memo", "memo:company")).toEqual({
+    model: "gpt-5.6-terra",
+    reasoning: "medium",
+  });
+  expect(argv[argv.indexOf("--model") + 1]).toBe("gpt-5.6-luna");
+  expect(argv).toContain('model_reasoning_effort="low"');
 });

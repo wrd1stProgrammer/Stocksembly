@@ -19,6 +19,7 @@ import {
   buildCodexArgv,
   CODEX_RUNTIME_POLICY,
   CODEX_STAGES,
+  isAllowedRuntimeOverride,
 } from "./codexPolicy";
 import {
   codexInputHash,
@@ -49,9 +50,7 @@ function validateRunInput<Candidate>(input: CodexRunInput<Candidate>): void {
     throw new CodexRunnerError("policy_violation");
   if (
     input.runtime !== undefined &&
-    (input.stage !== "qa" ||
-      input.runtime.model !== "gpt-5.6-sol" ||
-      input.runtime.reasoning !== "low")
+    !isAllowedRuntimeOverride(input.stage, input.runtime)
   )
     throw new CodexRunnerError("policy_violation");
   if (
