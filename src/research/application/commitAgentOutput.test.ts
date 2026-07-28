@@ -504,9 +504,7 @@ describe("commitAgentOutput", () => {
     });
     const store = new MemoryCommitStore();
     store.current = binding({
-      citableArtifacts: [
-        { ...citableArtifact(), runId: parentRunId },
-      ],
+      citableArtifacts: [{ ...citableArtifact(), runId: parentRunId }],
     });
 
     const result = await commitAgentOutput({ cas, store }, command());
