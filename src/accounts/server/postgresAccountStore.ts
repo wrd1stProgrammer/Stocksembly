@@ -1,8 +1,8 @@
+import { readFile } from "node:fs/promises";
 import {
   GetSecretValueCommand,
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
-import { readFile } from "node:fs/promises";
 import { Pool, type PoolConfig } from "pg";
 import { z } from "zod";
 import type {
