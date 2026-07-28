@@ -32,6 +32,9 @@ RDS global CA bundle and verifies the database certificate chain.
 
 The account store is optional in local development. With no database
 variables, login and research keep working against the local SQLite principal.
+S3 and SQS are optional in the same way: without
+`STOCKSEMBLY_ARTIFACT_BUCKET` and `STOCKSEMBLY_RESEARCH_QUEUE_URL`, the local
+filesystem CAS and interval-based worker scheduler remain active.
 To exercise the PostgreSQL account layer through a private tunnel, forward a
 local port to the RDS endpoint through the application host and set:
 
@@ -54,6 +57,22 @@ NEXT_PUBLIC_APP_ORIGIN=http://localhost:3000
 
 Production CI injects the same Cognito identifiers with
 `NEXT_PUBLIC_APP_ORIGIN=https://stocksembly.com` during the Docker build.
+
+## Production persistence boundaries
+
+- SQS is the external research admission queue. The API sends an idempotent
+  run reference and the worker uses long polling instead of continuously
+  polling while idle.
+- SQLite remains the transactional coordinator for the many jobs inside one
+  research run. A missed or duplicated SQS delivery is safe because the run
+  record and job state remain authoritative and recoverable.
+- Every content-addressed evidence and report artifact is written locally and
+  mirrored to the private, versioned S3 bucket with a SHA-256 checksum. Missing
+  local report blobs can be read from S3, and worker artifacts can be restored
+  into the local CAS from S3.
+- PostgreSQL holds Cognito users, entitlements, usage, run ownership, report
+  ownership, and the latest user-visible run status. It intentionally does not
+  duplicate the internal workflow tables yet.
 
 ## Deployment
 

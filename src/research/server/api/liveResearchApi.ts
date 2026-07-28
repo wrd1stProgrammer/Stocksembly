@@ -5,8 +5,10 @@ import {
   prepareArtifactPaths,
   resolveStocksemblyDataDirectory,
 } from "../artifacts/filesystemArtifactPaths";
+import { createLiveS3ArtifactArchive } from "../artifacts/s3ArtifactArchive";
 import { CodexIsolationError } from "../codex/readiness";
 import { runProductionCodexReadinessProbe } from "../codex/readinessProbe";
+import { createLiveResearchQueue } from "../queue/sqsResearchQueue";
 import { getLiveTickerCatalog } from "./liveTickerCatalog";
 import { createResearchApi, type ResearchApi } from "./researchApi";
 import { loadPublicResearchReport } from "./researchApiReportReader";
@@ -42,6 +44,8 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
     throw new Error("STOCKSEMBLY_PUBLIC_ORIGIN_INVALID");
   const tickerCatalog = await getLiveTickerCatalog();
   const accountStore = await createLiveAccountStore();
+  const researchQueue = createLiveResearchQueue();
+  const artifactArchive = createLiveS3ArtifactArchive();
   return await createResearchApi({
     dataRoot: paths.root,
     databasePath: runtime.databasePath,
@@ -61,9 +65,18 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
       return status.bavail * status.bsize;
     },
     loadReport: async (publication) =>
-      await loadPublicResearchReport({ dataRoot: paths.root }, publication),
+      await loadPublicResearchReport(
+        {
+          dataRoot: paths.root,
+          ...(artifactArchive === undefined
+            ? {}
+            : { remoteArtifacts: artifactArchive }),
+        },
+        publication,
+      ),
     resolveSymbol: tickerCatalog.resolve,
     ...(accountStore === undefined ? {} : { accountStore }),
+    ...(researchQueue === undefined ? {} : { researchQueue }),
     ...(cognitoUserPoolId && cognitoClientId
       ? {
           cognito: {

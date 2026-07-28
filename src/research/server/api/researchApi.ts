@@ -8,6 +8,7 @@ import {
   attachQuestionExternalApiEvidence,
   questionLookupPlan,
 } from "../../domain/questionLookupPlan";
+import type { ResearchDispatchQueue } from "../../ports/researchQueue";
 import { ensureLocalAuth, rotateLocalAuth } from "../http/localAuth";
 import { enforceRequestPolicy } from "../http/requestPolicy";
 import { createResearchAuth, type ResearchAuth } from "../http/researchAuth";
@@ -36,6 +37,7 @@ export type CreateResearchApiOptions = {
   readonly now?: () => string;
   readonly createId?: () => string;
   readonly accountStore?: AccountStore;
+  readonly researchQueue?: ResearchDispatchQueue;
   readonly cognito?: {
     readonly userPoolId: string;
     readonly clientId: string;
@@ -283,6 +285,7 @@ export async function createResearchApi(
       context.runEvents.close();
       context.commands.close();
       context.repository.close();
+      options.researchQueue?.close();
       return options.accountStore?.close() ?? Promise.resolve();
     },
   };

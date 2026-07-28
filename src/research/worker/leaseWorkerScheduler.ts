@@ -11,6 +11,7 @@ export type LeaseWorkerSchedulerOptions = {
   readonly heartbeatIntervalMs?: number;
   readonly stopWhenIdle?: boolean;
   readonly lifecycle?: LeaseWorkerLifecycle;
+  readonly waitForWork?: (signal: AbortSignal) => Promise<boolean>;
 };
 
 export interface LeaseWorkerSchedulerEngine {
@@ -67,8 +68,13 @@ export async function runLeaseWorkerScheduler(
       );
       for (const result of results)
         if (result.kind !== "idle") options.lifecycle?.result?.(result);
-      if (options.stopWhenIdle === true && batchIsIdle(results)) return;
-      if (!signal.aborted) await wait(pollIntervalMs, signal);
+      const idle = batchIsIdle(results);
+      if (options.stopWhenIdle === true && idle) return;
+      if (!signal.aborted) {
+        if (idle && options.waitForWork !== undefined)
+          await options.waitForWork(signal);
+        else await wait(pollIntervalMs, signal);
+      }
     }
   } finally {
     clearInterval(heartbeatTimer);

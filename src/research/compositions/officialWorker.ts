@@ -4,6 +4,10 @@ import { join } from "node:path";
 import { LIMITS } from "../domain/limits.constants";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { createFilesystemArtifactStore } from "../server/artifacts/filesystemArtifactStore";
+import {
+  createLiveS3ArtifactArchive,
+  S3MirroredArtifactStore,
+} from "../server/artifacts/s3ArtifactArchive";
 import { type CodexPort, createCodexPort } from "../server/codex/codexRunner";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
 import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
@@ -75,13 +79,25 @@ export async function createOfficialAttemptHandler(
     overrides.cas === undefined
       ? new CommittedArtifactMetadata(options.databasePath)
       : undefined;
+  const archive =
+    overrides.cas === undefined ? createLiveS3ArtifactArchive() : undefined;
+  const localCas =
+    overrides.cas === undefined
+      ? createFilesystemArtifactStore({
+          dataDirectory: options.dataDirectory,
+          maxBlobBytes: LIMITS.streams.maxArtifactsPerRunBytes,
+          metadata: requireCommittedMetadata(metadata),
+        })
+      : undefined;
   const cas =
     overrides.cas ??
-    createFilesystemArtifactStore({
-      dataDirectory: options.dataDirectory,
-      maxBlobBytes: LIMITS.streams.maxArtifactsPerRunBytes,
-      metadata: requireCommittedMetadata(metadata),
-    });
+    (archive === undefined
+      ? requireCas(localCas)
+      : new S3MirroredArtifactStore(
+          requireCas(localCas),
+          archive,
+          requireCommittedMetadata(metadata),
+        ));
   const codex = overrides.codex ?? createCodexPort(authority);
   const attemptRoot = join(
     realpathSync(tmpdir()),
@@ -260,6 +276,7 @@ export async function createOfficialAttemptHandler(
   return {
     handler,
     close: async () => {
+      archive?.close();
       metadata?.close();
       questionAuthority.close();
       chair.authority.close();
@@ -271,6 +288,12 @@ export async function createOfficialAttemptHandler(
       authority.close();
     },
   };
+}
+
+function requireCas(cas: ArtifactCasPort | undefined): ArtifactCasPort {
+  if (cas === undefined)
+    throw new TypeError("official worker CAS is unavailable");
+  return cas;
 }
 
 export {

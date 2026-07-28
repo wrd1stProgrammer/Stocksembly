@@ -7,6 +7,8 @@ import {
   type OfficialAttemptHandlerOptions,
   type OfficialAttemptHandlerOverrides,
 } from "../compositions/officialWorker";
+import type { ResearchWorkSignal } from "../ports/researchQueue";
+import { createLiveResearchQueue } from "../server/queue/sqsResearchQueue";
 import {
   type AttemptHandler,
   type AttemptOutcome,
@@ -153,6 +155,7 @@ async function runRuntimeCommand(
   }
   const runtime = await prepareWorkerRuntime();
   const lease = await acquireWorkerLease(runtime);
+  const workSignal = createLiveResearchQueue();
   let workflow: OfficialAttemptHandler | undefined;
   try {
     workflow = await createRuntimeAttemptHandler({
@@ -178,8 +181,10 @@ async function runRuntimeCommand(
       },
       runtime.migrationsDirectory,
       workflow.handler,
+      workSignal,
     );
   } finally {
+    workSignal?.close();
     await workflow?.close();
     await lease.release();
   }
@@ -200,6 +205,7 @@ async function runWorker(
   argumentsValue: LegacyWorkerArguments,
   migrationsDirectory?: string,
   handler?: AttemptHandler,
+  workSignal?: ResearchWorkSignal,
 ): Promise<void> {
   const controller = new AbortController();
   const stop = () => controller.abort();
@@ -222,6 +228,9 @@ async function runWorker(
     writeLifecycle({ kind: "worker_started", recovered: recovered.length });
     await engine.runUntilStopped(controller.signal, {
       stopWhenIdle: argumentsValue.stopWhenIdle,
+      ...(workSignal === undefined
+        ? {}
+        : { waitForWork: workSignal.wait.bind(workSignal) }),
       lifecycle: {
         heartbeat: (extended) =>
           writeLifecycle({ kind: "lease_heartbeat", extended }),

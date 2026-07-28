@@ -35,4 +35,31 @@ describe("lease worker scheduler", () => {
     // Then
     expect(recovered).toBe(true);
   });
+
+  it("waits for an external work signal instead of continuously polling", async () => {
+    const controller = new AbortController();
+    let polls = 0;
+    let waits = 0;
+    const engine = {
+      recoverExpired: () => [],
+      reconcile: () => Promise.resolve(true),
+      poll: () => {
+        polls += 1;
+        return Promise.resolve({ kind: "idle" as const });
+      },
+      heartbeat: () => 0,
+    };
+
+    await runLeaseWorkerScheduler(engine, controller.signal, {
+      heartbeatIntervalMs: 50,
+      waitForWork: () => {
+        waits += 1;
+        if (waits === 2) controller.abort();
+        return Promise.resolve(true);
+      },
+    });
+
+    expect(waits).toBe(2);
+    expect(polls).toBeGreaterThan(1);
+  });
 });

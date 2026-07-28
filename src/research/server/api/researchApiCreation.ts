@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { AccountStore } from "../../../accounts/server/accountStore";
 import { checkCommandBodySize, checkDiskAdmission } from "../../domain/limits";
+import type { ResearchDispatchQueue } from "../../ports/researchQueue";
+import type { PublicRun } from "./researchApiContracts";
 import { parseIdempotencyKey, parseResearchInput } from "./researchApiInput";
 import type { ResearchApiRepository } from "./researchApiRepository";
 import { apiError, apiJson } from "./researchApiResponses";
@@ -19,6 +21,7 @@ type CreationContext = {
       "supported" | "unsupported" | "etf" | "ambiguous" | "unavailable"
     >;
     readonly accountStore?: Pick<AccountStore, "recordResearchRun">;
+    readonly researchQueue?: Pick<ResearchDispatchQueue, "enqueue">;
   };
   readonly repository: ResearchApiRepository;
 };
@@ -58,6 +61,20 @@ async function parseBody(request: Request): Promise<unknown | Response> {
   }
 }
 
+async function enqueueRun(
+  queue: Pick<ResearchDispatchQueue, "enqueue"> | undefined,
+  run: PublicRun,
+): Promise<boolean> {
+  if (queue === undefined) return true;
+  try {
+    await queue.enqueue(run);
+    return true;
+  } catch (error) {
+    if (error instanceof Error) return false;
+    throw error;
+  }
+}
+
 export async function createRun(
   context: CreationContext,
   request: Request,
@@ -79,6 +96,8 @@ export async function createRun(
       principal,
       previous.run,
     );
+    if (!(await enqueueRun(context.options.researchQueue, previous.run)))
+      return apiError(503, "RESEARCH_QUEUE_UNAVAILABLE");
     return apiJson({ run: previous.run }, 202);
   }
   if (previous.kind === "conflict")
@@ -126,6 +145,8 @@ export async function createRun(
         principal,
         result.run,
       );
+      if (!(await enqueueRun(context.options.researchQueue, result.run)))
+        return apiError(503, "RESEARCH_QUEUE_UNAVAILABLE");
       return apiJson({ run: result.run }, 202);
     case "idempotency_conflict":
       return apiError(409, "IDEMPOTENCY_CONFLICT");

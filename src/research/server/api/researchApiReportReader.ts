@@ -24,6 +24,11 @@ const PublicationPointerSchema = z
 
 export type ResearchReportReaderOptions = {
   readonly dataRoot: string;
+  readonly remoteArtifacts?: {
+    readonly get: (
+      digest: z.infer<typeof ArtifactDigestSchema>,
+    ) => Promise<Uint8Array | undefined>;
+  };
 };
 
 export async function loadPublicResearchReport(
@@ -33,20 +38,27 @@ export async function loadPublicResearchReport(
   const pointer = PublicationPointerSchema.parse(publication.payload);
   if (pointer.reportArtifactDigest !== publication.artifactDigest)
     return undefined;
-  let artifact: Awaited<ReturnType<typeof inspectBlob>>;
+  let bytes: Uint8Array;
   try {
-    artifact = await inspectBlob(
+    const artifact = await inspectBlob(
       resolveArtifactBlobPath(options.dataRoot, pointer.reportArtifactDigest),
       true,
       LIMITS.source.maxFinalPayloadBytes,
     );
+    if (artifact.digest !== pointer.reportArtifactDigest) return undefined;
+    bytes = artifact.bytes;
   } catch (error) {
-    if (isMissing(error)) return undefined;
-    throw error;
+    if (!isMissing(error)) throw error;
+    const remote = await options.remoteArtifacts?.get(
+      pointer.reportArtifactDigest,
+    );
+    if (remote === undefined) return undefined;
+    if (remote.byteLength > LIMITS.source.maxFinalPayloadBytes)
+      return undefined;
+    bytes = remote;
   }
-  if (artifact.digest !== pointer.reportArtifactDigest) return undefined;
   const decoded: unknown = JSON.parse(
-    new TextDecoder("utf-8", { fatal: true }).decode(artifact.bytes),
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes),
   );
   const report = ResearchReportSchema.parse(decoded);
   return report.reportId === publication.reportId &&
