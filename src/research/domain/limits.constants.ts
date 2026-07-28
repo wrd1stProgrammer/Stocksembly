@@ -8,6 +8,10 @@ function configuredLimit(name: string, fallback: number): number {
 }
 
 const ACTIVE_RUNS = configuredLimit("STOCKSEMBLY_ACTIVE_RUNS", 2);
+const GLOBAL_CODEX_PROCESSES = configuredLimit(
+  "STOCKSEMBLY_GLOBAL_CODEX_PROCESSES",
+  11,
+);
 
 export const BYTES = {
   commandBody: 64 * KIB,
@@ -24,7 +28,7 @@ export const LIMITS = {
   admission: {
     activeRuns: ACTIVE_RUNS,
     queuedRuns: 8,
-    globalCodexProcesses: 3,
+    globalCodexProcesses: GLOBAL_CODEX_PROCESSES,
   },
   source: {
     maxRawResponseBytes: BYTES.maxRawSourceResponse,
