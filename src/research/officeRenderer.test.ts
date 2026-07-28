@@ -408,6 +408,48 @@ describe("manifest-derived office snapshot renderer", () => {
     }
   });
 
+  it("renders concurrent transcript bubbles without overlap and orients a conversation pair", () => {
+    const snapshot = snapshotAt(360);
+    const viewport = { width: 1376, height: 774 };
+
+    const projection = renderOfficeSnapshot({
+      snapshot,
+      interpolation: 1,
+      reducedMotion: false,
+      cameraMode: "overview",
+      viewport,
+      locale: "ko",
+      liveBubbles: [
+        { actorId: "market", message: "금리와 시장 흐름을 확인했습니다" },
+        { actorId: "company", message: "제품 수요 근거를 확인했습니다" },
+      ],
+      conversation: {
+        speakerId: "market",
+        participantIds: ["market", "company"],
+      },
+    });
+    const market = projection.actors.find((actor) => actor.id === "market");
+    const company = projection.actors.find((actor) => actor.id === "company");
+    const layouts = layoutOfficeUi({ projection, viewport }).filter(
+      (layout) => layout.bubble.visible,
+    );
+
+    expect(market).toMatchObject({ action: "talk", bubble: { visible: true } });
+    expect(company).toMatchObject({
+      action: "listen",
+      bubble: { visible: true },
+    });
+    expect(market?.facing).not.toBe(company?.facing);
+    expect(layouts).toHaveLength(2);
+    const [firstBubble, secondBubble] = layouts;
+    if (firstBubble === undefined || secondBubble === undefined) {
+      throw new TypeError("Expected two visible live bubbles");
+    }
+    expect(
+      overlaps(firstBubble.bubble.bounds, secondBubble.bubble.bounds),
+    ).toBe(false);
+  });
+
   it("keeps mobile active UI readable and fully frames active return actors", () => {
     // Given
     const viewport = { width: 354, height: 200 };

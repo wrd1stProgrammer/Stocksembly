@@ -109,14 +109,14 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       getStarted: "Get started",
     },
     hero: {
-      eyebrow: "AI equity research, with opposing views",
-      titleLead: "See the whole",
-      titleTail: "company.",
+      eyebrow: "Multi-agent research for US equities",
+      titleLead: "Test the",
+      titleTail: "investment debate.",
       descriptionLead:
-        "Eleven specialists across four departments investigate the evidence.",
+        "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind every US stock.",
       descriptionTail:
-        "An independent research chair leads challenge and synthesis.",
-      proof: "Evidence linked. Disagreement preserved.",
+        "One independent chair turns the debate into an evidence-linked judgment.",
+      proof: "See the evidence — and the disagreement — behind the conclusion.",
     },
     landing: {
       sourcesLabel: "Research coverage",
@@ -147,12 +147,12 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       rights: "SERN. All rights reserved.",
     },
     search: {
-      label: "Company or ticker",
-      placeholder: "Search ticker or company",
-      questionLabel: "Research question",
-      questionPlaceholder: "What should the agents investigate?",
-      action: "Start research",
-      loading: "Starting research",
+      label: "Ticker or company",
+      placeholder: "Search a US ticker or company",
+      questionLabel: "Investment question",
+      questionPlaceholder: "e.g. Can growth justify today's valuation?",
+      action: "Build research",
+      loading: "Opening research room",
       popular: "Popular tickers",
       clear: "Clear search",
       noResults: "No supported US company found. Try another ticker.",
@@ -172,12 +172,14 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       getStarted: "시작하기",
     },
     hero: {
-      eyebrow: "서로 반박하는 AI 주식 리서치",
-      titleLead: "기업의 모든 면을",
-      titleTail: "보세요.",
-      descriptionLead: "4개 부서의 전문가 11명이 근거를 조사합니다.",
-      descriptionTail: "독립 리서치 의장이 반론과 종합을 이끕니다.",
-      proof: "근거는 연결하고, 의견 차이는 남깁니다.",
+      eyebrow: "미국주식 AI 에이전트 팀 리서치",
+      titleLead: "핵심 투자 쟁점을",
+      titleTail: "검증하세요.",
+      descriptionLead:
+        "11명의 AI 에이전트가 사업·실적·밸류에이션·촉매와 리스크를 함께 조사합니다.",
+      descriptionTail:
+        "독립 리서치 의장이 반론을 검토해 근거가 연결된 최종 판단으로 정리합니다.",
+      proof: "결론만 보지 말고, 근거와 반론까지 확인하세요.",
     },
     landing: {
       sourcesLabel: "리서치 범위",
@@ -207,12 +209,12 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       rights: "SERN. All rights reserved.",
     },
     search: {
-      label: "기업 또는 티커",
+      label: "종목 또는 기업",
       placeholder: "미국 티커 또는 기업명 검색",
-      questionLabel: "이번 리서치 쟁점",
-      questionPlaceholder: "에이전트들이 검증할 질문을 입력하세요",
-      action: "리서치 시작",
-      loading: "리서치 준비 중",
+      questionLabel: "검증할 투자 질문",
+      questionPlaceholder: "예: 성장률이 현재 밸류에이션을 정당화할까?",
+      action: "팀 리서치 시작",
+      loading: "리서치 룸을 준비하고 있습니다",
       popular: "인기 티커",
       clear: "검색어 지우기",
       noResults:

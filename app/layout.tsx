@@ -49,7 +49,10 @@ export const metadata: Metadata = {
     locale: "en_US",
     alternateLocale: "ko_KR",
   },
-  icons: { icon: "/favicon.svg" },
+  icons: {
+    icon: "/brand/stocksembly-app-icon.png",
+    apple: "/brand/stocksembly-app-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

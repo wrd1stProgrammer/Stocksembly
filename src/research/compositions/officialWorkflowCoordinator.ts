@@ -285,7 +285,7 @@ export function createOfficialWorkflowCoordinator(
       : { migrationsDirectory: options.migrationsDirectory }),
     ...(options.now === undefined ? {} : { now: options.now }),
   };
-  let tail: Promise<void> = Promise.resolve();
+  const runTails = new Map<string, Promise<void>>();
 
   const advanceExclusive = async (rawRunId: string): Promise<void> => {
     const runId = RunIdSchema.parse(rawRunId);
@@ -508,16 +508,15 @@ export function createOfficialWorkflowCoordinator(
   };
 
   const advance = async (runId: string) => {
-    const previous = tail;
-    let release: (() => void) | undefined;
-    tail = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await previous;
+    const previous = runTails.get(runId) ?? Promise.resolve();
+    const current = previous
+      .catch(() => undefined)
+      .then(async () => await advanceExclusive(runId));
+    runTails.set(runId, current);
     try {
-      await advanceExclusive(runId);
+      await current;
     } finally {
-      release?.();
+      if (runTails.get(runId) === current) runTails.delete(runId);
     }
   };
 

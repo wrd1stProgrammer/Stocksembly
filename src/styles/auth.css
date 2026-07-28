@@ -24,11 +24,14 @@
   position: absolute;
   top: 32px;
   left: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   color: #8e97aa;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  opacity: 0;
+  opacity: 0.88;
 }
 
 .auth-card {
@@ -164,6 +167,12 @@
   font-size: 13px;
   font-weight: 500;
   text-decoration: none;
+}
+
+.auth-shell__brand img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 
 .auth-field__control {

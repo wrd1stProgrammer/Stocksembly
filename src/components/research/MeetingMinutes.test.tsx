@@ -78,4 +78,29 @@ describe("MeetingMinutes", () => {
     expect(conversation?.querySelectorAll("img")).toHaveLength(2);
     expect(conversation).toHaveTextContent("반론");
   });
+
+  it("keeps the completed-panel tabs visible while research is active and locks chat", () => {
+    const active = event(1);
+
+    render(
+      <MeetingMinutes
+        current={active}
+        agents={agents}
+        events={[active]}
+        locale="ko"
+        isComplete={false}
+        reportVersion={1}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "회의록" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "채팅" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "채팅" })).toHaveAttribute(
+      "title",
+      "리서치 완료 후 이용할 수 있습니다",
+    );
+  });
 });

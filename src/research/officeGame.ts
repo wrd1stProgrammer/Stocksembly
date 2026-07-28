@@ -39,6 +39,14 @@ export type OfficeSnapshotRenderOptions = {
     readonly actorId: AgentId;
     readonly message: string;
   };
+  readonly liveBubbles?: readonly {
+    readonly actorId: AgentId;
+    readonly message: string;
+  }[];
+  readonly conversation?: {
+    readonly speakerId: AgentId;
+    readonly participantIds: readonly AgentId[];
+  };
 };
 
 export type OfficeGameController = {
@@ -147,6 +155,8 @@ export async function createOfficeSnapshotRenderer(
     let cameraMode: OfficeRendererCameraMode = "snapshot";
     let lastSnapshot = initialSnapshot;
     let lastLiveBubble: OfficeSnapshotRenderOptions["liveBubble"];
+    let lastLiveBubbles: OfficeSnapshotRenderOptions["liveBubbles"];
+    let lastConversation: OfficeSnapshotRenderOptions["conversation"];
     let lastRender = renderOfficeSnapshot({
       snapshot: initialSnapshot,
       viewport,
@@ -188,9 +198,17 @@ export async function createOfficeSnapshotRenderer(
         ...(renderOptions.liveBubble === undefined
           ? {}
           : { liveBubble: renderOptions.liveBubble }),
+        ...(renderOptions.liveBubbles === undefined
+          ? {}
+          : { liveBubbles: renderOptions.liveBubbles }),
+        ...(renderOptions.conversation === undefined
+          ? {}
+          : { conversation: renderOptions.conversation }),
       });
       lastSnapshot = snapshot;
       lastLiveBubble = renderOptions.liveBubble;
+      lastLiveBubbles = renderOptions.liveBubbles;
+      lastConversation = renderOptions.conversation;
       lastRender = projection;
       applyProjection(projection);
       return projection;
@@ -204,6 +222,12 @@ export async function createOfficeSnapshotRenderer(
         previousSnapshot: lastSnapshot,
         cameraMode,
         ...(lastLiveBubble === undefined ? {} : { liveBubble: lastLiveBubble }),
+        ...(lastLiveBubbles === undefined
+          ? {}
+          : { liveBubbles: lastLiveBubbles }),
+        ...(lastConversation === undefined
+          ? {}
+          : { conversation: lastConversation }),
       });
     });
     resizeObserver.observe(host);
@@ -217,6 +241,12 @@ export async function createOfficeSnapshotRenderer(
           ...(lastLiveBubble === undefined
             ? {}
             : { liveBubble: lastLiveBubble }),
+          ...(lastLiveBubbles === undefined
+            ? {}
+            : { liveBubbles: lastLiveBubbles }),
+          ...(lastConversation === undefined
+            ? {}
+            : { conversation: lastConversation }),
         });
       },
       inspect() {

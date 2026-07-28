@@ -182,15 +182,26 @@ export class FollowupAndResponseRoundSqliteAuthority {
           return false;
         const pattern =
           phase === "followup" ? "followup:%" : "response_ballot:%";
-        const existing = CountSchema.parse(
-          this.#database
-            .prepare(
-              "SELECT COUNT(*) AS count FROM jobs WHERE run_id = ? AND logical_key LIKE ?",
-            )
-            .get(runId, pattern),
-        ).count;
-        if (existing === jobs.length) return true;
-        if (existing !== 0) return false;
+        const existingRows = this.#database
+          .prepare(
+            "SELECT logical_key, input_hash FROM jobs WHERE run_id = ? AND logical_key LIKE ?",
+          )
+          .all(runId, pattern)
+          .map((row) =>
+            z
+              .object({ logical_key: z.string(), input_hash: z.string() })
+              .parse(row),
+          );
+        const existing = new Map(
+          existingRows.map((row) => [row.logical_key, row.input_hash]),
+        );
+        if (
+          jobs.some((job) => {
+            const inputHash = existing.get(job.logicalArtifactId);
+            return inputHash !== undefined && inputHash !== job.inputHash;
+          })
+        )
+          return false;
         if (phase === "followup")
           this.#database
             .prepare(`UPDATE runs SET requested_optional_calls = ?
@@ -209,6 +220,7 @@ export class FollowupAndResponseRoundSqliteAuthority {
         idempotency_key, request_hash, result_json, created_at)
         VALUES ('followup-response-job', @key, @inputHash, @resultJson, @at)`);
         for (const job of jobs) {
+          if (existing.has(job.logicalArtifactId)) continue;
           insert.run({ ...job, at });
           persist.run({
             ...job,

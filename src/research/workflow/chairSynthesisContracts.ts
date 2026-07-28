@@ -69,7 +69,7 @@ export const ChairSynthesisPromptSchema = z
               "withheld_by_rights",
             ]),
           })
-          .strict(),
+          .passthrough(),
       )
       .readonly(),
     auditedClaimIds: z.array(ClaimIdSchema).min(1).readonly(),
@@ -80,24 +80,22 @@ export const ChairSynthesisPromptSchema = z
             departmentId: z.enum(WORKFLOW_V1_DEPARTMENT_IDS),
             artifactId: ArtifactIdSchema,
           })
-          .strict(),
+          .passthrough(),
       )
       .length(4)
       .readonly(),
     ballots: z
       .array(
-        z
-          .object({
-            departmentId: z.enum(WORKFLOW_V1_DEPARTMENT_IDS),
-            artifactId: ArtifactIdSchema,
-            vote: z.enum([
-              "support",
-              "support_with_reservations",
-              "oppose",
-              "abstain",
-            ]),
-          })
-          .strict(),
+        z.object({
+          departmentId: z.enum(WORKFLOW_V1_DEPARTMENT_IDS),
+          artifactId: ArtifactIdSchema,
+          vote: z.enum([
+            "support",
+            "support_with_reservations",
+            "oppose",
+            "abstain",
+          ]),
+        }),
       )
       .length(4)
       .readonly(),
@@ -109,9 +107,54 @@ export const ChairSynthesisPromptSchema = z
     sentences: z.array(SentenceSchema).min(1).max(256).readonly(),
     instructions: z.literal(NO_TOOL_INSTRUCTIONS).default(NO_TOOL_INSTRUCTIONS),
   })
-  .strict()
+  .passthrough()
   .readonly();
 export type ChairSynthesisPrompt = z.infer<typeof ChairSynthesisPromptSchema>;
+
+export const ChairSynthesisModelOutputSchema = z
+  .object({
+    kind: z.literal("chair_synthesis"),
+    sections: z
+      .array(
+        z.object({
+          sectionKey: z.enum(CHAIR_SECTION_KEYS),
+          publicSummary: BilingualPublicTextSchema,
+          sentenceIds: z
+            .array(z.string().trim().min(1).max(160))
+            .min(1)
+            .max(64)
+            .readonly(),
+        }),
+      )
+      .length(CHAIR_SECTION_KEYS.length)
+      .readonly(),
+  })
+  .readonly();
+
+export function chairSynthesisModelPrompt(
+  prompt: ChairSynthesisPrompt,
+): string {
+  return JSON.stringify({
+    kind: prompt.kind,
+    mandate: {
+      question: prompt.mandate.question,
+      scope: prompt.mandate.scope,
+      locale: prompt.mandate.locale,
+      limitations: prompt.mandate.limitations,
+    },
+    capabilities: prompt.capabilities,
+    ballots: prompt.ballots.map(({ departmentId, vote }) => ({
+      departmentId,
+      vote,
+    })),
+    sentences: prompt.sentences.map(({ sentenceId, kind, text }) => ({
+      sentenceId,
+      kind,
+      text,
+    })),
+    instructions: prompt.instructions,
+  });
+}
 
 export const PersistedChairJobSchema = z
   .object({
@@ -120,6 +163,7 @@ export const PersistedChairJobSchema = z
     jobId: JobIdSchema,
     logicalArtifactId: z.literal("chair_synthesis:chair"),
     prompt: z.string().min(1),
+    validationPrompt: z.string().min(1).optional(),
     inputHash: z.string().regex(/^[a-f0-9]{64}$/),
     inputManifestHash: z.string().regex(/^[a-f0-9]{64}$/),
     citableArtifactIds: z.array(ArtifactIdSchema).min(1).max(64).readonly(),

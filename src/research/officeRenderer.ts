@@ -2,6 +2,7 @@ import type { Locale } from "../lib/i18n";
 import { ACTOR_ATLAS, actorFrame } from "./officeActorAtlas";
 import type { OfficeActorAction, OfficeBeatId } from "./officeChoreography";
 import { assertNeverOffice } from "./officeChoreographyV7Contract";
+import { facingToward } from "./officeFacingV7";
 import { bubbleStateForSnapshot } from "./officeGameBubbleState";
 import {
   type OfficeCameraTransform,
@@ -61,6 +62,14 @@ export type OfficeRendererInput = {
   readonly liveBubble?: {
     readonly actorId: OfficeManifestAgentId;
     readonly message: string;
+  };
+  readonly liveBubbles?: readonly {
+    readonly actorId: OfficeManifestAgentId;
+    readonly message: string;
+  }[];
+  readonly conversation?: {
+    readonly speakerId: OfficeManifestAgentId;
+    readonly participantIds: readonly OfficeManifestAgentId[];
   };
 };
 
@@ -129,6 +138,13 @@ export function renderOfficeSnapshot(
   const previousById = new Map(
     input.previousSnapshot?.actors.map((actor) => [actor.id, actor]) ?? [],
   );
+  const actorById = new Map(
+    input.snapshot.actors.map((actor) => [actor.id, actor]),
+  );
+  const conversationIds = new Set(input.conversation?.participantIds ?? []);
+  const liveBubbles = new Map(
+    input.liveBubbles?.map((bubble) => [bubble.actorId, bubble.message]) ?? [],
+  );
   const actors = Object.freeze(
     input.snapshot.actors.map((actor) => {
       const member = rosterMember.get(actor.id);
@@ -143,14 +159,39 @@ export function renderOfficeSnapshot(
         input.interpolation ?? 1,
         input.reducedMotion ?? false,
       );
-      const animation = animationFor(actor.action);
-      const facing = actor.facing;
+      const counterpart = conversationIds.has(actor.id)
+        ? [...conversationIds]
+            .filter((id) => id !== actor.id)
+            .map((id) => actorById.get(id))
+            .filter((candidate) => candidate !== undefined)
+            .sort((left, right) => {
+              const leftDistance =
+                Math.abs(left.world.x - actor.world.x) +
+                Math.abs(left.world.y - actor.world.y);
+              const rightDistance =
+                Math.abs(right.world.x - actor.world.x) +
+                Math.abs(right.world.y - actor.world.y);
+              return leftDistance - rightDistance;
+            })[0]
+        : undefined;
+      const moving = actor.action === "walk" || actor.action === "return";
+      const action =
+        counterpart === undefined || moving
+          ? actor.action
+          : actor.id === input.conversation?.speakerId
+            ? "talk"
+            : "listen";
+      const animation = animationFor(action);
+      const facing =
+        counterpart === undefined
+          ? actor.facing
+          : facingToward(actor.cell, counterpart.cell);
       const frame = actorFrame(animation, facing, 0);
       const layer = animation === "sit" ? seatedActorLayer[facing] : 2;
       return Object.freeze({
         id: actor.id,
         active: focusedIds?.has(actor.id) ?? true,
-        action: actor.action,
+        action,
         destination: Object.freeze({ ...actor.destination }),
         revision: actor.revision,
         world,
@@ -167,11 +208,15 @@ export function renderOfficeSnapshot(
         assetPath: `${OFFICE_SCENE_MANIFEST.assets.actorsRoot}/${actor.id}.png`,
         label: member.name[input.locale],
         bubble: Object.freeze(
-          input.liveBubble === undefined
-            ? bubbleStateForSnapshot(actor, input.snapshot, input.locale)
-            : actor.id === input.liveBubble.actorId
-              ? { visible: true, message: input.liveBubble.message }
-              : { visible: false, message: "" },
+          input.liveBubbles !== undefined
+            ? liveBubbles.has(actor.id)
+              ? { visible: true, message: liveBubbles.get(actor.id) ?? "" }
+              : { visible: false, message: "" }
+            : input.liveBubble === undefined
+              ? bubbleStateForSnapshot(actor, input.snapshot, input.locale)
+              : actor.id === input.liveBubble.actorId
+                ? { visible: true, message: input.liveBubble.message }
+                : { visible: false, message: "" },
         ),
       });
     }),

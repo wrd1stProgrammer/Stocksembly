@@ -58,6 +58,13 @@ export const PublicRunDetailSchema = z
   })
   .readonly();
 
+export const PublicRunListResponseSchema = z
+  .strictObject({
+    runs: z.array(PublicRunSchema).readonly(),
+    nextCursor: z.string().min(1).optional(),
+  })
+  .readonly();
+
 export const CreateRunResponseSchema = z
   .strictObject({ run: PublicRunSchema })
   .readonly();
@@ -89,28 +96,34 @@ export const ChildRunResponseSchema = z
   })
   .readonly();
 
-export const PublicQuestionResponseSchema = z
+export const PublicQuestionSchema = z
   .strictObject({
-    question: z
-      .strictObject({
-        questionId: UuidSchema,
-        retryOfQuestionId: UuidSchema.optional(),
-        reportId: UuidSchema,
-        reportVersionId: UuidSchema,
-        attemptOrdinal: z.number().int().min(1).max(20),
-        status: z.enum([
-          "pending",
-          "spawn_reserved",
-          "running",
-          "answered",
-          "failed",
-        ]),
-        activity: z.enum(["searching", "thinking"]).default("thinking"),
-        question: z.strictObject({ en: z.string(), ko: z.string() }),
-        answer: GroundedAnswerSchema.optional(),
-        createdAt: z.iso.datetime(),
-      })
-      .readonly(),
+    questionId: UuidSchema,
+    retryOfQuestionId: UuidSchema.optional(),
+    reportId: UuidSchema,
+    reportVersionId: UuidSchema,
+    attemptOrdinal: z.number().int().min(1).max(20),
+    status: z.enum([
+      "pending",
+      "spawn_reserved",
+      "running",
+      "answered",
+      "failed",
+    ]),
+    activity: z.enum(["searching", "thinking"]).default("thinking"),
+    question: z.strictObject({ en: z.string(), ko: z.string() }),
+    answer: GroundedAnswerSchema.optional(),
+    createdAt: z.iso.datetime(),
+  })
+  .readonly();
+
+export const PublicQuestionResponseSchema = z
+  .strictObject({ question: PublicQuestionSchema })
+  .readonly();
+
+export const PublicQuestionListResponseSchema = z
+  .strictObject({
+    questions: z.array(PublicQuestionSchema).readonly(),
   })
   .readonly();
 

@@ -22,6 +22,7 @@ import type {
 type Props = {
   readonly phase?: ResearchPhase;
   readonly currentEvent?: ResearchEvent;
+  readonly events?: readonly ResearchEvent[];
   readonly locale: Locale;
   readonly isPaused: boolean;
   readonly activeAgentIds?: readonly AgentId[];
@@ -45,11 +46,46 @@ type PendingRender = {
   readonly interpolation: number;
   readonly cameraMode: "overview" | "focus";
   readonly isPaused: boolean;
-  readonly liveBubble?: {
+  readonly liveBubbles?: readonly {
     readonly actorId: AgentId;
     readonly message: string;
+  }[];
+  readonly conversation?: {
+    readonly speakerId: AgentId;
+    readonly participantIds: readonly AgentId[];
   };
 };
+
+const EMPTY_RESEARCH_EVENTS: readonly ResearchEvent[] = [];
+
+export function concurrentSpeechEvents(
+  currentEvent: ResearchEvent | undefined,
+  events: readonly ResearchEvent[],
+): readonly ResearchEvent[] {
+  if (currentEvent === undefined) return [];
+  const currentIndex = events.findIndex(
+    (event) => event.id === currentEvent.id,
+  );
+  const visibleEvents =
+    currentIndex < 0
+      ? [...events, currentEvent]
+      : events.slice(0, currentIndex + 1);
+  const matching = visibleEvents.filter(
+    (event) =>
+      event.phase === currentEvent.phase &&
+      event.workflowKind === currentEvent.workflowKind,
+  );
+  const uniqueSpeakers = new Set<AgentId>();
+  return [...matching]
+    .reverse()
+    .filter((event) => {
+      if (uniqueSpeakers.has(event.agent)) return false;
+      uniqueSpeakers.add(event.agent);
+      return true;
+    })
+    .slice(0, 3)
+    .reverse();
+}
 
 function sceneMode(
   snapshot: OfficeSimulationSnapshot | undefined,
@@ -103,6 +139,7 @@ function semanticStatus(
 export function PixelOfficeGame({
   phase,
   currentEvent,
+  events = EMPTY_RESEARCH_EVENTS,
   locale,
   isPaused,
   activeAgentIds = [],
@@ -120,20 +157,35 @@ export function PixelOfficeGame({
         : speechBubbleSegments(currentEvent.summary[locale], locale),
     [currentEvent, locale],
   );
+  const speechEvents = useMemo(
+    () => concurrentSpeechEvents(currentEvent, events),
+    [currentEvent, events],
+  );
   const pendingRenderRef = useRef<PendingRender>({
     snapshot,
     previousSnapshot: renderPreviousSnapshot,
     interpolation: renderInterpolationAlpha,
     cameraMode,
     isPaused,
+    liveBubbles: speechEvents.map((event) => ({
+      actorId: event.agent,
+      message:
+        event.id === currentEvent?.id
+          ? (liveBubbleSegments[0] ??
+            activityCopy(event.summary[locale], locale).headline)
+          : activityCopy(event.summary[locale], locale).headline,
+    })),
     ...(currentEvent === undefined
       ? {}
       : {
-          liveBubble: {
-            actorId: currentEvent.agent,
-            message:
-              liveBubbleSegments[0] ??
-              activityCopy(currentEvent.summary[locale], locale).headline,
+          conversation: {
+            speakerId: currentEvent.agent,
+            participantIds: [
+              ...new Set([
+                currentEvent.agent,
+                ...(currentEvent.participantIds ?? []),
+              ]),
+            ],
           },
         }),
   });
@@ -162,19 +214,46 @@ export function PixelOfficeGame({
   const workingActorCount =
     snapshot?.actors.filter((actor) => actor.action === "seated-work").length ??
     0;
+  const liveBubbleStates = useMemo(
+    () =>
+      speechEvents.map((event) => ({
+        actorId: event.agent,
+        message:
+          event.id === currentEvent?.id &&
+          liveBubbleSegments.length > 0 &&
+          bubbleSegmentIndex < liveBubbleSegments.length
+            ? (liveBubbleSegments[bubbleSegmentIndex] ?? "")
+            : activityCopy(event.summary[locale], locale).headline,
+      })),
+    [
+      bubbleSegmentIndex,
+      currentEvent?.id,
+      liveBubbleSegments,
+      locale,
+      speechEvents,
+    ],
+  );
   const visibleBubbleCount =
-    snapshot?.actors.filter(
-      (actor) => bubbleStateForSnapshot(actor, snapshot, locale).visible,
-    ).length ?? 0;
-  const liveBubbleState =
-    liveBubbleSegments.length === 0 ||
-    currentEvent === undefined ||
-    bubbleSegmentIndex >= liveBubbleSegments.length
-      ? undefined
-      : {
-          actorId: currentEvent.agent,
-          message: liveBubbleSegments[bubbleSegmentIndex] ?? "",
-        };
+    liveBubbleStates.length > 0
+      ? liveBubbleStates.length
+      : (snapshot?.actors.filter(
+          (actor) => bubbleStateForSnapshot(actor, snapshot, locale).visible,
+        ).length ?? 0);
+  const conversation = useMemo(
+    () =>
+      currentEvent === undefined
+        ? undefined
+        : {
+            speakerId: currentEvent.agent,
+            participantIds: [
+              ...new Set([
+                currentEvent.agent,
+                ...(currentEvent.participantIds ?? []),
+              ]),
+            ],
+          },
+    [currentEvent],
+  );
 
   useEffect(() => {
     if (bubbleSegmentIndex >= liveBubbleSegments.length) return;
@@ -199,7 +278,8 @@ export function PixelOfficeGame({
       interpolation: renderInterpolationAlpha,
       cameraMode,
       isPaused,
-      ...(liveBubbleState === undefined ? {} : { liveBubble: liveBubbleState }),
+      liveBubbles: liveBubbleStates,
+      ...(conversation === undefined ? {} : { conversation }),
     };
   }, [
     cameraMode,
@@ -207,7 +287,8 @@ export function PixelOfficeGame({
     renderInterpolationAlpha,
     renderPreviousSnapshot,
     snapshot,
-    liveBubbleState,
+    liveBubbleStates,
+    conversation,
   ]);
 
   useEffect(() => {
@@ -241,9 +322,12 @@ export function PixelOfficeGame({
               : {}),
             interpolation: pending.interpolation,
             cameraMode: pending.cameraMode,
-            ...(pending.liveBubble === undefined
+            ...(pending.liveBubbles === undefined
               ? {}
-              : { liveBubble: pending.liveBubble }),
+              : { liveBubbles: pending.liveBubbles }),
+            ...(pending.conversation === undefined
+              ? {}
+              : { conversation: pending.conversation }),
           });
         }
         controller.setPaused(pending.isPaused);
@@ -271,9 +355,8 @@ export function PixelOfficeGame({
           : {}),
         interpolation: renderInterpolationAlpha,
         cameraMode,
-        ...(liveBubbleState === undefined
-          ? {}
-          : { liveBubble: liveBubbleState }),
+        liveBubbles: liveBubbleStates,
+        ...(conversation === undefined ? {} : { conversation }),
       });
     }
     controller.setPaused(isPaused);
@@ -283,7 +366,8 @@ export function PixelOfficeGame({
     renderInterpolationAlpha,
     renderPreviousSnapshot,
     snapshot,
-    liveBubbleState,
+    liveBubbleStates,
+    conversation,
   ]);
 
   return (

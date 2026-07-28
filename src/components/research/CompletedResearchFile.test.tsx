@@ -36,19 +36,19 @@ describe("CompletedResearchFile", () => {
     expect(
       screen.getByRole("navigation", { name: "Research file sections" }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("link", { name: "Decision" }),
-    ).toHaveAttribute("href", "#decision-brief");
+    expect(screen.getByRole("link", { name: "Decision" })).toHaveAttribute(
+      "href",
+      "#decision-brief",
+    );
     expect(screen.queryAllByRole("progressbar")).toHaveLength(0);
     expect(container.querySelectorAll("[data-report-section]")).toHaveLength(5);
     expect(container.querySelector("[data-report-page]")).toBeNull();
     expect(container.querySelector("details")).toBeNull();
-    expect(
-      screen.getByText("Valuation & relative comparison"),
-    ).toBeVisible();
-    expect(
-      screen.getByText("Agent debate & final judgment"),
-    ).toBeVisible();
+    expect(screen.getByText("Valuation & relative comparison")).toBeVisible();
+    expect(screen.getByText("Agent debate & final judgment")).toBeVisible();
+    expect(screen.getByText("Key thesis & team view")).toBeVisible();
+    expect(screen.getByText("Company view & market reference")).toBeVisible();
+    expect(screen.queryByText("Decision lens")).not.toBeInTheDocument();
     expect(screen.getByText("Evidence & methodology")).toBeInTheDocument();
     expect(screen.getByText("Team conclusion index")).toBeVisible();
     expect(screen.getByText("Evidence reliability")).toBeVisible();
@@ -57,9 +57,9 @@ describe("CompletedResearchFile", () => {
     expect(screen.queryByText("Claims")).not.toBeInTheDocument();
     expect(screen.queryByText("Sources")).not.toBeInTheDocument();
     expect(screen.queryAllByText("Linked evidence")).toHaveLength(0);
-    expect(
-      container.querySelectorAll(".research-team-portrait"),
-    ).toHaveLength(5);
+    expect(container.querySelectorAll(".research-team-portrait")).toHaveLength(
+      5,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Dark" }));
     expect(

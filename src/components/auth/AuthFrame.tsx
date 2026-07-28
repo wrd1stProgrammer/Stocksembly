@@ -7,6 +7,7 @@ import {
   GoogleLogo,
   SpinnerGap,
 } from "@phosphor-icons/react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   type FormEvent,
@@ -38,6 +39,14 @@ export function AuthFrame({
         href="/"
         aria-label="Stocksembly home"
       >
+        <Image
+          src="/brand/stocksembly-mark-v2.png"
+          alt=""
+          aria-hidden="true"
+          width={28}
+          height={28}
+          priority
+        />
         Stocksembly
       </Link>
       <section className={`auth-card${compact ? " auth-card--compact" : ""}`}>

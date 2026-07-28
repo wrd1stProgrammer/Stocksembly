@@ -9,13 +9,13 @@ import { StructuralAuditArtifactEnvelopeSchema } from "../application/structural
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, QuestionIdSchema, RunIdSchema } from "../domain/ids";
 import { ArtifactDigestSchema } from "../ports/artifacts";
+import { sha256Value } from "../server/codex/codexArtifacts";
+import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import type {
   CodexRunInput,
   CodexRunResult,
 } from "../server/codex/codexRunner";
 import { CodexRunnerError } from "../server/codex/codexRunner";
-import { sha256Value } from "../server/codex/codexArtifacts";
-import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import { createSqliteChallengeRound } from "./challengeRound";
 import { stageAcceptedDepartments } from "./challengeRound.testSupport";
 import { createSqliteFollowupAndResponseRound } from "./followupAndResponseRound";
@@ -85,12 +85,11 @@ class SemanticCodexFake extends FollowupResponseCodexFake {
       throw new CodexRunnerError("process_failed");
     const request = z
       .object({
-        sourceArtifactIds: z.array(z.string().uuid()).min(1),
         claims: z.array(
           z.object({
             claimId: z.string().uuid(),
             evidence: z
-              .array(z.object({ artifactId: z.string().uuid() }))
+              .array(z.object({ evidenceKey: z.string().min(1) }))
               .min(1),
           }),
         ),
@@ -123,7 +122,6 @@ class SemanticCodexFake extends FollowupResponseCodexFake {
         ? {}
         : {
             kind: "semantic_audit",
-            sourceArtifactIds: request.sourceArtifactIds,
             verdicts: request.claims.map((claim) => ({
               claimId: claim.claimId,
               verdict,
@@ -133,16 +131,6 @@ class SemanticCodexFake extends FollowupResponseCodexFake {
                   : verdict === "partial"
                     ? "limited"
                     : "none",
-              evidenceArtifactIds:
-                effectiveFault === "wrong_evidence_reference"
-                  ? ["77777777-7777-4777-8777-777777777777"]
-                  : effectiveFault === "empty_evidence"
-                    ? []
-                    : [
-                        ...new Set(
-                          claim.evidence.map((slice) => slice.artifactId),
-                        ),
-                      ],
               publicExplanation: { en: "Entailed.", ko: "근거가 있습니다." },
             })),
             questionCoverage: request.questions.map((question) => ({
@@ -313,10 +301,7 @@ async function preparedRound(
       ),
       claims,
       claimSetHash,
-      fixedEvidenceSlices: [
-        ...envelope.result.fixedEvidenceSlices,
-        firstSlice,
-      ],
+      fixedEvidenceSlices: [...envelope.result.fixedEvidenceSlices, firstSlice],
       publishable: true,
     });
     envelope = {
@@ -401,14 +386,10 @@ describe("schema-bound semantic evidence verifier", () => {
   it("stages one semantic claim when a structural artifact repeats the same claim id", async () => {
     // Given
     const { prepared, structuralAudit, envelope, questionIds } =
-      await preparedRound(
-      "none",
+      await preparedRound("none", true);
+    expect(envelope.publishable, JSON.stringify(envelope.result.blockers)).toBe(
       true,
     );
-    expect(
-      envelope.publishable,
-      JSON.stringify(envelope.result.blockers),
-    ).toBe(true);
     const audit = createSqliteSemanticAudit(prepared.options);
 
     // When
@@ -487,15 +468,15 @@ describe("schema-bound semantic evidence verifier", () => {
       expect(
         new Set(replay.receipts.map((receipt) => receipt.ordinal)).size,
       ).toBe(2);
-      expect(replay.receipts.map((receipt) => receipt.evidenceRecorded)).toEqual(
-        [false, true],
-      );
+      expect(
+        replay.receipts.map((receipt) => receipt.evidenceRecorded),
+      ).toEqual([false, true]);
       expect(replay.artifactIds).toHaveLength(1);
       expect(codex.semanticLaunches).toBe(2);
     },
   );
 
-  it.each(["missing_verdict", "empty_evidence"] as const)(
+  it.each(["missing_verdict"] as const)(
     "replaces a %s verifier result without accepting it",
     async (fault) => {
       // Given
@@ -523,11 +504,7 @@ describe("schema-bound semantic evidence verifier", () => {
     },
   );
 
-  it.each([
-    "duplicate",
-    "wrong_evidence_reference",
-    "empty_coverage",
-  ] as const)(
+  it.each(["duplicate", "wrong_evidence_reference", "empty_coverage"] as const)(
     "sanitizes a %s verifier result against the trusted prompt",
     async (fault) => {
       const { codex, prepared, structuralAudit, questionIds } =
@@ -589,11 +566,7 @@ describe("schema-bound semantic evidence verifier", () => {
     expect(replay.questionCoverage).toEqual([]);
   });
 
-  it.each([
-    "partial",
-    "not_assessable",
-    "cited_but_non_entailing",
-  ] as const)(
+  it.each(["partial", "not_assessable", "cited_but_non_entailing"] as const)(
     "publishes with explicit limitations when a material audit is %s",
     async (fault) => {
       // Given

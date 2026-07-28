@@ -136,6 +136,35 @@ describe("research command client", () => {
     });
   });
 
+  it("loads authenticated run and report-specific consultation history", async () => {
+    const reportId = "00000000-0000-4000-8000-000000000003";
+    const requests: Request[] = [];
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      const request = new Request(input, init);
+      requests.push(request);
+      return request.url.includes("/questions")
+        ? Response.json({ questions: [] })
+        : Response.json({ runs: [runResponse().run] });
+    };
+    const client = createResearchClient({
+      prefixUrl: "http://localhost/",
+      fetch,
+    });
+
+    const runs = await client.listRuns?.(50);
+    const questions = await client.listQuestions?.(reportId);
+
+    expect(runs).toEqual([runResponse().run]);
+    expect(questions).toEqual([]);
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      "/api/research/runs",
+      `/api/research/reports/${reportId}/questions`,
+    ]);
+    expect(new URL(requests[0]?.url ?? "").searchParams.get("limit")).toBe(
+      "50",
+    );
+  });
+
   it("sends cancellation and same-snapshot retry as idempotent commands", async () => {
     // Given
     const requests: Request[] = [];

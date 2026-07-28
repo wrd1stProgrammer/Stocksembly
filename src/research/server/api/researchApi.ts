@@ -96,7 +96,24 @@ async function listRuns(
   const cursor = decodeRunCursor(cursorRaw);
   if (cursorRaw !== null && cursor === undefined)
     return apiError(400, "CURSOR_INVALID");
-  const values = context.repository.listRuns(principal, limit + 1, cursor);
+  const localValues = context.repository.listRuns(principal, limit + 1, cursor);
+  const storedValues =
+    (await context.options.accountStore?.listResearchRuns?.(
+      principal,
+      limit + 1,
+      cursor,
+    )) ?? [];
+  const values = [...localValues, ...storedValues]
+    .filter(
+      (run, index, all) =>
+        all.findIndex((candidate) => candidate.runId === run.runId) === index,
+    )
+    .sort(
+      (left, right) =>
+        right.createdAt.localeCompare(left.createdAt) ||
+        right.runId.localeCompare(left.runId),
+    )
+    .slice(0, limit + 1);
   const runs = values.slice(0, limit);
   await Promise.all(
     runs.map(async (run) => {
@@ -110,6 +127,44 @@ async function listRuns(
       ? {}
       : { nextCursor: encodeRunCursor(last) }),
   });
+}
+
+async function questionHistory(
+  context: ApiContext,
+  principal: string,
+  reportId: string,
+): Promise<Response> {
+  if (!UuidSchema.safeParse(reportId).success)
+    return apiError(404, "NOT_FOUND");
+  if (context.repository.report(principal, reportId) === undefined)
+    return apiError(404, "NOT_FOUND");
+  const localQuestions = context.commands.questions(principal, reportId);
+  await Promise.all(
+    localQuestions.map(async (question) => {
+      await context.options.accountStore?.recordConsultation?.(
+        principal,
+        question,
+      );
+    }),
+  );
+  const storedQuestions =
+    (await context.options.accountStore?.listConsultations?.(
+      principal,
+      reportId,
+    )) ?? [];
+  const questions = [...localQuestions, ...storedQuestions]
+    .filter(
+      (question, index, all) =>
+        all.findIndex(
+          (candidate) => candidate.questionId === question.questionId,
+        ) === index,
+    )
+    .sort(
+      (left, right) =>
+        left.attemptOrdinal - right.attemptOrdinal ||
+        left.createdAt.localeCompare(right.createdAt),
+    );
+  return apiJson({ questions });
 }
 
 async function runDetail(
@@ -161,6 +216,12 @@ async function dispatch(
     repository: context.commands,
     now: context.options.now ?? (() => new Date().toISOString()),
     createId: context.options.createId ?? randomUUID,
+    onQuestion: async (question) => {
+      await context.options.accountStore?.recordConsultation?.(
+        principal,
+        question,
+      );
+    },
     prepareQuestion: async (reportId, questionId, question) => {
       const publication = context.repository.report(principal, reportId);
       if (publication === undefined || context.options.loadReport === undefined)
@@ -188,6 +249,11 @@ async function dispatch(
   });
   if (command !== undefined) return command;
   const path = new URL(request.url).pathname;
+  const reportQuestions = path.match(
+    /^\/api\/research\/reports\/([^/]+)\/questions$/,
+  )?.[1];
+  if (reportQuestions !== undefined && request.method === "GET")
+    return await questionHistory(context, principal, reportQuestions);
   if (path === "/api/research/runs") {
     if (request.method === "GET")
       return await listRuns(context, request, principal);

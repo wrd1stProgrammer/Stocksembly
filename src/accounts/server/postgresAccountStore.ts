@@ -8,7 +8,13 @@ import { z } from "zod";
 import type {
   PublicReport,
   PublicRun,
+  RunCursor,
 } from "../../research/server/api/researchApiContracts";
+import { PublicRunSchema } from "../../research/server/api/researchApiContracts";
+import {
+  type PublicQuestion,
+  PublicQuestionSchema,
+} from "../../research/server/api/researchCommandContracts";
 import type { ResearchPrincipal } from "../../research/server/http/researchAuth";
 import {
   type AccountStore,
@@ -177,9 +183,13 @@ export class PostgresAccountStore implements AccountStore {
       await client.query("BEGIN");
       await client.query(
         `INSERT INTO research_run_ownership(
-          run_id, principal_id, symbol, locale, status, created_at, recorded_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (run_id) DO UPDATE SET status = EXCLUDED.status`,
+          run_id, principal_id, symbol, locale, status, created_at, recorded_at,
+          public_run
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+        ON CONFLICT (run_id) DO UPDATE SET
+          status = EXCLUDED.status,
+          recorded_at = EXCLUDED.recorded_at,
+          public_run = EXCLUDED.public_run`,
         [
           run.runId,
           principalId,
@@ -188,6 +198,7 @@ export class PostgresAccountStore implements AccountStore {
           run.status,
           run.createdAt,
           recordedAt,
+          JSON.stringify(run),
         ],
       );
       await client.query(
@@ -212,6 +223,34 @@ export class PostgresAccountStore implements AccountStore {
       });
     } finally {
       client.release();
+    }
+  }
+
+  async listResearchRuns(
+    principalId: string,
+    limit: number,
+    cursor?: RunCursor,
+  ): Promise<readonly PublicRun[]> {
+    try {
+      const result = await this.pool.query<{ public_run: unknown }>(
+        `SELECT public_run
+         FROM research_run_ownership
+         WHERE principal_id = $1
+           AND public_run IS NOT NULL
+           AND (
+             $2::timestamptz IS NULL
+             OR created_at < $2::timestamptz
+             OR (created_at = $2::timestamptz AND run_id < $3::uuid)
+           )
+         ORDER BY created_at DESC, run_id DESC
+         LIMIT $4`,
+        [principalId, cursor?.createdAt ?? null, cursor?.runId ?? null, limit],
+      );
+      return result.rows.map((row) => PublicRunSchema.parse(row.public_run));
+    } catch (error) {
+      throw new AccountStoreUnavailableError("ACCOUNT_RUN_LIST_FAILED", {
+        cause: error,
+      });
     }
   }
 
@@ -247,6 +286,59 @@ export class PostgresAccountStore implements AccountStore {
       throw new AccountStoreUnavailableError("ACCOUNT_REPORT_RECORD_FAILED", {
         cause: error,
       });
+    }
+  }
+
+  async recordConsultation(
+    principalId: string,
+    question: PublicQuestion,
+  ): Promise<void> {
+    try {
+      await this.pool.query(
+        `INSERT INTO report_consultations(
+          question_id, report_id, principal_id, public_question,
+          created_at, recorded_at
+        ) VALUES ($1, $2, $3, $4::jsonb, $5, now())
+        ON CONFLICT (question_id) DO UPDATE SET
+          public_question = EXCLUDED.public_question,
+          recorded_at = now()
+        WHERE report_consultations.principal_id = EXCLUDED.principal_id`,
+        [
+          question.questionId,
+          question.reportId,
+          principalId,
+          JSON.stringify(question),
+          question.createdAt,
+        ],
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_CONSULTATION_RECORD_FAILED",
+        { cause: error },
+      );
+    }
+  }
+
+  async listConsultations(
+    principalId: string,
+    reportId: string,
+  ): Promise<readonly PublicQuestion[]> {
+    try {
+      const result = await this.pool.query<{ public_question: unknown }>(
+        `SELECT public_question
+         FROM report_consultations
+         WHERE principal_id = $1 AND report_id = $2
+         ORDER BY created_at, question_id`,
+        [principalId, reportId],
+      );
+      return result.rows.map((row) =>
+        PublicQuestionSchema.parse(row.public_question),
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_CONSULTATION_LIST_FAILED",
+        { cause: error },
+      );
     }
   }
 

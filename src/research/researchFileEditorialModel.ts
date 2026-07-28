@@ -148,6 +148,59 @@ function combineDistinct(first: string, second: string): string {
   return `${first}${separator}${second}`;
 }
 
+function sentences(value: string): readonly string[] {
+  return (
+    value
+      .replace(/\s+/gu, " ")
+      .trim()
+      // Split only at an actual prose boundary. Decimal values such as 4.65%
+      // must remain whole when a row is compacted.
+      .split(/(?<=[.!?。！？])\s+/u)
+      .map((sentence) => sentence.trim())
+      .filter((sentence) => sentence.length > 0) ?? []
+  );
+}
+
+/**
+ * Preserve complete sentences while removing the repeated supporting prose that
+ * already appears in another report register. This deliberately never clips a
+ * sentence in the middle: prices, ratios, and evidence identifiers stay
+ * readable rather than becoming an ellipsis-led summary.
+ */
+function compactEditorialText(value: string, maxSentences: number): string {
+  const normalized = value.replace(/\s+/gu, " ").trim();
+  const parts = sentences(normalized);
+  if (parts.length === 0 || parts.length <= maxSentences) return normalized;
+  return parts.slice(0, maxSentences).join(" ");
+}
+
+function normalizedComparableText(value: string): string {
+  return value
+    .toLocaleLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, "")
+    .trim();
+}
+
+function optionalDistinctText(value: string, reference: string): string {
+  const compact = compactEditorialText(value, 1);
+  const normalized = normalizedComparableText(compact);
+  const normalizedReference = normalizedComparableText(reference);
+  return normalized.length === 0 ||
+    normalized === normalizedReference ||
+    normalizedReference.includes(normalized)
+    ? ""
+    : compact;
+}
+
+function compactScenarioAssumption(value: string): string {
+  return value
+    .replace(
+      /\s*[·|]\s*(?:FY\d{4}\s*(?:scenario|outlook)|FY\d{4}\s*시나리오|시나리오)$/giu,
+      "",
+    )
+    .trim();
+}
+
 function claimDepartment(
   claim: string,
 ): ResearchFileData["teamViews"][number]["departmentId"] {
@@ -175,13 +228,46 @@ function readerEvidenceLabel(
   title: string,
   locale: Locale,
 ): { readonly publisher: string; readonly title: string } {
-  if (locale === "ko" && /U\.?S\.? Treasury/iu.test(publisher))
-    return {
-      publisher: "미국 재무부",
-      title: /yield curve/iu.test(title)
-        ? "공식 국채 수익률 곡선"
-        : present(title, locale),
-    };
+  if (locale === "ko") {
+    if (/U\.?S\.? Treasury/iu.test(publisher))
+      return {
+        publisher: "미국 재무부",
+        title: /yield curve/iu.test(title)
+          ? "국채 수익률 곡선"
+          : present(title, locale),
+      };
+    if (/NASDAQ/iu.test(publisher))
+      return {
+        publisher: "나스닥",
+        title: /quote/iu.test(title)
+          ? "공식 가격"
+          : /indicator/iu.test(title)
+            ? "기술 지표"
+            : /price bars?/iu.test(title)
+              ? "가격 흐름"
+              : present(title, locale),
+      };
+    if (/SEC(?:\s+EDGAR)?/iu.test(publisher))
+      return {
+        publisher: "미국 증권거래위원회",
+        title: /\b10-Q\b/iu.test(title)
+          ? "10-Q 분기 공시"
+          : /\b10-K\b/iu.test(title)
+            ? "10-K 연차 공시"
+            : /\b8-K\b/iu.test(title)
+              ? "8-K 주요 공시"
+              : "기업 공시",
+      };
+    if (/Bureau of Labor Statistics/iu.test(publisher))
+      return {
+        publisher: "미국 노동통계국",
+        title: /unemployment/iu.test(title)
+          ? "실업률"
+          : /cpi|consumer price/iu.test(title)
+            ? "소비자물가지수"
+            : "공식 고용·물가 지표",
+      };
+  }
   return { publisher, title };
 }
 
@@ -196,13 +282,11 @@ function claimEvidence(
     )
     .filter((source) => source !== undefined)
     .map((source) => {
-      const label = readerEvidenceLabel(
-        source.publisher,
-        source.title,
-        locale,
-      );
+      const label = readerEvidenceLabel(source.publisher, source.title, locale);
       return `${label.publisher} · ${label.title}`;
-    });
+    })
+    .filter((source, index, all) => all.indexOf(source) === index)
+    .slice(0, 2);
   if (sources.length === 0)
     return locale === "ko"
       ? "주장 단위 근거가 아직 연결되지 않았습니다."
@@ -234,8 +318,7 @@ function conclusionIndex(file: ResearchFileData): number {
   const claimScore =
     claimScores.length === 0
       ? 50
-      : claimScores.reduce((sum, score) => sum + score, 0) /
-        claimScores.length;
+      : claimScores.reduce((sum, score) => sum + score, 0) / claimScores.length;
   const postureScore =
     file.posture === "positive" ? 85 : file.posture === "caution" ? 40 : 55;
   return Math.round(teamScore * 0.4 + claimScore * 0.35 + postureScore * 0.25);
@@ -270,9 +353,7 @@ function callout(
   return {
     headline: normalizedHeadline,
     body:
-      normalizedBody === normalizedHeadline
-        ? fallback.trim()
-        : normalizedBody,
+      normalizedBody === normalizedHeadline ? fallback.trim() : normalizedBody,
   };
 }
 
@@ -288,7 +369,9 @@ export function buildResearchFileEditorialModel(
       : removeFalsePriceAbsence(presented, locale);
   };
   const concerns = file.concerns.map(display).filter((item) => item.length > 0);
-  const positives = file.positives.map(display).filter((item) => item.length > 0);
+  const positives = file.positives
+    .map(display)
+    .filter((item) => item.length > 0);
   const question =
     file.researchDirection ??
     (ko
@@ -354,7 +437,10 @@ export function buildResearchFileEditorialModel(
   const selectedClaims = (file.claimMatrix ?? []).filter((claim) => {
     const department = claimDepartment(presentLocalized(claim.claim, locale));
     const count = departmentCounts.get(department) ?? 0;
-    if (count >= 2) return false;
+    // One representative claim per department prevents the same team view
+    // from being restated in adjacent rows. The final fourth row below carries
+    // the valuation/checkpoint lens when a department has no auditable claim.
+    if (count >= 1) return false;
     departmentCounts.set(department, count + 1);
     return true;
   });
@@ -369,11 +455,13 @@ export function buildResearchFileEditorialModel(
           : "Even if current strengths persist, opposing signals and change conditions still require confirmation.");
       return {
         id: `A${String(index + 1).padStart(2, "0")}`,
-        title,
-        agentView:
+        title: compactEditorialText(title, 1),
+        agentView: compactEditorialText(
           relatedTeam?.evidence ?? presentLocalized(file.condition, locale),
+          1,
+        ),
         evidence: claimEvidence(file, claim, locale),
-        counterpoint:
+        counterpoint: compactEditorialText(
           claim.counterpoint === undefined
             ? claim.verdict === "partial"
               ? ko
@@ -385,32 +473,44 @@ export function buildResearchFileEditorialModel(
                   : `Linked evidence conflicts with this thesis. ${fallbackCounterpoint}`
                 : fallbackCounterpoint
             : presentLocalized(claim.counterpoint, locale),
-        checkpoint:
+          1,
+        ),
+        checkpoint: compactEditorialText(
           claim.checkpoint === undefined
             ? presentLocalized(
                 index % 2 === 0 ? file.nextEvent : file.changeCondition,
                 locale,
               )
             : presentLocalized(claim.checkpoint, locale),
+          1,
+        ),
         evidenceId: claim.id,
         strength: claim.strength,
       };
     },
   );
-  const remainingRowCount = Math.max(0, 5 - claimRows.length);
+  const remainingRowCount = Math.max(0, 4 - claimRows.length);
   const analysisRows: EditorialAnalysisRow[] = [
     ...claimRows,
     ...analysisItems.slice(0, remainingRowCount).map((item, index) => ({
       id: `A${String(claimRows.length + index + 1).padStart(2, "0")}`,
-      title: presentLocalized(item.title, locale),
-      agentView: presentLocalized(item.summary, locale),
-      evidence: presentLocalized(item.detail, locale),
-      counterpoint:
+      title: compactEditorialText(presentLocalized(item.title, locale), 1),
+      agentView: compactEditorialText(
+        presentLocalized(item.summary, locale),
+        1,
+      ),
+      evidence: compactEditorialText(presentLocalized(item.detail, locale), 1),
+      counterpoint: compactEditorialText(
         concerns[index % Math.max(concerns.length, 1)] ??
-        presentLocalized(file.condition, locale),
-      checkpoint: presentLocalized(
-        index % 2 === 0 ? file.nextEvent : file.changeCondition,
-        locale,
+          presentLocalized(file.condition, locale),
+        1,
+      ),
+      checkpoint: compactEditorialText(
+        presentLocalized(
+          index % 2 === 0 ? file.nextEvent : file.changeCondition,
+          locale,
+        ),
+        1,
       ),
       strength: "unverified" as const,
     })),
@@ -458,42 +558,53 @@ export function buildResearchFileEditorialModel(
   const comparisonRows: EditorialComparisonRow[] = [
     {
       label: ko ? "가격·추세" : "Price & trend",
-      companyView:
+      companyView: compactEditorialText(
         marketTeam?.strongestClaim ??
+          presentLocalized(file.expectation, locale),
+        1,
+      ),
+      benchmarkLens: optionalDistinctText(
         presentLocalized(file.expectation, locale),
-      benchmarkLens: presentLocalized(file.expectation, locale),
-      interpretation:
+        marketTeam?.strongestClaim ??
+          presentLocalized(file.expectation, locale),
+      ),
+      interpretation: compactEditorialText(
         marketTeam?.evidence ?? presentLocalized(file.condition, locale),
+        1,
+      ),
     },
     {
       label: ko ? "사업 전환" : "Business conversion",
-      companyView:
+      companyView: compactEditorialText(
         companyTeam?.strongestClaim ?? presentLocalized(file.thesis, locale),
-      benchmarkLens: positives[0] ?? presentLocalized(file.nextEvent, locale),
-      interpretation:
+        1,
+      ),
+      benchmarkLens: optionalDistinctText(
+        positives[0] ?? presentLocalized(file.nextEvent, locale),
+        companyTeam?.strongestClaim ?? presentLocalized(file.thesis, locale),
+      ),
+      interpretation: compactEditorialText(
         companyTeam?.evidence ?? presentLocalized(file.changeCondition, locale),
+        1,
+      ),
     },
     {
       label: ko ? "이익의 질" : "Earnings quality",
-      companyView:
+      companyView: compactEditorialText(
         financialTeam?.strongestClaim ??
+          presentLocalized(file.valuation, locale),
+        1,
+      ),
+      benchmarkLens: optionalDistinctText(
         presentLocalized(file.valuation, locale),
-      benchmarkLens: presentLocalized(file.valuation, locale),
-      interpretation:
+        financialTeam?.strongestClaim ??
+          presentLocalized(file.valuation, locale),
+      ),
+      interpretation: compactEditorialText(
         financialTeam?.evidence ??
-        presentLocalized(file.changeCondition, locale),
-    },
-    {
-      label: ko ? "하방 기준" : "Downside threshold",
-      companyView:
-        riskTeam?.strongestClaim ??
-        concerns[0] ??
-        presentLocalized(file.condition, locale),
-      benchmarkLens: presentLocalized(file.changeCondition, locale),
-      interpretation:
-        riskTeam?.evidence ??
-        concerns[1] ??
-        presentLocalized(file.nextEvent, locale),
+          presentLocalized(file.changeCondition, locale),
+        1,
+      ),
     },
   ];
   const sourceScenarios = file.scenarios
@@ -507,8 +618,10 @@ export function buildResearchFileEditorialModel(
       thesis: presentLocalized(scenario.thesis, locale),
       assumptions: scenario.assumptions.map((assumption) =>
         assumption.kind === "metric"
-          ? `${localized(assumption.metric, locale)} ${localized(assumption.displayValue, locale)} · ${localized(assumption.basis, locale)}`
-          : presentLocalized(assumption.note, locale),
+          ? compactScenarioAssumption(
+              `${localized(assumption.metric, locale)} ${localized(assumption.displayValue, locale)} · ${localized(assumption.basis, locale)}`,
+            )
+          : compactEditorialText(presentLocalized(assumption.note, locale), 1),
       ),
     }))
     .filter(
@@ -537,10 +650,9 @@ export function buildResearchFileEditorialModel(
             id: "current-view",
             label: ko ? "현재 판단 유지" : "Current view holds",
             thesis: directAnswer,
-            assumptions: [
-              marketTeam?.evidence,
-              financialTeam?.evidence,
-            ].filter((value): value is string => value !== undefined),
+            assumptions: [marketTeam?.evidence, financialTeam?.evidence].filter(
+              (value): value is string => value !== undefined,
+            ),
           },
           {
             id: "downside-path",
@@ -609,18 +721,24 @@ export function buildResearchFileEditorialModel(
     lensRows: [
       {
         label: ko ? "시장의 기본 기대" : "Market baseline",
-        content: combineDistinct(
-          marketTeam?.strongestClaim ??
+        content: compactEditorialText(
+          combineDistinct(
+            marketTeam?.strongestClaim ??
+              presentLocalized(file.expectation, locale),
             presentLocalized(file.expectation, locale),
-          presentLocalized(file.expectation, locale),
+          ),
+          2,
         ),
       },
       {
         label: ko ? "가격에 반영된 기대" : "Embedded expectations",
-        content: combineDistinct(
-          presentLocalized(file.valuation, locale),
-          financialTeam?.strongestClaim ??
-            presentLocalized(file.condition, locale),
+        content: compactEditorialText(
+          combineDistinct(
+            presentLocalized(file.valuation, locale),
+            financialTeam?.strongestClaim ??
+              presentLocalized(file.condition, locale),
+          ),
+          2,
         ),
       },
       {
@@ -629,23 +747,31 @@ export function buildResearchFileEditorialModel(
       },
       {
         label: ko ? "판단이 갈리는 지점" : "Point of disagreement",
-        content:
+        content: compactEditorialText(
           concerns[0] ??
-          (ko
-            ? "중요한 반대 근거가 확인되지 않았습니다."
-            : "No material counter-evidence was identified."),
+            (ko
+              ? "중요한 반대 근거가 확인되지 않았습니다."
+              : "No material counter-evidence was identified."),
+          1,
+        ),
       },
       {
         label: ko ? "우리 판단이 틀릴 조건" : "What would prove us wrong",
-        content: presentLocalized(file.changeCondition, locale),
+        content: compactEditorialText(
+          presentLocalized(file.changeCondition, locale),
+          1,
+        ),
       },
     ],
     catalysts,
     risks,
     coverage: file.coverage,
     analysisRows,
-    valuationConclusion,
-    nextVerificationEvent: presentLocalized(file.nextEvent, locale),
+    valuationConclusion: compactEditorialText(valuationConclusion, 3),
+    nextVerificationEvent: compactEditorialText(
+      presentLocalized(file.nextEvent, locale),
+      1,
+    ),
     comparisonRows,
     scenarios,
     teamRows,

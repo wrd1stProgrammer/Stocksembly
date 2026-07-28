@@ -44,7 +44,7 @@ it("inspects the complete argv and provenance policy matrix", async () => {
     ),
   ).toBe(true);
   expect(matrix.find((row) => row.stage === "chair_synthesis")).toMatchObject({
-    provenance: { reasoning: "medium" },
+    provenance: { reasoning: "low" },
   });
   expect(JSON.stringify(matrix)).not.toContain("xhigh");
   expect(

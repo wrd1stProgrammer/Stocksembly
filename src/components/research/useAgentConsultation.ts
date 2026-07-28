@@ -12,6 +12,7 @@ import { questionLookupPlan } from "../../research/domain/questionLookupPlan";
 import type { AgentProfile } from "../../research/types";
 import {
   type ConsultationMessage,
+  consultationMessagesFromQuestions,
   consultationPayload,
   loadConsultationMessages,
   saveConsultationMessages,
@@ -19,7 +20,8 @@ import {
 
 export type { ConsultationMessage } from "./agentConsultationMemory";
 
-type QuestionClient = Pick<ResearchClient, "askQuestion" | "getQuestion">;
+type QuestionClient = Pick<ResearchClient, "askQuestion" | "getQuestion"> &
+  Pick<ResearchClient, "listQuestions">;
 
 type Options = {
   readonly client?: QuestionClient;
@@ -89,6 +91,22 @@ export function useAgentConsultation({
   useEffect(() => {
     saveConsultationMessages(reportId, messages);
   }, [messages, reportId]);
+
+  useEffect(() => {
+    if (client.listQuestions === undefined) return;
+    let active = true;
+    void client
+      .listQuestions(reportId)
+      .then((questions) => {
+        if (!active) return;
+        const restored = consultationMessagesFromQuestions(questions, locale);
+        if (restored.length > 0) setMessages(restored);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [client, locale, reportId]);
 
   const ask = async (input: AskInput): Promise<void> => {
     const trimmed = input.question.trim();

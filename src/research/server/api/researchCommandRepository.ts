@@ -14,6 +14,7 @@ import { createResearchFollowUp } from "./researchFollowUpCommand";
 import {
   createResearchQuestion,
   findPublicQuestion,
+  listPublicQuestions,
   replayResearchQuestion,
 } from "./researchQuestionCommands";
 import { retryResearchRun } from "./researchRunCommands";
@@ -92,6 +93,10 @@ export class ResearchCommandRepository {
     questionId: string,
   ): PublicQuestion | undefined {
     return findPublicQuestion(this.#database, principalId, questionId);
+  }
+
+  questions(principalId: string, reportId: string): readonly PublicQuestion[] {
+    return listPublicQuestions(this.#database, principalId, reportId);
   }
 
   close(): void {

@@ -174,6 +174,8 @@ Base unit: 4px.
 - Structure: left navigation, central research document, and right transcript/chat rail share one uninterrupted dark workspace. Panel separation uses tonal contrast and the shell gap only; bright outer borders and white corner rims are prohibited. Each rail retains the shared medium shell radius so the workspace remains soft without restoring a visible outline.
 - Left navigation: a top-right icon collapses the rail to a compact 52px control strip and restores it without changing the report or right-panel state. The footer keeps feedback and profile actions at the bottom; the compact state preserves their icons and accessible labels.
 - Right navigation: the existing transcript/chat toggle remains independent from the left rail so readers can choose any left/right panel combination.
+- Active research state: the right rail keeps the same transcript/chat header and collapse control used by the published report. Transcript remains available and live; Chat stays visibly disabled with an explanatory accessible label until the report is published.
+- Live conversation projection: up to three distinct, current-stage transcript speakers may show simultaneous bubbles. Bubble placement must remain collision-free; collaborative-event participants orient toward one another while the durable workflow continues to own movement timing and parallel execution.
 - Responsive state: desktop owns independent left and right rail controls. Existing tablet/mobile stacking remains authoritative and may hide the left rail when the right rail occupies the available width.
 
 ### Company Key Metrics Register

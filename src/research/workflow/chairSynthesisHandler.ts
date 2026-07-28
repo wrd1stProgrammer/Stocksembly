@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { commitAgentOutput } from "../application/commitAgentOutput";
-import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
 import {
   ArtifactIdSchema,
@@ -15,7 +14,10 @@ import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
 import type { ChairSynthesisSqliteAuthority } from "./chairSynthesisAuthority";
-import type { SqliteChairSynthesisOptions } from "./chairSynthesisContracts";
+import {
+  ChairSynthesisModelOutputSchema,
+  type SqliteChairSynthesisOptions,
+} from "./chairSynthesisContracts";
 import {
   repairChairCandidate,
   validChairCandidate,
@@ -65,13 +67,14 @@ export function createChairSynthesisAttemptHandler(
         reservation: { key, fence: claim },
         stage: "chair_synthesis",
         prompt: job.prompt,
-        outputSchema: ChairSynthesisOutputSchema,
+        outputSchema: ChairSynthesisModelOutputSchema,
         signal,
         onActivity: activity,
       });
+      const validationPrompt = job.validationPrompt ?? job.prompt;
       candidate = repairInvalidSections
-        ? repairChairCandidate(job.prompt, result.candidate)
-        : validChairCandidate(job.prompt, result.candidate);
+        ? repairChairCandidate(validationPrompt, result.candidate)
+        : validChairCandidate(validationPrompt, result.candidate);
       runnerEvidence = result.evidence;
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;

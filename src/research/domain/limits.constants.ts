@@ -10,7 +10,7 @@ function configuredLimit(name: string, fallback: number): number {
 const ACTIVE_RUNS = configuredLimit("STOCKSEMBLY_ACTIVE_RUNS", 2);
 const GLOBAL_CODEX_PROCESSES = configuredLimit(
   "STOCKSEMBLY_GLOBAL_CODEX_PROCESSES",
-  11,
+  6,
 );
 
 export const BYTES = {

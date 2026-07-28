@@ -2,7 +2,10 @@ import { z } from "zod";
 import { checkCommandBodySize } from "../../domain/limits";
 import { parseIdempotencyKey } from "./researchApiInput";
 import { apiError, apiJson } from "./researchApiResponses";
-import type { QuestionGrounding } from "./researchCommandContracts";
+import type {
+  PublicQuestion,
+  QuestionGrounding,
+} from "./researchCommandContracts";
 import {
   parseEmptyCommand,
   parseFollowUpCommand,
@@ -24,6 +27,7 @@ type HandlerContext = {
     questionId: string,
     question: { readonly en: string; readonly ko: string },
   ) => Promise<QuestionGrounding | undefined>;
+  readonly onQuestion?: (question: PublicQuestion) => Promise<void>;
 };
 
 async function commandBody(request: Request): Promise<unknown | Response> {
@@ -138,6 +142,8 @@ async function handleMutation(
     grounding,
     command,
   );
+  if (result.kind === "created" || result.kind === "replayed")
+    await context.onQuestion?.(result.value);
   return result.kind === "created" || result.kind === "replayed"
     ? apiJson({ question: result.value }, 202)
     : commandFailure(result.kind);
@@ -155,6 +161,7 @@ export async function handleResearchCommand(
       context.principalId,
       questionId,
     );
+    if (question !== undefined) await context.onQuestion?.(question);
     return question === undefined
       ? apiError(404, "NOT_FOUND")
       : apiJson({ question });

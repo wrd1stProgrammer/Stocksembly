@@ -1,19 +1,41 @@
 "use client";
 
+import { domAnimation, LazyMotion, m } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../lib/i18n";
-import {
-  createOfficeSnapshotRenderer,
-  type OfficeGameController,
-} from "../research/officeGame";
 import {
   createLandingOfficeState,
   landingOfficeSnapshot,
   stepLandingOfficeState,
 } from "../research/landingOfficeSimulation";
+import type { OfficeGameController } from "../research/officeGame";
 import { OFFICE_SCENE_MANIFEST } from "../research/officeSceneManifest";
 
 const AMBIENT_STEP_MS = 420;
+const DOT_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315] as const;
+
+function DotsRing() {
+  return (
+    <LazyMotion features={domAnimation} strict>
+      <div className="landing-office-live__dots" aria-hidden="true">
+        {DOT_ANGLES.map((angle, index) => (
+          <m.div
+            key={angle}
+            className="landing-office-live__dot"
+            style={{ rotate: angle }}
+            animate={{ scale: [1, 0.5, 1], opacity: [1, 0.3, 1] }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              delay: index * 0.15,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+      </div>
+    </LazyMotion>
+  );
+}
 
 function observeVisibility(
   host: HTMLDivElement,
@@ -34,7 +56,19 @@ function observeVisibility(
 export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
+  const [rendererReady, setRendererReady] = useState(false);
   const actorCount = OFFICE_SCENE_MANIFEST.roster.length;
+  const labels = {
+    active:
+      locale === "ko"
+        ? `${actorCount}개 에이전트 활동 중`
+        : `${actorCount} agents active`,
+    live: locale === "ko" ? "실시간 리서치 오피스" : "Live research office",
+    loading:
+      locale === "ko"
+        ? "리서치 오피스를 준비하고 있습니다"
+        : "Preparing the research office",
+  };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -86,13 +120,27 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
       animationFrame = requestAnimationFrame(draw);
     };
     setRendererFailed(false);
-    void createOfficeSnapshotRenderer({
-      host,
-      locale,
-      reducedMotion,
-      showActorUi: false,
-      signal: abortController.signal,
-    })
+    setRendererReady(false);
+    host.removeAttribute("data-office-ready");
+
+    const initialize = async () => {
+      // Pixi is intentionally loaded after the shell and loader have painted.
+      // Keeping the canvas hidden until its first projected frame avoids the
+      // transient, unprojected zoomed scene that was visible on first load.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      const { createOfficeSnapshotRenderer } = await import(
+        "../research/officeGame"
+      );
+      return createOfficeSnapshotRenderer({
+        host,
+        locale,
+        reducedMotion,
+        showActorUi: false,
+        signal: abortController.signal,
+      });
+    };
+
+    void initialize()
       .then((createdController) => {
         if (abortController.signal.aborted) {
           createdController.destroy();
@@ -101,6 +149,8 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
         controller = createdController;
         controller.renderSnapshot(currentSnapshot, { cameraMode: "overview" });
         host.setAttribute("data-visible-bubble-count", "0");
+        host.setAttribute("data-office-ready", "true");
+        setRendererReady(true);
         if (reducedMotion) {
           controller.setPaused(true);
           return;
@@ -111,7 +161,10 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
         });
       })
       .catch(() => {
-        if (!abortController.signal.aborted) setRendererFailed(true);
+        if (!abortController.signal.aborted) {
+          setRendererFailed(true);
+          setRendererReady(false);
+        }
       });
 
     return () => {
@@ -134,19 +187,21 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
       <div className="landing-office-live__status">
         <span>
           <i aria-hidden="true" />
-          {locale === "ko" ? "실시간 리서치 오피스" : "Live research office"}
+          {labels.live}
         </span>
-        <span>
-          {locale === "ko"
-            ? `${actorCount}개 에이전트 활동 중`
-            : `${actorCount} agents active`}
-        </span>
+        <span>{labels.active}</span>
       </div>
       <div
         ref={hostRef}
         className="landing-office-live__world office-game office-game--world"
         data-render-error={rendererFailed ? "true" : undefined}
       >
+        {!rendererReady && !rendererFailed ? (
+          <div className="landing-office-live__loading" role="status">
+            <DotsRing />
+            <span>{labels.loading}</span>
+          </div>
+        ) : null}
         {rendererFailed ? (
           <p className="landing-office-live__error" role="alert">
             {locale === "ko"

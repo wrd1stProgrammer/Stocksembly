@@ -666,4 +666,74 @@ describe("secure research routes", () => {
       /content_hash|public_payload_json|principal_id|input_hash|lease_owner/i,
     );
   });
+
+  it("lists report consultation history only for the report owner", async () => {
+    const context = await harness();
+    const created = await context.api.handle(
+      createRunRequest(context, "consultation-history"),
+    );
+    const createdBody = (await json(created)) as {
+      readonly run: { readonly runId: string; readonly snapshotId: string };
+    };
+    const seeded = await seedPublishedReport(context, createdBody.run);
+    const questionId = randomUUID();
+    const database = new Database(context.databasePath);
+    const binding = database
+      .prepare(`SELECT report_versions.version_id, jobs.job_id
+        FROM report_versions
+        JOIN jobs ON jobs.run_id = report_versions.run_id
+        WHERE report_versions.report_id = ?
+        ORDER BY jobs.created_at
+        LIMIT 1`)
+      .get(seeded.reportId) as
+      | { readonly version_id: string; readonly job_id: string }
+      | undefined;
+    if (binding === undefined) throw new Error("report binding missing");
+    database
+      .prepare(`INSERT INTO questions(
+        question_id, retry_of_question_id, report_id, report_version_id,
+        run_id, snapshot_id, job_id, attempt_ordinal, status,
+        question_json, answer_json, created_at
+      ) VALUES (?, NULL, ?, ?, ?, ?, ?, 1, 'pending', ?, NULL, ?)`)
+      .run(
+        questionId,
+        seeded.reportId,
+        binding.version_id,
+        createdBody.run.runId,
+        createdBody.run.snapshotId,
+        binding.job_id,
+        JSON.stringify({ en: "What changed?", ko: "무엇이 바뀌었나요?" }),
+        "2026-07-23T06:02:00.000Z",
+      );
+    database.close();
+
+    const owned = await context.api.handle(
+      context.request(`/api/research/reports/${seeded.reportId}/questions`),
+    );
+    await context.api.rotateIdentity();
+    const otherCookie =
+      (await context.api.bootstrapSession()).split(";", 1)[0] ?? "";
+    const forbidden = await context.api.handle(
+      context.request(
+        `/api/research/reports/${seeded.reportId}/questions`,
+        { headers: { cookie: otherCookie } },
+        false,
+      ),
+    );
+
+    expect(owned.status).toBe(200);
+    expect(await json(owned)).toMatchObject({
+      questions: [
+        {
+          questionId,
+          reportId: seeded.reportId,
+          status: "pending",
+        },
+      ],
+    });
+    expect(forbidden.status).toBe(404);
+    expect(await json(forbidden)).toEqual({
+      error: { code: "NOT_FOUND" },
+    });
+  });
 });

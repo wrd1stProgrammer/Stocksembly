@@ -126,6 +126,23 @@ export function findPublicQuestion(
   return value === undefined ? undefined : toPublicQuestion(value);
 }
 
+export function listPublicQuestions(
+  database: Database.Database,
+  principalId: string,
+  reportId: string,
+): readonly PublicQuestion[] {
+  return database
+    .prepare(`SELECT questions.question_id, questions.retry_of_question_id,
+      questions.report_id, questions.report_version_id,
+      questions.attempt_ordinal, questions.status, questions.question_json,
+      questions.answer_json, questions.created_at
+      FROM questions JOIN research_requests USING(run_id)
+      WHERE questions.report_id = ? AND research_requests.principal_id = ?
+      ORDER BY questions.attempt_ordinal ASC`)
+    .all(reportId, principalId)
+    .map(toPublicQuestion);
+}
+
 export function createResearchQuestion(
   database: Database.Database,
   reportId: string,

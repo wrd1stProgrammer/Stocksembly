@@ -148,10 +148,15 @@ export function createSqliteFollowupAndResponseRound(
       )
     )
       return replay(runId, "plan_lineage_mismatch");
-    if (
-      !roundAuthority.jobsSettled(runId, plan.followupLogicalArtifactIds)
-    )
-      return replay(runId);
+    const readyDepartmentIds = new Set(
+      WORKFLOW_V1_DEPARTMENT_IDS.filter((departmentId) => {
+        const logicalId = `followup:${departmentId}`;
+        return (
+          !plan.followupLogicalArtifactIds.includes(logicalId) ||
+          roundAuthority.jobsSettled(runId, [logicalId])
+        );
+      }),
+    );
     const stagedInputs = await parseCommittedInputs(
       options.cas,
       challengeRows,
@@ -170,8 +175,10 @@ export function createSqliteFollowupAndResponseRound(
       stagedInputs,
       durable.followups,
       unknowns,
+      readyDepartmentIds,
     );
-    roundAuthority.stageJobs(runId, jobs, "response", now());
+    const responseAt = new Date(Date.parse(now()) + 1).toISOString();
+    roundAuthority.stageJobs(runId, jobs, "response", responseAt);
     return replay(runId);
   };
   return {

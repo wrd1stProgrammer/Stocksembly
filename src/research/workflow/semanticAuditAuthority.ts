@@ -11,10 +11,12 @@ import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import {
   type PersistedSemanticAuditJob,
   PersistedSemanticAuditJobSchema,
+  SemanticAuditModelOutputSchema,
   SemanticAuditPromptSchema,
   type SemanticAuditReplay,
   type SemanticAuditStageBlockedReason,
   type SemanticAuditStageInput,
+  semanticAuditModelPrompt,
 } from "./semanticAuditContracts";
 import { loadSemanticAuditJob } from "./semanticAuditJob";
 import { loadSemanticPrompt } from "./semanticAuditStructural";
@@ -102,11 +104,12 @@ export class SemanticAuditSqliteAuthority {
     const prompt = loaded.prompt;
     const sourceArtifactIds = prompt.sourceArtifactIds;
     const request = SemanticAuditPromptSchema.parse(prompt);
-    const promptJson = JSON.stringify(request);
+    const validationPrompt = JSON.stringify(request);
+    const promptJson = semanticAuditModelPrompt(request);
     const inputHash = codexInputHash({
       stage: "semantic_audit",
       prompt: promptJson,
-      outputSchema: SemanticAuditOutputSchema,
+      outputSchema: SemanticAuditModelOutputSchema,
     });
     const requestHash = hashCanonical(input);
     const existing = this.loadJob(input.runId);
@@ -124,6 +127,7 @@ export class SemanticAuditSqliteAuthority {
       jobId: JobIdSchema.parse(randomUUID()),
       logicalArtifactId: "semantic_audit:system",
       prompt: promptJson,
+      validationPrompt,
       inputHash,
       requestHash,
       inputManifestHash: hashCanonical(citableArtifactIds),
@@ -199,7 +203,9 @@ export class SemanticAuditSqliteAuthority {
     const input =
       request === undefined
         ? undefined
-        : SemanticAuditPromptSchema.parse(JSON.parse(request.prompt));
+        : SemanticAuditPromptSchema.parse(
+            JSON.parse(request.validationPrompt ?? request.prompt),
+          );
     const material = new Set(
       input?.claims
         .filter((claim) => claim.materiality === "material")

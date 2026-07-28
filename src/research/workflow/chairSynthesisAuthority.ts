@@ -10,7 +10,9 @@ import { applyOrderedMigrations } from "../server/persistence/sqlite/migrations"
 import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import {
   CHAIR_SECTION_KEYS,
+  ChairSynthesisModelOutputSchema,
   type ChairSynthesisReplay,
+  chairSynthesisModelPrompt,
   type PersistedChairJob,
   PersistedChairJobSchema,
 } from "./chairSynthesisContracts";
@@ -92,11 +94,12 @@ export class ChairSynthesisSqliteAuthority {
       runId,
     );
     if (prompt === undefined) return "audited_inputs_incomplete";
-    const promptJson = JSON.stringify(prompt);
+    const validationPrompt = JSON.stringify(prompt);
+    const promptJson = chairSynthesisModelPrompt(prompt);
     const inputHash = codexInputHash({
       stage: "chair_synthesis",
       prompt: promptJson,
-      outputSchema: ChairSynthesisOutputSchema,
+      outputSchema: ChairSynthesisModelOutputSchema,
     });
     const existing = this.loadJob(runId);
     if (existing !== undefined)
@@ -107,6 +110,7 @@ export class ChairSynthesisSqliteAuthority {
       jobId: JobIdSchema.parse(randomUUID()),
       logicalArtifactId: "chair_synthesis:chair",
       prompt: promptJson,
+      validationPrompt,
       inputHash,
       inputManifestHash: hashCanonical(prompt.sourceArtifactIds),
       citableArtifactIds: prompt.sourceArtifactIds,

@@ -149,54 +149,61 @@ export function ownerResponseJobs(
     readonly logical_artifact_key: string;
   }[],
   unknowns: readonly PublicUnknown[],
+  readyDepartmentIds?: ReadonlySet<WorkflowDepartmentId>,
 ): readonly PersistedFollowupResponseJob[] {
-  return inputs.challenges.map((challenge) => {
-    const followupId = followupArtifacts.find(
-      (item) =>
-        item.logical_artifact_key ===
-        `followup:${challenge.targetDepartmentId}`,
-    )?.artifact_id;
-    const sourceArtifactIds = [
-      challenge.artifactId,
-      ...memberMemoIds(inputs, challenge.targetDepartmentId),
-      ...(followupId === undefined ? [] : [followupId]),
-    ];
-    const targetClaimIds = challenge.payload.challengedClaimIds;
-    const relevantUnknowns = unknowns.filter((unknown) =>
-      unknown.en.includes(targetClaimIds[0] ?? ""),
-    );
-    const prompt = JSON.stringify(
-      OwnerResponseJobPromptSchema.parse({
-        kind: "owner_response_input_v1",
-        departmentId: challenge.targetDepartmentId,
-        sourceArtifactIds,
-        targetClaimIds,
-        challengeContext: challenge.payload.publicChallenge,
-        departmentContext: memberContext(
-          inputs,
-          challenge.targetDepartmentId,
+  return inputs.challenges
+    .filter(
+      (challenge) =>
+        readyDepartmentIds === undefined ||
+        readyDepartmentIds.has(challenge.targetDepartmentId),
+    )
+    .map((challenge) => {
+      const followupId = followupArtifacts.find(
+        (item) =>
+          item.logical_artifact_key ===
+          `followup:${challenge.targetDepartmentId}`,
+      )?.artifact_id;
+      const sourceArtifactIds = [
+        challenge.artifactId,
+        ...memberMemoIds(inputs, challenge.targetDepartmentId),
+        ...(followupId === undefined ? [] : [followupId]),
+      ];
+      const targetClaimIds = challenge.payload.challengedClaimIds;
+      const relevantUnknowns = unknowns.filter((unknown) =>
+        unknown.en.includes(targetClaimIds[0] ?? ""),
+      );
+      const prompt = JSON.stringify(
+        OwnerResponseJobPromptSchema.parse({
+          kind: "owner_response_input_v1",
+          departmentId: challenge.targetDepartmentId,
+          sourceArtifactIds,
+          targetClaimIds,
+          challengeContext: challenge.payload.publicChallenge,
+          departmentContext: memberContext(
+            inputs,
+            challenge.targetDepartmentId,
+          ),
+          publicUnknowns: relevantUnknowns,
+        }),
+      );
+      return PersistedFollowupResponseJobSchema.parse({
+        runId,
+        snapshotId: inputs.snapshotId,
+        jobId: JobIdSchema.parse(
+          uuidFrom({ runId, response: challenge.targetDepartmentId }),
         ),
-        publicUnknowns: relevantUnknowns,
-      }),
-    );
-    return PersistedFollowupResponseJobSchema.parse({
-      runId,
-      snapshotId: inputs.snapshotId,
-      jobId: JobIdSchema.parse(
-        uuidFrom({ runId, response: challenge.targetDepartmentId }),
-      ),
-      logicalArtifactId: `response_ballot:${challenge.targetDepartmentId}`,
-      stage: "owner_response_ballot",
-      prompt,
-      inputHash: codexInputHash({
+        logicalArtifactId: `response_ballot:${challenge.targetDepartmentId}`,
         stage: "owner_response_ballot",
         prompt,
-        outputSchema: OwnerResponseBallotOutputSchema,
-      }),
-      inputManifestHash: hashCanonical(sourceArtifactIds),
-      citableArtifactIds: sourceArtifactIds,
+        inputHash: codexInputHash({
+          stage: "owner_response_ballot",
+          prompt,
+          outputSchema: OwnerResponseBallotOutputSchema,
+        }),
+        inputManifestHash: hashCanonical(sourceArtifactIds),
+        citableArtifactIds: sourceArtifactIds,
+      });
     });
-  });
 }
 
 export { uuidFrom };

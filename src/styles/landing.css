@@ -80,6 +80,51 @@
   display: block;
   width: 100%;
   height: 100%;
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+
+.landing-office-live__world[data-office-ready="true"] .office-game__canvas {
+  opacity: 1;
+}
+
+.landing-office-live__loading {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+  background:
+    radial-gradient(
+      ellipse 34% 30% at 50% 48%,
+      color-mix(in srgb, var(--color-accent) 10%, transparent),
+      transparent 74%
+    ),
+    #08090b;
+  font-size: var(--type-ticker);
+  font-weight: 620;
+  letter-spacing: 0.045em;
+}
+
+.landing-office-live__dots {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.landing-office-live__dot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--color-text);
+  transform-origin: 4px 24px;
 }
 
 .landing-office-live__error {
@@ -115,6 +160,10 @@
   .landing-office-live,
   .landing-office-live__status i {
     animation: none;
+  }
+
+  .landing-office-live__world .office-game__canvas {
+    transition: none;
   }
 }
 

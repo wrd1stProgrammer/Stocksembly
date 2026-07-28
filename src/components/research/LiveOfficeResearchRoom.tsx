@@ -1,12 +1,16 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
 import { findTicker, searchUsTickers, type Ticker } from "../../lib/tickers";
-import type { PublicRunDetail } from "../../research/client/schemas";
+import type { PublicRun, PublicRunDetail } from "../../research/client/schemas";
 import { useResearchRun } from "../../research/client/useResearchRun";
-import type { ResearchFileData } from "../../research/compositions/types";
+import type {
+  ResearchFileData,
+  ResearchHistoryGroup,
+} from "../../research/compositions/types";
 import {
   type ResearchReport,
   ResearchReportSchema,
@@ -113,7 +117,11 @@ export function LiveOfficeResearchRoom({
   const [reportReload, setReportReload] = useState(0);
   const [catalogTicker, setCatalogTicker] = useState<Ticker>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(true);
+  const [historyRuns, setHistoryRuns] = useState<readonly PublicRun[]>([
+    initialSnapshot.run,
+  ]);
+  const router = useRouter();
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const runOptions = useMemo(() => ({ client }), [client]);
   const projection = useResearchRun(initialSnapshot, runOptions);
@@ -122,6 +130,67 @@ export function LiveOfficeResearchRoom({
   const snapshot = animation.snapshot;
   const activity = activeIdsForSnapshot(snapshot);
   const company = companyFor(projection.snapshot.run.symbol, catalogTicker);
+  const history = useMemo<readonly ResearchHistoryGroup[]>(() => {
+    const formatter = new Intl.DateTimeFormat(
+      locale === "ko" ? "ko-KR" : "en-US",
+      {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      },
+    );
+    return [...new Set(historyRuns.map((run) => run.symbol))].map((symbol) => {
+      const ticker = findTicker(symbol);
+      const runs = historyRuns.filter((run) => run.symbol === symbol);
+      return {
+        symbol,
+        company:
+          symbol === company.symbol
+            ? company.company
+            : (ticker?.company ?? symbol),
+        runs: runs.map((run, index) => ({
+          runId: run.runId,
+          ...(run.reportId === undefined ? {} : { reportId: run.reportId }),
+          label:
+            locale === "ko"
+              ? `전체 에이전트 분석 ${runs.length - index}`
+              : `Full agent analysis ${runs.length - index}`,
+          date: formatter.format(new Date(run.createdAt)),
+          current: run.runId === projection.snapshot.run.runId,
+          live:
+            run.runId === projection.snapshot.run.runId &&
+            (run.status === "queued" ||
+              run.status === "running" ||
+              run.status === "cancelling"),
+          ...(!["failed", "incomplete", "cancelled"].includes(run.status)
+            ? {}
+            : {
+                statusLabel:
+                  locale === "ko"
+                    ? run.status === "failed"
+                      ? "리서치 실패"
+                      : run.status === "cancelled"
+                        ? "취소됨"
+                        : "미완료"
+                    : run.status === "failed"
+                      ? "Research failed"
+                      : run.status === "cancelled"
+                        ? "Cancelled"
+                        : "Incomplete",
+              }),
+        })),
+      };
+    });
+  }, [
+    company.company,
+    company.symbol,
+    historyRuns,
+    locale,
+    projection.snapshot.run.runId,
+  ]);
   const completed = projection.state === "published" && report !== undefined;
   const terminal =
     projection.state === "failed" ||
@@ -179,6 +248,20 @@ export function LiveOfficeResearchRoom({
   }, [projection.snapshot.run.reportId, reportReload]);
 
   useEffect(() => {
+    if (client.listRuns === undefined) return;
+    let active = true;
+    void client
+      .listRuns(50)
+      .then((runs) => {
+        if (active) setHistoryRuns(runs);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [client]);
+
+  useEffect(() => {
     if (completed) setTranscriptOpen(true);
   }, [completed]);
 
@@ -196,7 +279,7 @@ export function LiveOfficeResearchRoom({
       data-research-mode="official"
       data-research-state={projection.state}
       data-sidebar-open={sidebarOpen ? "true" : "false"}
-      data-transcript-open={completed && transcriptOpen ? "true" : "false"}
+      data-transcript-open={transcriptOpen ? "true" : "false"}
     >
       <div className="research-layout">
         {connectionIssue || showReportNotice ? (
@@ -239,29 +322,18 @@ export function LiveOfficeResearchRoom({
           agents={agents}
           company={company}
           defaultAgentIds={agents.map((agent) => agent.id)}
-          history={[
-            {
-              symbol: company.symbol,
-              company: company.company,
-              runs: [
-                {
-                  label:
-                    locale === "ko"
-                      ? "전체 에이전트 분석"
-                      : "Full agent analysis",
-                  date: projection.snapshot.run.createdAt.slice(0, 10),
-                  live: !completed && !terminal,
-                },
-              ],
-            },
-          ]}
+          history={history}
           locale={locale}
           collapsed={!sidebarOpen}
           onCollapsedChange={(collapsed) => setSidebarOpen(!collapsed)}
+          onRunSelect={(runId, symbol) =>
+            router.push(`/research/${symbol}?run=${runId}&lang=${locale}`)
+          }
           onLocaleChange={setLocale}
         />
         <OfficeStage
           current={office.current}
+          events={office.events}
           snapshot={snapshot}
           renderPreviousSnapshot={animation.previousSnapshot}
           renderInterpolationAlpha={animation.interpolation}
@@ -288,7 +360,7 @@ export function LiveOfficeResearchRoom({
             ? {}
             : { reportId: projection.snapshot.run.reportId })}
           reportVersion={report?.version ?? 1}
-          panelOpen={completed ? transcriptOpen : true}
+          panelOpen={transcriptOpen}
           onPanelToggle={() => setTranscriptOpen((open) => !open)}
         />
       </div>

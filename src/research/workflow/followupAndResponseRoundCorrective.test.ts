@@ -281,6 +281,32 @@ describe("follow-up and response corrective boundaries", () => {
     },
   );
 
+  it("starts independent owner ballots while an optional follow-up is pending", async () => {
+    const fixture = await stagedRound(1);
+    const runId = fixture.prepared.harness.input.mandate.runId;
+
+    await fixture.round.advance(runId);
+    const database = new Database(fixture.prepared.options.databasePath, {
+      readonly: true,
+    });
+    const counts = z
+      .object({ followups: z.number(), ballots: z.number() })
+      .parse(
+        database
+          .prepare(`SELECT
+            SUM(CASE WHEN logical_key LIKE 'followup:%' THEN 1 ELSE 0 END) AS followups,
+            SUM(CASE WHEN logical_key LIKE 'response_ballot:%' THEN 1 ELSE 0 END) AS ballots
+          FROM jobs WHERE run_id = ? AND (
+            logical_key LIKE 'followup:%' OR logical_key LIKE 'response_ballot:%'
+          )`)
+          .get(runId),
+      );
+    database.close();
+    await fixture.round.close();
+
+    expect(counts).toEqual({ followups: 1, ballots: 3 });
+  });
+
   it("limits every owner prompt to its committed challenge, member memos, and allowed follow-up", async () => {
     // Given
     const fixture = await stagedRound(3);

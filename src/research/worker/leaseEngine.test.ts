@@ -733,7 +733,7 @@ describe("leased research worker", () => {
     }
   });
 
-  it("holds the cross-worker Codex concurrency ceiling at eleven", async () => {
+  it("holds the cross-worker Codex concurrency ceiling at six", async () => {
     // Given
     const fixture = createLeaseEngineFixture();
     const handler = new RecordingHandler();
@@ -741,30 +741,19 @@ describe("leased research worker", () => {
     handler.gate = new Promise((resolve) => {
       release = resolve;
     });
-    fixture.seedResearchJobs(12, 9);
-    const engines = [
-      "a",
-      "b",
-      "c",
-      "d",
-      "e",
-      "f",
-      "g",
-      "h",
-      "i",
-      "j",
-      "k",
-      "l",
-    ].map((id) => fixture.openEngine(`worker-${id}`, handler));
+    fixture.seedResearchJobs(7, 9);
+    const engines = ["a", "b", "c", "d", "e", "f", "g"].map((id) =>
+      fixture.openEngine(`worker-${id}`, handler),
+    );
 
     try {
       // When
       const tasks = engines.map((engine) => engine.poll());
-      const twelfth = await tasks[11];
+      const seventh = await tasks[6];
 
       // Then
-      expect(fixture.launches()).toHaveLength(11);
-      expect(twelfth).toEqual({ kind: "capacity" });
+      expect(fixture.launches()).toHaveLength(6);
+      expect(seventh).toEqual({ kind: "capacity" });
       release?.();
       await Promise.all(tasks);
     } finally {

@@ -158,50 +158,11 @@ function conversationLabel(group: ActivityGroup, locale: Locale): string {
   return labels[group][locale];
 }
 
-function liveStatus(event: ResearchEvent, locale: Locale): string {
-  const waiting = {
-    structural_audit_completed: {
-      en: "Checking claim-to-evidence meaning",
-      ko: "주장과 근거의 의미 일치 검증 중",
-    },
-    semantic_audit_committed: {
-      en: "Preparing the final committee agenda",
-      ko: "최종 위원회 안건 구성 중",
-    },
-    gathering_started: {
-      en: "Reconciling team votes and dissent",
-      ko: "팀별 투표와 이견 조정 중",
-    },
-    committee_classified: {
-      en: "Research chair is writing the conclusion",
-      ko: "리서치 의장이 최종 결론 작성 중",
-    },
-    chair_synthesis_committed: {
-      en: "Publishing the report and PDF",
-      ko: "최종 보고서와 PDF 발행 중",
-    },
-  } as const;
-  const status =
-    event.workflowKind === undefined
-      ? undefined
-      : waiting[event.workflowKind as keyof typeof waiting];
-  if (status !== undefined) return status[locale];
-  return event.phase === "challenging" || event.phase === "committee"
-    ? locale === "ko"
-      ? "강세·약세 논쟁 진행 중"
-      : "Bull and bear debate in progress"
-    : locale === "ko"
-      ? "부서별 조사 진행 중"
-      : "Department research in progress";
-}
-
 export function MeetingMinutes({
-  current,
   agents,
   events,
   locale,
   isComplete,
-  terminalState,
   reportId,
   reportVersion,
   questionsEnabled = true,
@@ -218,21 +179,6 @@ export function MeetingMinutes({
   const feedRef = useRef<HTMLDivElement | null>(null);
   const followTail = useRef(true);
   const mounted = useRef(false);
-  const terminalLabel =
-    terminalState === "failed"
-      ? locale === "ko"
-        ? "리서치 실패"
-        : "Research failed"
-      : terminalState === "incomplete"
-        ? locale === "ko"
-          ? "리서치 미완료"
-          : "Research incomplete"
-        : terminalState === "cancelled"
-          ? locale === "ko"
-            ? "리서치 취소됨"
-            : "Research cancelled"
-          : undefined;
-
   useEffect(() => {
     const added = events
       .filter((event) => !knownIds.current.has(event.id))
@@ -257,6 +203,10 @@ export function MeetingMinutes({
     setPendingCount(0);
   }, [events]);
 
+  useEffect(() => {
+    if (!canChat && mode !== "minutes") setMode("minutes");
+  }, [canChat, mode]);
+
   function scrollToLatest() {
     const feed = feedRef.current;
     if (!feed) return;
@@ -273,69 +223,67 @@ export function MeetingMinutes({
       data-panel-open={panelOpen ? "true" : "false"}
       aria-label={locale === "ko" ? "회의록" : "Meeting minutes"}
     >
-      <header
-        className={`meeting-minutes__header${isComplete ? " is-complete" : ""}`}
-      >
-        <h2 className={isComplete ? "sr-only" : undefined}>
+      <header className="meeting-minutes__header is-complete">
+        <h2 className="sr-only">
           {locale === "ko" ? "회의록" : "Meeting minutes"}
         </h2>
-        {canChat ? (
-          <fieldset className="meeting-minutes__modes">
-            <legend className="sr-only">
-              {locale === "ko" ? "우측 패널 보기" : "Right panel view"}
-            </legend>
+        <fieldset className="meeting-minutes__modes">
+          <legend className="sr-only">
+            {locale === "ko" ? "우측 패널 보기" : "Right panel view"}
+          </legend>
+          <button
+            type="button"
+            aria-pressed={mode === "minutes"}
+            onClick={() => setMode("minutes")}
+          >
+            {locale === "ko" ? "회의록" : "Meeting log"}
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === "questions"}
+            aria-disabled={!canChat}
+            disabled={!canChat}
+            title={
+              canChat
+                ? undefined
+                : locale === "ko"
+                  ? "리서치 완료 후 이용할 수 있습니다"
+                  : "Available after the research is complete"
+            }
+            onClick={() => setMode("questions")}
+          >
+            {locale === "ko" ? "채팅" : "Chat"}
+          </button>
+        </fieldset>
+        <div className="meeting-minutes__controls">
+          {onPanelToggle === undefined ? null : (
             <button
               type="button"
-              aria-pressed={mode === "minutes"}
-              onClick={() => setMode("minutes")}
+              className="meeting-minutes__panel-toggle"
+              aria-expanded={panelOpen}
+              aria-controls="research-meeting-minutes-content"
+              title={
+                locale === "ko"
+                  ? panelOpen
+                    ? "우측 패널 접기"
+                    : "우측 패널 펼치기"
+                  : panelOpen
+                    ? "Collapse right panel"
+                    : "Expand right panel"
+              }
+              onClick={onPanelToggle}
             >
-              {locale === "ko" ? "회의록" : "Meeting log"}
+              <SidebarSimple
+                size={20}
+                weight={panelOpen ? "fill" : "regular"}
+                aria-hidden="true"
+              />
+              <span className="sr-only">
+                {locale === "ko" ? "우측 패널" : "Right panel"}
+              </span>
             </button>
-            <button
-              type="button"
-              aria-pressed={mode === "questions"}
-              onClick={() => setMode("questions")}
-            >
-              {locale === "ko" ? "채팅" : "Chat"}
-            </button>
-          </fieldset>
-        ) : null}
-        {isComplete ? (
-          <div className="meeting-minutes__controls">
-            {onPanelToggle === undefined ? null : (
-              <button
-                type="button"
-                className="meeting-minutes__panel-toggle"
-                aria-expanded={panelOpen}
-                aria-controls="research-meeting-minutes-content"
-                title={
-                  locale === "ko"
-                    ? panelOpen
-                      ? "우측 패널 접기"
-                      : "우측 패널 펼치기"
-                    : panelOpen
-                      ? "Collapse right panel"
-                      : "Expand right panel"
-                }
-                onClick={onPanelToggle}
-              >
-                <SidebarSimple
-                  size={20}
-                  weight={panelOpen ? "fill" : "regular"}
-                  aria-hidden="true"
-                />
-                <span className="sr-only">
-                  {locale === "ko" ? "우측 패널" : "Right panel"}
-                </span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <span>
-            <i />
-            {terminalLabel ?? liveStatus(current, locale)}
-          </span>
-        )}
+          )}
+        </div>
       </header>
       <div
         id="research-meeting-minutes-content"

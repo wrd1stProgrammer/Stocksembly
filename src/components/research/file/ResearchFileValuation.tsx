@@ -24,8 +24,8 @@ export function ResearchFileValuation({
         title={ko ? "밸류에이션·기업 비교" : "Valuation & relative comparison"}
         description={
           ko
-            ? "절대 숫자를 나열하지 않고 어떤 성장·수익성 근거가 현재 기대를 정당화하는지 비교합니다."
-            : "Rather than list isolated numbers, compare which growth and profitability evidence supports current expectations."
+            ? "현재 기대를 지지하는 성장·수익성 근거와 이를 흔들 조건을 비교합니다."
+            : "Compare the growth and profitability evidence supporting current expectations with the conditions that would weaken them."
         }
       />
       <div className="research-valuation-lead">
@@ -56,8 +56,9 @@ export function ResearchFileValuation({
           <thead>
             <tr>
               <th scope="col">{ko ? "비교 축" : "Dimension"}</th>
-              <th scope="col">{ko ? "회사 관점" : "Company view"}</th>
-              <th scope="col">{ko ? "판단 기준" : "Decision lens"}</th>
+              <th scope="col">
+                {ko ? "회사 관점·시장 기준" : "Company view & market reference"}
+              </th>
               <th scope="col">{ko ? "해석" : "Interpretation"}</th>
             </tr>
           </thead>
@@ -65,8 +66,15 @@ export function ResearchFileValuation({
             {model.comparisonRows.map((row) => (
               <tr key={row.label}>
                 <th scope="row">{row.label}</th>
-                <td>{row.companyView}</td>
-                <td>{row.benchmarkLens}</td>
+                <td>
+                  <p>{row.companyView}</p>
+                  {row.benchmarkLens.length === 0 ? null : (
+                    <p className="research-comparison__reference">
+                      <b>{ko ? "시장 기준" : "Market reference"}</b>
+                      {row.benchmarkLens}
+                    </p>
+                  )}
+                </td>
                 <td>
                   {row.interpretation}
                   {row.evidenceId === undefined ? null : (

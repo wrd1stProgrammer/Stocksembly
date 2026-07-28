@@ -33,7 +33,6 @@ import { stageAcceptedDepartments } from "./challengeRound.testSupport";
 import { createSqliteFollowupAndResponseRound } from "./followupAndResponseRound";
 import { FollowupResponseCodexFake } from "./followupAndResponseRound.testSupport";
 import { createSqliteSemanticAudit } from "./semanticAudit";
-import { SemanticAuditPromptSchema } from "./semanticAuditContracts";
 import { persistStructuralAudit } from "./structuralAuditPersistence";
 import { authenticatedWorkflowRetentionRegister } from "./structuralAuditWorkflowRegister";
 
@@ -66,18 +65,27 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
     input: CodexRunInput<Candidate>,
   ): Promise<CodexRunResult<Candidate>> {
     if (input.stage === "semantic_audit") {
-      const prompt = SemanticAuditPromptSchema.parse(JSON.parse(input.prompt));
+      const prompt = z
+        .object({
+          claims: z.array(
+            z.object({
+              claimId: ClaimIdSchema,
+              evidence: z.array(
+                z.object({ evidenceKey: z.string() }).passthrough(),
+              ),
+            }),
+          ),
+          questions: z.array(z.object({ questionId: QuestionIdSchema })),
+        })
+        .passthrough()
+        .parse(JSON.parse(input.prompt));
       return this.chairResult(input, {
         kind: "semantic_audit",
-        sourceArtifactIds: prompt.sourceArtifactIds,
         verdicts: prompt.claims.map((claim) => ({
           claimId: claim.claimId,
           verdict: this.fault === "semantic_partial" ? "partial" : "entailed",
           contradictionSeverity:
             this.fault === "semantic_partial" ? "limited" : "none",
-          evidenceArtifactIds: [
-            ...new Set(claim.evidence.map((evidence) => evidence.artifactId)),
-          ],
           publicExplanation: { en: "Entailed.", ko: "근거가 있습니다." },
         })),
         questionCoverage: prompt.questions.map((question) => ({
@@ -100,7 +108,34 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
       (this.fault === "invalid_first" && this.chairLaunches === 1)
     )
       return this.chairResult(input, {});
-    const prompt = ChairSynthesisPromptSchema.parse(JSON.parse(input.prompt));
+    const prompt = z
+      .object({
+        ballots: z.array(
+          z
+            .object({
+              departmentId: z.string(),
+              vote: z.string(),
+            })
+            .passthrough(),
+        ),
+        sentences: z.array(
+          z.object({
+            sentenceId: z.string(),
+            kind: z.enum([
+              "claim",
+              "position",
+              "ballot",
+              "dissent",
+              "unknown",
+              "scenario",
+              "change_condition",
+            ]),
+            text: z.object({ en: z.string(), ko: z.string() }),
+          }),
+        ),
+      })
+      .passthrough()
+      .parse(JSON.parse(input.prompt));
     const firstLaunch = this.chairLaunches === 1;
     const idsFor = (key: (typeof CHAIR_SECTION_KEYS)[number]) => {
       const kinds =
@@ -148,56 +183,16 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
         if (this.fault === "invent_recommendation") text.en += " Buy now.";
         if (this.fault === "ko_mismatch") text.ko += " 불일치";
       }
-      const auditedClaimIds = [
-        ...new Set(selected.flatMap((sentence) => sentence?.claimIds ?? [])),
-      ];
-      const sourceArtifactIds = [
-        ...new Set(
-          selected.flatMap((sentence) => sentence?.sourceArtifactIds ?? []),
-        ),
-      ];
-      if (
-        this.fault === "invent_claim" &&
-        firstLaunch &&
-        sectionKey === "ten_second_brief"
-      )
-        auditedClaimIds.push(
-          ClaimIdSchema.parse("77777777-7777-4777-8777-777777777777"),
-        );
       return {
-        sectionId: sectionKey,
         sectionKey,
         publicSummary: text,
         sentenceIds,
-        sourceArtifactIds,
-        auditedClaimIds,
       };
     });
-    return this.chairResult(
-      input,
-      ChairSynthesisOutputSchema.parse({
-        kind: "chair_synthesis",
-        sourceArtifactIds:
-          this.fault === "invent_source" && firstLaunch
-            ? [
-                ...prompt.sourceArtifactIds,
-                ArtifactIdSchema.parse("77777777-7777-4777-8777-777777777777"),
-              ]
-            : prompt.sourceArtifactIds,
-        sections,
-        ballotArtifactIds: prompt.ballots.map((ballot) => ballot.artifactId),
-        dissentClaimIds:
-          this.fault === "drop_dissent" && firstLaunch
-            ? []
-            : prompt.dissentClaimIds,
-        unknowns:
-          this.fault === "drop_unknown" && firstLaunch
-            ? []
-            : prompt.sentences
-                .filter((sentence) => sentence.kind === "unknown")
-                .map((sentence) => sentence.text),
-      }),
-    );
+    return this.chairResult(input, {
+      kind: "chair_synthesis",
+      sections,
+    });
   }
 
   private chairResult<Candidate>(

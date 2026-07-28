@@ -137,6 +137,49 @@ describe("buildResearchFileEditorialModel", () => {
     expect(serialized).toContain("미국 재무부");
   });
 
+  it("keeps the analysis and valuation registers compact without dropping their decision inputs", () => {
+    const model = buildResearchFileEditorialModel(researchFileFixture, "ko");
+
+    expect(model.analysisRows).toHaveLength(4);
+    expect(
+      model.analysisRows.every(
+        (row) =>
+          row.title.length > 0 &&
+          row.agentView.length > 0 &&
+          row.evidence.length > 0 &&
+          row.counterpoint.length > 0 &&
+          row.checkpoint.length > 0,
+      ),
+    ).toBe(true);
+    expect(model.comparisonRows).toHaveLength(3);
+    expect(
+      model.scenarios.flatMap((scenario) => scenario.assumptions),
+    ).not.toContain("매출 성장률 +52% · FY2027 시나리오");
+    expect(
+      model.scenarios.flatMap((scenario) => scenario.assumptions),
+    ).toContain("매출 성장률 +52%");
+  });
+
+  it("keeps decimal-valued evidence intact when it removes a repeated sentence", () => {
+    const file = {
+      ...researchFileFixture,
+      claimMatrix: [
+        {
+          ...researchFileFixture.claimMatrix[0],
+          claim: {
+            en: "The 10-year yield is 4.65%. The second sentence is repeated elsewhere.",
+            ko: "10년물 금리는 4.65%입니다. 두 번째 문장은 다른 곳에 반복됩니다.",
+          },
+        },
+      ],
+    };
+
+    const model = buildResearchFileEditorialModel(file, "en");
+
+    expect(model.analysisRows[0]?.title).toContain("4.65%");
+    expect(model.analysisRows[0]?.title).not.toContain("second sentence");
+  });
+
   it("does not repeat a false current-price absence after a quote was sealed", () => {
     const file = {
       ...researchFileFixture,

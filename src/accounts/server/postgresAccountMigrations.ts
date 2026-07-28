@@ -88,6 +88,28 @@ const migrations = [
         ON report_ownership(principal_id, published_at DESC, report_id DESC);
     `,
   },
+  {
+    version: 2,
+    name: "002_durable_history_and_consultations",
+    sql: `
+      ALTER TABLE research_run_ownership
+        ADD COLUMN public_run JSONB;
+
+      CREATE TABLE report_consultations (
+        question_id UUID PRIMARY KEY,
+        report_id UUID NOT NULL,
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE RESTRICT,
+        public_question JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        recorded_at TIMESTAMPTZ NOT NULL,
+        CHECK (principal_id ~ '^[0-9a-f]{64}$')
+      );
+
+      CREATE INDEX report_consultations_user_report_idx
+        ON report_consultations(principal_id, report_id, created_at, question_id);
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

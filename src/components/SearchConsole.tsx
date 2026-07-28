@@ -1,7 +1,9 @@
 import { useRouter } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { authIsConfigured } from "../auth/amplifyClient";
 import { createAuthenticatedResearchClient } from "../auth/researchClient";
+import { currentAuthTokens } from "../auth/researchSession";
 import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
 import {
@@ -11,6 +13,7 @@ import {
   searchUsTickers,
   type Ticker,
 } from "../lib/tickers";
+import { ResearchRequestError } from "../research/client/api";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
 import {
   BorderBeam,
@@ -56,6 +59,8 @@ export function SearchConsole({
   const firstMatch = selectedTicker ?? matches[0];
   const hasQuery = query.trim().length > 0;
   const hasResults = firstMatch !== undefined;
+  const hasResearchQuestion = researchQuestion.trim().length > 0;
+  const canStartResearch = hasResults && hasResearchQuestion && !isSubmitting;
   const invalid = hasQuery && !hasResults && !isSearching;
 
   useEffect(() => {
@@ -110,11 +115,23 @@ export function SearchConsole({
 
   async function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!firstMatch) return;
+    if (!firstMatch || !hasResearchQuestion) return;
 
     setSubmissionError(undefined);
     setResultsOpen(false);
     setIsSubmitting(true);
+    if (authIsConfigured()) {
+      const tokens = await currentAuthTokens().catch(() => ({
+        accessToken: undefined,
+      }));
+      if (tokens.accessToken === undefined) {
+        setIsSubmitting(false);
+        router.push(
+          `/login?next=${encodeURIComponent(`/?lang=${locale}#research`)}`,
+        );
+        return;
+      }
+    }
     const idempotencyKey = crypto.randomUUID();
     let createdRunId: string | undefined;
     const launchOutcome = client
@@ -128,7 +145,9 @@ export function SearchConsole({
         createdRunId = created.run.runId;
         return "created" as const;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (error instanceof ResearchRequestError && error.status === 401)
+          return "unauthorized" as const;
         return "failed" as const;
       });
     try {
@@ -139,6 +158,12 @@ export function SearchConsole({
         );
       });
       const firstOutcome = await Promise.race([launchOutcome, pulseDelay]);
+      if (firstOutcome === "unauthorized") {
+        router.push(
+          `/login?next=${encodeURIComponent(`/?lang=${locale}#research`)}`,
+        );
+        return;
+      }
       if (firstOutcome === "failed") throw new Error("Research launch failed");
       if (firstOutcome === "created") await pulseDelay;
       const launchQuery = new URLSearchParams({
@@ -203,7 +228,7 @@ export function SearchConsole({
           <ResearchButton
             label={labels.action}
             loadingLabel={labels.loading}
-            disabled={!hasResults || isSubmitting}
+            disabled={!canStartResearch}
             loading={isSubmitting}
           />
         </div>

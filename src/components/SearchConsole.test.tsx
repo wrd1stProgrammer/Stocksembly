@@ -10,6 +10,8 @@ const testState = vi.hoisted(() => ({
     run: { runId: RUN_ID },
     events: [],
   })),
+  authConfigured: false,
+  authenticated: true,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -22,8 +24,19 @@ vi.mock("../research/client/api", () => ({
   }),
 }));
 
+vi.mock("../auth/amplifyClient", () => ({
+  authIsConfigured: () => testState.authConfigured,
+}));
+
+vi.mock("../auth/researchSession", () => ({
+  currentAuthTokens: async () =>
+    testState.authenticated ? { accessToken: "token" } : {},
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
+  testState.authConfigured = false;
+  testState.authenticated = true;
 });
 
 afterEach(() => {
@@ -31,11 +44,60 @@ afterEach(() => {
 });
 
 describe("SearchConsole durable research launch", () => {
-  it("limits the optional agent direction to one hundred characters", () => {
+  it("redirects a signed-out production user before creating a run", async () => {
+    testState.authConfigured = true;
+    testState.authenticated = false;
+    render(<SearchConsole locale="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "NVDA" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      { target: { value: "What changed?" } },
+    );
+
+    const form = screen.getByRole("searchbox").closest("form");
+    if (!(form instanceof HTMLFormElement))
+      throw new TypeError("search form missing");
+    fireEvent.submit(form);
+
+    await waitFor(() =>
+      expect(testState.push).toHaveBeenCalledWith(
+        "/login?next=%2F%3Flang%3Den%23research",
+      ),
+    );
+    expect(testState.startRun).not.toHaveBeenCalled();
+  });
+
+  it("requires a ticker and investment question before research can start", () => {
+    // Given
+    render(<SearchConsole locale="en" />);
+    const start = screen.getByRole("button", { name: "Build research" });
+
+    // Then
+    expect(start).toBeDisabled();
+
+    // When
+    fireEvent.click(screen.getByRole("button", { name: "NVDA" }));
+
+    // Then
+    expect(start).toBeDisabled();
+
+    // When
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      {
+        target: { value: "Can margins expand?" },
+      },
+    );
+
+    // Then
+    expect(start).toBeEnabled();
+  });
+
+  it("limits the investment question to one hundred characters", () => {
     // Given / When
     render(<SearchConsole locale="en" />);
     const question = screen.getByRole("textbox", {
-      name: "Research question",
+      name: "Investment question",
     });
     fireEvent.change(question, { target: { value: "a".repeat(101) } });
 
@@ -52,7 +114,7 @@ describe("SearchConsole durable research launch", () => {
       target: { value: "nvda" },
     });
     fireEvent.change(
-      screen.getByRole("textbox", { name: "Research question" }),
+      screen.getByRole("textbox", { name: "Investment question" }),
       {
         target: { value: "What changed in margins?" },
       },
@@ -92,6 +154,12 @@ describe("SearchConsole durable research launch", () => {
     );
     render(<SearchConsole locale="en" />);
     fireEvent.click(screen.getByRole("button", { name: "NVDA" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      {
+        target: { value: "What could change the thesis?" },
+      },
+    );
 
     // When
     const form = screen.getByRole("searchbox").closest("form");
@@ -103,7 +171,7 @@ describe("SearchConsole durable research launch", () => {
     // Then
     expect(testState.push).toHaveBeenCalledOnce();
     expect(testState.push.mock.calls[0]?.[0]).toMatch(
-      /^\/research\/NVDA\?lang=en&launch=.+&question=$/,
+      /^\/research\/NVDA\?lang=en&launch=.+&question=What\+could\+change\+the\+thesis%3F$/,
     );
   });
 
@@ -114,6 +182,12 @@ describe("SearchConsole durable research launch", () => {
     fireEvent.change(screen.getByRole("searchbox"), {
       target: { value: "NVDA" },
     });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      {
+        target: { value: "What could change the thesis?" },
+      },
+    );
 
     // When
     const form = screen.getByRole("searchbox").closest("form");
@@ -148,6 +222,12 @@ describe("SearchConsole durable research launch", () => {
     const result = companyName.closest("button");
     expect(result).toBeInstanceOf(HTMLButtonElement);
     fireEvent.click(result as HTMLButtonElement);
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      {
+        target: { value: "What is priced into the stock?" },
+      },
+    );
     const form = screen.getByRole("searchbox").closest("form");
     if (!(form instanceof HTMLFormElement))
       throw new TypeError("search form missing");
@@ -180,6 +260,12 @@ describe("SearchConsole durable research launch", () => {
       target: { value: "berkshire class b" },
     });
     fireEvent.click(await screen.findByText("Berkshire Hathaway Inc. Class B"));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      {
+        target: { value: "What is the earnings outlook?" },
+      },
+    );
 
     // When
     const form = screen.getByRole("searchbox").closest("form");

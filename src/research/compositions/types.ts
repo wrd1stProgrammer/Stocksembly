@@ -136,9 +136,13 @@ export type ResearchHistoryGroup = {
   readonly symbol: string;
   readonly company: string;
   readonly runs: readonly {
+    readonly runId?: string;
+    readonly reportId?: string;
     readonly label: string;
     readonly date: string;
+    readonly current?: boolean;
     readonly live?: boolean;
+    readonly statusLabel?: string;
   }[];
 };
 

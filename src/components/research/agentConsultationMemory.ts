@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Locale } from "../../lib/i18n";
+import type { PublicQuestion } from "../../research/client/schemas";
 import { WorkflowActorIdSchema } from "../../research/domain/roleRegistry";
 import type { AgentProfile } from "../../research/types";
 
@@ -84,6 +85,102 @@ export function saveConsultationMessages(
     storageKey(reportId),
     JSON.stringify(completedMessages(messages)),
   );
+}
+
+function specialistId(question: PublicQuestion): AgentProfile["id"] {
+  try {
+    const payload: unknown = JSON.parse(question.question.en);
+    if (typeof payload !== "object" || payload === null) return "chair";
+    const specialist = Reflect.get(payload, "specialist");
+    if (typeof specialist !== "object" || specialist === null) return "chair";
+    const parsed = WorkflowActorIdSchema.safeParse(
+      Reflect.get(specialist, "id"),
+    );
+    return parsed.success ? parsed.data : "chair";
+  } catch {
+    return "chair";
+  }
+}
+
+function userQuestion(question: PublicQuestion, locale: Locale): string {
+  try {
+    const payload: unknown = JSON.parse(question.question[locale]);
+    if (typeof payload !== "object" || payload === null)
+      return question.question[locale];
+    const localized = Reflect.get(payload, "userQuestion");
+    if (typeof localized !== "object" || localized === null)
+      return question.question[locale];
+    const value = Reflect.get(localized, locale);
+    return typeof value === "string" ? value : question.question[locale];
+  } catch {
+    return question.question[locale];
+  }
+}
+
+export function consultationMessagesFromQuestions(
+  questions: readonly PublicQuestion[],
+  locale: Locale,
+): readonly ConsultationMessage[] {
+  const retried = new Set(
+    questions.flatMap((question) =>
+      question.retryOfQuestionId === undefined
+        ? []
+        : [question.retryOfQuestionId],
+    ),
+  );
+  return questions
+    .filter(
+      (question) =>
+        !retried.has(question.questionId) &&
+        (question.status === "answered" || question.status === "failed"),
+    )
+    .flatMap((question): readonly ConsultationMessage[] => {
+      const agentId = specialistId(question);
+      const prompt: ConsultationMessage = {
+        id: question.questionId,
+        kind: "question",
+        agentId,
+        text: userQuestion(question, locale),
+      };
+      const response: ConsultationMessage =
+        question.status === "answered" && question.answer !== undefined
+          ? {
+              id: globalThis.crypto.randomUUID(),
+              kind: "answer",
+              agentId,
+              state: "answered",
+              activity: question.activity,
+              paragraphs:
+                question.answer.summary === null
+                  ? question.answer.elements.map(
+                      (element) => element.text[locale],
+                    )
+                  : [question.answer.summary[locale]],
+              evidence: [
+                ...question.answer.elements.map((element) => ({
+                  label: element.text[locale],
+                  claimId: element.claimId,
+                  sourceIds: element.sourceIds,
+                })),
+                ...question.answer.externalSources.map((source) => ({
+                  label: `${source.publisher} · ${source.title}`,
+                  url: source.url,
+                })),
+              ],
+            }
+          : {
+              id: globalThis.crypto.randomUUID(),
+              kind: "answer",
+              agentId,
+              state: "failed",
+              activity: question.activity,
+              paragraphs: [],
+              evidence: [],
+              errorCode: "CONSULTATION_FAILED",
+            };
+      return [prompt, response];
+    })
+    .slice(-24);
 }
 
 function unique(values: readonly string[], limit: number): readonly string[] {

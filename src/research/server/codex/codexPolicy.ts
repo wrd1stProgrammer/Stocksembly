@@ -71,7 +71,7 @@ export function trustedResearchRuntime(
       lunaSupportSpecialistsEnabled,
     ) ?? {
       model: "gpt-5.6-terra",
-      reasoning: "medium",
+      reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[stage],
     }
   );
 }
@@ -99,7 +99,7 @@ export const CODEX_RUNTIME_POLICY = Object.freeze({
     owner_response_ballot: "medium",
     follow_up: "medium",
     semantic_audit: "medium",
-    chair_synthesis: "medium",
+    chair_synthesis: "low",
     qa: "low",
     probe: "medium",
   } satisfies Readonly<Record<CodexStage, CodexReasoning>>),

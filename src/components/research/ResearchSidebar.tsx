@@ -44,6 +44,7 @@ export function ResearchSidebar({
   locale,
   collapsed,
   onCollapsedChange,
+  onRunSelect,
 }: ResearchSidebarProps) {
   const [openHistoryGroups, setOpenHistoryGroups] = useState<
     ReadonlySet<string>
@@ -141,10 +142,18 @@ export function ResearchSidebar({
                       <div className="analysis-history__runs">
                         {group.runs.map((run) => (
                           <button
-                            key={`${group.symbol}-${run.label}`}
+                            key={run.runId ?? `${group.symbol}-${run.label}`}
                             type="button"
                             className={run.live ? "is-live" : ""}
-                            aria-current={run.live ? "page" : undefined}
+                            aria-current={run.current ? "page" : undefined}
+                            onClick={
+                              run.runId === undefined || run.current
+                                ? undefined
+                                : () => {
+                                    if (run.runId !== undefined)
+                                      onRunSelect?.(run.runId, group.symbol);
+                                  }
+                            }
                           >
                             <ClockCounterClockwise size={15} />
                             <span>
@@ -157,7 +166,9 @@ export function ResearchSidebar({
                             </span>
                             {run.live ? (
                               <i>{locale === "ko" ? "진행 중" : "Live"}</i>
-                            ) : null}
+                            ) : run.statusLabel === undefined ? null : (
+                              <i>{run.statusLabel}</i>
+                            )}
                           </button>
                         ))}
                       </div>

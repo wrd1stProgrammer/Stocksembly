@@ -1,6 +1,7 @@
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import {
   CHAIR_SECTION_KEYS,
+  ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
 } from "./chairSynthesisContracts";
 
@@ -32,11 +33,22 @@ function allowedSentenceKinds(
 function summaryIsValid(
   sectionKey: ChairSectionKey,
   summary: { readonly en: string; readonly ko: string },
+  sentences: readonly ChairSentence[],
 ): boolean {
   const maxLength = sectionKey === "ten_second_brief" ? 360 : 4_000;
+  const sourceText = sentences
+    .flatMap((sentence) => [sentence.text.en, sentence.text.ko])
+    .join(" ");
+  const numericTokens =
+    `${summary.en} ${summary.ko}`.match(
+      /[$€£]?[+-]?\d[\d,.]*(?:%|[A-Za-z])?/gu,
+    ) ?? [];
   return (
     summary.en.length <= maxLength &&
     summary.ko.length <= maxLength &&
+    numericTokens.every((token) => sourceText.includes(token)) &&
+    !/\b(?:buy|sell)\s+now\b/iu.test(summary.en) &&
+    !/(?:지금|즉시)\s*(?:매수|매도)/u.test(summary.ko) &&
     !/(?:claim|question).{0,32}(?:missing|not supplied|not provided)/iu.test(
       `${summary.en} ${summary.ko}`,
     ) &&
@@ -77,7 +89,32 @@ function resolveChairCandidate(
   repairInvalidSections: boolean,
 ): unknown {
   const prompt = ChairSynthesisPromptSchema.parse(JSON.parse(promptJson));
-  const candidate = ChairSynthesisOutputSchema.safeParse(raw);
+  const rawRecord =
+    typeof raw === "object" && raw !== null
+      ? (raw as Record<string, unknown>)
+      : undefined;
+  // biome-ignore lint/complexity/useLiteralKeys: required by noPropertyAccessFromIndexSignature.
+  const rawSections =
+    rawRecord !== undefined && Array.isArray(rawRecord["sections"])
+      ? rawRecord["sections"]
+      : undefined;
+  const repairableRaw =
+    repairInvalidSections &&
+    rawSections !== undefined &&
+    rawSections.length > 0 &&
+    rawSections.length < CHAIR_SECTION_KEYS.length
+      ? {
+          ...rawRecord,
+          sections: [
+            ...rawSections,
+            ...Array.from(
+              { length: CHAIR_SECTION_KEYS.length - rawSections.length },
+              () => rawSections[0],
+            ),
+          ],
+        }
+      : raw;
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(repairableRaw);
   if (!candidate.success) return {};
   const catalog = new Map(
     prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]),
@@ -105,7 +142,7 @@ function resolveChairCandidate(
       selected.length > 0 &&
       selected.length === requestedIds.length &&
       new Set(requestedIds).size === requestedIds.length &&
-      summaryIsValid(sectionKey, draft.publicSummary);
+      summaryIsValid(sectionKey, draft.publicSummary, uniqueSelected);
     if (!draftIsValid && !repairInvalidSections) return undefined;
     const resolvedSentences =
       uniqueSelected.length > 0
@@ -127,9 +164,7 @@ function resolveChairCandidate(
         ),
       ],
       auditedClaimIds: [
-        ...new Set(
-          resolvedSentences.flatMap((sentence) => sentence.claimIds),
-        ),
+        ...new Set(resolvedSentences.flatMap((sentence) => sentence.claimIds)),
       ],
     };
   });
@@ -146,10 +181,7 @@ function resolveChairCandidate(
   });
 }
 
-export function validChairCandidate(
-  promptJson: string,
-  raw: unknown,
-): unknown {
+export function validChairCandidate(promptJson: string, raw: unknown): unknown {
   return resolveChairCandidate(promptJson, raw, false);
 }
 

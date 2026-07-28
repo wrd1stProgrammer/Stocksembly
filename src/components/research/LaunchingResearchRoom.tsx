@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
+import { ResearchRequestError } from "../../research/client/api";
+import { Brand } from "../Brand";
 
 type Props = {
   readonly symbol: string;
@@ -32,8 +34,15 @@ export function LaunchingResearchRoom({
           `/research/${symbol}?run=${created.run.runId}&lang=${locale}`,
         );
       })
-      .catch(() => {
-        if (active) setFailed(true);
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof ResearchRequestError && error.status === 401) {
+          router.replace(
+            `/login?next=${encodeURIComponent(`/?lang=${locale}#research`)}`,
+          );
+          return;
+        }
+        setFailed(true);
       });
     return () => {
       active = false;
@@ -63,7 +72,7 @@ export function LaunchingResearchRoom({
   return (
     <div className="research-shell research-launch-shell" lang={locale}>
       <aside className="research-launch-shell__rail">
-        <a href="/">Stocksembly</a>
+        <Brand locale={locale} />
         <div>
           <span>{symbol}</span>
           <small>{copy.side}</small>

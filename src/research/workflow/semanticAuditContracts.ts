@@ -80,6 +80,70 @@ export const SemanticAuditPromptSchema = z
   .readonly();
 export type SemanticAuditPrompt = z.infer<typeof SemanticAuditPromptSchema>;
 
+export const SemanticAuditModelOutputSchema = z
+  .object({
+    kind: z.literal("semantic_audit"),
+    verdicts: z
+      .array(
+        z.object({
+          claimId: ClaimIdSchema,
+          verdict: z.enum([
+            "entailed",
+            "partial",
+            "contradicted",
+            "not_assessable",
+          ]),
+          contradictionSeverity: z.enum(["none", "limited", "severe"]),
+          publicExplanation: BilingualPublicTextSchema,
+        }),
+      )
+      .min(1)
+      .max(128)
+      .readonly(),
+    questionCoverage: z
+      .array(
+        z.object({
+          questionId: QuestionIdSchema,
+          status: z.enum(["covered", "partial", "uncovered"]),
+          claimIds: z.array(ClaimIdSchema).max(64).readonly(),
+        }),
+      )
+      .max(32)
+      .readonly(),
+  })
+  .readonly();
+
+export function semanticAuditModelPrompt(prompt: SemanticAuditPrompt): string {
+  const evidenceCatalog: {
+    readonly evidenceKey: string;
+    readonly exactText: string;
+  }[] = [];
+  const keys = new Map<string, string>();
+  const evidenceKey = (exactText: string): string => {
+    const existing = keys.get(exactText);
+    if (existing !== undefined) return existing;
+    const key = `e${evidenceCatalog.length + 1}`;
+    keys.set(exactText, key);
+    evidenceCatalog.push({ evidenceKey: key, exactText });
+    return key;
+  };
+  return JSON.stringify({
+    kind: prompt.kind,
+    claims: prompt.claims.map((claim) => ({
+      claimId: claim.claimId,
+      materiality: claim.materiality,
+      text: claim.text,
+      evidence: claim.evidence.map((evidence) => ({
+        evidenceKey: evidenceKey(evidence.exactText),
+        relation: evidence.relation,
+      })),
+    })),
+    evidenceCatalog,
+    questions: prompt.questions,
+    instructions: prompt.instructions,
+  });
+}
+
 export const PersistedSemanticAuditJobSchema = z
   .object({
     runId: RunIdSchema,
@@ -87,6 +151,7 @@ export const PersistedSemanticAuditJobSchema = z
     jobId: JobIdSchema,
     logicalArtifactId: z.literal("semantic_audit:system"),
     prompt: z.string().min(1),
+    validationPrompt: z.string().min(1).optional(),
     inputHash: z.string().regex(/^[a-f0-9]{64}$/),
     requestHash: z.string().regex(/^[a-f0-9]{64}$/),
     inputManifestHash: z.string().regex(/^[a-f0-9]{64}$/),

@@ -7,9 +7,12 @@ import {
   ChildRunResponseSchema,
   CreateRunResponseSchema,
   type PublicQuestion,
+  PublicQuestionListResponseSchema,
   PublicQuestionResponseSchema,
+  type PublicRun,
   type PublicRunDetail,
   PublicRunDetailSchema,
+  PublicRunListResponseSchema,
 } from "./schemas";
 
 export class ResearchPayloadError extends Error {
@@ -65,12 +68,16 @@ type QuestionInput = {
 export type ResearchClient = {
   readonly bootstrapSession: () => Promise<void>;
   readonly startRun: (input: StartRunInput) => Promise<PublicRunDetail>;
+  readonly listRuns?: (limit?: number) => Promise<readonly PublicRun[]>;
   readonly getRun: (runId: string) => Promise<PublicRunDetail>;
   readonly cancelRun: (runId: string, key: string) => Promise<void>;
   readonly retryRun: (runId: string, key: string) => Promise<ChildRun>;
   readonly followUp: (input: FollowUpInput) => Promise<ChildRun>;
   readonly askQuestion: (input: QuestionInput) => Promise<PublicQuestion>;
   readonly getQuestion: (questionId: string) => Promise<PublicQuestion>;
+  readonly listQuestions?: (
+    reportId: string,
+  ) => Promise<readonly PublicQuestion[]>;
 };
 
 async function payload(response: Response): Promise<unknown> {
@@ -172,6 +179,13 @@ export function createResearchClient(
       );
       return { run: created.run, events: [] };
     },
+    listRuns: async (limit = 50) =>
+      (
+        await parsedRequest(
+          client.get(apiUrl(`/api/research/runs?limit=${limit}`)),
+          (value) => PublicRunListResponseSchema.parse(value),
+        )
+      ).runs,
     getRun: async (runId) =>
       await parsedRequest(
         client.get(apiUrl(`/api/research/runs/${runId}`)),
@@ -232,5 +246,12 @@ export function createResearchClient(
           (value) => PublicQuestionResponseSchema.parse(value),
         )
       ).question,
+    listQuestions: async (reportId) =>
+      (
+        await parsedRequest(
+          client.get(apiUrl(`/api/research/reports/${reportId}/questions`)),
+          (value) => PublicQuestionListResponseSchema.parse(value),
+        )
+      ).questions,
   };
 }

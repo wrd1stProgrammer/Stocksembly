@@ -7,6 +7,7 @@ import { PixelOfficeGame } from "./PixelOfficeGame";
 
 type Props = {
   readonly current: ResearchEvent;
+  readonly events?: readonly ResearchEvent[];
   readonly snapshot?: OfficeSimulationSnapshot;
   readonly renderPreviousSnapshot?: OfficeSimulationSnapshot;
   readonly renderInterpolationAlpha?: number;
@@ -23,6 +24,7 @@ type Props = {
 
 export function OfficeStage({
   current,
+  events = [current],
   snapshot,
   renderPreviousSnapshot,
   renderInterpolationAlpha,
@@ -64,6 +66,7 @@ export function OfficeStage({
           <PixelOfficeGame
             phase={current.phase}
             currentEvent={current}
+            events={events}
             {...(snapshot ? { snapshot } : {})}
             {...(renderPreviousSnapshot ? { renderPreviousSnapshot } : {})}
             {...(renderInterpolationAlpha !== undefined

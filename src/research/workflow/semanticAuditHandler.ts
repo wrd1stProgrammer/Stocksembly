@@ -17,6 +17,7 @@ import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
 import type { SemanticAuditSqliteAuthority } from "./semanticAuditAuthority";
 import {
+  SemanticAuditModelOutputSchema,
   SemanticAuditPromptSchema,
   type SqliteSemanticAuditOptions,
 } from "./semanticAuditContracts";
@@ -34,7 +35,7 @@ type Context = {
 };
 function validCandidate(promptJson: string, input: unknown): unknown {
   const prompt = SemanticAuditPromptSchema.parse(JSON.parse(promptJson));
-  const parsed = SemanticAuditOutputSchema.safeParse(input);
+  const parsed = SemanticAuditModelOutputSchema.safeParse(input);
   if (!parsed.success) return {};
   const verdicts = prompt.claims.map((claim) => {
     const received = parsed.data.verdicts.find(
@@ -102,18 +103,20 @@ export function createSemanticAuditAttemptHandler(
         reservation: { key, fence: claim },
         stage: "semantic_audit",
         prompt: job.prompt,
-        outputSchema: SemanticAuditOutputSchema,
+        outputSchema: SemanticAuditModelOutputSchema,
         signal,
         onActivity: activity,
       });
-      candidate = validCandidate(job.prompt, result.candidate);
+      candidate = validCandidate(
+        job.validationPrompt ?? job.prompt,
+        result.candidate,
+      );
       runnerEvidence = result.evidence;
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;
       if (error instanceof ZodError)
         throw new CodexRunnerError("output_invalid");
-      if (error instanceof Error)
-        throw new CodexRunnerError("process_failed");
+      if (error instanceof Error) throw new CodexRunnerError("process_failed");
       throw error;
     }
     const recorded = recordSuccessfulRunnerEvidence(

@@ -60,6 +60,10 @@ function combineDistinct(first: string, second: string): string {
   return `${first}${separator}${second}`;
 }
 
+function debateLength(value: string, supportingDetail: string): string {
+  return value.length >= 28 ? value : combineDistinct(value, supportingDetail);
+}
+
 function team(
   input: EditorialInsightInput,
   departmentId: EditorialTeamInput["departmentId"],
@@ -88,11 +92,14 @@ function debate(
     id,
     title: row.title,
     claimOwner,
-    claim: row.agentView,
+    claim: debateLength(row.agentView, row.evidence),
     counterOwner,
-    counterargument: row.counterpoint,
+    counterargument: debateLength(row.counterpoint, row.checkpoint),
     recheckedEvidence: row.evidence,
-    chairRuling: combineDistinct(row.agentView, row.checkpoint),
+    chairRuling: combineDistinct(
+      debateLength(row.agentView, row.counterpoint),
+      row.checkpoint,
+    ),
   };
 }
 
