@@ -1,8 +1,9 @@
 import type { AttemptId, JobId, RunId, SnapshotId } from "../domain/ids";
+import { LIMITS } from "../domain/limits.constants";
 import type { JsonValue } from "../server/persistence/sqlite/safeJson";
 
 export const LEASE_ENGINE_DEFAULTS = {
-  activeRuns: 2,
+  activeRuns: LIMITS.admission.activeRuns,
   queuedRuns: 8,
   globalCodexProcesses: 6,
   leaseMs: 30_000,

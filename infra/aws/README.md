@@ -35,6 +35,9 @@ variables, login and research keep working against the local SQLite principal.
 S3 and SQS are optional in the same way: without
 `STOCKSEMBLY_ARTIFACT_BUCKET` and `STOCKSEMBLY_RESEARCH_QUEUE_URL`, the local
 filesystem CAS and interval-based worker scheduler remain active.
+`STOCKSEMBLY_ACTIVE_RUNS` can temporarily override the default concurrent
+research limit of two for controlled load testing. Web and worker containers
+must receive the same value.
 To exercise the PostgreSQL account layer through a private tunnel, forward a
 local port to the RDS endpoint through the application host and set:
 

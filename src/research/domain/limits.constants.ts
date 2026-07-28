@@ -2,6 +2,13 @@ const KIB = 1024;
 const MIB = KIB * KIB;
 const GIB = KIB * KIB * KIB;
 
+function configuredLimit(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isSafeInteger(value) && value >= 1 ? value : fallback;
+}
+
+const ACTIVE_RUNS = configuredLimit("STOCKSEMBLY_ACTIVE_RUNS", 2);
+
 export const BYTES = {
   commandBody: 64 * KIB,
   maxRawSourceResponse: 25 * MIB,
@@ -14,7 +21,11 @@ export const BYTES = {
 } as const;
 
 export const LIMITS = {
-  admission: { activeRuns: 2, queuedRuns: 8, globalCodexProcesses: 3 },
+  admission: {
+    activeRuns: ACTIVE_RUNS,
+    queuedRuns: 8,
+    globalCodexProcesses: 3,
+  },
   source: {
     maxRawResponseBytes: BYTES.maxRawSourceResponse,
     maxNormalizedFilingBytes: BYTES.maxNormalizedFiling,
