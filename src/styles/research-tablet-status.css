@@ -1,0 +1,109 @@
+@media (width > 700px) and (width <= 920px) {
+  .department-rail__heading {
+    height: auto;
+    display: flex;
+    margin: var(--research-space-3) var(--research-space-1)
+      var(--research-space-2);
+    background: transparent;
+  }
+  .department-rail__heading span,
+  .department-rail__heading em,
+  .agent-list div,
+  .agent-list svg,
+  .agent-list i {
+    display: block;
+  }
+  .agent-list li {
+    min-height: 58px;
+    grid-template-columns: 32px 1fr 16px;
+    place-items: center start;
+    padding: var(--research-space-1) var(--research-space-compact);
+  }
+  .agent-list img {
+    width: auto;
+    height: 44px;
+  }
+  .research-command__status > div > span {
+    display: none;
+  }
+  .research-command__brand .brand span,
+  .research-command__brand > span,
+  .research-command__optional {
+    display: none;
+  }
+  .research-command__brand {
+    gap: var(--research-space-compact);
+  }
+  .research-command__status progress {
+    width: 48px;
+  }
+}
+
+@media (width <= 700px) {
+  .research-command {
+    height: 64px;
+    grid-template-columns: 30px minmax(70px, 1fr) auto;
+    gap: var(--research-space-compact);
+  }
+  .research-command__brand > strong {
+    display: none;
+  }
+  .research-command__status {
+    display: flex;
+    justify-content: flex-start;
+    gap: var(--research-space-1);
+  }
+  .research-command__status > div > span {
+    display: none;
+  }
+  .research-command__status small {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "phase progress"
+      "elapsed elapsed";
+    align-items: baseline;
+    gap: 1px var(--research-space-compact);
+    max-width: none;
+    min-width: 0;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    letter-spacing: 0.02em;
+    line-height: 1.05;
+  }
+  .research-command__metrics > span {
+    min-width: 0;
+    overflow: visible;
+    white-space: nowrap;
+    text-overflow: clip;
+  }
+  .research-command__metrics > span:nth-child(1) {
+    grid-area: phase;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .research-command__metrics > span:nth-child(2) {
+    grid-area: progress;
+  }
+  .research-command__metrics > span:nth-child(3) {
+    grid-area: elapsed;
+  }
+  .research-command__metrics > span:not(:first-child)::before {
+    content: none;
+  }
+  .research-command__status progress {
+    width: 28px;
+  }
+  .research-command__actions {
+    gap: var(--research-space-hairline);
+  }
+  .research-command__actions > button,
+  .research-command__actions > a {
+    min-width: 32px;
+    padding: var(--research-space-none) var(--research-space-compact);
+  }
+  .research-command__actions .language-toggle button {
+    min-width: 26px;
+  }
+}

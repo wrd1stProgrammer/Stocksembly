@@ -1,0 +1,159 @@
+.activity-panel {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--research-line);
+}
+.activity-tabs {
+  height: 52px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: var(--research-space-tight);
+  gap: var(--research-space-micro);
+  border-bottom: 1px solid var(--research-line);
+}
+.activity-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--research-space-compact);
+  border: 0;
+  border-radius: var(--research-radius-sm);
+  color: var(--research-text-muted);
+  background: transparent;
+  font-size: var(--research-type-label);
+  cursor: pointer;
+}
+.activity-tabs button[aria-selected="true"] {
+  color: var(--research-text);
+  background: var(--research-surface-raised);
+}
+.activity-panel__live {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: var(--research-space-2);
+  padding: var(--research-space-none) var(--research-space-4);
+  color: var(--research-text-faint);
+  font-size: var(--research-type-label);
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--research-line-soft);
+}
+.activity-panel__live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--research-positive);
+  box-shadow: 0 0 10px var(--research-positive);
+}
+.activity-panel__live span {
+  margin-left: auto;
+  padding: var(--research-space-hairline) var(--research-space-compact);
+  border-radius: var(--research-radius-badge);
+  background: var(--research-line-soft);
+}
+.activity-feed {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.activity-feed article {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: var(--research-space-control);
+  padding: 15px;
+  border-bottom: 1px solid var(--research-line-soft);
+  opacity: 0.66;
+}
+.activity-feed article.is-current {
+  opacity: 1;
+  background: color-mix(
+    in srgb,
+    var(--research-surface-raised) 72%,
+    transparent
+  );
+  box-shadow: inset 2px 0 var(--research-accent);
+}
+.activity-feed article > img {
+  width: auto;
+  height: 49px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.activity-feed header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--research-space-tight);
+}
+.activity-feed header strong {
+  font-size: var(--research-type-label);
+}
+.activity-feed header span,
+.activity-feed header em {
+  color: var(--research-text-faint);
+  font-size: var(--research-type-label);
+}
+.activity-feed header em {
+  margin-left: auto;
+  padding: var(--research-space-hairline) var(--research-space-compact);
+  border: 1px solid var(--research-line);
+  border-radius: var(--research-radius-badge);
+  background: var(--research-surface-soft);
+  font-style: normal;
+  white-space: nowrap;
+}
+.activity-feed h2 {
+  margin: var(--research-space-tight) var(--research-space-none) 5px;
+  font-size: var(--research-type-label);
+  line-height: 1.4;
+}
+.activity-feed p {
+  margin: var(--research-space-none);
+  color: var(--research-text-soft);
+  font-size: var(--research-type-body);
+  line-height: 1.52;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+  text-wrap: pretty;
+}
+.activity-feed a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--research-space-1);
+  margin-top: var(--research-space-2);
+  color: var(--research-blue);
+  font-size: var(--research-type-label);
+}
+.activity-participants {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--research-space-tight);
+  margin-top: var(--research-space-2);
+  color: var(--research-text-faint);
+  font-size: var(--research-type-label);
+  line-height: 1.35;
+}
+.activity-participants > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--research-space-tight);
+  max-width: 100%;
+}
+.activity-participants__name {
+  white-space: nowrap;
+}
+.activity-participants__separator {
+  color: var(--research-text-faint);
+  white-space: nowrap;
+}
+.activity-empty {
+  padding: 72px 28px;
+  color: var(--research-text-faint);
+  text-align: center;
+}
+.activity-empty p {
+  font-size: var(--research-type-label);
+  line-height: 1.5;
+}

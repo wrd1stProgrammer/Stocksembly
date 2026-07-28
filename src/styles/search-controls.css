@@ -1,0 +1,403 @@
+@property --search-beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.border-beam-card {
+  --search-beam-angle: 0deg;
+  position: relative;
+  z-index: 20;
+  width: min(var(--console-width), 100%);
+  margin-top: clamp(40px, 6vh, 56px);
+}
+
+.search-console {
+  position: relative;
+  width: 100%;
+  min-height: 118px;
+  padding: 16px 64px 10px 20px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 13%, transparent);
+  border-radius: 30px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--color-panel-raised) 94%, transparent),
+    color-mix(in srgb, var(--color-panel) 94%, transparent)
+  );
+  box-shadow:
+    0 32px 90px color-mix(in srgb, var(--color-void) 78%, transparent),
+    0 10px 44px color-mix(in srgb, var(--color-text) 7%, transparent),
+    inset 0 1px color-mix(in srgb, var(--color-text) 12%, transparent),
+    inset 0 -1px color-mix(in srgb, var(--color-void) 72%, transparent);
+  backdrop-filter: blur(18px);
+  animation: rise var(--motion-emphasis) 80ms both;
+}
+
+.border-beam-card[data-active="true"]::before,
+.border-beam-card[data-active="true"]::after {
+  position: absolute;
+  z-index: -1;
+  inset: -6px;
+  border-radius: 36px;
+  pointer-events: none;
+  content: "";
+}
+
+.border-beam-card[data-active="true"]::before {
+  background: conic-gradient(
+    from var(--search-beam-angle),
+    transparent 0 42%,
+    var(--prism-blue) 49%,
+    var(--prism-lavender) 55%,
+    var(--prism-mint) 61%,
+    var(--prism-amber) 67%,
+    var(--prism-coral) 72%,
+    transparent 79% 100%
+  );
+  filter: blur(9px);
+  opacity: 0.8;
+  animation:
+    search-border-beam 1.15s linear infinite,
+    border-beam-pulse 900ms ease-in-out infinite alternate;
+}
+
+.border-beam-card[data-active="true"]::after {
+  border: 1px solid
+    color-mix(in srgb, var(--prism-lavender) 60%, var(--color-text));
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--prism-blue) 52%, transparent),
+    0 0 34px color-mix(in srgb, var(--prism-coral) 28%, transparent);
+  animation: border-beam-pulse 900ms ease-in-out infinite alternate;
+}
+
+.border-beam-card[data-active="true"] .search-console::before,
+.border-beam-card[data-active="true"] .search-console::after {
+  opacity: 0;
+}
+.search-console::before {
+  position: absolute;
+  z-index: 2;
+  inset: -2px;
+  padding: 2px;
+  border-radius: 32px;
+  background: conic-gradient(
+    from var(--search-beam-angle),
+    transparent 0 52%,
+    color-mix(in srgb, var(--color-text) 8%, transparent) 57%,
+    color-mix(in srgb, var(--color-text) 46%, transparent) 63%,
+    color-mix(in srgb, var(--color-text) 12%, transparent) 69%,
+    transparent 76% 100%
+  );
+  filter: blur(5px);
+  mask:
+    linear-gradient(black 0 0) content-box,
+    linear-gradient(black 0 0);
+  mask-composite: exclude;
+  opacity: 0.24;
+  pointer-events: none;
+  animation: search-border-beam var(--motion-border-beam);
+  content: "";
+}
+
+.search-console::after {
+  position: absolute;
+  z-index: 3;
+  inset: -1px;
+  padding: 1px;
+  border-radius: 31px;
+  background: conic-gradient(
+    from var(--search-beam-angle),
+    transparent 0 47%,
+    color-mix(in srgb, var(--color-text) 5%, transparent) 52%,
+    color-mix(in srgb, var(--color-text) 28%, transparent) 57%,
+    color-mix(in srgb, var(--color-text) 72%, transparent) 62%,
+    var(--color-text) 65%,
+    color-mix(in srgb, var(--color-text) 54%, transparent) 69%,
+    color-mix(in srgb, var(--color-text) 12%, transparent) 75%,
+    transparent 82% 100%
+  );
+  mask:
+    linear-gradient(black 0 0) content-box,
+    linear-gradient(black 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(
+    0 0 10px color-mix(in srgb, var(--color-text) 30%, transparent)
+  );
+  opacity: 0.61;
+  pointer-events: none;
+  animation: search-border-beam var(--motion-border-beam);
+  content: "";
+}
+
+@keyframes search-border-beam {
+  to {
+    --search-beam-angle: 360deg;
+  }
+}
+
+@keyframes border-beam-pulse {
+  to {
+    opacity: 0.42;
+    transform: scale(1.012);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-console::before,
+  .search-console::after {
+    --search-beam-angle: 128deg;
+    animation: none;
+  }
+  .border-beam-card[data-active="true"]::before,
+  .border-beam-card[data-active="true"]::after {
+    animation: none;
+  }
+}
+.search-console__primary {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  align-items: stretch;
+  gap: var(--space-5);
+}
+.search-field {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-1);
+  min-height: 52px;
+  padding: 0 var(--space-5) var(--space-1) 0;
+  border-right: 1px solid
+    color-mix(in srgb, var(--color-border) 72%, transparent);
+  color: var(--color-text-muted);
+  background: transparent;
+  box-shadow: none;
+  transition:
+    border-color var(--motion-standard),
+    box-shadow var(--motion-standard),
+    filter var(--motion-standard);
+}
+.search-field:focus-within {
+  filter: none;
+}
+.search-field[data-invalid="true"] {
+  border-right-color: color-mix(
+    in srgb,
+    var(--color-danger) 72%,
+    var(--color-border)
+  );
+}
+.composer-field__label {
+  color: var(--color-text-subtle);
+  font-size: var(--type-overlay);
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.search-field input {
+  width: 100%;
+  min-width: 0;
+  color: var(--color-text);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  padding: 0;
+  font-size: var(--type-body);
+  line-height: 1.45;
+}
+.search-field input::placeholder {
+  color: var(--color-text-subtle);
+  opacity: 1;
+}
+.search-field input::-webkit-search-cancel-button {
+  appearance: none;
+}
+.research-question-field {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 0 var(--space-1);
+}
+.research-question-field:focus-within .composer-field__label,
+.search-field:focus-within .composer-field__label {
+  color: var(--color-text-muted);
+}
+.research-question-field textarea {
+  field-sizing: content;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--space-8);
+  max-height: var(--space-16);
+  padding: 0;
+  overflow-y: auto;
+  color: var(--color-text);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--type-body);
+  line-height: 1.45;
+  resize: none;
+}
+.research-question-field textarea::placeholder {
+  color: var(--color-text-subtle);
+  opacity: 1;
+}
+.research-question-field small {
+  justify-self: end;
+  color: var(--color-text-subtle);
+  font-size: 10px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.research-button {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  z-index: 4;
+  right: 18px;
+  bottom: 20px;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  color: var(--color-void);
+  background: var(--color-accent-bright);
+  box-shadow:
+    0 12px 32px color-mix(in srgb, var(--color-accent) 34%, transparent),
+    inset 0 1px color-mix(in srgb, var(--color-text) 28%, transparent);
+  font-weight: 720;
+  cursor: pointer;
+  transition:
+    transform var(--motion-micro),
+    opacity var(--motion-micro);
+}
+.research-button__surface {
+  position: absolute;
+  z-index: 1;
+  inset: 2px;
+  border-radius: 50%;
+  background: var(--color-text);
+  transition: opacity var(--motion-standard);
+}
+.research-button__content {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+.research-button__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.research-button__lights,
+.research-button__lights i {
+  position: absolute;
+}
+.research-button__lights {
+  z-index: 0;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--motion-standard);
+}
+.research-button__lights i {
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  filter: blur(16px);
+}
+.research-button__lights i:nth-child(1) {
+  background: var(--prism-blue);
+  transform: translate(-112%, -94%);
+}
+.research-button__lights i:nth-child(2) {
+  background: var(--prism-lavender);
+  transform: translate(-46%, -24%);
+}
+.research-button__lights i:nth-child(3) {
+  background: var(--color-text);
+  transform: translate(18%, -78%);
+}
+.research-button__lights i:nth-child(4) {
+  background: var(--prism-mint);
+  transform: translate(54%, -18%);
+}
+.research-button__lights i:nth-child(5) {
+  background: var(--color-accent-bright);
+  transform: translate(-84%, 14%);
+}
+.research-button__lights i:nth-child(6) {
+  background: var(--prism-coral);
+  transform: translate(4%, 6%);
+}
+.research-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.research-button:hover:not(:disabled) .research-button__surface,
+.research-button:focus-visible:not(:disabled) .research-button__surface {
+  opacity: 0.62;
+}
+.research-button:hover:not(:disabled) .research-button__content,
+.research-button:focus-visible:not(:disabled) .research-button__content {
+  color: var(--color-text);
+}
+.research-button:hover:not(:disabled) .research-button__lights,
+.research-button:focus-visible:not(:disabled) .research-button__lights {
+  opacity: 1;
+}
+.research-button:hover:not(:disabled) .research-button__lights i,
+.research-button:focus-visible:not(:disabled) .research-button__lights i {
+  animation: gradient-party 1.8s ease-in-out infinite alternate;
+}
+.research-button:hover:not(:disabled)
+  .research-button__lights
+  i:nth-child(even),
+.research-button:focus-visible:not(:disabled)
+  .research-button__lights
+  i:nth-child(even) {
+  animation-direction: alternate-reverse;
+}
+.research-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.research-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  box-shadow: none;
+}
+.research-button:disabled .research-button__surface {
+  background: var(--color-panel-raised);
+}
+.research-button:disabled .research-button__content {
+  color: var(--color-text-subtle);
+}
+
+@keyframes gradient-party {
+  to {
+    transform: translate(-20%, -50%) scale(1.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .research-button:hover:not(:disabled) .research-button__lights i,
+  .research-button:focus-visible:not(:disabled) .research-button__lights i {
+    animation: none;
+  }
+}

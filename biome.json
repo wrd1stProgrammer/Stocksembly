@@ -1,0 +1,42 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!!.codegraph",
+      "!!.omo",
+      "!!.next",
+      "!!.stocksembly-verification",
+      "!!assets",
+      "!!design",
+      "!!dist",
+      "!!coverage",
+      "!!node_modules",
+      "!!output",
+      "!!outputs",
+      "!!tmp",
+      "!!playwright-report",
+      "!!test-results",
+      "!!docs/reference/ai-research-office-project-brief.html",
+      "!!docs/reference/ai-research-office-service-overview.html"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

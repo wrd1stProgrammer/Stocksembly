@@ -1,0 +1,114 @@
+import { type Locale, researchCopy } from "../../lib/i18n";
+import type { ResearchFileData } from "../../research/compositions/types";
+import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
+import type { AgentId, ResearchEvent } from "../../research/types";
+import { CompletedResearchFile } from "./CompletedResearchFile";
+import { PixelOfficeGame } from "./PixelOfficeGame";
+
+type Props = {
+  readonly current: ResearchEvent;
+  readonly snapshot?: OfficeSimulationSnapshot;
+  readonly renderPreviousSnapshot?: OfficeSimulationSnapshot;
+  readonly renderInterpolationAlpha?: number;
+  readonly locale: Locale;
+  readonly isPaused: boolean;
+  readonly isComplete: boolean;
+  readonly company: import("../../research/types").ResearchCompany;
+  readonly report: ResearchFileData;
+  readonly reportVersion: number;
+  readonly reportId?: string;
+  readonly activeAgentIds: readonly AgentId[];
+  readonly onReplay: () => void;
+};
+
+export function OfficeStage({
+  current,
+  snapshot,
+  renderPreviousSnapshot,
+  renderInterpolationAlpha,
+  locale,
+  isPaused,
+  isComplete,
+  company,
+  report,
+  reportVersion,
+  reportId,
+  activeAgentIds,
+  onReplay,
+}: Props) {
+  const labels = researchCopy[locale];
+  return (
+    <main className={`office-workbench${isComplete ? " is-complete" : ""}`}>
+      <div className="office-heading">
+        <h2 id="office-stage-title" className="sr-only">
+          {labels.aria.stage}
+        </h2>
+        <span className="office-heading__label">
+          {isComplete
+            ? locale === "ko"
+              ? "최종 리서치 리포트"
+              : "FINAL RESEARCH REPORT"
+            : locale === "ko"
+              ? "실시간 리서치 룸"
+              : "LIVE RESEARCH ROOM"}
+        </span>
+      </div>
+      {isComplete ? null : (
+        <section
+          className={`office-stage phase-${current.phase}${isPaused ? " is-paused" : ""}`}
+          data-office-tick={snapshot?.tick}
+          data-office-beat={snapshot?.beatId}
+          data-camera-mode="overview"
+          aria-labelledby="office-stage-title"
+        >
+          <PixelOfficeGame
+            phase={current.phase}
+            currentEvent={current}
+            {...(snapshot ? { snapshot } : {})}
+            {...(renderPreviousSnapshot ? { renderPreviousSnapshot } : {})}
+            {...(renderInterpolationAlpha !== undefined
+              ? { renderInterpolationAlpha }
+              : {})}
+            locale={locale}
+            isPaused={isPaused}
+            activeAgentIds={activeAgentIds}
+            cameraMode="overview"
+          />
+          <p
+            className="sr-only"
+            data-testid="office-semantic-summary"
+            aria-live="polite"
+          >
+            {current.summary[locale]}
+          </p>
+          <div className="office-stage__shade" />
+          <div className="office-stage__department-labels" aria-hidden="true">
+            <span data-room="market">
+              {locale === "ko" ? "시장" : "MARKET"}
+            </span>
+            <span data-room="chair">
+              {locale === "ko" ? "리서치 의장" : "RESEARCH CHAIR"}
+            </span>
+            <span data-room="company">
+              {locale === "ko" ? "기업" : "COMPANY"}
+            </span>
+            <span data-room="financial">
+              {locale === "ko" ? "재무" : "FINANCIAL"}
+            </span>
+            <span data-room="risk">{locale === "ko" ? "리스크" : "RISK"}</span>
+          </div>
+        </section>
+      )}
+      {isComplete ? (
+        <CompletedResearchFile
+          company={company}
+          report={report}
+          locale={locale}
+          version={reportVersion}
+          {...(reportId === undefined ? {} : { reportId })}
+          onReplay={onReplay}
+        />
+      ) : null}
+    </main>
+  );
+}

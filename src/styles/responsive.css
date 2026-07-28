@@ -1,0 +1,129 @@
+@media (max-width: 900px) {
+  .site-header {
+    grid-template-columns: 1fr auto;
+  }
+  .site-header nav {
+    display: none;
+  }
+  .hero {
+    padding-top: clamp(64px, 10vh, 96px);
+  }
+  .search-console__footer {
+    grid-template-columns: auto 1fr;
+  }
+  .search-console__status {
+    grid-column: 1 / -1;
+    max-width: none;
+    text-align: left;
+  }
+}
+@media (max-width: 768px) {
+  .site-header {
+    width: calc(100% - 32px);
+    min-height: 72px;
+  }
+  .site-header__actions {
+    gap: var(--space-2);
+  }
+  .sign-in {
+    display: none;
+  }
+  .hero {
+    width: calc(100% - 32px);
+    padding-top: clamp(56px, 8vh, 80px);
+  }
+  .hero__eyebrow {
+    font-size: 0.75rem;
+  }
+  .hero h1 {
+    letter-spacing: -0.05em;
+  }
+  .hero__description {
+    max-width: 36ch;
+  }
+  .border-beam-card {
+    margin-top: var(--space-10);
+  }
+  .search-console {
+    min-height: 184px;
+    padding: 16px 58px 10px 16px;
+    border-radius: 26px;
+  }
+  .search-console__primary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+  .search-field {
+    gap: var(--space-2);
+    min-height: 56px;
+    padding: 0 0 var(--space-2);
+    border-right: 0;
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--color-border) 72%, transparent);
+  }
+  .search-field[data-invalid="true"] {
+    border-right-color: transparent;
+    border-bottom-color: color-mix(
+      in srgb,
+      var(--color-danger) 72%,
+      var(--color-border)
+    );
+  }
+  .search-field input,
+  .research-question-field textarea {
+    font-size: var(--type-label);
+  }
+  .research-question-field {
+    min-height: 48px;
+  }
+  .research-button {
+    right: 14px;
+    bottom: 18px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+  .search-console__footer {
+    display: block;
+    margin-top: var(--space-1);
+  }
+  .ticker-list {
+    overflow-x: auto;
+    justify-content: flex-start;
+    margin-top: 0;
+    padding-bottom: var(--space-2);
+    scrollbar-width: none;
+  }
+  .ticker-list::-webkit-scrollbar {
+    display: none;
+  }
+  .ticker-chip {
+    min-height: 32px;
+  }
+  .search-results {
+    top: calc(100% + var(--space-2));
+    left: 0;
+    width: 100%;
+    max-height: min(296px, 52vh);
+  }
+  .search-results button {
+    grid-template-columns: minmax(56px, auto) minmax(0, 1fr) auto;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+  .search-results__company {
+    display: block;
+  }
+  .search-results__company small {
+    display: block;
+    margin-top: var(--space-1);
+  }
+  .search-results__meta {
+    padding: var(--space-2);
+  }
+  .hero__proof {
+    margin-top: var(--space-8);
+    font-size: var(--type-label);
+  }
+}

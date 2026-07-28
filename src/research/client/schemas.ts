@@ -1,0 +1,129 @@
+import { z } from "zod";
+import { GroundedAnswerSchema } from "../domain/question";
+import { RUN_STATUS } from "../domain/runStateContracts";
+import { WORKFLOW_PUBLIC_EVENT_KINDS } from "../workflow/publicEventsContracts";
+
+const UuidSchema = z.uuid();
+
+export const PublicRunSchema = z
+  .strictObject({
+    runId: UuidSchema,
+    snapshotId: UuidSchema,
+    symbol: z.string().regex(/^[A-Z]{1,5}$/u),
+    locale: z.enum(["en", "ko"]),
+    status: z.enum([
+      RUN_STATUS.queued,
+      RUN_STATUS.running,
+      RUN_STATUS.cancelling,
+      RUN_STATUS.completed,
+      RUN_STATUS.completeWithLimitations,
+      RUN_STATUS.cancelled,
+      RUN_STATUS.failed,
+      RUN_STATUS.incomplete,
+    ]),
+    lastEventSeq: z.number().int().nonnegative(),
+    createdAt: z.iso.datetime(),
+    reportId: UuidSchema.optional(),
+  })
+  .readonly();
+
+const PublicIdsSchema = z.array(z.string().min(1).max(160)).max(256).readonly();
+
+export const PublicResearchEventSchema = z
+  .strictObject({
+    sequence: z.number().int().positive(),
+    kind: z.enum(WORKFLOW_PUBLIC_EVENT_KINDS),
+    occurredAt: z.iso.datetime(),
+    stateId: z.string().min(1).max(160),
+    summary: z
+      .strictObject({ en: z.string(), ko: z.string() })
+      .readonly()
+      .optional(),
+    actorId: z.string().min(1).max(160).optional(),
+    artifactId: UuidSchema.optional(),
+    logicalArtifactId: z.string().min(1).max(160).optional(),
+    reportId: UuidSchema.optional(),
+    reportVersionId: UuidSchema.optional(),
+    participantIds: PublicIdsSchema,
+    claimIds: PublicIdsSchema,
+    sourceIds: PublicIdsSchema,
+    limitationIds: PublicIdsSchema,
+  })
+  .readonly();
+
+export const PublicRunDetailSchema = z
+  .strictObject({
+    run: PublicRunSchema,
+    events: z.array(PublicResearchEventSchema).readonly(),
+  })
+  .readonly();
+
+export const CreateRunResponseSchema = z
+  .strictObject({ run: PublicRunSchema })
+  .readonly();
+
+export const CancelRunResponseSchema = z
+  .strictObject({
+    run: z
+      .strictObject({
+        runId: UuidSchema,
+        status: z.enum([RUN_STATUS.cancelling, RUN_STATUS.cancelled]),
+      })
+      .readonly(),
+  })
+  .readonly();
+
+export const ChildRunResponseSchema = z
+  .strictObject({
+    run: z
+      .strictObject({
+        runId: UuidSchema,
+        snapshotId: UuidSchema,
+        status: z.literal(RUN_STATUS.queued),
+        parentRunId: UuidSchema,
+        lineage: z.enum(["same-snapshot-retry", "new-snapshot-follow-up"]),
+        reportId: UuidSchema.optional(),
+        version: z.number().int().positive().optional(),
+      })
+      .readonly(),
+  })
+  .readonly();
+
+export const PublicQuestionResponseSchema = z
+  .strictObject({
+    question: z
+      .strictObject({
+        questionId: UuidSchema,
+        retryOfQuestionId: UuidSchema.optional(),
+        reportId: UuidSchema,
+        reportVersionId: UuidSchema,
+        attemptOrdinal: z.number().int().min(1).max(20),
+        status: z.enum([
+          "pending",
+          "spawn_reserved",
+          "running",
+          "answered",
+          "failed",
+        ]),
+        activity: z.enum(["searching", "thinking"]).default("thinking"),
+        question: z.strictObject({ en: z.string(), ko: z.string() }),
+        answer: GroundedAnswerSchema.optional(),
+        createdAt: z.iso.datetime(),
+      })
+      .readonly(),
+  })
+  .readonly();
+
+export const ApiErrorResponseSchema = z
+  .strictObject({
+    error: z.strictObject({ code: z.string().min(1) }),
+  })
+  .readonly();
+
+export type PublicRun = z.infer<typeof PublicRunSchema>;
+export type PublicResearchEvent = z.infer<typeof PublicResearchEventSchema>;
+export type PublicRunDetail = z.infer<typeof PublicRunDetailSchema>;
+export type ChildRun = z.infer<typeof ChildRunResponseSchema>["run"];
+export type PublicQuestion = z.infer<
+  typeof PublicQuestionResponseSchema
+>["question"];

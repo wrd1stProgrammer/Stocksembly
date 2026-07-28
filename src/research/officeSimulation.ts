@@ -1,0 +1,259 @@
+import {
+  OFFICE_CLOCK_CONTRACT,
+  type OfficeCameraTarget,
+  officeBeatAt,
+  officeCameraTargetAt,
+  officeDirectivesAt,
+  officeEventsAt,
+} from "./officeChoreography";
+import { assertNeverOffice } from "./officeChoreographyV7Contract";
+import { OFFICE_NAVIGATION_GRID } from "./officeNavigation";
+import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
+import {
+  createInitialOfficeActors,
+  stepOfficeActors,
+} from "./officeSimulationV7Actors";
+import type {
+  OfficeActorSnapshot,
+  OfficeFrame,
+  OfficeSimulationOptions,
+  OfficeSimulationSnapshot,
+  OfficeSimulationState,
+} from "./officeSimulationV7Types";
+import {
+  formatOfficeTraceHash,
+  normalizeOfficeTraceFrame,
+  OFFICE_TRACE_HASH_OFFSET,
+  updateOfficeTraceHash,
+} from "./officeTraceV7";
+
+export type {
+  OfficeActorSnapshot,
+  OfficeFrame,
+  OfficeOccupancy,
+  OfficeRouteFailureEvent,
+  OfficeSimulationActor,
+  OfficeSimulationEvent,
+  OfficeSimulationOptions,
+  OfficeSimulationSnapshot,
+  OfficeSimulationState,
+} from "./officeSimulationV7Types";
+
+function freezeCamera(camera: OfficeCameraTarget): OfficeCameraTarget {
+  switch (camera.kind) {
+    case "actors":
+      return Object.freeze({
+        kind: "actors",
+        actorIds: Object.freeze([...camera.actorIds]),
+      });
+    case "overview":
+      return Object.freeze({ kind: "overview" });
+    default:
+      return assertNeverOffice(camera);
+  }
+}
+
+function initialState(options: OfficeSimulationOptions): OfficeSimulationState {
+  const navigationGrid = options.navigationGrid ?? OFFICE_NAVIGATION_GRID;
+  const actors = createInitialOfficeActors();
+  const events = Object.freeze([...officeEventsAt(0)]);
+  const cameraTarget = freezeCamera(officeCameraTargetAt(0));
+  const line = normalizeOfficeTraceFrame({
+    tick: 0,
+    beatId: "briefing",
+    actors,
+    reservations: [],
+    eventIds: events.map((event) => event.id),
+    cameraTarget,
+  });
+  const traceHashValue = updateOfficeTraceHash(OFFICE_TRACE_HASH_OFFSET, line);
+  return Object.freeze({
+    tick: 0,
+    beatId: "briefing",
+    actors,
+    reservations: Object.freeze([]),
+    events,
+    cameraTarget,
+    paused: false,
+    reducedMotion: options.reducedMotion ?? false,
+    navigationGrid,
+    trace: Object.freeze([line]),
+    traceHashValue,
+    traceHash: formatOfficeTraceHash(traceHashValue),
+  });
+}
+
+export function createOfficeSimulation(
+  options: OfficeSimulationOptions = {},
+): OfficeSimulationState {
+  return initialState(options);
+}
+
+export function stepOfficeSimulation(
+  state: OfficeSimulationState,
+): OfficeSimulationState {
+  if (state.paused || state.tick >= OFFICE_CLOCK_CONTRACT.completeTick)
+    return state;
+  const tick = state.tick + 1;
+  const beat = officeBeatAt(tick);
+  const actorStep = stepOfficeActors({
+    actors: state.actors,
+    directives: officeDirectivesAt(tick),
+    grid: state.navigationGrid,
+    reducedMotion: state.reducedMotion,
+    tick,
+  });
+  const events = Object.freeze([
+    ...state.events,
+    ...officeEventsAt(tick),
+    ...actorStep.routeFailures,
+  ]);
+  const cameraTarget = freezeCamera(officeCameraTargetAt(tick));
+  const line = normalizeOfficeTraceFrame({
+    tick,
+    beatId: beat.id,
+    actors: actorStep.actors,
+    reservations: actorStep.reservations,
+    eventIds: events.map((event) => event.id),
+    cameraTarget,
+  });
+  const traceHashValue = updateOfficeTraceHash(state.traceHashValue, line);
+  return Object.freeze({
+    ...state,
+    tick,
+    beatId: beat.id,
+    actors: actorStep.actors,
+    reservations: actorStep.reservations,
+    events,
+    cameraTarget,
+    trace: Object.freeze([...state.trace, line]),
+    traceHashValue,
+    traceHash: formatOfficeTraceHash(traceHashValue),
+  });
+}
+
+export function setOfficeSimulationPaused(
+  state: OfficeSimulationState,
+  paused: boolean,
+): OfficeSimulationState {
+  if (state.paused === paused) return state;
+  return Object.freeze({ ...state, paused });
+}
+
+export function replayOfficeSimulation(
+  state: OfficeSimulationState,
+): OfficeSimulationState {
+  return createOfficeSimulation({
+    reducedMotion: state.reducedMotion,
+    navigationGrid: state.navigationGrid,
+  });
+}
+
+export function skipOfficeSimulation(
+  state: OfficeSimulationState,
+): OfficeSimulationState {
+  let current = setOfficeSimulationPaused(state, false);
+  while (current.tick < OFFICE_CLOCK_CONTRACT.completeTick) {
+    current = stepOfficeSimulation(current);
+  }
+  return current;
+}
+
+function worldPoint(cell: { readonly x: number; readonly y: number }) {
+  return Object.freeze({
+    x:
+      cell.x * OFFICE_SCENE_MANIFEST.world.cellSize +
+      OFFICE_SCENE_MANIFEST.world.cellSize / 2,
+    y: (cell.y + 1) * OFFICE_SCENE_MANIFEST.world.cellSize,
+  });
+}
+
+export function officeSimulationSnapshot(
+  state: OfficeSimulationState,
+): OfficeSimulationSnapshot {
+  const actors: readonly OfficeActorSnapshot[] = Object.freeze(
+    state.actors.map((actor) =>
+      Object.freeze({
+        id: actor.id,
+        department: actor.department,
+        cell: Object.freeze({ ...actor.cell }),
+        world: worldPoint(actor.cell),
+        action: actor.action,
+        facing: actor.facing,
+        destination: Object.freeze({ ...actor.destination }),
+        routeIndex: actor.routeIndex,
+        scale: actor.scale,
+        revision: actor.revision,
+        waitTicks: actor.waitTicks,
+        failedReplans: actor.failedReplans,
+      }),
+    ),
+  );
+  const occupancy = Object.freeze(
+    actors.map((actor) =>
+      Object.freeze({
+        actorId: actor.id,
+        cell: Object.freeze({ ...actor.cell }),
+      }),
+    ),
+  );
+  const reservations = Object.freeze(
+    state.reservations.map((reservation) =>
+      Object.freeze({
+        actorId: reservation.actorId,
+        from: Object.freeze({ ...reservation.from }),
+        to: Object.freeze({ ...reservation.to }),
+      }),
+    ),
+  );
+  return Object.freeze({
+    tick: state.tick,
+    beatId: state.beatId,
+    actors,
+    occupancy,
+    reservations,
+    visibleEventIds: Object.freeze(state.events.map((event) => event.id)),
+    cameraTarget: freezeCamera(state.cameraTarget),
+    traceHash: state.traceHash,
+  });
+}
+
+export function createOfficeFrame(
+  simulation: OfficeSimulationState,
+): OfficeFrame {
+  return Object.freeze({
+    simulation,
+    previousSimulation: simulation,
+    accumulatorMs: 0,
+    interpolation: 0,
+  });
+}
+
+export function advanceOfficeFrame(
+  frame: OfficeFrame,
+  frameDeltaMs: number,
+): OfficeFrame {
+  if (frame.simulation.paused) return frame;
+  const clampedDelta = Math.max(
+    0,
+    Math.min(frameDeltaMs, OFFICE_CLOCK_CONTRACT.maxFrameDeltaMs),
+  );
+  const elapsed = frame.accumulatorMs + clampedDelta;
+  const ticks = Math.min(
+    Math.floor(elapsed / OFFICE_CLOCK_CONTRACT.tickMs),
+    OFFICE_CLOCK_CONTRACT.maxCatchUpTicks,
+  );
+  let simulation = frame.simulation;
+  let previousSimulation = frame.previousSimulation;
+  for (let index = 0; index < ticks; index += 1) {
+    previousSimulation = simulation;
+    simulation = stepOfficeSimulation(simulation);
+  }
+  const accumulatorMs = elapsed - ticks * OFFICE_CLOCK_CONTRACT.tickMs;
+  return Object.freeze({
+    simulation,
+    previousSimulation,
+    accumulatorMs,
+    interpolation: accumulatorMs / OFFICE_CLOCK_CONTRACT.tickMs,
+  });
+}

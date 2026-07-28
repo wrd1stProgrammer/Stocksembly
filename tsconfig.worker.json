@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "noEmit": false,
+    "rootDir": "src/research",
+    "outDir": ".stocksembly-verification/research-worker",
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "plugins": []
+  },
+  "include": [
+    "src/research/worker/leaseWorker.ts",
+    "src/research/worker/runtimeLifecycle.ts",
+    "src/research/worker/runtimeProbe.ts"
+  ],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}

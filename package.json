@@ -1,0 +1,88 @@
+{
+  "name": "stocksembly",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.20.0 <21"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "pnpm research:worker:build && next build",
+    "postbuild": "node scripts/prepare-standalone.mjs",
+    "start": "pnpm start:local",
+    "start:local": "node scripts/start-local.mjs",
+    "start:web": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 HOSTNAME=127.0.0.1 node --env-file-if-exists=.env.local .next/standalone/server.js",
+    "start:worker": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 node --env-file-if-exists=.env.local .next/standalone/research-worker/worker.mjs serve",
+    "preview": "PORT=4175 pnpm start:local",
+    "typecheck": "tsc --noEmit --pretty false",
+    "research:configure-sec-identity": "node scripts/research-sec-identity.mjs configure",
+    "research:require-sec-identity": "node scripts/research-sec-identity.mjs require",
+    "research:worker:typecheck": "tsc -p tsconfig.worker.json --noEmit --pretty false",
+    "research:worker:build": "pnpm research:worker:typecheck && vite build --ssr src/research/worker/leaseWorker.ts --outDir .stocksembly-verification/research-worker && vite build --ssr src/research/worker/runtimeProbe.ts --outDir .stocksembly-verification/research-worker --emptyOutDir false",
+    "research:worker": "pnpm build && pnpm start:worker",
+    "research:worker:start": "pnpm start:worker",
+    "research:worker:readiness": "node .next/standalone/research-worker/worker.mjs readiness",
+    "research:worker:health": "node .next/standalone/research-worker/worker.mjs health",
+    "readiness": "pnpm research:worker:readiness",
+    "health": "pnpm research:worker:health",
+    "research:worker:probe": "pnpm research:worker:build && node .stocksembly-verification/research-worker/runtimeProbe.js runtime-probe",
+    "research:codex:probe": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 node scripts/research-codex-probe.mjs",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "audit:lighthouse": "node scripts/lighthouse-audit.mjs",
+    "audit:visual-diff": "node scripts/reference-diff.mjs",
+    "doctor": "npx react-doctor@latest"
+  },
+  "dependencies": {
+    "@kfonts/nanum-gothic": "^0.2.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@react-pdf/renderer": "4.3.1",
+    "better-sqlite3": "12.11.1",
+    "border-beam": "1.3.0",
+    "cheerio": "1.2.0",
+    "decimal.js": "10.6.0",
+    "ky": "^1.14.2",
+    "lucide-react": "^1.25.0",
+    "next": "16.2.10",
+    "pdfmake": "^0.2.20",
+    "pixi.js": "8.19.0",
+    "pretendard": "1.3.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "thinking-orbs": "0.1.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@biomejs/biome": "^2.5.4",
+    "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "20.19.43",
+    "@types/pdfmake": "^0.3.3",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "chrome-launcher": "1.2.1",
+    "jsdom": "^29.1.1",
+    "lighthouse": "13.4.0",
+    "playwright": "^1.61.1",
+    "pngjs": "7.0.0",
+    "react-grab": "^0.1.48",
+    "typescript": "5.9.3",
+    "vite": "8.1.4",
+    "vitest": "^4.1.10"
+  },
+  "pnpm": {
+    "overrides": {
+      "vite": "8.1.4"
+    },
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
+  }
+}

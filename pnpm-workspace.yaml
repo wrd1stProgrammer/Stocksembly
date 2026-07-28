@@ -1,0 +1,8 @@
+packages:
+  - "."
+
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - "@biomejs/*"
+  - "thinking-orbs"
+trustPolicy: no-downgrade

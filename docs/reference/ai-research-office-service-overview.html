@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="한 종목을 검색하면 AI 리서치 조직이 움직이는 주식 분석 서비스 소개서">
+  <title>AI Research Office — 서비스 소개서</title>
+  <style>
+    :root {
+      --ink: #0a1626;
+      --navy: #0e2138;
+      --navy-raised: #16314f;
+      --paper: #f5f0e6;
+      --paper-bright: #fffdf8;
+      --paper-muted: #e8e0d3;
+      --text: #132033;
+      --muted: #566274;
+      --line: #d7cebf;
+      --line-dark: #29435f;
+      --amber: #f1b642;
+      --amber-deep: #b77412;
+      --amber-ink: #765000;
+      --cyan: #5bbef6;
+      --green: #36c780;
+      --red: #e66868;
+      --text-inverse: #fffdf8;
+      --text-inverse-muted: #c6d2df;
+      --text-inverse-subtle: #a8b6c7;
+      --control-border: #52677f;
+      --navy-deep: #091829;
+      --navy-panel: #0c1b2c;
+      --navy-hover: #172b43;
+      --amber-hover: #ffd16c;
+      --lead: #4e5d70;
+      --report-text: #39495d;
+      --trust-bg: #e8e0d3;
+      --trust-line: #c9beae;
+      --s1: 4px;
+      --s2: 8px;
+      --s3: 12px;
+      --s4: 16px;
+      --s5: 20px;
+      --s6: 24px;
+      --s8: 32px;
+      --s10: 40px;
+      --s12: 48px;
+      --s16: 64px;
+      --s20: 80px;
+      --s24: 96px;
+      --page: 1440px;
+      --font: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--text); background: var(--paper); font: 16px/1.7 var(--font); word-break: keep-all; overflow-wrap: break-word; text-rendering: optimizeLegibility; }
+    button, input { font: inherit; }
+    a { color: inherit; }
+    :focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+    .skip { position: fixed; top: var(--s3); left: var(--s3); z-index: 100; padding: var(--s3) var(--s4); color: var(--text-inverse); background: var(--ink); transform: translateY(-160%); }
+    .skip:focus { transform: translateY(0); }
+    .progress { position: fixed; inset: 0 0 auto; z-index: 100; height: 3px; background: var(--amber); transform: scaleX(0); transform-origin: left; }
+
+    .nav {
+      position: absolute;
+      z-index: 50;
+      inset: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: min(var(--page), calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0;
+      color: var(--text-inverse);
+    }
+    .wordmark { display: flex; align-items: center; gap: var(--s3); font-weight: 800; text-decoration: none; }
+    .mark { display: grid; place-items: center; width: 34px; aspect-ratio: 1; color: var(--ink); background: var(--amber); font: 800 12px/1 var(--mono); }
+    .nav-links { display: flex; align-items: center; gap: var(--s8); }
+    .nav-links a { color: var(--text-inverse-muted); font-size: 14px; font-weight: 650; text-decoration: none; }
+    .nav-links a:hover { color: var(--text-inverse); }
+    .nav-cta { min-height: 44px; padding: 10px var(--s4); color: var(--ink) !important; background: var(--amber); border-radius: 6px; }
+
+    .hero {
+      position: relative;
+      min-height: 780px;
+      overflow: hidden;
+      color: var(--text-inverse);
+      background:
+        radial-gradient(circle at 78% 34%, rgba(58, 151, 213, .2), transparent 34%),
+        linear-gradient(rgba(98,194,245,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(98,194,245,.05) 1px, transparent 1px),
+        var(--ink);
+      background-size: auto, 32px 32px, 32px 32px, auto;
+      border-bottom: 8px solid var(--amber);
+    }
+    .hero-inner {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(480px, 1.1fr);
+      gap: clamp(40px, 6vw, 92px);
+      align-items: center;
+      width: min(var(--page), calc(100% - 48px));
+      min-height: 780px;
+      margin: 0 auto;
+      padding: 112px 0 70px;
+    }
+    .kicker { margin: 0 0 20px; color: var(--amber); font: 760 11px/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { word-break: keep-all; overflow-wrap: normal; }
+    .nowrap { white-space: nowrap; }
+    h1 { max-width: 700px; margin-bottom: 26px; font-size: clamp(3rem, 6vw, 6rem); line-height: .97; letter-spacing: -.06em; text-wrap: balance; }
+    .hero h1 .hero-clause { display: block; font-size: clamp(2rem, 3.5vw, 3.1rem); line-height: 1.05; }
+    .hero-copy { max-width: 620px; margin-bottom: var(--s8); color: var(--text-inverse-muted); font-size: clamp(1.05rem, 1.5vw, 1.28rem); line-height: 1.72; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: var(--s3); }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 11px var(--s5); border: 1px solid var(--control-border); border-radius: 6px; color: var(--text-inverse); background: transparent; font-weight: 750; text-decoration: none; transition: transform 140ms ease-out, background 140ms ease-out, border-color 140ms ease-out; }
+    .button:hover { background: var(--navy-hover); border-color: var(--cyan); }
+    .button:active { transform: translateY(1px); }
+    .button.primary { color: var(--ink); background: var(--amber); border-color: var(--amber); }
+    .button.primary:hover { background: var(--amber-hover); border-color: var(--amber-hover); }
+    .hero-note { margin: 22px 0 0; color: var(--text-inverse-subtle); font: 650 12px/1.5 var(--mono); }
+
+    .product-frame {
+      position: relative;
+      overflow: hidden;
+      min-height: 540px;
+      background: var(--navy-deep);
+      border: 1px solid #36516c;
+      border-radius: 20px;
+      box-shadow: 0 40px 90px rgba(0,0,0,.38), inset 0 1px rgba(255,255,255,.07);
+    }
+    .frame-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); height: 44px; padding: 0 var(--s4); color: var(--text-inverse-subtle); background: var(--navy); border-bottom: 1px solid var(--line-dark); font: 650 11px/1 var(--mono); }
+    .frame-status { color: var(--green); }
+    .office-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(220px, .75fr); min-height: 496px; }
+    .office-map { display: grid; grid-template: 1fr 1fr / 1fr 1fr; min-width: 0; }
+    .room { position: relative; min-height: 245px; padding: 20px; border-right: 1px solid var(--line-dark); border-bottom: 1px solid var(--line-dark); background: linear-gradient(145deg, rgba(22,49,79,.84), rgba(10,27,46,.96)); }
+    .room:nth-child(2) { background: linear-gradient(145deg, rgba(30,54,78,.9), rgba(12,30,48,.96)); }
+    .room:nth-child(3) { background: linear-gradient(145deg, rgba(48,39,27,.7), rgba(17,31,43,.96)); }
+    .room:nth-child(4) { background: linear-gradient(145deg, rgba(45,25,29,.45), rgba(16,30,46,.96)); }
+    .room-title { display: flex; justify-content: space-between; gap: 12px; color: #d7e4ef; font: 760 11px/1.3 var(--mono); letter-spacing: .06em; }
+    .room-title span { color: var(--green); }
+    .agent-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+    .agent { display: grid; gap: 7px; justify-items: center; width: 64px; color: #9eb0c1; font: 650 9px/1.2 var(--mono); text-align: center; }
+    .agent-shape { position: relative; width: 26px; height: 34px; background: var(--cyan); box-shadow: 0 0 18px rgba(98,194,245,.22); }
+    .agent-shape::before { content: ""; position: absolute; left: 5px; top: -10px; width: 16px; height: 14px; background: #c9d9e6; }
+    .agent.amber .agent-shape { background: var(--amber); }
+    .agent.green .agent-shape { background: var(--green); }
+    .agent.red .agent-shape { background: var(--red); }
+    .mini-chart { position: absolute; inset: auto 18px 18px; height: 42px; border-left: 1px solid #4a6076; border-bottom: 1px solid #4a6076; }
+    .mini-chart::after { content: ""; position: absolute; inset: 10px 4px 8px; background: linear-gradient(164deg, transparent 0 15%, var(--cyan) 16% 18%, transparent 19% 37%, var(--cyan) 38% 40%, transparent 41% 58%, var(--green) 59% 61%, transparent 62%); }
+    .activity { padding: 18px; background: var(--navy-panel); }
+    .activity-title { margin: 0 0 16px; color: white; font: 760 11px/1.3 var(--mono); letter-spacing: .08em; }
+    .log { padding: 12px 0; border-top: 1px solid var(--line-dark); }
+    .log time { display: block; margin-bottom: 4px; color: #7190aa; font: 600 10px/1.3 var(--mono); }
+    .log p { margin: 0; color: #bfd0de; font-size: 11px; line-height: 1.5; }
+    .log strong { color: var(--amber); }
+    .analysis-progress { margin-top: 14px; }
+    .analysis-progress span { display: flex; justify-content: space-between; margin-bottom: 7px; color: #89a2b6; font: 650 10px/1.3 var(--mono); }
+    .bar { height: 5px; background: #18334e; }
+    .bar i { display: block; width: 68%; height: 100%; background: var(--green); }
+
+    .section { padding: clamp(80px, 10vw, 150px) 24px; }
+    .section-inner { width: min(1160px, 100%); margin: 0 auto; }
+    .section-head { display: grid; grid-template-columns: .45fr 1fr; gap: clamp(28px, 6vw, 90px); margin-bottom: clamp(48px, 7vw, 90px); }
+    .section-label { color: var(--amber-ink); font: 780 11px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    h2 { margin-bottom: 22px; color: var(--ink); font-size: clamp(2.15rem, 4vw, 4.3rem); line-height: 1.02; letter-spacing: -.05em; text-wrap: balance; }
+    .section-lead { max-width: 720px; color: var(--lead); font-size: 1.1rem; line-height: 1.78; }
+
+    .problem-strip { background: var(--paper-bright); border-block: 1px solid var(--line); }
+    .statement { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .statement article { min-height: 230px; padding: 30px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .statement b { display: block; margin-bottom: 34px; color: var(--amber-ink); font: 800 13px/1 var(--mono); }
+    .statement h3 { margin-bottom: 12px; color: var(--ink); font-size: 1.2rem; }
+    .statement p { margin: 0; color: var(--muted); }
+
+    .flow-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line); background: var(--paper-bright); }
+    .flow-step { position: relative; padding: 34px; border-right: 1px solid var(--line); }
+    .flow-step:last-child { border-right: 0; }
+    .step-no { display: block; margin-bottom: var(--s12); color: var(--amber-ink); font: 800 13px/1 var(--mono); }
+    .flow-step h3 { margin-bottom: 14px; font-size: 1.35rem; }
+    .flow-step p { margin: 0; color: var(--muted); }
+    .flow-step::after { content: ""; position: absolute; top: 39px; right: 28px; width: 34px; height: 1px; background: var(--line); }
+    .flow-step:last-child::after { display: none; }
+
+    .dark-section { color: white; background: var(--ink); }
+    .dark-section h2 { color: white; }
+    .dark-section .section-label { color: var(--amber); }
+    .dark-section .section-lead { color: #b4c4d3; }
+    .departments { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line-dark); border-left: 1px solid var(--line-dark); }
+    .dept { min-height: 260px; padding: 26px 22px; border-right: 1px solid var(--line-dark); border-bottom: 1px solid var(--line-dark); }
+    .dept-no { display: block; margin-bottom: 54px; color: var(--cyan); font: 760 11px/1 var(--mono); }
+    .dept:nth-child(3) .dept-no, .dept:nth-child(6) .dept-no { color: var(--amber); }
+    .dept:nth-child(5) .dept-no { color: var(--red); }
+    .dept h3 { margin-bottom: 12px; color: white; font-size: 1.05rem; }
+    .dept p { margin: 0; color: #91a5b8; font-size: 14px; }
+
+    .report-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap: clamp(36px, 6vw, 84px); align-items: start; }
+    .report-sheet { padding: clamp(28px, 5vw, 54px); background: var(--paper-bright); border: 1px solid var(--line); box-shadow: 0 22px 60px rgba(15,27,40,.1); }
+    .report-meta { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 18px; color: var(--muted); border-bottom: 1px solid var(--line); font: 650 11px/1.5 var(--mono); }
+    .report-sheet h3 { margin: 34px 0 12px; font-size: clamp(1.6rem, 3vw, 2.3rem); line-height: 1.1; }
+    .report-summary { color: var(--report-text); font-family: Georgia, "Noto Serif KR", serif; font-size: 1.2rem; line-height: 1.8; }
+    .state-grid { display: grid; grid-template-columns: repeat(2, 1fr); margin-top: 30px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .state { padding: 18px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .state span { display: block; color: var(--muted); font: 650 10px/1.4 var(--mono); }
+    .state strong { display: block; margin-top: 6px; }
+    .report-side { padding-top: 16px; }
+    .report-side article { padding: 22px 0; border-top: 1px solid var(--line); }
+    .report-side b { color: var(--amber-ink); font: 760 11px/1.3 var(--mono); }
+    .report-side h3 { margin: 10px 0 8px; font-size: 1.1rem; }
+    .report-side p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .trust { background: var(--trust-bg); }
+    .trust-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--trust-line); }
+    .trust-item { padding: 28px var(--s6); border-right: 1px solid var(--trust-line); }
+    .trust-item:last-child { border-right: 0; }
+    .trust-item strong { display: block; margin-bottom: 10px; }
+    .trust-item p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .cta { position: relative; overflow: hidden; padding: clamp(90px, 12vw, 160px) 24px; color: white; background: var(--navy); text-align: center; }
+    .cta::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 110%, rgba(242,183,65,.18), transparent 45%); pointer-events: none; }
+    .cta-inner { position: relative; width: min(860px, 100%); margin: 0 auto; }
+    .cta h2 { color: white; }
+    .cta p { max-width: 650px; margin: 0 auto 30px; color: #b6c6d4; font-size: 1.08rem; }
+
+    footer { padding: 38px 24px; color: #8fa3b6; background: var(--ink); border-top: 1px solid var(--line-dark); }
+    .footer-inner { display: flex; justify-content: space-between; gap: 24px; width: min(var(--page), 100%); margin: 0 auto; font-size: 13px; }
+    .footer-inner strong { color: white; }
+
+    @media (max-width: 1100px) {
+      .hero-inner { grid-template-columns: 1fr; padding-top: 140px; }
+      .hero { min-height: auto; }
+      .hero-inner { min-height: auto; }
+      .product-frame { width: min(820px, 100%); }
+      .departments { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 780px) {
+      .nav-links a:not(.nav-cta) { display: none; }
+      .office-grid { grid-template-columns: 1fr; }
+      .activity { border-top: 1px solid var(--line-dark); }
+      .section-head, .report-layout { grid-template-columns: 1fr; }
+      .statement, .flow-list { grid-template-columns: 1fr; }
+      .statement article, .flow-step { min-height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .flow-step::after { display: none; }
+      .departments, .trust-grid { grid-template-columns: repeat(2, 1fr); }
+      .trust-item { border-bottom: 1px solid var(--trust-line); }
+    }
+    @media (max-width: 560px) {
+      .nav { width: min(var(--page), calc(100% - 32px)); }
+      .wordmark span:last-child { display: none; }
+      .hero-inner { width: min(var(--page), calc(100% - 32px)); padding-top: 120px; }
+      h1 { font-size: clamp(2.35rem, 11vw, 2.75rem); line-height: 1.02; }
+      h2 { font-size: clamp(1.9rem, 9vw, 2.4rem); line-height: 1.1; }
+      .product-frame { border-radius: 12px; }
+      .office-map { grid-template-columns: 1fr; }
+      .room { min-height: 200px; }
+      .departments, .trust-grid, .state-grid { grid-template-columns: 1fr; }
+      .dept { min-height: auto; }
+      .dept-no { margin-bottom: 24px; }
+      .footer-inner { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+    @media print {
+      @page { size: A4; margin: 14mm; }
+      body { background: white; font-size: 10pt; }
+      .progress, .nav, .hero-actions, footer { display: none !important; }
+      .hero, .dark-section, .cta { color: var(--text); background: white; border-color: var(--line); }
+      .hero { min-height: auto; }
+      .hero-inner { display: block; min-height: auto; width: 100%; padding: 0 0 12mm; }
+      .hero-copy, .dark-section .section-lead, .cta p { color: var(--text); }
+      .product-frame { display: none; }
+      .section, .cta { padding: 12mm 0; }
+      .section-inner, .cta-inner { width: 100%; }
+      .section-head { display: block; margin-bottom: 8mm; }
+      .statement, .flow-list, .departments, .trust-grid, .report-layout { break-inside: avoid; }
+      .dark-section h2, .dark-section .dept h3, .cta h2 { color: var(--ink); }
+      .departments { border-color: var(--line); }
+      .dept { border-color: var(--line); }
+      .dept p { color: var(--muted); }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 건너뛰기</a>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+
+  <header class="nav" aria-label="주요 탐색">
+    <a class="wordmark" href="#top"><span class="mark" aria-hidden="true">AR</span><span>AI Research Office</span></a>
+    <nav class="nav-links">
+      <a href="#how">작동 방식</a>
+      <a href="#team">AI 부서</a>
+      <a href="#report">결과 리포트</a>
+      <a class="nav-cta" href="#vision">제품 비전</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-inner">
+        <div>
+          <p class="kicker">AI EQUITY RESEARCH FOR KOREAN INVESTORS</p>
+          <h1>한 종목을 검색하면, <span class="nowrap hero-clause">AI 리서치팀이 움직입니다.</span></h1>
+          <p class="hero-copy">시장·기업·재무·가치평가·위험을 담당하는 AI가 독립적으로 조사하고 서로 반박합니다. 결과는 매매 신호가 아니라, 출처와 의견 차이가 살아 있는 전문 리서치입니다.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#how">서비스 흐름 보기</a>
+            <button class="button" type="button" onclick="window.print()">소개서 PDF 저장</button>
+          </div>
+          <p class="hero-note">미국주식부터 시작해 한국주식으로 확장합니다.</p>
+        </div>
+
+        <div class="product-frame" aria-label="AI 분석 조직 화면 예시">
+          <div class="frame-top"><span>NVDA · AI RESEARCH IN PROGRESS</span><span class="frame-status">LIVE · 68%</span></div>
+          <div class="office-grid">
+            <div class="office-map">
+              <div class="room">
+                <div class="room-title">MARKET DESK <span>WORKING</span></div>
+                <div class="agent-row"><div class="agent"><span class="agent-shape"></span>Macro</div><div class="agent green"><span class="agent-shape"></span>Sector</div></div>
+                <div class="mini-chart" aria-hidden="true"></div>
+              </div>
+              <div class="room">
+                <div class="room-title">COMPANY RESEARCH <span>WORKING</span></div>
+                <div class="agent-row"><div class="agent"><span class="agent-shape"></span>Business</div><div class="agent amber"><span class="agent-shape"></span>Events</div></div>
+                <div class="mini-chart" aria-hidden="true"></div>
+              </div>
+              <div class="room">
+                <div class="room-title">FINANCIAL LAB <span>VERIFYING</span></div>
+                <div class="agent-row"><div class="agent green"><span class="agent-shape"></span>Finance</div><div class="agent"><span class="agent-shape"></span>Valuation</div></div>
+                <div class="mini-chart" aria-hidden="true"></div>
+              </div>
+              <div class="room">
+                <div class="room-title">RISK OFFICE <span>CHALLENGE</span></div>
+                <div class="agent-row"><div class="agent red"><span class="agent-shape"></span>Risk</div><div class="agent amber"><span class="agent-shape"></span>Chair</div></div>
+                <div class="mini-chart" aria-hidden="true"></div>
+              </div>
+            </div>
+            <aside class="activity" aria-label="실시간 분석 활동">
+              <p class="activity-title">RESEARCH ACTIVITY</p>
+              <div class="log"><time>10:41:12</time><p>기업분석팀이 최신 <strong>10-Q</strong>를 열었습니다.</p></div>
+              <div class="log"><time>10:41:24</time><p>재무팀이 영업이익률 변화를 검증했습니다.</p></div>
+              <div class="log"><time>10:41:45</time><p>리스크팀이 높은 시장 기대에 반론을 제기했습니다.</p></div>
+              <div class="log"><time>10:42:02</time><p>위원회가 재무팀과 가치평가팀의 의견을 검토합니다.</p></div>
+              <div class="analysis-progress"><span><b>전체 진행</b><b>68%</b></span><div class="bar"><i></i></div></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section problem-strip">
+      <div class="section-inner">
+        <div class="section-head">
+          <span class="section-label">WHY</span>
+          <div><h2><span class="nowrap">문제는 정보량이 아니라,</span> <span class="nowrap">판단의 연결입니다.</span></h2><p class="section-lead">공시, 실적, 뉴스, 거시경제와 차트는 서로 다른 곳에 흩어져 있습니다. 일반 AI는 빠르게 답하지만 출처와 반대 논리가 부족합니다.</p></div>
+        </div>
+        <div class="statement">
+          <article><b>01</b><h3>찾는 시간을 줄이고</h3><p>원문 데이터를 한 번에 수집해 같은 기준 시각의 분석 재료로 정리합니다.</p></article>
+          <article><b>02</b><h3>관점의 편향을 줄이고</h3><p>역할이 다른 AI가 독립적으로 분석하고 리스크팀이 가장 강한 반론을 만듭니다.</p></article>
+          <article><b>03</b><h3>검증 가능하게 만듭니다</h3><p>핵심 주장마다 출처, 문서 위치, 데이터 기준 시각과 미확인 영역을 연결합니다.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="section-inner">
+        <div class="section-head">
+          <span class="section-label">HOW IT WORKS</span>
+          <div><h2>검색, 조사, 회의. <span class="nowrap">세 단계면</span> 충분합니다.</h2><p class="section-lead">사용자는 종목만 선택합니다. 복잡한 조사 과정은 AI 리서치 조직이 맡고, 최종 화면에서는 핵심과 근거가 읽기 좋은 순서로 정리됩니다.</p></div>
+        </div>
+        <div class="flow-list">
+          <article class="flow-step"><span class="step-no">STEP 01</span><h3>종목 검색</h3><p>AAPL, NVDA 또는 삼성전자처럼 회사명·심볼·종목코드로 찾습니다.</p></article>
+          <article class="flow-step"><span class="step-no">STEP 02</span><h3>AI 부서별 조사</h3><p>에이전트들이 원문을 확인하고 계산·비교·반론하는 과정을 실시간으로 보여줍니다.</p></article>
+          <article class="flow-step"><span class="step-no">STEP 03</span><h3>전문 리포트</h3><p>합의와 이견, 기업의 현재 상태, 핵심 변수와 출처를 하나의 문서로 제공합니다.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section dark-section" id="team">
+      <div class="section-inner">
+        <div class="section-head">
+          <span class="section-label">AI TEAM</span>
+          <div><h2>하나의 AI가 아니라, <span class="nowrap">서로 다른 기준을 가진</span> 리서치 조직</h2><p class="section-lead">캐릭터만 다른 에이전트가 아닙니다. 각 역할은 서로 다른 데이터, 질문, 결과 형식을 가지며 검증되지 않은 주장은 보고서에서 제외됩니다.</p></div>
+        </div>
+        <div class="departments">
+          <article class="dept"><span class="dept-no">01</span><h3>Market Radar</h3><p>금리, 달러, 지수, 섹터와 경기 국면을 조사합니다.</p></article>
+          <article class="dept"><span class="dept-no">02</span><h3>Company Analyst</h3><p>사업 구조, 제품, 경쟁 우위와 경영진 전략을 읽습니다.</p></article>
+          <article class="dept"><span class="dept-no">03</span><h3>Financial Analyst</h3><p>성장률, 마진, 현금흐름, 부채와 사업부 추세를 계산합니다.</p></article>
+          <article class="dept"><span class="dept-no">04</span><h3>Valuation &amp; Chart</h3><p>과거·경쟁사 대비 가치평가와 가격 상태를 설명합니다.</p></article>
+          <article class="dept"><span class="dept-no">05</span><h3>Risk Analyst</h3><p>빠진 정보와 가장 강한 반대 논리를 제기합니다.</p></article>
+          <article class="dept"><span class="dept-no">06</span><h3>Research Chair</h3><p>합의, 충돌, 핵심 질문과 확인 조건으로 종합합니다.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="report">
+      <div class="section-inner">
+        <div class="section-head">
+          <span class="section-label">THE REPORT</span>
+          <div><h2><span class="nowrap">매매 지시 대신,</span> <span class="nowrap">확인할 쟁점을 보여줍니다.</span></h2><p class="section-lead">최종 리포트는 10초 요약에서 시작해 사업, 재무, 가치평가, 위험과 시나리오로 깊어집니다. 모든 중요한 문장에는 근거가 있습니다.</p></div>
+        </div>
+        <div class="report-layout">
+          <article class="report-sheet">
+            <div class="report-meta"><span>NVIDIA · NVDA · NASDAQ</span><span>2026.07.17 · SOURCES 32</span></div>
+            <h3>성장성은 강하지만, 시장의 기대도 <span class="nowrap">매우 높습니다.</span></h3>
+            <p class="report-summary">데이터센터와 현금 창출력은 견조합니다. 다만 현재 가치평가는 높은 성장률과 마진이 상당 기간 유지된다는 가정을 포함하고 있어 다음 실적의 성장 지속 여부가 핵심 변수입니다.</p>
+            <div class="state-grid">
+              <div class="state"><span>BUSINESS GROWTH</span><strong>성장 지속</strong></div>
+              <div class="state"><span>PROFITABILITY</span><strong>높은 수준</strong></div>
+              <div class="state"><span>VALUATION</span><strong>과거 대비 프리미엄</strong></div>
+              <div class="state"><span>KEY RISK</span><strong>시장 기대와 경쟁</strong></div>
+            </div>
+          </article>
+          <aside class="report-side">
+            <article><b>POSITIVE</b><h3>확인된 긍정 요인</h3><p>데이터센터 성장, 높은 현금흐름, 소프트웨어 생태계를 근거와 함께 보여줍니다.</p></article>
+            <article><b>DEBATE</b><h3>에이전트의 핵심 논쟁</h3><p>재무팀의 성장성 판단과 가치평가팀의 기대 과잉 우려를 함께 읽습니다.</p></article>
+            <article><b>SCENARIOS</b><h3>Bull · Base · Bear</h3><p>가격 예언이 아니라 각 시나리오의 조건과 확인 지표를 비교합니다.</p></article>
+            <article><b>UNKNOWN</b><h3>아직 알 수 없는 것</h3><p>데이터로 확인되지 않는 부분을 AI가 임의로 채우지 않고 명시합니다.</p></article>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section trust">
+      <div class="section-inner">
+        <div class="section-head">
+          <span class="section-label">TRUST BY DESIGN</span>
+          <div><h2>재미는 분석 과정에, 신뢰는 결과와 근거에.</h2><p class="section-lead">픽셀 오피스는 대기시간을 이해시키는 무대입니다. 최종 보고서는 차분하고 전문적으로 전환되며, 사용자가 직접 원문을 <span class="nowrap">확인할 수 있어야 합니다.</span></p></div>
+        </div>
+        <div class="trust-grid">
+          <article class="trust-item"><strong>출처 연결</strong><p>주장마다 공시·재무·시장 데이터 원문을 연결합니다.</p></article>
+          <article class="trust-item"><strong>데이터 최신성</strong><p>분석 기준 시각과 지연 여부를 숨기지 않습니다.</p></article>
+          <article class="trust-item"><strong>의견 충돌</strong><p>모든 에이전트가 동의하는 것처럼 연출하지 않습니다.</p></article>
+          <article class="trust-item"><strong>투자판단 경계</strong><p>개인별 매매 지시 대신 기업의 상태와 검증 조건을 제공합니다.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta" id="vision">
+      <div class="cta-inner">
+        <p class="kicker">PRODUCT VISION</p>
+        <h2>혼자 보던 종목, <span class="nowrap">AI 리서치팀이 함께 봅니다.</span></h2>
+        <p>미국주식부터 시작해 한국주식으로 확장합니다. 정적인 AI 답변이 아니라 새로운 공시와 실적이 나올 때마다 변화가 기록되는 기업 리서치 파일을 만듭니다.</p>
+        <a class="button primary" href="#top">처음부터 다시 보기</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner"><strong>AI Research Office</strong><span>서비스 소개 원페이지 · Working title</span><span>투자 권유가 아닌 제품 콘셉트 소개 자료입니다.</span></div>
+  </footer>
+
+  <script>
+    const progress = document.getElementById('progress');
+    function updateProgress() {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const ratio = scrollable > 0 ? window.scrollY / scrollable : 0;
+      progress.style.transform = `scaleX(${Math.min(1, Math.max(0, ratio))})`;
+    }
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+  </script>
+</body>
+</html>

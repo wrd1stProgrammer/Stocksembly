@@ -1,0 +1,208 @@
+export const CODEX_STAGES = [
+  "memo",
+  "department_consolidation",
+  "blind_challenge",
+  "owner_response_ballot",
+  "follow_up",
+  "semantic_audit",
+  "chair_synthesis",
+  "qa",
+  "probe",
+] as const;
+
+export type CodexStage = (typeof CODEX_STAGES)[number];
+export type CodexModel = "gpt-5.6-sol" | "gpt-5.6-terra";
+export type CodexReasoning = "low" | "medium" | "high";
+export type CodexBrowsingPolicy = "disabled" | "audited_web";
+export type CodexRuntimeOverride = {
+  readonly model: "gpt-5.6-sol";
+  readonly reasoning: "low";
+};
+
+export const QA_ADVANCED_RUNTIME = Object.freeze({
+  model: "gpt-5.6-sol",
+  reasoning: "low",
+} satisfies CodexRuntimeOverride);
+
+export const CODEX_RUNTIME_POLICY = Object.freeze({
+  model: "gpt-5.6-terra",
+  reasoningByStage: Object.freeze({
+    memo: "medium",
+    department_consolidation: "medium",
+    blind_challenge: "medium",
+    owner_response_ballot: "medium",
+    follow_up: "medium",
+    semantic_audit: "medium",
+    chair_synthesis: "medium",
+    qa: "low",
+    probe: "medium",
+  } satisfies Readonly<Record<CodexStage, CodexReasoning>>),
+  browsingByStage: Object.freeze({
+    memo: "audited_web",
+    department_consolidation: "disabled",
+    blind_challenge: "disabled",
+    owner_response_ballot: "disabled",
+    follow_up: "disabled",
+    semantic_audit: "disabled",
+    chair_synthesis: "disabled",
+    qa: "audited_web",
+    probe: "disabled",
+  } satisfies Readonly<Record<CodexStage, CodexBrowsingPolicy>>),
+  maxPromptBytes: 256 * 1_024,
+  maxSchemaBytes: 128 * 1_024,
+  maxStdoutBytes: 1_024 * 1_024,
+  maxAuditedStdoutBytes: 24 * 1_024 * 1_024,
+  maxStderrBytes: 64 * 1_024,
+  maxPayloadBytes: 256 * 1_024,
+  maxCapturedWebArtifactBytes: 2 * 1_024 * 1_024,
+  maxCapturedWebAttemptBytes: 20 * 1_024 * 1_024,
+  maxReportedWebRedirects: 5,
+  maxReportedConcurrentWebOpens: 2,
+  timeoutMs: undefined,
+  inactivityTimeoutMs: 10 * 60_000,
+  killGraceMs: 5_000,
+});
+
+export const CODEX_RUNTIME_PINS = Object.freeze({
+  originPath: "/Applications/ChatGPT.app/Contents/Resources/codex",
+  originSha256:
+    "6d8be49e49751554df16572369e636cbe02c84b208cad3dc35528c846eeca223",
+  version: "codex-cli 0.146.0-alpha.3.1",
+  sandboxExecPath: "/usr/bin/sandbox-exec",
+  sandboxExecSha256:
+    "f3162ae11789a5b296bb3850d493c33ddd52053a03f984b2c4bc34004f4fee99",
+  certificatePath: "/etc/ssl/cert.pem",
+  certificateSha256:
+    "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994",
+  codeIdentifier: "codex",
+  teamIdentifier: "2DC432GLL2",
+  codeDirectoryHash: "b81d53d6df5ab26ce419cf2637a859d8c7f1f56e",
+  locale: "en_US.UTF-8",
+});
+
+export const LINUX_CODEX_RUNTIME_PINS = Object.freeze({
+  originPath:
+    "/home/ec2-user/.codex/packages/standalone/releases/0.145.0-x86_64-unknown-linux-musl/bin/codex",
+  originSha256:
+    "a2a05dafaa1acb002a45eaec0a462de5b13694fcfcd7bc43305f14781ce7be14",
+  version: "codex-cli 0.145.0",
+  sandboxExecPath: "/usr/bin/false",
+  sandboxExecSha256: "",
+  certificatePath: "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+  certificateSha256:
+    "9c927a9eefb9117fce0228bc5e4c859e9342ef9e6be8fd44246273c54ce69abb",
+  codeIdentifier: "codex",
+  teamIdentifier: "",
+  codeDirectoryHash: "",
+  locale: "en_US.UTF-8",
+});
+
+export const CODEX_DISABLED_FEATURES = [
+  "apps",
+  "auth_elicitation",
+  "browser_use",
+  "browser_use_external",
+  "browser_use_full_cdp_access",
+  "code_mode",
+  "code_mode_host",
+  "code_mode_only",
+  "computer_use",
+  "default_mode_request_user_input",
+  "deferred_executor",
+  "enable_fanout",
+  "enable_mcp_apps",
+  "goals",
+  "hooks",
+  "image_generation",
+  "in_app_browser",
+  "multi_agent",
+  "multi_agent_v2",
+  "network_proxy",
+  "plugin_sharing",
+  "plugins",
+  "remote_plugin",
+  "request_permissions_tool",
+  "shell_snapshot",
+  "shell_tool",
+  "skill_mcp_dependency_install",
+  "skill_search",
+  "standalone_web_search",
+  "tool_call_mcp_elicitation",
+  "tool_suggest",
+  "unified_exec",
+  "unified_exec_zsh_fork",
+  "workspace_dependencies",
+] as const;
+
+export function buildCodexArgv(
+  schemaPath: string,
+  stage: CodexStage,
+  runtimeOverride?: CodexRuntimeOverride,
+): readonly string[] {
+  const browsing = CODEX_RUNTIME_POLICY.browsingByStage[stage];
+  const model = runtimeOverride?.model ?? CODEX_RUNTIME_POLICY.model;
+  const reasoning =
+    runtimeOverride?.reasoning ?? CODEX_RUNTIME_POLICY.reasoningByStage[stage];
+  return Object.freeze([
+    "--ask-for-approval",
+    "never",
+    "exec",
+    "--ignore-user-config",
+    "--ignore-rules",
+    "--ephemeral",
+    "--sandbox",
+    "read-only",
+    "--strict-config",
+    "--skip-git-repo-check",
+    "--json",
+    "--output-schema",
+    schemaPath,
+    "--color",
+    "never",
+    "--model",
+    model,
+    "-c",
+    `model_reasoning_effort="${reasoning}"`,
+    "-c",
+    'shell_environment_policy.inherit="none"',
+    "-c",
+    "shell_environment_policy.set={}",
+    "-c",
+    "mcp_servers={}",
+    "-c",
+    `web_search="${browsing === "audited_web" ? "live" : "disabled"}"`,
+    ...CODEX_DISABLED_FEATURES.flatMap((feature) => ["--disable", feature]),
+    "-",
+  ]);
+}
+
+export function buildChildEnvironment(
+  runtimeHome: string,
+  runtimeTemp: string,
+  providerProxyUrl?: string,
+  pins: {
+    readonly certificatePath: string;
+    readonly locale: string;
+  } = CODEX_RUNTIME_PINS,
+): Readonly<Record<string, string>> & { readonly PATH: string } {
+  return Object.freeze({
+    PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
+    CODEX_HOME: runtimeHome,
+    HOME: join(dirname(runtimeHome), "home"),
+    TMPDIR: runtimeTemp,
+    LANG: pins.locale,
+    LC_ALL: pins.locale,
+    SSL_CERT_FILE: pins.certificatePath,
+    NO_COLOR: "1",
+    ...(providerProxyUrl === undefined
+      ? {}
+      : {
+          HTTP_PROXY: providerProxyUrl,
+          HTTPS_PROXY: providerProxyUrl,
+          ALL_PROXY: providerProxyUrl,
+          NO_PROXY: "",
+        }),
+  });
+}
+
+import { dirname, join } from "node:path";

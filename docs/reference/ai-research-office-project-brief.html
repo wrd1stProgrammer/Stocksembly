@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="한국 투자자를 위한 AI 주식 리서치 서비스의 제품 기획 및 바이브코딩 구현 명세서">
+  <title>AI Research Office — 프로젝트 기획서</title>
+  <style>
+    :root {
+      --ink: #0a1626;
+      --navy: #0e2138;
+      --navy-raised: #16314f;
+      --paper: #f5f0e6;
+      --paper-bright: #fffdf8;
+      --paper-muted: #e8e0d3;
+      --text: #132033;
+      --muted: #566274;
+      --line: #d7cebf;
+      --line-dark: #29435f;
+      --amber: #f1b642;
+      --amber-deep: #b77412;
+      --amber-ink: #765000;
+      --cyan: #5bbef6;
+      --green: #36c780;
+      --red: #e66868;
+      --text-inverse: #fffdf8;
+      --text-inverse-muted: #c6d2df;
+      --text-inverse-subtle: #a8b6c7;
+      --control-border: #52677f;
+      --navy-hover: #172b43;
+      --amber-hover: #ffd16c;
+      --lead: #425064;
+      --info: #2589c3;
+      --table-head: #ece5d9;
+      --violet: #7a8cb6;
+      --code-text: #0b5781;
+      --code-bg: #e1edf1;
+      --s1: 4px;
+      --s2: 8px;
+      --s3: 12px;
+      --s4: 16px;
+      --s5: 20px;
+      --s6: 24px;
+      --s8: 32px;
+      --s10: 40px;
+      --s12: 48px;
+      --s16: 64px;
+      --s20: 80px;
+      --s24: 96px;
+      --page: 1440px;
+      --reading: 820px;
+      --font: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--paper);
+      font-family: var(--font);
+      font-size: 16px;
+      line-height: 1.72;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+    .skip-link {
+      position: fixed;
+      inset: var(--s3) auto auto var(--s3);
+      z-index: 100;
+      padding: var(--s3) var(--s4);
+      color: var(--paper-bright);
+      background: var(--ink);
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    .progress {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 90;
+      height: 3px;
+      background: var(--amber);
+      transform: scaleX(0);
+      transform-origin: left;
+    }
+
+    .masthead {
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s4);
+      min-height: 68px;
+      padding: var(--s3) clamp(20px, 4vw, 56px);
+      color: var(--paper-bright);
+      background: color-mix(in srgb, var(--ink) 94%, transparent);
+      border-bottom: 1px solid var(--line-dark);
+      backdrop-filter: blur(16px);
+    }
+    .brand { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      aspect-ratio: 1;
+      color: var(--ink);
+      background: var(--amber);
+      font: 800 13px/1 var(--mono);
+    }
+    .brand-copy { min-width: 0; }
+    .brand-copy strong { display: block; line-height: 1.1; }
+    .brand-copy span { display: block; color: var(--text-inverse-subtle); font: 650 11px/1.4 var(--mono); }
+    .actions { display: flex; gap: var(--s2); }
+    .button {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      justify-content: center;
+      gap: var(--s2);
+      padding: var(--s2) var(--s4);
+      color: var(--paper-bright);
+      background: transparent;
+      border: 1px solid var(--control-border);
+      border-radius: 6px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out, transform 140ms ease-out;
+    }
+    .button:hover { border-color: var(--amber); background: var(--navy-hover); }
+    .button:active { transform: translateY(1px); }
+    .button.primary { color: var(--ink); background: var(--amber); border-color: var(--amber); }
+    .button.primary:hover { background: var(--amber-hover); border-color: var(--amber-hover); }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      color: var(--paper-bright);
+      background:
+        linear-gradient(90deg, transparent 0 49.8%, rgba(91,190,246,.08) 50%, transparent 50.2%),
+        linear-gradient(rgba(91,190,246,.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(91,190,246,.06) 1px, transparent 1px),
+        radial-gradient(circle at 82% 22%, rgba(91,190,246,.16), transparent 34%),
+        var(--ink);
+      background-size: auto, 32px 32px, 32px 32px, auto, auto;
+      border-bottom: 6px solid var(--amber);
+    }
+    .hero-inner {
+      width: min(var(--page), 100%);
+      margin: 0 auto;
+      padding: clamp(72px, 10vw, 140px) clamp(24px, 6vw, 84px) clamp(64px, 8vw, 108px);
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr);
+      gap: clamp(40px, 7vw, 100px);
+      align-items: end;
+    }
+    .eyebrow {
+      margin: 0 0 var(--s5);
+      color: var(--amber);
+      font: 760 11px/1.3 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { word-break: keep-all; overflow-wrap: normal; }
+    .nowrap { white-space: nowrap; }
+    h1 {
+      max-width: 860px;
+      margin-bottom: var(--s6);
+      font-size: clamp(2.6rem, 6vw, 5.6rem);
+      line-height: .98;
+      letter-spacing: -.055em;
+    }
+    .hero-lead {
+      max-width: 690px;
+      margin-bottom: 0;
+      color: var(--text-inverse-muted);
+      font-size: clamp(1rem, 1.6vw, 1.25rem);
+      line-height: 1.75;
+    }
+    .brief-card {
+      padding: var(--s6);
+      background: rgba(13, 34, 57, .82);
+      border: 1px solid var(--line-dark);
+      border-radius: 12px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.24), inset 0 1px rgba(255,255,255,.05);
+    }
+    .brief-card dl { margin: 0; }
+    .brief-card div { padding: var(--s3) 0; border-bottom: 1px solid var(--line-dark); }
+    .brief-card div:last-child { border-bottom: 0; padding-bottom: 0; }
+    .brief-card dt { color: #8fa5ba; font: 650 11px/1.4 var(--mono); text-transform: uppercase; }
+    .brief-card dd { margin: var(--s1) 0 0; font-weight: 700; }
+
+    .page-shell {
+      width: min(var(--page), 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 240px minmax(0, var(--reading)) minmax(24px, 1fr);
+      gap: clamp(28px, 5vw, 76px);
+      padding: var(--s16) clamp(24px, 5vw, 72px) var(--s20);
+      align-items: start;
+    }
+    .outline {
+      position: sticky;
+      top: 96px;
+      padding-right: var(--s6);
+      border-right: 1px solid var(--line);
+    }
+    .outline-label { margin-bottom: var(--s3); color: var(--muted); font: 760 11px/1.3 var(--mono); letter-spacing: .08em; }
+    .outline a {
+      display: block;
+      padding: 7px 0 7px var(--s3);
+      color: var(--muted);
+      border-left: 2px solid transparent;
+      font-size: 14px;
+      line-height: 1.45;
+      text-decoration: none;
+    }
+    .outline a:hover, .outline a[aria-current="true"] { color: var(--ink); border-left-color: var(--amber-deep); }
+    .mobile-outline { display: none; margin-bottom: var(--s8); border: 1px solid var(--line); background: var(--paper-bright); }
+    .mobile-outline summary { padding: var(--s3) var(--s4); font-weight: 750; cursor: pointer; }
+    .mobile-outline nav { padding: 0 var(--s4) var(--s4); columns: 2; }
+    .mobile-outline a { display: block; padding: 5px 0; color: var(--muted); font-size: 14px; }
+
+    main { min-width: 0; }
+    section { scroll-margin-top: 92px; padding-bottom: var(--s16); }
+    section + section { padding-top: var(--s16); border-top: 1px solid var(--line); }
+    h2 {
+      margin-bottom: var(--s5);
+      color: var(--ink);
+      font-size: clamp(1.75rem, 3vw, 2.6rem);
+      line-height: 1.12;
+      letter-spacing: -.035em;
+    }
+    h3 { margin: var(--s8) 0 var(--s3); color: var(--ink); font-size: 1.125rem; line-height: 1.35; }
+    p, li { text-wrap: pretty; }
+    .lead { color: var(--lead); font-size: 1.12rem; line-height: 1.78; }
+    .meta { color: var(--muted); font: 650 12px/1.5 var(--mono); }
+    .divider-title { display: flex; gap: var(--s3); align-items: center; margin-bottom: var(--s5); }
+    .divider-title .eyebrow, .index-number { color: var(--amber-ink); }
+    .index-number { font: 800 13px/1 var(--mono); }
+    ul, ol { padding-left: 1.3rem; }
+    li + li { margin-top: var(--s2); }
+
+    .callout {
+      margin: var(--s8) 0;
+      padding: var(--s5) var(--s6);
+      background: var(--paper-bright);
+      border-left: 4px solid var(--amber-deep);
+      box-shadow: 0 8px 30px rgba(22,33,48,.06);
+    }
+    .callout.caution { border-left-color: var(--red); }
+    .callout.info { border-left-color: var(--info); }
+    .callout strong { display: block; margin-bottom: var(--s2); color: var(--ink); }
+
+    .grid-2, .grid-3 { display: grid; gap: var(--s5); margin: var(--s8) 0; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .panel {
+      padding: var(--s5);
+      background: var(--paper-bright);
+      border: 1px solid var(--line);
+    }
+    .panel h3 { margin-top: 0; }
+    .panel p:last-child, .panel ul:last-child { margin-bottom: 0; }
+
+    .flow { margin: var(--s8) 0; padding: 0; list-style: none; counter-reset: step; }
+    .flow li {
+      position: relative;
+      margin: 0;
+      padding: 0 0 var(--s8) 56px;
+      border-left: 1px solid var(--line);
+    }
+    .flow li:last-child { border-left-color: transparent; }
+    .flow li::before {
+      counter-increment: step;
+      content: counter(step, decimal-leading-zero);
+      position: absolute;
+      left: -22px;
+      top: -2px;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      aspect-ratio: 1;
+      color: var(--ink);
+      background: var(--amber);
+      font: 800 12px/1 var(--mono);
+    }
+    .flow h3 { margin: 0 0 var(--s2); }
+
+    .table-wrap { overflow-x: auto; margin: var(--s6) 0 var(--s8); border: 1px solid var(--line); background: var(--paper-bright); }
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    caption { padding: var(--s4); text-align: left; color: var(--muted); font: 650 12px/1.5 var(--mono); }
+    th, td { padding: var(--s3) var(--s4); text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
+    th { color: var(--ink); background: var(--table-head); font-size: 13px; }
+    td { font-size: 14px; }
+
+    .agent-list { display: grid; gap: var(--s2); margin: var(--s6) 0; }
+    .agent {
+      display: grid;
+      grid-template-columns: 10px 160px minmax(0, 1fr);
+      gap: var(--s3);
+      padding: var(--s3) var(--s4);
+      background: var(--paper-bright);
+      border-bottom: 1px solid var(--line);
+      align-items: start;
+    }
+    .agent-dot { width: 10px; height: 10px; margin-top: 8px; background: var(--cyan); }
+    .agent:nth-child(2) .agent-dot { background: var(--green); }
+    .agent:nth-child(3) .agent-dot { background: var(--amber-deep); }
+    .agent:nth-child(4) .agent-dot { background: var(--violet); }
+    .agent:nth-child(5) .agent-dot { background: var(--red); }
+    .agent:nth-child(6) .agent-dot { background: var(--ink); }
+    .agent strong { color: var(--ink); }
+
+    pre, code { font-family: var(--mono); word-break: break-word; }
+    code { padding: 2px 5px; color: var(--code-text); background: var(--code-bg); border-radius: 4px; }
+    pre {
+      overflow: auto;
+      margin: var(--s6) 0;
+      padding: var(--s5);
+      color: #dbe8f4;
+      background: var(--ink);
+      border: 1px solid var(--line-dark);
+      border-radius: 8px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .checklist { padding: 0; list-style: none; }
+    .checklist li { position: relative; padding-left: 30px; }
+    .checklist li::before { content: ""; position: absolute; left: 0; top: 8px; width: 14px; height: 14px; border: 2px solid var(--amber-deep); }
+
+    .handoff {
+      position: relative;
+      margin-top: var(--s8);
+      padding: var(--s6);
+      color: #dbe8f4;
+      background: var(--ink);
+      border: 1px solid var(--line-dark);
+      border-radius: 12px;
+    }
+    .handoff .button { margin-bottom: var(--s5); }
+    .handoff pre { margin: 0; padding: 0; border: 0; max-height: 540px; }
+    .live-status { min-height: 1.5em; color: var(--green); font: 650 12px/1.5 var(--mono); }
+
+    footer {
+      padding: var(--s10) clamp(24px, 5vw, 72px);
+      color: #93a5b8;
+      background: var(--ink);
+      border-top: 1px solid var(--line-dark);
+    }
+    .footer-inner { width: min(var(--page), 100%); margin: 0 auto; display: flex; justify-content: space-between; gap: var(--s5); }
+
+    @media (max-width: 1000px) {
+      .hero-inner { grid-template-columns: 1fr; }
+      .brief-card { max-width: 620px; }
+      .page-shell { grid-template-columns: minmax(0, var(--reading)); justify-content: center; }
+      .outline { display: none; }
+      .mobile-outline { display: block; }
+    }
+    @media (max-width: 680px) {
+      .masthead { align-items: flex-start; }
+      .brand-copy span { display: none; }
+      .actions .button:first-child { display: none; }
+      .hero-inner { padding-top: var(--s16); }
+      h1 { font-size: clamp(2.25rem, 11vw, 3rem); line-height: 1.02; }
+      h2 { font-size: clamp(1.65rem, 8vw, 2.15rem); line-height: 1.16; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .agent { grid-template-columns: 10px 1fr; }
+      .agent span:last-child { grid-column: 2; }
+      .mobile-outline nav { columns: 1; }
+      .footer-inner { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+    @media print {
+      @page { size: A4; margin: 16mm; }
+      body { background: white; font-size: 10.5pt; }
+      .progress, .masthead, .outline, .mobile-outline, .actions, .copy-button { display: none !important; }
+      .hero { color: var(--ink); background: white; border-bottom: 2px solid var(--ink); }
+      .hero-inner { display: block; padding: 0 0 12mm; }
+      .hero-lead { color: var(--text); }
+      .brief-card { color: var(--text); background: white; border: 1px solid var(--line); box-shadow: none; margin-top: 8mm; }
+      .brief-card dt { color: var(--muted); }
+      .page-shell { display: block; padding: 12mm 0 0; }
+      section { break-inside: auto; padding-bottom: 8mm; }
+      section + section { padding-top: 8mm; }
+      .panel, .callout, .table-wrap { break-inside: avoid; box-shadow: none; }
+      h2, h3 { break-after: avoid; }
+      pre { white-space: pre-wrap; break-inside: auto; }
+      footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 건너뛰기</a>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">AR</div>
+      <div class="brand-copy">
+        <strong>AI Research Office</strong>
+        <span>PRODUCT BUILD SPEC · v0.1</span>
+      </div>
+    </div>
+    <div class="actions" aria-label="문서 작업">
+      <a class="button" href="#handoff">AI 전달용 프롬프트</a>
+      <button class="button primary" type="button" onclick="window.print()">인쇄 / PDF</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <div>
+        <p class="eyebrow">VIBE CODING MASTER BRIEF</p>
+        <h1>AI가 바로 <span class="nowrap">만들 수 있는</span> 프로젝트 기획서</h1>
+        <p class="hero-lead">한국 투자자를 위한 미국·한국 주식 리서치 서비스. 사용자가 종목을 검색하면 역할이 다른 AI 분석가들이 실제 근거를 조사하고, 의견을 교차 검증한 뒤 전문 리서치 리포트를 만든다.</p>
+      </div>
+      <aside class="brief-card" aria-label="프로젝트 요약">
+        <dl>
+          <div><dt>Working title</dt><dd>AI Research Office</dd></div>
+          <div><dt>Primary surface</dt><dd>Desktop-first responsive web</dd></div>
+          <div><dt>Launch market</dt><dd>미국주식 우선, 한국주식 확장</dd></div>
+          <div><dt>Core promise</dt><dd>결론보다 근거와 의견 차이를 보여준다</dd></div>
+          <div><dt>Document updated</dt><dd>2026.07.17 · Asia/Seoul</dd></div>
+        </dl>
+      </aside>
+    </div>
+  </div>
+
+  <div class="page-shell">
+    <aside class="outline" aria-label="문서 목차">
+      <div class="outline-label">DOCUMENT MAP</div>
+      <nav id="outline-nav">
+        <a href="#executive">01 개요</a>
+        <a href="#problem">02 문제와 가치</a>
+        <a href="#audience">03 사용자</a>
+        <a href="#principles">04 제품 원칙</a>
+        <a href="#scope">05 시장 범위</a>
+        <a href="#flow">06 사용자 플로우</a>
+        <a href="#agents">07 AI 에이전트</a>
+        <a href="#data">08 데이터</a>
+        <a href="#analysis-ui">09 분석 중 UX</a>
+        <a href="#report">10 결과 리포트</a>
+        <a href="#architecture">11 시스템 구조</a>
+        <a href="#contracts">12 데이터 계약</a>
+        <a href="#guardrails">13 규제·신뢰</a>
+        <a href="#mvp">14 MVP 범위</a>
+        <a href="#acceptance">15 완료 조건</a>
+        <a href="#handoff">16 AI 전달 프롬프트</a>
+      </nav>
+    </aside>
+
+    <main id="main">
+      <details class="mobile-outline">
+        <summary>문서 목차 열기</summary>
+        <nav>
+          <a href="#executive">01 개요</a><a href="#problem">02 문제와 가치</a><a href="#audience">03 사용자</a>
+          <a href="#principles">04 제품 원칙</a><a href="#scope">05 시장 범위</a><a href="#flow">06 사용자 플로우</a>
+          <a href="#agents">07 AI 에이전트</a><a href="#data">08 데이터</a><a href="#analysis-ui">09 분석 중 UX</a>
+          <a href="#report">10 결과 리포트</a><a href="#architecture">11 시스템 구조</a><a href="#contracts">12 데이터 계약</a>
+          <a href="#guardrails">13 규제·신뢰</a><a href="#mvp">14 MVP 범위</a><a href="#acceptance">15 완료 조건</a>
+          <a href="#handoff">16 AI 전달 프롬프트</a>
+        </nav>
+      </details>
+
+      <section id="executive">
+        <div class="divider-title"><span class="index-number">01</span><span class="eyebrow">EXECUTIVE SUMMARY</span></div>
+        <h2>무엇을 만드는가</h2>
+        <p class="lead">심볼 하나를 입력하면 여러 AI가 시장·기업·재무·가치평가·차트·위험을 독립적으로 조사하고, 회의와 반론을 거쳐 출처가 연결된 하나의 리서치 문서를 만드는 서비스다.</p>
+        <div class="callout">
+          <strong>제품 한 문장</strong>
+          여러 전문 AI가 한 종목을 독립적으로 조사하고 서로 반박한 뒤, 사용자가 스스로 판단할 수 있는 근거 지도를 만든다.
+        </div>
+        <div class="grid-3">
+          <div class="panel"><span class="meta">INPUT</span><h3>종목 하나</h3><p>회사명·심볼·종목코드로 미국과 한국 상장사를 검색한다.</p></div>
+          <div class="panel"><span class="meta">PROCESS</span><h3>AI 리서치 조직</h3><p>역할별 분석, 출처 검증, 의견 충돌, 위원회 종합 과정을 보여준다.</p></div>
+          <div class="panel"><span class="meta">OUTPUT</span><h3>판단 가능한 리포트</h3><p>기업 상태, 기대와 현실의 차이, 위험, 시나리오, 확인할 변수를 제공한다.</p></div>
+        </div>
+      </section>
+
+      <section id="problem">
+        <div class="divider-title"><span class="index-number">02</span><span class="eyebrow">PROBLEM &amp; VALUE</span></div>
+        <h2>정보는 넘치지만 판단의 구조가 없다</h2>
+        <div class="grid-2">
+          <div>
+            <h3>사용자 문제</h3>
+            <ul>
+              <li>공시, 실적 자료, 뉴스와 차트를 따로 찾아야 한다.</li>
+              <li>숫자가 좋아도 현재 가격에 기대가 얼마나 반영됐는지 알기 어렵다.</li>
+              <li>일반 AI 답변은 근거 출처와 반대 논리가 약하다.</li>
+              <li>긴 분석 대기시간은 보통 의미 없는 로딩으로 느껴진다.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>제품 해법</h3>
+            <ul>
+              <li>데이터를 한 번에 수집하고 동일한 시점의 스냅샷으로 분석한다.</li>
+              <li>서로 다른 역할이 독립적으로 판단한 뒤 의견 차이를 공개한다.</li>
+              <li>모든 핵심 주장에 원문과 기준 시각을 연결한다.</li>
+              <li>분석 대기를 AI 연구소가 움직이는 제품 경험으로 바꾼다.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="audience">
+        <div class="divider-title"><span class="index-number">03</span><span class="eyebrow">PRIMARY USERS</span></div>
+        <h2>첫 고객은 한국의 미국주식 개인투자자</h2>
+        <div class="grid-3">
+          <div class="panel"><h3>탐색형 투자자</h3><p>관심 종목을 발견했지만 어디부터 조사할지 모른다. 10초 요약과 핵심 질문이 중요하다.</p></div>
+          <div class="panel"><h3>공부형 투자자</h3><p>직접 판단하고 싶지만 영어 공시와 재무 분석이 부담스럽다. 원문 연결과 쉬운 설명이 중요하다.</p></div>
+          <div class="panel"><h3>바쁜 직장인</h3><p>여러 출처를 따라갈 시간이 없다. 변화 요약, 이벤트 일정, 이전 분석과 비교가 중요하다.</p></div>
+        </div>
+        <p class="meta">비대상: 초단타 신호, 자동매매, 옵션 주문, 개인별 포트폴리오 지시를 원하는 사용자.</p>
+      </section>
+
+      <section id="principles">
+        <div class="divider-title"><span class="index-number">04</span><span class="eyebrow">PRODUCT PRINCIPLES</span></div>
+        <h2>제품이 흔들리지 않게 하는 여섯 원칙</h2>
+        <ol class="checklist">
+          <li><strong>근거가 먼저다.</strong> 출처 없는 주장은 결과 리포트에 포함하지 않는다.</li>
+          <li><strong>의견 차이를 숨기지 않는다.</strong> 합의와 미합의를 모두 보여준다.</li>
+          <li><strong>사고 과정 대신 작업 근거를 보여준다.</strong> 원시 추론이 아니라 자료 조회·계산·검증 기록을 스트리밍한다.</li>
+          <li><strong>모르는 것을 표시한다.</strong> 사실, 해석, 미확인 영역을 구분한다.</li>
+          <li><strong>매매를 명령하지 않는다.</strong> 투자판단을 대신하지 않고 기업의 상태와 확인 조건을 제공한다.</li>
+          <li><strong>재분석할수록 가치가 커진다.</strong> 지난 분석 이후 무엇이 달라졌는지를 핵심 재방문 이유로 만든다.</li>
+        </ol>
+      </section>
+
+      <section id="scope">
+        <div class="divider-title"><span class="index-number">05</span><span class="eyebrow">MARKET SCOPE</span></div>
+        <h2>양쪽을 지원할 구조, <span class="nowrap">미국부터 출시</span></h2>
+        <p>공통 분석 엔진 위에 시장별 데이터 어댑터와 분석 규칙을 둔다. 미국주식용 로직을 한국주식에 단순 번역해서 사용하지 않는다.</p>
+        <div class="table-wrap">
+          <table>
+            <caption>시장별 분석 팩</caption>
+            <thead><tr><th scope="col">공통 영역</th><th scope="col">미국 시장 팩</th><th scope="col">한국 시장 팩</th></tr></thead>
+            <tbody>
+              <tr><td>공시·재무</td><td>SEC 10-K, 10-Q, 8-K, XBRL</td><td>DART 사업·분기보고서, 주요사항보고서</td></tr>
+              <tr><td>핵심 이벤트</td><td>실적 가이던스, 제품, 규제, 고객 CAPEX</td><td>수주, 공급계약, 유증, CB/BW, 최대주주</td></tr>
+              <tr><td>시장 환경</td><td>Fed, 금리, 달러, 섹터 ETF</td><td>환율, 수급, 정책, 업종 지수</td></tr>
+              <tr><td>출시 순서</td><td>정식 MVP</td><td>대형주 베타 → 전 종목 확대</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="flow">
+        <div class="divider-title"><span class="index-number">06</span><span class="eyebrow">CORE USER FLOW</span></div>
+        <h2>검색에서 리포트까지 <span class="nowrap">다섯 단계</span></h2>
+        <ol class="flow">
+          <li><h3>통합 종목 검색</h3><p>회사명, 영문 심볼, 한국 종목코드를 지원한다. 결과에는 거래소와 국가를 명확히 표시한다.</p></li>
+          <li><h3>분석 브리핑</h3><p>회사·시장·데이터 기준 시각을 확인하고, 담당 에이전트와 분석 계획을 생성한다.</p></li>
+          <li><h3>부서별 독립 조사</h3><p>시장, 기업, 재무, 가치평가·차트, 위험 분석이 같은 데이터 스냅샷을 기반으로 독립 실행된다.</p></li>
+          <li><h3>교차 검증과 회의</h3><p>근거 감사가 숫자와 출처를 검사하고, 리스크 분석가가 반대 논리를 제시한다. 위원장이 합의와 충돌을 정리한다.</p></li>
+          <li><h3>전문 리포트</h3><p>10초 요약, 핵심 근거, 재무·가치평가, 시나리오, 미확인 영역, 출처를 하나의 읽기 흐름으로 제공한다.</p></li>
+        </ol>
+      </section>
+
+      <section id="agents">
+        <div class="divider-title"><span class="index-number">07</span><span class="eyebrow">AGENT ORGANIZATION</span></div>
+        <h2>보이는 여섯 역할과 <span class="nowrap">보이지 않는 검증기</span></h2>
+        <div class="agent-list">
+          <div class="agent"><span class="agent-dot" aria-hidden="true"></span><strong>Market Radar</strong><span>금리·달러·지수·섹터·경기 국면이 해당 기업에 미치는 영향을 분석한다.</span></div>
+          <div class="agent"><span class="agent-dot" aria-hidden="true"></span><strong>Company Analyst</strong><span>사업 구조, 제품, 경쟁 우위, 고객, 경영진 전략과 최근 공시를 조사한다.</span></div>
+          <div class="agent"><span class="agent-dot" aria-hidden="true"></span><strong>Financial Analyst</strong><span>매출, 성장률, 마진, 현금흐름, 부채, 주식 수와 사업부별 추세를 계산한다.</span></div>
+          <div class="agent"><span class="agent-dot" aria-hidden="true"></span><strong>Valuation &amp; Chart</strong><span>과거·동종기업 대비 가치평가와 가격 추세·변동성·상대강도를 설명한다.</span></div>
+          <div class="agent"><span class="agent-dot" aria-hidden="true"></span><strong>Risk Analyst</strong><span>가장 강한 반대 논리, 빠진 정보, 기대 과잉, 구조적 위험을 검토한다.</span></div>
+          <div class="agent"><span class="agent-dot" aria-hidden="true"></span><strong>Research Chair</strong><span>의견을 평균내지 않고 합의, 충돌, 핵심 질문과 다음 확인 조건으로 종합한다.</span></div>
+        </div>
+        <div class="callout info"><strong>Evidence Auditor</strong>사용자에게 캐릭터로 노출하지 않는 시스템 역할. 모든 수치·주장·인용의 출처와 기준 시각을 검사하며 검증되지 않은 주장을 결과에서 제외한다.</div>
+      </section>
+
+      <section id="data">
+        <div class="divider-title"><span class="index-number">08</span><span class="eyebrow">DATA SOURCES</span></div>
+        <h2>무료 원문 중심으로 시작하고 시세는 계약을 준비한다</h2>
+        <div class="table-wrap">
+          <table>
+            <caption>MVP 데이터 지도</caption>
+            <thead><tr><th scope="col">데이터</th><th scope="col">1차 출처</th><th scope="col">사용 방식</th><th scope="col">주의</th></tr></thead>
+            <tbody>
+              <tr><td>미국 공시·재무</td><td>SEC EDGAR</td><td>10-K·10-Q·8-K, Company Facts</td><td>서버 호출, User-Agent 정책 준수</td></tr>
+              <tr><td>한국 공시·재무</td><td>OpenDART</td><td>공시 원문, 재무, 지분, 주요사항</td><td>API 키와 호출 제한 관리</td></tr>
+              <tr><td>거시경제</td><td>FRED</td><td>금리, 물가, 고용, 달러 관련 시계열</td><td>시계열 수정과 기준일 표시</td></tr>
+              <tr><td>시세·거래량</td><td>계약 가능한 공급자</td><td>OHLCV와 지연 여부 표시</td><td>상용 display 권한 확인</td></tr>
+              <tr><td>뉴스·일정</td><td>공시, 기업 IR, 계약 API</td><td>기업 뉴스와 실적 일정</td><td>기사 원문 재배포 금지</td></tr>
+              <tr><td>기술 지표</td><td>내부 계산</td><td>OHLCV 기반 RSI·추세·변동성</td><td>계산식과 기간을 고정</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="meta">금지: yfinance나 웹 스크래핑을 상용 핵심 데이터 원천으로 간주하지 않는다. 데이터 사용권은 정식 출시 전 계약 검토가 필요하다.</p>
+      </section>
+
+      <section id="analysis-ui">
+        <div class="divider-title"><span class="index-number">09</span><span class="eyebrow">ANALYSIS EXPERIENCE</span></div>
+        <h2>로딩을 AI 연구소의 업무 장면으로 바꾼다</h2>
+        <p>PC 분석 화면은 왼쪽 70%의 부서형 오피스와 오른쪽 30%의 근거 활동 패널로 구성한다. 캐릭터 이동은 실제 서버 상태와 일치해야 한다.</p>
+        <pre aria-label="분석 활동 로그 예시">10:41:12  기업분석팀이 최신 10-Q를 열었습니다
+10:41:18  매출 성장률 +12.4%를 원문에서 확인했습니다
+10:41:24  재무팀이 영업이익률 둔화를 감지했습니다
+10:41:31  가치평가팀이 동종기업 5곳과 비교합니다
+10:41:45  리스크팀이 성장 기대 과다 반론을 제기했습니다
+10:42:02  위원회가 재무팀과 가치평가팀의 의견을 검토합니다</pre>
+        <div class="grid-2">
+          <div class="panel"><h3>표시할 것</h3><ul><li>자료를 가져오는 행위</li><li>계산·비교·검증 상태</li><li>에이전트 간 질문과 반론</li><li>출처 링크와 진행률</li></ul></div>
+          <div class="panel"><h3>표시하지 않을 것</h3><ul><li>모델의 원시 사고 과정</li><li>실제 작업과 무관한 가짜 로그</li><li>완료 후 시간을 끄는 애니메이션</li><li>사용자가 취소할 수 없는 대기</li></ul></div>
+        </div>
+      </section>
+
+      <section id="report">
+        <div class="divider-title"><span class="index-number">10</span><span class="eyebrow">REPORT OUTPUT</span></div>
+        <h2>결론이 아니라 판단 가능한 구조를 제공한다</h2>
+        <ol>
+          <li><strong>10초 요약:</strong> 기업 현재 상태 한 문장, 자료 수, 기준 시각.</li>
+          <li><strong>상태 지도:</strong> 사업 성장, 수익성, 재무 안정성, 가치평가, 가격 흐름, 위험.</li>
+          <li><strong>긍정·우려 요인:</strong> 각각 3~5개, 모든 항목에 근거 연결.</li>
+          <li><strong>위원회 결과:</strong> 합의된 내용, 합의하지 못한 내용, 핵심 논쟁.</li>
+          <li><strong>전문 분석:</strong> 사업 구조, 재무 추세, 가치평가, 가격·차트, 촉매와 일정.</li>
+          <li><strong>시나리오:</strong> Bull·Base·Bear의 조건, 사업 변화, 확인 지표.</li>
+          <li><strong>사실 구분:</strong> 확인된 사실, 합리적 해석, 아직 <span class="nowrap">알 수 없는 것.</span></li>
+          <li><strong>변화:</strong> 지난 분석 이후 긍정·주의 변화.</li>
+          <li><strong>근거:</strong> 출처 원문, 문서 위치, 데이터 기준 시각, 누락 데이터.</li>
+        </ol>
+        <div class="callout caution"><strong>결과 카피 금지</strong>매수, 매도, 보유, 비중 축소, 분할매수, 진입가, 목표가, 개인 보유정보 기반 행동 권고를 기본 리포트에 넣지 않는다.</div>
+      </section>
+
+      <section id="architecture">
+        <div class="divider-title"><span class="index-number">11</span><span class="eyebrow">SYSTEM ARCHITECTURE</span></div>
+        <h2>AI보다 먼저 데이터와 <span class="nowrap">작업 상태를</span> 구조화한다</h2>
+        <pre aria-label="시스템 흐름">사용자 요청
+  → 분석 Job 생성 및 중복 요청 결합
+  → 시장별 Data Adapter가 원문 수집
+  → 동일 시점의 immutable Data Snapshot 생성
+  → Agent Worker 2~3개 병렬 실행
+  → Risk Analyst 반론
+  → Evidence Auditor 검증
+  → Research Chair 종합
+  → JSON Schema 검증
+  → UI 스트리밍 및 Report 저장</pre>
+        <h3>초기 CLI 운영 원칙</h3>
+        <ul>
+          <li>웹 요청에서 CLI를 직접 실행하지 않고 작업 큐와 워커를 사용한다.</li>
+          <li>서버 전체 동시 CLI 실행 수를 2~3개로 제한한다.</li>
+          <li>같은 종목과 같은 데이터 기준 시각의 요청은 결과를 공유한다.</li>
+          <li>AI는 웹을 자유롭게 탐색하지 않고 정리된 데이터 스냅샷만 받는다.</li>
+          <li>CLI 실행부는 Provider 인터페이스 뒤에 두어 API 방식으로 교체 가능하게 한다.</li>
+          <li>작업별 임시 디렉터리, 읽기 전용 데이터, 타임아웃, 취소를 지원한다.</li>
+        </ul>
+      </section>
+
+      <section id="contracts">
+        <div class="divider-title"><span class="index-number">12</span><span class="eyebrow">DATA CONTRACTS</span></div>
+        <h2>에이전트 자유문 대신 <span class="nowrap">검증 가능한</span> 구조를 강제한다</h2>
+        <pre aria-label="에이전트 결과 JSON 예시">{
+  "agent": "financial_analyst",
+  "status": "complete",
+  "stance": "positive | mixed | caution",
+  "summary": "한 문장 결론",
+  "claims": [
+    {
+      "text": "데이터센터 매출 성장세가 유지됨",
+      "evidence_ids": ["sec-10q-24"],
+      "fact_or_interpretation": "fact",
+      "freshness": "2026-07-17T00:15:00Z"
+    }
+  ],
+  "key_risk": "가장 중요한 반대 요인",
+  "change_condition": "현재 해석이 바뀌는 조건",
+  "unknowns": ["현재 데이터로 확인할 수 없는 것"]
+}</pre>
+        <h3>스트리밍 이벤트 최소 스키마</h3>
+        <pre aria-label="스트리밍 이벤트 JSON 예시">{
+  "job_id": "job_...",
+  "agent_id": "company_analyst",
+  "event_type": "source_opened | metric_verified | challenge_raised | completed",
+  "public_summary": "최신 10-Q에서 사업부 매출을 확인했습니다",
+  "source_id": "sec-10q-24",
+  "progress": 46,
+  "created_at": "ISO-8601"
+}</pre>
+      </section>
+
+      <section id="guardrails">
+        <div class="divider-title"><span class="index-number">13</span><span class="eyebrow">TRUST &amp; LEGAL GUARDRAILS</span></div>
+        <h2>서비스의 신뢰는 <span class="nowrap">정확한 경계에서</span> 나온다</h2>
+        <div class="grid-2">
+          <div class="panel"><h3>제품 신뢰</h3><ul><li>모든 숫자에 출처와 기준 시각</li><li>데이터 누락과 충돌 표시</li><li>사실과 해석 분리</li><li>지난 분석 변경 이력</li><li>캐시 결과 여부 표시</li></ul></div>
+          <div class="panel"><h3>규제 경계</h3><ul><li>개인 보유정보를 받지 않음</li><li>사용자별 매매 판단을 제공하지 않음</li><li>가격·수량·시기 행동 권고를 피함</li><li>유료 출시 전 금융 규제 법률 검토</li><li>면책 문구에만 의존하지 않음</li></ul></div>
+        </div>
+      </section>
+
+      <section id="mvp">
+        <div class="divider-title"><span class="index-number">14</span><span class="eyebrow">MVP SCOPE</span></div>
+        <h2>첫 버전은 종목 하나를 끝까지 잘 분석한다</h2>
+        <div class="grid-2">
+          <div>
+            <h3>반드시 포함</h3>
+            <ul class="checklist">
+              <li>미국주식 심볼 검색</li><li>분석 Job과 진행 상태</li><li>5개 분석 역할 + 위원장</li>
+              <li>활동 로그 스트리밍</li><li>출처가 연결된 결과 리포트</li><li>분석 저장·공유 URL</li>
+              <li>지난 분석과 변경 비교</li><li>모바일 대체형 에이전트 목록</li>
+            </ul>
+          </div>
+          <div>
+            <h3>초기 제외</h3>
+            <ul><li>자동매매와 증권사 주문 연결</li><li>개인 포트폴리오 최적화</li><li>실시간 호가와 초단타 신호</li>
+              <li>옵션 분석</li><li>소셜 감성 점수</li><li>정밀 목표주가</li><li>전 종목 한국시장 동시 출시</li></ul>
+          </div>
+        </div>
+        <h3>구현 순서</h3>
+        <ol><li>정적 결과 리포트와 데이터 계약</li><li>검색과 분석 Job API</li><li>에이전트 실행과 JSON 검증</li><li>스트리밍 오피스 UI</li><li>저장·공유·변경 비교</li><li>한국시장 어댑터</li></ol>
+      </section>
+
+      <section id="acceptance">
+        <div class="divider-title"><span class="index-number">15</span><span class="eyebrow">ACCEPTANCE CRITERIA</span></div>
+        <h2>완료를 판단하는 실제 조건</h2>
+        <ul class="checklist">
+          <li>AAPL, NVDA, TSLA 등 유효한 심볼을 검색하고 올바른 기업을 선택할 수 있다.</li>
+          <li>존재하지 않는 심볼은 명확한 오류와 다시 검색할 방법을 제공한다.</li>
+          <li>분석 진행 상태가 서버 Job 상태와 일치하며 취소와 재시도가 가능하다.</li>
+          <li>각 결과 주장에는 하나 이상의 검증된 evidence ID가 연결된다.</li>
+          <li>데이터가 부족하면 AI가 임의로 채우지 않고 미확인으로 표시한다.</li>
+          <li>완료 리포트에는 요약, 상태, 긍정·우려, 논쟁, 재무, 가치평가, 시나리오, 출처가 있다.</li>
+          <li>375px, 768px, 1280px에서 핵심 작업이 가로 스크롤 없이 가능하다.</li>
+          <li>키보드만으로 검색, 분석 시작, 로그 탐색, 리포트 이동이 가능하다.</li>
+          <li>분석 중 화면은 reduced-motion에서 캐릭터 이동 대신 상태 목록을 제공한다.</li>
+          <li>리포트를 인쇄하거나 PDF로 저장했을 때 출처와 표가 읽을 수 있다.</li>
+        </ul>
+      </section>
+
+      <section id="handoff">
+        <div class="divider-title"><span class="index-number">16</span><span class="eyebrow">AI BUILD HANDOFF</span></div>
+        <h2>바이브코딩 AI에게 그대로 전달할 프롬프트</h2>
+        <p>아래 프롬프트와 이 HTML 문서를 함께 제공하면 된다. 실제 기술 스택을 이미 정했다면 첫 문단에 추가한다.</p>
+        <div class="handoff">
+          <button class="button primary copy-button" id="copy-prompt" type="button">프롬프트 복사</button>
+          <div class="live-status" id="copy-status" aria-live="polite"></div>
+          <pre id="handoff-prompt">당신은 시니어 제품 엔지니어이자 핀테크 UX 엔지니어다.
+
+첨부된 “AI Research Office 프로젝트 기획서”를 제품 명세의 단일 기준으로 사용해 MVP를 구현하라.
+
+핵심 제품:
+- 한국 투자자가 미국주식 심볼을 검색한다.
+- 역할이 다른 AI 분석가들이 시장, 기업, 재무, 가치평가·차트, 위험을 독립적으로 조사한다.
+- 진행 중에는 원시 chain-of-thought가 아니라 자료 조회, 계산, 검증, 반론과 출처를 공개 활동 로그로 스트리밍한다.
+- Evidence Auditor가 출처 없는 주장을 제거하고 Research Chair가 합의와 의견 충돌을 종합한다.
+- 결과는 매수·매도 명령이 아니라 기업 상태, 시장 기대, 긍정·우려, 재무 추세, 가치평가, 촉매, 시나리오, 미확인 영역과 출처를 보여주는 전문 리포트다.
+
+구현 원칙:
+1. 먼저 데이터 계약과 JSON Schema를 정의하고 UI를 그 위에 구현한다.
+2. 웹 요청에서 CLI를 직접 실행하지 말고 Job Queue와 제한된 Worker를 사용한다.
+3. 데이터 수집은 AI가 아닌 Adapter가 수행하고 Agent에는 immutable snapshot만 전달한다.
+4. 모든 주장에는 evidence_id, source, freshness가 있어야 한다.
+5. 존재하지 않는 종목, 데이터 부족, API 실패, 분석 취소, 시간 초과 상태를 설계한다.
+6. desktop-first이지만 375/768/1280px에서 핵심 플로우가 작동해야 한다.
+7. 키보드, visible focus, reduced motion, semantic HTML, WCAG 2.2 AA를 지킨다.
+8. 매수·매도·보유·비중·진입가·목표가·개인별 행동 권고를 넣지 않는다.
+9. 임시 mock data는 실제 API 응답과 같은 타입을 사용하고 한 곳에서 교체 가능하게 한다.
+10. 기능을 실제 화면에서 검증하고 검색 성공·실패·분석 중·완료 리포트 시나리오를 테스트한다.
+
+우선 구현 순서:
+1) 결과 리포트와 mock data 계약
+2) 통합 종목 검색
+3) 분석 Job과 SSE/WebSocket 이벤트 스트림
+4) 부서형 AI Research Office 화면
+5) 결과 저장·공유·지난 분석 변경 비교
+
+각 단계가 끝날 때 변경 파일, 실행 방법, 검증 결과, 남은 제한을 보고하라. TODO나 빈 화면을 남기지 말고 현재 범위의 흐름을 끝까지 완성하라.</pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="footer-inner"><strong>AI Research Office</strong><span>Working product brief · Replace the working title when the brand is decided.</span></div>
+  </footer>
+
+  <script>
+    const progress = document.getElementById('progress');
+    const sections = [...document.querySelectorAll('main section[id]')];
+    const navLinks = [...document.querySelectorAll('#outline-nav a')];
+
+    function updateProgress() {
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const ratio = scrollable > 0 ? window.scrollY / scrollable : 0;
+      progress.style.transform = `scaleX(${Math.min(1, Math.max(0, ratio))})`;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      navLinks.forEach(link => link.setAttribute('aria-current', String(link.hash === `#${visible.target.id}`)));
+    }, { rootMargin: '-22% 0px -66% 0px', threshold: [0, .2, .5] });
+
+    sections.forEach(section => observer.observe(section));
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+
+    const copyButton = document.getElementById('copy-prompt');
+    const copyStatus = document.getElementById('copy-status');
+    copyButton.addEventListener('click', async () => {
+      const text = document.getElementById('handoff-prompt').textContent.trim();
+      try {
+        await navigator.clipboard.writeText(text);
+        copyButton.textContent = '복사 완료';
+        copyStatus.textContent = 'AI 전달용 프롬프트를 클립보드에 복사했습니다.';
+      } catch {
+        copyStatus.textContent = '자동 복사가 차단되었습니다. 아래 프롬프트를 직접 선택해 복사해 주세요.';
+      }
+      window.setTimeout(() => { copyButton.textContent = '프롬프트 복사'; copyStatus.textContent = ''; }, 1800);
+    });
+  </script>
+</body>
+</html>

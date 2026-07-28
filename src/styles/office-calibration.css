@@ -1,0 +1,89 @@
+.office-calibration {
+  min-height: 100vh;
+  padding: 32px;
+  color: var(--research-text);
+  background: var(--research-bg);
+}
+
+.office-calibration__header,
+.office-calibration__panel {
+  width: min(100%, 1448px);
+  margin-inline: auto;
+}
+
+.office-calibration__header {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 20px;
+}
+
+.office-calibration__header p {
+  margin: 0;
+  color: var(--research-accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.office-calibration__header h1 {
+  margin: 0;
+}
+
+.office-calibration__header span,
+.office-calibration__toolbar output {
+  color: var(--research-text-muted);
+  font-size: 14px;
+}
+
+.office-calibration__panel {
+  display: grid;
+  gap: 12px;
+}
+
+.office-calibration__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.office-calibration__toolbar button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--research-line);
+  border-radius: 8px;
+  color: var(--research-text-soft);
+  background: var(--research-surface);
+  font: inherit;
+  cursor: pointer;
+}
+
+.office-calibration__toolbar button:focus-visible {
+  outline: 2px solid var(--research-accent);
+  outline-offset: 2px;
+}
+
+.office-calibration__toolbar output {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.office-calibration__scene {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  aspect-ratio: 1374 / 1145;
+  border: 1px solid var(--research-line);
+  border-radius: 12px;
+}
+
+@media (max-width: 720px) {
+  .office-calibration {
+    padding: 18px;
+  }
+
+  .office-calibration__toolbar output {
+    width: 100%;
+    margin-left: 0;
+  }
+}
