@@ -52,6 +52,10 @@
   .hero__description {
     max-width: 36ch;
   }
+  html[lang="ko"] .hero__description-lead,
+  html[lang="ko"] .hero__description-tail {
+    white-space: normal;
+  }
   .border-beam-card {
     margin-top: var(--space-10);
   }
