@@ -4,7 +4,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
-import { ResearchRequestError } from "../../research/client/api";
+import {
+  type ResearchClient,
+  ResearchRequestError,
+} from "../../research/client/api";
+import type { ResearchTarget } from "../../research/domain/researchTarget";
 import { Brand } from "../Brand";
 
 type Props = {
@@ -12,13 +16,47 @@ type Props = {
   readonly question: string;
   readonly locale: Locale;
   readonly idempotencyKey: string;
+  readonly researchTarget: ResearchTarget;
 };
+
+const LAUNCH_ATTEMPTS = 4;
+const LAUNCH_RETRY_BASE_MS = 100;
+const launchPromises = new Map<
+  string,
+  ReturnType<ResearchClient["startRun"]>
+>();
+
+async function startRunWithRetry(
+  client: Pick<ResearchClient, "startRun">,
+  input: Parameters<ResearchClient["startRun"]>[0],
+) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < LAUNCH_ATTEMPTS; attempt += 1) {
+    try {
+      return await client.startRun(input);
+    } catch (error) {
+      lastError = error;
+      if (
+        !(error instanceof ResearchRequestError) ||
+        error.status !== 503 ||
+        attempt === LAUNCH_ATTEMPTS - 1
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        window.setTimeout(resolve, LAUNCH_RETRY_BASE_MS * 2 ** attempt),
+      );
+    }
+  }
+  throw lastError;
+}
 
 export function LaunchingResearchRoom({
   symbol,
   question,
   locale,
   idempotencyKey,
+  researchTarget,
 }: Props) {
   const router = useRouter();
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
@@ -26,8 +64,19 @@ export function LaunchingResearchRoom({
 
   useEffect(() => {
     let active = true;
-    void client
-      .startRun({ symbol, question, locale, idempotencyKey })
+    let launch = launchPromises.get(idempotencyKey);
+    if (launch === undefined) {
+      launch = startRunWithRetry(client, {
+        symbol,
+        question,
+        locale,
+        idempotencyKey,
+        researchTarget,
+      });
+      launchPromises.set(idempotencyKey, launch);
+    }
+    setFailed(false);
+    void launch
       .then((created) => {
         if (!active) return;
         router.replace(
@@ -47,7 +96,15 @@ export function LaunchingResearchRoom({
     return () => {
       active = false;
     };
-  }, [client, idempotencyKey, locale, question, router, symbol]);
+  }, [
+    client,
+    idempotencyKey,
+    locale,
+    question,
+    researchTarget,
+    router,
+    symbol,
+  ]);
 
   const copy =
     locale === "ko"

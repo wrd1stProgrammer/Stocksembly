@@ -44,12 +44,27 @@ export type PitUnsafeDataset = ProviderTimestamps & {
   readonly limitations: readonly ["provider_dataset_not_point_in_time_safe"];
 };
 
+export interface FundamentalValueObject {
+  readonly [key: string]: FundamentalValue;
+}
+
+export interface FundamentalValueArray
+  extends ReadonlyArray<FundamentalValue> {}
+
+export type FundamentalValue =
+  | number
+  | string
+  | boolean
+  | null
+  | FundamentalValueArray
+  | FundamentalValueObject;
+
 export type FundamentalIndicator = {
   readonly id: string;
   readonly name?: string;
   readonly category?: string;
   readonly period?: string;
-  readonly value: number | string | readonly (number | string)[];
+  readonly value: FundamentalValue;
 };
 
 export type FundamentalSeries = {
@@ -62,6 +77,7 @@ export type FundamentalsDataset = PitUnsafeDataset & {
   readonly symbol: string;
   readonly indicators: readonly FundamentalIndicator[];
   readonly series: readonly FundamentalSeries[];
+  readonly unavailableSeriesIds: readonly string[];
 };
 
 export const NEWS_CLASSIFIER_MODEL = "gpt-5.6-terra" as const;
@@ -153,17 +169,50 @@ export type CalendarDataset = PitUnsafeDataset & {
 
 export type PeerRecord = {
   readonly symbol: string;
-  readonly name?: string;
+  readonly name: string;
+  readonly sector: string;
+  readonly classification: "direct_competitor" | "operating_comparable";
+  readonly selectionScore: number;
+  readonly selectionReasons: readonly string[];
   readonly marketCap?: number;
+  readonly priceEarningsTtm?: number;
+  readonly enterpriseValueEbitdaTtm?: number;
+  readonly enterpriseValueRevenueTtm?: number;
+  readonly revenueGrowthTtm?: number;
+  readonly grossMarginTtm?: number;
+  readonly operatingMarginTtm?: number;
+  readonly performance3Month?: number;
+  readonly performance1Year?: number;
+};
+
+export type PeerSubjectMetrics = Omit<
+  PeerRecord,
+  "classification" | "selectionScore" | "selectionReasons"
+>;
+
+export type RelativeValuationMetric = {
+  readonly metric:
+    | "price_earnings_ttm"
+    | "enterprise_value_ebitda_ttm"
+    | "enterprise_value_to_revenue_ttm";
+  readonly peerMedian: number;
+  readonly peerCount: number;
+  readonly subjectValue?: number;
+  readonly premiumDiscountPercent?: number;
 };
 
 export type PeerScreen = (input: {
   readonly symbol: string;
-  readonly limit: 10;
+  readonly limit: number;
 }) => Promise<unknown>;
 
 export type PeersDataset = ProviderTimestamps & {
   readonly symbol: string;
+  readonly sector: string;
+  readonly selectorVersion: string;
+  readonly selectionCache: "hit" | "miss";
+  readonly subject: PeerSubjectMetrics;
+  readonly relativeValuation: readonly RelativeValuationMetric[];
   readonly peers: readonly PeerRecord[];
 };
 

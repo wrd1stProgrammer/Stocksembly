@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AtomicClaimSchema } from "../domain/claims";
 import { EVIDENCE_SOURCES } from "../domain/evidenceSchemas";
+import { ResearchMetricSnapshotSchema } from "../domain/metricSnapshot";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 
@@ -43,12 +44,15 @@ export const StructuralAuditResultSchema = z
       .object({
         providerCode: z.string().trim().min(1).max(240),
         lastPrice: z.number().positive(),
+        change: z.number().finite().optional(),
+        changePercent: z.number().finite().optional(),
         currency: z.string().trim().min(3).max(8),
         observedAt: z.string().datetime(),
         marketState: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]),
       })
       .strict()
       .optional(),
+    metricSnapshot: ResearchMetricSnapshotSchema.optional(),
     metrics: z.array(StructuralMetricSchema).readonly(),
     blockers: z.array(z.string().min(1)).readonly(),
     claims: z.array(AtomicClaimSchema).min(1).readonly(),

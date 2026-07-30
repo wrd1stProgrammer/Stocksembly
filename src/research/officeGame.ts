@@ -66,6 +66,7 @@ export type OfficeSnapshotRendererOptions = {
   readonly reducedMotion: boolean;
   readonly showActorUi?: boolean;
   readonly showActorBubbles?: boolean;
+  readonly onActorSelect?: (actorId: AgentId) => void;
   readonly signal: AbortSignal;
 };
 
@@ -92,6 +93,7 @@ export async function createOfficeSnapshotRenderer(
     reducedMotion,
     showActorUi = true,
     showActorBubbles = true,
+    onActorSelect,
     signal,
   } = options;
   const viewport = viewportFor(host);
@@ -148,6 +150,11 @@ export async function createOfficeSnapshotRenderer(
     const actors = new Map<AgentId, MutableAgentDisplayRuntime>();
     for (const runtime of loadedActors) {
       actors.set(runtime.id, runtime);
+      if (onActorSelect !== undefined) {
+        runtime.body.eventMode = "static";
+        runtime.body.cursor = "pointer";
+        runtime.body.on("pointertap", () => onActorSelect(runtime.id));
+      }
       world.addChild(runtime.body);
       uiLayer.addChild(runtime.ui);
     }

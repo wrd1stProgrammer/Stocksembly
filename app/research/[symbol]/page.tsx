@@ -6,6 +6,7 @@ import { ResearchRoom } from "../../../src/components/research/ResearchRoom";
 import type { Locale } from "../../../src/lib/i18n";
 import { PublicRunDetailSchema } from "../../../src/research/client/schemas";
 import { TickerSymbolSchema } from "../../../src/research/domain/ids";
+import { researchTargetFromQuery } from "../../../src/research/domain/researchTarget";
 import { getLiveResearchApi } from "../../../src/research/server/api/liveResearchApi";
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
     readonly launch?: string;
     readonly question?: string;
     readonly run?: string;
+    readonly target?: string;
   }>;
 };
 
@@ -38,6 +40,7 @@ export default async function ResearchPage({ params, searchParams }: Props) {
         question={query.question?.slice(0, 100) ?? ""}
         locale={locale}
         idempotencyKey={query.launch}
+        researchTarget={researchTargetFromQuery(query.target)}
       />
     );
   if (query.run === undefined)

@@ -53,9 +53,33 @@ export function registerInsightSentryFamilyStateCases(): void {
       screenPeers: async () => ({
         providerUpdatedAt: AS_OF,
         retrievedAt: AS_OF,
+        sector: "Electronic Technology",
+        selectorVersion: "fixture-v1",
+        selectionCache: "miss",
+        subject: {
+          symbol: "NASDAQ:NVDA",
+          name: "NVIDIA Corporation",
+          sector: "Electronic Technology",
+          marketCap: 4_000,
+          priceEarningsTtm: 40,
+        },
+        relativeValuation: [
+          {
+            metric: "price_earnings_ttm",
+            subjectValue: 40,
+            peerMedian: 30,
+            peerCount: 10,
+            premiumDiscountPercent: 33.33,
+          },
+        ],
         peers: Array.from({ length: 15 }, (_, index) => ({
           symbol: `NASDAQ:P${index}`,
           name: `Peer ${index}`,
+          sector: "Electronic Technology",
+          classification:
+            index < 3 ? "direct_competitor" : "operating_comparable",
+          selectionScore: 1 - index / 20,
+          selectionReasons: ["fixture comparison"],
           marketCap: 1_000 - index,
         })),
       }),

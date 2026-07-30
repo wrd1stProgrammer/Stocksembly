@@ -9,7 +9,7 @@ import {
   User,
 } from "@phosphor-icons/react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Brand } from "../Brand";
 import type { ResearchSidebarProps } from "./researchSidebarTypes";
 
@@ -49,6 +49,23 @@ export function ResearchSidebar({
   const [openHistoryGroups, setOpenHistoryGroups] = useState<
     ReadonlySet<string>
   >(() => new Set([history.at(0)?.symbol ?? company.symbol]));
+  const [scrolling, setScrolling] = useState(false);
+  const scrollTimer = useRef<number | undefined>(undefined);
+
+  useEffect(
+    () => () => {
+      if (scrollTimer.current !== undefined)
+        window.clearTimeout(scrollTimer.current);
+    },
+    [],
+  );
+
+  const markScrolling = (): void => {
+    setScrolling(true);
+    if (scrollTimer.current !== undefined)
+      window.clearTimeout(scrollTimer.current);
+    scrollTimer.current = window.setTimeout(() => setScrolling(false), 700);
+  };
 
   const toggleHistoryGroup = (symbol: string): void => {
     setOpenHistoryGroups((current) => {
@@ -91,13 +108,28 @@ export function ResearchSidebar({
         </button>
       </header>
 
-      <div id="research-sidebar-content" hidden={collapsed}>
+      <div
+        id="research-sidebar-content"
+        data-scrolling={scrolling ? "true" : "false"}
+        hidden={collapsed}
+        onScroll={markScrolling}
+      >
         <section className="company-brief" aria-label={company.company}>
           <div>
             <span>{company.symbol}</span>
             <p>{company.company}</p>
           </div>
-          <strong>{company.price}</strong>
+          <div className="company-brief__quote">
+            <strong>{company.price}</strong>
+            {company.change === "—" ? null : (
+              <small
+                data-direction={company.change.startsWith("-") ? "down" : "up"}
+              >
+                {locale === "ko" ? "전일 대비 " : "Prev. "}
+                {company.change}
+              </small>
+            )}
+          </div>
         </section>
 
         <section className="analysis-history">

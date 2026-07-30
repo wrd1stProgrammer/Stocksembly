@@ -39,6 +39,18 @@ vi.mock("../../../src/components/research/ResearchRoom", () => ({
   ),
 }));
 
+vi.mock("../../../src/components/research/LaunchingResearchRoom", () => ({
+  LaunchingResearchRoom: ({
+    researchTarget,
+  }: {
+    readonly researchTarget: unknown;
+  }) => (
+    <output data-testid="launch-target">
+      {JSON.stringify(researchTarget)}
+    </output>
+  ),
+}));
+
 function detail(symbol: string) {
   return {
     run: {
@@ -59,6 +71,28 @@ beforeEach(() => {
 });
 
 describe("production research route", () => {
+  it("preserves the selected department through slow-launch recovery", async () => {
+    // Given
+    const props = {
+      params: Promise.resolve({ symbol: "NVDA" }),
+      searchParams: Promise.resolve({
+        lang: "ko",
+        launch: "launch-key",
+        question: "성장 가능성",
+        target: "company",
+      }),
+    };
+
+    // When
+    render(await ResearchPage(props));
+
+    // Then
+    expect(screen.getByTestId("launch-target")).toHaveTextContent(
+      '{"kind":"department","departmentId":"company"}',
+    );
+    expect(pageState.handle).not.toHaveBeenCalled();
+  });
+
   it("renders a typed recovery surface when the route has no persisted run identity", async () => {
     // Given
     const props = {

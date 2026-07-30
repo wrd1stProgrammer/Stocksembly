@@ -5,7 +5,6 @@ import {
   type NewsClassifierRequest,
 } from "./insightSentryResearchContracts";
 import { createInsightSentryResearchDataAdapter } from "./insightSentryResearchData";
-import { FundamentalsResponseSchema } from "./insightSentryResearchSchemas";
 import {
   AS_OF,
   type CapturedRequest,
@@ -13,6 +12,7 @@ import {
   fixtureClient,
   ROLLOUT,
 } from "./insightSentryResearchData.testSupport";
+import { FundamentalsResponseSchema } from "./insightSentryResearchSchemas";
 
 export function registerInsightSentryBoundedDataCases(): void {
   it("bounds fundamentals and batches at most twenty series ids by five", async () => {
@@ -71,7 +71,7 @@ export function registerInsightSentryBoundedDataCases(): void {
     // Then
     expect(result.status).toBe("available");
     if (result.status !== "available") return;
-    expect(result.data.indicators).toHaveLength(60);
+    expect(result.data.indicators).toHaveLength(76);
     expect(result.data.indicators.map((indicator) => indicator.id)).toContain(
       "zz_net_income_fy",
     );
@@ -90,7 +90,7 @@ export function registerInsightSentryBoundedDataCases(): void {
     expect(result.data.pitSafe).toBe(false);
   });
 
-  it("accepts live JSON fundamental values and keeps only decision-safe scalars", async () => {
+  it("preserves nested segment history from live fundamental JSON", async () => {
     // Given
     const payload = {
       code: "NASDAQ:NVDA",
@@ -143,14 +143,83 @@ export function registerInsightSentryBoundedDataCases(): void {
     // Then
     expect(result.status).toBe("available");
     if (result.status !== "available") return;
-    expect(result.data.indicators).toHaveLength(3);
+    expect(result.data.indicators).toHaveLength(4);
     expect(result.data.indicators).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "is_profitable", value: "true" }),
-        expect.objectContaining({ id: "mixed_history", value: [10, "12"] }),
+        expect.objectContaining({ id: "is_profitable", value: true }),
+        expect.objectContaining({
+          id: "intraday",
+          value: { open: 10, close: 11 },
+        }),
+        expect.objectContaining({
+          id: "mixed_history",
+          value: [10, null, { close: 11 }, "12"],
+        }),
         expect.objectContaining({ id: "revenue", value: 100 }),
       ]),
     );
+  });
+
+  it("keeps the fundamental snapshot when one historical-series batch fails", async () => {
+    const requests: CapturedRequest[] = [];
+    const base = fixtureClient(
+      {
+        fundamentals: {
+          code: "NASDAQ:NVDA",
+          last_update: 1_721_865_600_000,
+          data: [{ id: "total_revenue_fq", value: 100 }],
+        },
+        fundamentals_series: {
+          code: "NASDAQ:NVDA",
+          last_update: 1_721_865_600_000,
+          total_items: 1,
+          data: [
+            {
+              id: "total_revenue_fq",
+              name: "Revenue",
+              data: [{ time: 1_700_000_000, value: 100 }],
+            },
+          ],
+        },
+      },
+      requests,
+    );
+    let seriesCalls = 0;
+    const client = {
+      get: async <T>(request: Parameters<typeof base.get<T>>[0]) => {
+        if (request.endpoint === "fundamentals_series" && seriesCalls++ === 1)
+          throw new Error("one invalid provider series batch");
+        return await base.get(request);
+      },
+    };
+    const adapter = createInsightSentryResearchDataAdapter({
+      client,
+      rollout: ROLLOUT,
+      classifyNews: async () => ({ classifications: [] }),
+      screenPeers: async () => ({ retrievedAt: AS_OF, peers: [] }),
+    });
+
+    const result = await adapter.fundamentals({
+      symbol: "NASDAQ:NVDA",
+      asOf: AS_OF,
+      seriesIndicatorIds: [
+        "total_revenue_fq",
+        "gross_margin_fq",
+        "operating_margin_fq",
+        "net_income_fq",
+        "free_cash_flow_fq",
+        "invalid_provider_id",
+      ],
+      periods: 12,
+    });
+
+    expect(result.status).toBe("available");
+    if (result.status !== "available") return;
+    expect(result.data.indicators).toEqual([
+      expect.objectContaining({ id: "total_revenue_fq", value: 100 }),
+    ]);
+    expect(result.data.series).toHaveLength(1);
+    expect(result.data.unavailableSeriesIds).toContain("invalid_provider_id");
   });
 
   it("keeps opposed material news and skips the older window", async () => {

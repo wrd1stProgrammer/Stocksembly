@@ -4,6 +4,8 @@ import { Agent, request as httpsRequest } from "node:https";
 export type InsightSentryWireRequest = {
   readonly url: URL;
   readonly headers: Readonly<Record<string, string>>;
+  readonly method?: "GET" | "POST";
+  readonly body?: Uint8Array;
   readonly timeoutMilliseconds: number;
 };
 
@@ -73,9 +75,18 @@ export const nodeInsightSentryWireAdapter: InsightSentryWireAdapter = async (
     throw new InsightSentryTransportError("network");
 
   return await new Promise((resolve, reject) => {
+    const body = request.body;
+    const headers =
+      body === undefined
+        ? request.headers
+        : {
+            ...request.headers,
+            "content-type": "application/json",
+            "content-length": String(body.byteLength),
+          };
     const outbound = httpsRequest(
       request.url,
-      { method: "GET", headers: request.headers, agent: AGENT },
+      { method: request.method ?? "GET", headers, agent: AGENT },
       (response) =>
         resolve({
           status: response.statusCode ?? 0,
@@ -94,6 +105,7 @@ export const nodeInsightSentryWireAdapter: InsightSentryWireAdapter = async (
           : new InsightSentryTransportError("network"),
       );
     });
+    if (body !== undefined) outbound.write(body);
     outbound.end();
   });
 };

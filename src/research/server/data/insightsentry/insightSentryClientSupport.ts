@@ -42,14 +42,42 @@ function encodedFlags(
     .join("&");
 }
 
+function encodedBody(
+  body: Readonly<Record<string, InsightSentryParameterValue>> | undefined,
+): string {
+  if (body === undefined) return "";
+  return JSON.stringify(
+    Object.fromEntries(
+      Object.keys(body)
+        .sort()
+        .map((key) => [key, body[key]]),
+    ),
+  );
+}
+
 export function canonicalInsightSentryCacheKey(
   identity: InsightSentryCacheIdentity,
 ): string {
-  return [
+  const legacyGetKey = [
     INSIGHTSENTRY_CONTRACT_VERSION,
     identity.endpoint,
     identity.pathSegments.map(encode).join("/"),
     encodedEntries(identity.parameters),
+    encodedFlags(identity.adjustmentFlags),
+    identity.asOfBucket,
+  ];
+  if (
+    (identity.method === undefined || identity.method === "GET") &&
+    identity.requestBody === undefined
+  )
+    return legacyGetKey.join("|");
+  return [
+    INSIGHTSENTRY_CONTRACT_VERSION,
+    identity.method ?? "GET",
+    identity.endpoint,
+    identity.pathSegments.map(encode).join("/"),
+    encodedEntries(identity.parameters),
+    encodedBody(identity.requestBody),
     encodedFlags(identity.adjustmentFlags),
     identity.asOfBucket,
   ].join("|");

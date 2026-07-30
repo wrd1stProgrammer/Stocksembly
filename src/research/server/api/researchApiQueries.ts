@@ -25,6 +25,10 @@ function publicRun(input: unknown): PublicRun {
     snapshotId: row.snapshot_id,
     symbol: row.symbol,
     locale: row.locale,
+    researchTarget:
+      row.research_kind === "department" && row.department_id !== null
+        ? { kind: "department", departmentId: row.department_id }
+        : { kind: "committee" },
     status: row.status,
     lastEventSeq: row.last_event_seq,
     createdAt: row.created_at,
@@ -40,7 +44,9 @@ export function listPublicRuns(
 ): readonly PublicRun[] {
   const values = database
     .prepare(`SELECT runs.run_id, runs.snapshot_id,
-    research_requests.symbol, research_requests.locale, runs.status,
+    research_requests.symbol, research_requests.locale,
+    research_requests.research_kind, research_requests.department_id,
+    runs.status,
     runs.last_event_seq, runs.created_at, runs.report_id FROM runs
     JOIN research_requests USING(run_id)
     WHERE research_requests.principal_id = @principalId
@@ -63,7 +69,9 @@ export function findPublicRun(
 ): PublicRun | undefined {
   const value = database
     .prepare(`SELECT runs.run_id, runs.snapshot_id,
-    research_requests.symbol, research_requests.locale, runs.status,
+    research_requests.symbol, research_requests.locale,
+    research_requests.research_kind, research_requests.department_id,
+    runs.status,
     runs.last_event_seq, runs.created_at, runs.report_id FROM runs
     JOIN research_requests USING(run_id)
     WHERE runs.run_id = ? AND research_requests.principal_id = ?`)

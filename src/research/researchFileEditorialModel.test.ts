@@ -22,7 +22,11 @@ describe("buildResearchFileEditorialModel", () => {
       ),
     ).toBe(true);
     expect(
-      model.comparisonRows.every((row) => row.interpretation.length > 0),
+      model.comparisonRows.every(
+        (row) =>
+          row.interpretation.length > 45 &&
+          !/^(?:조건부로|제한적으로|신중하게)\s/u.test(row.interpretation),
+      ),
     ).toBe(true);
   });
 
@@ -176,8 +180,31 @@ describe("buildResearchFileEditorialModel", () => {
 
     const model = buildResearchFileEditorialModel(file, "en");
 
-    expect(model.analysisRows[0]?.title).toContain("4.65%");
+    expect(model.analysisRows[0]?.evidence).toContain("4.65%");
     expect(model.analysisRows[0]?.title).not.toContain("second sentence");
+  });
+
+  it("uses audited claims instead of unverified editorial filler rows", () => {
+    const repeatedClaims = Array.from({ length: 4 }, (_, index) => ({
+      ...researchFileFixture.claimMatrix[0],
+      id: `C${String(index + 1).padStart(2, "0")}`,
+      claim: {
+        en: `Demand claim ${index + 1} is supported by filings.`,
+        ko: `수요 주장 ${index + 1}은 공시 근거로 확인됩니다.`,
+      },
+    }));
+    const model = buildResearchFileEditorialModel(
+      { ...researchFileFixture, claimMatrix: repeatedClaims },
+      "ko",
+    );
+
+    expect(model.analysisRows).toHaveLength(4);
+    expect(
+      model.analysisRows.every((row) => row.evidenceId !== undefined),
+    ).toBe(true);
+    expect(
+      model.analysisRows.every((row) => row.strength !== "unverified"),
+    ).toBe(true);
   });
 
   it("does not repeat a false current-price absence after a quote was sealed", () => {
@@ -201,5 +228,45 @@ describe("buildResearchFileEditorialModel", () => {
 
     expect(serialized).toContain("AI 수요는 성장을 뒷받침");
     expect(serialized).not.toContain("현재 주가가 없어");
+  });
+
+  it("scores focused reports from their evidence shape and keeps source names out of inline findings", () => {
+    const focused = {
+      ...researchFileFixture,
+      researchTarget: {
+        kind: "department" as const,
+        departmentId: "financial" as const,
+      },
+      teamViews: researchFileFixture.teamViews.filter(
+        (team) => team.departmentId === "financial",
+      ),
+      claimMatrix: researchFileFixture.claimMatrix.slice(0, 2).map((claim) => ({
+        ...claim,
+        verdict: "entailed" as const,
+        strength: "strong" as const,
+        sourceCount: 2,
+        sourceRefs: ["S01", "S02"],
+      })),
+    };
+    const broader = {
+      ...focused,
+      claimMatrix: focused.claimMatrix.map((claim) => ({
+        ...claim,
+        sourceCount: 5,
+        sourceRefs: ["S01", "S02", "S03", "S04", "S05"],
+      })),
+    };
+
+    const focusedModel = buildResearchFileEditorialModel(focused, "ko");
+    const broaderModel = buildResearchFileEditorialModel(broader, "ko");
+
+    expect(focusedModel.conclusionIndex).not.toBe(broaderModel.conclusionIndex);
+    expect(
+      focusedModel.analysisRows.every(
+        (row) =>
+          !row.evidence.includes("미국 증권거래위원회") &&
+          !row.evidence.includes("U.S. Securities"),
+      ),
+    ).toBe(true);
   });
 });

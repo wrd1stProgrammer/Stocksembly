@@ -92,6 +92,8 @@ const DATASET_RIGHTS_SOURCES = {
   identity: ["sec_ticker_exchange"],
   sec_filing: ["sec_primary_filing"],
   sec_company_facts: ["sec_company_facts"],
+  sec_insider_transactions: ["sec_primary_filing"],
+  sec_institutional_holdings: ["sec_primary_filing"],
   bls_macro: ["bls_allowlist"],
   treasury_yield: ["treasury_yield"],
   market_bars: ["alpaca_market_data", "insightsentry_rapidapi"],

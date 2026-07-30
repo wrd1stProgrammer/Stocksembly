@@ -1,4 +1,5 @@
 import type { PublicResearchEvent, PublicRunDetail } from "./client/schemas";
+import { WORKFLOW_V1_ROLE_REGISTRY } from "./domain/roleRegistry";
 import type { AgentId, ResearchEvent, ResearchPhase } from "./types";
 
 const ACTOR_IDS = new Set<AgentId>([
@@ -188,6 +189,12 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
   readonly current: ResearchEvent;
   readonly events: readonly ResearchEvent[];
 } {
+  const defaultActor =
+    snapshot.run.researchTarget?.kind === "department"
+      ? WORKFLOW_V1_ROLE_REGISTRY.departments[
+          snapshot.run.researchTarget.departmentId
+        ].leadId
+      : "chair";
   const visibleEvents = snapshot.events.filter(
     (event, index) =>
       event.kind !== "runtime_status" || index === snapshot.events.length - 1,
@@ -198,7 +205,7 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
     return {
       id: `durable-${event.sequence}`,
       phase: phaseFor(event.kind),
-      agent: actorId(event.actorId),
+      agent: actorId(event.actorId ?? event.participantIds[0] ?? defaultActor),
       summary,
       detail: {
         en: `Committed event #${event.sequence} · ${event.kind.replaceAll("_", " ")}`,
@@ -217,7 +224,7 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
     ({
       id: "durable-waiting",
       phase: "briefing",
-      agent: "chair",
+      agent: defaultActor,
       summary: waitingSummary,
       detail: waitingSummary,
       progress: 0,

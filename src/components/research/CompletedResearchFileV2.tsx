@@ -6,9 +6,16 @@ import type { ResearchFileData } from "../../research/compositions/types";
 import { buildResearchFileEditorialModel } from "../../research/researchFileEditorialModel";
 import type { ResearchCompany } from "../../research/types";
 import { ResearchFileAnalysis } from "./file/ResearchFileAnalysis";
+import { ResearchFileComparison } from "./file/ResearchFileComparison";
 import { ResearchFileDebate } from "./file/ResearchFileDebate";
 import { ResearchFileDecision } from "./file/ResearchFileDecision";
+import {
+  ResearchFileDepartmentBrief,
+  ResearchFileDepartmentFramework,
+} from "./file/ResearchFileDepartmentBrief";
 import { ResearchFileHeader } from "./file/ResearchFileHeader";
+import { ResearchFileQuestions } from "./file/ResearchFileQuestions";
+import { ResearchFileSources } from "./file/ResearchFileSources";
 import { ResearchFileValuation } from "./file/ResearchFileValuation";
 
 type Props = {
@@ -36,6 +43,10 @@ export function CompletedResearchFileV2({
     () => buildResearchFileEditorialModel(report, locale),
     [locale, report],
   );
+  const departmentId =
+    report.researchTarget?.kind === "department"
+      ? report.researchTarget.departmentId
+      : undefined;
 
   useEffect(() => {
     const stored = window.localStorage.getItem(themeStorageKey);
@@ -65,6 +76,9 @@ export function CompletedResearchFileV2({
       <article
         className="research-editorial-document"
         data-report-theme={theme}
+        {...(departmentId === undefined
+          ? {}
+          : { "data-report-department": departmentId })}
       >
         <ResearchFileHeader
           company={company}
@@ -76,10 +90,43 @@ export function CompletedResearchFileV2({
           onThemeChange={changeTheme}
           titleRef={titleRef}
         />
-        <ResearchFileDecision model={model} locale={locale} />
-        <ResearchFileAnalysis model={model} locale={locale} />
-        <ResearchFileValuation file={report} model={model} locale={locale} />
+        {report.comparison === undefined ? null : (
+          <ResearchFileComparison
+            comparison={report.comparison}
+            locale={locale}
+          />
+        )}
+        {departmentId === undefined ? (
+          <ResearchFileDecision file={report} model={model} locale={locale} />
+        ) : (
+          <ResearchFileDepartmentBrief
+            departmentId={departmentId}
+            file={report}
+            model={model}
+            locale={locale}
+          />
+        )}
+        {departmentId === undefined ? (
+          <ResearchFileAnalysis file={report} model={model} locale={locale} />
+        ) : null}
+        {departmentId === undefined ? (
+          <ResearchFileValuation file={report} model={model} locale={locale} />
+        ) : (
+          <ResearchFileDepartmentFramework
+            departmentId={departmentId}
+            file={report}
+            model={model}
+            locale={locale}
+          />
+        )}
         <ResearchFileDebate
+          file={report}
+          model={model}
+          locale={locale}
+          number={departmentId === undefined ? "04" : "03"}
+        />
+        <ResearchFileQuestions file={report} locale={locale} />
+        <ResearchFileSources
           model={model}
           locale={locale}
           version={version}

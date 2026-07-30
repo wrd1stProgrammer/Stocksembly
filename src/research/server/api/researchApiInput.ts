@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { TickerSymbolSchema } from "../../domain/ids";
 import { normalizeResearchDirection } from "../../domain/researchDirection";
+import {
+  COMMITTEE_RESEARCH_TARGET,
+  ResearchTargetSchema,
+} from "../../domain/researchTarget";
 import type { NormalizedResearchRequest } from "./researchApiContracts";
 import { NormalizedResearchRequestSchema } from "./researchApiContracts";
 
@@ -9,6 +13,7 @@ const RequestBodySchema = z
     symbol: z.string().trim().min(1).max(32),
     question: z.string(),
     locale: z.enum(["en", "ko"]),
+    researchTarget: ResearchTargetSchema.optional(),
   })
   .strict();
 
@@ -30,6 +35,7 @@ export function parseResearchInput(input: unknown): ResearchInputResult {
       symbol: symbol.data,
       question,
       locale: parsed.data.locale,
+      researchTarget: parsed.data.researchTarget ?? COMMITTEE_RESEARCH_TARGET,
     }),
   };
 }

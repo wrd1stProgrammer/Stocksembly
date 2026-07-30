@@ -15,8 +15,10 @@ import {
   SnapshotIdSchema,
 } from "../domain/ids";
 import { normalizeResearchDirection } from "../domain/researchDirection";
+import { ResearchTargetSchema } from "../domain/researchTarget";
 import {
   WORKFLOW_V1_CHAIR_ID,
+  WORKFLOW_V1_ROLE_REGISTRY,
   WORKFLOW_V1_SPECIALIST_IDS,
 } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
@@ -35,6 +37,8 @@ const RequestSchema = z.object({
   symbol: z.string(),
   question: z.string(),
   locale: z.enum(["en", "ko"]),
+  research_kind: z.enum(["committee", "department"]),
+  department_id: z.enum(["market", "company", "financial", "risk"]).nullable(),
   requested_at: z.string(),
 });
 
@@ -48,7 +52,13 @@ type InitialCollectionHandlerOptions = {
   readonly now?: () => string;
 };
 
-function event(kind: string, occurredAt: string, en: string, ko: string) {
+function event(
+  kind: string,
+  occurredAt: string,
+  en: string,
+  ko: string,
+  participantIds: readonly string[] = [],
+) {
   return {
     eventId: EventIdSchema.parse(randomUUID()),
     type: kind,
@@ -56,7 +66,7 @@ function event(kind: string, occurredAt: string, en: string, ko: string) {
     occurredAt,
     payload: {
       schemaVersion: "workflow-v1",
-      participantIds: [],
+      participantIds,
       claimIds: [],
       sourceIds: [],
       limitationIds: [],
@@ -161,12 +171,21 @@ export function createInitialCollectionHandler(
     run: async (attempt) => {
       const request = RequestSchema.parse(
         database
-          .prepare(`SELECT symbol, question, locale, created_at AS requested_at
+          .prepare(`SELECT symbol, question, locale, research_kind,
+            department_id, created_at AS requested_at
             FROM research_requests WHERE run_id = ?`)
           .get(attempt.runId),
       );
       const runId = RunIdSchema.parse(attempt.runId);
       const snapshotId = SnapshotIdSchema.parse(attempt.snapshotId);
+      const researchTarget = ResearchTargetSchema.parse(
+        request.research_kind === "department" && request.department_id !== null
+          ? {
+              kind: "department",
+              departmentId: request.department_id,
+            }
+          : { kind: "committee" },
+      );
       const collectionStartedAt =
         clock() < request.requested_at ? request.requested_at : clock();
       store.transitionRun({
@@ -419,7 +438,16 @@ export function createInitialCollectionHandler(
           });
         }
       }
-      const jobs = prepareSpecialistJobs(round, canonicalSources);
+      const preparedJobs = prepareSpecialistJobs(round, canonicalSources);
+      const selectedRoleIds =
+        researchTarget.kind === "committee"
+          ? WORKFLOW_V1_SPECIALIST_IDS
+          : WORKFLOW_V1_ROLE_REGISTRY.departments[researchTarget.departmentId]
+              .memberIds;
+      const selectedRoleSet = new Set<string>(selectedRoleIds);
+      const jobs = preparedJobs.filter((job) =>
+        selectedRoleSet.has(job.roleId),
+      );
       const first = jobs[0];
       if (first === undefined)
         return { kind: "permanent", code: "specialist_roster_empty" };
@@ -429,12 +457,21 @@ export function createInitialCollectionHandler(
         fromStatus: "running",
         toStatus: "running",
         nextJobs: jobs.map((job) => specialistJobSeed(job, mandateSealedAt)),
-        event: event(
-          "mandate_sealed",
-          mandateSealedAt,
-          "All eleven specialists received evidence-bound mandates.",
-          "11명의 모든 전문 에이전트에게 근거가 결합된 조사 과제를 배정했습니다.",
-        ),
+        event:
+          researchTarget.kind === "committee"
+            ? event(
+                "mandate_sealed",
+                mandateSealedAt,
+                "All eleven specialists received evidence-bound mandates.",
+                "11명의 모든 전문 에이전트에게 근거가 결합된 조사 과제를 배정했습니다.",
+              )
+            : event(
+                "mandate_sealed",
+                mandateSealedAt,
+                `The ${researchTarget.departmentId} team received a focused evidence-bound mandate.`,
+                `${researchTarget.departmentId} 팀에게 근거가 결합된 심층 조사 과제를 배정했습니다.`,
+                selectedRoleIds,
+              ),
       });
       for (const job of jobs)
         for (const artifactId of job.sourceArtifactIds)

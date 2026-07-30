@@ -87,7 +87,8 @@ export async function loadReportAuthority(
       database
         .prepare(`SELECT snapshot_id,
       version, status, report_id,
-      COALESCE(research_requests.question, '') AS question FROM runs
+      COALESCE(research_requests.question, '') AS question,
+      research_requests.locale AS locale FROM runs
       LEFT JOIN research_requests USING(run_id) WHERE run_id = ?`)
         .get(input.runId),
     );
@@ -235,6 +236,7 @@ export async function loadReportAuthority(
     );
     const versionId = randomUUID();
     return {
+      locale: run.data.locale,
       runVersion: run.data.version,
       reportId: randomUUID(),
       reportArtifactId: randomUUID(),
@@ -281,7 +283,7 @@ export async function loadReportAuthority(
             materiality.get(verdict.claimId) ?? ("supporting" as const),
           verdict: verdict.verdict,
           contradictionSeverity: verdict.contradictionSeverity,
-          reason: verdict.publicExplanation.en,
+          reason: verdict.publicExplanation[run.data.locale],
         })),
         metrics: [
           {

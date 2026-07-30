@@ -1,5 +1,7 @@
+import { buildAnticipatedQuestions } from "./anticipatedQuestions";
 import type { ResearchFileData } from "./compositions/types";
 import type { ResearchReport } from "./domain/report";
+import type { ResearchComparison } from "./domain/researchComparison";
 import {
   compactNarrative,
   evidenceScore,
@@ -67,6 +69,12 @@ function claimStrength(
   return "limited" as const;
 }
 
+function isCapabilityDisclaimer(value: string): boolean {
+  return /(?:provided|sealed|licensed|provider|consensus|recommendation|report scope|not replace|cannot (?:quantify|assess|verify)|제공된|봉인된|라이선스|컨센서스|제공사|추천|매수[·/]?매도|대체하지|정량화할 수 없|평가할 수 없|검증할 수 없)/iu.test(
+    value,
+  );
+}
+
 function isReaderEvidenceSource(
   source: ResearchReport["sources"][number],
 ): boolean {
@@ -81,6 +89,7 @@ function isReaderEvidenceSource(
 export function researchReportToFile(
   report: ResearchReport,
   createdAt: string,
+  comparison?: ResearchComparison,
 ): ResearchFileData {
   const en = report.locales.en;
   const ko = report.locales.ko;
@@ -94,19 +103,24 @@ export function researchReportToFile(
   });
   const text = (
     id: string,
-    options: { readonly en: number; readonly ko: number } = {
+    options: {
+      readonly en: number;
+      readonly ko: number;
+      readonly sentences?: number;
+    } = {
       en: 240,
       ko: 180,
+      sentences: 2,
     },
   ) => {
     const pair = section(id);
     return localized(
       compactNarrative(pair.en.body, {
-        sentences: 1,
+        sentences: options.sentences ?? 2,
         characters: options.en,
       }),
       compactNarrative(pair.ko.body, {
-        sentences: 1,
+        sentences: options.sentences ?? 2,
         characters: options.ko,
       }),
     );
@@ -115,9 +129,11 @@ export function researchReportToFile(
     const valuationPattern =
       /valuation|multiple|peer|financial comparison|밸류|가치평가|멀티플|비교/iu;
     const enSection =
+      en.sections.find((item) => item.id === "valuation_comparison") ??
       en.sections.find((item) =>
         valuationPattern.test(`${item.id} ${item.title}`),
-      ) ?? section("supported_analysis").en;
+      ) ??
+      section("supported_analysis").en;
     const koSection =
       ko.sections.find((item) => item.id === enSection.id) ??
       ko.sections.find((item) =>
@@ -137,13 +153,22 @@ export function researchReportToFile(
   };
   const missingMandateLanguage =
     /(?:claim|question).{0,36}(?:missing|not supplied|not provided)|(?:주장|질문).{0,28}(?:없|제공되지|누락)/iu;
-  const concerns = [
-    ...en.dissent.map((item, index) =>
-      localized(item.text, ko.dissent[index]?.text ?? item.text),
-    ),
-    ...en.unknowns.map((item, index) =>
+  const focused = report.researchTarget.kind === "department";
+  const dissentConcerns = en.dissent.map((item, index) =>
+    localized(item.text, ko.dissent[index]?.text ?? item.text),
+  );
+  const unknownConcerns = en.unknowns
+    .map((item, index) =>
       localized(item.impact, ko.unknowns[index]?.impact ?? item.impact),
-    ),
+    )
+    .filter(
+      (item) =>
+        !isCapabilityDisclaimer(item.en) && !isCapabilityDisclaimer(item.ko),
+    );
+  const concerns = [
+    ...(focused && dissentConcerns.length > 0
+      ? dissentConcerns
+      : [...dissentConcerns, ...unknownConcerns]),
   ].filter(
     (item) =>
       !missingMandateLanguage.test(item.en) &&
@@ -168,9 +193,10 @@ export function researchReportToFile(
       );
   const boilerplate =
     /(?:incorporated|headquarter|common stock|trades? on|issuer|설립|본사|보통주|종목코드|발행사)/iu;
-  const materialClaims = report.claims.filter(
+  const displayClaims = report.claims.filter(
     (claim) =>
-      claim.materiality === "material" &&
+      (report.researchTarget.kind === "department" ||
+        claim.materiality === "material") &&
       claim.text !== undefined &&
       !boilerplate.test(`${claim.text.en} ${claim.text.ko}`) &&
       !missingMandateLanguage.test(`${claim.text.en} ${claim.text.ko}`),
@@ -203,10 +229,10 @@ export function researchReportToFile(
               report.dataCoverage.length) *
               100,
           );
-  const assessedClaims = materialClaims.filter(
+  const assessedClaims = displayClaims.filter(
     (claim) => claim.semanticVerdict !== "not_assessable",
   );
-  const positiveClaims = materialClaims.flatMap((claim) =>
+  const positiveClaims = displayClaims.flatMap((claim) =>
     claim.text === undefined
       ? []
       : [
@@ -222,6 +248,32 @@ export function researchReportToFile(
           ),
         ],
   );
+  const rawNextEvent = text("operational_scenarios", {
+    en: 360,
+    ko: 280,
+    sentences: 2,
+  });
+  const rawChangeCondition = text("change_conditions", {
+    en: 360,
+    ko: 280,
+    sentences: 2,
+  });
+  const numericConcern =
+    concerns.find((item) => /\d/u.test(`${item.en} ${item.ko}`)) ?? concerns[0];
+  const alternateConcern =
+    concerns.find((item) => item !== numericConcern) ?? concerns[0];
+  const nextEvent =
+    focused &&
+    (isCapabilityDisclaimer(rawNextEvent.en) ||
+      isCapabilityDisclaimer(rawNextEvent.ko))
+      ? (numericConcern ?? rawNextEvent)
+      : rawNextEvent;
+  const changeCondition =
+    focused &&
+    (isCapabilityDisclaimer(rawChangeCondition.en) ||
+      isCapabilityDisclaimer(rawChangeCondition.ko))
+      ? (alternateConcern ?? rawChangeCondition)
+      : rawChangeCondition;
   const teamNames = {
     market: localized("Market team · Maya", "시장 팀 · Maya"),
     company: localized("Company team · Ethan", "기업 팀 · Ethan"),
@@ -235,7 +287,9 @@ export function researchReportToFile(
       `S${String(index + 1).padStart(2, "0")}`,
     ]),
   );
-  return {
+  const file: ResearchFileData = {
+    researchTarget: report.researchTarget,
+    ...(comparison === undefined ? {} : { comparison }),
     ...(report.researchDirection === undefined
       ? {}
       : { researchDirection: report.researchDirection }),
@@ -250,8 +304,23 @@ export function researchReportToFile(
             currency: report.marketSnapshot.currency,
             observedAt: report.marketSnapshot.observedAt,
             marketState: report.marketSnapshot.marketState,
+            ...(report.marketSnapshot.change === undefined
+              ? {}
+              : {
+                  change: report.marketSnapshot.change.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                    signDisplay: "always",
+                  }),
+                }),
+            ...(report.marketSnapshot.changePercent === undefined
+              ? {}
+              : { changePercent: report.marketSnapshot.changePercent }),
           },
         }),
+    ...(report.metricSnapshot === undefined
+      ? {}
+      : { metricSnapshot: report.metricSnapshot }),
     qualityScorecard: {
       evidenceCoverage:
         totalMetricChecks === 0
@@ -259,11 +328,11 @@ export function researchReportToFile(
           : Math.round((passedMetricChecks / totalMetricChecks) * 100),
       freshnessCoverage,
       rebuttalResolution:
-        materialClaims.length === 0
+        displayClaims.length === 0
           ? 0
-          : Math.round((assessedClaims.length / materialClaims.length) * 100),
+          : Math.round((assessedClaims.length / displayClaims.length) * 100),
     },
-    claimMatrix: materialClaims.slice(0, 8).flatMap((claim, index) =>
+    claimMatrix: displayClaims.slice(0, 8).flatMap((claim, index) =>
       claim.text === undefined
         ? []
         : [
@@ -309,7 +378,16 @@ export function researchReportToFile(
                       ),
                     ),
                   }),
-              checkpoint: text("change_conditions", { en: 260, ko: 200 }),
+              checkpoint: localized(
+                compactNarrative(changeCondition.en, {
+                  sentences: 2,
+                  characters: 260,
+                }),
+                compactNarrative(changeCondition.ko, {
+                  sentences: 2,
+                  characters: 200,
+                }),
+              ),
             },
           ],
     ),
@@ -390,14 +468,18 @@ export function researchReportToFile(
           ? "중요한 불확실성이 남아 있어 신중한 판단이 필요합니다."
           : "근거가 엇갈려 있어 다음 판단은 명시된 사업 조건에 달려 있습니다.",
     ),
-    expectation: text("supported_analysis"),
+    expectation: text("supported_analysis", {
+      en: 420,
+      ko: 320,
+      sentences: 3,
+    }),
     valuation: priceLimited
       ? valuationText()
       : localized(
           `${report.marketSnapshot?.currency} ${report.marketSnapshot?.lastPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} current price · ${valuationText().en}`,
           `현재가 ${report.marketSnapshot?.lastPrice.toLocaleString("ko-KR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${report.marketSnapshot?.currency} · ${valuationText().ko}`,
         ),
-    nextEvent: text("operational_scenarios"),
+    nextEvent,
     thesis: (() => {
       const pair = section("ten_second_brief");
       return localized(
@@ -405,7 +487,7 @@ export function researchReportToFile(
         compactNarrative(pair.ko.body, { sentences: 3, characters: 340 }),
       );
     })(),
-    changeCondition: text("change_conditions", { en: 260, ko: 200 }),
+    changeCondition,
     positives:
       positiveClaims.length > 0
         ? positiveClaims.slice(0, 3)
@@ -421,7 +503,9 @@ export function researchReportToFile(
     analysis: en.sections
       .filter(
         (item) =>
-          item.id !== "ten_second_brief" && item.id !== "dissent_unknowns",
+          item.id !== "ten_second_brief" &&
+          item.id !== "dissent_unknowns" &&
+          (!focused || !isCapabilityDisclaimer(item.body)),
       )
       .map((item) => {
         const koItem = ko.sections.find(
@@ -521,5 +605,9 @@ export function researchReportToFile(
         label: localized("Published research file", "발행된 리서치 파일"),
       },
     ],
+  };
+  return {
+    ...file,
+    anticipatedQuestions: buildAnticipatedQuestions(file),
   };
 }

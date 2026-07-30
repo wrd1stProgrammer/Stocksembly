@@ -9,6 +9,15 @@ export type Ticker = {
   readonly sector: string;
 };
 
+export type ResearchQuote = {
+  readonly lastPrice: number;
+  readonly currency: string;
+  readonly observedAt: string;
+  readonly marketState: "OPEN" | "CLOSED" | "PRE" | "POST" | "HOLIDAYS";
+  readonly change?: number;
+  readonly changePercent?: number;
+};
+
 export const tickers: readonly Ticker[] = [
   {
     symbol: "NVDA",
@@ -58,6 +67,20 @@ const TickerSearchResponseSchema = z
     ),
   })
   .strict();
+const ResearchQuoteResponseSchema = z
+  .object({
+    quote: z
+      .object({
+        lastPrice: z.number().positive(),
+        currency: z.string().min(3).max(8),
+        observedAt: z.string().datetime(),
+        marketState: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]),
+        change: z.number().finite().optional(),
+        changePercent: z.number().finite().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
 export function filterTickers(query: string): readonly Ticker[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -95,4 +118,29 @@ export async function searchUsTickers(
       : { providerCode: ticker.providerCode }),
     sector: "SEC listed company",
   }));
+}
+
+export async function fetchResearchQuote(
+  symbol: string,
+  signal: AbortSignal,
+): Promise<ResearchQuote> {
+  const response: unknown = await ky
+    .get("/api/research/tickers/quote", {
+      searchParams: { symbol },
+      signal,
+      retry: 1,
+      timeout: 15_000,
+    })
+    .json();
+  const quote = ResearchQuoteResponseSchema.parse(response).quote;
+  return {
+    lastPrice: quote.lastPrice,
+    currency: quote.currency,
+    observedAt: quote.observedAt,
+    marketState: quote.marketState,
+    ...(quote.change === undefined ? {} : { change: quote.change }),
+    ...(quote.changePercent === undefined
+      ? {}
+      : { changePercent: quote.changePercent }),
+  };
 }

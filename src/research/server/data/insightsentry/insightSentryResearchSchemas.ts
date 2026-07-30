@@ -125,13 +125,55 @@ export const EarningsCalendarSchema = z.strictObject({
 });
 
 export const PeerScreenResponseSchema = z.strictObject({
-  providerUpdatedAt: z.string().datetime().optional(),
+  providerUpdatedAt: z.string().datetime(),
   retrievedAt: z.string().datetime(),
+  sector: z.string().min(1),
+  selectorVersion: z.string().min(1),
+  selectionCache: z.enum(["hit", "miss"]),
+  subject: z.strictObject({
+    symbol: z.string().min(1),
+    name: z.string().min(1),
+    sector: z.string().min(1),
+    marketCap: z.number().finite().nonnegative().optional(),
+    priceEarningsTtm: z.number().finite().optional(),
+    enterpriseValueEbitdaTtm: z.number().finite().optional(),
+    enterpriseValueRevenueTtm: z.number().finite().optional(),
+    revenueGrowthTtm: z.number().finite().optional(),
+    grossMarginTtm: z.number().finite().optional(),
+    operatingMarginTtm: z.number().finite().optional(),
+    performance3Month: z.number().finite().optional(),
+    performance1Year: z.number().finite().optional(),
+  }),
+  relativeValuation: z.array(
+    z.strictObject({
+      metric: z.enum([
+        "price_earnings_ttm",
+        "enterprise_value_ebitda_ttm",
+        "enterprise_value_to_revenue_ttm",
+      ]),
+      peerMedian: z.number().finite(),
+      peerCount: z.number().int().positive(),
+      subjectValue: z.number().finite().optional(),
+      premiumDiscountPercent: z.number().finite().optional(),
+    }),
+  ),
   peers: z.array(
     z.strictObject({
       symbol: z.string().min(1),
-      name: z.string().min(1).optional(),
+      name: z.string().min(1),
+      sector: z.string().min(1),
+      classification: z.enum(["direct_competitor", "operating_comparable"]),
+      selectionScore: z.number().finite().min(0).max(1),
+      selectionReasons: z.array(z.string().min(1)).min(1).max(4),
       marketCap: z.number().finite().nonnegative().optional(),
+      priceEarningsTtm: z.number().finite().optional(),
+      enterpriseValueEbitdaTtm: z.number().finite().optional(),
+      enterpriseValueRevenueTtm: z.number().finite().optional(),
+      revenueGrowthTtm: z.number().finite().optional(),
+      grossMarginTtm: z.number().finite().optional(),
+      operatingMarginTtm: z.number().finite().optional(),
+      performance3Month: z.number().finite().optional(),
+      performance1Year: z.number().finite().optional(),
     }),
   ),
 });

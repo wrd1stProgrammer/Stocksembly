@@ -1,6 +1,7 @@
 import type { ResearchReport } from "../domain/report";
 
 export type AssemblyInput = {
+  readonly locale?: "en" | "ko";
   readonly reportId: string;
   readonly versionId: string;
   readonly version: number;

@@ -20,7 +20,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
       </nav>
       <div className="site-header__actions">
         <LanguageToggle locale={locale} onChange={onLocaleChange} />
-        <HeaderAuthAction label={labels.getStarted} />
+        <HeaderAuthAction label={labels.getStarted} locale={locale} />
       </div>
     </header>
   );

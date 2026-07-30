@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "./ids";
+import {
+  WORKFLOW_V1_DEPARTMENT_IDS,
+  WORKFLOW_V1_ROLE_REGISTRY,
+} from "./roleRegistry";
 
 export const MEMO_ARTIFACT_ROLES = [
   "market",
@@ -52,6 +56,44 @@ export const AcceptedArtifactProvenanceSchema = z
   );
 export type AcceptedArtifactProvenance = z.infer<
   typeof AcceptedArtifactProvenanceSchema
+>;
+
+export const DepartmentReportArtifactProvenanceSchema = z
+  .object({
+    artifactId: ArtifactIdSchema,
+    logicalArtifactId: z.string().min(1).max(160),
+    roleId: z.enum(REQUIRED_REPORT_ARTIFACT_ROLES),
+    stage: z.enum(["memo", "department_consolidation"]),
+    status: z.literal("accepted"),
+    runId: RunIdSchema,
+    snapshotId: SnapshotIdSchema,
+  })
+  .strict()
+  .superRefine((artifact, context) => {
+    if (artifact.stage === "memo") {
+      if (artifact.logicalArtifactId !== `memo:${artifact.roleId}`)
+        context.addIssue({
+          code: "custom",
+          message: "memo logical artifact ID must match its role",
+        });
+      return;
+    }
+    const departmentId = WORKFLOW_V1_DEPARTMENT_IDS.find(
+      (candidate) =>
+        WORKFLOW_V1_ROLE_REGISTRY.departments[candidate].leadId ===
+        artifact.roleId,
+    );
+    if (
+      departmentId === undefined ||
+      artifact.logicalArtifactId !== `consolidation:${departmentId}`
+    )
+      context.addIssue({
+        code: "custom",
+        message: "department consolidation must be owned by its team lead",
+      });
+  });
+export type DepartmentReportArtifactProvenance = z.infer<
+  typeof DepartmentReportArtifactProvenanceSchema
 >;
 
 export type ArtifactProvenanceContext = {

@@ -105,6 +105,15 @@ export function createInsightSentryExecutor(options: {
         const response = await options.adapter({
           url,
           headers: input.headers,
+          method: input.request.method ?? "GET",
+          ...(input.request.requestBody === undefined
+            ? {}
+            : {
+                body: Buffer.from(
+                  JSON.stringify(input.request.requestBody),
+                  "utf8",
+                ),
+              }),
           timeoutMilliseconds: 30_000,
         });
         const observedAt = options.clock.isoNow();

@@ -10,6 +10,8 @@ import {
 } from "../research/landingOfficeSimulation";
 import type { OfficeGameController } from "../research/officeGame";
 import { OFFICE_SCENE_MANIFEST } from "../research/officeSceneManifest";
+import type { AgentId } from "../research/types";
+import { OfficeAgentInfoPanel } from "./research/OfficeAgentInfoPanel";
 
 const AMBIENT_STEP_MS = 420;
 const DOT_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315] as const;
@@ -57,7 +59,11 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
   const [rendererReady, setRendererReady] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
   const actorCount = OFFICE_SCENE_MANIFEST.roster.length;
+  const selectedAgent = OFFICE_SCENE_MANIFEST.roster.find(
+    (member) => member.id === selectedAgentId,
+  );
   const labels = {
     active:
       locale === "ko"
@@ -136,6 +142,7 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
         locale,
         reducedMotion,
         showActorUi: false,
+        onActorSelect: setSelectedAgentId,
         signal: abortController.signal,
       });
     };
@@ -210,6 +217,13 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
           </p>
         ) : null}
       </div>
+      {selectedAgent === undefined ? null : (
+        <OfficeAgentInfoPanel
+          member={selectedAgent}
+          locale={locale}
+          onClose={() => setSelectedAgentId(null)}
+        />
+      )}
     </section>
   );
 }

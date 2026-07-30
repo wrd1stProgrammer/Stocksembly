@@ -8,6 +8,7 @@ import {
   attachQuestionExternalApiEvidence,
   questionLookupPlan,
 } from "../../domain/questionLookupPlan";
+import { buildResearchComparison } from "../../domain/researchComparison";
 import type { ResearchDispatchQueue } from "../../ports/researchQueue";
 import { ensureLocalAuth, rotateLocalAuth } from "../http/localAuth";
 import { enforceRequestPolicy } from "../http/requestPolicy";
@@ -200,9 +201,24 @@ async function reportDetail(
   if (context.options.loadReport === undefined)
     return apiJson({ report: report.payload });
   const loaded = await context.options.loadReport(report);
-  return loaded === undefined
-    ? apiError(404, "NOT_FOUND")
-    : apiJson({ report: loaded });
+  if (loaded === undefined) return apiError(404, "NOT_FOUND");
+  const previousPublication = context.repository.previousComparableReport(
+    principal,
+    reportId,
+  );
+  if (previousPublication === undefined) return apiJson({ report: loaded });
+  const previous = await context.options.loadReport(previousPublication);
+  return previous === undefined
+    ? apiJson({ report: loaded })
+    : apiJson({
+        report: loaded,
+        comparison: buildResearchComparison({
+          current: loaded,
+          previous,
+          currentPublishedAt: report.publishedAt,
+          previousPublishedAt: previousPublication.publishedAt,
+        }),
+      });
 }
 
 async function dispatch(

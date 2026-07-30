@@ -4,7 +4,7 @@ import type { ResearchEvidenceStrength } from "../../../research/compositions/ty
 import type { EditorialCallout } from "../../../research/researchFileEditorialModel";
 
 type SectionHeaderProps = {
-  readonly number: "01" | "02" | "03" | "04";
+  readonly number: "01" | "02" | "03" | "04" | "∆" | "Q";
   readonly title: string;
   readonly description: string;
 };
@@ -55,7 +55,7 @@ export function EditorialList({
   return (
     <ol className="research-editorial-list">
       {items.map((item, index) => (
-        <li key={`${item.headline}-${index}`}>
+        <li key={`${item.headline}-${item.body}`}>
           <span>{String(index + 1).padStart(2, "0")}</span>
           <div>
             <strong>{item.headline}</strong>

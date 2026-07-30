@@ -1,5 +1,6 @@
 import ky, { HTTPError, type KyInstance } from "ky";
 import type { Locale } from "../../lib/i18n";
+import type { ResearchTarget } from "../domain/researchTarget";
 import {
   ApiErrorResponseSchema,
   CancelRunResponseSchema,
@@ -48,6 +49,7 @@ type StartRunInput = {
   readonly symbol: string;
   readonly question: string;
   readonly locale: Locale;
+  readonly researchTarget?: ResearchTarget;
   readonly idempotencyKey: string;
 };
 
@@ -173,6 +175,9 @@ export function createResearchClient(
             symbol: input.symbol,
             question: input.question,
             locale: input.locale,
+            ...(input.researchTarget === undefined
+              ? {}
+              : { researchTarget: input.researchTarget }),
           },
         ),
         (value) => CreateRunResponseSchema.parse(value),

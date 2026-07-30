@@ -18,6 +18,7 @@ import type {
   ResearchEvent,
   ResearchPhase,
 } from "../../research/types";
+import { OfficeAgentInfoPanel } from "./OfficeAgentInfoPanel";
 
 type Props = {
   readonly phase?: ResearchPhase;
@@ -191,6 +192,14 @@ export function PixelOfficeGame({
   });
   const [rendererFailed, setRendererFailed] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
+  const selectedAgent = OFFICE_SCENE_MANIFEST.roster.find(
+    (member) => member.id === selectedAgentId,
+  );
+  const selectedAgentEvent =
+    selectedAgentId === null
+      ? undefined
+      : [...events].reverse().find((event) => event.agent === selectedAgentId);
   const bubbleSequenceKey = `${currentEvent?.id ?? "idle"}:${locale}`;
   const [bubblePlayback, setBubblePlayback] = useState({
     key: bubbleSequenceKey,
@@ -306,6 +315,7 @@ export function PixelOfficeGame({
       locale,
       reducedMotion: prefersReducedMotion,
       showActorBubbles: true,
+      onActorSelect: setSelectedAgentId,
       signal: abortController.signal,
     })
       .then((controller) => {
@@ -396,6 +406,16 @@ export function PixelOfficeGame({
       <span className="sr-only" aria-live="polite">
         {semanticStatus(mode, locale, forumNames)}
       </span>
+      {selectedAgent === undefined ? null : (
+        <OfficeAgentInfoPanel
+          member={selectedAgent}
+          locale={locale}
+          {...(selectedAgentEvent === undefined
+            ? {}
+            : { latestEvent: selectedAgentEvent })}
+          onClose={() => setSelectedAgentId(null)}
+        />
+      )}
     </div>
   );
 }

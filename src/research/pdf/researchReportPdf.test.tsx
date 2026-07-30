@@ -4,7 +4,7 @@ import { validReport } from "../domain/report.testSupport";
 import { renderResearchReportPdf } from "./researchReportPdf";
 
 describe("research report PDF", () => {
-  it("renders a compact five-page downloadable investment research document", async () => {
+  it("renders a compact report with a dedicated source appendix", async () => {
     const bytes = await renderResearchReportPdf({
       report: ResearchReportSchema.parse(validReport()),
       symbol: "NVDA",
@@ -13,7 +13,7 @@ describe("research report PDF", () => {
     });
     const content = bytes.toString("latin1");
     expect(content.startsWith("%PDF-")).toBe(true);
-    expect(content.match(/\/Type\s*\/Page\b/g)).toHaveLength(5);
+    expect(content.match(/\/Type\s*\/Page\b/g)).toHaveLength(6);
     expect(bytes.byteLength).toBeGreaterThan(10_000);
   }, 20_000);
 });

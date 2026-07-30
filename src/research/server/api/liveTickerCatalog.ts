@@ -8,6 +8,7 @@ import { loadInsightSentryConfig } from "../data/insightsentry/insightSentryConf
 import {
   createInsightSentryMarket,
   type InsightSentryMarket,
+  type InsightSentryQuote,
   type InsightSentrySymbol,
 } from "../data/insightsentry/insightSentryMarket";
 import {
@@ -30,12 +31,14 @@ export type LiveTickerCatalog = {
     "supported" | "unsupported" | "etf" | "ambiguous" | "unavailable"
   >;
   readonly lookup: (symbol: string) => SymbolRegistryResolution;
+  readonly quote?: (symbol: string) => Promise<InsightSentryQuote | undefined>;
   readonly close: () => void;
 };
 
 type LiveTickerCatalogOptions = {
   readonly databasePath: string;
-  readonly market: Pick<InsightSentryMarket, "searchSymbols">;
+  readonly market: Pick<InsightSentryMarket, "searchSymbols"> &
+    Partial<Pick<InsightSentryMarket, "quote">>;
   readonly searchReference: (
     query: string,
   ) => Promise<readonly TickerReferenceSearchItem[]>;
@@ -159,9 +162,11 @@ export function createLiveTickerCatalog(
         );
       const values = Object.freeze([...merged.values()]);
       persist(values);
-      return [...unambiguous(
-        [...merged.values()].filter((item) => item.status === "active"),
-      )].sort(
+      return [
+        ...unambiguous(
+          [...merged.values()].filter((item) => item.status === "active"),
+        ),
+      ].sort(
         (left, right) =>
           relevance(query, left) - relevance(query, right) ||
           left.symbol.localeCompare(right.symbol),
@@ -179,6 +184,17 @@ export function createLiveTickerCatalog(
       return await options.resolveReference(normalized);
     },
     lookup: (symbol) => registry.resolve(symbol),
+    quote: async (symbol) => {
+      const normalized = symbol.trim().toUpperCase();
+      let resolution = registry.resolve(normalized);
+      if (resolution.kind === "missing") {
+        persist(await providerSymbols(normalized));
+        resolution = registry.resolve(normalized);
+      }
+      if (resolution.kind !== "resolved" || options.market.quote === undefined)
+        return undefined;
+      return await options.market.quote(resolution.symbol.providerCode);
+    },
     close: () => registry.close(),
   });
 }

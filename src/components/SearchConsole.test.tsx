@@ -44,11 +44,26 @@ afterEach(() => {
 });
 
 describe("SearchConsole durable research launch", () => {
+  it("uses a compact research-mode picker without ticker shortcuts", () => {
+    render(<SearchConsole locale="ko" />);
+
+    expect(
+      screen.getByRole("button", {
+        name: /추천.*전체 에이전트 위원회/,
+      }),
+    ).toHaveAttribute("aria-haspopup", "menu");
+    expect(
+      screen.queryByRole("button", { name: "NVDA" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("redirects a signed-out production user before creating a run", async () => {
     testState.authConfigured = true;
     testState.authenticated = false;
     render(<SearchConsole locale="en" />);
-    fireEvent.click(screen.getByRole("button", { name: "NVDA" }));
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "NVDA" },
+    });
     fireEvent.change(
       screen.getByRole("textbox", { name: "Investment question" }),
       { target: { value: "What changed?" } },
@@ -76,7 +91,9 @@ describe("SearchConsole durable research launch", () => {
     expect(start).toBeDisabled();
 
     // When
-    fireEvent.click(screen.getByRole("button", { name: "NVDA" }));
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "NVDA" },
+    });
 
     // Then
     expect(start).toBeDisabled();
@@ -140,6 +157,10 @@ describe("SearchConsole durable research launch", () => {
       question: "What changed in margins?",
       locale: "en",
       idempotencyKey: expect.any(String),
+      researchTarget: {
+        kind: "department",
+        departmentId: "financial",
+      },
     });
     expect(testState.push).toHaveBeenCalledWith(
       `/research/NVDA?run=${RUN_ID}&lang=en`,
@@ -153,7 +174,9 @@ describe("SearchConsole durable research launch", () => {
       async () => await new Promise(() => undefined),
     );
     render(<SearchConsole locale="en" />);
-    fireEvent.click(screen.getByRole("button", { name: "NVDA" }));
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "NVDA" },
+    });
     fireEvent.change(
       screen.getByRole("textbox", { name: "Investment question" }),
       {
@@ -171,7 +194,7 @@ describe("SearchConsole durable research launch", () => {
     // Then
     expect(testState.push).toHaveBeenCalledOnce();
     expect(testState.push.mock.calls[0]?.[0]).toMatch(
-      /^\/research\/NVDA\?lang=en&launch=.+&question=What\+could\+change\+the\+thesis%3F$/,
+      /^\/research\/NVDA\?lang=en&launch=.+&question=What\+could\+change\+the\+thesis%3F&target=committee$/,
     );
   });
 

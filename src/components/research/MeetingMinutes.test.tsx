@@ -1,8 +1,14 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { agents } from "../../research/mockResearch";
 import type { ResearchEvent } from "../../research/types";
 import { MeetingMinutes } from "./MeetingMinutes";
+
+vi.mock("thinking-orbs", () => ({
+  ThinkingOrb: ({ state, size }: { state: string; size: number }) => (
+    <span data-testid="thinking-orb" data-state={state} data-size={size} />
+  ),
+}));
 
 function event(index: number): ResearchEvent {
   const agent = agents[index % agents.length];
@@ -101,6 +107,84 @@ describe("MeetingMinutes", () => {
     expect(screen.getByRole("button", { name: "채팅" })).toHaveAttribute(
       "title",
       "리서치 완료 후 이용할 수 있습니다",
+    );
+  });
+
+  it("shows Dr. Park thinking after evidence audit until the next stage arrives", () => {
+    const audit: ResearchEvent = {
+      ...event(1),
+      phase: "auditing",
+      agent: "chair",
+      workflowKind: "structural_audit_completed",
+    };
+
+    const { rerender } = render(
+      <MeetingMinutes
+        current={audit}
+        agents={agents}
+        events={[audit]}
+        locale="ko"
+        isComplete={false}
+        reportVersion={1}
+      />,
+    );
+
+    expect(
+      screen.getByRole("status", {
+        name: "박 의장이 감사 결과를 검토하고 있습니다",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("thinking-orb")).toHaveAttribute(
+      "data-state",
+      "solving",
+    );
+    expect(
+      document.querySelectorAll(".text-shimmer-wave__character"),
+    ).toHaveLength("Thinking...".length);
+
+    rerender(
+      <MeetingMinutes
+        current={audit}
+        agents={agents}
+        events={[audit]}
+        locale="ko"
+        isComplete
+        reportVersion={1}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("status", {
+        name: "박 의장이 감사 결과를 검토하고 있습니다",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows focused-team agents thinking while their response is pending", () => {
+    const active = event(1);
+    const agent = agents.find((profile) => profile.id === active.agent);
+    if (agent === undefined) throw new TypeError("active agent missing");
+
+    render(
+      <MeetingMinutes
+        current={active}
+        agents={[agent]}
+        events={[active]}
+        locale="ko"
+        isComplete={false}
+        pendingAgentIds={[agent.id]}
+        reportVersion={1}
+      />,
+    );
+
+    expect(
+      screen.getByRole("status", {
+        name: `${agent.name.ko} 에이전트가 데이터와 AI 응답을 검토하고 있습니다`,
+      }),
+    ).toBeInTheDocument();
+    expect(document.querySelector("[data-agent-thinking]")).toHaveAttribute(
+      "data-agent-thinking",
+      agent.id,
     );
   });
 });

@@ -5,9 +5,11 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "./ids";
+import { ResearchMetricSnapshotSchema } from "./metricSnapshot";
 import {
   AcceptedArtifactProvenanceSchema,
   artifactProvenanceErrors,
+  DepartmentReportArtifactProvenanceSchema,
 } from "./reportArtifactProvenance";
 import {
   CapabilitySummarySchema,
@@ -21,7 +23,14 @@ import {
   VersionDeltaSchema,
 } from "./reportComponents";
 import { PublicationStatusSchema } from "./reportText";
-import { WORKFLOW_V1_DEPARTMENT_IDS } from "./roleRegistry";
+import {
+  COMMITTEE_RESEARCH_TARGET,
+  ResearchTargetSchema,
+} from "./researchTarget";
+import {
+  WORKFLOW_V1_DEPARTMENT_IDS,
+  WORKFLOW_V1_ROLE_REGISTRY,
+} from "./roleRegistry";
 
 const TeamViewSchema = z
   .object({
@@ -112,19 +121,28 @@ export const ResearchReportSchema = z
     runId: RunIdSchema,
     snapshotId: SnapshotIdSchema,
     status: PublicationStatusSchema,
+    researchTarget: ResearchTargetSchema.default(COMMITTEE_RESEARCH_TARGET),
     researchDirection: z.string().min(2).max(100).optional(),
     marketSnapshot: z
       .object({
         providerCode: z.string().trim().min(1).max(240),
         lastPrice: z.number().positive(),
+        change: z.number().finite().optional(),
+        changePercent: z.number().finite().optional(),
         currency: z.string().trim().min(3).max(8),
         observedAt: z.string().datetime(),
         marketState: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]),
       })
       .strict()
       .optional(),
-    teamViews: z.array(TeamViewSchema).length(4),
-    artifacts: z.array(AcceptedArtifactProvenanceSchema).length(12),
+    metricSnapshot: ResearchMetricSnapshotSchema.optional(),
+    teamViews: z.array(TeamViewSchema).min(1).max(4),
+    artifacts: z.array(
+      z.union([
+        AcceptedArtifactProvenanceSchema,
+        DepartmentReportArtifactProvenanceSchema,
+      ]),
+    ),
     capabilities: z.array(CapabilitySummarySchema).min(1),
     locales: z
       .object({ en: LocalizedReportSchema, ko: LocalizedReportSchema })
@@ -171,16 +189,69 @@ export const ResearchReportSchema = z
         path: ["locales", "ko", "unknowns"],
         message: "unknown IDs/counts must match",
       });
-    for (const message of artifactProvenanceErrors({
-      artifacts: report.artifacts,
-      runId: report.runId,
-      snapshotId: report.snapshotId,
-    }))
-      context.addIssue({
-        code: "custom",
-        path: ["artifacts"],
-        message,
-      });
+    if (report.researchTarget.kind === "committee") {
+      if (report.teamViews.length !== WORKFLOW_V1_DEPARTMENT_IDS.length)
+        context.addIssue({
+          code: "custom",
+          path: ["teamViews"],
+          message: "committee reports require all four team views",
+        });
+      for (const message of artifactProvenanceErrors({
+        artifacts: report.artifacts.filter(
+          (
+            artifact,
+          ): artifact is z.infer<typeof AcceptedArtifactProvenanceSchema> =>
+            artifact.stage === "memo" || artifact.stage === "chair_synthesis",
+        ),
+        runId: report.runId,
+        snapshotId: report.snapshotId,
+      }))
+        context.addIssue({
+          code: "custom",
+          path: ["artifacts"],
+          message,
+        });
+    } else {
+      const department = report.researchTarget.departmentId;
+      const memberIds =
+        WORKFLOW_V1_ROLE_REGISTRY.departments[department].memberIds;
+      const expectedLogicalIds = new Set([
+        ...memberIds.map((roleId) => `memo:${roleId}`),
+        `consolidation:${department}`,
+      ]);
+      const actualLogicalIds = new Set(
+        report.artifacts.map((artifact) => artifact.logicalArtifactId),
+      );
+      if (
+        report.teamViews.length !== 1 ||
+        report.teamViews[0]?.departmentId !== department
+      )
+        context.addIssue({
+          code: "custom",
+          path: ["teamViews"],
+          message: "department reports require exactly the selected team view",
+        });
+      if (
+        actualLogicalIds.size !== expectedLogicalIds.size ||
+        [...expectedLogicalIds].some((id) => !actualLogicalIds.has(id))
+      )
+        context.addIssue({
+          code: "custom",
+          path: ["artifacts"],
+          message:
+            "department report lineage must contain its team memos and consolidation",
+        });
+      for (const artifact of report.artifacts)
+        if (
+          artifact.runId !== report.runId ||
+          artifact.snapshotId !== report.snapshotId
+        )
+          context.addIssue({
+            code: "custom",
+            path: ["artifacts"],
+            message: "department report artifact lineage mismatch",
+          });
+    }
     if (
       (report.version === 1) !==
       (report.versionDelta.priorVersionId === null)

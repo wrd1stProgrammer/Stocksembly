@@ -164,6 +164,7 @@ const ChairSectionSchema = z
     sectionKey: z.enum([
       "ten_second_brief",
       "supported_analysis",
+      "valuation_comparison",
       "operational_scenarios",
       "dissent_unknowns",
       "change_conditions",

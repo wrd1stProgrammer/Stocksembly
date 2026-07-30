@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { MemoOutputSchema } from "../domain/agentOutputs";
 import { hashBytes } from "../domain/contractHelpers";
 import { EventIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { workflowRoleById } from "../domain/roleRegistry";
+import { TEAM_CORE_DATA } from "../domain/teamCoreData";
 import { codexInputHash } from "../server/codex/codexRunner";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import type { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
@@ -190,6 +192,10 @@ export function prepareSpecialistJobs(
       ordinal: index + 1,
       purpose: "mandatory_first",
     });
+    const role = workflowRoleById(assignment.roleId);
+    if (role === undefined || role.departmentId === "chair")
+      throw new TypeError("specialist team data contract is unavailable");
+    const teamData = TEAM_CORE_DATA[role.departmentId];
     const sourceArtifactIds = assignment.evidenceSlice.artifacts.map(
       (artifact) => {
         const source = sourceByEvidence.get(artifact.evidenceId);
@@ -236,8 +242,26 @@ export function prepareSpecialistJobs(
       "All permitted sealed evidence is inlined below. Native hosted web search may be used for public context; do not call any other tool or read files.",
       "Answer the mandate question directly from your specialist role. Do not say that the claim or question was not supplied: the mandate.question field is the controlling research question.",
       "Lead with an investment-relevant judgment, then cite the strongest supporting and opposing evidence. Company identity or business-description facts are context, not a conclusion.",
+      `TEAM DATA CONTRACT ${JSON.stringify(teamData)}`,
+      "Use the available team datasets and metrics in that contract as the team's decision board. Do not claim a contracted metric is unavailable until you have checked all inlined evidence. If it is genuinely absent, name the observable trigger instead of writing a provider or scope disclaimer.",
+      ...(assignment.roleId === "benchmark"
+        ? [
+            "When insightsentry_peers is available, distinguish filing-linked direct competitors from operating comparables. Compare named companies across 3-month and 1-year share performance, revenue growth, margins, market-cap scale, and available valuation multiples; explain dispersion instead of listing numbers.",
+          ]
+        : assignment.roleId === "company_competition"
+          ? [
+              "When insightsentry_peers is available, explain why each material peer belongs in the set and distinguish product-market rivalry from companies used only as operating or valuation comparables.",
+            ]
+          : assignment.roleId === "valuation"
+            ? [
+                "When insightsentry_peers is available, calculate available peer medians, state the subject company's premium or discount, and judge whether growth and margin differences justify it. Never reduce the conclusion to a bare cautious/supportive label.",
+              ]
+            : []),
       "Return exactly one positions item using request.ids.claimId. Combine the role's material findings into that single investment-relevant position.",
       "Keep publicSummary concise: at most two short sentences per locale. State what the evidence changes for the investment case and the most important uncertainty.",
+      "Make the position distinct to this specialist role. Do not repeat a generic growth-is-strong-but-uncertain template when the evidence supports a more specific demand, moat, margin, valuation, market, or risk judgment.",
+      "Unknowns are not disclaimer storage. Return at most two unknowns and phrase each as the observable metric, threshold, filing line, or dated event that would resolve the uncertainty.",
+      "Do not mention that sealed, licensed, provider, consensus, recommendation, or scope data is missing in publicSummary or unknowns. If a dataset is unavailable, state the concrete real-world variable the investor should verify next.",
       "Return only JSON that matches the required output schema.",
       ...inlineEvidence,
     ].join("\n");

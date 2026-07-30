@@ -94,6 +94,31 @@ describe("office snapshot furniture", () => {
     ).toBe(true);
   });
 
+  it("derives seats only for actors present in a department-scoped snapshot", () => {
+    // Given
+    const fullSnapshot = snapshotAt(40);
+    const memberIds = new Set<OfficeActorSnapshot["id"]>(
+      OFFICE_SCENE_MANIFEST.departments.company.memberIds,
+    );
+    const scopedSnapshot = Object.freeze({
+      ...fullSnapshot,
+      actors: Object.freeze(
+        fullSnapshot.actors.filter((actor) => memberIds.has(actor.id)),
+      ),
+    });
+
+    // When
+    const seats = furnitureStatesForSnapshot(scopedSnapshot).flatMap(
+      (state) => state.seats,
+    );
+
+    // Then
+    expect(seats.map((seat) => seat.actorId).sort()).toEqual(
+      [...memberIds].sort(),
+    );
+    expect(seats.some((seat) => seat.actorId === "chair")).toBe(false);
+  });
+
   it("centers every compact table within its department room", () => {
     const states = furnitureStatesForSnapshot(snapshotAt(40));
     for (const state of states) {

@@ -5,6 +5,10 @@ import { normalizeReportNarrativeText } from "../domain/reportText";
 export const SECTION_TITLES = {
   ten_second_brief: { en: "Ten-second brief", ko: "10초 요약" },
   supported_analysis: { en: "Supported analysis", ko: "근거 기반 분석" },
+  valuation_comparison: {
+    en: "Valuation and comparison",
+    ko: "밸류에이션과 기업 비교",
+  },
   operational_scenarios: { en: "Operational scenarios", ko: "운영 시나리오" },
   dissent_unknowns: { en: "Dissent and unknowns", ko: "이견과 미확인 사항" },
   change_conditions: { en: "Change conditions", ko: "변경 조건" },
@@ -62,11 +66,14 @@ type ChairValidationInput = {
 export function chairValidationReason(
   input: ChairValidationInput,
 ): string | undefined {
+  const legacySectionKeys = Object.keys(SECTION_TITLES).filter(
+    (key) => key !== "valuation_comparison",
+  );
+  const sectionKeys = input.chair.sections.map((section) => section.sectionKey);
   if (
-    input.chair.sections.length !== 5 ||
-    !sameSet(
-      input.chair.sections.map((section) => section.sectionKey),
-      Object.keys(SECTION_TITLES),
+    !(
+      sameSet(sectionKeys, Object.keys(SECTION_TITLES)) ||
+      sameSet(sectionKeys, legacySectionKeys)
     )
   )
     return "chair_sections_incomplete";

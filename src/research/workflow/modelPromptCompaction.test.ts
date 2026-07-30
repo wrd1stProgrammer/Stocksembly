@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { hashBytes } from "../domain/contractHelpers";
 import { schemaDocument } from "../server/codex/codexArtifacts";
 import {
+  CHAIR_SECTION_KEYS,
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
   chairSynthesisModelPrompt,
@@ -120,7 +121,19 @@ describe("late-stage model prompt compaction", () => {
 
     expect(compact).toContain("What changes the thesis?");
     expect(compact).toContain("claim:0");
+    expect(compact).toContain("claim 문장");
+    expect(compact).not.toContain("claim text");
     expect(compact).not.toContain(id(1));
     expect(compact.length).toBeLessThan(JSON.stringify(prompt).length * 0.75);
+    expect(
+      ChairSynthesisModelOutputSchema.safeParse({
+        kind: "chair_synthesis",
+        sections: CHAIR_SECTION_KEYS.map((sectionKey) => ({
+          sectionKey,
+          publicSummary: { en: "English", ko: "한국어" },
+          sentenceIds: ["claim:0"],
+        })),
+      }).success,
+    ).toBe(false);
   });
 });

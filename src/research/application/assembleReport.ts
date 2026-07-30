@@ -2,8 +2,8 @@ import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { evaluatePublicationQuality } from "../domain/qualityPolicy";
 import { ResearchReportSchema } from "../domain/report";
 import { SourceRegisterEntrySchema } from "../domain/reportComponents";
-import { normalizeReportNarrativeText } from "../domain/reportText";
 import { SemanticAuditSchema } from "../domain/reportSemantic";
+import { normalizeReportNarrativeText } from "../domain/reportText";
 import type {
   AssembleReportResult,
   AssemblyInput,
@@ -20,6 +20,7 @@ export type {
   AssembleReportResult,
   AssemblyInput,
 } from "./assembleReportContracts";
+
 import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../domain/reportArtifactProvenance";
 
 function scaleDecimal(value: string, zeroCount: number): string {
@@ -53,6 +54,14 @@ function inferredScenarioValue(
 }
 
 export function assembleReport(input: AssemblyInput): AssembleReportResult {
+  const reportLocale = input.locale ?? "en";
+  const selectedText = (value: {
+    readonly en: string;
+    readonly ko: string;
+  }) => {
+    const text = value[reportLocale];
+    return { en: text, ko: text };
+  };
   const structural = StructuralAuditArtifactEnvelopeSchema.safeParse(
     input.structuralAudit,
   );
@@ -128,7 +137,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     .filter((claim) => verdicts.get(claim.claimId)?.verdict !== "contradicted")
     .map((claim) => ({
       claimId: claim.claimId,
-      text: {
+      text: selectedText({
         en: normalizeReportNarrativeText(
           claim.text.en,
           "The authenticated evidence supports this claim with limitations.",
@@ -137,7 +146,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
           claim.text.ko,
           "인증된 근거는 한계와 함께 이 주장을 뒷받침합니다.",
         ),
-      },
+      }),
       materiality: claim.materiality,
       semanticVerdict: verdicts.get(claim.claimId)?.verdict ?? "not_assessable",
       sourceIds: evidenceByClaim.get(claim.claimId) ?? [],
@@ -153,7 +162,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
         ...(auditedClaim === undefined
           ? {}
           : {
-              text: {
+              text: selectedText({
                 en: normalizeReportNarrativeText(
                   auditedClaim.text.en,
                   "The authenticated evidence supports this claim with limitations.",
@@ -162,7 +171,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
                   auditedClaim.text.ko,
                   "인증된 근거는 한계와 함께 이 주장을 뒷받침합니다.",
                 ),
-              },
+              }),
             }),
         materiality: "supporting",
         semanticVerdict: "not_assessable",
@@ -194,7 +203,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     return [
       {
         id: scenarioId,
-        name: scenarioSentence.text,
+        name: selectedText(scenarioSentence.text),
         assumptions: [{ ...metric, value }],
         claimIds: scenarioSentence.claimIds,
         sourceIds: scenarioSentence.sourceArtifactIds,
@@ -224,10 +233,10 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       sourceIds: [
         ...new Set(sentences.flatMap((sentence) => sentence.sourceArtifactIds)),
       ],
-      text: {
+      text: selectedText({
         en: sentences.map((sentence) => sentence.text.en).join(" "),
         ko: sentences.map((sentence) => sentence.text.ko).join(" "),
-      },
+      }),
     };
   });
   if (dissent.some((entry) => entry.text.en === "" || entry.text.ko === ""))
@@ -356,7 +365,14 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     ...(audit.marketSnapshot === undefined
       ? {}
       : { marketSnapshot: audit.marketSnapshot }),
-    teamViews: input.teamViews,
+    ...(audit.metricSnapshot === undefined
+      ? {}
+      : { metricSnapshot: audit.metricSnapshot }),
+    teamViews: input.teamViews.map((view) => ({
+      ...view,
+      position: selectedText(view.position),
+      rationale: selectedText(view.rationale),
+    })),
     artifacts: input.artifacts,
     capabilities,
     locales,

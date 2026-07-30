@@ -4,6 +4,7 @@ import { LandingOfficePreview } from "./LandingOfficePreview";
 
 const state = vi.hoisted(() => {
   let resolveRenderer: (() => void) | undefined;
+  let selectActor: ((actorId: "market") => void) | undefined;
   const controller = {
     destroy: vi.fn(),
     inspect: vi.fn(),
@@ -12,7 +13,14 @@ const state = vi.hoisted(() => {
     setPaused: vi.fn(),
   };
   const createOfficeSnapshotRenderer = vi.fn(
-    async ({ host }: { readonly host: HTMLDivElement }) => {
+    async ({
+      host,
+      onActorSelect,
+    }: {
+      readonly host: HTMLDivElement;
+      readonly onActorSelect?: (actorId: "market") => void;
+    }) => {
+      selectActor = onActorSelect;
       host.appendChild(document.createElement("canvas"));
       await new Promise<void>((resolve) => {
         resolveRenderer = resolve;
@@ -25,6 +33,7 @@ const state = vi.hoisted(() => {
     controller,
     createOfficeSnapshotRenderer,
     resolve: () => resolveRenderer?.(),
+    selectMarket: () => selectActor?.("market"),
   };
 });
 
@@ -74,5 +83,14 @@ describe("LandingOfficePreview", () => {
       expect.anything(),
       { cameraMode: "overview" },
     );
+
+    // When
+    act(() => state.selectMarket());
+
+    // Then
+    expect(
+      screen.getByRole("complementary", { name: "Maya agent details" }),
+    ).toBeVisible();
+    expect(screen.getByText("Market Lead")).toBeVisible();
   });
 });

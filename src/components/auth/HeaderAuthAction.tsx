@@ -3,10 +3,18 @@
 import { getCurrentUser, signOut } from "aws-amplify/auth";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { configureAmplifyAuth } from "@/src/auth/amplifyClient";
-import { clearResearchSession } from "@/src/auth/researchSession";
+import { configureAmplifyAuth } from "../../auth/amplifyClient";
+import { clearResearchSession } from "../../auth/researchSession";
+import type { Locale } from "../../lib/i18n";
+import { RecentResearchDrawer } from "./RecentResearchDrawer";
 
-export function HeaderAuthAction({ label }: { readonly label: string }) {
+export function HeaderAuthAction({
+  label,
+  locale,
+}: {
+  readonly label: string;
+  readonly locale: Locale;
+}) {
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
@@ -33,17 +41,20 @@ export function HeaderAuthAction({ label }: { readonly label: string }) {
   }
 
   return (
-    <button
-      className="sign-in sign-in--button"
-      onClick={() => {
-        void clearResearchSession()
-          .catch(() => undefined)
-          .finally(() => signOut())
-          .finally(() => setSignedIn(false));
-      }}
-      type="button"
-    >
-      Sign out
-    </button>
+    <>
+      <RecentResearchDrawer locale={locale} />
+      <button
+        className="sign-in sign-in--button"
+        onClick={() => {
+          void clearResearchSession()
+            .catch(() => undefined)
+            .finally(() => signOut())
+            .finally(() => setSignedIn(false));
+        }}
+        type="button"
+      >
+        {locale === "ko" ? "로그아웃" : "Sign out"}
+      </button>
+    </>
   );
 }

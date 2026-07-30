@@ -13,6 +13,9 @@ export function ResearchFileValuation({
   readonly locale: Locale;
 }) {
   const ko = locale === "ko";
+  const financialFocus =
+    file.researchTarget?.kind !== "department" ||
+    file.researchTarget.departmentId === "financial";
   return (
     <section
       className="research-editorial-section"
@@ -21,16 +24,36 @@ export function ResearchFileValuation({
     >
       <ResearchFileSectionHeader
         number="03"
-        title={ko ? "밸류에이션·기업 비교" : "Valuation & relative comparison"}
+        title={
+          financialFocus
+            ? ko
+              ? "밸류에이션·기업 비교"
+              : "Valuation & relative comparison"
+            : ko
+              ? "분석 범위·다음 확인"
+              : "Scope boundary & next proof"
+        }
         description={
-          ko
-            ? "현재 기대를 지지하는 성장·수익성 근거와 이를 흔들 조건을 비교합니다."
-            : "Compare the growth and profitability evidence supporting current expectations with the conditions that would weaken them."
+          !financialFocus
+            ? ko
+              ? "이 팀이 확인한 범위와 전체 위원회 검토가 추가로 필요한 영역을 구분합니다."
+              : "Separate what this team verified from what still requires a full committee review."
+            : ko
+              ? "현재 기대를 지지하는 성장·수익성 근거와 이를 흔들 조건을 비교합니다."
+              : "Compare the growth and profitability evidence supporting current expectations with the conditions that would weaken them."
         }
       />
       <div className="research-valuation-lead">
         <div>
-          <span>{ko ? "밸류에이션 결론" : "Valuation conclusion"}</span>
+          <span>
+            {financialFocus
+              ? ko
+                ? "밸류에이션 결론"
+                : "Valuation conclusion"
+              : ko
+                ? "분석 범위 결론"
+                : "Scope conclusion"}
+          </span>
           <p className="research-valuation-lead__conclusion">
             {model.valuationConclusion}
           </p>
@@ -51,15 +74,39 @@ export function ResearchFileValuation({
         </dl>
       </div>
       <section className="research-comparison">
-        <h3>{ko ? "상대 비교 렌즈" : "Relative comparison lens"}</h3>
+        <h3>
+          {financialFocus
+            ? ko
+              ? "실적과 가격의 간극"
+              : "Operating proof vs. market expectations"
+            : ko
+              ? "검증 범위 매트릭스"
+              : "Verification scope matrix"}
+        </h3>
         <table className="research-comparison__table">
           <thead>
             <tr>
-              <th scope="col">{ko ? "비교 축" : "Dimension"}</th>
               <th scope="col">
-                {ko ? "회사 관점·시장 기준" : "Company view & market reference"}
+                {financialFocus
+                  ? ko
+                    ? "비교 축"
+                    : "Dimension"
+                  : ko
+                    ? "검증 축"
+                    : "Verification area"}
               </th>
-              <th scope="col">{ko ? "해석" : "Interpretation"}</th>
+              <th scope="col">
+                {financialFocus
+                  ? ko
+                    ? "회사가 실제로 증명한 것"
+                    : "What the company has proved"
+                  : ko
+                    ? "팀 확인 내용"
+                    : "Team findings"}
+              </th>
+              <th scope="col">
+                {ko ? "투자 해석" : "Investment read-through"}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -70,24 +117,29 @@ export function ResearchFileValuation({
                   <p>{row.companyView}</p>
                   {row.benchmarkLens.length === 0 ? null : (
                     <p className="research-comparison__reference">
-                      <b>{ko ? "시장 기준" : "Market reference"}</b>
+                      <b>
+                        {ko ? "가격이 요구하는 기준" : "What the price demands"}
+                      </b>
                       {row.benchmarkLens}
                     </p>
                   )}
                 </td>
-                <td>
-                  {row.interpretation}
-                  {row.evidenceId === undefined ? null : (
-                    <em>{row.evidenceId}</em>
-                  )}
-                </td>
+                <td>{row.interpretation}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </section>
       <section className="research-scenarios">
-        <h3>{ko ? "시나리오별 가정" : "Scenario assumptions"}</h3>
+        <h3>
+          {financialFocus
+            ? ko
+              ? "시나리오별 가정"
+              : "Scenario assumptions"
+            : ko
+              ? "다음 검증 조건"
+              : "Next proof conditions"}
+        </h3>
         {model.scenarios.map((scenario) => (
           <article key={scenario.id}>
             <header>

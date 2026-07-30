@@ -5,6 +5,7 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../../domain/ids";
+import { ResearchDepartmentIdSchema } from "../../domain/researchTarget";
 import { RunStatusSchema } from "../../domain/runStateContracts";
 
 export const CountRowSchema = z.object({
@@ -19,6 +20,8 @@ export const RunRowSchema = z.object({
   snapshot_id: SnapshotIdSchema,
   symbol: z.string(),
   locale: z.enum(["en", "ko"]),
+  research_kind: z.enum(["committee", "department"]),
+  department_id: ResearchDepartmentIdSchema.nullable(),
   status: RunStatusSchema,
   last_event_seq: z.number().int().nonnegative(),
   created_at: z.string(),

@@ -15,9 +15,11 @@ import {
 import {
   WORKFLOW_V1_DEPARTMENT_IDS,
   WORKFLOW_V1_ROLE_REGISTRY,
+  type WorkflowDepartmentId,
 } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
+import { publishDepartmentReportForRun } from "../server/persistence/sqlite/publishDepartmentReportForRun";
 import {
   appendRunEvent,
   transitionRun,
@@ -266,6 +268,33 @@ function acceptedChair(databasePath: string, runId: string) {
   }
 }
 
+function departmentTargetForRun(
+  databasePath: string,
+  runId: string,
+): WorkflowDepartmentId | undefined {
+  const database = new Database(databasePath, { readonly: true });
+  try {
+    const row = z
+      .object({
+        research_kind: z.enum(["committee", "department"]),
+        department_id: z
+          .enum(["market", "company", "financial", "risk"])
+          .nullable(),
+      })
+      .parse(
+        database
+          .prepare(`SELECT research_kind, department_id
+            FROM research_requests WHERE run_id = ?`)
+          .get(runId),
+      );
+    return row.research_kind === "department" && row.department_id !== null
+      ? row.department_id
+      : undefined;
+  } finally {
+    database.close();
+  }
+}
+
 export type OfficialWorkflowCoordinator = {
   readonly advance: (runId: string) => Promise<void>;
   readonly resumeActiveRuns: () => Promise<void>;
@@ -289,6 +318,55 @@ export function createOfficialWorkflowCoordinator(
 
   const advanceExclusive = async (rawRunId: string): Promise<void> => {
     const runId = RunIdSchema.parse(rawRunId);
+    const departmentTarget = departmentTargetForRun(
+      options.databasePath,
+      runId,
+    );
+    if (departmentTarget !== undefined) {
+      const departments = createSqliteDepartmentRound(roundOptions);
+      try {
+        const replay = departments.replay(runId);
+        if (!replay.committedDepartmentIds.includes(departmentTarget)) {
+          const acceptedMemos = departments.acceptedMemos(runId);
+          const expectedRoles =
+            WORKFLOW_V1_ROLE_REGISTRY.departments[departmentTarget].memberIds;
+          const acceptedByRole = new Map(
+            acceptedMemos.map((memo) => [memo.roleId, memo]),
+          );
+          if (expectedRoles.every((roleId) => acceptedByRole.has(roleId))) {
+            const staged = await departments.stage({
+              runId,
+              memberArtifactIds: expectedRoles.flatMap((roleId) => {
+                const memo = acceptedByRole.get(roleId);
+                return memo === undefined ? [] : [memo.artifactId];
+              }),
+            });
+            if (staged.kind === "blocked")
+              reportBlocked("department", staged.reason);
+          }
+          return;
+        }
+        const published = await publishDepartmentReportForRun(
+          {
+            databasePath: options.databasePath,
+            cas: options.cas,
+            ...(options.now === undefined ? {} : { now: options.now }),
+          },
+          runId,
+        );
+        if (published.kind !== "published")
+          recordBlockedStage(
+            options.databasePath,
+            runId,
+            "department_report_publication",
+            published.reason,
+            options.now?.() ?? new Date().toISOString(),
+          );
+        return;
+      } finally {
+        await departments.close();
+      }
+    }
     const departments = createSqliteDepartmentRound(roundOptions);
     const challenges = createSqliteChallengeRound(roundOptions);
     const responses = createSqliteFollowupAndResponseRound(roundOptions);

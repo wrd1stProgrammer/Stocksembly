@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
-import { BilingualPublicTextSchema } from "../domain/agentOutputsShared";
+import {
+  BilingualPublicTextSchema,
+  PublicModelTextSchema,
+} from "../domain/agentOutputsShared";
 import {
   ArtifactIdSchema,
   ClaimIdSchema,
@@ -13,11 +16,12 @@ import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
 
 const NO_TOOL_INSTRUCTIONS =
-  "All permitted sentences and citations are in this request. Do not call tools or read files. Return only JSON matching the output schema. Synthesize an investment decision, not a company-description digest. Compare the base and competing hypotheses, explicitly retain disconfirming evidence, and use benchmark, peer, sector-index, and cross-asset context when those audited sentences are available. The ten_second_brief must be one concise sentence per locale that states the evidence posture, strongest driver, and decisive risk or condition; never lead with domicile, listing, headquarters, or a generic business description. Select only the sentenceIds needed for each section, preserve meaningful dissent, and do not claim the mandate question is missing because mandate.question is the controlling question.";
+  "All permitted sentences and citations are in this request. Do not call tools or read files. Return only JSON matching the output schema and write publicSummary only in mandate.locale. Synthesize a company investment research report, not a meeting-minutes digest or a repeated answer to the mandate question. The mandate question sets emphasis: answer it once in ten_second_brief, then make the company analysis the main body without restating the question. Preserve material detail and numbers; remove repetition rather than shortening substantive analysis. Section ownership is strict: ten_second_brief gives the direct judgment once; supported_analysis covers business, demand, products, earnings, margins, and cash conversion; valuation_comparison covers price, multiples, expectations, peers, and benchmark context; operational_scenarios covers distinct operating paths; dissent_unknowns retains only decision-changing counterevidence and unknowns; change_conditions states observable triggers that would alter the judgment. Do not reuse the same conclusion sentence across sections. Compare competing hypotheses, retain disconfirming evidence, and use audited benchmark, peer, sector-index, and cross-asset context when available. When peer evidence is available, valuation_comparison must name the relevant comparison set, distinguish direct competitors from operating comparables, report available peer medians and the subject company's premium or discount, and explain whether growth and margins justify that gap. Never lead with domicile, listing, headquarters, or a generic business description. Select only the sentenceIds needed for each section and never claim the mandate question is missing.";
 
 export const CHAIR_SECTION_KEYS = [
   "ten_second_brief",
   "supported_analysis",
+  "valuation_comparison",
   "operational_scenarios",
   "dissent_unknowns",
   "change_conditions",
@@ -118,7 +122,7 @@ export const ChairSynthesisModelOutputSchema = z
       .array(
         z.object({
           sectionKey: z.enum(CHAIR_SECTION_KEYS),
-          publicSummary: BilingualPublicTextSchema,
+          publicSummary: PublicModelTextSchema,
           sentenceIds: z
             .array(z.string().trim().min(1).max(160))
             .min(1)
@@ -150,7 +154,7 @@ export function chairSynthesisModelPrompt(
     sentences: prompt.sentences.map(({ sentenceId, kind, text }) => ({
       sentenceId,
       kind,
-      text,
+      text: text[prompt.mandate.locale],
     })),
     instructions: prompt.instructions,
   });

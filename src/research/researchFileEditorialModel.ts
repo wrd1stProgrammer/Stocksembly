@@ -34,6 +34,42 @@ type EditorialComparisonRow = {
   readonly evidenceId?: string;
 };
 
+const editorialStandardFormatters = {
+  en: new Intl.NumberFormat("en-US", {
+    notation: "standard",
+    maximumFractionDigits: 1,
+  }),
+  ko: new Intl.NumberFormat("ko-KR", {
+    notation: "standard",
+    maximumFractionDigits: 1,
+  }),
+} as const;
+function compactDecimal(value: number): string {
+  return value.toFixed(1).replace(/\.0$/u, "");
+}
+
+function compactUsd(value: number, locale: Locale): string {
+  const absolute = Math.abs(value);
+  const sign = value < 0 ? "−" : "";
+  if (locale === "ko") {
+    if (absolute >= 1_000_000_000_000)
+      return `${sign}US$${compactDecimal(absolute / 1_000_000_000_000)}조`;
+    if (absolute >= 100_000_000)
+      return `${sign}US$${compactDecimal(absolute / 100_000_000)}억`;
+    if (absolute >= 10_000)
+      return `${sign}US$${compactDecimal(absolute / 10_000)}만`;
+    return `${sign}US$${compactDecimal(absolute)}`;
+  }
+  if (absolute >= 1_000_000_000_000)
+    return `${sign}$${compactDecimal(absolute / 1_000_000_000_000)}T`;
+  if (absolute >= 1_000_000_000)
+    return `${sign}$${compactDecimal(absolute / 1_000_000_000)}B`;
+  if (absolute >= 1_000_000)
+    return `${sign}$${compactDecimal(absolute / 1_000_000)}M`;
+  if (absolute >= 1_000) return `${sign}$${compactDecimal(absolute / 1_000)}K`;
+  return `${sign}$${compactDecimal(absolute)}`;
+}
+
 type EditorialTeamRow = {
   readonly departmentId: ResearchFileData["teamViews"][number]["departmentId"];
   readonly teamName: string;
@@ -43,9 +79,53 @@ type EditorialTeamRow = {
   readonly portraitPath: string;
 };
 
+type EditorialSource = ResearchFileData["evidenceIndex"][number];
+
+export type EditorialSourceGroup = {
+  readonly number: "01" | "02" | "03" | "04";
+  readonly title: string;
+  readonly purpose: string;
+  readonly sources: readonly EditorialSource[];
+};
+
 export type EditorialCallout = {
   readonly headline: string;
   readonly body: string;
+};
+
+export type EditorialVisualMetric = {
+  readonly id: string;
+  readonly label: string;
+  readonly value: string;
+  readonly category:
+    | "market"
+    | "company"
+    | "financial"
+    | "risk"
+    | "expectations";
+  readonly signal: "higher_better" | "lower_better" | "contextual";
+  readonly barPercent?: number;
+};
+
+export type EditorialEvidenceBalance = {
+  readonly total: number;
+  readonly supported: number;
+  readonly partial: number;
+  readonly challenged: number;
+  readonly unverified: number;
+  readonly segments: readonly {
+    readonly id: "supported" | "partial" | "challenged" | "unverified";
+    readonly label: string;
+    readonly count: number;
+    readonly percent: number;
+  }[];
+};
+
+export type EditorialDecisionPath = {
+  readonly id: "confirm" | "hold" | "invalidate";
+  readonly label: string;
+  readonly headline: string;
+  readonly detail: string;
 };
 
 export type ResearchFileEditorialModel = {
@@ -81,6 +161,16 @@ export type ResearchFileEditorialModel = {
   readonly acceptedClaims: readonly string[];
   readonly preservedDissent: readonly string[];
   readonly evidenceIndex: ResearchFileData["evidenceIndex"];
+  readonly sourceGroups: readonly EditorialSourceGroup[];
+  readonly visualMetrics: readonly EditorialVisualMetric[];
+  readonly metricGroups: Readonly<
+    Record<
+      "market" | "company" | "financial" | "risk" | "expectations",
+      readonly EditorialVisualMetric[]
+    >
+  >;
+  readonly evidenceBalance: EditorialEvidenceBalance;
+  readonly decisionPaths: readonly EditorialDecisionPath[];
 };
 
 function localized(value: LocalizedText, locale: Locale): string {
@@ -181,15 +271,145 @@ function normalizedComparableText(value: string): string {
     .trim();
 }
 
+function editorialTokens(value: string): ReadonlySet<string> {
+  const stopwords = new Set([
+    "그리고",
+    "그러나",
+    "대한",
+    "현재",
+    "합니다",
+    "있습니다",
+    "the",
+    "and",
+    "but",
+    "for",
+    "from",
+    "that",
+    "this",
+    "with",
+  ]);
+  return new Set(
+    value
+      .toLocaleLowerCase()
+      .replace(/[\p{P}\p{S}]+/gu, " ")
+      .split(/\s+/u)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2 && !stopwords.has(token)),
+  );
+}
+
+function editoriallySimilar(first: string, second: string): boolean {
+  const normalizedFirst = normalizedComparableText(first);
+  const normalizedSecond = normalizedComparableText(second);
+  if (normalizedFirst.length === 0 || normalizedSecond.length === 0)
+    return false;
+  if (
+    normalizedFirst.includes(normalizedSecond) ||
+    normalizedSecond.includes(normalizedFirst)
+  )
+    return true;
+
+  const firstTokens = editorialTokens(first);
+  const secondTokens = editorialTokens(second);
+  const smallerSize = Math.min(firstTokens.size, secondTokens.size);
+  if (smallerSize < 3) return false;
+  const overlap = [...firstTokens].filter((token) =>
+    secondTokens.has(token),
+  ).length;
+  return overlap / smallerSize >= 0.64;
+}
+
+function dedupeEditorialTexts(values: readonly string[]): string[] {
+  const distinct: string[] = [];
+  for (const value of values) {
+    const compact = compactEditorialText(value, 2);
+    if (
+      compact.length > 0 &&
+      !distinct.some((candidate) => editoriallySimilar(candidate, compact))
+    )
+      distinct.push(compact);
+  }
+  return distinct;
+}
+
 function optionalDistinctText(value: string, reference: string): string {
   const compact = compactEditorialText(value, 1);
-  const normalized = normalizedComparableText(compact);
-  const normalizedReference = normalizedComparableText(reference);
-  return normalized.length === 0 ||
-    normalized === normalizedReference ||
-    normalizedReference.includes(normalized)
+  return compact.length === 0 || editoriallySimilar(compact, reference)
     ? ""
     : compact;
+}
+
+function editorialMetricValue(
+  metric: NonNullable<ResearchFileData["metricSnapshot"]>["metrics"][number],
+  locale: Locale,
+): string {
+  const numberLocale = locale === "ko" ? "ko-KR" : "en-US";
+  if (metric.unit === "percent")
+    return `${metric.value.toLocaleString(numberLocale, { maximumFractionDigits: 1 })}%`;
+  if (metric.unit === "multiple")
+    return `${metric.value.toLocaleString(numberLocale, { maximumFractionDigits: 1 })}${locale === "ko" ? "배" : "x"}`;
+  if (metric.unit === "USD_per_share")
+    return `$${metric.value.toLocaleString(numberLocale, { maximumFractionDigits: 2 })}`;
+  if (metric.unit === "USD") return compactUsd(metric.value, locale);
+  return editorialStandardFormatters[locale].format(metric.value);
+}
+
+function metricProof(
+  file: ResearchFileData,
+  locale: Locale,
+  ids: readonly string[],
+): string {
+  const metrics = file.metricSnapshot?.metrics ?? [];
+  return ids
+    .flatMap((id) => {
+      const metric = metrics.find(
+        (candidate) => candidate.id === id || candidate.id.startsWith(`${id}:`),
+      );
+      return metric === undefined
+        ? []
+        : [`${metric.label[locale]} ${editorialMetricValue(metric, locale)}`];
+    })
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .slice(0, 2)
+    .join(" · ");
+}
+
+function comparisonInterpretation(input: {
+  readonly locale: Locale;
+  readonly lens: "price" | "business" | "earnings";
+  readonly teamEvidence: string;
+  readonly checkpoint: string;
+}): string {
+  const lensInsights = {
+    price: {
+      ko: "가격 흐름은 성장 서사 자체보다 실적 개선이 현 주가에 얼마나 선반영됐는지를 보여줍니다.",
+      en: "Price action shows how much operating improvement is already discounted, rather than merely confirming the growth narrative.",
+    },
+    business: {
+      ko: "매출 확대가 제품 경쟁력의 증거가 되려면 물량 증가가 마진과 반복 가능한 현금창출로 함께 이어져야 합니다.",
+      en: "Revenue expansion supports the competitive case only when volume growth also converts into margins and repeatable cash generation.",
+    },
+    earnings: {
+      ko: "이익의 질은 회계상 성장률보다 영업현금흐름이 투자 부담과 주식 희석을 흡수하는지로 판별해야 합니다.",
+      en: "Earnings quality depends less on reported growth than on whether operating cash flow absorbs investment needs and shareholder dilution.",
+    },
+  } as const;
+  const teamEvidence = compactEditorialText(input.teamEvidence, 1);
+  const checkpoint = compactEditorialText(input.checkpoint, 1);
+  const dynamicEvidence =
+    teamEvidence.length >= 32 &&
+    !/^(?:조건부로|제한적으로|신중하게|지지한다|지지합니다|중립|긍정|부정|conditionally|cautiously|support(?:s|ed)?|neutral|positive|negative)[.!。\s]*$/iu.test(
+      teamEvidence,
+    )
+      ? teamEvidence
+      : checkpoint;
+  return dedupeEditorialTexts([
+    lensInsights[input.lens][input.locale],
+    dynamicEvidence,
+    checkpoint,
+  ])
+    .slice(0, 3)
+    .join(" ");
 }
 
 function compactScenarioAssumption(value: string): string {
@@ -205,22 +425,76 @@ function claimDepartment(
   claim: string,
 ): ResearchFileData["teamViews"][number]["departmentId"] {
   if (
-    /가격|주가|추세|금리|수급|rsi|macd|price|trend|yield|market/iu.test(claim)
+    /규제|통상|제재|정책|경쟁|경영진|공급망|하방|regulat|trade|sanction|policy|competition|management|supply chain|downside/iu.test(
+      claim,
+    )
   )
-    return "market";
+    return "risk";
   if (
-    /마진|이익|현금|재무|부채|희석|margin|profit|cash|financial|dilution/iu.test(
+    /영업이익률|주당이익|\beps\b|현금흐름|희석|부채|재무|이익률|밸류에이션|가치평가|배수|\bper\b|p\/e|valuation|multiple|operating margin|cash flow|dilut|debt|financial/iu.test(
       claim,
     )
   )
     return "financial";
   if (
-    /제품|인도|매출|고객|경쟁|ai|로보|product|deliver|revenue|customer|competition/iu.test(
+    /추세|금리|수급|\brsi\b|\bmacd\b|이동평균|모멘텀|변동성|국채|trend|yield|moving average|momentum|volatility|technical|market regime/iu.test(
+      claim,
+    )
+  )
+    return "market";
+  if (
+    /제품|매출|고객|수요|판매량|가격결정력|인도|점유율|product|revenue|customer|demand|unit|pricing power|deliver|market share/iu.test(
       claim,
     )
   )
     return "company";
-  return "risk";
+  return "company";
+}
+
+function departmentThesisTitle(
+  department: ResearchFileData["teamViews"][number]["departmentId"],
+  locale: Locale,
+): string {
+  const titles = {
+    company: {
+      en: "Can demand and product strength support the price?",
+      ko: "수요·제품 경쟁력이 가격을 지지하는가",
+    },
+    financial: {
+      en: "Does growth convert into earnings and cash?",
+      ko: "성장이 실제 이익과 현금으로 이어지는가",
+    },
+    market: {
+      en: "Do price, rates, and flows confirm the view?",
+      ko: "가격·금리·수급은 판단을 지지하는가",
+    },
+    risk: {
+      en: "Which downside condition would break the thesis?",
+      ko: "어떤 하방 조건이 핵심 논지를 무너뜨리는가",
+    },
+  } as const;
+  return titles[department][locale];
+}
+
+function claimEditorialScore(
+  claim: NonNullable<ResearchFileData["claimMatrix"]>[number],
+): number {
+  const strengthScore = {
+    strong: 40,
+    moderate: 30,
+    limited: 15,
+    contested: 8,
+    unverified: 0,
+  } as const;
+  const verdictScore =
+    claim.verdict === "entailed"
+      ? 20
+      : claim.verdict === "partial"
+        ? 12
+        : claim.verdict === "contradicted"
+          ? 8
+          : 0;
+  return strengthScore[claim.strength] + verdictScore + claim.sourceCount;
 }
 
 function readerEvidenceLabel(
@@ -276,22 +550,37 @@ function claimEvidence(
   claim: NonNullable<ResearchFileData["claimMatrix"]>[number],
   locale: Locale,
 ): string {
-  const sources = claim.sourceRefs
+  const department = claimDepartment(presentLocalized(claim.claim, locale));
+  const metricIds = {
+    market: [
+      "current_price",
+      "relative_performance_3m",
+      "relative_performance_1y",
+      "peer_premium",
+    ],
+    company: [
+      "revenue_growth",
+      "segment_share",
+      "forward_revenue",
+      "gross_margin",
+    ],
+    financial: ["revenue_growth", "operating_margin", "free_cash_flow", "roic"],
+    risk: ["cash", "net_debt", "inventory", "region_share"],
+  } as const;
+  const quantifiedProof = metricProof(file, locale, metricIds[department]);
+  if (quantifiedProof.length > 0) return quantifiedProof;
+  const linkedSourceCount = claim.sourceRefs
     .map((sourceId) =>
       file.evidenceIndex.find((source) => source.id === sourceId),
     )
-    .filter((source) => source !== undefined)
-    .map((source) => {
-      const label = readerEvidenceLabel(source.publisher, source.title, locale);
-      return `${label.publisher} · ${label.title}`;
-    })
-    .filter((source, index, all) => all.indexOf(source) === index)
-    .slice(0, 2);
-  if (sources.length === 0)
+    .filter((source) => source !== undefined).length;
+  if (linkedSourceCount === 0)
     return locale === "ko"
       ? "주장 단위 근거가 아직 연결되지 않았습니다."
       : "Claim-level evidence is not yet linked.";
-  return sources.join("\n");
+  return locale === "ko"
+    ? `연결 근거 ${linkedSourceCount}건을 주장 단위로 교차 확인했습니다.`
+    : `${linkedSourceCount} linked evidence items were cross-checked at claim level.`;
 }
 
 function conclusionIndex(file: ResearchFileData): number {
@@ -321,6 +610,36 @@ function conclusionIndex(file: ResearchFileData): number {
       : claimScores.reduce((sum, score) => sum + score, 0) / claimScores.length;
   const postureScore =
     file.posture === "positive" ? 85 : file.posture === "caution" ? 40 : 55;
+  if (file.researchTarget?.kind === "department") {
+    const claims = file.claimMatrix ?? [];
+    const confidence =
+      claims.length === 0
+        ? 50
+        : claims.reduce(
+            (sum, claim) =>
+              sum + Math.min(100, (claimEditorialScore(claim) / 65) * 100),
+            0,
+          ) / claims.length;
+    const uniqueSources = new Set(claims.flatMap((claim) => claim.sourceRefs))
+      .size;
+    const breadth = Math.min(100, 50 + uniqueSources * 6);
+    const reservationPenalty =
+      (claims.filter((claim) => claim.counterpoint !== undefined).length /
+        Math.max(claims.length, 1)) *
+      10;
+    return Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          teamScore * 0.32 +
+            confidence * 0.42 +
+            breadth * 0.26 -
+            reservationPenalty,
+        ),
+      ),
+    );
+  }
   return Math.round(teamScore * 0.4 + claimScore * 0.35 + postureScore * 0.25);
 }
 
@@ -337,6 +656,313 @@ function reliability(file: ResearchFileData): number {
     : Math.round(
         (file.evidenceScore.passed / file.evidenceScore.denominator) * 100,
       );
+}
+
+function visualMetric(
+  metric: NonNullable<ResearchFileData["metricSnapshot"]>["metrics"][number],
+  locale: Locale,
+): EditorialVisualMetric {
+  const representsNetCash = metric.id === "net_debt" && metric.value < 0;
+  const barPercent =
+    metric.unit === "percent" && metric.value >= 0 && metric.value <= 100
+      ? metric.value
+      : undefined;
+  return {
+    id: metric.id,
+    label: representsNetCash
+      ? locale === "ko"
+        ? "순현금"
+        : "Net cash"
+      : metric.label[locale],
+    value: editorialMetricValue(
+      representsNetCash ? { ...metric, value: Math.abs(metric.value) } : metric,
+      locale,
+    ),
+    category: metric.category,
+    signal: metric.signal,
+    ...(barPercent === undefined ? {} : { barPercent }),
+  };
+}
+
+const METRIC_PRIORITY = {
+  market: [
+    "current_price",
+    "daily_change_percent",
+    "relative_performance_3m",
+    "relative_performance_1y",
+    "pe",
+    "ev_ebitda",
+    "peer_premium",
+  ],
+  company: [
+    "revenue_growth",
+    "revenue_ttm",
+    "segment_share",
+    "forward_revenue",
+    "gross_margin",
+  ],
+  financial: [
+    "revenue_growth",
+    "gross_margin",
+    "operating_margin",
+    "free_cash_flow",
+    "capital_expenditures",
+    "roic",
+    "forward_pe",
+    "pe",
+  ],
+  risk: [
+    "net_debt",
+    "cash",
+    "inventory",
+    "diluted_shares",
+    "region_share",
+    "peer_premium",
+  ],
+  expectations: [
+    "forward_revenue",
+    "forward_eps",
+    "forward_pe",
+    "price_target_median",
+    "recommendation_buy",
+    "recommendation_hold",
+    "recommendation_sell",
+  ],
+} as const;
+
+function metricGroups(
+  file: ResearchFileData,
+  locale: Locale,
+): ResearchFileEditorialModel["metricGroups"] {
+  const metrics = file.metricSnapshot?.metrics ?? [];
+  const take = (
+    category: keyof typeof METRIC_PRIORITY,
+  ): readonly EditorialVisualMetric[] => {
+    const priority = METRIC_PRIORITY[category];
+    return [...metrics]
+      .filter((metric) =>
+        priority.some(
+          (id) => metric.id === id || metric.id.startsWith(`${id}:`),
+        ),
+      )
+      .sort((first, second) => {
+        const firstIndex = priority.findIndex(
+          (id) => first.id === id || first.id.startsWith(`${id}:`),
+        );
+        const secondIndex = priority.findIndex(
+          (id) => second.id === id || second.id.startsWith(`${id}:`),
+        );
+        return firstIndex - secondIndex;
+      })
+      .filter(
+        (metric, index, values) =>
+          values.findIndex((candidate) => candidate.id === metric.id) === index,
+      )
+      .slice(0, 7)
+      .map((metric) => visualMetric(metric, locale));
+  };
+  return {
+    market: take("market"),
+    company: take("company"),
+    financial: take("financial"),
+    risk: take("risk"),
+    expectations: take("expectations"),
+  };
+}
+
+function evidenceBalance(
+  file: ResearchFileData,
+  locale: Locale,
+): EditorialEvidenceBalance {
+  const claims = file.claimMatrix ?? [];
+  const challengedClaims = claims.filter(
+    (claim) =>
+      claim.verdict === "contradicted" || claim.strength === "contested",
+  );
+  const supported = claims.filter(
+    (claim) =>
+      claim.verdict === "entailed" &&
+      (claim.strength === "strong" || claim.strength === "moderate"),
+  ).length;
+  const partial = claims.filter(
+    (claim) =>
+      !challengedClaims.includes(claim) &&
+      (claim.verdict === "partial" ||
+        (claim.verdict === "entailed" && claim.strength === "limited")),
+  ).length;
+  const challenged = challengedClaims.length;
+  const unverified = claims.filter(
+    (claim) =>
+      !challengedClaims.includes(claim) &&
+      (claim.verdict === "not_assessable" || claim.strength === "unverified"),
+  ).length;
+  const total = Math.max(
+    claims.length,
+    supported + partial + challenged + unverified,
+  );
+  const assigned = supported + partial + challenged + unverified;
+  const normalizedUnverified = unverified + Math.max(0, total - assigned);
+  const rows = [
+    {
+      id: "supported" as const,
+      label: locale === "ko" ? "확인" : "Supported",
+      count: supported,
+    },
+    {
+      id: "partial" as const,
+      label: locale === "ko" ? "부분 확인" : "Partial",
+      count: partial,
+    },
+    {
+      id: "challenged" as const,
+      label: locale === "ko" ? "상충" : "Challenged",
+      count: challenged,
+    },
+    {
+      id: "unverified" as const,
+      label: locale === "ko" ? "미확인" : "Unverified",
+      count: normalizedUnverified,
+    },
+  ];
+  return {
+    total,
+    supported,
+    partial,
+    challenged,
+    unverified: normalizedUnverified,
+    segments: rows.map((row) => ({
+      ...row,
+      percent: total === 0 ? 0 : Math.round((row.count / total) * 100),
+    })),
+  };
+}
+
+function sourceGroups(
+  file: ResearchFileData,
+  evidenceIndex: readonly EditorialSource[],
+  locale: Locale,
+): readonly EditorialSourceGroup[] {
+  const focused = file.researchTarget?.kind === "department";
+  const claims = file.claimMatrix ?? [];
+  const coreSourceIds = new Set(
+    claims.slice(0, 2).flatMap((claim) => claim.sourceRefs),
+  );
+  const debateSourceIds = new Set(
+    claims
+      .filter(
+        (claim) =>
+          claim.counterpoint !== undefined ||
+          claim.verdict === "partial" ||
+          claim.verdict === "contradicted",
+      )
+      .flatMap((claim) => claim.sourceRefs),
+  );
+  const auditedSourceIds = new Set(claims.flatMap((claim) => claim.sourceRefs));
+  const businessPattern =
+    /sec|filing|company|fundamental|earnings|transcript|revenue|margin|xbrl/iu;
+  const valuationPattern =
+    /market|price|technical|treasury|yield|peer|benchmark|cross.?asset|rapidapi/iu;
+  const groups: EditorialSourceGroup[] = [
+    {
+      number: "01",
+      title: locale === "ko" ? "판단 요약" : "Decision summary",
+      purpose:
+        locale === "ko"
+          ? "직접 답변과 핵심 판단을 지지한 우선 근거"
+          : "Priority evidence supporting the direct answer and headline judgment",
+      sources: evidenceIndex.filter((source) => coreSourceIds.has(source.id)),
+    },
+    {
+      number: "02",
+      title: focused
+        ? locale === "ko"
+          ? "팀 핵심 논지"
+          : "Team findings"
+        : locale === "ko"
+          ? "사업·실적·핵심 논지"
+          : "Business & earnings",
+      purpose: focused
+        ? locale === "ko"
+          ? "선택 팀이 핵심 판단을 만드는 데 사용한 전문 근거"
+          : "Specialist evidence used by the selected team to form its view"
+        : locale === "ko"
+          ? "사업 구조, 성장, 수익성과 기업 고유 위험을 확인한 자료"
+          : "Evidence used to assess the business, growth, profitability, and issuer-specific risks",
+      sources: evidenceIndex.filter((source) =>
+        businessPattern.test(
+          `${source.sourceClass} ${source.publisher} ${source.title}`,
+        ),
+      ),
+    },
+    {
+      number: "03",
+      title: focused
+        ? locale === "ko"
+          ? "검증 범위·다음 확인"
+          : "Scope & next proof"
+        : locale === "ko"
+          ? "밸류에이션·기업 비교"
+          : "Valuation & comparison",
+      purpose: focused
+        ? locale === "ko"
+          ? "선택 팀의 검증 범위와 다음 확인 조건에 연결된 자료"
+          : "Evidence linked to the selected team's scope and next proof conditions"
+        : locale === "ko"
+          ? "가격, 기술 흐름, 금리, 동종기업과 상대 비교에 사용한 자료"
+          : "Market, technical, rates, peer, and relative-valuation evidence",
+      sources: evidenceIndex.filter((source) =>
+        valuationPattern.test(
+          `${source.sourceClass} ${source.publisher} ${source.title}`,
+        ),
+      ),
+    },
+    {
+      number: "04",
+      title: focused
+        ? locale === "ko"
+          ? "팀 내부 합의·보존 이견"
+          : "Team agreement & retained dissent"
+        : locale === "ko"
+          ? "에이전트 토론·최종 판정"
+          : "Debate & final judgment",
+      purpose: focused
+        ? locale === "ko"
+          ? "팀원 간 재검토와 합의 형성에 다시 사용된 근거"
+          : "Evidence revisited during specialist review and team consolidation"
+        : locale === "ko"
+          ? "반론, 재검증, 의장 판정에 다시 사용된 감사 근거"
+          : "Audited evidence revisited during challenge, recheck, and chair synthesis",
+      sources: evidenceIndex.filter((source) => debateSourceIds.has(source.id)),
+    },
+  ];
+  const used = new Set(
+    groups.flatMap((group) => group.sources.map((source) => source.id)),
+  );
+  const unassigned = evidenceIndex.filter((source) => !used.has(source.id));
+  if (unassigned.length > 0) {
+    const decision = groups[0];
+    if (decision !== undefined)
+      groups[0] = {
+        ...decision,
+        sources: [...decision.sources, ...unassigned],
+      };
+  }
+  return groups.map((group) => {
+    const chapterFallback =
+      group.number === "04"
+        ? evidenceIndex.filter((source) => auditedSourceIds.has(source.id))
+        : [];
+    const chapterSources =
+      group.sources.length > 0 ? group.sources : chapterFallback;
+    return {
+      ...group,
+      sources: chapterSources.filter(
+        (source, index, sources) =>
+          sources.findIndex((candidate) => candidate.id === source.id) ===
+          index,
+      ),
+    };
+  });
 }
 
 function callout(
@@ -357,11 +983,54 @@ function callout(
   };
 }
 
+function lowValueEditorialCopy(value: string): boolean {
+  return /(?:근거가 (?:이 논지를 )?(?:일부만 )?지지|연결 근거 \d+건|주장 단위 근거|linked evidence|evidence (?:only partially )?supports|claim-level evidence)/iu.test(
+    value,
+  );
+}
+
+function distinctCallouts(
+  values: readonly string[],
+  candidateGroups: readonly (readonly string[])[],
+  fallback: string,
+): readonly EditorialCallout[] {
+  const usedBodies: string[] = [];
+  return values.map((value, index) => {
+    const initial = callout(value, undefined, fallback);
+    const candidates = [
+      ...(candidateGroups[index] ?? []),
+      initial.body,
+      ...candidateGroups.flat(),
+      fallback,
+    ]
+      .map((candidate) => compactEditorialText(candidate, 1))
+      .filter(
+        (candidate) =>
+          candidate.length > 0 &&
+          !lowValueEditorialCopy(candidate) &&
+          !editoriallySimilar(candidate, initial.headline),
+      );
+    const body =
+      candidates.find(
+        (candidate) =>
+          !usedBodies.some((used) => editoriallySimilar(used, candidate)),
+      ) ??
+      candidates[0] ??
+      fallback;
+    usedBodies.push(body);
+    return { headline: initial.headline, body };
+  });
+}
+
 export function buildResearchFileEditorialModel(
   file: ResearchFileData,
   locale: Locale,
 ): ResearchFileEditorialModel {
   const ko = locale === "ko";
+  const focusedDepartment =
+    file.researchTarget?.kind === "department"
+      ? file.researchTarget.departmentId
+      : undefined;
   const display = (value: LocalizedText) => {
     const presented = presentLocalized(value, locale);
     return file.marketSnapshot === undefined
@@ -430,24 +1099,66 @@ export function buildResearchFileEditorialModel(
         ) === index,
     )
     .slice(0, 6);
-  const departmentCounts = new Map<
-    ResearchFileData["teamViews"][number]["departmentId"],
-    number
-  >();
-  const selectedClaims = (file.claimMatrix ?? []).filter((claim) => {
-    const department = claimDepartment(presentLocalized(claim.claim, locale));
-    const count = departmentCounts.get(department) ?? 0;
-    // One representative claim per department prevents the same team view
-    // from being restated in adjacent rows. The final fourth row below carries
-    // the valuation/checkpoint lens when a department has no auditable claim.
-    if (count >= 1) return false;
-    departmentCounts.set(department, count + 1);
-    return true;
-  });
+  const rankedClaims = [...(file.claimMatrix ?? [])].sort(
+    (first, second) => claimEditorialScore(second) - claimEditorialScore(first),
+  );
+  const departmentOrder = ["company", "financial", "market", "risk"] as const;
+  const primaryClaims = departmentOrder
+    .map((department) => {
+      const claim = rankedClaims.find(
+        (candidate) =>
+          claimDepartment(presentLocalized(candidate.claim, locale)) ===
+          department,
+      );
+      return claim === undefined ? undefined : { claim, department };
+    })
+    .filter((item) => item !== undefined);
+  const primaryIds = new Set(primaryClaims.map(({ claim }) => claim.id));
+  const selectedClaims = [...primaryClaims];
+  for (const claim of rankedClaims) {
+    if (selectedClaims.length >= 4) break;
+    if (primaryIds.has(claim.id)) continue;
+    const claimText = presentLocalized(claim.claim, locale);
+    if (
+      selectedClaims.some(({ claim: selected }) =>
+        editoriallySimilar(presentLocalized(selected.claim, locale), claimText),
+      )
+    )
+      continue;
+    selectedClaims.push({
+      claim,
+      department: claimDepartment(claimText),
+    });
+  }
+  // A repetitive but audited claim is still preferable to an invented,
+  // unverified filler row. Semantic diversity is the first pass; evidence
+  // completeness is the final fallback.
+  for (const claim of rankedClaims) {
+    if (selectedClaims.length >= 4) break;
+    if (selectedClaims.some(({ claim: selected }) => selected.id === claim.id))
+      continue;
+    selectedClaims.push({
+      claim,
+      department: claimDepartment(presentLocalized(claim.claim, locale)),
+    });
+  }
   const claimRows: EditorialAnalysisRow[] = selectedClaims.map(
-    (claim, index) => {
-      const title = presentLocalized(claim.claim, locale);
-      const relatedTeam = teamByDepartment(claimDepartment(title));
+    ({ claim, department }, index) => {
+      const claimText = presentLocalized(claim.claim, locale);
+      const claimSentences = sentences(claimText);
+      const focusedDecision =
+        claimSentences[0] ?? compactEditorialText(claimText, 1);
+      const focusedEvidence =
+        claimSentences.slice(1, 3).join(" ") ||
+        claimEvidence(file, claim, locale);
+      const rowDepartment = focusedDepartment ?? department;
+      const relatedTeam = teamByDepartment(rowDepartment);
+      const isPrimaryDepartmentClaim =
+        focusedDepartment !== undefined
+          ? index === 0
+          : primaryClaims.find(
+              ({ department: primary }) => primary === rowDepartment,
+            )?.claim.id === claim.id;
       const fallbackCounterpoint =
         concerns[index % Math.max(concerns.length, 1)] ??
         (ko
@@ -455,12 +1166,31 @@ export function buildResearchFileEditorialModel(
           : "Even if current strengths persist, opposing signals and change conditions still require confirmation.");
       return {
         id: `A${String(index + 1).padStart(2, "0")}`,
-        title: compactEditorialText(title, 1),
-        agentView: compactEditorialText(
-          relatedTeam?.evidence ?? presentLocalized(file.condition, locale),
-          1,
-        ),
-        evidence: claimEvidence(file, claim, locale),
+        title:
+          focusedDepartment !== undefined
+            ? compactEditorialText(
+                analysisItems[index] === undefined
+                  ? claimText
+                  : presentLocalized(analysisItems[index].title, locale),
+                1,
+              )
+            : isPrimaryDepartmentClaim
+              ? departmentThesisTitle(rowDepartment, locale)
+              : compactEditorialText(claimText, 1),
+        agentView:
+          focusedDepartment === undefined
+            ? compactEditorialText(
+                (isPrimaryDepartmentClaim || index % 2 === 0
+                  ? relatedTeam?.evidence
+                  : relatedTeam?.strongestClaim) ??
+                  presentLocalized(file.condition, locale),
+                1,
+              )
+            : focusedDecision,
+        evidence:
+          focusedDepartment === undefined
+            ? `${compactEditorialText(claimText, 1)}\n${claimEvidence(file, claim, locale)}`
+            : focusedEvidence,
         counterpoint: compactEditorialText(
           claim.counterpoint === undefined
             ? claim.verdict === "partial"
@@ -489,7 +1219,10 @@ export function buildResearchFileEditorialModel(
       };
     },
   );
-  const remainingRowCount = Math.max(0, 4 - claimRows.length);
+  const remainingRowCount =
+    file.researchTarget?.kind === "department"
+      ? 0
+      : Math.max(0, 4 - claimRows.length);
   const analysisRows: EditorialAnalysisRow[] = [
     ...claimRows,
     ...analysisItems.slice(0, remainingRowCount).map((item, index) => ({
@@ -531,82 +1264,189 @@ export function buildResearchFileEditorialModel(
     directAnswer,
     finalView,
     initialView,
-    valuationConclusion,
+    valuationConclusion: insightValuationConclusion,
   } = editorialInsights;
-  const catalystCopy = [
-    ...new Set([...positives, ...analysisRows.map((item) => item.agentView)]),
-  ].slice(0, 3);
-  const riskCopy = [
-    ...new Set([...concerns, ...analysisRows.map((item) => item.counterpoint)]),
-  ].slice(0, 3);
-  const catalysts = catalystCopy.map((item, index) =>
-    callout(
-      item,
-      analysisRows[index]?.agentView,
-      analysisRows[index]?.checkpoint ??
-        presentLocalized(file.nextEvent, locale),
-    ),
+  const financialProof = dedupeEditorialTexts([
+    metricProof(file, locale, [
+      "revenue_growth",
+      "operating_margin",
+      "free_cash_flow",
+    ]),
+    metricProof(file, locale, ["forward_pe", "pe", "peer_premium"]),
+  ])
+    .filter((value) => value.length > 0)
+    .join(" · ");
+  const valuationConclusion =
+    focusedDepartment === "financial" && financialProof.length > 0
+      ? [
+          financialProof,
+          ko
+            ? "현재 프리미엄은 성장·마진·현금 전환이 함께 유지될 때만 방어됩니다."
+            : "The current premium is defensible only while growth, margins, and cash conversion hold together.",
+        ].join(" ")
+      : insightValuationConclusion;
+  const priceProof = metricProof(file, locale, [
+    "current_price",
+    "relative_performance_3m",
+    "relative_performance_1y",
+  ]);
+  const marketRequirement = metricProof(file, locale, [
+    "forward_pe",
+    "pe",
+    "ev_ebitda",
+    "peer_premium",
+  ]);
+  const businessProof = metricProof(file, locale, [
+    "revenue_growth",
+    "segment_share",
+    "forward_revenue",
+  ]);
+  const earningsProof = metricProof(file, locale, [
+    "operating_margin",
+    "gross_margin",
+    "free_cash_flow",
+    "capital_expenditures",
+  ]);
+  const calloutProof = (headline: string, kind: "catalyst" | "risk") => {
+    if (/(?:valuation|multiple|price|밸류|멀티플|가격)/iu.test(headline))
+      return marketRequirement || priceProof;
+    if (/(?:margin|cash|profit|마진|현금|이익)/iu.test(headline))
+      return earningsProof;
+    if (/(?:export|regulat|수출|규제)/iu.test(headline))
+      return presentLocalized(file.changeCondition, locale);
+    if (/(?:concentrat|risk|집중|위험)/iu.test(headline))
+      return (
+        riskTeam?.evidence ?? presentLocalized(file.changeCondition, locale)
+      );
+    if (/(?:demand|revenue|growth|수요|매출|성장)/iu.test(headline))
+      return businessProof;
+    if (/(?:platform|ecosystem|moat|cuda|플랫폼|생태계|해자)/iu.test(headline))
+      return companyTeam?.evidence ?? businessProof;
+    return kind === "catalyst"
+      ? businessProof || presentLocalized(file.nextEvent, locale)
+      : presentLocalized(file.changeCondition, locale);
+  };
+  const catalystCopy = dedupeEditorialTexts([
+    ...analysisRows.map((item) => item.agentView),
+    ...positives,
+  ])
+    .filter((value) => !lowValueEditorialCopy(value))
+    .slice(0, 3);
+  const riskCopy = dedupeEditorialTexts([
+    ...analysisRows.map((item) => item.counterpoint),
+    ...concerns,
+  ])
+    .filter((value) => !lowValueEditorialCopy(value))
+    .slice(0, 3);
+  const catalysts = distinctCallouts(
+    catalystCopy,
+    catalystCopy.map((headline, index) => [
+      calloutProof(headline, "catalyst"),
+      analysisRows[index]?.evidence ?? "",
+      analysisRows[index]?.agentView ?? "",
+      analysisRows[index]?.checkpoint ?? "",
+    ]),
+    presentLocalized(file.nextEvent, locale),
   );
-  const risks = riskCopy.map((item, index) =>
-    callout(
-      item,
-      analysisRows[index]?.counterpoint,
-      analysisRows[index]?.checkpoint ??
-        presentLocalized(file.changeCondition, locale),
-    ),
+  const risks = distinctCallouts(
+    riskCopy,
+    riskCopy.map((headline, index) => [
+      calloutProof(headline, "risk"),
+      analysisRows[index]?.counterpoint ?? "",
+      analysisRows[index]?.checkpoint ?? "",
+      analysisRows[index]?.evidence ?? "",
+    ]),
+    presentLocalized(file.changeCondition, locale),
   );
-  const comparisonRows: EditorialComparisonRow[] = [
+  const standardComparisonRows: EditorialComparisonRow[] = [
     {
       label: ko ? "가격·추세" : "Price & trend",
-      companyView: compactEditorialText(
-        marketTeam?.strongestClaim ??
+      companyView:
+        priceProof ||
+        compactEditorialText(
+          marketTeam?.strongestClaim ??
+            presentLocalized(file.expectation, locale),
+          1,
+        ),
+      benchmarkLens:
+        marketRequirement ||
+        optionalDistinctText(
           presentLocalized(file.expectation, locale),
-        1,
-      ),
-      benchmarkLens: optionalDistinctText(
-        presentLocalized(file.expectation, locale),
-        marketTeam?.strongestClaim ??
-          presentLocalized(file.expectation, locale),
-      ),
-      interpretation: compactEditorialText(
-        marketTeam?.evidence ?? presentLocalized(file.condition, locale),
-        1,
-      ),
+          marketTeam?.strongestClaim ??
+            presentLocalized(file.expectation, locale),
+        ),
+      interpretation: comparisonInterpretation({
+        locale,
+        lens: "price",
+        teamEvidence:
+          marketTeam?.evidence ?? presentLocalized(file.condition, locale),
+        checkpoint: presentLocalized(file.nextEvent, locale),
+      }),
     },
     {
       label: ko ? "사업 전환" : "Business conversion",
-      companyView: compactEditorialText(
-        companyTeam?.strongestClaim ?? presentLocalized(file.thesis, locale),
-        1,
-      ),
+      companyView:
+        businessProof ||
+        compactEditorialText(
+          companyTeam?.strongestClaim ?? presentLocalized(file.thesis, locale),
+          1,
+        ),
       benchmarkLens: optionalDistinctText(
-        positives[0] ?? presentLocalized(file.nextEvent, locale),
+        companyTeam?.evidence ??
+          positives[0] ??
+          presentLocalized(file.nextEvent, locale),
         companyTeam?.strongestClaim ?? presentLocalized(file.thesis, locale),
       ),
-      interpretation: compactEditorialText(
-        companyTeam?.evidence ?? presentLocalized(file.changeCondition, locale),
-        1,
-      ),
+      interpretation: comparisonInterpretation({
+        locale,
+        lens: "business",
+        teamEvidence:
+          companyTeam?.evidence ??
+          presentLocalized(file.changeCondition, locale),
+        checkpoint: presentLocalized(file.nextEvent, locale),
+      }),
     },
     {
       label: ko ? "이익의 질" : "Earnings quality",
-      companyView: compactEditorialText(
-        financialTeam?.strongestClaim ??
-          presentLocalized(file.valuation, locale),
-        1,
-      ),
+      companyView:
+        earningsProof ||
+        compactEditorialText(
+          financialTeam?.strongestClaim ??
+            presentLocalized(file.valuation, locale),
+          1,
+        ),
       benchmarkLens: optionalDistinctText(
-        presentLocalized(file.valuation, locale),
+        financialTeam?.evidence ?? presentLocalized(file.valuation, locale),
         financialTeam?.strongestClaim ??
           presentLocalized(file.valuation, locale),
       ),
-      interpretation: compactEditorialText(
-        financialTeam?.evidence ??
+      interpretation: comparisonInterpretation({
+        locale,
+        lens: "earnings",
+        teamEvidence:
+          financialTeam?.evidence ??
           presentLocalized(file.changeCondition, locale),
-        1,
-      ),
+        checkpoint: presentLocalized(file.changeCondition, locale),
+      }),
     },
   ];
+  const comparisonRows: EditorialComparisonRow[] =
+    focusedDepartment === "financial"
+      ? analysisRows.slice(0, 3).map((row) => ({
+          label: row.title,
+          companyView: row.evidence,
+          benchmarkLens: row.counterpoint,
+          interpretation: dedupeEditorialTexts([
+            row.counterpoint,
+            row.checkpoint,
+          ])
+            .slice(0, 2)
+            .join(" "),
+          ...(row.evidenceId === undefined
+            ? {}
+            : { evidenceId: row.evidenceId }),
+        }))
+      : standardComparisonRows;
   const sourceScenarios = file.scenarios
     .map((scenario) => ({
       id: scenario.id,
@@ -678,6 +1518,57 @@ export function buildResearchFileEditorialModel(
       Math.max(file.teamViews.length, 1)) *
       100,
   );
+  const evidenceIndex = file.evidenceIndex.map((source) => ({
+    ...source,
+    ...readerEvidenceLabel(source.publisher, source.title, locale),
+  }));
+  const groupedMetrics = metricGroups(file, locale);
+  const committeeMetricIds = [
+    "current_price",
+    "revenue_growth",
+    "operating_margin",
+    "free_cash_flow",
+    "forward_pe",
+    "pe",
+  ];
+  const allVisualMetrics = Object.values(groupedMetrics).flat();
+  const visualMetrics =
+    focusedDepartment === undefined
+      ? committeeMetricIds.flatMap((id) => {
+          const metric = allVisualMetrics.find(
+            (candidate) =>
+              candidate.id === id || candidate.id.startsWith(`${id}:`),
+          );
+          return metric === undefined ? [] : [metric];
+        })
+      : groupedMetrics[focusedDepartment];
+  const claimBalance = evidenceBalance(file, locale);
+  const decisionPaths: readonly EditorialDecisionPath[] = [
+    {
+      id: "confirm",
+      label: ko ? "상방 확인" : "Confirmation",
+      headline:
+        catalysts[0]?.headline ??
+        positives[0] ??
+        presentLocalized(file.nextEvent, locale),
+      detail: catalysts[0]?.body ?? presentLocalized(file.nextEvent, locale),
+    },
+    {
+      id: "hold",
+      label: ko ? "현재 판단" : "Current view",
+      headline: directAnswer,
+      detail: presentLocalized(file.nextEvent, locale),
+    },
+    {
+      id: "invalidate",
+      label: ko ? "판단 무효화" : "Invalidation",
+      headline:
+        risks[0]?.headline ??
+        concerns[0] ??
+        presentLocalized(file.changeCondition, locale),
+      detail: presentLocalized(file.changeCondition, locale),
+    },
+  ];
   return {
     question,
     directAnswer,
@@ -718,51 +1609,86 @@ export function buildResearchFileEditorialModel(
       },
     ],
     companySnapshot,
-    lensRows: [
-      {
-        label: ko ? "시장의 기본 기대" : "Market baseline",
-        content: compactEditorialText(
-          combineDistinct(
-            marketTeam?.strongestClaim ??
-              presentLocalized(file.expectation, locale),
-            presentLocalized(file.expectation, locale),
-          ),
-          2,
-        ),
-      },
-      {
-        label: ko ? "가격에 반영된 기대" : "Embedded expectations",
-        content: compactEditorialText(
-          combineDistinct(
-            presentLocalized(file.valuation, locale),
-            financialTeam?.strongestClaim ??
-              presentLocalized(file.condition, locale),
-          ),
-          2,
-        ),
-      },
-      {
-        label: ko ? "에이전트 팀의 관점" : "Agent team view",
-        content: directAnswer,
-      },
-      {
-        label: ko ? "판단이 갈리는 지점" : "Point of disagreement",
-        content: compactEditorialText(
-          concerns[0] ??
-            (ko
-              ? "중요한 반대 근거가 확인되지 않았습니다."
-              : "No material counter-evidence was identified."),
-          1,
-        ),
-      },
-      {
-        label: ko ? "우리 판단이 틀릴 조건" : "What would prove us wrong",
-        content: compactEditorialText(
-          presentLocalized(file.changeCondition, locale),
-          1,
-        ),
-      },
-    ],
+    lensRows:
+      focusedDepartment === "company"
+        ? [
+            {
+              label: ko ? "핵심 성장 엔진" : "Primary growth engine",
+              content:
+                analysisRows[0]?.evidence ??
+                compactEditorialText(baseAnswer, 1),
+            },
+            {
+              label: ko ? "경쟁우위의 근거" : "Moat evidence",
+              content:
+                analysisRows[1]?.evidence ??
+                analysisRows[0]?.agentView ??
+                compactEditorialText(baseAnswer, 1),
+            },
+            {
+              label: ko ? "경쟁우위 훼손 경로" : "Moat erosion path",
+              content:
+                analysisRows[0]?.counterpoint ??
+                compactEditorialText(
+                  presentLocalized(file.changeCondition, locale),
+                  1,
+                ),
+            },
+            {
+              label: ko ? "다음 실행 증거" : "Next execution proof",
+              content:
+                analysisRows[0]?.checkpoint ??
+                compactEditorialText(
+                  presentLocalized(file.nextEvent, locale),
+                  1,
+                ),
+            },
+          ]
+        : [
+            {
+              label: ko ? "시장의 기본 기대" : "Market baseline",
+              content: compactEditorialText(
+                combineDistinct(
+                  marketTeam?.strongestClaim ??
+                    presentLocalized(file.expectation, locale),
+                  presentLocalized(file.expectation, locale),
+                ),
+                2,
+              ),
+            },
+            {
+              label: ko ? "가격에 반영된 기대" : "Embedded expectations",
+              content: compactEditorialText(
+                combineDistinct(
+                  presentLocalized(file.valuation, locale),
+                  financialTeam?.strongestClaim ??
+                    presentLocalized(file.condition, locale),
+                ),
+                2,
+              ),
+            },
+            {
+              label: ko ? "에이전트 팀의 관점" : "Agent team view",
+              content: directAnswer,
+            },
+            {
+              label: ko ? "판단이 갈리는 지점" : "Point of disagreement",
+              content: compactEditorialText(
+                concerns[0] ??
+                  (ko
+                    ? "중요한 반대 근거가 확인되지 않았습니다."
+                    : "No material counter-evidence was identified."),
+                1,
+              ),
+            },
+            {
+              label: ko ? "우리 판단이 틀릴 조건" : "What would prove us wrong",
+              content: compactEditorialText(
+                presentLocalized(file.changeCondition, locale),
+                1,
+              ),
+            },
+          ],
     catalysts,
     risks,
     coverage: file.coverage,
@@ -780,9 +1706,11 @@ export function buildResearchFileEditorialModel(
     finalView,
     acceptedClaims: positives,
     preservedDissent: concerns,
-    evidenceIndex: file.evidenceIndex.map((source) => ({
-      ...source,
-      ...readerEvidenceLabel(source.publisher, source.title, locale),
-    })),
+    evidenceIndex,
+    sourceGroups: sourceGroups(file, evidenceIndex, locale),
+    visualMetrics,
+    metricGroups: groupedMetrics,
+    evidenceBalance: claimBalance,
+    decisionPaths,
   };
 }

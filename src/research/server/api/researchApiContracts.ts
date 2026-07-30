@@ -6,6 +6,10 @@ import {
   TickerSymbolSchema,
 } from "../../domain/ids";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../../domain/researchDirection";
+import {
+  COMMITTEE_RESEARCH_TARGET,
+  ResearchTargetSchema,
+} from "../../domain/researchTarget";
 import { RunStatusSchema } from "../../domain/runStateContracts";
 
 export const NormalizedResearchRequestSchema = z
@@ -13,6 +17,7 @@ export const NormalizedResearchRequestSchema = z
     symbol: TickerSymbolSchema,
     question: z.string().max(RESEARCH_DIRECTION_MAX_CHARACTERS),
     locale: z.enum(["en", "ko"]),
+    researchTarget: ResearchTargetSchema.default(COMMITTEE_RESEARCH_TARGET),
   })
   .strict()
   .readonly();
@@ -26,6 +31,7 @@ export const PublicRunSchema = z
     snapshotId: SnapshotIdSchema,
     symbol: TickerSymbolSchema,
     locale: z.enum(["en", "ko"]),
+    researchTarget: ResearchTargetSchema.default(COMMITTEE_RESEARCH_TARGET),
     status: RunStatusSchema,
     lastEventSeq: z.number().int().nonnegative(),
     createdAt: z.string().datetime(),

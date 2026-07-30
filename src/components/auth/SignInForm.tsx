@@ -1,14 +1,15 @@
 "use client";
 
-import { signIn, signInWithRedirect } from "aws-amplify/auth";
+import { getCurrentUser, signIn, signInWithRedirect } from "aws-amplify/auth";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
   configureAmplifyAuth,
   googleAuthIsConfigured,
 } from "@/src/auth/amplifyClient";
 import { authErrorMessage } from "@/src/auth/authErrors";
+import { syncResearchSession } from "@/src/auth/researchSession";
 import {
   AuthDivider,
   AuthField,
@@ -21,10 +22,28 @@ import {
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const destination = searchParams.get("next") ?? "/";
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    if (!configureAmplifyAuth()) {
+      window.location.replace(destination);
+      return;
+    }
+    let active = true;
+    void getCurrentUser()
+      .then(async () => {
+        await syncResearchSession();
+        if (active) window.location.replace(destination);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [destination]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,9 +52,18 @@ export function SignInForm() {
     try {
       if (!configureAmplifyAuth())
         throw new Error("Authentication is not configured yet.");
+      try {
+        await getCurrentUser();
+        await syncResearchSession();
+        window.location.replace(destination);
+        return;
+      } catch {
+        // No reusable Cognito session exists, so continue with credentials.
+      }
       const result = await signIn({ username: email.trim(), password });
       if (result.isSignedIn) {
-        router.replace(searchParams.get("next") ?? "/");
+        await syncResearchSession();
+        window.location.replace(destination);
         return;
       }
       if (result.nextStep.signInStep === "CONFIRM_SIGN_UP") {
@@ -44,7 +72,14 @@ export function SignInForm() {
       }
       throw new Error("Additional account verification is required.");
     } catch (caught) {
-      setError(authErrorMessage(caught));
+      try {
+        await getCurrentUser();
+        await syncResearchSession();
+        window.location.replace(destination);
+        return;
+      } catch {
+        setError(authErrorMessage(caught));
+      }
     } finally {
       setPending(false);
     }

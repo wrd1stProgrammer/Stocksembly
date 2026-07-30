@@ -97,6 +97,27 @@ function firstPdfSentence(value: string): string {
   return value.split(/(?<=[.!?。])\s+/u, 1)[0]?.trim() ?? value;
 }
 
+function sourceDate(value: string | undefined, locale: Locale): string {
+  if (value === undefined) return locale === "ko" ? "미표기" : "Undated";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function sourceTitleWithHost(title: string, url: string | undefined): string {
+  if (url === undefined) return title;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./u, "");
+    return `${title}\n${host}`;
+  } catch {
+    return title;
+  }
+}
+
 function sectionTitle(
   number: string,
   title: string,
@@ -625,12 +646,14 @@ function documentDefinition({
             ko ? "판단 기준" : "Decision lens",
             ko ? "해석" : "Interpretation",
           ],
-          model.comparisonRows.slice(0, 3).map((row) => [
-            row.label,
-            firstPdfSentence(row.companyView),
-            firstPdfSentence(row.benchmarkLens),
-            `${firstPdfSentence(row.interpretation)}${row.evidenceId === undefined ? "" : ` · ${row.evidenceId}`}`,
-          ]),
+          model.comparisonRows
+            .slice(0, 3)
+            .map((row) => [
+              row.label,
+              firstPdfSentence(row.companyView),
+              firstPdfSentence(row.benchmarkLens),
+              `${firstPdfSentence(row.interpretation)}${row.evidenceId === undefined ? "" : ` · ${row.evidenceId}`}`,
+            ]),
           true,
         ),
         {
@@ -655,10 +678,7 @@ function documentDefinition({
             .map((scenario) => [
               scenario.label,
               firstPdfSentence(scenario.thesis),
-              scenario.assumptions
-                .slice(0, 2)
-                .map(firstPdfSentence)
-                .join("\n"),
+              scenario.assumptions.slice(0, 2).map(firstPdfSentence).join("\n"),
             ]),
           true,
         ),
@@ -787,32 +807,95 @@ function documentDefinition({
           ],
           columnGap: 18,
         },
+      ],
+    },
+    {
+      pageBreak: "before",
+      stack: [
+        ...sectionTitle(
+          "A",
+          ko ? "출처·근거 등록부" : "Sources & evidence register",
+          ko
+            ? "각 장의 판단에 연결된 자료를 발행처, 기준일, 자료 유형과 함께 정리했습니다."
+            : "Sources are grouped by the report chapter they support, with publisher, observation date, and evidence class.",
+        ),
         {
-          stack: [
+          columns: [
             {
-              text: ko ? "근거 및 방법론" : "EVIDENCE & METHODOLOGY",
-              style: "subhead",
-              margin: [0, 18, 0, 7],
+              text: ko
+                ? `${model.evidenceIndex.length}개 출처`
+                : `${model.evidenceIndex.length} SOURCES`,
+              style: "label",
+              color: accent,
+            },
+            {
+              text: ko
+                ? "같은 자료가 여러 판단에 사용되면 해당 장마다 다시 표기합니다."
+                : "A source is repeated when it supports more than one chapter.",
+              style: "meta",
+              alignment: "right",
+            },
+          ],
+          margin: [0, 0, 0, 12],
+        },
+        ...model.sourceGroups
+          .filter((group) => group.sources.length > 0)
+          .flatMap((group): Content[] => [
+            {
+              columns: [
+                {
+                  text: group.number,
+                  style: "label",
+                  color: accent,
+                  width: 30,
+                },
+                {
+                  stack: [
+                    { text: group.title, style: "label" },
+                    {
+                      text: keepKoreanWords(group.purpose),
+                      style: "meta",
+                      margin: [0, 2, 0, 0],
+                    },
+                  ],
+                },
+                {
+                  text: ko
+                    ? `${group.sources.length}개 근거`
+                    : `${group.sources.length} sources`,
+                  style: "meta",
+                  width: 58,
+                  alignment: "right",
+                },
+              ],
+              columnGap: 6,
+              margin: [0, 8, 0, 5],
             },
             simpleTable(
-              [38, 92, "*", 72],
+              [30, 82, "*", 58, 78],
               [
                 "ID",
                 ko ? "발행처" : "Publisher",
-                ko ? "자료" : "Source",
+                ko ? "자료·연결" : "Source & location",
+                ko ? "기준일" : "Observed",
                 ko ? "유형" : "Class",
               ],
-              model.evidenceIndex
-                .slice(0, 4)
-                .map((source) => [
-                  source.id,
-                  source.publisher,
-                  source.title,
-                  sourceClassLabel(source.sourceClass, locale),
-                ]),
+              group.sources.map((source) => [
+                source.id,
+                source.publisher,
+                sourceTitleWithHost(source.title, source.url),
+                sourceDate(source.observedAt, locale),
+                sourceClassLabel(source.sourceClass, locale),
+              ]),
               true,
             ),
-          ],
+          ]),
+        {
+          text: ko
+            ? "발행처 자료는 사실 근거이며, 최종 해석과 판단은 에이전트 팀의 종합 결과입니다."
+            : "Publisher material is treated as evidence; interpretation and final judgment remain the agent team's synthesis.",
+          style: "foot",
+          margin: [0, 14, 0, 0],
         },
       ],
     },

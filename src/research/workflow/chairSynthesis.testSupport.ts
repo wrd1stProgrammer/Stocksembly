@@ -110,6 +110,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
       return this.chairResult(input, {});
     const prompt = z
       .object({
+        mandate: z.object({ locale: z.enum(["en", "ko"]) }).passthrough(),
         ballots: z.array(
           z
             .object({
@@ -130,7 +131,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
               "scenario",
               "change_condition",
             ]),
-            text: z.object({ en: z.string(), ko: z.string() }),
+            text: z.string(),
           }),
         ),
       })
@@ -143,11 +144,13 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
           ? ["claim"]
           : key === "supported_analysis"
             ? ["position", "ballot"]
-            : key === "operational_scenarios"
-              ? ["scenario"]
-              : key === "dissent_unknowns"
-                ? ["dissent", "unknown"]
-                : ["change_condition"];
+            : key === "valuation_comparison"
+              ? ["claim"]
+              : key === "operational_scenarios"
+                ? ["scenario"]
+                : key === "dissent_unknowns"
+                  ? ["dissent", "unknown"]
+                  : ["change_condition"];
       return prompt.sentences
         .filter((sentence) => kinds.includes(sentence.kind))
         .map((sentence) => sentence.sentenceId);
@@ -163,25 +166,15 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
       const selected = sentenceIds.map((id) =>
         prompt.sentences.find((sentence) => sentence.sentenceId === id),
       );
-      const text = {
-        en: selected
-          .flatMap((sentence) =>
-            sentence === undefined ? [] : [sentence.text.en],
-          )
-          .join(" "),
-        ko: selected
-          .flatMap((sentence) =>
-            sentence === undefined ? [] : [sentence.text.ko],
-          )
-          .join(" "),
-      };
+      let text = selected
+        .flatMap((sentence) => (sentence === undefined ? [] : [sentence.text]))
+        .join(" ");
       if (firstLaunch && sectionKey === "ten_second_brief") {
-        if (this.fault === "invent_price") text.en += " Target price 999.";
-        if (this.fault === "invent_number") text.en += " Revenue is 777.";
-        if (this.fault === "invent_probability")
-          text.en += " Probability is 80%.";
-        if (this.fault === "invent_recommendation") text.en += " Buy now.";
-        if (this.fault === "ko_mismatch") text.ko += " 불일치";
+        if (this.fault === "invent_price") text += " Target price 999.";
+        if (this.fault === "invent_number") text += " Revenue is 777.";
+        if (this.fault === "invent_probability") text += " Probability is 80%.";
+        if (this.fault === "invent_recommendation") text += " Buy now.";
+        if (this.fault === "ko_mismatch") text += " unaudited mismatch";
       }
       return {
         sectionKey,
@@ -210,7 +203,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
         toolTranscriptHash: sha256Value([]),
         binaryVersion: "codex-cli 0.146.0-alpha.3.1",
         binaryHash:
-          "6d8be49e49751554df16572369e636cbe02c84b208cad3dc35528c846eeca223",
+          "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e",
         originDevice: "1",
         originInode: "1",
         linkDevice: "1",
@@ -520,6 +513,7 @@ export function mixedClaimValidationFixture() {
   > = {
     ten_second_brief: ["claim"],
     supported_analysis: ["position", "ballot"],
+    valuation_comparison: ["claim"],
     operational_scenarios: ["scenario"],
     dissent_unknowns: ["dissent", "unknown"],
     change_conditions: ["change_condition"],

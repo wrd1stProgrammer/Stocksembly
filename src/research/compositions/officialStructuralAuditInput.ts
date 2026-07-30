@@ -6,6 +6,7 @@ import { createAtomicClaim } from "../domain/claims";
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { SourceLocatorSchema } from "../domain/evidenceCoreSchemas";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { buildResearchMetricSnapshot } from "../domain/metricSnapshot";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { authenticatedWorkflowRetentionRegister } from "../workflow/structuralAuditWorkflowRegister";
@@ -45,6 +46,8 @@ const ProviderQuoteSchema = z
     marketState: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]),
     observedAt: z.string().datetime(),
     lastPrice: z.number().positive(),
+    change: z.number().finite().optional(),
+    changePercent: z.number().finite().optional(),
     currency: z.string().trim().min(3).max(8),
   })
   .passthrough();
@@ -165,9 +168,10 @@ export async function buildOfficialStructuralAuditInput(options: {
     let annualRevenue: string | undefined;
     let marketEvidenceAvailable = false;
     let providerEvidenceAvailable = false;
-    let marketSnapshot:
-      | z.infer<typeof ProviderQuoteSchema>
-      | undefined;
+    let providerFundamentals: unknown;
+    let providerPeers: unknown;
+    let providerQuote: unknown;
+    let marketSnapshot: z.infer<typeof ProviderQuoteSchema> | undefined;
     for (const row of evidenceRows) {
       const stored = await options.cas.get(row.content_hash);
       if (stored === undefined || row.locator_json === undefined)
@@ -180,16 +184,34 @@ export async function buildOfficialStructuralAuditInput(options: {
       )
         marketEvidenceAvailable = true;
       const content = new TextDecoder().decode(stored.bytes);
+      let decodedContent: unknown;
+      if (locator.kind === "licensed_provider")
+        try {
+          decodedContent = JSON.parse(content);
+        } catch {
+          decodedContent = undefined;
+        }
       if (
         locator.kind === "licensed_provider" &&
         locator.dataset === "insightsentry_quote"
       ) {
-        const quote = ProviderQuoteSchema.safeParse(JSON.parse(content));
+        providerQuote = decodedContent;
+        const quote = ProviderQuoteSchema.safeParse(decodedContent);
         if (quote.success) marketSnapshot = quote.data;
+      } else if (
+        locator.kind === "licensed_provider" &&
+        locator.dataset === "insightsentry_fundamentals"
+      ) {
+        providerFundamentals = decodedContent;
+      } else if (
+        locator.kind === "licensed_provider" &&
+        locator.dataset === "insightsentry_peers"
+      ) {
+        providerPeers = decodedContent;
       }
       if (locator.kind === "licensed_provider") {
         if (locator.dataset === "insightsentry_request_ledger") {
-          const ledger = ProviderLedgerSchema.safeParse(JSON.parse(content));
+          const ledger = ProviderLedgerSchema.safeParse(decodedContent);
           providerEvidenceAvailable =
             providerEvidenceAvailable ||
             (ledger.success &&
@@ -295,11 +317,18 @@ export async function buildOfficialStructuralAuditInput(options: {
     const claimIds = [
       ...new Set(claims.map((candidate) => candidate.claim.claimId)),
     ];
+    const metricSnapshot = buildResearchMetricSnapshot({
+      asOf: snapshot.evidence_cutoff_at,
+      quote: providerQuote,
+      fundamentals: providerFundamentals,
+      peers: providerPeers,
+    });
     return StructuralAuditInputSchema.parse({
       runId,
       snapshotId: snapshot.snapshot_id,
       evidenceCutoffAt: snapshot.evidence_cutoff_at,
       ...(marketSnapshot === undefined ? {} : { marketSnapshot }),
+      ...(metricSnapshot === undefined ? {} : { metricSnapshot }),
       claims,
       evidence,
       values: { runId, snapshotId: snapshot.snapshot_id, records: [] },

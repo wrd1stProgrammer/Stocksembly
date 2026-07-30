@@ -74,6 +74,8 @@ export type InsightSentryQuote = {
   readonly marketState: "OPEN" | "CLOSED" | "PRE" | "POST" | "HOLIDAYS";
   readonly observedAt?: string;
   readonly lastPrice?: number;
+  readonly change?: number;
+  readonly changePercent?: number;
   readonly currency?: string;
 };
 
@@ -84,11 +86,7 @@ export interface InsightSentryMarket {
   readonly technicalBars: (
     providerCode: string,
   ) => Promise<
-    readonly [
-      InsightSentryBarSet,
-      InsightSentryBarSet,
-      InsightSentryBarSet,
-    ]
+    readonly [InsightSentryBarSet, InsightSentryBarSet, InsightSentryBarSet]
   >;
   readonly companyInfo: (
     providerCode: string,
@@ -98,7 +96,6 @@ export interface InsightSentryMarket {
   ) => Promise<readonly InsightSentryCorporateAction[]>;
   readonly quote: (providerCode: string) => Promise<InsightSentryQuote>;
 }
-
 
 export function createInsightSentryMarket(
   client: InsightSentryClient,
@@ -182,7 +179,9 @@ export function createInsightSentryMarket(
       );
       return Object.freeze({
         providerCode: result.data.code,
-        ...(result.data.name === undefined ? {} : { company: result.data.name }),
+        ...(result.data.name === undefined
+          ? {}
+          : { company: result.data.name }),
         ...(result.data.type === undefined
           ? {}
           : { securityType: result.data.type }),
@@ -228,13 +227,26 @@ export function createInsightSentryMarket(
       );
       if (quote === undefined)
         throw new RangeError("InsightSentry quote missing requested symbol");
+      const derivedChangePercent =
+        quote.change_p ??
+        (quote.change === undefined ||
+        quote.last_price === undefined ||
+        quote.last_price - quote.change <= 0
+          ? undefined
+          : (quote.change / (quote.last_price - quote.change)) * 100);
       return Object.freeze({
         providerCode: quote.code,
         marketState: quote.status,
         ...(quote.lp_time === undefined
           ? {}
           : { observedAt: new Date(quote.lp_time * 1_000).toISOString() }),
-        ...(quote.last_price === undefined ? {} : { lastPrice: quote.last_price }),
+        ...(quote.last_price === undefined
+          ? {}
+          : { lastPrice: quote.last_price }),
+        ...(quote.change === undefined ? {} : { change: quote.change }),
+        ...(derivedChangePercent === undefined
+          ? {}
+          : { changePercent: derivedChangePercent }),
         ...(quote.currency_code === undefined
           ? {}
           : { currency: quote.currency_code }),

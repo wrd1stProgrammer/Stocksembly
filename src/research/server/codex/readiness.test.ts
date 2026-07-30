@@ -25,7 +25,7 @@ import {
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
 const PINNED_BINARY_HASH =
-  "6d8be49e49751554df16572369e636cbe02c84b208cad3dc35528c846eeca223";
+  "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e";
 
 function observation(
   overrides: Partial<ReadinessObservation> = {},

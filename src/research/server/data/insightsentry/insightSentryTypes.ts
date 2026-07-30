@@ -14,6 +14,8 @@ export type InsightSentryCacheIdentity = {
   readonly endpoint: string;
   readonly pathSegments: readonly string[];
   readonly parameters: Readonly<Record<string, InsightSentryParameterValue>>;
+  readonly method?: "GET" | "POST";
+  readonly requestBody?: Readonly<Record<string, InsightSentryParameterValue>>;
   readonly adjustmentFlags?: Readonly<Record<string, boolean>>;
   readonly asOfBucket: string;
 };

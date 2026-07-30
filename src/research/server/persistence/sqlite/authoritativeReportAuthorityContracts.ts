@@ -10,6 +10,7 @@ export const AuthoritativeRunSchema = z.object({
   status: z.literal("running"),
   report_id: z.null(),
   question: z.string(),
+  locale: z.enum(["en", "ko"]),
 });
 
 export function reportRoleFor(logicalKey: string) {

@@ -47,7 +47,7 @@ export const UnknownSchema = z
 export const LocalizedReportSchema = z
   .object({
     sections: z.array(ReportSectionSchema).min(1),
-    scenarios: z.array(ScenarioSchema).min(1),
+    scenarios: z.array(ScenarioSchema),
     dissent: z.array(DissentSchema),
     unknowns: z.array(UnknownSchema),
   })

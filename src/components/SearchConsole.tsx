@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -6,21 +7,21 @@ import { createAuthenticatedResearchClient } from "../auth/researchClient";
 import { currentAuthTokens } from "../auth/researchSession";
 import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
-import {
-  filterTickers,
-  findTicker,
-  popularTickers,
-  searchUsTickers,
-  type Ticker,
-} from "../lib/tickers";
+import { filterTickers, searchUsTickers, type Ticker } from "../lib/tickers";
 import { ResearchRequestError } from "../research/client/api";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
+import {
+  COMMITTEE_RESEARCH_TARGET,
+  RESEARCH_DEPARTMENT_COPY,
+  type ResearchTarget,
+  recommendResearchTarget,
+  researchTargetQueryValue,
+} from "../research/domain/researchTarget";
 import {
   BorderBeam,
   ResearchButton,
   ResearchQuestionField,
   SearchField,
-  TickerChip,
 } from "./SearchPrimitives";
 
 const LAUNCH_PULSE_MILLISECONDS = 3_000;
@@ -48,6 +49,8 @@ export function SearchConsole({
   const [selectedTicker, setSelectedTicker] = useState<Ticker>();
   const [isSearching, setIsSearching] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
+  const [targetOverride, setTargetOverride] = useState<ResearchTarget>();
+  const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const router = useRouter();
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const normalizedQuery = query.trim().toLowerCase();
@@ -62,7 +65,19 @@ export function SearchConsole({
   const hasResearchQuestion = researchQuestion.trim().length > 0;
   const canStartResearch = hasResults && hasResearchQuestion && !isSubmitting;
   const invalid = hasQuery && !hasResults && !isSearching;
-
+  const recommendation = useMemo(
+    () => recommendResearchTarget(researchQuestion),
+    [researchQuestion],
+  );
+  const researchTarget = targetOverride ?? recommendation.target;
+  const targetCopy =
+    researchTarget.kind === "committee"
+      ? locale === "ko"
+        ? "전체 에이전트 위원회"
+        : "Full research committee"
+      : RESEARCH_DEPARTMENT_COPY[researchTarget.departmentId][
+          locale === "ko" ? "ko" : "en"
+        ];
   useEffect(() => {
     if (
       normalizedQuery.length === 0 ||
@@ -140,6 +155,7 @@ export function SearchConsole({
         question: researchQuestion,
         locale,
         idempotencyKey,
+        researchTarget,
       })
       .then((created) => {
         createdRunId = created.run.runId;
@@ -170,6 +186,7 @@ export function SearchConsole({
         lang: locale,
         launch: idempotencyKey,
         question: researchQuestion,
+        target: researchTargetQueryValue(researchTarget),
       });
       startTransition(() => {
         router.push(
@@ -225,29 +242,108 @@ export function SearchConsole({
               )
             }
           />
+        </div>
+
+        <div className="search-console__actions">
+          <section
+            className="research-target"
+            aria-label={locale === "ko" ? "리서치 방식" : "Research mode"}
+          >
+            <button
+              className="research-target__trigger"
+              type="button"
+              aria-expanded={targetPickerOpen}
+              aria-haspopup="menu"
+              title={recommendation.reason[locale]}
+              onClick={() => setTargetPickerOpen((open) => !open)}
+            >
+              {targetOverride === undefined ? (
+                <span>{locale === "ko" ? "추천" : "Recommended"}</span>
+              ) : null}
+              <strong>{targetCopy}</strong>
+              <ChevronDown aria-hidden="true" size={16} strokeWidth={1.8} />
+            </button>
+            {targetPickerOpen ? (
+              <div className="research-target__options" role="menu">
+                {[
+                  {
+                    target: COMMITTEE_RESEARCH_TARGET,
+                    label:
+                      locale === "ko"
+                        ? "전체 에이전트 위원회"
+                        : "Full research committee",
+                    note:
+                      locale === "ko"
+                        ? "11명 전체 분석과 반론·최종 판단"
+                        : "All 11 specialists, rebuttal, and final decision",
+                  },
+                  ...(["market", "company", "financial", "risk"] as const).map(
+                    (departmentId) => ({
+                      target: {
+                        kind: "department" as const,
+                        departmentId,
+                      },
+                      label:
+                        RESEARCH_DEPARTMENT_COPY[departmentId][
+                          locale === "ko" ? "ko" : "en"
+                        ],
+                      note:
+                        locale === "ko"
+                          ? "해당 팀만 참여하는 심층 검토"
+                          : "Focused review by this team only",
+                    }),
+                  ),
+                ].map((option) => {
+                  const selected =
+                    option.target.kind === researchTarget.kind &&
+                    (option.target.kind === "committee" ||
+                      (researchTarget.kind === "department" &&
+                        option.target.departmentId ===
+                          researchTarget.departmentId));
+                  return (
+                    <button
+                      key={
+                        option.target.kind === "committee"
+                          ? "committee"
+                          : option.target.departmentId
+                      }
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selected}
+                      onClick={() => {
+                        setTargetOverride(option.target);
+                        setTargetPickerOpen(false);
+                      }}
+                    >
+                      <strong>{option.label}</strong>
+                      <small>{option.note}</small>
+                    </button>
+                  );
+                })}
+                {targetOverride === undefined ? null : (
+                  <button
+                    className="research-target__auto"
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setTargetOverride(undefined);
+                      setTargetPickerOpen(false);
+                    }}
+                  >
+                    {locale === "ko"
+                      ? "질문에 맞춰 다시 추천"
+                      : "Use question-based recommendation"}
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </section>
           <ResearchButton
             label={labels.action}
             loadingLabel={labels.loading}
             disabled={!canStartResearch}
             loading={isSubmitting}
           />
-        </div>
-
-        <div className="search-console__footer">
-          <fieldset className="ticker-list">
-            <legend className="sr-only">{labels.popular}</legend>
-            {popularTickers.map((symbol) => (
-              <TickerChip
-                key={symbol}
-                symbol={symbol}
-                selected={query === symbol}
-                onSelect={(value) => {
-                  const ticker = findTicker(value);
-                  if (ticker !== undefined) selectTicker(ticker);
-                }}
-              />
-            ))}
-          </fieldset>
         </div>
 
         {submissionError === undefined ? null : (

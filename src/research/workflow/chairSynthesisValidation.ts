@@ -16,6 +16,8 @@ function allowedSentenceKinds(
     return ["claim", "position", "ballot", "dissent", "unknown"];
   if (sectionKey === "supported_analysis")
     return ["claim", "position", "ballot", "dissent", "unknown"];
+  if (sectionKey === "valuation_comparison")
+    return ["claim", "position", "ballot", "dissent", "unknown"];
   if (sectionKey === "operational_scenarios")
     return [
       "scenario",
@@ -32,27 +34,38 @@ function allowedSentenceKinds(
 
 function summaryIsValid(
   sectionKey: ChairSectionKey,
-  summary: { readonly en: string; readonly ko: string },
+  summary: string,
   sentences: readonly ChairSentence[],
+  locale: "en" | "ko",
+  question: string | undefined,
 ): boolean {
   const maxLength = sectionKey === "ten_second_brief" ? 360 : 4_000;
   const sourceText = sentences
-    .flatMap((sentence) => [sentence.text.en, sentence.text.ko])
+    .map((sentence) => sentence.text[locale])
     .join(" ");
   const numericTokens =
-    `${summary.en} ${summary.ko}`.match(
-      /[$€£]?[+-]?\d[\d,.]*(?:%|[A-Za-z])?/gu,
-    ) ?? [];
+    summary.match(/[$€£]?[+-]?\d[\d,.]*(?:%|[A-Za-z])?/gu) ?? [];
+  const sourceTokens = new Set(
+    sourceText.toLocaleLowerCase().match(/[\p{L}\p{N}_-]{3,}/gu) ?? [],
+  );
+  const summaryTokens =
+    summary.toLocaleLowerCase().match(/[\p{L}\p{N}_-]{3,}/gu) ?? [];
+  const normalizedQuestion = question?.replace(/\s+/gu, " ").trim();
   return (
-    summary.en.length <= maxLength &&
-    summary.ko.length <= maxLength &&
+    summary.length > 0 &&
+    summary.length <= maxLength &&
+    summaryTokens.some((token) => sourceTokens.has(token)) &&
     numericTokens.every((token) => sourceText.includes(token)) &&
-    !/\b(?:buy|sell)\s+now\b/iu.test(summary.en) &&
-    !/(?:지금|즉시)\s*(?:매수|매도)/u.test(summary.ko) &&
+    !/\b(?:buy|sell)\s+now\b/iu.test(summary) &&
+    !/(?:지금|즉시)\s*(?:매수|매도)/u.test(summary) &&
     !/(?:claim|question).{0,32}(?:missing|not supplied|not provided)/iu.test(
-      `${summary.en} ${summary.ko}`,
+      summary,
     ) &&
-    !/(?:주장|질문).{0,24}(?:없|제공되지|누락)/u.test(summary.ko)
+    !/(?:주장|질문).{0,24}(?:없|제공되지|누락)/u.test(summary) &&
+    (sectionKey === "ten_second_brief" ||
+      normalizedQuestion === undefined ||
+      normalizedQuestion.length < 12 ||
+      !summary.includes(normalizedQuestion))
   );
 }
 
@@ -75,11 +88,13 @@ function boundedText(
 function fallbackSummary(
   sectionKey: ChairSectionKey,
   sentences: readonly ChairSentence[],
+  locale: "en" | "ko",
 ): { readonly en: string; readonly ko: string } {
   const maxLength = sectionKey === "ten_second_brief" ? 360 : 4_000;
+  const value = boundedText(sentences, locale, maxLength);
   return {
-    en: boundedText(sentences, "en", maxLength),
-    ko: boundedText(sentences, "ko", maxLength),
+    en: value,
+    ko: value,
   };
 }
 
@@ -93,27 +108,55 @@ function resolveChairCandidate(
     typeof raw === "object" && raw !== null
       ? (raw as Record<string, unknown>)
       : undefined;
-  // biome-ignore lint/complexity/useLiteralKeys: required by noPropertyAccessFromIndexSignature.
   const rawSections =
     rawRecord !== undefined && Array.isArray(rawRecord["sections"])
       ? rawRecord["sections"]
       : undefined;
-  const repairableRaw =
-    repairInvalidSections &&
-    rawSections !== undefined &&
-    rawSections.length > 0 &&
-    rawSections.length < CHAIR_SECTION_KEYS.length
+  const normalizedRaw =
+    rawRecord !== undefined &&
+    rawRecord["sourceArtifactIds"] !== undefined &&
+    rawSections !== undefined
       ? {
           ...rawRecord,
+          sections: rawSections.map((section) => {
+            if (typeof section !== "object" || section === null) return section;
+            const record = section as Record<string, unknown>;
+            const summary = record["publicSummary"];
+            if (typeof summary !== "object" || summary === null) return section;
+            return {
+              ...record,
+              publicSummary: (summary as Record<string, unknown>)[
+                prompt.mandate.locale
+              ],
+            };
+          }),
+        }
+      : raw;
+  const normalizedRecord =
+    typeof normalizedRaw === "object" && normalizedRaw !== null
+      ? (normalizedRaw as Record<string, unknown>)
+      : undefined;
+  const normalizedSections =
+    normalizedRecord !== undefined &&
+    Array.isArray(normalizedRecord["sections"])
+      ? normalizedRecord["sections"]
+      : undefined;
+  const repairableRaw =
+    repairInvalidSections &&
+    normalizedSections !== undefined &&
+    normalizedSections.length > 0 &&
+    normalizedSections.length < CHAIR_SECTION_KEYS.length
+      ? {
+          ...normalizedRecord,
           sections: [
-            ...rawSections,
+            ...normalizedSections,
             ...Array.from(
-              { length: CHAIR_SECTION_KEYS.length - rawSections.length },
-              () => rawSections[0],
+              { length: CHAIR_SECTION_KEYS.length - normalizedSections.length },
+              () => normalizedSections[0],
             ),
           ],
         }
-      : raw;
+      : normalizedRaw;
   const candidate = ChairSynthesisModelOutputSchema.safeParse(repairableRaw);
   if (!candidate.success) return {};
   const catalog = new Map(
@@ -142,7 +185,13 @@ function resolveChairCandidate(
       selected.length > 0 &&
       selected.length === requestedIds.length &&
       new Set(requestedIds).size === requestedIds.length &&
-      summaryIsValid(sectionKey, draft.publicSummary, uniqueSelected);
+      summaryIsValid(
+        sectionKey,
+        draft.publicSummary,
+        uniqueSelected,
+        prompt.mandate.locale,
+        prompt.mandate.question,
+      );
     if (!draftIsValid && !repairInvalidSections) return undefined;
     const resolvedSentences =
       uniqueSelected.length > 0
@@ -155,8 +204,11 @@ function resolveChairCandidate(
       sectionId: sectionKey,
       sectionKey,
       publicSummary: draftIsValid
-        ? draft.publicSummary
-        : fallbackSummary(sectionKey, resolvedSentences),
+        ? {
+            en: draft.publicSummary,
+            ko: draft.publicSummary,
+          }
+        : fallbackSummary(sectionKey, resolvedSentences, prompt.mandate.locale),
       sentenceIds: resolvedSentences.map((sentence) => sentence.sentenceId),
       sourceArtifactIds: [
         ...new Set(

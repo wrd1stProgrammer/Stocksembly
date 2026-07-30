@@ -1,6 +1,6 @@
-import { DownloadSimple } from "@phosphor-icons/react";
 import Image from "next/image";
 import type { Locale } from "../../../lib/i18n";
+import type { ResearchFileData } from "../../../research/compositions/types";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 import { ResearchFileSectionHeader } from "./ResearchFilePrimitives";
 
@@ -11,35 +11,22 @@ const voteLabels = {
   abstain: { en: "Abstain", ko: "유보" },
 } as const;
 
-function sourceClassLabel(sourceClass: string, locale: Locale): string {
-  const labels: Readonly<
-    Record<string, { readonly en: string; readonly ko: string }>
-  > = {
-    insightsentry_rapidapi: {
-      en: "Licensed market data",
-      ko: "라이선스 시장 데이터",
-    },
-    sec_primary_filing: { en: "SEC filing", ko: "SEC 공시" },
-    sec_company_facts: { en: "SEC XBRL", ko: "SEC XBRL" },
-    treasury_yield: { en: "Official macro data", ko: "공식 거시 데이터" },
-  };
-  return labels[sourceClass]?.[locale] ?? sourceClass.replaceAll("_", " ");
-}
-
 export function ResearchFileDebate({
   model,
+  file,
   locale,
-  version,
-  reportId,
-  onReplay,
+  number = "04",
 }: {
   readonly model: ResearchFileEditorialModel;
+  readonly file: ResearchFileData;
   readonly locale: Locale;
-  readonly version: number;
-  readonly reportId?: string;
-  readonly onReplay: () => void;
+  readonly number?: "03" | "04";
 }) {
   const ko = locale === "ko";
+  const departmentId =
+    file.researchTarget?.kind === "department"
+      ? file.researchTarget.departmentId
+      : undefined;
   return (
     <section
       className="research-editorial-section"
@@ -47,19 +34,55 @@ export function ResearchFileDebate({
       id="team-debate"
     >
       <ResearchFileSectionHeader
-        number="04"
-        title={ko ? "에이전트 토론·최종 판정" : "Agent debate & final judgment"}
+        number={number}
+        title={
+          departmentId === undefined
+            ? ko
+              ? "에이전트 토론·최종 판정"
+              : "Agent debate & final judgment"
+            : ko
+              ? "팀 내부 합의·보존된 이견"
+              : "Team agreement & retained dissent"
+        }
         description={
-          ko
-            ? "동일한 결론을 반복하지 않고, 반론이 최종 문장을 어떻게 바꿨는지 기록합니다."
-            : "The record shows how counterarguments changed the final wording instead of repeating one conclusion."
+          departmentId !== undefined
+            ? ko
+              ? "팀원별 조사 결과에서 무엇을 채택했고 어떤 불확실성을 남겼는지 기록합니다."
+              : "The record shows what the team retained from each specialist and which uncertainties remain."
+            : ko
+              ? "동일한 결론을 반복하지 않고, 반론이 최종 문장을 어떻게 바꿨는지 기록합니다."
+              : "The record shows how counterarguments changed the final wording instead of repeating one conclusion."
         }
       />
       <section className="research-team-table">
-        <h3>{ko ? "팀별 독립 판단" : "Independent team views"}</h3>
+        <h3>
+          {departmentId === undefined
+            ? ko
+              ? "팀별 독립 판단"
+              : "Independent team views"
+            : ko
+              ? "선택 팀 합의문"
+              : "Selected team consolidation"}
+        </h3>
         <div className="research-team-table__head">
-          <span>{ko ? "팀·최종 투표" : "Team & final vote"}</span>
-          <span>{ko ? "독립 결론" : "Independent conclusion"}</span>
+          <span>
+            {departmentId === undefined
+              ? ko
+                ? "팀·최종 투표"
+                : "Team & final vote"
+              : ko
+                ? "선택 팀·합의 상태"
+                : "Selected team & agreement"}
+          </span>
+          <span>
+            {departmentId === undefined
+              ? ko
+                ? "독립 결론"
+                : "Independent conclusion"
+              : ko
+                ? "팀 합의 결론"
+                : "Team conclusion"}
+          </span>
           <span>{ko ? "핵심 근거" : "Core rationale"}</span>
         </div>
         {model.teamRows.map((team) => (
@@ -84,9 +107,13 @@ export function ResearchFileDebate({
       </section>
       <section className="research-debate-records">
         <h3>
-          {ko
-            ? "최종 판단에 영향을 준 논쟁"
-            : "Debates that changed the judgment"}
+          {departmentId === undefined
+            ? ko
+              ? "최종 판단에 영향을 준 논쟁"
+              : "Debates that changed the judgment"
+            : ko
+              ? "팀 합의에 영향을 준 내부 검토"
+              : "Internal review that shaped the team view"}
         </h3>
         {model.debates.map((debate) => (
           <article key={debate.id}>
@@ -112,7 +139,15 @@ export function ResearchFileDebate({
                 <dd>{debate.recheckedEvidence}</dd>
               </div>
               <div>
-                <dt>{ko ? "의장 판정" : "Chair ruling"}</dt>
+                <dt>
+                  {departmentId === undefined
+                    ? ko
+                      ? "의장 판정"
+                      : "Chair ruling"
+                    : ko
+                      ? "팀 합의 반영"
+                      : "Team resolution"}
+                </dt>
                 <dd>{debate.chairRuling}</dd>
               </div>
             </dl>
@@ -122,22 +157,46 @@ export function ResearchFileDebate({
       <section className="research-chair-ruling">
         <Image
           className="research-team-portrait"
-          src="/research/office-v7/portraits/chair.png"
+          src={`/research/office-v7/portraits/${departmentId ?? "chair"}.png`}
           alt=""
           width={88}
           height={88}
         />
         <div>
-          <span>{ko ? "의장 최종 종합" : "Chair synthesis"}</span>
+          <span>
+            {departmentId === undefined
+              ? ko
+                ? "의장 최종 종합"
+                : "Chair synthesis"
+              : ko
+                ? "팀 리드 최종 합의"
+                : "Team lead consolidation"}
+          </span>
           <h3>{model.directAnswer}</h3>
         </div>
         <dl>
           <div>
-            <dt>{ko ? "초기 판단" : "Initial view"}</dt>
+            <dt>
+              {departmentId === undefined
+                ? ko
+                  ? "초기 판단"
+                  : "Initial view"
+                : ko
+                  ? "독립 검토"
+                  : "Independent review"}
+            </dt>
             <dd>{model.initialView}</dd>
           </div>
           <div>
-            <dt>{ko ? "토론 후 판단" : "Post-debate view"}</dt>
+            <dt>
+              {departmentId === undefined
+                ? ko
+                  ? "토론 후 판단"
+                  : "Post-debate view"
+                : ko
+                  ? "합의 후 결론"
+                  : "Consolidated view"}
+            </dt>
             <dd>{model.finalView}</dd>
           </div>
           <div>
@@ -150,53 +209,6 @@ export function ResearchFileDebate({
           </div>
         </dl>
       </section>
-      <section className="research-inline-evidence">
-        <h3>{ko ? "근거 및 방법론" : "Evidence & methodology"}</h3>
-        <p>
-          {ko
-            ? "주장 옆의 C 번호는 감사된 주장, 아래 S 번호는 연결된 공개 출처를 뜻합니다. 에이전트 해석과 원자료를 분리해 표시합니다."
-            : "C references identify audited claims and S references identify linked public sources. Agent interpretation is kept separate from source evidence."}
-        </p>
-        <ol>
-          {model.evidenceIndex.slice(0, 8).map((source) => (
-            <li key={source.id}>
-              <strong>{source.id}</strong>
-              <span>{source.publisher}</span>
-              <p>
-                {source.url === undefined ? (
-                  source.title
-                ) : (
-                  <a href={source.url} target="_blank" rel="noreferrer">
-                    {source.title}
-                  </a>
-                )}
-              </p>
-              <em>{sourceClassLabel(source.sourceClass, locale)}</em>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <footer className="completed-research-file__footer">
-        <p>
-          {ko
-            ? `Research File v${version}.0 · 이 파일은 투자 권유나 목표가가 아닌 근거와 판단 조건의 기록입니다.`
-            : `Research File v${version}.0 · This file records evidence and decision conditions; it is not a recommendation or price target.`}
-        </p>
-        <div>
-          {reportId === undefined ? null : (
-            <a
-              href={`/api/research/reports/${reportId}/pdf?lang=${locale}`}
-              download
-            >
-              <DownloadSimple size={17} aria-hidden="true" />
-              {ko ? "PDF 다운로드" : "Download PDF"}
-            </a>
-          )}
-          <button type="button" onClick={onReplay}>
-            {ko ? "리서치 룸 다시 보기" : "Replay research room"}
-          </button>
-        </div>
-      </footer>
     </section>
   );
 }

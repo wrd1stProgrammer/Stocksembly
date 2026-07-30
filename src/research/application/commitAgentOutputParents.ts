@@ -25,9 +25,6 @@ async function verifyParent(
   const read = await cas.get(digest.data);
   if (
     read === undefined ||
-    read.descriptor.artifactId !== source.artifactId ||
-    read.descriptor.runId !== source.runId ||
-    read.descriptor.snapshotId !== source.snapshotId ||
     read.descriptor.digest !== digest.data ||
     read.descriptor.byteLength !== read.bytes.byteLength ||
     hashBytes(read.bytes) !== source.contentHash

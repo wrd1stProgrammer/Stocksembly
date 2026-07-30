@@ -52,6 +52,16 @@ function sameMembers(
   );
 }
 
+const DEPARTMENT_EDITORIAL_DIRECTION = {
+  market:
+    "Market team: separate regime, relative strength, valuation/flow pressure, and the next dated catalyst. State one confirmation signal, one watch condition, and one invalidation signal. Prefer observed price, change, relative performance, rates, and peer context over generic demand commentary.",
+  company:
+    "Company team: decompose the thesis into growth engines, customer or segment concentration, moat layers, and execution dependencies. Distinguish an announced product advantage from proof of production adoption. State the next operating milestone and the concrete path that would erode the moat.",
+  financial:
+    "Financial team: trace revenue growth through gross margin, operating margin, cash conversion, reinvestment, and valuation. Distinguish operating quality from what the current multiple already requires. State the measurable expectation that must hold and the threshold that would reset the safety-margin view.",
+  risk: "Risk team: rank distinct failure paths by impact and observability, identify compound downside interactions, name a leading indicator for each major risk, and distinguish mitigants from thesis breakers. Avoid a generic risk list; state the escalation sequence an investor can monitor.",
+} as const;
+
 export async function authenticatedMemoPrompts(
   cas: ArtifactCasPort,
   rows: readonly AcceptedMemoRow[],
@@ -140,6 +150,18 @@ export async function authenticatedMemoPrompts(
               memberIds: department.memberIds,
             },
             memberArtifacts,
+            editorialBrief: [
+              "Produce a decision-dense specialist-team synthesis, not a stitched recap of member memos.",
+              DEPARTMENT_EDITORIAL_DIRECTION[departmentId],
+              "publicSummary must answer the investment question once in at most two sentences: lead with the decision, include the most decision-relevant quantified fact when available, and name one uncertainty that can actually change the view.",
+              "Select accepted, strongest, weakest, revised, and removed claims according to evidence quality. Do not accept every claim by default.",
+              "Keep different roles distinct: each accepted claim should contribute a different decision dimension rather than restating the same growth or risk sentence.",
+              "Give every accepted claim its own non-overlapping checkpoint: use a different metric, threshold, disclosure, customer signal, or dated event for each claim. Never copy one change condition into several claims.",
+              "Do not reuse publicSummary, the same conclusion sentence, or the same checkpoint language across strongestClaim, weakestClaim, openQuestions, and claim rationales.",
+              "Return no more than two openQuestions. Phrase each as an observable metric, threshold, disclosure, or dated event that would resolve uncertainty.",
+              "Never use missing-data disclaimers, provider/licensing language, report-scope disclaimers, or investment-recommendation disclaimers as publicSummary or openQuestions.",
+              "Do not repeat a member publicSummary verbatim when a concise synthesis can preserve the same grounded facts.",
+            ].join(" "),
           }),
         ]
       : [];

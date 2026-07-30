@@ -32,6 +32,8 @@ export const EVIDENCE_DATASETS = [
   "identity",
   "sec_filing",
   "sec_company_facts",
+  "sec_insider_transactions",
+  "sec_institutional_holdings",
   "bls_macro",
   "treasury_yield",
   "market_bars",

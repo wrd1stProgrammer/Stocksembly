@@ -42,6 +42,8 @@ export const QuoteResponseSchema = z.strictObject({
       status: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]),
       lp_time: z.number().finite().nonnegative().optional(),
       last_price: z.number().finite().optional(),
+      change: z.number().finite().optional(),
+      change_p: z.number().finite().optional(),
       currency_code: z.string().trim().length(3).optional(),
     }),
   ),

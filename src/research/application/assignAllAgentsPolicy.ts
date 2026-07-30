@@ -17,7 +17,12 @@ export type RoleAssignmentPolicy = {
 };
 
 const SEC_TEXT = ["sec_primary_filing", "sec_submissions"] as const;
-const SEC_DATASETS = ["sec_filing", "sec_company_facts"] as const;
+const SEC_DATASETS = [
+  "sec_filing",
+  "sec_company_facts",
+  "sec_insider_transactions",
+  "sec_institutional_holdings",
+] as const;
 const MACRO_SOURCES = ["bls_allowlist", "treasury_yield"] as const;
 const MACRO_DATASETS = ["bls_macro", "treasury_yield"] as const;
 const MARKET_SOURCES = ["alpaca_market_data"] as const;
@@ -32,8 +37,12 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     focusAreas: ["official_macro", "market_regime", "price_regime"],
     allowedDatasets: [
       ...MACRO_DATASETS,
+      ...MARKET_DATASETS,
       "insightsentry_quote",
+      "insightsentry_peers",
+      "insightsentry_fundamentals",
       "insightsentry_news_market",
+      "sec_institutional_holdings",
     ],
     allowedRightsSources: [
       ...MACRO_SOURCES,
@@ -117,6 +126,8 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "sector_index_context",
       "rate_beta_sensitivity",
       "peer_dispersion",
+      "direct_competitors_vs_operating_comparables",
+      "peer_growth_margin_valuation_comparison",
       "base_hypothesis",
       "competing_hypothesis",
       "observed_coverage",
@@ -137,6 +148,10 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "insightsentry_documents",
       "insightsentry_calendar",
       "insightsentry_news_company",
+      "insightsentry_fundamentals",
+      "insightsentry_peers",
+      "sec_insider_transactions",
+      "sec_institutional_holdings",
     ],
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
     capabilityKeys: ["sec_filings", "professional_news"],
@@ -152,6 +167,8 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "sec_filing",
       "insightsentry_documents",
       "insightsentry_news_company",
+      "insightsentry_fundamentals",
+      "sec_insider_transactions",
     ],
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
     capabilityKeys: ["sec_filings", "professional_news"],
@@ -167,10 +184,16 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "sec_filing",
       "insightsentry_documents",
       "insightsentry_peers",
+      "sec_institutional_holdings",
     ],
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
     capabilityKeys: ["sec_filings"],
-    requiredOutputs: ["competitive_position", "peer_context"],
+    requiredOutputs: [
+      "competitive_position",
+      "peer_context",
+      "direct_competitors_vs_operating_comparables",
+      "peer_selection_rationale",
+    ],
     forbiddenOutputs: [],
   },
   {
@@ -212,6 +235,9 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     capabilityKeys: ["sec_filings", "sec_company_facts", "current_market_data"],
     requiredOutputs: [
       "valuation_multiples",
+      "peer_median_multiples",
+      "premium_discount_to_peers",
+      "growth_margin_adjusted_relative_value",
       "fundamental_sensitivity",
       "earnings_power_sensitivity",
       "observed_coverage",
@@ -256,9 +282,15 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "sec_filing",
       "insightsentry_documents",
       "insightsentry_news_risk",
+      "insightsentry_calendar",
+      "insightsentry_fundamentals",
+      "insightsentry_quote",
+      ...MACRO_DATASETS,
       "insightsentry_options",
+      "sec_insider_transactions",
+      "sec_institutional_holdings",
     ],
-    allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
+    allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES, ...MACRO_SOURCES],
     capabilityKeys: ["sec_filings", "professional_news", "options"],
     requiredOutputs: ["downside_risks", "material_risk_events"],
     forbiddenOutputs: [],
@@ -273,6 +305,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       ...MACRO_DATASETS,
       "insightsentry_calendar",
       "insightsentry_news_risk",
+      "sec_institutional_holdings",
     ],
     allowedRightsSources: [...SEC_TEXT, ...MACRO_SOURCES, ...PROVIDER_SOURCES],
     capabilityKeys: [

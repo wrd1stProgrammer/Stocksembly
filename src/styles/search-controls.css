@@ -15,8 +15,8 @@
 .search-console {
   position: relative;
   width: 100%;
-  min-height: 118px;
-  padding: 16px 64px 10px 20px;
+  min-height: 140px;
+  padding: 18px 20px 14px;
   border: 1px solid color-mix(in srgb, var(--color-text) 13%, transparent);
   border-radius: 30px;
   background: linear-gradient(
@@ -31,6 +31,112 @@
     inset 0 -1px color-mix(in srgb, var(--color-void) 72%, transparent);
   backdrop-filter: blur(18px);
   animation: rise var(--motion-emphasis) 80ms both;
+}
+.research-target {
+  position: relative;
+  z-index: 5;
+}
+.research-target__trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  max-width: min(260px, 34vw);
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  border-radius: 12px;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-panel-raised) 78%, transparent);
+  cursor: pointer;
+  transition:
+    color var(--motion-micro),
+    border-color var(--motion-micro),
+    background var(--motion-micro);
+}
+.research-target__trigger:hover,
+.research-target__trigger[aria-expanded="true"] {
+  color: var(--color-text);
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 42%,
+    var(--color-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 8%,
+    var(--color-panel-raised)
+  );
+}
+.research-target__trigger > span {
+  padding: 3px 7px;
+  border-radius: var(--radius-pill);
+  color: var(--color-accent-bright);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.research-target__trigger strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.research-target__options button {
+  border: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.research-target__options {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(680px, calc(100vw - 64px));
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--color-border-bright);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-panel-raised) 98%, transparent);
+  box-shadow: 0 24px 64px color-mix(in srgb, var(--color-void) 88%, transparent);
+  backdrop-filter: blur(20px);
+}
+.research-target__options button {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  text-align: left;
+}
+.research-target__options button:hover,
+.research-target__options button[aria-checked="true"] {
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 48%,
+    var(--color-border)
+  );
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+}
+.research-target__options strong {
+  font-size: 11px;
+}
+.research-target__options small {
+  color: var(--color-text-subtle);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.research-target__options .research-target__auto {
+  grid-column: 1 / -1;
+  justify-items: center;
+  padding: 6px;
+  text-align: center;
 }
 
 .border-beam-card[data-active="true"]::before,
@@ -155,9 +261,16 @@
 }
 .search-console__primary {
   display: grid;
-  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
   align-items: stretch;
-  gap: var(--space-5);
+  gap: 20px;
+}
+.search-console__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
 }
 .search-field {
   display: grid;
@@ -165,7 +278,7 @@
   align-items: start;
   gap: var(--space-1);
   min-height: 52px;
-  padding: 0 var(--space-5) var(--space-1) 0;
+  padding: 0 18px var(--space-1) 0;
   border-right: 1px solid
     color-mix(in srgb, var(--color-border) 72%, transparent);
   color: var(--color-text-muted);
@@ -278,6 +391,11 @@
   transition:
     transform var(--motion-micro),
     opacity var(--motion-micro);
+}
+.search-console__actions .research-button {
+  position: relative;
+  right: auto;
+  bottom: auto;
 }
 .research-button__surface {
   position: absolute;

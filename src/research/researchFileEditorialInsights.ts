@@ -54,14 +54,46 @@ function firstSentence(value: string): string {
 }
 
 function combineDistinct(first: string, second: string): string {
+  if (first.trim().length === 0) return second.trim();
+  if (second.trim().length === 0) return first.trim();
   if (first.includes(second)) return first;
   if (second.includes(first)) return second;
+  const tokens = (value: string) =>
+    new Set(
+      value
+        .toLocaleLowerCase()
+        .replace(/[\p{P}\p{S}]+/gu, " ")
+        .split(/\s+/u)
+        .filter((token) => token.length >= 3),
+    );
+  const firstTokens = tokens(first);
+  const secondTokens = tokens(second);
+  const smaller = Math.min(firstTokens.size, secondTokens.size);
+  if (
+    smaller >= 3 &&
+    [...firstTokens].filter((token) => secondTokens.has(token)).length /
+      smaller >=
+      0.55
+  )
+    return first.length >= second.length ? first : second;
   const separator = /[.!?。！？]$/u.test(first) ? " " : ". ";
   return `${first}${separator}${second}`;
 }
 
 function debateLength(value: string, supportingDetail: string): string {
   return value.length >= 28 ? value : combineDistinct(value, supportingDetail);
+}
+
+function snapshotSignal(
+  primary: string,
+  supportingDetail: string,
+  fallback: string,
+): string {
+  const lead = firstSentence(primary);
+  const supported = debateLength(lead, firstSentence(supportingDetail));
+  return supported.length >= 28
+    ? supported
+    : combineDistinct(supported, firstSentence(fallback));
 }
 
 function team(
@@ -116,21 +148,26 @@ export function buildEditorialInsights(input: EditorialInsightInput): {
   const company = team(input, "company");
   const financial = team(input, "financial");
   const risk = team(input, "risk");
-  const directAnswer = combineDistinct(
-    input.baseAnswer,
-    firstSentence(
-      financial?.strongestClaim ??
-        company?.strongestClaim ??
-        input.changeCondition,
-    ),
-  );
-  const valuationConclusion = combineDistinct(
-    combineDistinct(
-      input.valuation,
-      firstSentence(financial?.evidence ?? input.changeCondition),
-    ),
-    firstSentence(input.changeCondition),
-  );
+  const focused = input.file.researchTarget?.kind === "department";
+  const directAnswer = focused
+    ? input.baseAnswer
+    : combineDistinct(
+        input.baseAnswer,
+        firstSentence(
+          financial?.strongestClaim ??
+            company?.strongestClaim ??
+            input.changeCondition,
+        ),
+      );
+  const valuationConclusion = focused
+    ? input.valuation
+    : combineDistinct(
+        combineDistinct(
+          input.valuation,
+          firstSentence(financial?.evidence ?? input.changeCondition),
+        ),
+        firstSentence(input.changeCondition),
+      );
   const price =
     input.file.marketSnapshot === undefined
       ? ko
@@ -145,22 +182,38 @@ export function buildEditorialInsights(input: EditorialInsightInput): {
     },
     {
       label: ko ? "사업·수요 신호" : "Business & demand",
-      value: firstSentence(company?.strongestClaim ?? input.baseAnswer),
+      value: snapshotSignal(
+        company?.strongestClaim ?? input.baseAnswer,
+        company?.evidence ?? input.analysisRows[0]?.evidence ?? "",
+        input.baseAnswer,
+      ),
       tone: "positive",
     },
     {
       label: ko ? "수익성 신호" : "Profitability",
-      value: firstSentence(financial?.strongestClaim ?? input.valuation),
+      value: snapshotSignal(
+        financial?.strongestClaim ?? input.valuation,
+        financial?.evidence ?? input.analysisRows[1]?.evidence ?? "",
+        input.valuation,
+      ),
       tone: "caution",
     },
     {
       label: ko ? "시장·기술 흐름" : "Market & technicals",
-      value: firstSentence(market?.strongestClaim ?? input.baseAnswer),
+      value: snapshotSignal(
+        market?.strongestClaim ?? input.baseAnswer,
+        market?.evidence ?? input.analysisRows[2]?.evidence ?? "",
+        input.nextVerification,
+      ),
       tone: "primary",
     },
     {
       label: ko ? "하방 완충" : "Downside buffer",
-      value: firstSentence(risk?.evidence ?? input.changeCondition),
+      value: snapshotSignal(
+        risk?.strongestClaim ?? input.changeCondition,
+        risk?.evidence ?? input.analysisRows[3]?.evidence ?? "",
+        input.changeCondition,
+      ),
       tone: "neutral",
     },
     {
@@ -211,6 +264,8 @@ export function buildEditorialInsights(input: EditorialInsightInput): {
     companySnapshot,
     debates,
     initialView,
-    finalView: combineDistinct(directAnswer, input.changeCondition),
+    finalView: focused
+      ? directAnswer
+      : combineDistinct(directAnswer, input.changeCondition),
   };
 }

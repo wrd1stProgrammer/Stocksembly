@@ -46,6 +46,19 @@ export function advanceLiveOfficeFrame(
   );
 }
 
+const MAX_ANIMATED_TICK_GAP = 120;
+
+export function advanceLiveOfficeFrameForDisplay(
+  frame: OfficeFrame,
+  targetTick: number,
+  frameDeltaMs: number,
+): OfficeFrame {
+  if (targetTick - frame.simulation.tick > MAX_ANIMATED_TICK_GAP) {
+    return createLiveOfficeFrame(targetTick);
+  }
+  return advanceLiveOfficeFrame(frame, targetTick, frameDeltaMs);
+}
+
 export function useLiveOfficeAnimation(targetTick: number) {
   const [frame, setFrame] = useState(() => createLiveOfficeFrame(targetTick));
   const frameRef = useRef(frame);
@@ -61,8 +74,8 @@ export function useLiveOfficeAnimation(targetTick: number) {
     const advance = (timestamp: number): void => {
       if (previousTimestamp !== undefined) {
         const gap = targetRef.current - frameRef.current.simulation.tick;
-        const playbackRate = gap > 120 ? 4 : gap > 40 ? 2 : 1;
-        const next = advanceLiveOfficeFrame(
+        const playbackRate = gap > 40 ? 2 : 1;
+        const next = advanceLiveOfficeFrameForDisplay(
           frameRef.current,
           targetRef.current,
           (timestamp - previousTimestamp) * playbackRate,

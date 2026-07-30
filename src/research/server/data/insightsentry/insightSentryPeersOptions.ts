@@ -39,6 +39,7 @@ export async function collectInsightSentryPeers(input: {
       .filter((peer) => peer.symbol !== input.symbol)
       .sort(
         (left, right) =>
+          right.selectionScore - left.selectionScore ||
           (right.marketCap ?? 0) - (left.marketCap ?? 0) ||
           left.symbol.localeCompare(right.symbol),
       )
@@ -50,23 +51,115 @@ export async function collectInsightSentryPeers(input: {
       .map((peer) =>
         Object.freeze({
           symbol: peer.symbol,
-          ...(peer.name === undefined ? {} : { name: peer.name }),
+          name: peer.name,
+          sector: peer.sector,
+          classification: peer.classification,
+          selectionScore: peer.selectionScore,
+          selectionReasons: peer.selectionReasons,
           ...(peer.marketCap === undefined
             ? {}
             : { marketCap: peer.marketCap }),
+          ...(peer.priceEarningsTtm === undefined
+            ? {}
+            : { priceEarningsTtm: peer.priceEarningsTtm }),
+          ...(peer.enterpriseValueEbitdaTtm === undefined
+            ? {}
+            : {
+                enterpriseValueEbitdaTtm: peer.enterpriseValueEbitdaTtm,
+              }),
+          ...(peer.enterpriseValueRevenueTtm === undefined
+            ? {}
+            : {
+                enterpriseValueRevenueTtm: peer.enterpriseValueRevenueTtm,
+              }),
+          ...(peer.revenueGrowthTtm === undefined
+            ? {}
+            : { revenueGrowthTtm: peer.revenueGrowthTtm }),
+          ...(peer.grossMarginTtm === undefined
+            ? {}
+            : { grossMarginTtm: peer.grossMarginTtm }),
+          ...(peer.operatingMarginTtm === undefined
+            ? {}
+            : { operatingMarginTtm: peer.operatingMarginTtm }),
+          ...(peer.performance3Month === undefined
+            ? {}
+            : { performance3Month: peer.performance3Month }),
+          ...(peer.performance1Year === undefined
+            ? {}
+            : { performance1Year: peer.performance1Year }),
         }),
       );
     return Object.freeze({
       status: "available",
       data: Object.freeze({
         symbol: input.symbol,
-        providerUpdatedAt: response.providerUpdatedAt ?? response.retrievedAt,
+        sector: response.sector,
+        selectorVersion: response.selectorVersion,
+        selectionCache: response.selectionCache,
+        subject: Object.freeze({
+          symbol: response.subject.symbol,
+          name: response.subject.name,
+          sector: response.subject.sector,
+          ...(response.subject.marketCap === undefined
+            ? {}
+            : { marketCap: response.subject.marketCap }),
+          ...(response.subject.priceEarningsTtm === undefined
+            ? {}
+            : { priceEarningsTtm: response.subject.priceEarningsTtm }),
+          ...(response.subject.enterpriseValueEbitdaTtm === undefined
+            ? {}
+            : {
+                enterpriseValueEbitdaTtm:
+                  response.subject.enterpriseValueEbitdaTtm,
+              }),
+          ...(response.subject.enterpriseValueRevenueTtm === undefined
+            ? {}
+            : {
+                enterpriseValueRevenueTtm:
+                  response.subject.enterpriseValueRevenueTtm,
+              }),
+          ...(response.subject.revenueGrowthTtm === undefined
+            ? {}
+            : { revenueGrowthTtm: response.subject.revenueGrowthTtm }),
+          ...(response.subject.grossMarginTtm === undefined
+            ? {}
+            : { grossMarginTtm: response.subject.grossMarginTtm }),
+          ...(response.subject.operatingMarginTtm === undefined
+            ? {}
+            : { operatingMarginTtm: response.subject.operatingMarginTtm }),
+          ...(response.subject.performance3Month === undefined
+            ? {}
+            : { performance3Month: response.subject.performance3Month }),
+          ...(response.subject.performance1Year === undefined
+            ? {}
+            : { performance1Year: response.subject.performance1Year }),
+        }),
+        relativeValuation: response.relativeValuation.map((metric) =>
+          Object.freeze({
+            metric: metric.metric,
+            peerMedian: metric.peerMedian,
+            peerCount: metric.peerCount,
+            ...(metric.subjectValue === undefined
+              ? {}
+              : { subjectValue: metric.subjectValue }),
+            ...(metric.premiumDiscountPercent === undefined
+              ? {}
+              : {
+                  premiumDiscountPercent: metric.premiumDiscountPercent,
+                }),
+          }),
+        ),
+        providerUpdatedAt: response.providerUpdatedAt,
         retrievedAt: response.retrievedAt,
         peers,
       }),
     });
   } catch (error) {
-    if (error instanceof InsightSentryClientError || error instanceof ZodError)
+    if (
+      error instanceof InsightSentryClientError ||
+      error instanceof ZodError ||
+      error instanceof RangeError
+    )
       return familyFailure(error);
     throw error;
   }

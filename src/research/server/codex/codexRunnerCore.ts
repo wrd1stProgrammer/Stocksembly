@@ -1,6 +1,6 @@
 // allow: SIZE_OK — the security-critical isolated runner lifecycle stays linear for auditability.
 import { dirname, join } from "node:path";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   schemaDocument,
   sha256Value,
@@ -45,6 +45,15 @@ function sortedEnvironment(
   );
 }
 
+function isOutputSchema(value: unknown): value is z.ZodType {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "safeParse") === "function" &&
+    typeof Reflect.get(value, "parse") === "function"
+  );
+}
+
 function validateRunInput<Candidate>(input: CodexRunInput<Candidate>): void {
   if (!CODEX_STAGES.some((stage) => stage === input.stage))
     throw new CodexRunnerError("policy_violation");
@@ -57,7 +66,7 @@ function validateRunInput<Candidate>(input: CodexRunInput<Candidate>): void {
     typeof input.prompt !== "string" ||
     Buffer.byteLength(input.prompt, "utf8") >
       CODEX_RUNTIME_POLICY.maxPromptBytes ||
-    !(input.outputSchema instanceof z.ZodType)
+    !isOutputSchema(input.outputSchema)
   )
     throw new CodexRunnerError("policy_violation");
 }

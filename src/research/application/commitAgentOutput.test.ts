@@ -32,7 +32,7 @@ const hash = (value: string): string => value.repeat(64);
 const sourceBytes = new TextEncoder().encode("verified filing bytes");
 const sourceHash = hashBytes(sourceBytes);
 const trustedBinaryHash =
-  "6d8be49e49751554df16572369e636cbe02c84b208cad3dc35528c846eeca223";
+  "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e";
 
 const ids = {
   runId: RunIdSchema.parse(id(1)),
@@ -439,6 +439,40 @@ describe("commitAgentOutput", () => {
       hashBytes(new TextEncoder().encode(canonicalJson(committed?.envelope))),
     );
     expect(committed?.event.outputHash).toBe(committed?.envelope.outputHash);
+  });
+
+  it("accepts a cited artifact when identical CAS bytes were first stored by another run", async () => {
+    const store = new MemoryCommitStore();
+    const delegate = await casWithSource();
+    const cas: ArtifactCasPort = {
+      put: delegate.put.bind(delegate),
+      has: delegate.has.bind(delegate),
+      get: async (digest) => {
+        const read = await delegate.get(digest);
+        return read === undefined
+          ? undefined
+          : {
+              bytes: read.bytes,
+              descriptor: {
+                ...read.descriptor,
+                artifactId: ArtifactIdSchema.parse(id(90)),
+                runId: RunIdSchema.parse(id(91)),
+                snapshotId: SnapshotIdSchema.parse(id(92)),
+              },
+            };
+      },
+    };
+
+    const result = await commitAgentOutput({ cas, store }, command());
+
+    expect(result).toMatchObject({ kind: "committed" });
+    expect(store.accepted[0]?.envelope.citations).toEqual([
+      {
+        artifactId: ids.sourceArtifactId,
+        contentHash: sourceHash,
+        locator,
+      },
+    ]);
   });
 
   it.each([

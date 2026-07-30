@@ -2,11 +2,13 @@
 
 import { SidebarSimple } from "@phosphor-icons/react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ThinkingOrb } from "thinking-orbs";
 import type { Locale } from "../../lib/i18n";
 import { activityCopy } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
 import { TeamQuestionPanel } from "./TeamQuestionPanel";
+import { TextShimmerWave } from "./TextShimmerWave";
 
 type Props = {
   readonly current: ResearchEvent;
@@ -17,6 +19,7 @@ type Props = {
   readonly terminalState?: "failed" | "incomplete" | "cancelled";
   readonly reportId?: string;
   readonly reportVersion: number;
+  readonly pendingAgentIds?: readonly AgentProfile["id"][];
   readonly questionsEnabled?: boolean;
   readonly panelOpen?: boolean;
   readonly onPanelToggle?: () => void;
@@ -159,12 +162,15 @@ function conversationLabel(group: ActivityGroup, locale: Locale): string {
 }
 
 export function MeetingMinutes({
+  current,
   agents,
   events,
   locale,
   isComplete,
+  terminalState,
   reportId,
   reportVersion,
+  pendingAgentIds = [],
   questionsEnabled = true,
   panelOpen = true,
   onPanelToggle,
@@ -175,6 +181,22 @@ export function MeetingMinutes({
   );
   const [pendingCount, setPendingCount] = useState(0);
   const canChat = isComplete && questionsEnabled && reportId !== undefined;
+  const chair = agents.find((profile) => profile.id === "chair");
+  const pendingAgentIdSet = useMemo(
+    () => new Set(pendingAgentIds),
+    [pendingAgentIds],
+  );
+  const showAuditThinking =
+    !isComplete &&
+    terminalState === undefined &&
+    activityGroup(current) === "audit" &&
+    chair !== undefined;
+  const pendingAgents =
+    isComplete || terminalState !== undefined
+      ? []
+      : agents.filter(
+          (agent) => agent.id !== "chair" && pendingAgentIdSet.has(agent.id),
+        );
   const knownIds = useRef(new Set(events.map((event) => event.id)));
   const feedRef = useRef<HTMLDivElement | null>(null);
   const followTail = useRef(true);
@@ -365,6 +387,87 @@ export function MeetingMinutes({
             </div>
           );
         })}
+        {pendingAgents.map((agent) => (
+          <div
+            className="meeting-minutes__entry meeting-minutes__pending-entry"
+            data-agent-thinking={agent.id}
+            key={`pending-${agent.id}`}
+          >
+            <article data-group={activityGroup(current)} data-pending="true">
+              <Image src={agent.image} alt="" width={24} height={58} />
+              <div>
+                <header>
+                  <strong>{agent.name[locale]}</strong>
+                  <span>{agent.role[locale]}</span>
+                </header>
+                <p
+                  className="meeting-minutes__thinking"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={
+                    locale === "ko"
+                      ? `${agent.name.ko} 에이전트가 데이터와 AI 응답을 검토하고 있습니다`
+                      : `${agent.name.en} is reviewing data and the pending AI response`
+                  }
+                >
+                  <span
+                    className="meeting-minutes__thinking-orb"
+                    aria-hidden="true"
+                  >
+                    <ThinkingOrb
+                      state="solving"
+                      size={20}
+                      speed={0.85}
+                      theme="auto"
+                    />
+                  </span>
+                  <TextShimmerWave
+                    label={locale === "ko" ? "분석 중..." : "Thinking..."}
+                  />
+                </p>
+              </div>
+            </article>
+          </div>
+        ))}
+        {showAuditThinking && chair !== undefined ? (
+          <div
+            className="meeting-minutes__entry meeting-minutes__pending-entry"
+            data-audit-thinking="true"
+          >
+            <article data-group="audit" data-pending="true">
+              <Image src={chair.image} alt="" width={24} height={58} />
+              <div>
+                <header>
+                  <strong>{chair.name[locale]}</strong>
+                  <span>{chair.role[locale]}</span>
+                </header>
+                <p
+                  className="meeting-minutes__thinking"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={
+                    locale === "ko"
+                      ? "박 의장이 감사 결과를 검토하고 있습니다"
+                      : "Dr. Park is reviewing the audit findings"
+                  }
+                >
+                  <span
+                    className="meeting-minutes__thinking-orb"
+                    aria-hidden="true"
+                  >
+                    <ThinkingOrb
+                      state="solving"
+                      size={20}
+                      speed={0.85}
+                      theme="auto"
+                    />
+                  </span>
+                  <TextShimmerWave label="Thinking..." />
+                </p>
+              </div>
+            </article>
+          </div>
+        ) : null}
       </div>
       {pendingCount > 0 && mode === "minutes" ? (
         <button
@@ -384,6 +487,7 @@ export function MeetingMinutes({
         >
           <TeamQuestionPanel
             agents={agents}
+            researchEvents={events}
             locale={locale}
             reportId={reportId}
             reportVersion={reportVersion}

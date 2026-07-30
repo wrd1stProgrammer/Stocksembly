@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import Database from "better-sqlite3";
+import { z } from "zod";
 import { CALL_BUDGET_POLICY } from "../../domain/callBudgetContracts";
 import {
   EventIdSchema,
@@ -49,6 +50,10 @@ function runFromRow(input: unknown): PublicRun {
     snapshotId: row.snapshot_id,
     symbol: row.symbol,
     locale: row.locale,
+    researchTarget:
+      row.research_kind === "department" && row.department_id !== null
+        ? { kind: "department", departmentId: row.department_id }
+        : { kind: "committee" },
     status: row.status,
     lastEventSeq: row.last_event_seq,
     createdAt: row.created_at,
@@ -66,6 +71,7 @@ function publicRunJson(run: PublicRun) {
     snapshotId: run.snapshotId,
     symbol: run.symbol,
     locale: run.locale,
+    researchTarget: run.researchTarget,
     status: run.status,
     lastEventSeq: run.lastEventSeq,
     createdAt: run.createdAt,
@@ -165,8 +171,9 @@ export class ResearchApiRepository {
           );
         this.#database
           .prepare(`INSERT INTO research_requests(
-        run_id, principal_id, symbol, question, locale, request_hash, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        run_id, principal_id, symbol, question, locale, request_hash, created_at,
+        research_kind, department_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
           .run(
             runId,
             principalId,
@@ -175,6 +182,10 @@ export class ResearchApiRepository {
             request.locale,
             requestHash,
             now,
+            request.researchTarget.kind,
+            request.researchTarget.kind === "department"
+              ? request.researchTarget.departmentId
+              : null,
           );
         const run = runFromRow(this.runRow(principalId, runId));
         this.#database
@@ -215,7 +226,9 @@ export class ResearchApiRepository {
   runRow(principalId: string, runId: string): unknown {
     return this.#database
       .prepare(`SELECT runs.run_id, runs.snapshot_id,
-      research_requests.symbol, research_requests.locale, runs.status,
+      research_requests.symbol, research_requests.locale,
+      research_requests.research_kind, research_requests.department_id,
+      runs.status,
       runs.last_event_seq, runs.created_at, runs.report_id FROM runs
       JOIN research_requests USING(run_id)
       WHERE runs.run_id = ? AND research_requests.principal_id = ?`)
@@ -252,6 +265,43 @@ export class ResearchApiRepository {
 
   report(principalId: string, reportId: string): PublicReport | undefined {
     return findPublicReport(this.#database, principalId, reportId);
+  }
+
+  previousComparableReport(
+    principalId: string,
+    reportId: string,
+  ): PublicReport | undefined {
+    const row = z.object({ report_id: z.string().uuid() }).safeParse(
+      this.#database
+        .prepare(`WITH current_report AS (
+            SELECT research_requests.principal_id,
+              research_requests.symbol, research_requests.research_kind,
+              research_requests.department_id, runs.created_at
+            FROM reports
+            JOIN runs USING(run_id)
+            JOIN research_requests USING(run_id)
+            WHERE reports.report_id = ? AND research_requests.principal_id = ?
+          )
+          SELECT prior_reports.report_id
+          FROM current_report
+          JOIN research_requests AS prior_requests
+            ON prior_requests.principal_id = current_report.principal_id
+           AND prior_requests.symbol = current_report.symbol
+           AND prior_requests.research_kind = current_report.research_kind
+           AND COALESCE(prior_requests.department_id, '') =
+             COALESCE(current_report.department_id, '')
+          JOIN runs AS prior_runs ON prior_runs.run_id = prior_requests.run_id
+          JOIN reports AS prior_reports
+            ON prior_reports.run_id = prior_requests.run_id
+           AND prior_reports.state = 'published'
+          WHERE prior_runs.created_at < current_report.created_at
+          ORDER BY prior_runs.created_at DESC, prior_runs.run_id DESC
+          LIMIT 1`)
+        .get(reportId, principalId),
+    );
+    return row.success
+      ? findPublicReport(this.#database, principalId, row.data.report_id)
+      : undefined;
   }
 
   close(): void {

@@ -4,7 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
-import { findTicker, searchUsTickers, type Ticker } from "../../lib/tickers";
+import {
+  fetchResearchQuote,
+  findTicker,
+  type ResearchQuote,
+  searchUsTickers,
+  type Ticker,
+} from "../../lib/tickers";
 import type { PublicRun, PublicRunDetail } from "../../research/client/schemas";
 import { useResearchRun } from "../../research/client/useResearchRun";
 import type {
@@ -15,10 +21,17 @@ import {
   type ResearchReport,
   ResearchReportSchema,
 } from "../../research/domain/report";
+import {
+  type ResearchComparison,
+  ResearchComparisonSchema,
+} from "../../research/domain/researchComparison";
+import { RESEARCH_DEPARTMENT_COPY } from "../../research/domain/researchTarget";
 import { useLiveOfficeAnimation } from "../../research/liveOfficeAnimation";
 import { liveOfficeProjection } from "../../research/liveOfficeProjection";
 import { agents } from "../../research/mockResearch";
 import { activeIdsForSnapshot } from "../../research/officePlaybackView";
+import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
+import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
 import { MeetingMinutes } from "./MeetingMinutes";
@@ -29,6 +42,21 @@ type Props = {
   readonly initialLocale: Locale;
   readonly initialSnapshot: PublicRunDetail;
 };
+
+const sidebarPriceFormatters = new Map<string, Intl.NumberFormat>();
+
+function sidebarPriceFormatter(currency: string): Intl.NumberFormat {
+  const cached = sidebarPriceFormatters.get(currency);
+  if (cached !== undefined) return cached;
+  const formatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  sidebarPriceFormatters.set(currency, formatter);
+  return formatter;
+}
 
 const pendingReport: ResearchFileData = {
   teamViews: [],
@@ -56,15 +84,29 @@ const pendingReport: ResearchFileData = {
   versions: [],
 };
 
-function companyFor(symbol: string, catalogTicker?: Ticker): ResearchCompany {
+function companyFor(
+  symbol: string,
+  catalogTicker?: Ticker,
+  marketSnapshot?: ResearchReport["marketSnapshot"] | ResearchQuote,
+): ResearchCompany {
   const ticker = findTicker(symbol) ?? catalogTicker;
+  const price =
+    marketSnapshot === undefined
+      ? "—"
+      : sidebarPriceFormatter(marketSnapshot.currency).format(
+          marketSnapshot.lastPrice,
+        );
+  const change =
+    marketSnapshot?.changePercent === undefined
+      ? "—"
+      : `${marketSnapshot.changePercent >= 0 ? "+" : ""}${marketSnapshot.changePercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
   return {
     symbol,
     company: ticker?.company ?? symbol,
     exchange: ticker?.exchange ?? "NASDAQ",
     sector: ticker?.sector ?? "Equity research",
-    price: "—",
-    change: "—",
+    price,
+    change,
     marketStatus: {
       en: "Durable public-data research",
       ko: "공개 데이터 기반 리서치",
@@ -72,10 +114,58 @@ function companyFor(symbol: string, catalogTicker?: Ticker): ResearchCompany {
   };
 }
 
+function scopeOfficeSnapshot(
+  snapshot: OfficeSimulationSnapshot,
+  run: PublicRun,
+): OfficeSimulationSnapshot {
+  const target = run.researchTarget;
+  if (target === undefined || target.kind === "committee") return snapshot;
+  const selected = new Set<string>(
+    OFFICE_SCENE_MANIFEST.departments[target.departmentId]?.memberIds ?? [],
+  );
+  const actorIds = snapshot.actors
+    .filter((actor) => selected.has(actor.id))
+    .map((actor) => actor.id);
+  return Object.freeze({
+    ...snapshot,
+    actors: Object.freeze(
+      snapshot.actors.filter((actor) => selected.has(actor.id)),
+    ),
+    occupancy: Object.freeze(
+      snapshot.occupancy.filter((entry) => selected.has(entry.actorId)),
+    ),
+    reservations: Object.freeze(
+      snapshot.reservations.filter((entry) => selected.has(entry.actorId)),
+    ),
+    cameraTarget:
+      actorIds.length === 0
+        ? { kind: "overview" as const }
+        : { kind: "actors" as const, actorIds },
+  });
+}
+
+function runLabel(run: PublicRun, ordinal: number, locale: Locale): string {
+  const target = run.researchTarget;
+  if (target === undefined || target.kind === "committee")
+    return locale === "ko"
+      ? `전체 에이전트 분석 ${ordinal}`
+      : `Full agent analysis ${ordinal}`;
+  const team =
+    RESEARCH_DEPARTMENT_COPY[target.departmentId][
+      locale === "ko" ? "ko" : "en"
+    ];
+  return locale === "ko"
+    ? `${team} 심층 분석 ${ordinal}`
+    : `${team} deep dive ${ordinal}`;
+}
+
 async function loadReport(
   reportId: string,
   reloadSequence: number,
-): Promise<ResearchReport> {
+): Promise<{
+  readonly report: ResearchReport;
+  readonly comparison?: ResearchComparison;
+}> {
   let lastError: Error = new Error("Published report is unavailable");
   for (let attempt = 0; attempt < 3; attempt += 1) {
     if (attempt > 0)
@@ -94,7 +184,16 @@ async function loadReport(
         typeof body === "object" && body !== null
           ? Reflect.get(body, "report")
           : undefined;
-      return ResearchReportSchema.parse(value);
+      const report = ResearchReportSchema.parse(value);
+      const comparisonValue =
+        typeof body === "object" && body !== null
+          ? Reflect.get(body, "comparison")
+          : undefined;
+      const comparison = ResearchComparisonSchema.safeParse(comparisonValue);
+      return {
+        report,
+        ...(comparison.success ? { comparison: comparison.data } : {}),
+      };
     } catch (error) {
       lastError =
         error instanceof Error
@@ -111,11 +210,13 @@ export function LiveOfficeResearchRoom({
 }: Props) {
   const [locale, setLocale] = useState(initialLocale);
   const [report, setReport] = useState<ResearchReport>();
+  const [comparison, setComparison] = useState<ResearchComparison>();
   const [reportLoadState, setReportLoadState] = useState<
     "idle" | "loading" | "failed"
   >("idle");
   const [reportReload, setReportReload] = useState(0);
   const [catalogTicker, setCatalogTicker] = useState<Ticker>();
+  const [liveQuote, setLiveQuote] = useState<ResearchQuote>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [historyRuns, setHistoryRuns] = useState<readonly PublicRun[]>([
@@ -127,9 +228,28 @@ export function LiveOfficeResearchRoom({
   const projection = useResearchRun(initialSnapshot, runOptions);
   const office = liveOfficeProjection(projection.snapshot);
   const animation = useLiveOfficeAnimation(office.tick);
-  const snapshot = animation.snapshot;
+  const snapshot = scopeOfficeSnapshot(
+    animation.snapshot,
+    projection.snapshot.run,
+  );
+  const previousSnapshot = scopeOfficeSnapshot(
+    animation.previousSnapshot,
+    projection.snapshot.run,
+  );
   const activity = activeIdsForSnapshot(snapshot);
-  const company = companyFor(projection.snapshot.run.symbol, catalogTicker);
+  const visibleAgents = useMemo(() => {
+    const target = projection.snapshot.run.researchTarget;
+    if (target === undefined || target.kind === "committee") return agents;
+    const selected = new Set<string>(
+      OFFICE_SCENE_MANIFEST.departments[target.departmentId]?.memberIds ?? [],
+    );
+    return agents.filter((agent) => selected.has(agent.id));
+  }, [projection.snapshot.run.researchTarget]);
+  const company = companyFor(
+    projection.snapshot.run.symbol,
+    catalogTicker,
+    report?.marketSnapshot ?? liveQuote,
+  );
   const history = useMemo<readonly ResearchHistoryGroup[]>(() => {
     const formatter = new Intl.DateTimeFormat(
       locale === "ko" ? "ko-KR" : "en-US",
@@ -154,10 +274,7 @@ export function LiveOfficeResearchRoom({
         runs: runs.map((run, index) => ({
           runId: run.runId,
           ...(run.reportId === undefined ? {} : { reportId: run.reportId }),
-          label:
-            locale === "ko"
-              ? `전체 에이전트 분석 ${runs.length - index}`
-              : `Full agent analysis ${runs.length - index}`,
+          label: runLabel(run, runs.length - index, locale),
           date: formatter.format(new Date(run.createdAt)),
           current: run.runId === projection.snapshot.run.runId,
           live:
@@ -199,7 +316,11 @@ export function LiveOfficeResearchRoom({
   const reportFile =
     report === undefined
       ? pendingReport
-      : researchReportToFile(report, projection.snapshot.run.createdAt);
+      : researchReportToFile(
+          report,
+          projection.snapshot.run.createdAt,
+          comparison,
+        );
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -225,6 +346,19 @@ export function LiveOfficeResearchRoom({
   }, [projection.snapshot.run.symbol]);
 
   useEffect(() => {
+    const symbol = projection.snapshot.run.symbol;
+    const controller = new AbortController();
+    setLiveQuote(undefined);
+    void fetchResearchQuote(symbol, controller.signal)
+      .then(setLiveQuote)
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError"))
+          setLiveQuote(undefined);
+      });
+    return () => controller.abort();
+  }, [projection.snapshot.run.symbol]);
+
+  useEffect(() => {
     const reportId = projection.snapshot.run.reportId;
     if (reportId === undefined) return;
     let active = true;
@@ -232,13 +366,15 @@ export function LiveOfficeResearchRoom({
     void loadReport(reportId, reportReload)
       .then((value) => {
         if (active) {
-          setReport(value);
+          setReport(value.report);
+          setComparison(value.comparison);
           setReportLoadState("idle");
         }
       })
       .catch(() => {
         if (active) {
           setReport(undefined);
+          setComparison(undefined);
           setReportLoadState("failed");
         }
       });
@@ -319,9 +455,9 @@ export function LiveOfficeResearchRoom({
           </div>
         ) : null}
         <ResearchSidebar
-          agents={agents}
+          agents={visibleAgents}
           company={company}
-          defaultAgentIds={agents.map((agent) => agent.id)}
+          defaultAgentIds={visibleAgents.map((agent) => agent.id)}
           history={history}
           locale={locale}
           collapsed={!sidebarOpen}
@@ -335,7 +471,7 @@ export function LiveOfficeResearchRoom({
           current={office.current}
           events={office.events}
           snapshot={snapshot}
-          renderPreviousSnapshot={animation.previousSnapshot}
+          renderPreviousSnapshot={previousSnapshot}
           renderInterpolationAlpha={animation.interpolation}
           locale={locale}
           isPaused={false}
@@ -351,7 +487,7 @@ export function LiveOfficeResearchRoom({
         />
         <MeetingMinutes
           current={office.current}
-          agents={agents}
+          agents={visibleAgents}
           events={office.events}
           locale={locale}
           isComplete={completed}
@@ -360,6 +496,11 @@ export function LiveOfficeResearchRoom({
             ? {}
             : { reportId: projection.snapshot.run.reportId })}
           reportVersion={report?.version ?? 1}
+          pendingAgentIds={
+            projection.snapshot.run.researchTarget?.kind === "department"
+              ? activity.active
+              : []
+          }
           panelOpen={transcriptOpen}
           onPanelToggle={() => setTranscriptOpen((open) => !open)}
         />

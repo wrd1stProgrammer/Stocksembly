@@ -82,6 +82,7 @@ describe("TeamQuestionPanel", () => {
     render(
       <TeamQuestionPanel
         agents={fixtureData.agents}
+        researchEvents={fixtureData.events}
         locale="en"
         reportId={pending.reportId}
         reportVersion={1}
@@ -90,9 +91,15 @@ describe("TeamQuestionPanel", () => {
     );
 
     // When
-    fireEvent.change(screen.getByLabelText("Specialist"), {
-      target: { value: "risk" },
-    });
+    fireEvent.click(screen.getByRole("button", { name: /Choose agent/u }));
+    expect(
+      screen.getByRole("dialog", { name: "Choose a specialist perspective" }),
+    ).toBeVisible();
+    expect(screen.getByText("Research view")).toBeVisible();
+    expect(screen.getByText("Key issue")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Select Liam" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Ask Liam...")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "What could break the base case?" },
     });
@@ -140,7 +147,11 @@ describe("TeamQuestionPanel", () => {
     expect(questionClient.askQuestion.mock.calls[0]?.[0].question).toContain(
       '"advancedReasoning":true',
     );
-    expect(screen.getByRole("option", { name: "Liam" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", {
+        name: "Choose a specialist perspective",
+      }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Risk Lead")).not.toBeInTheDocument();
     expect(questionClient.getQuestion).toHaveBeenCalledWith(pending.questionId);
   });

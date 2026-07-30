@@ -5,6 +5,7 @@ import {
   ReportVersionIdSchema,
 } from "../domain/ids";
 import type { ResearchReport } from "../domain/report";
+import { singleLocaleReportForStorage } from "../domain/reportStorage";
 import {
   type ArtifactCasPort,
   type ArtifactDescriptor,
@@ -102,7 +103,11 @@ export async function persistAuthoritativeReport(
     })
   )
     return { kind: "blocked", reason: "parent_artifact_authentication_failed" };
-  const bytes = new TextEncoder().encode(canonicalJson(assembled.report));
+  const bytes = new TextEncoder().encode(
+    canonicalJson(
+      singleLocaleReportForStorage(assembled.report, input.locale ?? "en"),
+    ),
+  );
   const descriptor = await options.cas.put({
     artifactId: reportArtifactId.data,
     runId: assembled.report.runId,

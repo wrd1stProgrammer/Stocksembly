@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fixturePayload } from "./compositions/fixture";
 import {
   advanceLiveOfficeFrame,
+  advanceLiveOfficeFrameForDisplay,
   createLiveOfficeFrame,
   durablePublicEventTargetTick,
 } from "./liveOfficeAnimation";
@@ -60,5 +61,20 @@ describe("live office animation", () => {
 
     // Then
     expect(next.simulation.tick).toBe(520);
+  });
+
+  it("bounds a large published-event catch-up to one display update", () => {
+    // Given
+    const initial = createLiveOfficeFrame(220);
+
+    // When
+    const next = advanceLiveOfficeFrameForDisplay(
+      initial,
+      OFFICE_CLOCK_CONTRACT.completeTick,
+      OFFICE_CLOCK_CONTRACT.tickMs,
+    );
+
+    // Then
+    expect(next.simulation.tick).toBe(OFFICE_CLOCK_CONTRACT.completeTick);
   });
 });

@@ -242,6 +242,9 @@ export function auditStructuralClaims(raw: unknown) {
     ...(input.marketSnapshot === undefined
       ? {}
       : { marketSnapshot: input.marketSnapshot }),
+    ...(input.metricSnapshot === undefined
+      ? {}
+      : { metricSnapshot: input.metricSnapshot }),
     metrics,
     blockers,
     claims,

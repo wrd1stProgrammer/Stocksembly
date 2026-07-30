@@ -1,4 +1,5 @@
 import type { Locale } from "../../lib/i18n";
+import type { AnticipatedQuestion } from "../anticipatedQuestions";
 import type {
   CompositionOrigin,
   ResearchArtifactFor,
@@ -7,6 +8,9 @@ import type {
   ResearchSnapshot,
   ResearchSnapshotFor,
 } from "../compositionMode";
+import type { ResearchMetricSnapshot } from "../domain/metricSnapshot";
+import type { ResearchComparison } from "../domain/researchComparison";
+import type { ResearchTarget } from "../domain/researchTarget";
 import type { AgentProfile, ResearchCompany, ResearchPhase } from "../types";
 
 export { validateCompositionPayload } from "./payloadValidation";
@@ -21,13 +25,19 @@ export type ResearchEvidenceStrength =
   | "unverified";
 
 export type ResearchFileData = {
+  readonly researchTarget?: ResearchTarget;
+  readonly comparison?: ResearchComparison;
   readonly researchDirection?: string;
   readonly marketSnapshot?: {
     readonly price: string;
     readonly currency: string;
     readonly observedAt: string;
     readonly marketState: string;
+    readonly change?: string;
+    readonly changePercent?: number;
   };
+  readonly metricSnapshot?: ResearchMetricSnapshot;
+  readonly anticipatedQuestions?: readonly AnticipatedQuestion[];
   readonly qualityScorecard?: {
     readonly evidenceCoverage: number;
     readonly freshnessCoverage: number;

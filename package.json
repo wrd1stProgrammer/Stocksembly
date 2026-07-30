@@ -7,7 +7,7 @@
     "node": ">=20.20.0 <21"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 next dev",
     "build": "pnpm research:worker:build && next build",
     "postbuild": "node scripts/prepare-standalone.mjs",
     "start": "pnpm start:local",

@@ -109,6 +109,97 @@ function textFromHtml(bytes: Uint8Array): string {
     .trim();
 }
 
+function filingTagValue(source: string, tag: string): string | undefined {
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const outer = new RegExp(
+    `<(?:[\\w-]+:)?${escaped}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w-]+:)?${escaped}>`,
+    "iu",
+  ).exec(source)?.[1];
+  if (outer === undefined) return undefined;
+  const nested =
+    /<(?:[\w-]+:)?value\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?value>/iu.exec(
+      outer,
+    )?.[1];
+  const value = (nested ?? outer)
+    ?.replace(/<[^>]+>/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  return value === undefined || value.length === 0 ? undefined : value;
+}
+
+function filingBlocks(source: string, tag: string): readonly string[] {
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return [
+    ...source.matchAll(
+      new RegExp(
+        `<(?:[\\w-]+:)?${escaped}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w-]+:)?${escaped}>`,
+        "giu",
+      ),
+    ),
+  ].flatMap((match) => (match[1] === undefined ? [] : [match[1]]));
+}
+
+export function structuredOwnershipFiling(
+  form: string,
+  bytes: Uint8Array,
+): unknown {
+  const source = new TextDecoder().decode(bytes);
+  if (/^(?:3|4|5)(?:\/A)?$/u.test(form)) {
+    const transactions = [
+      ...filingBlocks(source, "nonDerivativeTransaction"),
+      ...filingBlocks(source, "derivativeTransaction"),
+    ]
+      .map((block) => ({
+        security: filingTagValue(block, "securityTitle"),
+        date: filingTagValue(block, "transactionDate"),
+        code: filingTagValue(block, "transactionCode"),
+        shares: filingTagValue(block, "transactionShares"),
+        pricePerShare: filingTagValue(block, "transactionPricePerShare"),
+        acquiredOrDisposed: filingTagValue(
+          block,
+          "transactionAcquiredDisposedCode",
+        ),
+        sharesOwnedAfter: filingTagValue(
+          block,
+          "sharesOwnedFollowingTransaction",
+        ),
+        ownership: filingTagValue(block, "directOrIndirectOwnership"),
+      }))
+      .filter((transaction) =>
+        Object.values(transaction).some((value) => value !== undefined),
+      )
+      .slice(0, 40);
+    return {
+      kind: "insider_transactions",
+      reportingOwner: filingTagValue(source, "rptOwnerName"),
+      issuer: filingTagValue(source, "issuerName"),
+      transactions,
+    };
+  }
+  if (ownershipDataset(form) === "sec_institutional_holdings") {
+    const holdings = filingBlocks(source, "infoTable")
+      .map((block) => ({
+        issuer: filingTagValue(block, "nameOfIssuer"),
+        classTitle: filingTagValue(block, "titleOfClass"),
+        cusip: filingTagValue(block, "cusip"),
+        valueThousandsUsd: filingTagValue(block, "value"),
+        shares: filingTagValue(block, "sshPrnamt"),
+        discretion: filingTagValue(block, "investmentDiscretion"),
+      }))
+      .filter((holding) =>
+        Object.values(holding).some((value) => value !== undefined),
+      )
+      .slice(0, 100);
+    return {
+      kind: "institutional_holdings",
+      filingManager: filingTagValue(source, "name"),
+      reportPeriod: filingTagValue(source, "reportCalendarOrQuarter"),
+      holdings,
+    };
+  }
+  return undefined;
+}
+
 async function put(
   input: InitialCollectionInput,
   bytes: Uint8Array,
@@ -141,6 +232,16 @@ type SelectedFiling = {
   readonly accessionNumber: string;
   readonly primaryDocument: string;
 };
+
+function ownershipDataset(form: string) {
+  if (/^(?:3|4|5)(?:\/A)?$/u.test(form))
+    return "sec_insider_transactions" as const;
+  if (
+    /^(?:13F-HR(?:\/A)?|SC 13[DG](?:\/A)?|SCHEDULE 13[DG](?:\/A)?)$/u.test(form)
+  )
+    return "sec_institutional_holdings" as const;
+  return "sec_filing" as const;
+}
 
 type ObservedCollectionBranch<T> =
   | { readonly status: "fulfilled"; readonly value: T }
@@ -215,10 +316,28 @@ export async function collectInitialEvidence(
     .filter((record) => record.form === "8-K")
     .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
     .slice(0, 2);
+  const insiderFilings = submissions.value.records
+    .filter((record) => /^(?:3|4|5)(?:\/A)?$/u.test(record.form))
+    .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
+    .slice(0, 8);
+  const institutionalFilings = submissions.value.records
+    .filter((record) =>
+      /^(?:13F-HR(?:\/A)?|SC 13[DG](?:\/A)?|SCHEDULE 13[DG](?:\/A)?)$/u.test(
+        record.form,
+      ),
+    )
+    .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
+    .slice(0, 6);
   const selectedFilings = [
-    annual,
-    ...(quarterly === undefined ? [] : [quarterly]),
-    ...currentReports,
+    ...new Map(
+      [
+        annual,
+        ...(quarterly === undefined ? [] : [quarterly]),
+        ...currentReports,
+        ...insiderFilings,
+        ...institutionalFilings,
+      ].map((filing) => [filing.accessionNumber, filing] as const),
+    ).values(),
   ];
   const transport = httpTransport();
   const clock = macroClock();
@@ -301,6 +420,11 @@ export async function collectInitialEvidence(
       )
       .digest("hex"),
   };
+  const annualFilingResult = filingResults.find(
+    ({ filing }) => filing.accessionNumber === annual.accessionNumber,
+  );
+  if (annualFilingResult === undefined)
+    throw new TypeError("sec_annual_filing_result_missing");
   const provider = await collectInsightSentryInitialEvidence({
     dataRoot: input.dataRoot,
     runId: input.runId,
@@ -308,6 +432,10 @@ export async function collectInitialEvidence(
     identity,
     asOf: new Date().toISOString(),
     cas: input.cas,
+    peerProfile: {
+      annualAccessionNumber: annual.accessionNumber,
+      annualText: textFromHtml(annualFilingResult.result.bytes),
+    },
   });
   const identityBytes = packageBytes(input, identity);
   const packagedFilings = filingResults.map(({ filing, result }) => ({
@@ -320,6 +448,9 @@ export async function collectInitialEvidence(
       filedAt: filing.filedAt,
       acceptedAt: filing.acceptedAt,
       periodEnd: filing.period,
+      ...(ownershipDataset(filing.form) === "sec_filing"
+        ? {}
+        : { ownership: structuredOwnershipFiling(filing.form, result.bytes) }),
       text: textFromHtml(result.bytes),
     }),
   }));
@@ -419,7 +550,7 @@ export async function collectInitialEvidence(
     },
     ...filingRecords.map(({ filing, result, artifact }) => ({
       evidenceId: `filing:${filing.accessionNumber}`,
-      dataset: "sec_filing" as const,
+      dataset: ownershipDataset(filing.form),
       rightsSource: "sec_primary_filing" as const,
       retrievedAt: result.provenance.retrievedAt,
       raw: artifact,

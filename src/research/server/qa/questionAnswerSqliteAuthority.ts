@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { z } from "zod";
-import { type ResearchReport, ResearchReportSchema } from "../../domain/report";
+import type { ResearchReport } from "../../domain/report";
+import { parseStoredResearchReport } from "../../domain/reportStorage";
 import type { ArtifactCasPort } from "../../ports/artifacts";
 import { ArtifactDigestSchema } from "../../ports/artifacts";
 import { applyOrderedMigrations } from "../persistence/sqlite/migrations";
@@ -67,7 +68,7 @@ export class QuestionAnswerSqliteAuthority {
     const decoded: unknown = JSON.parse(
       new TextDecoder("utf-8", { fatal: true }).decode(artifact.bytes),
     );
-    const report = ResearchReportSchema.parse(decoded);
+    const report = parseStoredResearchReport(decoded);
     if (
       report.reportId !== row.report_id ||
       report.versionId !== row.report_version_id

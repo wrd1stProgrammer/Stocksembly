@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { buildResearchFileEditorialModel } from "../researchFileEditorialModel";
 import { researchReportToFile } from "../researchReportToFile";
+import { ClaimIdSchema } from "./ids";
 import { ResearchReportSchema } from "./report";
 import { reportTestIds as ids, validReport } from "./report.testSupport";
 
@@ -178,8 +180,58 @@ describe("ResearchReportSchema", () => {
 
     const file = researchReportToFile(parsed, "2026-07-26T00:00:00.000Z");
 
-    expect(file.thesis.ko).toContain("수요는 개선됐지만 수익성은 약해졌습니다.");
-    expect(file.valuation.ko).toContain("매출 성장에도 영업마진은 하락했습니다.");
+    expect(file.thesis.ko).toContain(
+      "수요는 개선됐지만 수익성은 약해졌습니다.",
+    );
+    expect(file.valuation.ko).toContain(
+      "매출 성장에도 영업마진은 하락했습니다.",
+    );
+  });
+
+  it("keeps evidence-linked supporting claims in a focused team report", () => {
+    const report = ResearchReportSchema.parse(validReport());
+    const material = report.claims[0];
+    if (material === undefined) throw new TypeError("fixture claim missing");
+    const supporting = {
+      ...material,
+      claimId: ClaimIdSchema.parse("00000000-0000-4000-8000-000000000099"),
+      materiality: "supporting" as const,
+      text: {
+        en: "A second specialist finding is supported by the sealed evidence.",
+        ko: "두 번째 전문 분석 판단도 봉인된 근거로 뒷받침됩니다.",
+      },
+    };
+
+    const file = researchReportToFile(
+      {
+        ...report,
+        researchTarget: { kind: "department", departmentId: "market" },
+        claims: [
+          {
+            ...material,
+            materiality: "material",
+            text: {
+              en: "The primary specialist finding is supported by sealed evidence.",
+              ko: "첫 번째 전문 분석 판단은 봉인된 근거로 뒷받침됩니다.",
+            },
+          },
+          supporting,
+        ],
+      },
+      "2026-07-30T00:00:00.000Z",
+    );
+
+    expect(file.claimMatrix).toHaveLength(2);
+    expect(file.claimMatrix?.[1]).toMatchObject({
+      verdict: supporting.semanticVerdict,
+      sourceCount: supporting.sourceIds.length,
+    });
+    expect(file.claimMatrix?.[1]?.strength).not.toBe("unverified");
+    const editorial = buildResearchFileEditorialModel(file, "ko");
+    expect(editorial.analysisRows).toHaveLength(2);
+    expect(
+      editorial.analysisRows.every((row) => row.strength !== "unverified"),
+    ).toBe(true);
   });
 
   it("accepts an NVDA 403-limited publication with an explicit provider limitation", () => {

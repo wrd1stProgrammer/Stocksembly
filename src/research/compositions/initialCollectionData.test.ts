@@ -3,6 +3,7 @@ import type { SecClient, SecFetchResult } from "../server/data/sec/secClient";
 import {
   collectSecEvidenceBatch,
   observeCollectionBranch,
+  structuredOwnershipFiling,
 } from "./initialCollectionData";
 
 function result(kind: "company_facts" | "filing_document"): SecFetchResult {
@@ -96,5 +97,42 @@ describe("initial collection concurrency", () => {
 
     // Then
     expect(macro).toEqual({ status: "rejected", reason: macroFailure });
+  });
+
+  it("normalizes Form 4 transactions into decision-ready fields", () => {
+    const xml = `<ownershipDocument>
+      <issuer><issuerName>NVIDIA CORP</issuerName></issuer>
+      <reportingOwner><reportingOwnerId><rptOwnerName>Sample Officer</rptOwnerName></reportingOwnerId></reportingOwner>
+      <nonDerivativeTransaction>
+        <securityTitle><value>Common Stock</value></securityTitle>
+        <transactionDate><value>2026-07-28</value></transactionDate>
+        <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+        <transactionAmounts>
+          <transactionShares><value>1250</value></transactionShares>
+          <transactionPricePerShare><value>178.50</value></transactionPricePerShare>
+          <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+        </transactionAmounts>
+        <postTransactionAmounts><sharesOwnedFollowingTransaction><value>9000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+      </nonDerivativeTransaction>
+    </ownershipDocument>`;
+
+    expect(
+      structuredOwnershipFiling("4", new TextEncoder().encode(xml)),
+    ).toMatchObject({
+      kind: "insider_transactions",
+      reportingOwner: "Sample Officer",
+      issuer: "NVIDIA CORP",
+      transactions: [
+        {
+          security: "Common Stock",
+          date: "2026-07-28",
+          code: "S",
+          shares: "1250",
+          pricePerShare: "178.50",
+          acquiredOrDisposed: "D",
+          sharesOwnedAfter: "9000",
+        },
+      ],
+    });
   });
 });

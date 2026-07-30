@@ -61,22 +61,22 @@ export function furnitureStatesForSnapshot(
   return Object.freeze(
     OFFICE_SCENE_MANIFEST.furniture.map((furniture) => {
       const geometry = rectGeometry(furniture.footprint);
-      const members = OFFICE_SCENE_MANIFEST.roster.filter(
-        (member) => member.departmentId === furniture.roomId,
-      );
-      const seats = members.map((member) => {
+      const seats = OFFICE_SCENE_MANIFEST.roster.flatMap((member) => {
+        if (member.departmentId !== furniture.roomId) return [];
         const actor = actorById.get(member.id);
-        if (!actor) throw new RangeError(`Snapshot has no actor ${member.id}`);
-        return Object.freeze({
-          actorId: member.id,
-          position: cellFoot(member.seat.cell),
-          laptopPosition: cellFoot(member.seat.inputCell),
-          facing: member.seat.facing,
-          occupied:
-            actor.cell.x === member.seat.cell.x &&
-            actor.cell.y === member.seat.cell.y &&
-            (actor.action === "seated-work" || actor.action === "idle"),
-        });
+        if (!actor) return [];
+        return [
+          Object.freeze({
+            actorId: member.id,
+            position: cellFoot(member.seat.cell),
+            laptopPosition: cellFoot(member.seat.inputCell),
+            facing: member.seat.facing,
+            occupied:
+              actor.cell.x === member.seat.cell.x &&
+              actor.cell.y === member.seat.cell.y &&
+              (actor.action === "seated-work" || actor.action === "idle"),
+          }),
+        ];
       });
       return Object.freeze({
         id: furniture.id,

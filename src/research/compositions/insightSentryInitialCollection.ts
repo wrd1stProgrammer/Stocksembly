@@ -18,6 +18,7 @@ import {
   type InsightSentryCompanyInfo,
   type InsightSentryQuote,
 } from "../server/data/insightsentry/insightSentryMarket";
+import { createInsightSentryPeerScreen } from "../server/data/insightsentry/insightSentryPeerSelection";
 import type {
   CalendarDataset,
   DocumentsDataset,
@@ -37,10 +38,25 @@ import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite
 const encoder = new TextEncoder();
 const PROVIDER_DOCS_URL = "https://insightsentry.com/docs";
 const FUNDAMENTAL_SERIES = [
-  "revenue",
-  "net_income",
-  "eps",
-  "operating_margin",
+  "total_revenue_fq",
+  "gross_margin_fq",
+  "operating_margin_fq",
+  "net_income_fq",
+  "earnings_per_share_diluted_fq",
+  "cash_f_operating_activities_fq",
+  "free_cash_flow_fq",
+  "capital_expenditures_fq",
+  "cash_n_short_term_invest_fq",
+  "net_debt_fq",
+  "total_inventory_fq",
+  "accounts_receivables_net_fq",
+  "diluted_shares_outstanding_fq",
+  "return_on_invested_capital_fq",
+  "price_earnings",
+  "enterprise_value_ebitda_fq",
+  "ev_revenue_fq",
+  "earnings_estimate_fq",
+  "sales_estimates_fq",
 ] as const;
 
 export type InsightSentryRequestLedgerEntry = {
@@ -220,6 +236,10 @@ export async function collectInsightSentryInitialEvidence(input: {
   readonly identity: ProviderIdentity;
   readonly asOf: string;
   readonly cas: ArtifactCasPort;
+  readonly peerProfile?: {
+    readonly annualAccessionNumber: string;
+    readonly annualText: string;
+  };
   readonly configuration?: InsightSentryConfigResult;
   readonly adapter?: InsightSentryWireAdapter;
 }): Promise<InsightSentryInitialCollection> {
@@ -256,17 +276,25 @@ export async function collectInsightSentryInitialEvidence(input: {
     news: true,
     documents: true,
     calendar: true,
-    peers: false,
+    peers: input.peerProfile !== undefined,
     options: false,
   } as const;
   const research = createInsightSentryResearchDataAdapter({
     client,
     rollout,
     classifyNews: deterministicClassifier(),
-    screenPeers: async () => ({
-      retrievedAt: input.asOf,
-      peers: [],
-    }),
+    screenPeers:
+      input.peerProfile === undefined
+        ? async () => {
+            throw new TypeError("peer profile unavailable");
+          }
+        : createInsightSentryPeerScreen({
+            client,
+            dataRoot: input.dataRoot,
+            asOf: input.asOf,
+            annualAccessionNumber: input.peerProfile.annualAccessionNumber,
+            annualText: input.peerProfile.annualText,
+          }),
   });
   const unavailableTechnical = unavailable<{
     readonly company: InsightSentryCompanyInfo;
@@ -478,6 +506,14 @@ export async function collectInsightSentryInitialEvidence(input: {
       calendar.data,
       ["calendar"],
       "events",
+    );
+  if (peers.status === "available")
+    await commit(
+      "insightsentry:peers",
+      "insightsentry_peers",
+      peers.data,
+      ["stock_screener"],
+      "relative valuation metrics",
     );
 
   const entries = Object.freeze(

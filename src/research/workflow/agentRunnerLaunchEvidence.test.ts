@@ -12,7 +12,7 @@ import {
 const EMPTY_TOOL_TRANSCRIPT_HASH =
   "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570";
 const TRUSTED_BINARY_HASH =
-  "6d8be49e49751554df16572369e636cbe02c84b208cad3dc35528c846eeca223";
+  "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e";
 
 class RecordingEvidenceStore {
   readonly inputs: RecordAgentRunnerEvidenceInput[] = [];
