@@ -1,0 +1,18 @@
+{
+  "position": { "en": "Revenue growth supports the thesis.", "ko": "매출 성장이 투자 논지를 지지합니다." },
+  "rationale": { "en": "Revenue growth supports the thesis.", "ko": "매출 성장이 투자 논지를 지지합니다." },
+  "sections": [
+    { "sectionKey": "supported_analysis", "text": { "en": "Revenue growth supports the thesis.", "ko": "매출 성장이 투자 논지를 지지합니다." }, "claimIds": ["00000000-0000-4000-8000-000000000001"], "checkpoint": { "en": "Revenue growth remains positive.", "ko": "매출 성장이 양수를 유지합니다." } },
+    { "sectionKey": "valuation_comparison", "text": { "en": "As an AI with tool access, 10 20 30 40 prove it is better.", "ko": "AI로서 도구 접근으로 10 20 30 40이 더 낫다고 봅니다." }, "claimIds": ["00000000-0000-4000-8000-000000000001"], "checkpoint": { "en": "Revenue growth remains positive.", "ko": "매출 성장이 양수를 유지합니다." } }
+  ],
+  "comparators": [{ "comparatorId": "peer", "role": "valuation_proxy", "rationale": { "en": "similar peer", "ko": "유사 기업" }, "comparableMetricKeys": ["revenue_growth"] }],
+  "anticipatedQuestions": [
+    { "questionId": "00000000-0000-4000-8000-000000000011", "decisionKey": "growth", "question": { "en": "What dominates?", "ko": "무엇이 우세한가요?" }, "answer": { "en": "Revenue growth supports the thesis.", "ko": "매출 성장이 투자 논지를 지지합니다." }, "primaryClaimIds": ["00000000-0000-4000-8000-000000000001"], "evidenceArtifactIds": ["00000000-0000-4000-8000-000000000002"], "rank": 1 },
+    { "questionId": "00000000-0000-4000-8000-000000000012", "decisionKey": "growth", "question": { "en": "What dominates next?", "ko": "다음에는 무엇이 우세한가요?" }, "answer": { "en": "Revenue growth supports the thesis.", "ko": "매출 성장이 투자 논지를 지지합니다." }, "primaryClaimIds": ["00000000-0000-4000-8000-000000000001"], "evidenceArtifactIds": ["00000000-0000-4000-8000-000000000002"], "rank": 2 },
+    { "questionId": "00000000-0000-4000-8000-000000000013", "decisionKey": "growth_third", "question": { "en": "What else dominates?", "ko": "또 무엇이 우세한가요?" }, "answer": { "en": "Revenue growth supports the thesis.", "ko": "매출 성장이 투자 논지를 지지합니다." }, "primaryClaimIds": ["00000000-0000-4000-8000-000000000001"], "evidenceArtifactIds": ["00000000-0000-4000-8000-000000000002"], "rank": 3 }
+  ],
+  "supportedNumbers": [],
+  "permittedClaimIds": ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000003"],
+  "permittedEvidenceArtifactIds": ["00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000004"],
+  "confidence": "medium"
+}
