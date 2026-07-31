@@ -6,7 +6,9 @@ const FilingDocumentSchema = z
   .string()
   .min(1)
   .max(200)
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:htm|html|txt)$/i);
+  .regex(
+    /^(?:[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]*\.(?:htm|html|txt|xml)$/i,
+  );
 const SubmissionsFileSchema = z
   .string()
   .regex(/^CIK\d{10}-submissions-\d{3}\.json$/);

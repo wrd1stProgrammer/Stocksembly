@@ -144,7 +144,12 @@ function validateMediaType(request: SecRequest, value: string): void {
         throw new SecClientError("SEC_UNEXPECTED_MEDIA_TYPE");
       return;
     case "filing_document":
-      if (value !== "text/html" && value !== "text/plain")
+      if (
+        value !== "text/html" &&
+        value !== "text/plain" &&
+        value !== "application/xml" &&
+        value !== "text/xml"
+      )
         throw new SecClientError("SEC_UNEXPECTED_MEDIA_TYPE");
       return;
   }

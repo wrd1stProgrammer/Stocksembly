@@ -35,6 +35,15 @@ describe("SEC request templates and endpoint semantics", () => {
         return jsonResponse(COMPANY_FACTS);
       if (request.url.pathname.includes("submissions-001"))
         return jsonResponse(HISTORICAL_SUBMISSIONS);
+      if (request.url.pathname.endsWith(".xml"))
+        return {
+          status: 200,
+          headers: { "content-type": "application/xml" },
+          body: (async function* () {
+            yield Buffer.from("<ownershipDocument />");
+          })(),
+          abort: () => undefined,
+        };
       return {
         status: 200,
         headers: { "content-type": "text/html" },
@@ -62,10 +71,16 @@ describe("SEC request templates and endpoint semantics", () => {
       accessionNumber: "0000320193-26-000001",
       primaryDocument: "synthetic-10k.htm",
     });
+    const ownershipFiling = await client.fetch({
+      kind: "filing_document",
+      cik: "0000320193",
+      accessionNumber: "0000320193-26-000002",
+      primaryDocument: "xslF345X06/wk-form4_1783371701.xml",
+    });
 
     // Then
     expect(
-      [tickers, facts, history, filing].every(
+      [tickers, facts, history, filing, ownershipFiling].every(
         (result) => result.bytes.byteLength > 0,
       ),
     ).toBe(true);
@@ -74,12 +89,21 @@ describe("SEC request templates and endpoint semantics", () => {
       "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
       "https://data.sec.gov/submissions/CIK0000320193-submissions-001.json",
       "https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/synthetic-10k.htm",
+      "https://www.sec.gov/Archives/edgar/data/320193/000032019326000002/xslF345X06/wk-form4_1783371701.xml",
     ]);
     expect(targets.every((target) => target.startsWith("https://"))).toBe(true);
     await expect(
       client.fetch({
         kind: "company_tickers_exchange",
         url: "https://outside.invalid/tickers.json",
+      }),
+    ).rejects.toMatchObject({ code: "SEC_REQUEST_INVALID" });
+    await expect(
+      client.fetch({
+        kind: "filing_document",
+        cik: "0000320193",
+        accessionNumber: "0000320193-26-000003",
+        primaryDocument: "../outside.xml",
       }),
     ).rejects.toMatchObject({ code: "SEC_REQUEST_INVALID" });
   });
