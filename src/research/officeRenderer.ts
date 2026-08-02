@@ -115,10 +115,26 @@ function clamp(value: number, minimum: number, maximum: number): number {
 function actorWorld(
   current: WorldPoint,
   previous: WorldPoint | undefined,
+  currentCell: Cell,
+  previousCell: Cell | undefined,
   interpolation: number,
   reducedMotion: boolean,
 ): WorldPoint {
   if (reducedMotion || !previous) return Object.freeze({ ...current });
+  // A normal simulation step reserves at most one cardinal cell.  If a
+  // directive, recovery or reduced-motion update ever changes more than one
+  // cell between snapshots, interpolating it would draw the actor through a
+  // wall (the visible "teleport after walking in place" artefact).  Snap to
+  // the authoritative cell instead and let the next valid reservation resume
+  // interpolation.
+  if (
+    previousCell !== undefined &&
+    Math.abs(currentCell.x - previousCell.x) +
+      Math.abs(currentCell.y - previousCell.y) >
+      1
+  ) {
+    return Object.freeze({ ...current });
+  }
   const progress = clamp(interpolation, 0, 1);
   return Object.freeze({
     x: previous.x + (current.x - previous.x) * progress,
@@ -153,9 +169,11 @@ export function renderOfficeSnapshot(
         throw new RangeError(`Manifest has no actor ${actor.id}`);
       }
       const previous = previousById.get(actor.id);
-      const world = actorWorld(
+      const interpolatedWorld = actorWorld(
         actor.world,
         previous?.world,
+        actor.cell,
+        previous?.cell,
         input.interpolation ?? 1,
         input.reducedMotion ?? false,
       );
@@ -181,7 +199,22 @@ export function renderOfficeSnapshot(
           : actor.id === input.conversation?.speakerId
             ? "talk"
             : "listen";
-      const animation = animationFor(action);
+      const atWorkSeat =
+        actor.cell.x === member.seat.cell.x &&
+        actor.cell.y === member.seat.cell.y &&
+        (action === "idle" || action === "seated-work");
+      const animation = atWorkSeat ? "sit" : animationFor(action);
+      const enteringSeat =
+        animation === "sit" &&
+        previous !== undefined &&
+        (previous.action === "walk" || previous.action === "return") &&
+        (previous.cell.x !== actor.cell.x || previous.cell.y !== actor.cell.y);
+      // Do not render the final walking interpolation with a seated frame.
+      // The seat is a semantic interaction point, so switching to the seated
+      // pose snaps the feet to the chair and avoids the visible slide into it.
+      const world = enteringSeat
+        ? Object.freeze({ ...actor.world })
+        : interpolatedWorld;
       const facing =
         counterpart === undefined
           ? actor.facing

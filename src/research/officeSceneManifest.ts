@@ -164,7 +164,10 @@ export const OFFICE_SCENE_MANIFEST = {
       id: "market-table",
       roomId: "market",
       kind: "round",
-      footprint: { min: { x: 5, y: 8 }, max: { x: 10, y: 10 } },
+      // Keep the three market seats on the same table footprint.  The old
+      // six-cell footprint left the benchmark chair (x=12) floating outside
+      // the table and made its laptop look detached from the room.
+      footprint: { min: { x: 5, y: 8 }, max: { x: 11, y: 10 } },
       accent: 0x5b82a5,
     },
     {
@@ -207,8 +210,11 @@ export const OFFICE_SCENE_MANIFEST = {
       role: { en: "Market Lead", ko: "시장 책임" },
       specialty: { en: "Market regime and synthesis", ko: "시장 국면·종합" },
       seat: {
-        cell: { x: 7, y: 6 },
-        inputCell: { x: 7, y: 7 },
+        // The lead sits directly above the table.  Keep the input on the
+        // table's north edge so the chair, actor and laptop share one visual
+        // anchor instead of floating a full tile above the furniture.
+        cell: { x: 7, y: 7 },
+        inputCell: { x: 7, y: 8 },
         facing: "down",
       },
       finalLocation: "forum",
@@ -248,8 +254,8 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "지수·섹터 ETF·동종사·금리·베타",
       },
       seat: {
-        cell: { x: 12, y: 11 },
-        inputCell: { x: 12, y: 10 },
+        cell: { x: 11, y: 11 },
+        inputCell: { x: 11, y: 10 },
         facing: "up",
       },
       finalLocation: "department",
@@ -267,8 +273,8 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "경쟁우위·전략·종합",
       },
       seat: {
-        cell: { x: 35, y: 6 },
-        inputCell: { x: 35, y: 7 },
+        cell: { x: 35, y: 7 },
+        inputCell: { x: 35, y: 8 },
         facing: "down",
       },
       finalLocation: "forum",
@@ -321,8 +327,8 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "재무제표·종합",
       },
       seat: {
-        cell: { x: 7, y: 23 },
-        inputCell: { x: 7, y: 24 },
+        cell: { x: 7, y: 24 },
+        inputCell: { x: 7, y: 25 },
         facing: "down",
       },
       finalLocation: "forum",
@@ -340,8 +346,8 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "가치평가 배수·이익 시나리오",
       },
       seat: {
-        cell: { x: 11, y: 23 },
-        inputCell: { x: 11, y: 24 },
+        cell: { x: 11, y: 24 },
+        inputCell: { x: 11, y: 25 },
         facing: "down",
       },
       finalLocation: "department",
@@ -375,8 +381,8 @@ export const OFFICE_SCENE_MANIFEST = {
       role: { en: "Risk Lead", ko: "리스크 책임" },
       specialty: { en: "Downside risks and synthesis", ko: "하방 위험·종합" },
       seat: {
-        cell: { x: 31, y: 23 },
-        inputCell: { x: 31, y: 24 },
+        cell: { x: 31, y: 24 },
+        inputCell: { x: 31, y: 25 },
         facing: "down",
       },
       finalLocation: "forum",
