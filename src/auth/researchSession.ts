@@ -8,17 +8,32 @@ export type CurrentAuthTokens = {
   readonly identityToken?: string;
 };
 
+const AUTH_SESSION_RETRY_DELAYS_MS = [0, 150, 400, 800] as const;
+
+async function wait(delayMs: number): Promise<void> {
+  if (delayMs === 0) return;
+  await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+}
+
 export async function currentAuthTokens(): Promise<CurrentAuthTokens> {
   if (!configureAmplifyAuth()) return {};
-  const session = await fetchAuthSession();
-  return {
-    ...(session.tokens?.accessToken
-      ? { accessToken: session.tokens.accessToken.toString() }
-      : {}),
-    ...(session.tokens?.idToken
-      ? { identityToken: session.tokens.idToken.toString() }
-      : {}),
-  };
+  for (const delayMs of AUTH_SESSION_RETRY_DELAYS_MS) {
+    await wait(delayMs);
+    try {
+      const session = await fetchAuthSession();
+      const accessToken = session.tokens?.accessToken?.toString();
+      const identityToken = session.tokens?.idToken?.toString();
+      if (accessToken !== undefined || identityToken !== undefined) {
+        return {
+          ...(accessToken === undefined ? {} : { accessToken }),
+          ...(identityToken === undefined ? {} : { identityToken }),
+        };
+      }
+    } catch {
+      // Cognito may still be restoring its browser session after sign-in.
+    }
+  }
+  return {};
 }
 
 export async function syncResearchSession(): Promise<boolean> {

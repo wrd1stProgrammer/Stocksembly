@@ -141,6 +141,46 @@ function emptyBillingStatus(authenticated: boolean) {
   };
 }
 
+function localAccountOrigin(request: Request): URL | undefined {
+  const configured = process.env["STOCKSEMBLY_ACCOUNT_ORIGIN"];
+  if (configured === undefined || configured.trim() === "") return undefined;
+  try {
+    const origin = new URL(configured);
+    const current = new URL(request.url);
+    if (
+      origin.origin === current.origin ||
+      (origin.protocol !== "http:" && origin.protocol !== "https:")
+    )
+      return undefined;
+    return origin;
+  } catch {
+    return undefined;
+  }
+}
+
+async function proxyAuthenticatedGet(
+  request: Request,
+  pathname: string,
+): Promise<Response | undefined> {
+  const origin = localAccountOrigin(request);
+  if (origin === undefined) return undefined;
+  const target = new URL(pathname, origin);
+  const headers = new Headers();
+  for (const name of [
+    "authorization",
+    "cookie",
+    "x-stocksembly-identity-token",
+  ]) {
+    const value = request.headers.get(name);
+    if (value !== null) headers.set(name, value);
+  }
+  return await fetch(target, {
+    method: "GET",
+    headers,
+    cache: "no-store",
+  });
+}
+
 async function listRuns(
   context: ApiContext,
   request: Request,
@@ -155,6 +195,13 @@ async function listRuns(
   const cursor = decodeRunCursor(cursorRaw);
   if (cursorRaw !== null && cursor === undefined)
     return apiError(400, "CURSOR_INVALID");
+  if (context.options.accountStore === undefined) {
+    const remote = await proxyAuthenticatedGet(
+      request,
+      `${url.pathname}${url.search}`,
+    );
+    if (remote !== undefined && remote.ok) return remote;
+  }
   const localValues = context.repository.listRuns(principal, limit + 1, cursor);
   const storedValues =
     (await context.options.accountStore?.listResearchRuns?.(
@@ -489,6 +536,14 @@ export async function createResearchApi(
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return emptyBillingStatus(false);
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedGet(
+          request,
+          "/api/billing/status",
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as WhopBillingStatus;
+      }
       if (
         options.billingRequired === true &&
         options.accountStore?.billingStatus === undefined

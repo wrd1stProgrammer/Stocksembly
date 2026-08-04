@@ -10,7 +10,7 @@ import type { PublicRun } from "../../research/client/schemas";
 
 type LoadState = "idle" | "loading" | "ready" | "failed";
 
-const LOAD_RETRY_DELAYS_MS = [0, 350] as const;
+const LOAD_RETRY_DELAYS_MS = [0, 250, 800, 1_600] as const;
 
 async function wait(delayMs: number): Promise<void> {
   if (delayMs === 0) return;

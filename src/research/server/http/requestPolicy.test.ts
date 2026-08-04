@@ -145,7 +145,7 @@ describe("local HTTP request policy", () => {
       "mismatched Origin",
       {
         host: "127.0.0.1:3000",
-        origin: "http://localhost:3000",
+        origin: "http://evil.example",
         "sec-fetch-site": "same-origin",
         "content-type": "application/json",
       },

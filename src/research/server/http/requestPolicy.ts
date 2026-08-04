@@ -16,6 +16,31 @@ export type RequestPolicyOptions = {
   readonly mutation: boolean;
 };
 
+function localOriginAliases(origin: string): readonly string[] {
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    return [origin];
+  }
+  if (
+    parsed.hostname !== "localhost" &&
+    parsed.hostname !== "127.0.0.1" &&
+    parsed.hostname !== "[::1]"
+  )
+    return [origin];
+
+  return ["localhost", "127.0.0.1", "[::1]"].map((hostname) => {
+    const alias = new URL(parsed.href);
+    alias.hostname = hostname;
+    return alias.origin;
+  });
+}
+
+function localHostAliases(origin: string): readonly string[] {
+  return localOriginAliases(origin).map((value) => new URL(value).host);
+}
+
 function hasSafeFrameworkForwarding(
   headers: Headers,
   options: RequestPolicyOptions,
@@ -43,7 +68,9 @@ function hasSafeFrameworkForwarding(
   const allowedOrigin = new URL(options.allowedOrigin);
   const forwardedFor = headers.get("x-forwarded-for");
   return (
-    headers.get("x-forwarded-host") === options.allowedHost &&
+    localHostAliases(options.allowedOrigin).includes(
+      headers.get("x-forwarded-host") ?? "",
+    ) &&
     headers.get("x-forwarded-port") ===
       (allowedOrigin.port ||
         (allowedOrigin.protocol === "https:" ? "443" : "80")) &&
@@ -70,7 +97,12 @@ function hasSafeQueryContext(
   )
     return false;
   if (request.headers.get("host") !== options.allowedHost) {
-    return false;
+    if (
+      !localHostAliases(options.allowedOrigin).includes(
+        request.headers.get("host") ?? "",
+      )
+    )
+      return false;
   }
   if (
     request.method === "OPTIONS" ||
@@ -79,7 +111,10 @@ function hasSafeQueryContext(
     return false;
   }
   const origin = request.headers.get("origin");
-  if (origin !== null && origin !== options.allowedOrigin) {
+  if (
+    origin !== null &&
+    !localOriginAliases(options.allowedOrigin).includes(origin)
+  ) {
     return false;
   }
   const fetchSite = request.headers.get("sec-fetch-site");
@@ -133,7 +168,9 @@ export async function enforceRequestPolicy(
     return ALLOWED;
   }
   if (
-    request.headers.get("origin") !== options.allowedOrigin ||
+    !localOriginAliases(options.allowedOrigin).includes(
+      request.headers.get("origin") ?? "",
+    ) ||
     request.headers.get("sec-fetch-site") !== "same-origin"
   ) {
     return FORBIDDEN;

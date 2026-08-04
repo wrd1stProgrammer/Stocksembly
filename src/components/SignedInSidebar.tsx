@@ -51,6 +51,13 @@ export const PREFERRED_LOCALE_STORAGE_KEY = "stocksembly:preferred-locale";
 
 type LoadState = "loading" | "ready" | "failed";
 
+const LOAD_RETRY_DELAYS_MS = [0, 250, 800, 1_600] as const;
+
+async function wait(delayMs: number): Promise<void> {
+  if (delayMs === 0) return;
+  await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+}
+
 type HistoryGroup = {
   readonly symbol: string;
   readonly runs: readonly PublicRun[];
@@ -93,14 +100,22 @@ export function SignedInSidebar({
 
   const loadRuns = useCallback(async () => {
     setLoadState("loading");
-    try {
-      const client = createAuthenticatedResearchClient();
-      await client.bootstrapSession();
-      setRuns((await client.listRuns?.(12)) ?? []);
-      setLoadState("ready");
-    } catch {
-      setLoadState("failed");
+    const client = createAuthenticatedResearchClient();
+    let lastError: unknown;
+    for (const delayMs of LOAD_RETRY_DELAYS_MS) {
+      await wait(delayMs);
+      try {
+        await client.bootstrapSession();
+        setRuns((await client.listRuns?.(12)) ?? []);
+        setLoadState("ready");
+        return;
+      } catch (error) {
+        lastError = error;
+      }
     }
+    if (process.env.NODE_ENV !== "production")
+      console.error("SIDEBAR_RECENT_RESEARCH_LOAD_FAILED", lastError);
+    setLoadState("failed");
   }, []);
 
   useEffect(() => {
