@@ -23,40 +23,21 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Create or reset Cognito account
+      - name: Create Cognito test account
         id: cognito
         run: |
           set -euo pipefail
-          if ! aws cognito-idp admin-get-user \
-            --user-pool-id "$COGNITO_USER_POOL_ID" \
-            --username "$TEST_ACCOUNT_EMAIL" \
-            >/dev/null 2>&1; then
-            aws cognito-idp admin-create-user \
-              --user-pool-id "$COGNITO_USER_POOL_ID" \
-              --username "$TEST_ACCOUNT_EMAIL" \
-              --user-attributes \
-                Name=email,Value="$TEST_ACCOUNT_EMAIL" \
-                Name=email_verified,Value=true \
-              --message-action SUPPRESS \
-              >/dev/null
-          fi
-          aws cognito-idp admin-update-user-attributes \
-            --user-pool-id "$COGNITO_USER_POOL_ID" \
-            --username "$TEST_ACCOUNT_EMAIL" \
-            --user-attributes \
-              Name=email,Value="$TEST_ACCOUNT_EMAIL" \
-              Name=email_verified,Value=true \
-            >/dev/null
-          aws cognito-idp admin-set-user-password \
-            --user-pool-id "$COGNITO_USER_POOL_ID" \
-            --username "$TEST_ACCOUNT_EMAIL" \
-            --password "$TEST_ACCOUNT_PASSWORD" \
-            --permanent
-          subject="$(aws cognito-idp admin-get-user \
-            --user-pool-id "$COGNITO_USER_POOL_ID" \
-            --username "$TEST_ACCOUNT_EMAIL" \
-            --query 'UserAttributes[?Name==`sub`].Value' \
-            --output text)"
+          payload="$(jq -nc \
+            --arg clientId "5njm1pei6ltopdks0g4a1m5cab" \
+            --arg username "$TEST_ACCOUNT_EMAIL" \
+            --arg password "$TEST_ACCOUNT_PASSWORD" \
+            '{ClientId:$clientId,Username:$username,Password:$password,UserAttributes:[{Name:"email",Value:$username}]}')"
+          response="$(curl --fail --silent --show-error \
+            -X POST "https://cognito-idp.${AWS_REGION}.amazonaws.com/" \
+            -H 'Content-Type: application/x-amz-json-1.1' \
+            -H 'X-Amz-Target: AWSCognitoIdentityProviderService.SignUp' \
+            --data "$payload")"
+          subject="$(printf '%s' "$response" | jq -r '.UserSub // empty')"
           test -n "$subject"
           printf 'subject=%s\n' "$subject" >> "$GITHUB_OUTPUT"
       - name: Seed 100 credits through Systems Manager
