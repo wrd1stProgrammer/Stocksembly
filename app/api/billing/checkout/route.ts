@@ -27,7 +27,10 @@ export async function GET(request: Request): Promise<Response> {
       planKey,
     );
     if (response.status === 401 && !acceptsJson(request)) {
-      const loginUrl = new URL("/login", request.url);
+      const publicOrigin =
+        process.env["STOCKSEMBLY_PUBLIC_ORIGIN"]?.trim() ??
+        new URL(request.url).origin;
+      const loginUrl = new URL("/login", publicOrigin);
       const checkoutUrl = new URL(request.url);
       loginUrl.searchParams.set(
         "next",
