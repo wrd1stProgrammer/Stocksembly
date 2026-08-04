@@ -104,10 +104,10 @@ docker exec \
         `INSERT INTO entitlements(
           principal_id, plan_code, status, current_period_start,
           current_period_end, created_at, updated_at, monthly_credit_limit
-        ) VALUES ($1, 'pro', 'active', $2, $3, $4, $4, 100)
+        ) VALUES ($1, $$pro$$, $$active$$, $2, $3, $4, $4, 100)
         ON CONFLICT (principal_id) DO UPDATE SET
-          plan_code = 'pro',
-          status = 'active',
+          plan_code = $$pro$$,
+          status = $$active$$,
           current_period_start = EXCLUDED.current_period_start,
           current_period_end = EXCLUDED.current_period_end,
           monthly_credit_limit = 100,
@@ -118,10 +118,10 @@ docker exec \
         `INSERT INTO credit_grants(
           grant_key, principal_id, period_key, plan_code, credits,
           created_at, updated_at
-        ) VALUES ($1, $2, $3, 'pro', 100, $4, $4)
+        ) VALUES ($1, $2, $3, $$pro$$, 100, $4, $4)
         ON CONFLICT (principal_id, period_key) DO UPDATE SET
           credits = GREATEST(credit_grants.credits, 100),
-          plan_code = 'pro',
+          plan_code = $$pro$$,
           updated_at = EXCLUDED.updated_at`,
         [
           `credit:${principalId}:${periodKey}`,
