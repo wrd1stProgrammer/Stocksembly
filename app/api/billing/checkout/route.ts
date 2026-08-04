@@ -13,12 +13,29 @@ function parsePlanKey(value: string | null): BillingPlanKey | undefined {
     : undefined;
 }
 
+function acceptsJson(request: Request): boolean {
+  return request.headers.get("accept")?.includes("application/json") ?? false;
+}
+
 export async function GET(request: Request): Promise<Response> {
   const planKey = parsePlanKey(new URL(request.url).searchParams.get("plan"));
   if (planKey === undefined)
     return Response.json({ error: "BILLING_PLAN_INVALID" }, { status: 400 });
   try {
-    return await (await getLiveResearchApi()).billingCheckout(request, planKey);
+    const response = await (await getLiveResearchApi()).billingCheckout(
+      request,
+      planKey,
+    );
+    if (response.status === 401 && !acceptsJson(request)) {
+      const loginUrl = new URL("/login", request.url);
+      const checkoutUrl = new URL(request.url);
+      loginUrl.searchParams.set(
+        "next",
+        `${checkoutUrl.pathname}${checkoutUrl.search}`,
+      );
+      return Response.redirect(loginUrl, 303);
+    }
+    return response;
   } catch (error) {
     console.error("Whop checkout is unavailable", error);
     return Response.json(
