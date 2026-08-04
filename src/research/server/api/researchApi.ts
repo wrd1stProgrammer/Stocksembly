@@ -142,7 +142,7 @@ function emptyBillingStatus(authenticated: boolean) {
 }
 
 function localAccountOrigin(request: Request): URL | undefined {
-  const configured = process.env["STOCKSEMBLY_ACCOUNT_ORIGIN"];
+  const configured = process.env.STOCKSEMBLY_ACCOUNT_ORIGIN;
   if (configured === undefined || configured.trim() === "") return undefined;
   try {
     const origin = new URL(configured);
@@ -161,6 +161,9 @@ function localAccountOrigin(request: Request): URL | undefined {
 async function proxyAuthenticatedGet(
   request: Request,
   pathname: string,
+  options?: {
+    readonly accept?: string;
+  },
 ): Promise<Response | undefined> {
   const origin = localAccountOrigin(request);
   if (origin === undefined) return undefined;
@@ -174,6 +177,7 @@ async function proxyAuthenticatedGet(
     const value = request.headers.get(name);
     if (value !== null) headers.set(name, value);
   }
+  if (options?.accept !== undefined) headers.set("accept", options.accept);
   return await fetch(target, {
     method: "GET",
     headers,
@@ -200,7 +204,7 @@ async function listRuns(
       request,
       `${url.pathname}${url.search}`,
     );
-    if (remote !== undefined && remote.ok) return remote;
+    if (remote?.ok) return remote;
   }
   const localValues = context.repository.listRuns(principal, limit + 1, cursor);
   const storedValues =
@@ -571,13 +575,29 @@ export async function createResearchApi(
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return apiError(401, "AUTHENTICATION_REQUIRED");
-      if (options.accountStore === undefined)
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedGet(
+          request,
+          `/api/billing/checkout?plan=${encodeURIComponent(planKey)}`,
+          { accept: "application/json" },
+        );
+        if (remote?.ok === true) {
+          const payload: unknown = await remote.json();
+          if (
+            typeof payload === "object" &&
+            payload !== null &&
+            "purchaseUrl" in payload &&
+            typeof payload.purchaseUrl === "string"
+          )
+            return apiJson({ purchaseUrl: payload.purchaseUrl });
+        }
         return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+      }
       await options.accountStore.syncUser(
         authentication.principal,
         options.now?.() ?? new Date().toISOString(),
       );
-      const configuredOrigin = process.env["STOCKSEMBLY_PUBLIC_ORIGIN"];
+      const configuredOrigin = process.env.STOCKSEMBLY_PUBLIC_ORIGIN;
       const origin = configuredOrigin ?? new URL(request.url).origin;
       const checkout = await createWhopCheckout({
         planKey,
