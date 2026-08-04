@@ -142,7 +142,7 @@ function emptyBillingStatus(authenticated: boolean) {
 }
 
 function localAccountOrigin(request: Request): URL | undefined {
-  const configured = process.env.STOCKSEMBLY_ACCOUNT_ORIGIN;
+  const configured = process.env["STOCKSEMBLY_ACCOUNT_ORIGIN"];
   if (configured === undefined || configured.trim() === "") return undefined;
   try {
     const origin = new URL(configured);
@@ -597,7 +597,7 @@ export async function createResearchApi(
         authentication.principal,
         options.now?.() ?? new Date().toISOString(),
       );
-      const configuredOrigin = process.env.STOCKSEMBLY_PUBLIC_ORIGIN;
+      const configuredOrigin = process.env["STOCKSEMBLY_PUBLIC_ORIGIN"];
       const origin = configuredOrigin ?? new URL(request.url).origin;
       const checkout = await createWhopCheckout({
         planKey,
