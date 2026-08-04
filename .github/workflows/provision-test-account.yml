@@ -23,21 +23,33 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Create Cognito test account
+      - name: Create or reset Cognito test account
         id: cognito
         run: |
           set -euo pipefail
-          payload="$(jq -nc \
-            --arg clientId "5njm1pei6ltopdks0g4a1m5cab" \
-            --arg username "$TEST_ACCOUNT_EMAIL" \
-            --arg password "$TEST_ACCOUNT_PASSWORD" \
-            '{ClientId:$clientId,Username:$username,Password:$password,UserAttributes:[{Name:"email",Value:$username}]}')"
-          response="$(curl --fail --silent --show-error \
-            -X POST "https://cognito-idp.${AWS_REGION}.amazonaws.com/" \
-            -H 'Content-Type: application/x-amz-json-1.1' \
-            -H 'X-Amz-Target: AWSCognitoIdentityProviderService.SignUp' \
-            --data "$payload")"
-          subject="$(printf '%s' "$response" | jq -r '.UserSub // empty')"
+          if user_json="$(aws cognito-idp admin-get-user \
+            --user-pool-id "$COGNITO_USER_POOL_ID" \
+            --username "$TEST_ACCOUNT_EMAIL" \
+            --output json 2>/dev/null)"; then
+            subject="$(printf '%s' "$user_json" | jq -r \
+              '.UserAttributes[] | select(.Name == "sub") | .Value')"
+          else
+            user_json="$(aws cognito-idp admin-create-user \
+              --user-pool-id "$COGNITO_USER_POOL_ID" \
+              --username "$TEST_ACCOUNT_EMAIL" \
+              --user-attributes \
+                "Name=email,Value=$TEST_ACCOUNT_EMAIL" \
+                "Name=email_verified,Value=true" \
+              --message-action SUPPRESS \
+              --output json)"
+            subject="$(printf '%s' "$user_json" | jq -r \
+              '.User.Attributes[] | select(.Name == "sub") | .Value')"
+          fi
+          aws cognito-idp admin-set-user-password \
+            --user-pool-id "$COGNITO_USER_POOL_ID" \
+            --username "$TEST_ACCOUNT_EMAIL" \
+            --password "$TEST_ACCOUNT_PASSWORD" \
+            --permanent
           test -n "$subject"
           printf 'subject=%s\n' "$subject" >> "$GITHUB_OUTPUT"
       - name: Seed 100 credits through Systems Manager
