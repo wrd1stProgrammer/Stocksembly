@@ -65,8 +65,11 @@ jobs:
             --output text)"
           aws ssm wait command-executed \
             --command-id "$command_id" \
-            --instance-id "$INSTANCE_ID"
-          aws ssm get-command-invocation \
+            --instance-id "$INSTANCE_ID" || true
+          invocation="$(aws ssm get-command-invocation \
             --command-id "$command_id" \
             --instance-id "$INSTANCE_ID" \
-            --query '{status:Status,stdout:StandardOutputContent,stderr:StandardErrorContent}'
+            --query '{status:Status,stdout:StandardOutputContent,stderr:StandardErrorContent}' \
+            --output json)"
+          printf '%s\n' "$invocation"
+          test "$(printf '%s' "$invocation" | jq -r '.status')" = "Success"
