@@ -45,6 +45,19 @@ jobs:
           fi
           test -n "$subject"
           printf 'subject=%s\n' "$subject" >> "$GITHUB_OUTPUT"
+      - name: Confirm Cognito test account
+        run: |
+          set -euo pipefail
+          status="$(aws cognito-idp admin-get-user \
+            --user-pool-id "$COGNITO_USER_POOL_ID" \
+            --username "$TEST_ACCOUNT_EMAIL" \
+            --query 'UserStatus' \
+            --output text)"
+          if [[ "$status" != "CONFIRMED" ]]; then
+            aws cognito-idp admin-confirm-sign-up \
+              --user-pool-id "$COGNITO_USER_POOL_ID" \
+              --username "$TEST_ACCOUNT_EMAIL"
+          fi
       - name: Seed 100 credits through Systems Manager
         env:
           TEST_ACCOUNT_SUBJECT: ${{ steps.cognito.outputs.subject }}
