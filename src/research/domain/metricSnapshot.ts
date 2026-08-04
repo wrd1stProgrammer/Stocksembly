@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ComparatorQualificationResultSchema } from "./comparatorQualification";
+import { qualifyInsightSentryPeers } from "./qualifyInsightSentryPeers";
 
 const LocalizedSchema = z
   .object({ en: z.string().min(1), ko: z.string().min(1) })
@@ -35,6 +37,7 @@ export const ResearchMetricSnapshotSchema = z
   .object({
     asOf: z.string().datetime(),
     metrics: z.array(ResearchMetricPointSchema).max(64),
+    comparatorQualification: ComparatorQualificationResultSchema.optional(),
   })
   .strict();
 
@@ -136,6 +139,18 @@ const DEFINITIONS: readonly MetricDefinition[] = [
     signal: "lower_better",
   },
   {
+    id: "roe",
+    providerIds: [
+      "return_on_equity_ttm",
+      "return_on_equity_fq",
+      "return_on_equity_fy",
+    ],
+    label: { en: "Return on equity", ko: "자기자본이익률" },
+    category: "financial",
+    unit: "percent",
+    signal: "higher_better",
+  },
+  {
     id: "roic",
     providerIds: [
       "return_on_invested_capital_fq",
@@ -145,6 +160,14 @@ const DEFINITIONS: readonly MetricDefinition[] = [
     category: "financial",
     unit: "percent",
     signal: "higher_better",
+  },
+  {
+    id: "market_cap",
+    providerIds: ["market_cap_basic"],
+    label: { en: "Market capitalization", ko: "시가총액" },
+    category: "market",
+    unit: "USD",
+    signal: "contextual",
   },
   {
     id: "pe",
@@ -340,6 +363,7 @@ export function buildResearchMetricSnapshot(input: {
   readonly quote?: unknown;
   readonly fundamentals?: unknown;
   readonly peers?: unknown;
+  readonly peerEvidenceArtifactId?: string;
 }): ResearchMetricSnapshot | undefined {
   const points: ResearchMetricPoint[] = [];
   const quote = QuoteSchema.safeParse(input.quote);
@@ -453,12 +477,23 @@ export function buildResearchMetricSnapshot(input: {
     }
   }
 
-  if (points.length === 0) return undefined;
+  const comparatorQualification =
+    input.peers === undefined || input.peerEvidenceArtifactId === undefined
+      ? undefined
+      : qualifyInsightSentryPeers({
+          peers: input.peers,
+          rawPeerArtifactId: input.peerEvidenceArtifactId,
+        });
+  if (points.length === 0 && comparatorQualification === undefined)
+    return undefined;
   const unique = [
     ...new Map(points.map((point) => [point.id, point] as const)).values(),
   ].slice(0, 64);
   return ResearchMetricSnapshotSchema.parse({
     asOf: input.asOf,
     metrics: unique,
+    ...(comparatorQualification === undefined
+      ? {}
+      : { comparatorQualification }),
   });
 }

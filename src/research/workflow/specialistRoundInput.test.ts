@@ -32,8 +32,7 @@ describe("specialist request role routing", () => {
     // Then
     expect(request.role.requiredOutputs).toEqual(
       expect.arrayContaining([
-        "one_hour_entry_structure",
-        "four_hour_medium_term_structure",
+        "atomic_timing_claim",
         "timeframe_agreement_or_disagreement",
         "invalidation_levels",
         "observed_coverage",

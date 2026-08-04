@@ -196,7 +196,7 @@ describe("office fixed-tick simulation", () => {
     expect([
       forumActors.length,
       snapshot.actors.length - forumActors.length,
-    ]).toEqual([5, 6]);
+    ]).toEqual([5, 7]);
     expect(forumActors.every((member) => member.action === "idle")).toBe(true);
     for (const member of snapshot.actors) {
       const manifestMember = manifestActor(member.id);

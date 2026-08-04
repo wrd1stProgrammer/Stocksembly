@@ -28,6 +28,8 @@ export function routeRunnerFailure(
   error: CodexRunnerError,
   context: RunnerFailureContext,
 ): AttemptOutcome {
+  const runner =
+    error.phase === undefined ? {} : { runner: { phase: error.phase } };
   switch (error.code) {
     case "cancelled":
       return { kind: "incomplete", code: "cancelled" };
@@ -58,10 +60,16 @@ export function routeRunnerFailure(
         return {
           kind: "attention",
           code: "external_dependency_circuit_open",
+          ...runner,
+          ...(error.process === undefined
+            ? {}
+            : { diagnostics: error.process }),
         };
       return {
         kind: "transient",
         code: permanentCode(error.code),
+        ...runner,
+        ...(error.process === undefined ? {} : { diagnostics: error.process }),
         retryAt:
           error.retryAt === undefined || Number.isNaN(Date.parse(error.retryAt))
             ? after(context.now, retryDelayMs(context.failures, context.random))
@@ -73,6 +81,11 @@ export function routeRunnerFailure(
     case "auth_unavailable":
     case "schema_invalid":
     case "rights_denied":
-      return { kind: "permanent", code: permanentCode(error.code) };
+      return {
+        kind: "permanent",
+        code: permanentCode(error.code),
+        ...runner,
+        ...(error.process === undefined ? {} : { diagnostics: error.process }),
+      };
   }
 }

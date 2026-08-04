@@ -49,6 +49,7 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
   return await createResearchApi({
     dataRoot: paths.root,
     databasePath: runtime.databasePath,
+    billingRequired: true,
     allowedHost: publicOrigin.host,
     allowedOrigin: publicOrigin.origin,
     readiness: async () => {

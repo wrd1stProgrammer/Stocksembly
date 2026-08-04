@@ -6,7 +6,11 @@ import {
   sha256Value,
   writeExclusiveJson,
 } from "./codexArtifacts";
-import { asCodexRunnerError, CodexRunnerError } from "./codexErrors";
+import {
+  asCodexRunnerError,
+  CodexRunnerError,
+  type SafeCodexRunnerPhase,
+} from "./codexErrors";
 import { CodexJsonlEarlyGuard, collectCodexJsonl } from "./codexJsonl";
 import {
   protectCodexOrigin,
@@ -71,6 +75,23 @@ function validateRunInput<Candidate>(input: CodexRunInput<Candidate>): void {
     throw new CodexRunnerError("policy_violation");
 }
 
+async function runnerPhase<Value>(
+  phase: SafeCodexRunnerPhase,
+  action: () => Value | Promise<Value>,
+): Promise<Value> {
+  try {
+    return await action();
+  } catch (error) {
+    if (error instanceof CodexRunnerError && error.phase === undefined)
+      throw new CodexRunnerError(error.code, {
+        ...(error.retryAt === undefined ? {} : { retryAt: error.retryAt }),
+        ...(error.process === undefined ? {} : { process: error.process }),
+        phase,
+      });
+    throw error;
+  }
+}
+
 function assertSignature(
   actual: {
     readonly identifier: string;
@@ -92,39 +113,48 @@ export async function runCodexWithPlatform<Candidate>(
   platform: CodexRunnerPlatform,
   reservations: LaunchReservationReader,
 ): Promise<CodexRunResult<Candidate>> {
-  validateRunInput(input);
-  const schema = schemaDocument(input.outputSchema);
-  const inputHash = codexInputHash(input);
-  const reservation = await verifyLaunchReservation(
-    input.reservation,
-    reservations,
-    inputHash,
+  await runnerPhase("input_validation", () => validateRunInput(input));
+  const schema = await runnerPhase("input_validation", () =>
+    schemaDocument(input.outputSchema),
   );
-  assertHostPolicy(platform.hostEnvironment, platform.pins.locale);
+  const inputHash = await runnerPhase("input_validation", () =>
+    codexInputHash(input),
+  );
+  const reservation = await runnerPhase("reservation_validation", () =>
+    verifyLaunchReservation(input.reservation, reservations, inputHash),
+  );
+  await runnerPhase("host_policy", () =>
+    assertHostPolicy(platform.hostEnvironment, platform.pins.locale),
+  );
   const direct = platform.executionMode === "direct";
   if (!direct)
-    await verifyPinnedExecutable(
-      platform.pins.sandboxExecPath,
-      platform.pins.sandboxExecSha256,
-      "policy_violation",
+    await runnerPhase("sandbox_binary", () =>
+      verifyPinnedExecutable(
+        platform.pins.sandboxExecPath,
+        platform.pins.sandboxExecSha256,
+        "policy_violation",
+      ),
     );
-  await verifyPinnedRegularFile(
-    platform.pins.certificatePath,
-    platform.pins.certificateSha256,
-    "policy_violation",
+  await runnerPhase("certificate", () =>
+    verifyPinnedRegularFile(
+      platform.pins.certificatePath,
+      platform.pins.certificateSha256,
+      "policy_violation",
+    ),
   );
-  const protectedOrigin = await protectCodexOrigin({
-    originPath: platform.pins.originPath,
-    expectedHash: platform.pins.originSha256,
-    attemptDir: input.attemptDir,
-    ...(platform.beforeLink === undefined
-      ? {}
-      : { beforeLink: platform.beforeLink }),
-    ...(platform.linkFile === undefined ? {} : { linkFile: platform.linkFile }),
-  });
-  const runtime = await prepareEphemeralRuntime(
-    platform.authPath,
-    input.attemptDir,
+  const protectedOrigin = await runnerPhase("origin_protection", () =>
+    protectCodexOrigin({
+      originPath: platform.pins.originPath,
+      expectedHash: platform.pins.originSha256,
+      attemptDir: input.attemptDir,
+      ...(platform.beforeLink === undefined
+        ? {}
+        : { beforeLink: platform.beforeLink }),
+      ...(platform.linkFile === undefined ? {} : { linkFile: platform.linkFile }),
+    }),
+  );
+  const runtime = await runnerPhase("runtime_prepare", () =>
+    prepareEphemeralRuntime(platform.authPath, input.attemptDir),
   );
   let cleanupComplete = false;
   let manifestWritten = false;
@@ -137,18 +167,20 @@ export async function runCodexWithPlatform<Candidate>(
       undefined,
       platform.pins,
     );
-    const profile = direct
-      ? "codex-read-only"
-      : buildSandboxProfile({
-          codexLink: protectedOrigin.linkPath,
-          codexOrigin: platform.pins.originPath,
-          schemaPath,
-          attemptRoot: runtime.root,
-          runtimePaths: [runtime.home, runtime.userHome, runtime.temp],
-          certificatePath: platform.pins.certificatePath,
-          protectedHome: dirname(dirname(platform.authPath)),
-          allowNetwork: true,
-        });
+    const profile = await runnerPhase("sandbox_profile", () =>
+      direct
+        ? "codex-read-only"
+        : buildSandboxProfile({
+            codexLink: protectedOrigin.linkPath,
+            codexOrigin: platform.pins.originPath,
+            schemaPath,
+            attemptRoot: runtime.root,
+            runtimePaths: [runtime.home, runtime.userHome, runtime.temp],
+            certificatePath: platform.pins.certificatePath,
+            protectedHome: dirname(dirname(platform.authPath)),
+            allowNetwork: true,
+          }),
+    );
     const codexArgv = buildCodexArgv(schemaPath, input.stage, input.runtime);
     const argv = direct
       ? codexArgv
@@ -185,20 +217,20 @@ export async function runCodexWithPlatform<Candidate>(
       argvHash: sha256Value(argv),
       schemaHash: sha256Value(schema),
     });
-    await writeExclusiveJson(
-      input.attemptDir,
-      "launch-manifest.json",
-      manifest,
+    await runnerPhase("manifest_write", () =>
+      writeExclusiveJson(input.attemptDir, "launch-manifest.json", manifest),
     );
     manifestWritten = true;
     if (!direct) {
       const inspectSignature = platform.inspectSignature;
       if (inspectSignature === undefined)
         throw new CodexRunnerError("origin_untrusted");
-      const signature = await inspectSignature(protectedOrigin.linkPath, {
-        ...environment,
-      });
-      assertSignature(signature, platform);
+      const signature = await runnerPhase("signature_probe", () =>
+        inspectSignature(protectedOrigin.linkPath, { ...environment }),
+      );
+      await runnerPhase("signature_probe", () =>
+        assertSignature(signature, platform),
+      );
     }
     const versionInvocation: SpawnInvocation = {
       executable: direct
@@ -212,7 +244,9 @@ export async function runCodexWithPlatform<Candidate>(
       inactivityTimeoutMs: 10_000,
       killGraceMs: CODEX_RUNTIME_POLICY.killGraceMs,
     };
-    const versionResult = await platform.runVersion(versionInvocation);
+    const versionResult = await runnerPhase("version_probe", () =>
+      platform.runVersion(versionInvocation),
+    );
     const version = Buffer.concat(versionResult.stdout).toString("utf8").trim();
     if (versionResult.exitCode !== 0 || version !== platform.pins.version)
       throw new CodexRunnerError("origin_untrusted");
@@ -238,12 +272,26 @@ export async function runCodexWithPlatform<Candidate>(
         : { onActivity: input.onActivity }),
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     };
-    const execution = await platform.runCodex(invocation);
-    if (execution.exitCode !== 0) throw new CodexRunnerError("process_failed");
-    const collected = collectCodexJsonl(
-      execution.stdout,
-      undefined,
-      browsingPolicy,
+    const execution = await runnerPhase("model_probe", () =>
+      platform.runCodex(invocation),
+    );
+    if (execution.exitCode !== 0)
+      throw new CodexRunnerError("process_failed", {
+        process: {
+          exitCode: execution.exitCode,
+          signal: execution.signal ?? null,
+          stdoutBytes:
+            execution.stdoutBytes ??
+            execution.stdout.reduce(
+              (total, chunk) => total + chunk.byteLength,
+              0,
+            ),
+          stderrBytes: execution.stderrBytes,
+          durationMs: execution.durationMs ?? 0,
+        },
+      });
+    const collected = await runnerPhase("output_contract", () =>
+      collectCodexJsonl(execution.stdout, undefined, browsingPolicy),
     );
     const toolTranscriptHash = sha256Value(collected.toolTranscript);
     await writeExclusiveJson(
@@ -304,10 +352,16 @@ export async function runCodexWithPlatform<Candidate>(
     if (manifestWritten)
       await writeExclusiveJson(input.attemptDir, "lifecycle.json", {
         schema: "stocksembly.codex-lifecycle.v1",
+        runId: reservation.runId,
+        jobId: reservation.jobId,
+        attemptId: reservation.attemptId,
         ordinal: reservation.ordinal,
         stage: input.stage,
         outcome: "failed",
         failureClass: safeError.code,
+        ...(safeError.process === undefined
+          ? {}
+          : { process: safeError.process }),
         cleanup: "complete",
       });
     throw safeError;

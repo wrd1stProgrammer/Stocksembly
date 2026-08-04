@@ -6,6 +6,63 @@ import {
 } from "./companyFacts.testSupport";
 
 describe("parseCompanyFacts", () => {
+  it("accepts S-1 financial facts even though a registration filing has no single report period", () => {
+    const bytes = new TextEncoder().encode(
+      JSON.stringify({
+        cik: 1181412,
+        entityName: "SPACE EXPLORATION TECHNOLOGIES CORP",
+        facts: {
+          "us-gaap": {
+            RevenueFromContractWithCustomerExcludingAssessedTax: {
+              label: "Revenue",
+              description: "Revenue",
+              units: {
+                USD: [
+                  {
+                    start: "2025-01-01",
+                    end: "2025-12-31",
+                    val: "15000000000",
+                    accn: "0001628280-26-036964",
+                    fy: 2025,
+                    fp: "FY",
+                    form: "S-1",
+                    filed: "2026-05-20",
+                    frame: "CY2025",
+                    footnote: "",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    const parsed = parseCompanyFacts(bytes, {
+      cik: "0001181412",
+      cutoffAt: "2026-05-21T00:00:00.000Z",
+      retrievedAt: "2026-05-20T22:00:00.000Z",
+      sourceHash: "a".repeat(64),
+      filings: [
+        {
+          accessionNumber: "0001628280-26-036964",
+          form: "S-1",
+          filedAt: "2026-05-20T00:00:00.000Z",
+          acceptedAt: "2026-05-20T21:07:51.000Z",
+          period: "2026-05-20",
+        },
+      ],
+    });
+
+    expect(parsed.kind).toBe("parsed");
+    if (parsed.kind === "parsed")
+      expect(parsed.selected[0]).toMatchObject({
+        form: "S-1",
+        value: "15000000000",
+        end: "2025-12-31",
+      });
+  });
+
   it("retains every candidate and selects the cutoff-valid amendment without guessing units or dimensions", () => {
     // Given a CIK-bound Company Facts response and trusted filing lineage.
     const bytes = payload();

@@ -10,6 +10,10 @@ import {
   COMMITTEE_RESEARCH_TARGET,
   ResearchTargetSchema,
 } from "../../domain/researchTarget";
+import {
+  DEFAULT_RESEARCH_PROFILE,
+  ResearchProfileSchema,
+} from "../../domain/researchProfile";
 import { RunStatusSchema } from "../../domain/runStateContracts";
 
 export const NormalizedResearchRequestSchema = z
@@ -18,6 +22,7 @@ export const NormalizedResearchRequestSchema = z
     question: z.string().max(RESEARCH_DIRECTION_MAX_CHARACTERS),
     locale: z.enum(["en", "ko"]),
     researchTarget: ResearchTargetSchema.default(COMMITTEE_RESEARCH_TARGET),
+    researchProfile: ResearchProfileSchema.default(DEFAULT_RESEARCH_PROFILE),
   })
   .strict()
   .readonly();
@@ -30,8 +35,10 @@ export const PublicRunSchema = z
     runId: RunIdSchema,
     snapshotId: SnapshotIdSchema,
     symbol: TickerSymbolSchema,
+    question: z.string().max(RESEARCH_DIRECTION_MAX_CHARACTERS).optional(),
     locale: z.enum(["en", "ko"]),
     researchTarget: ResearchTargetSchema.default(COMMITTEE_RESEARCH_TARGET),
+    researchProfile: ResearchProfileSchema.default(DEFAULT_RESEARCH_PROFILE),
     status: RunStatusSchema,
     lastEventSeq: z.number().int().nonnegative(),
     createdAt: z.string().datetime(),
@@ -108,4 +115,8 @@ export type PublicReport = {
 
 export type PublicReportLoader = (
   publication: PublicReport,
-) => Promise<import("../../domain/report").ResearchReport | undefined>;
+) => Promise<
+  | import("../../domain/report").ResearchReport
+  | import("../../domain/report").WorkflowV2ResearchReport
+  | undefined
+>;

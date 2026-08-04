@@ -66,20 +66,13 @@ type ChairValidationInput = {
 export function chairValidationReason(
   input: ChairValidationInput,
 ): string | undefined {
-  const legacySectionKeys = Object.keys(SECTION_TITLES).filter(
-    (key) => key !== "valuation_comparison",
-  );
   const sectionKeys = input.chair.sections.map((section) => section.sectionKey);
-  if (
-    !(
-      sameSet(sectionKeys, Object.keys(SECTION_TITLES)) ||
-      sameSet(sectionKeys, legacySectionKeys)
-    )
-  )
+  if (!sameSet(sectionKeys, Object.keys(SECTION_TITLES)))
     return "chair_sections_incomplete";
   if (
     !sameSet(input.chair.dissentClaimIds, input.retainedDissentClaimIds) ||
-    input.chair.unknowns.length !== input.retainedOpenQuestionCount
+    input.chair.unknowns.length !== input.chair.selectedUnknownIds.length ||
+    input.chair.unknowns.length > input.retainedOpenQuestionCount
   )
     return "retention_mismatch";
   if (
@@ -112,7 +105,10 @@ export function chairValidationReason(
       selected.length !== section.sentenceIds.length ||
       section.publicSummary.en.trim().length === 0 ||
       section.publicSummary.ko.trim().length === 0 ||
-      (!groundedInEnglish && !groundedInKorean) ||
+      !groundedInEnglish ||
+      !groundedInKorean ||
+      section.publicSummary.en.toLocaleLowerCase() ===
+        section.publicSummary.ko.toLocaleLowerCase() ||
       (section.sectionKey === "ten_second_brief" &&
         (section.publicSummary.en.length > 360 ||
           section.publicSummary.ko.length > 360)) ||
@@ -128,8 +124,9 @@ export function chairValidationReason(
         ],
         section.sourceArtifactIds,
       )
-    )
+    ) {
       return "chair_content_mismatch";
+    }
   }
   return undefined;
 }

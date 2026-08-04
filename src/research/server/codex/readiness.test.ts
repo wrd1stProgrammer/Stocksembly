@@ -27,6 +27,26 @@ const HASH_B = "b".repeat(64);
 const PINNED_BINARY_HASH =
   "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e";
 
+function guardedInput(): CodexRunInput<unknown> {
+  return {
+    attemptDir: "/private/tmp/readiness-cache-test",
+    reservation: {
+      key: {
+        runId: RunIdSchema.parse("00000000-0000-4000-8000-000000000051"),
+        jobId: JobIdSchema.parse("00000000-0000-4000-8000-000000000052"),
+        attemptId: AttemptIdSchema.parse(
+          "00000000-0000-4000-8000-000000000053",
+        ),
+        ordinal: 1,
+      },
+      fence: { ownerId: "readiness-cache", token: 1 },
+    },
+    stage: "probe",
+    prompt: "",
+    outputSchema: z.unknown(),
+  };
+}
+
 function observation(
   overrides: Partial<ReadinessObservation> = {},
 ): ReadinessObservation {
@@ -226,7 +246,116 @@ describe("Codex readiness admission", () => {
     expect(mapped).toMatchObject({
       code: "CODEX_ISOLATION_FAILED",
       check: "tool",
+      reason: "runner_contract",
     });
+  });
+
+  it("shares one readiness probe across six process-wide port instances", async () => {
+    let probes = 0;
+    let runs = 0;
+    const probe = async () => {
+      probes += 1;
+      await Promise.resolve();
+      return buildSafeReadinessReport("pre_launch", observation());
+    };
+    const inner: CodexPort = {
+      id: "isolated-codex-cli",
+      kind: "real",
+      async run<Candidate>() {
+        runs += 1;
+        return { candidate: {} as Candidate, evidence: observation().evidence };
+      },
+    };
+    const ports = Array.from({ length: 6 }, () =>
+      createReadinessGuardedCodexPort(inner, probe, {
+        fingerprint: () => "six-port-fingerprint",
+        successTtlMs: 1_000,
+        now: () => 100,
+      }),
+    );
+
+    await Promise.all(ports.map((port) => port.run(guardedInput())));
+
+    expect({ probes, runs }).toEqual({ probes: 1, runs: 6 });
+  });
+
+  it("primes six concurrent ports and reprobes only after fingerprint drift", async () => {
+    let probes = 0;
+    let fingerprint = "worker-admission-a";
+    let runs = 0;
+    const probe = async () => {
+      probes += 1;
+      return buildSafeReadinessReport("pre_launch", observation());
+    };
+    const inner: CodexPort = {
+      id: "isolated-codex-cli",
+      kind: "real",
+      async run<Candidate>() {
+        runs += 1;
+        return { candidate: {} as Candidate, evidence: observation().evidence };
+      },
+    };
+    const options = { fingerprint: () => fingerprint, successTtlMs: 30_000 };
+    const admission = createReadinessGuardedCodexPort(inner, probe, options);
+    await admission.run(guardedInput());
+    const ports = Array.from({ length: 6 }, () =>
+      createReadinessGuardedCodexPort(inner, probe, options),
+    );
+
+    await Promise.all(ports.map((port) => port.run(guardedInput())));
+    expect({ probes, runs }).toEqual({ probes: 1, runs: 7 });
+
+    fingerprint = "worker-admission-b";
+    await Promise.all(ports.map((port) => port.run(guardedInput())));
+    expect({ probes, runs }).toEqual({ probes: 2, runs: 13 });
+  });
+
+  it("never caches readiness failure and invalidates success on fingerprint change", async () => {
+    let probes = 0;
+    let fingerprint = "readiness-failure-a";
+    const inner: CodexPort = {
+      id: "isolated-codex-cli",
+      kind: "real",
+      async run<Candidate>() {
+        return { candidate: {} as Candidate, evidence: observation().evidence };
+      },
+    };
+    const guarded = createReadinessGuardedCodexPort(
+      inner,
+      async () => {
+        probes += 1;
+        if (probes === 1) throw new CodexIsolationError("probe");
+        return buildSafeReadinessReport("pre_launch", observation());
+      },
+      { fingerprint: () => fingerprint, successTtlMs: 1_000, now: () => 100 },
+    );
+
+    await expect(guarded.run(guardedInput())).rejects.toBeInstanceOf(
+      CodexIsolationError,
+    );
+    await guarded.run(guardedInput());
+    fingerprint = "readiness-failure-b";
+    await guarded.run(guardedInput());
+
+    expect(probes).toBe(3);
+  });
+
+  it("does not hide an actual runner error behind cached readiness", async () => {
+    const runnerFailure = new CodexRunnerError("process_failed");
+    const inner: CodexPort = {
+      id: "isolated-codex-cli",
+      kind: "real",
+      async run() {
+        throw runnerFailure;
+      },
+    };
+    const guarded = createReadinessGuardedCodexPort(
+      inner,
+      async () => buildSafeReadinessReport("pre_launch", observation()),
+      { fingerprint: () => "runner-error-fingerprint" },
+    );
+
+    await expect(guarded.run(guardedInput())).rejects.toBe(runnerFailure);
   });
 
   it.each([
@@ -246,6 +375,8 @@ describe("Codex readiness admission", () => {
     expect(mapped).toMatchObject({
       code: "CODEX_ISOLATION_FAILED",
       check,
+      reason:
+        check === "schema" ? "runner_contract" : "runner_process",
     });
   });
 

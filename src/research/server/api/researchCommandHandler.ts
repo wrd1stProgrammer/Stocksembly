@@ -27,6 +27,7 @@ type HandlerContext = {
     questionId: string,
     question: { readonly en: string; readonly ko: string },
   ) => Promise<QuestionGrounding | undefined>;
+  readonly beforeQuestion?: () => Promise<boolean>;
   readonly onQuestion?: (question: PublicQuestion) => Promise<void>;
 };
 
@@ -136,6 +137,8 @@ async function handleMutation(
   );
   if (grounding === undefined)
     return apiError(503, "QUESTION_GROUNDING_UNAVAILABLE");
+  if (context.beforeQuestion !== undefined && !(await context.beforeQuestion()))
+    return apiError(402, "CREDITS_INSUFFICIENT");
   const result = context.repository.createQuestion(
     target.id,
     parsed.data,

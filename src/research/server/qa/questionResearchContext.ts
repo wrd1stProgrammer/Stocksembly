@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { ClaimIdSchema, SourceIdSchema } from "../../domain/ids";
-import type { ResearchReport } from "../../domain/report";
+import type {
+  ResearchReport,
+  WorkflowV2ResearchReport,
+} from "../../domain/report";
 
 const ConversationEntrySchema = z.looseObject({
   role: z.enum(["user", "assistant"]),
@@ -75,7 +78,7 @@ export function consultationRequest(question: {
 }
 
 function claimText(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
   claimId: string,
 ): { readonly en: string; readonly ko: string } | undefined {
   const registered = report.claims.find(
@@ -143,7 +146,7 @@ function overlapScore(
 }
 
 function selectedClaimIds(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
   request: z.infer<typeof SpecialistConsultationSchema> | undefined,
   locale: "en" | "ko",
 ): readonly string[] {
@@ -197,7 +200,7 @@ function selectedClaimIds(
 }
 
 export function questionResearchContext(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
   question: { readonly en: string; readonly ko: string },
 ): QuestionResearchContext {
   const unknownRequest = consultationRequest(question);

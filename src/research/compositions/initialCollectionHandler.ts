@@ -16,6 +16,8 @@ import {
 } from "../domain/ids";
 import { normalizeResearchDirection } from "../domain/researchDirection";
 import { ResearchTargetSchema } from "../domain/researchTarget";
+import { ResearchProfileSchema } from "../domain/researchProfile";
+import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import {
   WORKFLOW_V1_CHAIR_ID,
   WORKFLOW_V1_ROLE_REGISTRY,
@@ -31,6 +33,7 @@ import {
   prepareSpecialistJobs,
   specialistJobSeed,
 } from "../workflow/specialistRoundSqliteStage";
+import { qualifyComparatorsBeforeSynthesis } from "../workflow/preSynthesisComparatorQualification";
 import { collectInitialEvidence } from "./initialCollectionData";
 
 const RequestSchema = z.object({
@@ -39,6 +42,7 @@ const RequestSchema = z.object({
   locale: z.enum(["en", "ko"]),
   research_kind: z.enum(["committee", "department"]),
   department_id: z.enum(["market", "company", "financial", "risk"]).nullable(),
+  research_profile_json: z.string(),
   requested_at: z.string(),
 });
 
@@ -172,7 +176,7 @@ export function createInitialCollectionHandler(
       const request = RequestSchema.parse(
         database
           .prepare(`SELECT symbol, question, locale, research_kind,
-            department_id, created_at AS requested_at
+            department_id, research_profile_json, created_at AS requested_at
             FROM research_requests WHERE run_id = ?`)
           .get(attempt.runId),
       );
@@ -185,6 +189,9 @@ export function createInitialCollectionHandler(
               departmentId: request.department_id,
             }
           : { kind: "committee" },
+      );
+      const researchProfile = ResearchProfileSchema.parse(
+        parseSafeJson(request.research_profile_json),
       );
       const collectionStartedAt =
         clock() < request.requested_at ? request.requested_at : clock();
@@ -208,6 +215,7 @@ export function createInitialCollectionHandler(
           snapshotId,
           symbol: request.symbol,
           cas: options.cas,
+          researchProfile,
         });
       } catch (error) {
         const code =
@@ -363,6 +371,7 @@ export function createInitialCollectionHandler(
           question,
           locale: request.locale,
           scope: "broad",
+          researchProfile,
           capabilities: manifest.capabilities,
           rosterIds: [...WORKFLOW_V1_SPECIALIST_IDS, WORKFLOW_V1_CHAIR_ID],
         },
@@ -398,11 +407,6 @@ export function createInitialCollectionHandler(
             }),
         },
       );
-      const round: SpecialistRoundInput = {
-        mandate,
-        snapshot: manifest,
-        assignments,
-      };
       const canonicalSources = [];
       for (const source of collected.sources) {
         const evidence = collected.evidence.find(
@@ -438,6 +442,13 @@ export function createInitialCollectionHandler(
           });
         }
       }
+      const round: SpecialistRoundInput = {
+        mandate,
+        snapshot: manifest,
+        assignments,
+        comparatorQualification:
+          qualifyComparatorsBeforeSynthesis(canonicalSources),
+      };
       const preparedJobs = prepareSpecialistJobs(round, canonicalSources);
       const selectedRoleIds =
         researchTarget.kind === "committee"

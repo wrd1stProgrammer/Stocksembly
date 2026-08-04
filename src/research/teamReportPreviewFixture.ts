@@ -42,8 +42,8 @@ const TEAM_PREVIEW_COPY: Readonly<
       "수요 저변·고객 예산·거시 민감도·경쟁 공급능력을 검증했습니다.",
     ),
     nextEvent: text(
-      "Hyperscaler capex guidance and the next data-center revenue disclosure",
-      "하이퍼스케일러 설비투자 가이던스와 다음 데이터센터 매출 공시",
+      "2026-08-27 · Hyperscaler capex guidance and the next data-center revenue disclosure",
+      "2026-08-27 · 하이퍼스케일러 설비투자 가이던스와 다음 데이터센터 매출 공시",
     ),
     changeCondition: text(
       "Reassess if two major cloud customers reduce AI capex guidance together or if order growth stops translating into deployments.",
@@ -109,6 +109,50 @@ const TEAM_PREVIEW_COPY: Readonly<
         detail: text(
           "Order commentary matters less if lead times normalize while deployment schedules slip.",
           "리드타임은 정상화되는데 구축 일정이 밀리면 주문 코멘트의 의미가 약해집니다.",
+        ),
+      },
+      {
+        title: text("Macro transmission", "거시 전이"),
+        summary: text(
+          "Rates matter through customer hurdle rates, not as a generic risk-off label.",
+          "금리는 막연한 위험회피 요인이 아니라 고객의 투자 허들레이트를 통해 수요에 영향을 줍니다.",
+        ),
+        detail: text(
+          "A higher discount rate becomes material when project payback periods extend and utilization stops improving.",
+          "할인율 상승은 프로젝트 회수기간이 늘고 가동률 개선이 멈출 때 실질적인 수요 제약으로 전환됩니다.",
+        ),
+      },
+      {
+        title: text("Relative strength", "상대 강도"),
+        summary: text(
+          "Absolute gains are useful only if the stock also leads its qualified peer and sector.",
+          "절대수익률만으로는 부족하며 검증된 경쟁사와 섹터 대비 초과성과가 함께 나타나야 합니다.",
+        ),
+        detail: text(
+          "Relative leadership must persist across more than one horizon instead of relying on a single rebound window.",
+          "단일 반등 구간이 아니라 둘 이상의 기간에서 상대 우위가 지속되는지를 확인합니다.",
+        ),
+      },
+      {
+        title: text("Catalyst asymmetry", "촉매 비대칭"),
+        summary: text(
+          "Capex guidance matters only when the price response confirms that expectations were not already exhausted.",
+          "설비투자 가이던스는 발표 후 가격 반응이 기대 소진이 아님을 확인할 때만 유효한 촉매입니다.",
+        ),
+        detail: text(
+          "A positive disclosure followed by weak breadth and volume is treated as distribution, not confirmation.",
+          "긍정적 공시 뒤에도 시장 폭과 거래량이 약하면 확인 신호가 아니라 매물 소화로 해석합니다.",
+        ),
+      },
+      {
+        title: text("Flow confirmation", "수급 확인"),
+        summary: text(
+          "A breakout is actionable only when participation expands with price.",
+          "가격 돌파는 거래 참여가 함께 확대될 때만 실행 가능한 신호입니다.",
+        ),
+        detail: text(
+          "Require volume above its 20-day baseline and improving breadth; a price-only spike is treated as a fragile squeeze.",
+          "거래량이 20일 기준선을 웃돌고 시장 폭이 개선되는지 확인하며, 가격만 튀는 움직임은 취약한 숏커버로 봅니다.",
         ),
       },
     ],
@@ -206,6 +250,39 @@ const TEAM_PREVIEW_COPY: Readonly<
         detail: text(
           "The relevant measure is production workload migration, not announced benchmark parity.",
           "발표된 벤치마크 동등성보다 실제 운영 워크로드 이전을 봐야 합니다.",
+        ),
+      },
+      {
+        title: text("Revenue concentration", "매출 집중도"),
+        summary: text(
+          "A dominant segment accelerates growth but makes execution misses harder to diversify away.",
+          "주력 사업부의 높은 비중은 성장을 가속하지만 실행 차질을 다른 사업으로 상쇄하기 어렵게 합니다.",
+        ),
+        detail: text(
+          "The test is whether adjacent products and software increase wallet share without weakening core economics.",
+          "인접 제품과 소프트웨어가 핵심 수익성을 훼손하지 않고 고객 지출 비중을 넓히는지 확인해야 합니다.",
+        ),
+      },
+      {
+        title: text("Management execution", "경영진 실행력"),
+        summary: text(
+          "Product cadence creates value only when supply, deployment, and monetization arrive together.",
+          "제품 출시 주기는 공급·구축·수익화가 함께 이뤄질 때만 기업가치로 전환됩니다.",
+        ),
+        detail: text(
+          "Watch ramp quality, customer deployment time, and software attach rather than launch announcements alone.",
+          "출시 발표보다 증산 품질·고객 구축 기간·소프트웨어 결합률을 함께 봅니다.",
+        ),
+      },
+      {
+        title: text("Moat erosion path", "해자 훼손 경로"),
+        summary: text(
+          "The credible threat is gradual workload unbundling, not one benchmark win.",
+          "현실적인 위협은 단일 벤치마크 승리가 아니라 워크로드가 점진적으로 분리되는 과정입니다.",
+        ),
+        detail: text(
+          "The moat weakens when customers can move production workloads while preserving performance, tooling, and economics.",
+          "고객이 성능·도구·경제성을 유지하며 운영 워크로드를 이전할 수 있을 때 해자가 약해집니다.",
         ),
       },
     ],
@@ -308,6 +385,39 @@ const TEAM_PREVIEW_COPY: Readonly<
           "초과 성장과 높은 마진이 함께 얼마나 오래 지속되는지가 핵심입니다.",
         ),
       },
+      {
+        title: text("Operating leverage", "영업 레버리지"),
+        summary: text(
+          "Margin quality depends on mix and operating discipline, not revenue growth alone.",
+          "마진의 질은 매출 성장률만이 아니라 제품 믹스와 영업비용 통제에 달려 있습니다.",
+        ),
+        detail: text(
+          "Separate gross-margin expansion from expense leverage to identify which part of profitability is repeatable.",
+          "총마진 개선과 비용 레버리지를 분리해 어느 수익성이 반복 가능한지 확인합니다.",
+        ),
+      },
+      {
+        title: text("Reinvestment return", "재투자 수익성"),
+        summary: text(
+          "Low capital intensity is valuable only while capacity and product cadence remain unconstrained.",
+          "낮은 자본집약도는 생산능력과 제품 출시가 제약받지 않을 때만 강점입니다.",
+        ),
+        detail: text(
+          "Compare capex growth with revenue, free cash flow, and return on invested capital before calling reinvestment efficient.",
+          "재투자 효율을 판단할 때 설비투자 증가율을 매출·잉여현금·투하자본수익률과 대조합니다.",
+        ),
+      },
+      {
+        title: text("Embedded expectations", "내재 기대"),
+        summary: text(
+          "The observed multiple leaves little tolerance for simultaneous growth and margin misses.",
+          "관측된 밸류에이션은 성장과 마진이 동시에 기대를 밑도는 상황을 거의 허용하지 않습니다.",
+        ),
+        detail: text(
+          "Translate the multiple into required earnings durability and specify the rerating trigger before discussing upside.",
+          "상승 여력을 논하기 전에 배수가 요구하는 이익 지속기간과 재평가 조건을 명시합니다.",
+        ),
+      },
     ],
     teamPosition: text(
       "Financial quality supports a premium, but the current expectation set leaves limited room for simultaneous growth and margin misses.",
@@ -408,6 +518,39 @@ const TEAM_PREVIEW_COPY: Readonly<
           "구축 지연·재고 증가·지역별 공급 범위 축소가 선행 신호입니다.",
         ),
       },
+      {
+        title: text("Financial transmission", "재무 전이"),
+        summary: text(
+          "A risk matters when it reaches revenue timing, margin, cash conversion, or the valuation multiple.",
+          "위험은 매출 인식·마진·현금 전환·밸류에이션 배수로 전이될 때 투자 판단에 중요해집니다.",
+        ),
+        detail: text(
+          "Map every trigger to a measurable financial line instead of repeating a generic uncertainty label.",
+          "막연한 불확실성 대신 모든 촉발 요인을 측정 가능한 재무 항목에 연결합니다.",
+        ),
+      },
+      {
+        title: text("Buffer strength", "완충력"),
+        summary: text(
+          "Cash can absorb an isolated shock but cannot offset a persistent demand and policy reset.",
+          "현금은 단일 충격을 흡수할 수 있지만 수요와 정책이 동시에 장기적으로 악화되는 상황까지 상쇄하지는 못합니다.",
+        ),
+        detail: text(
+          "Judge the buffer against commitments, working-capital needs, and the duration of the downside path.",
+          "완충력은 구매 약정·운전자본 수요·하방 지속기간과 함께 평가합니다.",
+        ),
+      },
+      {
+        title: text("Recovery condition", "회복 조건"),
+        summary: text(
+          "A risk call improves only when the leading indicator reverses before reported earnings recover.",
+          "리스크 판단은 보고 실적 회복보다 선행지표가 먼저 반전할 때 개선됩니다.",
+        ),
+        detail: text(
+          "Require deployment normalization, stable commitments, and policy clarity rather than relying on management reassurance.",
+          "경영진의 안심 발언보다 구축 정상화·약정 안정·정책 명확성을 확인합니다.",
+        ),
+      },
     ],
     teamPosition: text(
       "No single risk invalidates the thesis today, but correlated policy and customer shocks deserve explicit escalation triggers.",
@@ -470,6 +613,7 @@ export function teamReportPreviewFixture(
           category: "market",
           value: 12.6,
           unit: "percent",
+          period: "3M",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "higher_better",
@@ -480,6 +624,7 @@ export function teamReportPreviewFixture(
           category: "market",
           value: 38.4,
           unit: "percent",
+          period: "1Y",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "higher_better",
@@ -520,6 +665,7 @@ export function teamReportPreviewFixture(
           category: "financial",
           value: 55.7,
           unit: "percent",
+          period: "TTM",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "higher_better",
@@ -530,6 +676,7 @@ export function teamReportPreviewFixture(
           category: "financial",
           value: 74.5,
           unit: "percent",
+          period: "TTM",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "higher_better",
@@ -540,6 +687,7 @@ export function teamReportPreviewFixture(
           category: "financial",
           value: 61.8,
           unit: "percent",
+          period: "TTM",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "higher_better",
@@ -580,6 +728,7 @@ export function teamReportPreviewFixture(
           category: "expectations",
           value: 34.2,
           unit: "multiple",
+          period: "NTM",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "contextual",
@@ -620,6 +769,7 @@ export function teamReportPreviewFixture(
           category: "company",
           value: 88,
           unit: "percent",
+          period: "FY2026 Q2",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "contextual",
@@ -630,11 +780,117 @@ export function teamReportPreviewFixture(
           category: "company",
           value: 9,
           unit: "percent",
+          period: "FY2026 Q2",
+          observedAt: "2026-07-30T16:00:00.000Z",
+          source: "insightsentry",
+          signal: "contextual",
+        },
+        {
+          id: "support_price:primary",
+          label: text("Primary support", "1차 지지선"),
+          category: "market",
+          value: 158,
+          unit: "USD_per_share",
+          period: "20D",
+          observedAt: "2026-07-30T16:00:00.000Z",
+          source: "insightsentry",
+          signal: "contextual",
+        },
+        {
+          id: "resistance_price:primary",
+          label: text("Primary resistance", "1차 저항선"),
+          category: "market",
+          value: 184,
+          unit: "USD_per_share",
+          period: "20D",
+          observedAt: "2026-07-30T16:00:00.000Z",
+          source: "insightsentry",
+          signal: "contextual",
+        },
+        {
+          id: "average_volume_20d",
+          label: text("20-day average volume", "20일 평균 거래량"),
+          category: "market",
+          value: 198000000,
+          unit: "count",
+          period: "20D",
           observedAt: "2026-07-30T16:00:00.000Z",
           source: "insightsentry",
           signal: "contextual",
         },
       ],
+      comparatorQualification: {
+        status: "qualified",
+        rawPeerArtifactId: "S03",
+        rawArtifactCount: 1,
+        rows: [
+          {
+            comparatorId: "amd-qualified",
+            name: "AMD",
+            role: "direct_competitor",
+            rationale: text(
+              "Overlapping accelerator and data-center customer markets.",
+              "가속기 제품과 데이터센터 고객 시장이 겹칩니다.",
+            ),
+            comparableMetricKeys: [
+              "relative_performance_3m",
+              "relative_performance_1y",
+              "revenue_growth",
+              "operating_margin",
+              "forward_pe",
+            ],
+            normalizedMetrics: [
+              {
+                key: "relative_performance_3m",
+                value: 4.1,
+                period: "3M",
+                unit: "percent",
+                evidenceArtifactIds: ["S03"],
+              },
+              {
+                key: "relative_performance_1y",
+                value: 17.2,
+                period: "1Y",
+                unit: "percent",
+                evidenceArtifactIds: ["S03"],
+              },
+              {
+                key: "revenue_growth",
+                value: 31.2,
+                period: "TTM",
+                unit: "percent",
+                evidenceArtifactIds: ["S03"],
+              },
+              {
+                key: "operating_margin",
+                value: 22.4,
+                period: "TTM",
+                unit: "percent",
+                evidenceArtifactIds: ["S03"],
+              },
+              {
+                key: "forward_pe",
+                value: 29.8,
+                period: "NTM",
+                unit: "multiple",
+                evidenceArtifactIds: ["S03"],
+              },
+            ],
+            evidenceArtifactIds: ["S03"],
+            displayEligibility: true,
+            medianEligibility: false,
+            exclusionReasons: [],
+          },
+        ],
+        displayGroups: [
+          { role: "direct_competitor", comparatorIds: ["amd-qualified"] },
+        ],
+        valuation: {
+          status: "not_eligible",
+          reason: "insufficient_eligible_companies",
+          eligibleCompanyCount: 1,
+        },
+      },
     },
     posture: copy.posture,
     postureLabel: copy.postureLabel,
@@ -783,8 +1039,301 @@ export function teamReportPreviewFixture(
       noMaterialChange: false,
     },
   };
+  const structuredReport = withStructuredTeamProductData(report, departmentId);
+  const productReport =
+    departmentId === "financial"
+      ? withFinancialProductData(structuredReport)
+      : departmentId === "risk"
+        ? withRiskProductData(structuredReport)
+        : structuredReport;
+  return {
+    ...productReport,
+    anticipatedQuestions: buildAnticipatedQuestions({
+      ...productReport,
+      presentationVersion: "legacy-v1",
+    }),
+  };
+}
+
+function withStructuredTeamProductData(
+  report: ResearchFileData,
+  departmentId: WorkflowDepartmentId,
+): ResearchFileData {
+  type EditorialClaim = NonNullable<
+    NonNullable<ResearchFileData["structuredEditorial"]>["claims"]
+  >[number];
+  const blueprints = {
+    market: [
+      ["market", "regime", 0],
+      ["market", "regime", 3],
+      ["market", "catalyst", 5],
+      ["market_news", "timing", 2],
+      ["market_news", "timing", 6],
+      ["benchmark", "relative_performance", 4],
+      ["benchmark", "relative_performance", 1],
+    ],
+    company: [
+      ["company", "growth_engine", 3],
+      ["company", "growth_engine", 4],
+      ["company_product", "adoption", 1],
+      ["company_product", "adoption", 0],
+      ["company_competition", "moat", 2],
+      ["company_competition", "competitive_erosion", 5],
+    ],
+    financial: [
+      ["financial", "margin", 3],
+      ["financial", "reinvestment", 4],
+      ["valuation", "embedded_expectations", 2],
+      ["valuation", "embedded_expectations", 5],
+      ["financial_quality", "cash_conversion", 0],
+      ["financial_quality", "cash_conversion", 1],
+    ],
+    risk: [
+      ["risk", "downside_path", 0],
+      ["risk", "downside_path", 1],
+      ["risk", "leading_indicator", 3],
+      ["risk_policy", "leading_indicator", 2],
+      ["risk_policy", "mitigant", 4],
+      ["risk_policy", "mitigant", 5],
+    ],
+  } as const;
+  const metricIds = {
+    market: [
+      ["relative_performance_3m"],
+      ["daily_change_percent"],
+      ["current_price"],
+      ["support_price:primary", "resistance_price:primary"],
+      ["average_volume_20d"],
+      ["relative_performance_3m", "relative_performance_1y"],
+      ["pe", "peer_premium:pe"],
+    ],
+    company: [
+      ["segment_share:data_center", "segment_share:gaming"],
+      ["revenue_growth"],
+      ["revenue_growth", "segment_share:data_center"],
+      ["gross_margin"],
+      ["operating_margin"],
+      ["forward_pe"],
+    ],
+    financial: [
+      ["gross_margin", "operating_margin"],
+      ["capital_expenditures", "roic"],
+      ["free_cash_flow", "revenue_ttm"],
+      ["operating_margin"],
+      ["cash", "net_debt"],
+      ["forward_pe"],
+    ],
+    risk: [
+      ["inventory"],
+      ["inventory"],
+      ["revenue_growth", "operating_margin"],
+      ["daily_change_percent"],
+      ["cash", "net_debt"],
+      ["cash"],
+    ],
+  } as const;
+  const claims = blueprints[departmentId].map((blueprint, index) => {
+    const [roleOwner, decisionDimension, analysisIndex] = blueprint;
+    const analysis = report.analysis[analysisIndex]!;
+    return {
+      claimId: `00000000-0000-4000-8000-${String(500 + index + Object.keys(blueprints).indexOf(departmentId) * 10).padStart(12, "0")}`,
+      decisionDimension,
+      roleOwner,
+      stanceContribution: index === 5 || (departmentId === "risk" && index < 4) ? "opposes" : "supports",
+      materiality: index % 2 === 0 ? "material" : "supporting",
+      publicThesis: text(
+        `${analysis.summary.en} ${analysis.detail.en}`,
+        `${analysis.summary.ko} ${analysis.detail.ko}`,
+      ),
+      evidenceArtifactIds: index % 2 === 0 ? ["S01", "S02"] : ["S02", "S03"],
+      counterevidenceArtifactIds: index === 5 ? ["S03"] : [],
+      decisiveMetricIds: metricIds[departmentId][index] ?? [],
+      falsifier:
+        index === 5
+          ? report.changeCondition
+          : report.concerns[index % report.concerns.length] ?? report.changeCondition,
+    } as unknown as EditorialClaim;
+  });
+  if (claims.length === 0) return report;
   return {
     ...report,
-    anticipatedQuestions: buildAnticipatedQuestions(report),
+    presentationVersion: "workflow-v2",
+    structuredEditorial: {
+      decision: {
+        stance:
+          departmentId === "risk"
+            ? "downside_skewed"
+            : departmentId === "financial"
+              ? "wait_for_proof"
+              : "upside_skewed",
+        confidence: "medium",
+        decisiveReason: report.thesis,
+        strongestCountercase: report.concerns[0] ?? report.changeCondition,
+        falsifier: report.changeCondition,
+        primaryClaimIds: [claims[0]!.claimId, claims.at(-1)!.claimId],
+      },
+      claims,
+      claimRegister: [],
+      comparators: [],
+      conflicts: claims
+        .filter((claim) => claim.counterevidenceArtifactIds.length > 0)
+        .map((claim) => ({
+          claimId: claim.claimId,
+          counterevidenceArtifactIds: claim.counterevidenceArtifactIds,
+        })),
+    },
+  };
+}
+
+function withFinancialProductData(report: ResearchFileData): ResearchFileData {
+  if (report.metricSnapshot === undefined) return report;
+  const bridgeIds = new Set([
+    "revenue_ttm",
+    "gross_margin",
+    "operating_margin",
+    "free_cash_flow",
+    "capital_expenditures",
+  ]);
+  const templates = new Map(
+    report.metricSnapshot.metrics
+      .filter((metric) => bridgeIds.has(metric.id))
+      .map((metric) => [metric.id, metric]),
+  );
+  const historicalValues: Readonly<Record<string, readonly number[]>> = {
+    revenue_ttm: [60_900_000_000, 79_800_000_000, 130_500_000_000],
+    gross_margin: [69.8, 73.7, 74.5],
+    operating_margin: [45.9, 54.1, 61.8],
+    free_cash_flow: [27_000_000_000, 39_200_000_000, 60_900_000_000],
+    capital_expenditures: [1_100_000_000, 1_500_000_000, 3_200_000_000],
+  };
+  const periods = ["FY2024", "FY2025", "FY2026"] as const;
+  const bridgeMetrics = Object.entries(historicalValues).flatMap(
+    ([id, values]) => {
+      const template = templates.get(id);
+      if (template === undefined) return [];
+      return values.map((value, index) => ({
+        ...template,
+        value,
+        period: periods[index] ?? "FY2026",
+      }));
+    },
+  );
+  return {
+    ...report,
+    metricSnapshot: {
+      ...report.metricSnapshot,
+      metrics: [
+        ...report.metricSnapshot.metrics.filter(
+          (metric) => !bridgeIds.has(metric.id),
+        ),
+        ...bridgeMetrics,
+      ],
+    },
+  };
+}
+
+function withRiskProductData(report: ResearchFileData): ResearchFileData {
+  if ((report.structuredEditorial?.claims.length ?? 0) >= 6) return report;
+  type RiskClaim = NonNullable<
+    NonNullable<ResearchFileData["structuredEditorial"]>["claims"]
+  >[number];
+  const claimId = (value: string) => value as RiskClaim["claimId"];
+  const downsideClaimId = claimId("00000000-0000-4000-8000-000000000211");
+  const indicatorClaimId = claimId("00000000-0000-4000-8000-000000000212");
+  const claims = [
+    {
+      claimId: downsideClaimId,
+      decisionDimension: "downside_path" as const,
+      roleOwner: "risk",
+      stanceContribution: "opposes" as const,
+      materiality: "material" as const,
+      publicThesis: text(
+        "Export restrictions and deployment delays can reinforce customer capex digestion before demand diversification absorbs the shock.",
+        "수출 규제와 구축 지연이 고객 설비투자 소화와 결합해 수요 다변화가 충격을 흡수하기 전에 하방을 증폭할 수 있습니다.",
+      ),
+      evidenceArtifactIds: ["S01", "S02"],
+      counterevidenceArtifactIds: ["S03"],
+      decisiveMetricIds: ["inventory"],
+      falsifier: text(
+        "Escalate when export scope widens as inventory rises in the same reporting period.",
+        "수출 통제 범위가 확대되는 동시에 같은 보고 기간 재고가 증가하면 단계를 상향합니다.",
+      ),
+    },
+    {
+      claimId: indicatorClaimId,
+      decisionDimension: "leading_indicator" as const,
+      roleOwner: "risk_policy",
+      stanceContribution: "opposes" as const,
+      materiality: "material" as const,
+      publicThesis: text(
+        "Inventory commitments reveal deployment friction before reported revenue slows.",
+        "재고 약정은 보고 매출이 둔화하기 전에 구축 마찰을 드러냅니다.",
+      ),
+      evidenceArtifactIds: ["S02", "S03"],
+      counterevidenceArtifactIds: [],
+      decisiveMetricIds: ["inventory"],
+      falsifier: text(
+        "Watch inventory growth against deployment and customer-utilization disclosures.",
+        "재고 증가를 구축 일정과 고객 가동률 공시와 대조합니다.",
+      ),
+    },
+    {
+      claimId: claimId("00000000-0000-4000-8000-000000000213"),
+      decisionDimension: "downside_path" as const,
+      roleOwner: "risk_policy",
+      stanceContribution: "opposes" as const,
+      materiality: "supporting" as const,
+      publicThesis: text(
+        "Customer concentration can transmit one budget reset across the revenue base.",
+        "고객 집중도는 단일 예산 조정을 전체 매출 기반으로 전이시킬 수 있습니다.",
+      ),
+      evidenceArtifactIds: ["S01", "S03"],
+      counterevidenceArtifactIds: [],
+      decisiveMetricIds: [],
+      falsifier: text(
+        "Escalate if two major customers reduce AI capex guidance together.",
+        "주요 고객 두 곳이 동시에 AI 설비투자 가이던스를 낮추면 상향합니다.",
+      ),
+    },
+    {
+      claimId: claimId("00000000-0000-4000-8000-000000000214"),
+      decisionDimension: "mitigant" as const,
+      roleOwner: "risk",
+      stanceContribution: "supports" as const,
+      materiality: "material" as const,
+      publicThesis: text(
+        "Cash and short-term investments preserve response capacity against an isolated shock.",
+        "현금과 단기투자자산은 단일 충격에 대응할 여력을 유지합니다.",
+      ),
+      evidenceArtifactIds: ["S02"],
+      counterevidenceArtifactIds: [],
+      decisiveMetricIds: ["cash"],
+      falsifier: text(
+        "Reassess the buffer if cash falls while commitments rise.",
+        "현금이 줄고 약정이 늘면 완충력을 재평가합니다.",
+      ),
+    },
+  ] as unknown as RiskClaim[];
+  return {
+    ...report,
+    structuredEditorial: {
+      decision: {
+        stance: "downside_skewed",
+        confidence: "medium",
+        decisiveReason: report.thesis,
+        strongestCountercase: report.positives[0] ?? report.thesis,
+        falsifier: report.changeCondition,
+        primaryClaimIds: [downsideClaimId, indicatorClaimId],
+      },
+      claims,
+      claimRegister: [],
+      comparators: [],
+      conflicts: claims
+        .filter((claim) => claim.counterevidenceArtifactIds.length > 0)
+        .map((claim) => ({
+          claimId: claim.claimId,
+          counterevidenceArtifactIds: claim.counterevidenceArtifactIds,
+        })),
+    },
   };
 }

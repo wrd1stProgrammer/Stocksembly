@@ -33,6 +33,7 @@ export async function executeSpawn(
 ): Promise<ProcessExecution> {
   if (invocation.signal?.aborted) throw new CodexRunnerError("cancelled");
   return await new Promise<ProcessExecution>((resolve, reject) => {
+    const startedAt = Date.now();
     const options: SpawnOptionsWithoutStdio = {
       cwd: invocation.cwd,
       detached: true,
@@ -128,23 +129,42 @@ export async function executeSpawn(
     child.once("error", () =>
       terminate(new CodexRunnerError("process_failed")),
     );
-    child.once("close", (code: number | null) => {
-      if (totalTimer !== undefined) clearTimeout(totalTimer);
-      if (inactivityTimer !== undefined) clearTimeout(inactivityTimer);
-      if (killTimer !== undefined) clearTimeout(killTimer);
-      invocation.signal?.removeEventListener("abort", abort);
-      if (terminalError !== undefined) {
-        reject(terminalError);
-        return;
-      }
-      resolve(
-        Object.freeze({
-          exitCode: code ?? -1,
-          stdout: Object.freeze(stdout),
-          stderrBytes,
-        }),
-      );
-    });
+    child.once(
+      "close",
+      (code: number | null, signal: NodeJS.Signals | null) => {
+        if (totalTimer !== undefined) clearTimeout(totalTimer);
+        if (inactivityTimer !== undefined) clearTimeout(inactivityTimer);
+        if (killTimer !== undefined) clearTimeout(killTimer);
+        invocation.signal?.removeEventListener("abort", abort);
+        if (terminalError !== undefined) {
+          reject(
+            new CodexRunnerError(terminalError.code, {
+              ...(terminalError.retryAt === undefined
+                ? {}
+                : { retryAt: terminalError.retryAt }),
+              process: {
+                exitCode: code ?? -1,
+                signal,
+                stdoutBytes,
+                stderrBytes,
+                durationMs: Math.max(0, Date.now() - startedAt),
+              },
+            }),
+          );
+          return;
+        }
+        resolve(
+          Object.freeze({
+            exitCode: code ?? -1,
+            signal,
+            stdout: Object.freeze(stdout),
+            stdoutBytes,
+            stderrBytes,
+            durationMs: Math.max(0, Date.now() - startedAt),
+          }),
+        );
+      },
+    );
     child.stdin.on("error", () =>
       terminate(new CodexRunnerError("process_failed")),
     );

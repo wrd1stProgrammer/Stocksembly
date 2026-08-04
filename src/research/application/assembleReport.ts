@@ -1,6 +1,8 @@
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
+import { ArtifactIdSchema } from "../domain/ids";
 import { evaluatePublicationQuality } from "../domain/qualityPolicy";
 import { ResearchReportSchema } from "../domain/report";
+import { composeWorkflowV2Report } from "../workflow/workflowV2PublicationComposer";
 import { SourceRegisterEntrySchema } from "../domain/reportComponents";
 import { SemanticAuditSchema } from "../domain/reportSemantic";
 import { normalizeReportNarrativeText } from "../domain/reportText";
@@ -54,14 +56,10 @@ function inferredScenarioValue(
 }
 
 export function assembleReport(input: AssemblyInput): AssembleReportResult {
-  const reportLocale = input.locale ?? "en";
   const selectedText = (value: {
     readonly en: string;
     readonly ko: string;
-  }) => {
-    const text = value[reportLocale];
-    return { en: text, ko: text };
-  };
+  }) => ({ en: value.en, ko: value.ko });
   const structural = StructuralAuditArtifactEnvelopeSchema.safeParse(
     input.structuralAudit,
   );
@@ -93,22 +91,28 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   const auditedClaimIds = new Set<string>(
     audit.claims.map((claim) => claim.claimId),
   );
+  const verdicts = new Map<string, (typeof semantic.data.verdicts)[number]>(
+    semantic.data.verdicts.map((verdict) => [verdict.claimId, verdict]),
+  );
+  const retainedDissentClaimIds = audit.retainedDissentClaimIds.filter(
+    (claimId) => {
+      const verdict = verdicts.get(claimId)?.verdict;
+      return verdict !== undefined && verdict !== "contradicted";
+    },
+  );
   const chairClaimIds = new Set<string>([
     ...auditedClaimIds,
-    ...audit.retainedDissentClaimIds,
+    ...retainedDissentClaimIds,
   ]);
   const chairReason = chairValidationReason({
     chair: chair.data,
     sentences: input.chairSentences,
     auditedClaimIds: chairClaimIds,
-    retainedDissentClaimIds: audit.retainedDissentClaimIds,
+    retainedDissentClaimIds,
     retainedOpenQuestionCount: audit.retainedOpenQuestions.length,
   });
   if (chairReason !== undefined)
     return { kind: "blocked", reason: chairReason };
-  const verdicts = new Map<string, (typeof semantic.data.verdicts)[number]>(
-    semantic.data.verdicts.map((verdict) => [verdict.claimId, verdict]),
-  );
   if (
     audit.claims.some(
       (claim) => verdicts.get(claim.claimId)?.materiality !== claim.materiality,
@@ -152,7 +156,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       sourceIds: evidenceByClaim.get(claim.claimId) ?? [],
     }));
   const registeredClaimIds = new Set(claims.map((claim) => claim.claimId));
-  for (const claimId of audit.retainedDissentClaimIds)
+  for (const claimId of retainedDissentClaimIds)
     if (!registeredClaimIds.has(claimId)) {
       const auditedClaim = audit.claims.find(
         (claim) => claim.claimId === claimId,
@@ -223,7 +227,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     claimIds: section.auditedClaimIds,
     sourceIds: section.sourceArtifactIds,
   }));
-  const dissent = audit.retainedDissentClaimIds.map((claimId) => {
+  const dissent = retainedDissentClaimIds.map((claimId) => {
     const sentences = input.chairSentences.filter(
       (sentence) =>
         sentence.kind === "dissent" && sentence.claimIds.includes(claimId),
@@ -405,5 +409,38 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     );
     return { kind: "blocked", reason: "report_invalid" };
   }
-  return { kind: "assembled", report: report.data };
+  const publicEvidenceIds = new Set<string>(
+    sources.map((source) => source.sourceId),
+  );
+  const editorialClaims = (input.editorialClaims ?? []).flatMap((claim) => {
+    const evidenceArtifactIds = (evidenceByClaim.get(claim.claimId) ?? [])
+      .filter((artifactId) => publicEvidenceIds.has(artifactId))
+      .map((artifactId) => ArtifactIdSchema.parse(artifactId));
+    return evidenceArtifactIds.length === 0
+      ? []
+      : [{ ...claim, evidenceArtifactIds }];
+  });
+  try {
+    const composed = composeWorkflowV2Report({
+      legacyReport: report.data,
+      chair: chair.data,
+      chairSentences: input.chairSentences,
+      comparators: input.comparators ?? [],
+      editorialClaims,
+      ...(input.researchProfile === undefined
+        ? {}
+        : { researchProfile: input.researchProfile }),
+    });
+    return {
+      kind: "assembled",
+      report: composed.report,
+      editorialPublication: composed.envelope,
+    };
+  } catch (error) {
+    if (error instanceof Error)
+      process.stderr.write(
+        `${JSON.stringify({ kind: "editorial_v2_invalid", runId: audit.runId, error: error.message })}\n`,
+      );
+    return { kind: "blocked", reason: "editorial_v2_invalid" };
+  }
 }

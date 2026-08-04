@@ -35,6 +35,15 @@ const PromptSchema = z.object({
     .object({
       role: z.object({ id: z.enum(WORKFLOW_V1_SPECIALIST_IDS) }).passthrough(),
       ids: z.object({ claimId: z.string().uuid() }).passthrough(),
+      claimSlots: z
+        .array(
+          z.object({
+            claimId: z.string().uuid(),
+            decisionDimension: z.string(),
+            materiality: z.enum(["material", "supporting"]),
+          }),
+        )
+        .min(1),
     })
     .passthrough(),
   sourceArtifactIds: z.array(z.string().uuid()).min(1),
@@ -91,13 +100,25 @@ class FakeCodexPort implements CodexPort {
       sourceArtifactIds: citedArtifactIds,
       positions: [
         {
-          claimId: prompt.request.ids.claimId,
+          claimId: prompt.request.claimSlots[0]!.claimId,
+          decisionDimension: prompt.request.claimSlots[0]!.decisionDimension,
+          roleOwner: roleId,
           stance: "supports",
+          materiality: "material",
           publicSummary: {
             en: `${roleId} durable finding`,
             ko: `${roleId} 지속 가능한 결과`,
           },
           evidenceArtifactIds: citedArtifactIds,
+          decisiveMetricIds: [],
+          strongestContraryObservation: {
+            en: `${roleId} contrary observation`,
+            ko: `${roleId} 반대 관찰`,
+          },
+          falsifier: {
+            en: `${roleId} observable falsifier`,
+            ko: `${roleId} 관찰 가능한 반증 조건`,
+          },
         },
       ],
       dissent: [],

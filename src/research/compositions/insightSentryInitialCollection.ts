@@ -16,6 +16,7 @@ import {
   createInsightSentryMarket,
   type InsightSentryBarSet,
   type InsightSentryCompanyInfo,
+  type InsightSentryMarket,
   type InsightSentryQuote,
 } from "../server/data/insightsentry/insightSentryMarket";
 import { createInsightSentryPeerScreen } from "../server/data/insightsentry/insightSentryPeerSelection";
@@ -154,6 +155,92 @@ function unavailable<T>(): FamilyResult<T> {
   };
 }
 
+function trailingReturn(
+  daily: InsightSentryBarSet,
+  sessions: number,
+): number | undefined {
+  const last = daily.bars.at(-1);
+  const base = daily.bars.at(-(sessions + 1));
+  if (last === undefined || base === undefined || base.close <= 0)
+    return undefined;
+  return Number(((last.close / base.close - 1) * 100).toFixed(2));
+}
+
+function performanceFromDailyBars(daily: InsightSentryBarSet): {
+  readonly performance3Month?: number;
+  readonly performance1Year?: number;
+} {
+  const performance3Month = trailingReturn(daily, 63);
+  const performance1Year = trailingReturn(daily, 252);
+  return Object.freeze({
+    ...(performance3Month === undefined ? {} : { performance3Month }),
+    ...(performance1Year === undefined ? {} : { performance1Year }),
+  });
+}
+
+async function enrichPeersWithCachedHistory(input: {
+  readonly result: FamilyResult<PeersDataset>;
+  readonly market: InsightSentryMarket;
+  readonly subjectDaily?: InsightSentryBarSet;
+}): Promise<FamilyResult<PeersDataset>> {
+  if (input.result.status !== "available") return input.result;
+  const subjectPerformance =
+    input.subjectDaily === undefined
+      ? {}
+      : performanceFromDailyBars(input.subjectDaily);
+  const peers = await Promise.all(
+    input.result.data.peers.map(async (peer) => {
+      if (
+        peer.performance3Month !== undefined &&
+        peer.performance1Year !== undefined
+      )
+        return peer;
+      try {
+        const performance = performanceFromDailyBars(
+          await input.market.comparisonDailyBars(peer.symbol),
+        );
+        return Object.freeze({
+          ...peer,
+          ...(peer.performance3Month !== undefined
+            ? {}
+            : performance.performance3Month === undefined
+              ? {}
+              : { performance3Month: performance.performance3Month }),
+          ...(peer.performance1Year !== undefined
+            ? {}
+            : performance.performance1Year === undefined
+              ? {}
+              : { performance1Year: performance.performance1Year }),
+        });
+      } catch (error) {
+        if (error instanceof Error) return peer;
+        throw error;
+      }
+    }),
+  );
+  const subject = Object.freeze({
+    ...input.result.data.subject,
+    ...(input.result.data.subject.performance3Month !== undefined
+      ? {}
+      : subjectPerformance.performance3Month === undefined
+        ? {}
+        : { performance3Month: subjectPerformance.performance3Month }),
+    ...(input.result.data.subject.performance1Year !== undefined
+      ? {}
+      : subjectPerformance.performance1Year === undefined
+        ? {}
+        : { performance1Year: subjectPerformance.performance1Year }),
+  });
+  return Object.freeze({
+    status: "available",
+    data: Object.freeze({
+      ...input.result.data,
+      subject,
+      peers: Object.freeze(peers),
+    }),
+  });
+}
+
 async function marketFamily<T>(
   operation: () => Promise<T>,
 ): Promise<FamilyResult<T>> {
@@ -240,6 +327,12 @@ export async function collectInsightSentryInitialEvidence(input: {
     readonly annualAccessionNumber: string;
     readonly annualText: string;
   };
+  readonly requestedComparisonSymbols?: readonly string[];
+  readonly decisionPurpose?:
+    | "new_entry"
+    | "holding_review"
+    | "position_sizing"
+    | "earnings";
   readonly configuration?: InsightSentryConfigResult;
   readonly adapter?: InsightSentryWireAdapter;
 }): Promise<InsightSentryInitialCollection> {
@@ -270,13 +363,21 @@ export async function collectInsightSentryInitialEvidence(input: {
     },
   });
   const code = providerCode(input.identity);
+  const requestedComparisonSymbols = [
+    ...new Set(
+      (input.requestedComparisonSymbols ?? []).map((symbol) =>
+        symbol.toUpperCase(),
+      ),
+    ),
+  ].slice(0, 5);
   const market = createInsightSentryMarket(client);
   const rollout = {
     fundamentals: true,
     news: true,
     documents: true,
     calendar: true,
-    peers: input.peerProfile !== undefined,
+    peers:
+      input.peerProfile !== undefined && requestedComparisonSymbols.length > 0,
     options: false,
   } as const;
   const research = createInsightSentryResearchDataAdapter({
@@ -294,6 +395,7 @@ export async function collectInsightSentryInitialEvidence(input: {
             asOf: input.asOf,
             annualAccessionNumber: input.peerProfile.annualAccessionNumber,
             annualText: input.peerProfile.annualText,
+            requestedSymbols: requestedComparisonSymbols,
           }),
   });
   const unavailableTechnical = unavailable<{
@@ -361,7 +463,7 @@ export async function collectInsightSentryInitialEvidence(input: {
           entitled: false,
           needed: false,
         });
-  const [fundamentals, news, documents, calendar, peers, options] =
+  const [fundamentals, news, documents, calendar, collectedPeers, options] =
     await Promise.all([
       fundamentalsPromise,
       newsPromise,
@@ -370,6 +472,15 @@ export async function collectInsightSentryInitialEvidence(input: {
       peersPromise,
       optionsPromise,
     ]);
+  const subjectDaily =
+    technical.status === "available"
+      ? technical.data.bars.find((candidate) => candidate.timeframe === "1d")
+      : undefined;
+  const peers = await enrichPeersWithCachedHistory({
+    result: collectedPeers,
+    market,
+    ...(subjectDaily === undefined ? {} : { subjectDaily }),
+  });
   const captured = [...responses.values()];
   const evidence: SnapshotEvidence[] = [];
   const sources: SpecialistSourceArtifact[] = [];
@@ -512,8 +623,8 @@ export async function collectInsightSentryInitialEvidence(input: {
       "insightsentry:peers",
       "insightsentry_peers",
       peers.data,
-      ["stock_screener"],
-      "relative valuation metrics",
+      ["stock_screener", "/v3/symbols/{symbol}/series"],
+      "relative valuation and return metrics",
     );
 
   const entries = Object.freeze(

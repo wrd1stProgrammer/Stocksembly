@@ -2,8 +2,12 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import { LIMITS } from "../../domain/limits.constants";
-import { type ResearchReport, ResearchReportSchema } from "../../domain/report";
-import { parseStoredResearchReport } from "../../domain/reportStorage";
+import {
+  type ResearchReport,
+  ResearchReportSchema,
+  type WorkflowV2ResearchReport,
+} from "../../domain/report";
+import { parseStoredResearchReportVersioned } from "../../domain/reportStorage";
 import { ArtifactDigestSchema } from "../../ports/artifacts";
 import { inspectBlob } from "../artifacts/filesystemArtifactFiles";
 import {
@@ -15,7 +19,7 @@ import type { PublicReport } from "./researchApiContracts";
 
 const PublicationPointerSchema = z
   .object({
-    schemaVersion: z.literal("workflow-v1"),
+    schemaVersion: z.enum(["workflow-v1", "workflow-v2"]),
     reportArtifactDigest: ArtifactDigestSchema,
     version: z.number().int().positive(),
     priorVersionId: z.string().uuid().nullable(),
@@ -24,7 +28,7 @@ const PublicationPointerSchema = z
     sourceIds: z.array(z.string().uuid()),
     limitationIds: z.array(z.string()),
   })
-  .strict();
+  .passthrough();
 
 export type ResearchReportReaderOptions = {
   readonly dataRoot: string;
@@ -117,7 +121,7 @@ async function restoreDepartmentMarketSnapshot(
 export async function loadPublicResearchReport(
   options: ResearchReportReaderOptions,
   publication: PublicReport,
-): Promise<ResearchReport | undefined> {
+): Promise<ResearchReport | WorkflowV2ResearchReport | undefined> {
   const pointer = PublicationPointerSchema.parse(publication.payload);
   if (pointer.reportArtifactDigest !== publication.artifactDigest)
     return undefined;
@@ -143,8 +147,12 @@ export async function loadPublicResearchReport(
   const decoded: unknown = JSON.parse(
     new TextDecoder("utf-8", { fatal: true }).decode(bytes),
   );
-  const storedReport = parseStoredResearchReport(decoded);
-  const report = await restoreDepartmentMarketSnapshot(options, storedReport);
+  const storedReport = parseStoredResearchReportVersioned(decoded);
+  if (storedReport.schemaVersion !== pointer.schemaVersion) return undefined;
+  const report =
+    storedReport.schemaVersion === "workflow-v1"
+      ? await restoreDepartmentMarketSnapshot(options, storedReport)
+      : storedReport;
   return report.reportId === publication.reportId &&
     report.versionId === publication.versionId &&
     report.version === publication.version &&

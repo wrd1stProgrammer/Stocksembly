@@ -1,5 +1,6 @@
 import type { Locale } from "../lib/i18n";
 import type { ResearchReport } from "./domain/report";
+import { sanitizePublicEditorialText } from "./domain/editorialQuality";
 
 const SENTENCE_BOUNDARY = /(?<=[.!?。！？])\s+/u;
 const PERIOD_MARKER = "\u2063";
@@ -71,7 +72,7 @@ export function activityCopy(
   locale: Locale,
 ): { readonly headline: string; readonly body: string } {
   void locale;
-  const sentences = sentenceParts(value)
+  const sentences = sentenceParts(sanitizePublicEditorialText(value))
     .map((sentence) => sentence.trim())
     .filter(Boolean)
     .slice(0, 2);

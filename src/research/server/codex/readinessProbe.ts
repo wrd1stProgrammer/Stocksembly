@@ -24,6 +24,7 @@ import {
   buildSafeReadinessReport,
   CodexIsolationError,
   type ReadinessScope,
+  type ReadinessReason,
   type SafeCodexReadinessReport,
 } from "./readiness";
 import { assertExactReadinessEnvironment } from "./readinessEnvironment";
@@ -46,6 +47,28 @@ const SAFE_ARTIFACTS = [
 
 function digest(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+async function readinessPhase<Value>(
+  reason: ReadinessReason,
+  check: ConstructorParameters<typeof CodexIsolationError>[0],
+  action: () => Value | Promise<Value>,
+): Promise<Value> {
+  try {
+    return await action();
+  } catch (error) {
+    if (error instanceof CodexIsolationError)
+      throw error.reason === "report_validation"
+        ? new CodexIsolationError(error.check, reason)
+        : error;
+    if (error instanceof CodexRunnerError) {
+      const mapped = codexIsolationError(error);
+      throw reason === "runner_process"
+        ? mapped
+        : new CodexIsolationError(mapped.check, reason);
+    }
+    throw new CodexIsolationError(check, reason);
+  }
 }
 
 async function artifactsAreClear(
@@ -76,54 +99,81 @@ export async function runProductionCodexReadinessProbe(
   let probeRoot: string | undefined;
   process.env[environmentName] = environmentSentinel;
   try {
-    const platform = productionCodexPlatform();
-    assertHostPolicy(platform.hostEnvironment, platform.pins.locale);
-    await writeFile(projectSentinelPath, projectSentinel, {
-      flag: "wx",
-      mode: 0o600,
+    const platform = await readinessPhase(
+      "platform_policy",
+      "profile",
+      () => {
+        const value = productionCodexPlatform();
+        assertHostPolicy(value.hostEnvironment, value.pins.locale);
+        return value;
+      },
+    );
+    await readinessPhase("workspace_prepare", "temporary_storage", async () => {
+      await writeFile(projectSentinelPath, projectSentinel, {
+        flag: "wx",
+        mode: 0o600,
+      });
+      await writeFile(homeSentinelPath, homeSentinel, {
+        flag: "wx",
+        mode: 0o600,
+      });
+      probeRoot = await createReadinessRoot(
+        platform.executionMode === "direct"
+          ? dirname(platform.pins.originPath)
+          : undefined,
+      );
+      await chmod(probeRoot, 0o700);
     });
-    await writeFile(homeSentinelPath, homeSentinel, {
-      flag: "wx",
-      mode: 0o600,
-    });
-    probeRoot = await createReadinessRoot(
-      platform.executionMode === "direct"
-        ? dirname(platform.pins.originPath)
-        : undefined,
+    const sandbox = await readinessPhase("binary_verify", "binary", () =>
+      verifyPinnedExecutable(
+        platform.executionMode === "direct"
+          ? platform.pins.originPath
+          : platform.pins.sandboxExecPath,
+        platform.executionMode === "direct"
+          ? platform.pins.originSha256
+          : platform.pins.sandboxExecSha256,
+        "policy_violation",
+      ),
     );
-    await chmod(probeRoot, 0o700);
-    const sandbox = await verifyPinnedExecutable(
-      platform.executionMode === "direct"
-        ? platform.pins.originPath
-        : platform.pins.sandboxExecPath,
-      platform.executionMode === "direct"
-        ? platform.pins.originSha256
-        : platform.pins.sandboxExecSha256,
-      "policy_violation",
+    const certificate = await readinessPhase(
+      "certificate_probe",
+      "certificate",
+      () =>
+        verifyPinnedRegularFile(
+          platform.pins.certificatePath,
+          platform.pins.certificateSha256,
+          "policy_violation",
+        ),
     );
-    const certificate = await verifyPinnedRegularFile(
-      platform.pins.certificatePath,
-      platform.pins.certificateSha256,
-      "policy_violation",
+    const [originStats, rootStats] = await readinessPhase(
+      "binary_stat",
+      "temporary_storage",
+      () => Promise.all([stat(platform.pins.originPath), stat(probeRoot!)]),
     );
-    const [originStats, rootStats] = await Promise.all([
-      stat(platform.pins.originPath),
-      stat(probeRoot),
-    ]);
     if (originStats.dev !== rootStats.dev)
       throw new CodexIsolationError("temporary_storage");
-    const sentinelAccess = await runSentinelAccessProbe({
-      platform,
-      root: probeRoot,
-      projectPath: projectSentinelPath,
-      homePath: homeSentinelPath,
-      allowedEvidence,
-      inheritedSentinelName: environmentName,
-    });
-    const disabledFeaturesHash = await runProtectedFeatureInventory(
-      platform,
-      join(probeRoot, "feature-attempt"),
-      environmentName,
+    const sentinelAccess = await readinessPhase(
+      "sandbox_probe",
+      "sentinel",
+      () =>
+        runSentinelAccessProbe({
+          platform,
+          root: probeRoot!,
+          projectPath: projectSentinelPath,
+          homePath: homeSentinelPath,
+          allowedEvidence,
+          inheritedSentinelName: environmentName,
+        }),
+    );
+    const disabledFeaturesHash = await readinessPhase(
+      "feature_probe",
+      "feature",
+      () =>
+        runProtectedFeatureInventory(
+          platform,
+          join(probeRoot!, "feature-attempt"),
+          environmentName,
+        ),
     );
     const allowedEvidenceHash = digest(allowedEvidence);
     const outputSchema = z
@@ -136,7 +186,7 @@ export async function runProductionCodexReadinessProbe(
         inheritedEnvironmentSentinel: z.literal("blocked"),
       })
       .strict();
-    const attemptDir = join(probeRoot, "attempt");
+    const attemptDir = join(probeRoot!, "attempt");
     const reservation = Object.freeze({
       key: Object.freeze({
         runId: RunIdSchema.parse("00000000-0000-4000-8000-000000000021"),
@@ -187,10 +237,10 @@ export async function runProductionCodexReadinessProbe(
         return await platform.runCodex(invocation);
       },
     });
-    const result = await runCodexWithPlatform(
-      input,
-      readinessPlatform,
-      reservations,
+    const result = await readinessPhase(
+      "runner_process",
+      "probe",
+      () => runCodexWithPlatform(input, readinessPlatform, reservations),
     );
     const forbidden = [
       projectSentinel,
@@ -198,7 +248,11 @@ export async function runProductionCodexReadinessProbe(
       environmentSentinel,
       allowedEvidence,
     ] as const;
-    const artifactExposure = (await artifactsAreClear(attemptDir, forbidden))
+    const artifactExposure = (
+      await readinessPhase("artifact_audit", "sentinel", () =>
+        artifactsAreClear(attemptDir, forbidden),
+      )
+    )
       ? "clear"
       : "detected";
     return buildSafeReadinessReport(scope, {
@@ -228,12 +282,14 @@ export async function runProductionCodexReadinessProbe(
     throw new CodexIsolationError("probe");
   } finally {
     delete process.env[environmentName];
-    await Promise.all([
-      rm(projectSentinelPath, { force: true }),
-      rm(homeSentinelPath, { force: true }),
-      ...(probeRoot === undefined
-        ? []
-        : [rm(probeRoot, { recursive: true, force: true })]),
-    ]);
+    await readinessPhase("cleanup", "temporary_storage", () =>
+      Promise.all([
+        rm(projectSentinelPath, { force: true }),
+        rm(homeSentinelPath, { force: true }),
+        ...(probeRoot === undefined
+          ? []
+          : [rm(probeRoot, { recursive: true, force: true })]),
+      ]),
+    );
   }
 }

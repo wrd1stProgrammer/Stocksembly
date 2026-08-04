@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { AccountStore } from "../../../accounts/server/accountStore";
+import { researchCreditCost } from "../../../lib/whop/creditPolicy";
 import { checkCommandBodySize, checkDiskAdmission } from "../../domain/limits";
+import { DEFAULT_RESEARCH_PROFILE } from "../../domain/researchProfile";
+import { COMMITTEE_RESEARCH_TARGET } from "../../domain/researchTarget";
 import type { ResearchDispatchQueue } from "../../ports/researchQueue";
 import type { PublicRun } from "./researchApiContracts";
 import { parseIdempotencyKey, parseResearchInput } from "./researchApiInput";
@@ -14,13 +17,17 @@ type CreationContext = {
     readonly readiness: () => Promise<boolean>;
     readonly availableDiskBytes: () => Promise<number>;
     readonly now?: () => string;
+    readonly billingRequired?: boolean;
     readonly createId?: () => string;
     readonly resolveSymbol?: (
       symbol: string,
     ) => Promise<
       "supported" | "unsupported" | "etf" | "ambiguous" | "unavailable"
     >;
-    readonly accountStore?: Pick<AccountStore, "recordResearchRun">;
+    readonly accountStore?: Pick<
+      AccountStore,
+      "recordResearchRun" | "billingStatus" | "checkCredits"
+    >;
     readonly researchQueue?: Pick<ResearchDispatchQueue, "enqueue">;
   };
   readonly repository: ResearchApiRepository;
@@ -86,10 +93,25 @@ export async function createRun(
   if (body instanceof Response) return body;
   const parsed = parseResearchInput(body);
   if (parsed.kind !== "accepted") return inputError(parsed.kind);
+  const billing =
+    await context.options.accountStore?.billingStatus?.(principal);
+  if (
+    context.options.billingRequired === true &&
+    context.options.accountStore?.checkCredits === undefined
+  )
+    return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+  const normalizedRequest =
+    billing === undefined || billing.tier !== "free"
+      ? parsed.request
+      : {
+          ...parsed.request,
+          researchTarget: COMMITTEE_RESEARCH_TARGET,
+          researchProfile: DEFAULT_RESEARCH_PROFILE,
+        };
   const previous = context.repository.lookupIdempotency(
     principal,
     key,
-    parsed.request,
+    normalizedRequest,
   );
   if (previous.kind === "replayed") {
     await context.options.accountStore?.recordResearchRun(
@@ -103,7 +125,7 @@ export async function createRun(
   if (previous.kind === "conflict")
     return apiError(409, "IDEMPOTENCY_CONFLICT");
   const symbolResolution =
-    (await context.options.resolveSymbol?.(parsed.request.symbol)) ??
+    (await context.options.resolveSymbol?.(normalizedRequest.symbol)) ??
     "supported";
   switch (symbolResolution) {
     case "unsupported":
@@ -125,11 +147,17 @@ export async function createRun(
   ) {
     return apiError(507, "DISK_LOW");
   }
+  const creditCheck = await context.options.accountStore?.checkCredits?.(
+    principal,
+    researchCreditCost(normalizedRequest.researchTarget),
+  );
+  if (creditCheck !== undefined && !creditCheck.allowed)
+    return apiError(402, "CREDITS_INSUFFICIENT");
   const createId = context.options.createId ?? randomUUID;
   const result = context.repository.create({
     principalId: principal,
     idempotencyKey: key,
-    request: parsed.request,
+    request: normalizedRequest,
     ids: {
       runId: createId(),
       snapshotId: createId(),

@@ -50,7 +50,7 @@ describe("blind challenge round", () => {
     expect(staged.kind).toBe("staged");
     expect(replay.responseStartAllowed).toBe(true);
     expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([
-      15, 16, 17, 18,
+      16, 17, 18, 19,
     ]);
     expect(new Set(replay.receipts.map((item) => item.attemptId)).size).toBe(4);
     expect(new Set(replay.artifactIds).size).toBe(4);

@@ -110,6 +110,101 @@ const migrations = [
         ON report_consultations(principal_id, report_id, created_at, question_id);
     `,
   },
+  {
+    version: 3,
+    name: "003_account_locale_preference",
+    sql: `
+      ALTER TABLE app_users
+        ADD COLUMN preferred_locale TEXT;
+
+      ALTER TABLE app_users
+        ADD CONSTRAINT app_users_preferred_locale_check
+        CHECK (
+          preferred_locale IS NULL
+          OR preferred_locale IN ('en', 'ko')
+      );
+    `,
+  },
+  {
+    version: 4,
+    name: "004_whop_billing_and_credits",
+    sql: `
+      ALTER TABLE app_users
+        ADD COLUMN whop_user_id TEXT;
+
+      CREATE UNIQUE INDEX app_users_whop_user_id_idx
+        ON app_users(whop_user_id)
+        WHERE whop_user_id IS NOT NULL;
+
+      ALTER TABLE entitlements
+        ADD COLUMN whop_membership_id TEXT,
+        ADD COLUMN whop_plan_id TEXT,
+        ADD COLUMN manage_url TEXT,
+        ADD COLUMN cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+        ADD COLUMN whop_event_at TIMESTAMPTZ,
+        ADD COLUMN monthly_credit_limit INTEGER NOT NULL DEFAULT 0,
+        ADD CONSTRAINT entitlements_monthly_credit_limit_check
+          CHECK (monthly_credit_limit >= 0);
+
+      CREATE UNIQUE INDEX entitlements_whop_membership_idx
+        ON entitlements(whop_membership_id)
+        WHERE whop_membership_id IS NOT NULL;
+
+      CREATE TABLE whop_webhook_events (
+        event_id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        occurred_at TIMESTAMPTZ,
+        received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        payload JSONB NOT NULL
+      );
+
+      CREATE TABLE credit_grants (
+        grant_key TEXT PRIMARY KEY,
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        period_key DATE NOT NULL,
+        plan_code TEXT NOT NULL,
+        credits INTEGER NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL,
+        UNIQUE (principal_id, period_key),
+        CHECK (credits >= 0)
+      );
+
+      CREATE INDEX credit_grants_user_period_idx
+        ON credit_grants(principal_id, period_key DESC);
+    `,
+  },
+  {
+    version: 5,
+    name: "005_credit_usage_counters",
+    sql: `
+      ALTER TABLE usage_events
+        DROP CONSTRAINT usage_events_kind_check;
+
+      ALTER TABLE usage_events
+        ADD CONSTRAINT usage_events_kind_check CHECK (
+          kind IN (
+            'research_run_created',
+            'consultation_answered',
+            'full_research',
+            'department_research',
+            'chat_bundle',
+            'research_room'
+          )
+        );
+
+      CREATE TABLE chat_usage_counters (
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        period_key DATE NOT NULL,
+        message_count INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL,
+        PRIMARY KEY (principal_id, period_key),
+        CHECK (message_count >= 0)
+      );
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

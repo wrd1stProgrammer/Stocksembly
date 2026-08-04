@@ -1,13 +1,58 @@
 import { z } from "zod";
+import { ChairSynthesisOutputSchema } from "./chairSynthesisOutput";
 import {
+  AtomicEditorialClaimSchema,
   BilingualPublicTextSchema,
   ClaimIdsSchema,
+  ComparatorSchema,
   DissentListSchema,
+  PersistedQuestionAnswerSchema,
   PublicPositionSchema,
   SourceArtifactIdsSchema,
+  TeamEditorialDecisionSchema,
   UnknownListSchema,
 } from "./agentOutputsShared";
-import { ArtifactIdSchema, ClaimIdSchema, QuestionIdSchema } from "./ids";
+
+export {
+  AtomicEditorialClaimSchema,
+  ComparatorSchema,
+  EditorialConfidenceSchema,
+  EditorialDecisionDimensionSchema,
+  EditorialStanceSchema,
+  PersistedQuestionAnswerSchema,
+  TeamEditorialDecisionSchema,
+} from "./agentOutputsShared";
+
+export const WorkflowV2EditorialOutputSchema = z
+  .object({
+    schemaVersion: z.literal("workflow-v2"),
+    claims: z.array(AtomicEditorialClaimSchema).min(1).max(64).readonly(),
+    decision: TeamEditorialDecisionSchema,
+    comparators: z.array(ComparatorSchema).max(64).readonly(),
+    anticipatedQuestions: z.array(PersistedQuestionAnswerSchema).max(32).readonly(),
+  })
+  .strict()
+  .superRefine((output, context) => {
+    const claimIds = output.claims.map((claim) => claim.claimId);
+    if (new Set(claimIds).size !== claimIds.length)
+      context.addIssue({ code: "custom", path: ["claims"], message: "duplicate claim ownership" });
+    const knownClaimIds = new Set(claimIds);
+    for (const claimId of output.decision.primaryClaimIds)
+      if (!knownClaimIds.has(claimId))
+        context.addIssue({ code: "custom", path: ["decision", "primaryClaimIds"], message: "decision cites unknown claim" });
+    for (const qa of output.anticipatedQuestions)
+      for (const claimId of qa.primaryClaimIds)
+        if (!knownClaimIds.has(claimId))
+          context.addIssue({ code: "custom", path: ["anticipatedQuestions"], message: "Q&A cites unknown claim" });
+  })
+  .readonly();
+import { ClaimIdSchema, QuestionIdSchema } from "./ids";
+
+export {
+  ChairConflictAdjudicationSchema,
+  ChairDecisionBriefSchema,
+  ChairSynthesisOutputSchema,
+} from "./chairSynthesisOutput";
 
 export const MemoOutputSchema = z
   .object({
@@ -16,6 +61,28 @@ export const MemoOutputSchema = z
     positions: z.array(PublicPositionSchema).min(1).max(32).readonly(),
     dissent: DissentListSchema,
     unknowns: UnknownListSchema,
+  })
+  .strict()
+  .readonly();
+
+export const DepartmentClaimDispositionSchema = z
+  .object({
+    claimId: ClaimIdSchema,
+    disposition: z.enum(["accept", "revise", "remove"]),
+    reason: BilingualPublicTextSchema,
+  })
+  .strict()
+  .readonly();
+
+export const DepartmentClaimRevisionSchema = z
+  .object({
+    originClaimId: ClaimIdSchema,
+    adjudicatedClaimId: ClaimIdSchema,
+    publicSummary: BilingualPublicTextSchema,
+    falsifier: BilingualPublicTextSchema,
+    revisionHash: z.string().regex(/^[a-f0-9]{64}$/),
+    reason: BilingualPublicTextSchema,
+    sourceArtifactIds: SourceArtifactIdsSchema,
   })
   .strict()
   .readonly();
@@ -31,6 +98,12 @@ export const DepartmentConsolidationOutputSchema = z
     weakestClaimIds: ClaimIdsSchema,
     revisedClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
     removedClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
+    dispositions: z
+      .array(DepartmentClaimDispositionSchema)
+      .min(1)
+      .max(64)
+      .readonly(),
+    revisions: z.array(DepartmentClaimRevisionSchema).max(64).readonly(),
     publicSummary: BilingualPublicTextSchema,
     dissent: DissentListSchema,
     openQuestions: UnknownListSchema,
@@ -154,48 +227,6 @@ export const SemanticAuditOutputSchema = z
     sourceArtifactIds: SourceArtifactIdsSchema,
     verdicts: z.array(SemanticVerdictSchema).min(1).max(128).readonly(),
     questionCoverage: z.array(QuestionCoverageSchema).max(32).readonly(),
-  })
-  .strict()
-  .readonly();
-
-const ChairSectionSchema = z
-  .object({
-    sectionId: z.string().trim().min(1).max(80),
-    sectionKey: z.enum([
-      "ten_second_brief",
-      "supported_analysis",
-      "valuation_comparison",
-      "operational_scenarios",
-      "dissent_unknowns",
-      "change_conditions",
-    ]),
-    publicSummary: BilingualPublicTextSchema,
-    sentenceIds: z
-      .array(z.string().trim().min(1).max(160))
-      .min(1)
-      .max(64)
-      .readonly(),
-    sourceArtifactIds: SourceArtifactIdsSchema,
-    auditedClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
-  })
-  .strict()
-  .readonly();
-
-export const ChairSynthesisOutputSchema = z
-  .object({
-    kind: z.literal("chair_synthesis"),
-    sourceArtifactIds: SourceArtifactIdsSchema,
-    sections: z.array(ChairSectionSchema).min(1).max(12).readonly(),
-    ballotArtifactIds: z
-      .array(ArtifactIdSchema)
-      .length(4)
-      .refine(
-        (values) => new Set(values).size === values.length,
-        "duplicate ballot artifact",
-      )
-      .readonly(),
-    dissentClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
-    unknowns: UnknownListSchema,
   })
   .strict()
   .readonly();

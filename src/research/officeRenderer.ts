@@ -1,5 +1,5 @@
 import type { Locale } from "../lib/i18n";
-import { ACTOR_ATLAS, actorFrame } from "./officeActorAtlas";
+import { ACTOR_ATLAS, actorFrame, actorWalkColumns } from "./officeActorAtlas";
 import type { OfficeActorAction, OfficeBeatId } from "./officeChoreography";
 import { assertNeverOffice } from "./officeChoreographyV7Contract";
 import { facingToward } from "./officeFacingV7";
@@ -73,7 +73,6 @@ export type OfficeRendererInput = {
   };
 };
 
-const walkColumns = Object.freeze([0, 1, 2, 1]);
 const rosterIndex = new Map(
   OFFICE_SCENE_MANIFEST.roster.map((member, index) => [member.id, index]),
 );
@@ -110,6 +109,17 @@ function animationFor(action: OfficeActorAction): "idle" | "sit" | "walk" {
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
+}
+
+function directionBetweenCells(from: Cell, to: Cell): OfficeFacing | undefined {
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+  if (Math.abs(deltaX) + Math.abs(deltaY) !== 1) return undefined;
+  if (deltaX < 0) return "left";
+  if (deltaX > 0) return "right";
+  if (deltaY < 0) return "up";
+  if (deltaY > 0) return "down";
+  return undefined;
 }
 
 function actorWorld(
@@ -207,7 +217,10 @@ export function renderOfficeSnapshot(
       const enteringSeat =
         animation === "sit" &&
         previous !== undefined &&
-        (previous.action === "walk" || previous.action === "return") &&
+        (previous.action === "walk" ||
+          previous.action === "return" ||
+          previous.action === "stand" ||
+          previous.action === "orient") &&
         (previous.cell.x !== actor.cell.x || previous.cell.y !== actor.cell.y);
       // Do not render the final walking interpolation with a seated frame.
       // The seat is a semantic interaction point, so switching to the seated
@@ -219,7 +232,18 @@ export function renderOfficeSnapshot(
         counterpart === undefined
           ? actor.facing
           : facingToward(actor.cell, counterpart.cell);
-      const frame = actorFrame(animation, facing, 0);
+      // A directive's final facing is a semantic state, not necessarily the
+      // direction of the current step.  Prefer the authoritative adjacent
+      // cell transition while a walk is being rendered so the sprite never
+      // faces one way while its feet travel the other way.
+      const movementFacing =
+        animation === "walk" &&
+        previous !== undefined &&
+        (previous.cell.x !== actor.cell.x || previous.cell.y !== actor.cell.y)
+          ? (directionBetweenCells(previous.cell, actor.cell) ?? facing)
+          : facing;
+      const renderFacing = animation === "walk" ? movementFacing : facing;
+      const frame = actorFrame(animation, renderFacing, 0);
       const layer = animation === "sit" ? seatedActorLayer[facing] : 2;
       return Object.freeze({
         id: actor.id,
@@ -228,12 +252,14 @@ export function renderOfficeSnapshot(
         destination: Object.freeze({ ...actor.destination }),
         revision: actor.revision,
         world,
-        facing,
+        facing: renderFacing,
         animation,
         frame: Object.freeze({
           row: frame.row,
           columns:
-            animation === "walk" ? walkColumns : Object.freeze([frame.column]),
+            animation === "walk"
+              ? actorWalkColumns(movementFacing)
+              : Object.freeze([frame.column]),
         }),
         pivot: Object.freeze({ ...ACTOR_ATLAS.footPivot }),
         scale: 1,

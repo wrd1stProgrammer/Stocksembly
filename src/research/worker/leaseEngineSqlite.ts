@@ -18,6 +18,7 @@ import {
 } from "../server/persistence/sqlite/runControlRepository";
 import { appendRunEvent } from "../server/persistence/sqlite/runRepository";
 import type { CreateRunInput } from "../server/persistence/sqlite/types";
+import { consumeChairResumeReceiptException } from "../workflow/chairResumePermit";
 import { reserveWithinRunBudget } from "./leaseEngineBudget";
 import { activateNextRun, admitRun } from "./leaseEngineSqliteAdmission";
 import { claimNextJob } from "./leaseEngineSqliteClaim";
@@ -94,6 +95,15 @@ export class SqliteLeaseEngineStore implements LeaseEngineStore {
         if (
           input.claim.kind === "research" &&
           !reserveWithinRunBudget(this.#database, input)
+        )
+          return { kind: "incomplete" } as const;
+        if (
+          input.claim.kind === "research" &&
+          !consumeChairResumeReceiptException(
+            this.#database,
+            input.claim.runId,
+            input.claim.jobId,
+          )
         )
           return { kind: "incomplete" } as const;
         const event = {

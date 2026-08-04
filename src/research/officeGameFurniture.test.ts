@@ -65,7 +65,7 @@ describe("office snapshot furniture", () => {
     );
 
     // Then
-    expect(seats.filter((seat) => seat.occupied)).toHaveLength(6);
+    expect(seats.filter((seat) => seat.occupied)).toHaveLength(7);
     expect(seats.filter((seat) => !seat.occupied)).toHaveLength(5);
   });
 

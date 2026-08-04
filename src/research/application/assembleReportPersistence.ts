@@ -1,10 +1,16 @@
-import { canonicalJson } from "../domain/contractHelpers";
+import { canonicalJson, hashCanonical } from "../domain/contractHelpers";
 import {
   ArtifactIdSchema,
   ReportIdSchema,
   ReportVersionIdSchema,
 } from "../domain/ids";
-import type { ResearchReport } from "../domain/report";
+import { WorkflowV2ResearchReportSchema, type WorkflowV2ResearchReport } from "../domain/report";
+import {
+  deterministicMetadataRewrite,
+  evaluatePrePublicationEditorialGate,
+  gateWithOneTargetedRewrite,
+  type PrePublicationEditorialEnvelope,
+} from "../workflow/prePublicationEditorialGate";
 import { singleLocaleReportForStorage } from "../domain/reportStorage";
 import {
   type ArtifactCasPort,
@@ -29,6 +35,14 @@ type PersistenceOptions = {
   readonly cas: ArtifactCasPort;
   readonly persistence: ReportVersionPersistence;
   readonly now?: () => string;
+  readonly reserveEditorialRewrite?: (inputHash: string) => boolean;
+  readonly savedEditorialPublication?: PrePublicationEditorialEnvelope;
+  readonly repairMetadata?: Readonly<{
+    authorizationHash: string;
+    supersedesVersion: number;
+    projectionHash: string;
+    persistenceHash: string;
+  }>;
 };
 
 type AuthoritativeReportInput = AssemblyInput & {
@@ -43,7 +57,7 @@ type AuthoritativeReportInput = AssemblyInput & {
 export type PersistAuthoritativeReportResult =
   | {
       readonly kind: "published";
-      readonly report: ResearchReport;
+      readonly report: WorkflowV2ResearchReport;
       readonly descriptor: ArtifactDescriptor;
     }
   | { readonly kind: "blocked"; readonly reason: string };
@@ -54,6 +68,95 @@ export async function persistAuthoritativeReport(
 ): Promise<PersistAuthoritativeReportResult> {
   const assembled = assembleReport(input);
   if (assembled.kind === "blocked") return assembled;
+  const recomputedGate = await gateWithOneTargetedRewrite(
+    assembled.editorialPublication.candidate,
+    async (request) => {
+      if (options.reserveEditorialRewrite?.(hashCanonical(request)) === false)
+        return assembled.editorialPublication.candidate;
+      return deterministicMetadataRewrite(
+          assembled.editorialPublication.candidate,
+          request,
+        );
+    },
+  );
+  const savedEditorialPublication = options.savedEditorialPublication;
+  if (
+    savedEditorialPublication !== undefined &&
+    (recomputedGate.kind !== "accepted" ||
+      savedEditorialPublication.gateVersion !== "editorial-quality-v1" ||
+      hashCanonical(savedEditorialPublication.candidate) !==
+        hashCanonical(recomputedGate.candidate) ||
+      !evaluatePrePublicationEditorialGate(savedEditorialPublication.candidate)
+        .publishable)
+  )
+    return { kind: "blocked", reason: "saved_editorial_authority_mismatch" };
+  const gated =
+    savedEditorialPublication === undefined
+      ? recomputedGate
+      : {
+          kind: "accepted" as const,
+          candidate: savedEditorialPublication.candidate,
+          rewritten: Object.values(
+            savedEditorialPublication.fieldLineage ?? {},
+          ).includes("targeted_rewrite"),
+          fieldLineage: savedEditorialPublication.fieldLineage ?? {},
+        };
+  if (gated.kind === "rejected")
+    return { kind: "blocked", reason: gated.reason };
+  const editorialPublication = {
+    ...assembled.editorialPublication,
+    qaPolicy: {
+      ...assembled.editorialPublication.qaPolicy,
+      supportedCount: gated.candidate.anticipatedQuestions.length,
+      moduleVisible:
+        gated.candidate.anticipatedQuestions.length >=
+        assembled.editorialPublication.qaPolicy.moduleMinimum,
+    },
+    candidate: gated.candidate,
+    fieldLineage: gated.fieldLineage,
+  };
+  const retainedSectionKeys = new Set(
+    gated.candidate.sections.map((section) => section.sectionKey),
+  );
+  const gatedSections = new Map(
+    gated.candidate.sections.map((section) => [section.sectionKey, section]),
+  );
+  const localizedSections = (locale: "en" | "ko") =>
+    assembled.report.locales[locale].sections
+      .filter((section) => retainedSectionKeys.has(section.id))
+      .map((section) => {
+        const gatedSection = gatedSections.get(section.id);
+        return gatedSection === undefined
+          ? section
+          : {
+              ...section,
+              body: gatedSection.text[locale],
+              claimIds: gatedSection.claimIds,
+            };
+      });
+  const publicationReport = WorkflowV2ResearchReportSchema.parse({
+    ...assembled.report,
+    teamViews: assembled.report.teamViews.map((teamView, index) =>
+      index === 0
+        ? {
+            ...teamView,
+            position: gated.candidate.position,
+            rationale: gated.candidate.rationale,
+          }
+        : teamView,
+    ),
+    locales: {
+      en: {
+        ...assembled.report.locales.en,
+        sections: localizedSections("en"),
+      },
+      ko: {
+        ...assembled.report.locales.ko,
+        sections: localizedSections("ko"),
+      },
+    },
+    anticipatedQuestions: gated.candidate.anticipatedQuestions,
+  });
   const reportArtifactId = ArtifactIdSchema.safeParse(input.reportArtifactId);
   const reportId = ReportIdSchema.safeParse(input.reportId);
   const versionId = ReportVersionIdSchema.safeParse(input.versionId);
@@ -97,21 +200,21 @@ export async function persistAuthoritativeReport(
         parent === undefined ||
         expected === undefined ||
         parent.descriptor.artifactId !== expected.artifactId ||
-        parent.descriptor.runId !== assembled.report.runId ||
-        parent.descriptor.snapshotId !== assembled.report.snapshotId
+        parent.descriptor.runId !== publicationReport.runId ||
+        parent.descriptor.snapshotId !== publicationReport.snapshotId
       );
     })
   )
     return { kind: "blocked", reason: "parent_artifact_authentication_failed" };
   const bytes = new TextEncoder().encode(
     canonicalJson(
-      singleLocaleReportForStorage(assembled.report, input.locale ?? "en"),
+      singleLocaleReportForStorage(publicationReport, input.locale ?? "en"),
     ),
   );
   const descriptor = await options.cas.put({
     artifactId: reportArtifactId.data,
-    runId: assembled.report.runId,
-    snapshotId: assembled.report.snapshotId,
+    runId: publicationReport.runId,
+    snapshotId: publicationReport.snapshotId,
     mediaType: "application/vnd.stocksembly.research-report+json",
     parentDigests: parsedDigests,
     bytes,
@@ -122,26 +225,31 @@ export async function persistAuthoritativeReport(
     version: {
       reportId: reportId.data,
       versionId: versionId.data,
-      runId: assembled.report.runId,
-      snapshotId: assembled.report.snapshotId,
+      runId: publicationReport.runId,
+      snapshotId: publicationReport.snapshotId,
       artifactId: reportArtifactId.data,
-      status: assembled.report.status,
+      status: publicationReport.status,
       publishedAt: options.now?.() ?? new Date().toISOString(),
       publicPayload: {
-        schemaVersion: assembled.report.schemaVersion,
+        schemaVersion: publicationReport.schemaVersion,
         reportArtifactDigest: descriptor.digest,
-        version: assembled.report.version,
-        priorVersionId: assembled.report.versionDelta.priorVersionId,
-        status: assembled.report.status,
-        claimIds: assembled.report.claims.map((claim) => claim.claimId),
-        sourceIds: assembled.report.sources.map((source) => source.sourceId),
-        limitationIds: assembled.report.limitations.map(
+        version: publicationReport.version,
+        priorVersionId: publicationReport.versionDelta.priorVersionId,
+        status: publicationReport.status,
+        claimIds: publicationReport.claims.map((claim) => claim.claimId),
+        sourceIds: publicationReport.sources.map((source) => source.sourceId),
+        limitationIds: publicationReport.limitations.map(
           (limitation) => limitation.id,
         ),
+        anticipatedQuestions: publicationReport.anticipatedQuestions,
+        editorialPublication,
+        ...(options.repairMetadata === undefined
+          ? {}
+          : { repairMetadata: options.repairMetadata }),
       },
-      expectedVersion: assembled.report.version,
-      priorVersionId: assembled.report.versionDelta.priorVersionId,
+      expectedVersion: publicationReport.version,
+      priorVersionId: publicationReport.versionDelta.priorVersionId,
     },
   });
-  return { kind: "published", report: assembled.report, descriptor };
+  return { kind: "published", report: publicationReport, descriptor };
 }

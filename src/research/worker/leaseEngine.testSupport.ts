@@ -267,6 +267,21 @@ export class LeaseEngineFixture {
     }
   }
 
+  eventPayload(runId: string, type: string): unknown {
+    const database = new Database(this.databasePath);
+    try {
+      const row = database
+        .prepare(
+          `SELECT payload_json AS payloadJson FROM run_events
+           WHERE run_id = ? AND event_type = ? ORDER BY sequence DESC LIMIT 1`,
+        )
+        .get(runId, type) as { payloadJson: string } | undefined;
+      return row === undefined ? undefined : JSON.parse(row.payloadJson);
+    } finally {
+      database.close();
+    }
+  }
+
   run(runId: string) {
     return this.#control.findRun(runId);
   }
@@ -346,6 +361,22 @@ export class LeaseEngineFixture {
             throw new TypeError("runtime state fixture is invalid");
           return row.state_id;
         });
+    } finally {
+      database.close();
+    }
+  }
+
+  attemptCommittedPayloads(runId: string): readonly unknown[] {
+    const database = new Database(this.databasePath);
+    try {
+      return database
+        .prepare(`SELECT payload_json FROM run_events
+          WHERE run_id = ? AND event_type = 'attempt_committed'
+          ORDER BY sequence`)
+        .all(runId)
+        .map((row) =>
+          JSON.parse((row as { readonly payload_json: string }).payload_json),
+        );
     } finally {
       database.close();
     }

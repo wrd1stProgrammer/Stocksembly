@@ -73,7 +73,7 @@ export function replayResearchQuestion(
     : { kind: "replayed", value };
 }
 
-function toPublicQuestion(input: unknown): PublicQuestion {
+export function publicQuestionFromRow(input: unknown): PublicQuestion {
   const row = QuestionRowSchema.parse(input);
   const question = z
     .object({ en: z.string(), ko: z.string() })
@@ -123,7 +123,7 @@ export function findPublicQuestion(
   questionId: string,
 ): PublicQuestion | undefined {
   const value = questionRow(database, principalId, questionId);
-  return value === undefined ? undefined : toPublicQuestion(value);
+  return value === undefined ? undefined : publicQuestionFromRow(value);
 }
 
 export function listPublicQuestions(
@@ -140,7 +140,7 @@ export function listPublicQuestions(
       WHERE questions.report_id = ? AND research_requests.principal_id = ?
       ORDER BY questions.attempt_ordinal ASC`)
     .all(reportId, principalId)
-    .map(toPublicQuestion);
+    .map(publicQuestionFromRow);
 }
 
 export function createResearchQuestion(

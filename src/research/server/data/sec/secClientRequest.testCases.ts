@@ -89,7 +89,7 @@ describe("SEC request templates and endpoint semantics", () => {
       "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
       "https://data.sec.gov/submissions/CIK0000320193-submissions-001.json",
       "https://www.sec.gov/Archives/edgar/data/320193/000032019326000001/synthetic-10k.htm",
-      "https://www.sec.gov/Archives/edgar/data/320193/000032019326000002/xslF345X06/wk-form4_1783371701.xml",
+      "https://www.sec.gov/Archives/edgar/data/320193/000032019326000002/wk-form4_1783371701.xml",
     ]);
     expect(targets.every((target) => target.startsWith("https://"))).toBe(true);
     await expect(

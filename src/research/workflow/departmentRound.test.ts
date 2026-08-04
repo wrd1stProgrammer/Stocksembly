@@ -187,7 +187,7 @@ describe("department round", () => {
     expect(prepared.codex.departmentLaunches).toBe(0);
   });
 
-  it("canonicalizes a generated summary before validating grounded public text", async () => {
+  it("rejects an unsupported number without overwriting the lead summary", async () => {
     // Given
     const prepared = await stageAcceptedSpecialists(
       temporaryRoot(),
@@ -205,11 +205,11 @@ describe("department round", () => {
     await round.close();
 
     // Then
-    expect(replay.challengeStartAllowed).toBe(true);
-    expect(replay.committedDepartmentIds).toContain("financial");
-    expect(replay.artifactIds).toHaveLength(4);
-    expect(replay.receipts).toHaveLength(4);
-    expect(prepared.codex.departmentLaunches).toBe(4);
+    expect(replay.challengeStartAllowed).toBe(false);
+    expect(replay.committedDepartmentIds).not.toContain("financial");
+    expect(replay.artifactIds).toHaveLength(3);
+    expect(replay.receipts).toHaveLength(5);
+    expect(prepared.codex.departmentLaunches).toBe(5);
   });
 
   it.each(["new_claim"] as const)(
@@ -237,11 +237,7 @@ describe("department round", () => {
     },
   );
 
-  it.each([
-    "new_evidence",
-    "mistyped_dissent_claim",
-    "absent_member_speech",
-  ] as const)(
+  it.each(["mistyped_dissent_claim"] as const)(
     "canonicalizes non-authoritative %s fields without spending a replacement",
     async (fault) => {
       // Given
@@ -265,6 +261,30 @@ describe("department round", () => {
       expect(replay.artifactIds).toHaveLength(4);
       expect(replay.receipts).toHaveLength(4);
       expect(prepared.codex.departmentLaunches).toBe(4);
+    },
+  );
+
+  it.each(["new_evidence", "absent_member_speech"] as const)(
+    "rejects invalid authenticated %s fields without overwriting them",
+    async (fault) => {
+      const prepared = await stageAcceptedSpecialists(temporaryRoot(), fault);
+      const round = createSqliteDepartmentRound(prepared.options);
+      const accepted = round.acceptedMemos(
+        prepared.harness.input.mandate.runId,
+      );
+      await round.stage({
+        runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
+        memberArtifactIds: accepted.map((memo) => memo.artifactId),
+      });
+
+      const replay = await round.drain(prepared.harness.input.mandate.runId);
+      await round.close();
+
+      expect(replay.challengeStartAllowed).toBe(false);
+      expect(replay.committedDepartmentIds).not.toContain("financial");
+      expect(replay.artifactIds).toHaveLength(3);
+      expect(replay.receipts).toHaveLength(5);
+      expect(prepared.codex.departmentLaunches).toBe(5);
     },
   );
 });

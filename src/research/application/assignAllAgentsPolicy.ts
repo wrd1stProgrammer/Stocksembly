@@ -48,6 +48,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       ...MACRO_SOURCES,
       ...MARKET_SOURCES,
       ...PROVIDER_SOURCES,
+      ...SEC_TEXT,
     ],
     capabilityKeys: [
       "bls_macro",
@@ -55,7 +56,11 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "current_market_data",
       "professional_news",
     ],
-    requiredOutputs: ["macro_regime", "market_regime", "observed_coverage"],
+    requiredOutputs: [
+      "atomic_regime_claim",
+      "atomic_catalyst_threshold_claim",
+      "observed_coverage",
+    ],
     forbiddenOutputs: [],
   },
   {
@@ -78,8 +83,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     allowedRightsSources: [...MARKET_SOURCES, ...PROVIDER_SOURCES, ...SEC_TEXT],
     capabilityKeys: ["current_market_data"],
     requiredOutputs: [
-      "one_hour_entry_structure",
-      "four_hour_medium_term_structure",
+      "atomic_timing_claim",
       "moving_averages_rsi_macd_atr_volume",
       "support_resistance",
       "invalidation_levels",
@@ -122,6 +126,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "sec_company_facts",
     ],
     requiredOutputs: [
+      "atomic_relative_performance_claim",
       "benchmark_relative_performance",
       "sector_index_context",
       "rate_beta_sensitivity",
@@ -155,7 +160,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     ],
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
     capabilityKeys: ["sec_filings", "professional_news"],
-    requiredOutputs: ["business_model", "material_company_events"],
+    requiredOutputs: ["atomic_growth_engine_claim", "material_company_events"],
     forbiddenOutputs: [],
   },
   {
@@ -172,7 +177,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     ],
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
     capabilityKeys: ["sec_filings", "professional_news"],
-    requiredOutputs: ["product_adoption", "customer_evidence"],
+    requiredOutputs: ["atomic_adoption_claim", "customer_evidence"],
     forbiddenOutputs: [],
   },
   {
@@ -189,6 +194,8 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
     capabilityKeys: ["sec_filings"],
     requiredOutputs: [
+      "atomic_moat_claim",
+      "atomic_competitive_erosion_claim",
       "competitive_position",
       "peer_context",
       "direct_competitors_vs_operating_comparables",
@@ -208,7 +215,11 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       ...PROVIDER_SOURCES,
     ],
     capabilityKeys: ["sec_filings", "sec_company_facts"],
-    requiredOutputs: ["financial_trends", "provider_official_disagreements"],
+    requiredOutputs: [
+      "atomic_margin_claim",
+      "atomic_reinvestment_claim",
+      "provider_official_disagreements",
+    ],
     forbiddenOutputs: [],
   },
   {
@@ -234,6 +245,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     ],
     capabilityKeys: ["sec_filings", "sec_company_facts", "current_market_data"],
     requiredOutputs: [
+      "atomic_embedded_expectations_claim",
       "valuation_multiples",
       "peer_median_multiples",
       "premium_discount_to_peers",
@@ -270,7 +282,10 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       ...PROVIDER_SOURCES,
     ],
     capabilityKeys: ["sec_filings", "sec_company_facts"],
-    requiredOutputs: ["earnings_quality", "provider_official_disagreements"],
+    requiredOutputs: [
+      "atomic_cash_conversion_claim",
+      "provider_official_disagreements",
+    ],
     forbiddenOutputs: [],
   },
   {
@@ -292,7 +307,11 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     ],
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES, ...MACRO_SOURCES],
     capabilityKeys: ["sec_filings", "professional_news", "options"],
-    requiredOutputs: ["downside_risks", "material_risk_events"],
+    requiredOutputs: [
+      "atomic_causal_downside_path_claim",
+      "atomic_leading_indicator_claim",
+      "material_risk_events",
+    ],
     forbiddenOutputs: [],
   },
   {
@@ -314,7 +333,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "treasury_yield",
       "professional_news",
     ],
-    requiredOutputs: ["policy_transmission", "material_policy_events"],
+    requiredOutputs: ["atomic_mitigant_claim", "material_policy_events"],
     forbiddenOutputs: [],
   },
 ] as const satisfies readonly RoleAssignmentPolicy[];

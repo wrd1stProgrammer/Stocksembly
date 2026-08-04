@@ -1,5 +1,8 @@
 import type { AttemptId, JobId, RunId, SnapshotId } from "../domain/ids";
 import { LIMITS } from "../domain/limits.constants";
+import type { SafeProcessDiagnostics } from "../server/codex/codexErrors";
+import type { SafeCodexRunnerPhase } from "../server/codex/codexErrors";
+import type { SafeReadinessDiagnostics } from "../server/codex/readiness";
 import type { JsonValue } from "../server/persistence/sqlite/safeJson";
 
 export const LEASE_ENGINE_DEFAULTS = {
@@ -39,9 +42,24 @@ export type AttemptOutcome =
       readonly kind: "transient" | "repair";
       readonly retryAt: string;
       readonly code?: string;
+      readonly diagnostics?: SafeProcessDiagnostics;
+      readonly readiness?: SafeReadinessDiagnostics;
+      readonly runner?: { readonly phase: SafeCodexRunnerPhase };
     }
-  | { readonly kind: "attention"; readonly code: string }
-  | { readonly kind: "permanent"; readonly code: string }
+  | {
+      readonly kind: "attention";
+      readonly code: string;
+      readonly diagnostics?: SafeProcessDiagnostics;
+      readonly readiness?: SafeReadinessDiagnostics;
+      readonly runner?: { readonly phase: SafeCodexRunnerPhase };
+    }
+  | {
+      readonly kind: "permanent";
+      readonly code: string;
+      readonly diagnostics?: SafeProcessDiagnostics;
+      readonly readiness?: SafeReadinessDiagnostics;
+      readonly runner?: { readonly phase: SafeCodexRunnerPhase };
+    }
   | { readonly kind: "incomplete"; readonly code: string }
   | { readonly kind: "degraded"; readonly code: string };
 

@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { z } from "zod";
+import { hashCanonical } from "../domain/contractHelpers";
 import { AttemptIdSchema, JobIdSchema, RunIdSchema } from "../domain/ids";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import type {
@@ -82,6 +83,71 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
     })();
   }
 
+  reserveDepartmentTheses(input: {
+    readonly runId: string;
+    readonly departmentId: string;
+    readonly roleId: string;
+    readonly fingerprints: readonly string[];
+    readonly at: string;
+  }): boolean {
+    const reservations = input.fingerprints.map((fingerprint) => {
+      const fingerprintHash = hashCanonical(fingerprint);
+      return {
+        key: `${input.runId}:${input.departmentId}:${fingerprintHash}`,
+        fingerprintHash,
+      };
+    });
+    if (
+      reservations.length === 0 ||
+      new Set(reservations.map((reservation) => reservation.fingerprintHash))
+        .size !== reservations.length
+    )
+      return false;
+    const read = this.#database.prepare(`SELECT result_json
+      FROM idempotency_records WHERE scope = 'specialist-department-thesis'
+        AND idempotency_key = ?`);
+    const insert = this.#database.prepare(`INSERT INTO idempotency_records(
+      scope, idempotency_key, request_hash, result_json, created_at
+    ) VALUES ('specialist-department-thesis', @key, @fingerprint,
+      @resultJson, @at)`);
+    try {
+      return this.#database.transaction(() => {
+        const pending: typeof reservations = [];
+        for (const reservation of reservations) {
+          const existing = z
+            .object({ result_json: z.string() })
+            .safeParse(read.get(reservation.key));
+          if (existing.success) {
+            const owner = z
+              .object({ roleId: z.string() })
+              .safeParse(parseSafeJson(existing.data.result_json));
+            if (!owner.success || owner.data.roleId !== input.roleId)
+              return false;
+            continue;
+          }
+          pending.push(reservation);
+        }
+        for (const reservation of pending)
+          insert.run({
+            key: reservation.key,
+            fingerprint: reservation.fingerprintHash,
+            resultJson: JSON.stringify({ roleId: input.roleId }),
+            at: input.at,
+          });
+        return true;
+      })();
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        typeof error.code === "string" &&
+        error.code.startsWith("SQLITE_CONSTRAINT")
+      )
+        return false;
+      throw error;
+    }
+  }
+
   releaseSystemCollectionReservation(
     runId: string,
     attemptId: string,
@@ -141,6 +207,13 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
         .get(attemptId),
     );
     return row.success ? row.data.logical_artifact_key : undefined;
+  }
+
+  inputHashForAttempt(attemptId: string): string | undefined {
+    const row = this.#database
+      .prepare("SELECT input_hash AS inputHash FROM attempts WHERE attempt_id = ?")
+      .get(attemptId) as { readonly inputHash: string } | undefined;
+    return row?.inputHash;
   }
 
   sourceArtifactsForJob(jobId: string): readonly {
@@ -209,6 +282,41 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
           WHERE attempt_id = ? AND status = 'spawn-reserved'`)
         .run(attemptId);
     })();
+  }
+
+  rebindReplacementInput(attemptId: string, inputHash: string): boolean {
+    if (!/^[0-9a-f]{64}$/u.test(inputHash)) return false;
+    try {
+      return this.#database.transaction(() => {
+        const row = this.#database
+          .prepare(`SELECT attempts.job_id AS jobId FROM attempts
+            JOIN jobs USING(job_id)
+            WHERE attempts.attempt_id = ?
+              AND attempts.replacement_of_attempt_id IS NOT NULL
+              AND jobs.attempt_id = attempts.attempt_id
+              AND NOT EXISTS (SELECT 1 FROM agent_runner_evidence
+                WHERE agent_runner_evidence.attempt_id = attempts.attempt_id)`)
+          .get(attemptId) as { readonly jobId: string } | undefined;
+        if (row === undefined) throw new TypeError("replacement input is not rebindable");
+        const job = this.#database
+          .prepare(`UPDATE jobs SET input_hash = ?
+            WHERE job_id = ? AND attempt_id = ?`)
+          .run(inputHash, row.jobId, attemptId).changes;
+        const attempt = this.#database
+          .prepare(`UPDATE attempts SET input_hash = ? WHERE attempt_id = ?`)
+          .run(inputHash, attemptId).changes;
+        const ordinal = this.#database
+          .prepare(`UPDATE research_call_ordinals SET input_hash = ?
+            WHERE attempt_id = ?`)
+          .run(inputHash, attemptId).changes;
+        if (job !== 1 || attempt !== 1 || ordinal !== 1)
+          throw new TypeError("replacement input rebind was incomplete");
+        return true;
+      }).immediate();
+    } catch (error) {
+      if (error instanceof Error) return false;
+      throw error;
+    }
   }
 
   consumeReplacementBudget(runId: string): void {

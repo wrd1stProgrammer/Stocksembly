@@ -181,6 +181,35 @@ describe("BLS exact keyless allowlist", () => {
     expect(calls).toBe(0);
   });
 
+  it.each([
+    "CUUR0000SA0L1E",
+    "CES0000000001",
+    "CES0500000003",
+    "WPUFD4",
+  ] as const)("collects the expanded official macro series %s", async (seriesId) => {
+    const adapter = createBlsAdapter({
+      dataRoot: await createBlsTestRoot(),
+      transport: async () => ({
+        status: 200,
+        headers: {},
+        body: blsPayload(seriesId, "123.45"),
+      }),
+      clock: { isoNow: () => BLS_TEST_NOW, sleep: async () => undefined },
+    });
+
+    const result = await adapter.collect({
+      seriesId,
+      startYear: 2026,
+      endYear: 2026,
+    });
+
+    expect(result).toMatchObject({
+      status: "available",
+      request: { seriesId },
+      observations: [{ seriesId, rawValue: "123.45" }],
+    });
+  });
+
   it("seals only retrievals at or before the later evidence cutoff", async () => {
     // Given
     const adapter = createBlsAdapter({

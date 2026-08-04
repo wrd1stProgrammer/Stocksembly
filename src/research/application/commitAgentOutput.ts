@@ -15,6 +15,7 @@ import type { AgentOutputCommitStorePort } from "../ports/agentOutputCommit";
 import { type ArtifactCasPort, ArtifactDigestSchema } from "../ports/artifacts";
 import {
   BindingSchema,
+  canonicalizeArtifactReferences,
   committedEventType,
   FenceSchema,
   parseStagePayload,
@@ -133,8 +134,12 @@ export async function commitAgentOutput(
       reason,
     });
   };
-  const payload = parseStagePayload(stage.data, command.candidate);
-  if (payload === undefined) return await rejectMalformed();
+  const parsedPayload = parseStagePayload(stage.data, command.candidate);
+  if (parsedPayload === undefined) return await rejectMalformed();
+  const payload = canonicalizeArtifactReferences(
+    parsedPayload,
+    binding.citableArtifacts,
+  );
   const referenced = [...new Set(referencedArtifactIds(payload))];
   const allowedArtifactIds = binding.citableArtifacts.map(
     (artifact) => artifact.artifactId,

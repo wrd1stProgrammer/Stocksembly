@@ -15,5 +15,6 @@ playwright-report/
 research-data/
 test-results/
 tmp/
+.superdesign/tmp/
 tsconfig.tsbuildinfo
 infra/aws/*.outputs

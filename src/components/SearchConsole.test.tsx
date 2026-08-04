@@ -49,7 +49,7 @@ describe("SearchConsole durable research launch", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /추천.*전체 에이전트 위원회/,
+        name: "전체 에이전트 위원회",
       }),
     ).toHaveAttribute("aria-haspopup", "menu");
     expect(
@@ -157,6 +157,13 @@ describe("SearchConsole durable research launch", () => {
       question: "What changed in margins?",
       locale: "en",
       idempotencyKey: expect.any(String),
+      researchProfile: {
+        investmentHorizon: "medium",
+        counterargumentIntensity: "standard",
+        analysisDepth: "standard",
+        decisionPurpose: "new_entry",
+        comparisonSymbols: [],
+      },
       researchTarget: {
         kind: "department",
         departmentId: "financial",
@@ -194,7 +201,7 @@ describe("SearchConsole durable research launch", () => {
     // Then
     expect(testState.push).toHaveBeenCalledOnce();
     expect(testState.push.mock.calls[0]?.[0]).toMatch(
-      /^\/research\/NVDA\?lang=en&launch=.+&question=What\+could\+change\+the\+thesis%3F&target=committee$/,
+      /^\/research\/NVDA\?lang=en&launch=.+&question=What\+could\+change\+the\+thesis%3F&target=committee&horizon=medium&counter=standard&depth=standard&purpose=new_entry&peers=$/,
     );
   });
 

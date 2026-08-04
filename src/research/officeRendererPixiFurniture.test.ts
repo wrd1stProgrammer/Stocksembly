@@ -40,10 +40,11 @@ describe("office chair rendering", () => {
     expect(lookingDown.rear).toBeLessThan(lookingDown.actor);
   });
 
-  it("pulls the empty top chair toward the table edge", () => {
+  it("keeps the top chair cushion under the seated actor instead of the table", () => {
     const belowTable = chairRootOffsetYForFacing("up");
     const aboveTable = chairRootOffsetYForFacing("down");
 
-    expect(aboveTable).toBeGreaterThan(belowTable);
+    expect(aboveTable).toBeLessThan(belowTable);
+    expect(aboveTable).toBe(-20);
   });
 });

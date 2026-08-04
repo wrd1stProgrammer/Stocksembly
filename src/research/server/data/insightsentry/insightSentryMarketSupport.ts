@@ -11,11 +11,21 @@ import {
 } from "./insightSentryMarketSchemas";
 
 export const DAY = 24 * 60 * 60 * 1_000;
-export const INFO_TTL = 30 * DAY;
-export const ACTION_TTL = 7 * DAY;
-export const QUOTE_TTL = 15_000;
-export const SERIES_TTL = 5 * 60 * 1_000;
-export const SEARCH_TTL = DAY;
+export const INSIGHTSENTRY_MARKET_CACHE_TTL = Object.freeze({
+  companyInfo: 30 * DAY,
+  corporateActions: 7 * DAY,
+  liveQuote: 15_000,
+  subjectTechnicalSeries: 5 * 60 * 1_000,
+  comparisonDailySeries: 6 * 60 * 60 * 1_000,
+  symbolSearch: DAY,
+});
+export const INFO_TTL = INSIGHTSENTRY_MARKET_CACHE_TTL.companyInfo;
+export const ACTION_TTL = INSIGHTSENTRY_MARKET_CACHE_TTL.corporateActions;
+export const QUOTE_TTL = INSIGHTSENTRY_MARKET_CACHE_TTL.liveQuote;
+export const SERIES_TTL = INSIGHTSENTRY_MARKET_CACHE_TTL.subjectTechnicalSeries;
+export const COMPARISON_DAILY_SERIES_TTL =
+  INSIGHTSENTRY_MARKET_CACHE_TTL.comparisonDailySeries;
+export const SEARCH_TTL = INSIGHTSENTRY_MARKET_CACHE_TTL.symbolSearch;
 
 const SUPPORTED_SECURITY_TYPES = new Set([
   "stock",

@@ -111,6 +111,9 @@ export type SpawnInvocation = {
 
 export type ProcessExecution = {
   readonly exitCode: number;
+  readonly signal?: NodeJS.Signals | null;
   readonly stdout: readonly Uint8Array[];
+  readonly stdoutBytes?: number;
   readonly stderrBytes: number;
+  readonly durationMs?: number;
 };

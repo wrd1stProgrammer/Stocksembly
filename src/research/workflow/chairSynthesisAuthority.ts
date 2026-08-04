@@ -12,10 +12,10 @@ import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisModelOutputSchema,
   type ChairSynthesisReplay,
-  chairSynthesisModelPrompt,
   type PersistedChairJob,
   PersistedChairJobSchema,
 } from "./chairSynthesisContracts";
+import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
 import { loadChairPrompt } from "./chairSynthesisInput";
 
 const RunSchema = z.object({

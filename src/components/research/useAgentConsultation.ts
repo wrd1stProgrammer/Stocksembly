@@ -27,6 +27,7 @@ type Options = {
   readonly client?: QuestionClient;
   readonly locale: Locale;
   readonly reportId: string;
+  readonly loadHistory?: boolean;
 };
 
 type AskInput = {
@@ -71,15 +72,17 @@ export function useAgentConsultation({
   client: providedClient,
   locale,
   reportId,
+  loadHistory = true,
 }: Options) {
   const [client] = useState<QuestionClient>(
     () => providedClient ?? createAuthenticatedResearchClient(),
   );
   const mounted = useRef(true);
-  const [messages, setMessages] = useState<readonly ConsultationMessage[]>(() =>
-    loadConsultationMessages(reportId),
+  const [messages, setMessages] = useState<readonly ConsultationMessage[]>(
+    () => (loadHistory ? loadConsultationMessages(reportId) : []),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [creditShortageOpen, setCreditShortageOpen] = useState(false);
 
   useEffect(
     () => () => {
@@ -93,7 +96,7 @@ export function useAgentConsultation({
   }, [messages, reportId]);
 
   useEffect(() => {
-    if (client.listQuestions === undefined) return;
+    if (!loadHistory || client.listQuestions === undefined) return;
     let active = true;
     void client
       .listQuestions(reportId)
@@ -106,7 +109,7 @@ export function useAgentConsultation({
     return () => {
       active = false;
     };
-  }, [client, locale, reportId]);
+  }, [client, loadHistory, locale, reportId]);
 
   const ask = async (input: AskInput): Promise<void> => {
     const trimmed = input.question.trim();
@@ -202,6 +205,12 @@ export function useAgentConsultation({
       );
     } catch (error) {
       if (!mounted.current) return;
+      if (
+        error instanceof ResearchRequestError &&
+        error.code === "CREDITS_INSUFFICIENT"
+      ) {
+        setCreditShortageOpen(true);
+      }
       setMessages((current) =>
         current.map((message) =>
           message.id !== answerId || message.kind !== "answer"
@@ -218,5 +227,11 @@ export function useAgentConsultation({
     }
   };
 
-  return { ask, isSubmitting, messages } as const;
+  return {
+    ask,
+    creditShortageOpen,
+    dismissCreditShortage: () => setCreditShortageOpen(false),
+    isSubmitting,
+    messages,
+  } as const;
 }

@@ -10,6 +10,7 @@ import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
 import type { SpecialistRoundInput } from "./specialistRound";
+import { PreSynthesisComparatorQualificationSchema } from "./preSynthesisComparatorQualification";
 
 const HashSchema = z.string().regex(/^[a-f0-9]{64}$/);
 
@@ -24,6 +25,7 @@ export const PersistedSpecialistJobSchema = z
     inputHash: HashSchema,
     inputManifestHash: HashSchema,
     sourceArtifactIds: z.array(ArtifactIdSchema).min(1).max(64).readonly(),
+    comparatorQualification: PreSynthesisComparatorQualificationSchema,
   })
   .strict()
   .readonly();

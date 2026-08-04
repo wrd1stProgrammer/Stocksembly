@@ -297,11 +297,15 @@ export async function buildOfficialStructuralAuditInput(options: {
           asOf: snapshot.evidence_cutoff_at,
           freshness: "fresh",
           uncertainty: position.stance === "uncertain" ? "high" : "medium",
-          changeCondition: {
-            en: "A later official filing or revised macro observation changes the supporting evidence.",
-            ko: "후속 공식 공시 또는 수정된 거시 관측치가 근거를 변경할 때 판단도 바뀝니다.",
-            triggerEvidenceIds: links.map((link) => link.evidenceId),
-          },
+          ...(position.falsifier === undefined
+            ? {}
+            : {
+                changeCondition: {
+                  en: position.falsifier.en,
+                  ko: position.falsifier.ko,
+                  triggerEvidenceIds: links.map((link) => link.evidenceId),
+                },
+              }),
         });
         claims.push({
           claim,
@@ -317,6 +321,9 @@ export async function buildOfficialStructuralAuditInput(options: {
     const claimIds = [
       ...new Set(claims.map((candidate) => candidate.claim.claimId)),
     ];
+    const retainedDissentClaimIds = retention.dissentClaimIds.filter(
+      (claimId) => claimIds.includes(claimId),
+    );
     const metricSnapshot = buildResearchMetricSnapshot({
       asOf: snapshot.evidence_cutoff_at,
       quote: providerQuote,
@@ -333,8 +340,8 @@ export async function buildOfficialStructuralAuditInput(options: {
       evidence,
       values: { runId, snapshotId: snapshot.snapshot_id, records: [] },
       acceptedMemos: [],
-      sourceDissentClaimIds: retention.dissentClaimIds,
-      retainedDissentClaimIds: retention.dissentClaimIds,
+      sourceDissentClaimIds: retainedDissentClaimIds,
+      retainedDissentClaimIds,
       sourceOpenQuestionIds: retention.openQuestions.map(
         (question) => question.questionId,
       ),

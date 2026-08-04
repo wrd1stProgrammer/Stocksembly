@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACTOR_ATLAS,
   actorFrame,
+  actorWalkColumns,
   validateActorAtlas,
 } from "./officeActorAtlas";
 
@@ -22,14 +23,19 @@ describe("office actor atlas", () => {
 
   it("maps seated side profiles toward their named direction", () => {
     expect(actorFrame("sit", "left", 0)).toMatchObject({
-      row: 1,
+      row: 2,
       column: 3,
     });
     expect(actorFrame("sit", "right", 0)).toMatchObject({
-      row: 2,
+      row: 1,
       column: 3,
     });
     expect(actorFrame("sit", "down", 0)).toMatchObject({ row: 0, column: 3 });
     expect(actorFrame("sit", "up", 0)).toMatchObject({ row: 3, column: 3 });
+  });
+
+  it("keeps the authored stride for both side-facing rows", () => {
+    expect(actorWalkColumns("left")).toEqual([0, 1, 2, 1]);
+    expect(actorWalkColumns("right")).toEqual([0, 1, 2, 1]);
   });
 });

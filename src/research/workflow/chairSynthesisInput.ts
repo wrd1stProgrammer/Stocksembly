@@ -1,5 +1,4 @@
 import type Database from "better-sqlite3";
-import { z } from "zod";
 import { StructuralAuditArtifactEnvelopeSchema } from "../application/structuralAuditPersistenceContracts";
 import { SemanticAuditOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
@@ -10,21 +9,28 @@ import {
   chairArtifactRows,
   loadChairMandate,
 } from "./chairSynthesisArtifacts";
+import { selectChairClaims } from "./chairSynthesisClaimSelection";
 import {
   type ChairSynthesisPrompt,
   ChairSynthesisPromptSchema,
 } from "./chairSynthesisContracts";
 import { loadChairRelations } from "./chairSynthesisRelations";
+import { chairScenarioSentences } from "./chairSynthesisScenarios";
 
-function uniqueClaimsById<T extends { readonly claimId: string }>(
-  items: readonly T[],
-): readonly T[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (seen.has(item.claimId)) return false;
-    seen.add(item.claimId);
-    return true;
-  });
+const GENERIC_CHANGE_CONDITION_EN =
+  "A later official filing or revised macro observation changes the supporting evidence.";
+const GENERIC_CHANGE_CONDITION_KO =
+  "후속 공식 공시 또는 수정된 거시 관측치가 근거를 변경할 때 판단도 바뀝니다.";
+function claimSpecificChangeCondition(
+  condition: { readonly en: string; readonly ko: string },
+  _claimText: { readonly en: string; readonly ko: string },
+): { readonly en: string; readonly ko: string } {
+  if (
+    condition.en.trim() === GENERIC_CHANGE_CONDITION_EN &&
+    condition.ko.trim() === GENERIC_CHANGE_CONDITION_KO
+  )
+    return condition;
+  return { en: condition.en, ko: condition.ko };
 }
 
 export async function loadChairPrompt(
@@ -64,68 +70,73 @@ export async function loadChairPrompt(
     return undefined;
   const semantic = SemanticAuditOutputSchema.safeParse(semanticPayload);
   if (!semantic.success) return undefined;
-  const auditedClaimIds = semantic.data.verdicts
+  const semanticallyAcceptedClaimIds = semantic.data.verdicts
     .filter((verdict) => verdict.verdict !== "contradicted")
     .map((verdict) => verdict.claimId)
     .sort();
-  if (auditedClaimIds.length === 0) return undefined;
-  const auditedClaimIdSet = new Set<string>(auditedClaimIds);
-  const audited = uniqueClaimsById(
-    structural.data.result.claims.filter((claim) =>
-      auditedClaimIdSet.has(claim.claimId),
-    ),
+  if (semanticallyAcceptedClaimIds.length === 0) return undefined;
+  const semanticallyAcceptedClaimIdSet = new Set<string>(
+    semanticallyAcceptedClaimIds,
   );
-  if (audited.length !== auditedClaimIds.length) return undefined;
   const claimSourceIds = new Map(
-    uniqueClaimsById(structural.data.result.fixedEvidenceSlices).map(
-      (slice) => [
-        slice.claimId,
-        [...new Set(slice.evidence.map((evidence) => evidence.artifactId))],
-      ],
-    ),
+    [
+      ...new Map(
+        structural.data.result.fixedEvidenceSlices.map((slice) => [
+          slice.claimId,
+          slice,
+        ]),
+      ).values(),
+    ].map((slice) => [
+      slice.claimId,
+      [...new Set(slice.evidence.map((evidence) => evidence.artifactId))],
+    ]),
   );
+  const mandate = loadChairMandate(database, runId);
+  if (mandate === undefined) return undefined;
+  const relations = await loadChairRelations({
+    database,
+    cas,
+    rows: allRows,
+    auditedClaimIds: semanticallyAcceptedClaimIdSet,
+    dissentClaimIds: structural.data.result.retainedDissentClaimIds,
+  });
+  if (relations === undefined) return undefined;
+  const {
+    positions,
+    ballots,
+    dissent: dissentSources,
+    challengeDissent,
+    responseDissent,
+    revisions,
+  } = relations;
+  const {
+    audited,
+    authenticatedRevisions,
+    auditedClaimIds,
+    retainedDissentClaimIds,
+  } = selectChairClaims({
+    structuralClaims: structural.data.result.claims,
+    semanticallyAcceptedClaimIds: semanticallyAcceptedClaimIdSet,
+    positionClaimIds: positions.flatMap((position) => position.claimIds),
+    revisions,
+    retainedDissentClaimIds: structural.data.result.retainedDissentClaimIds,
+  });
   if (
+    audited.length + authenticatedRevisions.length === 0 ||
     audited.some(
       (claim) => (claimSourceIds.get(claim.claimId)?.length ?? 0) === 0,
     )
   )
     return undefined;
-  const mandate = loadChairMandate(database, runId);
-  if (mandate === undefined) return undefined;
-  const relations = await loadChairRelations({
-    cas,
-    rows: allRows,
-    auditedClaimIds: auditedClaimIdSet,
-    dissentClaimIds: structural.data.result.retainedDissentClaimIds,
-  });
-  if (relations === undefined) return undefined;
-  const { positions, ballots, dissent: dissentSources } = relations;
-  const unknowns = structural.data.result.retainedOpenQuestions;
-  const scenarioLabels = {
-    revenue: { en: "Revenue", ko: "매출" },
-    operating_margin: { en: "Operating margin", ko: "영업이익률" },
-    diluted_eps: { en: "Diluted EPS", ko: "희석 EPS" },
-  } as const;
-  const scenarios = structural.data.result.scenarios.flatMap(
-    (scenario, index) => {
-      const field = z
-        .enum(["revenue", "operating_margin", "diluted_eps"])
-        .safeParse(scenario.field);
-      if (!field.success) return [];
-      const labels = scenarioLabels[field.data];
-      return [
-        {
-          id: `scenario:${index + 1}:${scenario.field}`,
-          text: {
-            en: `${labels.en}: ${scenario.value}`,
-            ko: `${labels.ko}: ${scenario.value}`,
-          },
-        },
-      ];
-    },
+  const authenticatedCountercases = [
+    ...challengeDissent,
+    ...responseDissent,
+  ].filter((source) =>
+    source.claimIds.every((claimId) => auditedClaimIds.includes(claimId)),
   );
-  if (scenarios.length !== structural.data.result.scenarios.length)
-    return undefined;
+  const unknowns = structural.data.result.retainedOpenQuestions;
+  const scenarios = chairScenarioSentences(structural.data.result.scenarios);
+  if (scenarios === undefined) return undefined;
   const sentences = [
     ...audited.flatMap((claim) => {
       const sourceArtifactIds = claimSourceIds.get(claim.claimId);
@@ -141,6 +152,13 @@ export async function loadChairPrompt(
             },
           ];
     }),
+    ...authenticatedRevisions.map((revision) => ({
+      sentenceId: `claim:${revision.adjudicatedClaimId}`,
+      kind: "claim" as const,
+      claimIds: [revision.adjudicatedClaimId],
+      sourceArtifactIds: revision.sourceArtifactIds,
+      text: revision.publicSummary,
+    })),
     ...positions.map((position) => ({
       sentenceId: `position:${position.departmentId}`,
       kind: "position" as const,
@@ -155,36 +173,39 @@ export async function loadChairPrompt(
       sourceArtifactIds: [ballot.artifactId],
       text: ballot.rationale,
     })),
-    ...structural.data.result.retainedDissentClaimIds.flatMap(
-      (claimId, index) => {
-        const source = dissentSources[index];
-        if (source !== undefined)
-          return [
+    ...retainedDissentClaimIds.flatMap((claimId, index) => {
+      const source = dissentSources[index];
+      if (source !== undefined)
+        return [
+          {
+            sentenceId: `dissent:${source.claimId}`,
+            kind: "dissent" as const,
+            claimIds: [source.claimId],
+            sourceArtifactIds: [source.artifactId],
+            text: source.text,
+          },
+        ];
+      const claim = audited.find((candidate) => candidate.claimId === claimId);
+      const sourceArtifactIds = claimSourceIds.get(claimId);
+      return claim === undefined || sourceArtifactIds === undefined
+        ? []
+        : [
             {
-              sentenceId: `dissent:${source.claimId}`,
+              sentenceId: `dissent:${claimId}`,
               kind: "dissent" as const,
-              claimIds: [source.claimId],
-              sourceArtifactIds: [source.artifactId],
-              text: source.text,
+              claimIds: [claimId],
+              sourceArtifactIds,
+              text: claim.text,
             },
           ];
-        const claim = audited.find(
-          (candidate) => candidate.claimId === claimId,
-        );
-        const sourceArtifactIds = claimSourceIds.get(claimId);
-        return claim === undefined || sourceArtifactIds === undefined
-          ? []
-          : [
-              {
-                sentenceId: `dissent:${claimId}`,
-                kind: "dissent" as const,
-                claimIds: [claimId],
-                sourceArtifactIds,
-                text: claim.text,
-              },
-            ];
-      },
-    ),
+    }),
+    ...authenticatedCountercases.map((source) => ({
+      sentenceId: source.sentenceId,
+      kind: "dissent" as const,
+      claimIds: source.claimIds,
+      sourceArtifactIds: source.sourceArtifactIds,
+      text: source.text,
+    })),
     ...unknowns.map((unknown) => ({
       sentenceId: `unknown:${unknown.questionId}`,
       kind: "unknown" as const,
@@ -210,13 +231,23 @@ export async function loadChairPrompt(
               kind: "change_condition" as const,
               claimIds: [claim.claimId],
               sourceArtifactIds,
-              text: {
-                en: claim.changeCondition.en,
-                ko: claim.changeCondition.ko,
-              },
+              text: claimSpecificChangeCondition(
+                claim.changeCondition,
+                claim.text,
+              ),
             },
           ];
     }),
+    ...authenticatedRevisions.map((revision) => ({
+      sentenceId: `change_condition:${revision.adjudicatedClaimId}`,
+      kind: "change_condition" as const,
+      claimIds: [revision.adjudicatedClaimId],
+      sourceArtifactIds: revision.sourceArtifactIds,
+      text: claimSpecificChangeCondition(
+        revision.falsifier,
+        revision.publicSummary,
+      ),
+    })),
   ];
   return ChairSynthesisPromptSchema.parse({
     kind: "chair_synthesis_input_v1",
@@ -229,12 +260,15 @@ export async function loadChairPrompt(
     ballots: ballots.map(
       ({ rationale: _rationale, claimIds: _claimIds, ...ballot }) => ballot,
     ),
-    dissentClaimIds: structural.data.result.retainedDissentClaimIds,
+    dissentClaimIds: retainedDissentClaimIds,
     unknownIds: unknowns.map((unknown) => unknown.questionId),
     scenarioIds: scenarios.map((scenario) => scenario.id),
     changeConditionClaimIds: audited
       .filter((claim) => claim.changeCondition !== undefined)
-      .map((claim) => claim.claimId),
+      .map((claim) => claim.claimId)
+      .concat(
+        authenticatedRevisions.map((revision) => revision.adjudicatedClaimId),
+      ),
     sourceArtifactIds: [
       ...new Set([
         structuralRow.artifact_id,
@@ -244,7 +278,13 @@ export async function loadChairPrompt(
         ...dissentSources.flatMap((source) =>
           source === undefined ? [] : [source.artifactId],
         ),
+        ...authenticatedCountercases.flatMap(
+          (source) => source.sourceArtifactIds,
+        ),
         ...[...claimSourceIds.values()].flat(),
+        ...authenticatedRevisions.flatMap(
+          (revision) => revision.sourceArtifactIds,
+        ),
       ]),
     ],
     sentences,

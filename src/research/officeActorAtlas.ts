@@ -24,6 +24,16 @@ const walkRows: Readonly<Record<Direction, number>> = {
   up: 3,
 };
 
+// The sprite sheet contains dedicated left and right profile rows.  Their
+// authored stride already travels toward the named direction; reversing the
+// left row makes the lead foot move backward and reads as a moonwalk.
+const walkColumns: Readonly<Record<Direction, readonly number[]>> = {
+  down: Object.freeze([0, 1, 2, 1]),
+  left: Object.freeze([0, 1, 2, 1]),
+  right: Object.freeze([0, 1, 2, 1]),
+  up: Object.freeze([0, 1, 2, 1]),
+};
+
 const seatedFrames: Readonly<
   Record<Direction, Pick<ActorFrame, "row" | "column">>
 > = {
@@ -43,12 +53,17 @@ export function actorFrame(
       ? seatedFrames[direction]
       : {
           row: walkRows[direction],
-          column: mode === "idle" ? 0 : ([0, 1, 2, 1][frameIndex % 4] ?? 0),
+          column:
+            mode === "idle" ? 0 : (walkColumns[direction][frameIndex % 4] ?? 0),
         };
   return {
     ...reference,
     pivot: ACTOR_ATLAS.footPivot,
   };
+}
+
+export function actorWalkColumns(direction: Direction): readonly number[] {
+  return walkColumns[direction];
 }
 
 export function validateActorAtlas(): string[] {

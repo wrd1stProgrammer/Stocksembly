@@ -5,7 +5,11 @@ export type AnticipatedQuestion = {
   readonly id: string;
   readonly question: LocalizedText;
   readonly answer: LocalizedText;
-  readonly lens: LocalizedText;
+  readonly lens?: LocalizedText;
+  readonly decisionKey?: string;
+  readonly primaryClaimIds?: readonly string[];
+  readonly evidenceArtifactIds?: readonly string[];
+  readonly rank?: number;
 };
 
 const TEAM_LABELS = {
@@ -154,6 +158,8 @@ function formatMetric(metric: ResearchMetricPoint): LocalizedText {
       return metric.value.toLocaleString(numberLocale, {
         maximumFractionDigits: 0,
       });
+    if (metric.unit === "USD" && Math.abs(metric.value) >= 1_000_000_000)
+      return `$${(metric.value / 1_000_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}B`;
     return new Intl.NumberFormat(numberLocale, {
       notation: Math.abs(metric.value) >= 1_000_000 ? "compact" : "standard",
       maximumFractionDigits: 1,
@@ -162,7 +168,7 @@ function formatMetric(metric: ResearchMetricPoint): LocalizedText {
   };
   return {
     en: `${metric.label.en} is ${localeValue("en")}${metric.period === undefined ? "" : ` (${metric.period})`}.`,
-    ko: `${metric.label.ko}은(는) ${localeValue("ko")}${metric.period === undefined ? "" : ` (${metric.period})`}입니다.`,
+    ko: `${metric.label.ko}: ${localeValue("ko")}${metric.period === undefined ? "" : ` (${metric.period})`}.`,
   };
 }
 
@@ -176,6 +182,16 @@ function metricAnswer(
       (metric) => metric.category === category,
     ) ?? [];
   const metric = metrics[offset % Math.max(1, metrics.length)];
+  return metric === undefined ? undefined : formatMetric(metric);
+}
+
+function metricAnswerById(
+  file: ResearchFileData,
+  ...ids: readonly string[]
+): LocalizedText | undefined {
+  const metric = ids
+    .map((id) => file.metricSnapshot?.metrics.find((candidate) => candidate.id === id))
+    .find((candidate) => candidate !== undefined);
   return metric === undefined ? undefined : formatMetric(metric);
 }
 
@@ -218,6 +234,8 @@ function combineAnswers(
 export function buildAnticipatedQuestions(
   file: ResearchFileData,
 ): readonly AnticipatedQuestion[] {
+  if (file.presentationVersion === "workflow-v2")
+    return file.anticipatedQuestions ?? [];
   const department =
     file.researchTarget?.kind === "department"
       ? file.researchTarget.departmentId
@@ -250,8 +268,8 @@ export function buildAnticipatedQuestions(
       qa(
         "verdict",
         {
-          en: "Bottom line: would you buy now, wait, or walk away?",
-          ko: "결론적으로 지금 살 건가요, 기다릴 건가요, 피할 건가요?",
+          en: "At the current price, which thesis dominates and why?",
+          ko: "현재 가격에서는 어떤 논지가 우세하며, 그 이유는 무엇인가요?",
         },
         combineAnswers(file.thesis, file.valuation),
         commonLens,
@@ -308,54 +326,68 @@ export function buildAnticipatedQuestions(
   const fallbackAnswers =
     department === "market"
       ? [
-          combineAnswers(teamView?.position ?? file.thesis, file.valuation),
-          combineAnswers(teamView?.rationale ?? strongest, strongest),
           combineAnswers(
-            file.valuation,
-            metricAnswer(file, "market", 0) ?? file.expectation,
+            teamView?.position ?? file.thesis,
+            analysisAnswer(file, 5) ?? file.nextEvent,
           ),
-          combineAnswers(file.expectation, objection),
-          combineAnswers(file.nextEvent, strongest),
-          combineAnswers(file.changeCondition, objection),
+          combineAnswers(
+            analysisAnswer(file, 4) ?? teamView?.rationale ?? strongest,
+            analysisAnswer(file, 3) ?? objection,
+          ),
+          combineAnswers(
+            metricAnswerById(file, "pe", "forward_pe") ?? file.valuation,
+            metricAnswerById(file, "peer_premium:pe") ?? file.expectation,
+          ),
+          combineAnswers(file.expectation, analysisAnswer(file, 3) ?? objection),
+          combineAnswers(file.nextEvent, analysisAnswer(file, 5) ?? strongest),
+          combineAnswers(file.changeCondition, analysisAnswer(file, 2) ?? objection),
         ]
       : department === "company"
         ? [
-            teamView?.position ?? file.thesis,
-            metricAnswer(file, category, 0) ??
-              analysisAnswer(file, 0) ??
-              strongest,
-            analysisAnswer(file, 1) ?? file.expectation,
-            objection,
-            file.nextEvent,
+            analysisAnswer(file, 0) ?? teamView?.position ?? file.thesis,
+            combineAnswers(
+              metricAnswerById(file, "segment_share:data_center") ?? file.thesis,
+              analysisAnswer(file, 3) ?? strongest,
+            ),
+            combineAnswers(file.expectation, analysisAnswer(file, 0) ?? strongest),
+            analysisAnswer(file, 4) ?? objection,
+            analysisAnswer(file, 2) ?? analysisAnswer(file, 5) ?? file.nextEvent,
             file.changeCondition,
           ]
         : department === "financial"
           ? [
-              metricAnswer(file, category, 0) ??
-                analysisAnswer(file, 0) ??
-                strongest,
-              metricAnswer(file, category, 1) ??
-                analysisAnswer(file, 1) ??
-                file.expectation,
-              analysisAnswer(file, 2) ?? teamView?.rationale ?? strongest,
-              metricAnswer(file, "risk", 0) ??
-                teamView?.position ??
-                file.thesis,
-              file.valuation,
+              combineAnswers(
+                metricAnswerById(file, "free_cash_flow") ?? strongest,
+                analysisAnswer(file, 1) ?? file.expectation,
+              ),
+              combineAnswers(
+                metricAnswerById(file, "gross_margin", "operating_margin") ?? file.expectation,
+                analysisAnswer(file, 3) ?? strongest,
+              ),
+              combineAnswers(
+                metricAnswerById(file, "free_cash_flow") ?? strongest,
+                metricAnswerById(file, "revenue_ttm") ?? analysisAnswer(file, 1) ?? strongest,
+              ),
+              combineAnswers(
+                metricAnswerById(file, "cash") ?? teamView?.position ?? file.thesis,
+                metricAnswerById(file, "net_debt") ?? file.expectation,
+              ),
+              analysisAnswer(file, 5) ?? file.valuation,
               file.changeCondition,
             ]
           : [
-              objection,
-              analysisAnswer(file, 0) ?? teamView?.rationale ?? file.thesis,
-              metricAnswer(file, category, 0) ??
-                analysisAnswer(file, 1) ??
-                file.nextEvent,
-              analysisAnswer(file, 2) ?? file.expectation,
+              analysisAnswer(file, 0) ?? objection,
+              analysisAnswer(file, 3) ?? teamView?.rationale ?? file.thesis,
+              analysisAnswer(file, 2) ?? file.nextEvent,
               combineAnswers(
-                strongest,
-                teamView?.rationale ?? file.expectation,
+                analysisAnswer(file, 0) ?? file.expectation,
+                analysisAnswer(file, 1) ?? objection,
               ),
-              file.changeCondition,
+              combineAnswers(
+                metricAnswerById(file, "cash") ?? strongest,
+                analysisAnswer(file, 4) ?? teamView?.rationale ?? file.expectation,
+              ),
+              combineAnswers(file.changeCondition, analysisAnswer(file, 5) ?? objection),
             ];
   return [
     ...tailored.map((question, index) =>

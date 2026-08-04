@@ -3,6 +3,7 @@ import type { SnapshotEvidence } from "../application/buildSnapshot";
 import type { CapabilityDisclosure } from "../domain/capabilities";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type { ValueRegistry } from "../domain/valueRegistry";
+import type { ResearchProfile } from "../domain/researchProfile";
 import type { ArtifactCasPort, ArtifactDescriptor } from "../ports/artifacts";
 import { BLS_SOURCE_URL, createBlsAdapter } from "../server/data/macro/bls";
 import type {
@@ -22,6 +23,7 @@ import {
   type SecClient,
   type SecFetchResult,
 } from "../server/data/sec/secClient";
+import { isRegistrationFinancialForm } from "../server/data/sec/secFilingForms";
 import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
 import {
   collectInsightSentryInitialEvidence,
@@ -29,6 +31,44 @@ import {
 } from "./insightSentryInitialCollection";
 
 const encoder = new TextEncoder();
+const BLS_MACRO_SERIES = [
+  {
+    seriesId: "CUUR0000SA0",
+    evidenceId: "macro:cpi",
+    unit: "index",
+    required: true,
+  },
+  {
+    seriesId: "CUUR0000SA0L1E",
+    evidenceId: "macro:core-cpi",
+    unit: "index",
+    required: false,
+  },
+  {
+    seriesId: "LNS14000000",
+    evidenceId: "macro:unemployment",
+    unit: "percent",
+    required: true,
+  },
+  {
+    seriesId: "CES0000000001",
+    evidenceId: "macro:nonfarm-payrolls",
+    unit: "thousands of persons",
+    required: false,
+  },
+  {
+    seriesId: "CES0500000003",
+    evidenceId: "macro:average-hourly-earnings",
+    unit: "USD per hour",
+    required: false,
+  },
+  {
+    seriesId: "WPUFD4",
+    evidenceId: "macro:producer-prices",
+    unit: "index",
+    required: false,
+  },
+] as const;
 
 export type InitialCollectionInput = {
   readonly dataRoot: string;
@@ -36,6 +76,7 @@ export type InitialCollectionInput = {
   readonly snapshotId: string;
   readonly symbol: string;
   readonly cas: ArtifactCasPort;
+  readonly researchProfile?: ResearchProfile;
 };
 
 export type InitialCollectionResult = {
@@ -176,25 +217,40 @@ export function structuredOwnershipFiling(
       transactions,
     };
   }
-  if (ownershipDataset(form) === "sec_institutional_holdings") {
-    const holdings = filingBlocks(source, "infoTable")
+  if (/^(?:SC 13[DG]|SCHEDULE 13[DG])(?:\/A)?$/u.test(form)) {
+    const reportingPersons = filingBlocks(
+      source,
+      "coverPageHeaderReportingPersonDetails",
+    )
       .map((block) => ({
-        issuer: filingTagValue(block, "nameOfIssuer"),
-        classTitle: filingTagValue(block, "titleOfClass"),
-        cusip: filingTagValue(block, "cusip"),
-        valueThousandsUsd: filingTagValue(block, "value"),
-        shares: filingTagValue(block, "sshPrnamt"),
-        discretion: filingTagValue(block, "investmentDiscretion"),
+        name: filingTagValue(block, "reportingPersonName"),
+        type: filingTagValue(block, "typeOfReportingPerson"),
+        shares: filingTagValue(
+          block,
+          "reportingPersonBeneficiallyOwnedAggregateNumberOfShares",
+        ),
+        classPercent: filingTagValue(block, "classPercent"),
+        soleVotingPower: filingTagValue(block, "soleVotingPower"),
+        sharedVotingPower: filingTagValue(block, "sharedVotingPower"),
+        soleDispositivePower: filingTagValue(block, "soleDispositivePower"),
+        sharedDispositivePower: filingTagValue(
+          block,
+          "sharedDispositivePower",
+        ),
+        comments: filingTagValue(block, "comments"),
       }))
-      .filter((holding) =>
-        Object.values(holding).some((value) => value !== undefined),
+      .filter((person) =>
+        Object.values(person).some((value) => value !== undefined),
       )
-      .slice(0, 100);
+      .slice(0, 20);
     return {
-      kind: "institutional_holdings",
-      filingManager: filingTagValue(source, "name"),
-      reportPeriod: filingTagValue(source, "reportCalendarOrQuarter"),
-      holdings,
+      kind: "beneficial_ownership",
+      issuer: filingTagValue(source, "issuerName"),
+      issuerCik: filingTagValue(source, "issuerCik"),
+      securityClass: filingTagValue(source, "securitiesClassTitle"),
+      cusip: filingTagValue(source, "issuerCusipNumber"),
+      eventDate: filingTagValue(source, "eventDateRequiresFilingThisStatement"),
+      reportingPersons,
     };
   }
   return undefined;
@@ -233,14 +289,40 @@ type SelectedFiling = {
   readonly primaryDocument: string;
 };
 
-function ownershipDataset(form: string) {
+export function ownershipDataset(
+  form: string,
+  accessionNumber?: string,
+  subjectCik?: string,
+) {
   if (/^(?:3|4|5)(?:\/A)?$/u.test(form))
     return "sec_insider_transactions" as const;
   if (
-    /^(?:13F-HR(?:\/A)?|SC 13[DG](?:\/A)?|SCHEDULE 13[DG](?:\/A)?)$/u.test(form)
+    /^(?:SC 13[DG]|SCHEDULE 13[DG])(?:\/A)?$/u.test(form) &&
+    (accessionNumber === undefined ||
+      subjectCik === undefined ||
+      accessionNumber.slice(0, 10) !== subjectCik)
   )
     return "sec_institutional_holdings" as const;
   return "sec_filing" as const;
+}
+
+export function selectPrimaryCompanyFiling<
+  T extends SelectedFiling & {
+    readonly form: string;
+    readonly acceptedAt: string;
+  },
+>(
+  records: readonly T[],
+): T | undefined {
+  const latest = (forms: readonly string[]) =>
+    records
+      .filter((record) => forms.includes(record.form))
+      .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))[0];
+  return (
+    latest(["10-K"]) ??
+    latest(["8-K"]) ??
+    latest(["424B4", "S-1/A", "S-1"])
+  );
 }
 
 type ObservedCollectionBranch<T> =
@@ -254,6 +336,39 @@ export function observeCollectionBranch<T>(
     (value) => ({ status: "fulfilled", value }),
     (reason: unknown) => ({ status: "rejected", reason }),
   );
+}
+
+function isSecNotFound(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    error.code === "SEC_HTTP_STATUS" &&
+    "status" in error &&
+    error.status === 404
+  );
+}
+
+async function fetchSecFilingDocument<T extends SelectedFiling>(
+  client: Pick<SecClient, "fetch">,
+  subjectCik: string,
+  filing: T,
+): Promise<SecFetchResult> {
+  const accessionCik = filing.accessionNumber.slice(0, 10);
+  const candidateCiks = [...new Set([subjectCik, accessionCik])];
+  for (const [index, cik] of candidateCiks.entries()) {
+    try {
+      return await client.fetch({
+        kind: "filing_document",
+        cik,
+        accessionNumber: filing.accessionNumber,
+        primaryDocument: filing.primaryDocument,
+      });
+    } catch (error) {
+      if (!isSecNotFound(error) || index === candidateCiks.length - 1)
+        throw error;
+    }
+  }
+  throw new TypeError("sec_filing_document_missing");
 }
 
 export async function collectSecEvidenceBatch<T extends SelectedFiling>(input: {
@@ -271,12 +386,7 @@ export async function collectSecEvidenceBatch<T extends SelectedFiling>(input: {
     Promise.all(
       input.filings.map(async (filing) => ({
         filing,
-        result: await input.client.fetch({
-          kind: "filing_document",
-          cik: input.cik,
-          accessionNumber: filing.accessionNumber,
-          primaryDocument: filing.primaryDocument,
-        }),
+        result: await fetchSecFilingDocument(input.client, input.cik, filing),
       })),
     ),
     input.client.fetch({
@@ -305,10 +415,9 @@ export async function collectInitialEvidence(
   );
   if (submissions.kind !== "parsed")
     throw new TypeError("sec_submissions_malformed");
-  const annual = submissions.value.records
-    .filter((record) => record.form === "10-K")
-    .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))[0];
-  if (annual === undefined) throw new TypeError("sec_10k_missing");
+  const primaryFiling = selectPrimaryCompanyFiling(submissions.value.records);
+  if (primaryFiling === undefined)
+    throw new TypeError("sec_primary_filing_missing");
   const quarterly = submissions.value.records
     .filter((record) => record.form === "10-Q")
     .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))[0];
@@ -321,17 +430,20 @@ export async function collectInitialEvidence(
     .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
     .slice(0, 8);
   const institutionalFilings = submissions.value.records
-    .filter((record) =>
-      /^(?:13F-HR(?:\/A)?|SC 13[DG](?:\/A)?|SCHEDULE 13[DG](?:\/A)?)$/u.test(
-        record.form,
-      ),
+    .filter(
+      (record) =>
+        ownershipDataset(
+          record.form,
+          record.accessionNumber,
+          reference.cik,
+        ) === "sec_institutional_holdings",
     )
     .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
     .slice(0, 6);
   const selectedFilings = [
     ...new Map(
       [
-        annual,
+        primaryFiling,
         ...(quarterly === undefined ? [] : [quarterly]),
         ...currentReports,
         ...insiderFilings,
@@ -349,16 +461,17 @@ export async function collectInitialEvidence(
         transport,
         clock,
       }).collect({ year }),
-      createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
-        seriesId: "CUUR0000SA0",
-        startYear: year - 2,
-        endYear: year,
-      }),
-      createBlsAdapter({ dataRoot: input.dataRoot, transport, clock }).collect({
-        seriesId: "LNS14000000",
-        startYear: year - 2,
-        endYear: year,
-      }),
+      ...BLS_MACRO_SERIES.map(({ seriesId }) =>
+        createBlsAdapter({
+          dataRoot: input.dataRoot,
+          transport,
+          clock,
+        }).collect({
+          seriesId,
+          startYear: year - 2,
+          endYear: year,
+        }),
+      ),
     ]),
   );
   const { filingResults, factsResult } = await collectSecEvidenceBatch({
@@ -378,7 +491,8 @@ export async function collectInitialEvidence(
   const cutoffAt = new Date(Date.parse(retrievedAt) + 1_000).toISOString();
   const lineage = submissions.value.records
     .filter((record) =>
-      ["10-K", "10-K/A", "10-Q", "10-Q/A"].includes(record.form),
+      ["10-K", "10-K/A", "10-Q", "10-Q/A"].includes(record.form) ||
+      isRegistrationFinancialForm(record.form),
     )
     .map(({ primaryDocument: _primaryDocument, ...record }) => record);
   const parsedFacts = parseCompanyFacts(factsResult.bytes, {
@@ -420,11 +534,11 @@ export async function collectInitialEvidence(
       )
       .digest("hex"),
   };
-  const annualFilingResult = filingResults.find(
-    ({ filing }) => filing.accessionNumber === annual.accessionNumber,
+  const primaryFilingResult = filingResults.find(
+    ({ filing }) => filing.accessionNumber === primaryFiling.accessionNumber,
   );
-  if (annualFilingResult === undefined)
-    throw new TypeError("sec_annual_filing_result_missing");
+  if (primaryFilingResult === undefined)
+    throw new TypeError("sec_primary_filing_result_missing");
   const provider = await collectInsightSentryInitialEvidence({
     dataRoot: input.dataRoot,
     runId: input.runId,
@@ -433,9 +547,13 @@ export async function collectInitialEvidence(
     asOf: new Date().toISOString(),
     cas: input.cas,
     peerProfile: {
-      annualAccessionNumber: annual.accessionNumber,
-      annualText: textFromHtml(annualFilingResult.result.bytes),
+      annualAccessionNumber: primaryFiling.accessionNumber,
+      annualText: textFromHtml(primaryFilingResult.result.bytes),
     },
+    requestedComparisonSymbols: input.researchProfile?.comparisonSymbols ?? [],
+    ...(input.researchProfile === undefined
+      ? {}
+      : { decisionPurpose: input.researchProfile.decisionPurpose }),
   });
   const identityBytes = packageBytes(input, identity);
   const packagedFilings = filingResults.map(({ filing, result }) => ({
@@ -448,7 +566,11 @@ export async function collectInitialEvidence(
       filedAt: filing.filedAt,
       acceptedAt: filing.acceptedAt,
       periodEnd: filing.period,
-      ...(ownershipDataset(filing.form) === "sec_filing"
+      ...(ownershipDataset(
+        filing.form,
+        filing.accessionNumber,
+        reference.cik,
+      ) === "sec_filing"
         ? {}
         : { ownership: structuredOwnershipFiling(filing.form, result.bytes) }),
       text: textFromHtml(result.bytes),
@@ -471,50 +593,52 @@ export async function collectInitialEvidence(
 
   const macro = await macroPromise;
   if (macro.status === "rejected") throw macro.reason;
-  const [treasury, inflation, unemployment] = macro.value;
+  const [treasury, ...blsCollections] = macro.value;
+  const blsRecords = BLS_MACRO_SERIES.flatMap((definition, index) => {
+    const collection = blsCollections[index];
+    if (collection?.status !== "available") return [];
+    const latest = [...collection.observations].sort((left, right) =>
+      right.observationDate.localeCompare(left.observationDate),
+    )[0];
+    if (latest === undefined) return [];
+    return [
+      {
+        definition,
+        collection,
+        latest,
+        bytes: packageBytes(input, collection),
+      },
+    ];
+  });
   const treasuryAvailable = treasury.status === "available";
-  const blsAvailable =
-    inflation.status === "available" && unemployment.status === "available";
+  const availableBlsSeries = new Set(
+    blsRecords.map(({ definition }) => definition.seriesId),
+  );
+  const blsAvailable = BLS_MACRO_SERIES.filter(
+    ({ required }) => required,
+  ).every(({ seriesId }) => availableBlsSeries.has(seriesId));
   const treasuryBytes =
     treasury.status === "available" ? packageBytes(input, treasury) : undefined;
-  const inflationBytes =
-    inflation.status === "available"
-      ? packageBytes(input, inflation)
-      : undefined;
-  const unemploymentBytes =
-    unemployment.status === "available"
-      ? packageBytes(input, unemployment)
-      : undefined;
-  const [treasuryArtifact, inflationArtifact, unemploymentArtifact] =
-    await Promise.all([
-      treasuryBytes === undefined
-        ? undefined
-        : put(input, treasuryBytes, "application/json"),
-      inflationBytes === undefined
-        ? undefined
-        : put(input, inflationBytes, "application/json"),
-      unemploymentBytes === undefined
-        ? undefined
-        : put(input, unemploymentBytes, "application/json"),
-    ]);
+  const [treasuryArtifact, blsArtifacts] = await Promise.all([
+    treasuryBytes === undefined
+      ? undefined
+      : put(input, treasuryBytes, "application/json"),
+    Promise.all(
+      blsRecords.map(({ bytes }) => put(input, bytes, "application/json")),
+    ),
+  ]);
+  const sealedBlsRecords = blsRecords.map((record, index) => {
+    const artifact = blsArtifacts[index];
+    if (artifact === undefined)
+      throw new TypeError("bls_macro_artifact_missing");
+    return { ...record, artifact };
+  });
   const marketAvailable =
     provider.familyStates.technical.status === "available";
   const latestCurve =
     treasury.status === "available"
       ? [...treasury.curve].sort((a, b) =>
           b.observationDate.localeCompare(a.observationDate),
-        )[0]
-      : undefined;
-  const latestInflation =
-    inflation.status === "available"
-      ? [...inflation.observations].sort((left, right) =>
-          right.observationDate.localeCompare(left.observationDate),
-        )[0]
-      : undefined;
-  const latestUnemployment =
-    unemployment.status === "available"
-      ? [...unemployment.observations].sort((left, right) =>
-          right.observationDate.localeCompare(left.observationDate),
         )[0]
       : undefined;
   const filingRecords = packagedFilings.map((packaged, index) => {
@@ -534,11 +658,11 @@ export async function collectInitialEvidence(
     };
     return { ...packaged, artifact, locator };
   });
-  const annualLocator = filingRecords.find(
-    ({ filing }) => filing.accessionNumber === annual.accessionNumber,
+  const primaryLocator = filingRecords.find(
+    ({ filing }) => filing.accessionNumber === primaryFiling.accessionNumber,
   )?.locator;
-  if (annualLocator === undefined)
-    throw new TypeError("sec_annual_locator_missing");
+  if (primaryLocator === undefined)
+    throw new TypeError("sec_primary_locator_missing");
   const evidence: SnapshotEvidence[] = [
     {
       evidenceId: "identity:sec",
@@ -550,7 +674,11 @@ export async function collectInitialEvidence(
     },
     ...filingRecords.map(({ filing, result, artifact }) => ({
       evidenceId: `filing:${filing.accessionNumber}`,
-      dataset: ownershipDataset(filing.form),
+      dataset: ownershipDataset(
+        filing.form,
+        filing.accessionNumber,
+        reference.cik,
+      ),
       rightsSource: "sec_primary_filing" as const,
       retrievedAt: result.provenance.retrievedAt,
       raw: artifact,
@@ -582,31 +710,14 @@ export async function collectInitialEvidence(
           },
         ]
       : []),
-    ...(inflation.status === "available" && inflationArtifact !== undefined
-      ? [
-          {
-            evidenceId: "macro:cpi",
-            dataset: "bls_macro" as const,
-            rightsSource: "bls_allowlist" as const,
-            retrievedAt: inflation.provenance.retrievedAt,
-            raw: inflationArtifact,
-            current: true,
-          },
-        ]
-      : []),
-    ...(unemployment.status === "available" &&
-    unemploymentArtifact !== undefined
-      ? [
-          {
-            evidenceId: "macro:unemployment",
-            dataset: "bls_macro" as const,
-            rightsSource: "bls_allowlist" as const,
-            retrievedAt: unemployment.provenance.retrievedAt,
-            raw: unemploymentArtifact,
-            current: true,
-          },
-        ]
-      : []),
+    ...sealedBlsRecords.map(({ definition, collection, artifact }) => ({
+      evidenceId: definition.evidenceId,
+      dataset: "bls_macro" as const,
+      rightsSource: "bls_allowlist" as const,
+      retrievedAt: collection.provenance.retrievedAt,
+      raw: artifact,
+      current: true,
+    })),
     ...provider.evidence,
   ];
   const sources: SpecialistSourceArtifact[] = [
@@ -623,7 +734,7 @@ export async function collectInitialEvidence(
       bytes: factsBytes,
       mediaType: "application/json",
       locator: {
-        ...annualLocator,
+        ...primaryLocator,
         source: "sec_company_facts",
         sourceUrl: factsResult.provenance.sourceUrl,
         unit: "registered values",
@@ -650,50 +761,23 @@ export async function collectInitialEvidence(
           },
         ]
       : []),
-    ...(inflation.status === "available" &&
-    inflationArtifact !== undefined &&
-    inflationBytes !== undefined &&
-    latestInflation !== undefined
-      ? [
-          {
-            evidenceId: "macro:cpi",
-            artifactId: inflationArtifact.artifactId,
-            bytes: inflationBytes,
-            mediaType: "application/json",
-            locator: {
-              kind: "macro" as const,
-              source: "bls_allowlist" as const,
-              sourceUrl: BLS_SOURCE_URL,
-              seriesId: "CUUR0000SA0" as const,
-              period: latestInflation.period,
-              observationDate: latestInflation.observationDate,
-              unit: "index",
-            },
-          },
-        ]
-      : []),
-    ...(unemployment.status === "available" &&
-    unemploymentArtifact !== undefined &&
-    unemploymentBytes !== undefined &&
-    latestUnemployment !== undefined
-      ? [
-          {
-            evidenceId: "macro:unemployment",
-            artifactId: unemploymentArtifact.artifactId,
-            bytes: unemploymentBytes,
-            mediaType: "application/json",
-            locator: {
-              kind: "macro" as const,
-              source: "bls_allowlist" as const,
-              sourceUrl: BLS_SOURCE_URL,
-              seriesId: "LNS14000000" as const,
-              period: latestUnemployment.period,
-              observationDate: latestUnemployment.observationDate,
-              unit: "percent",
-            },
-          },
-        ]
-      : []),
+    ...sealedBlsRecords.map(
+      ({ definition, latest, bytes, artifact }) => ({
+        evidenceId: definition.evidenceId,
+        artifactId: artifact.artifactId,
+        bytes,
+        mediaType: "application/json",
+        locator: {
+          kind: "macro" as const,
+          source: "bls_allowlist" as const,
+          sourceUrl: BLS_SOURCE_URL,
+          seriesId: definition.seriesId,
+          period: latest.period,
+          observationDate: latest.observationDate,
+          unit: definition.unit,
+        },
+      }),
+    ),
     ...provider.sources,
   ];
   return {
@@ -707,12 +791,9 @@ export async function collectInitialEvidence(
         ...(treasury.status === "available"
           ? [treasury.provenance.retrievedAt]
           : []),
-        ...(inflation.status === "available"
-          ? [inflation.provenance.retrievedAt]
-          : []),
-        ...(unemployment.status === "available"
-          ? [unemployment.provenance.retrievedAt]
-          : []),
+        ...sealedBlsRecords.map(
+          ({ collection }) => collection.provenance.retrievedAt,
+        ),
         provider.retrievedAt,
       ]
         .sort()

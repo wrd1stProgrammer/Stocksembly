@@ -17,6 +17,8 @@ import {
 } from "./specialistRound.testSupport";
 import { specialistRequest } from "./specialistRoundInput";
 
+const specialistCount = WORKFLOW_V1_SPECIALIST_IDS.length;
+
 describe("specialist round", () => {
   it("keeps a balanced recent financial history instead of one oversized metric tail", async () => {
     // Given
@@ -77,7 +79,7 @@ describe("specialist round", () => {
     expect(counts).toEqual({ revenue: 6, operating_margin: 6 });
   });
 
-  it("commits ten isolated role jobs from one snapshot with global concurrency three before public events", async () => {
+  it("commits every isolated role job from one snapshot before public events", async () => {
     // Given
     const harness = await makeAssignmentHarness({ scope: "broad" });
     const assignments = requireAssignments(
@@ -135,12 +137,12 @@ describe("specialist round", () => {
     );
     expect(
       new Set(result.receipts.map((receipt) => receipt.receiptHash)).size,
-    ).toBe(10);
+    ).toBe(specialistCount);
     expect(
       new Set(result.acceptedMemos.map((memo) => memo.artifactHash)).size,
-    ).toBe(10);
+    ).toBe(specialistCount);
     expect(maximumActive).toBe(3);
-    expect(requests).toHaveLength(10);
+    expect(requests).toHaveLength(specialistCount);
     for (const [index, request] of requests.entries()) {
       const assignment = assignments.assignments.find(
         (item) => item.roleId === request.role.id,
@@ -156,6 +158,8 @@ describe("specialist round", () => {
       expect(Object.keys(request).sort()).toEqual([
         "attempt",
         "capabilityStatement",
+        "claimSlots",
+        "comparatorQualification",
         "evidenceCutoffAt",
         "evidenceSlice",
         "ids",
@@ -188,20 +192,22 @@ describe("specialist round", () => {
       // Then
       expect(result.kind).toBe("complete");
       expect(result.departmentStartAllowed).toBe(true);
-      expect(result.acceptedMemos).toHaveLength(10);
-      expect(result.receipts).toHaveLength(11);
+      expect(result.acceptedMemos).toHaveLength(specialistCount);
+      expect(result.receipts).toHaveLength(specialistCount + 1);
       expect(result.receipts[1]?.outcome).toBe(
         fault === "timeout" ? "timed_out" : "invalid",
       );
       expect(result.receipts[1]?.ordinal).toBe(2);
-      expect(result.receipts[10]?.ordinal).toBe(11);
-      expect(result.receipts[10]?.outcome).toBe("accepted");
-      expect(harness.requests[10]?.attempt.purpose).toBe(
+      expect(result.receipts[specialistCount]?.ordinal).toBe(
+        specialistCount + 1,
+      );
+      expect(result.receipts[specialistCount]?.outcome).toBe("accepted");
+      expect(harness.requests[specialistCount]?.attempt.purpose).toBe(
         "required_replacement",
       );
       expect(
         harness.lifecycle.filter((item) => item.startsWith("event:")),
-      ).toHaveLength(10);
+      ).toHaveLength(specialistCount);
     },
   );
 
@@ -219,11 +225,11 @@ describe("specialist round", () => {
     expect(result.kind).toBe("incomplete");
     expect(result.departmentStartAllowed).toBe(false);
     expect(result.missingRoleIds).toEqual(["market_news"]);
-    expect(result.receipts.map((receipt) => receipt.ordinal)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-    ]);
+    expect(result.receipts.map((receipt) => receipt.ordinal)).toEqual(
+      Array.from({ length: specialistCount + 1 }, (_, index) => index + 1),
+    );
     expect(result.receipts[1]?.outcome).toBe("invalid");
-    expect(result.receipts[10]?.outcome).toBe("invalid");
+    expect(result.receipts[specialistCount]?.outcome).toBe("invalid");
     expect(harness.lifecycle.some((item) => item.startsWith("event:"))).toBe(
       false,
     );

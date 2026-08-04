@@ -5,6 +5,12 @@ import type { AuthoritativeReportCommit } from "../../../application/assembleRep
 import { persistAuthoritativeReport } from "../../../application/assembleReportPersistence";
 import { createSqliteChairSynthesis } from "../../../workflow/chairSynthesis";
 import { createPreparedChairRound } from "../../../workflow/chairSynthesis.testSupport";
+import { ANTICIPATED_QUESTIONS_POLICY } from "../../../workflow/anticipatedQuestionsPublication";
+import {
+  deterministicMetadataRewrite,
+  gateWithOneTargetedRewrite,
+  type PrePublicationEditorialEnvelope,
+} from "../../../workflow/prePublicationEditorialGate";
 import {
   type AtomicPublicationInput,
   publishReportAtomically,
@@ -131,6 +137,181 @@ const faults = {
 } satisfies Record<string, (input: AtomicPublicationInput) => boolean>;
 
 describe("publishReportAtomically identity boundary", () => {
+  it("repairs one named duplicate, publishes once, and preserves confidence", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    const envelope = (input.commit.version.publicPayload as unknown as {
+      editorialPublication: PrePublicationEditorialEnvelope;
+    }).editorialPublication;
+    const firstSection = envelope.candidate.sections[0]!;
+    const invalid = {
+      ...envelope.candidate,
+      sections: [
+        ...envelope.candidate.sections,
+        { ...firstSection, sectionKey: `${firstSection.sectionKey}_duplicate` },
+      ],
+    };
+    let rewrites = 0;
+    const gated = await gateWithOneTargetedRewrite(invalid, async (request) => {
+      rewrites += 1;
+      return deterministicMetadataRewrite(invalid, request);
+    });
+    expect(gated.kind, JSON.stringify(gated)).toBe("accepted");
+    if (gated.kind !== "accepted") return;
+    expect(rewrites).toBe(1);
+    expect(gated.candidate.confidence).toBe(invalid.confidence);
+    Reflect.set(input.commit.version, "publicPayload", {
+      ...input.commit.version.publicPayload,
+      schemaVersion: "workflow-v2",
+      anticipatedQuestions: gated.candidate.anticipatedQuestions,
+      editorialPublication: {
+        ...envelope,
+        candidate: gated.candidate,
+        fieldLineage: gated.fieldLineage,
+        qaPolicy: {
+          ...envelope.qaPolicy,
+          supportedCount: gated.candidate.anticipatedQuestions.length,
+          moduleVisible:
+            gated.candidate.anticipatedQuestions.length >=
+            envelope.qaPolicy.moduleMinimum,
+        },
+      },
+    });
+
+    expect(publishReportAtomically(prepared.options.databasePath, input)).toBe(1);
+    expect(publicationState(prepared.options.databasePath, prepared.runId)).toMatchObject({
+      reports: 1,
+      report_versions: 1,
+      report_events: 1,
+    });
+    prepared.cleanup();
+  }, 20_000);
+
+  it("leaves zero rows when the sole rewrite adds an unsupported metric", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    const envelope = (input.commit.version.publicPayload as unknown as {
+      editorialPublication: PrePublicationEditorialEnvelope;
+    }).editorialPublication;
+    const invalid = {
+      ...envelope.candidate,
+      sections: [
+        ...envelope.candidate.sections,
+        { ...envelope.candidate.sections[0]!, sectionKey: "duplicate_for_failure" },
+      ],
+    };
+    const gated = await gateWithOneTargetedRewrite(invalid, async (request) => {
+      const repaired = deterministicMetadataRewrite(invalid, request);
+      return {
+        ...repaired,
+        sections: repaired.sections.map((section, index) =>
+          index === 0
+            ? { ...section, text: { ...section.text, en: "Unsupported margin reached 99%." } }
+            : section,
+        ),
+      };
+    });
+    expect(gated).toMatchObject({
+      kind: "rejected",
+      reason: "editorial_quality_failed:unsupported_number",
+    });
+    expect(publicationState(prepared.options.databasePath, prepared.runId)).toMatchObject({
+      reports: 0,
+      report_versions: 0,
+      report_events: 0,
+    });
+    prepared.cleanup();
+  }, 20_000);
+
+  it("leaves zero rows when a named repair also mutates an unnamed sibling", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    const envelope = (input.commit.version.publicPayload as unknown as {
+      editorialPublication: PrePublicationEditorialEnvelope;
+    }).editorialPublication;
+    const original = envelope.candidate;
+    const invalid = {
+      ...original,
+      sections: original.sections.map((section, index) => index === 1
+        ? { ...section, text: { ...section.text, en: original.sections[0]!.text.en } }
+        : section),
+    };
+    const gated = await gateWithOneTargetedRewrite(invalid, async () => ({
+      ...original,
+      sections: original.sections.map((section, index) => index === 0
+        ? { ...section, sectionKey: "silently_changed_section" }
+        : section),
+    }));
+
+    expect(gated).toMatchObject({
+      kind: "rejected",
+      reason: "editorial_quality_failed:rewrite_scope:sections[0].sectionKey",
+    });
+    expect(publicationState(prepared.options.databasePath, prepared.runId)).toMatchObject({
+      reports: 0,
+      report_versions: 0,
+      report_events: 0,
+    });
+    prepared.cleanup();
+  }, 20_000);
+
+  it("publishes one gated workflow-v2 row with persisted Q&A metadata", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    const claimA = "00000000-0000-4000-8000-000000000001";
+    const claimB = "00000000-0000-4000-8000-000000000003";
+    const evidenceA = "00000000-0000-4000-8000-000000000002";
+    const evidenceB = "00000000-0000-4000-8000-000000000004";
+    const anticipatedQuestions = [
+      { questionId: "00000000-0000-4000-8000-000000000011", decisionKey: "dominant_growth", question: { en: "At the current price, which thesis dominates and why?", ko: "현재 가격에서는 어떤 논지가 우세하며, 그 이유는 무엇인가요?" }, answer: { en: "Enterprise adoption is the decisive growth evidence.", ko: "기업 도입이 성장 판단의 결정적 근거입니다." }, primaryClaimIds: [claimA], evidenceArtifactIds: [evidenceA], rank: 1 },
+      { questionId: "00000000-0000-4000-8000-000000000012", decisionKey: "valuation_reset", question: { en: "What would invalidate the valuation proxy?", ko: "무엇이 밸류에이션 대용 비교를 무효화하나요?" }, answer: { en: "Period misalignment would invalidate the valuation proxy.", ko: "기간 불일치는 밸류에이션 대용 비교를 무효화합니다." }, primaryClaimIds: [claimB], evidenceArtifactIds: [evidenceB], rank: 2 },
+    ];
+    const candidate = {
+      position: { en: "Demand evidence favors durable expansion.", ko: "수요 근거는 지속 가능한 확장 논지를 지지합니다." },
+      rationale: { en: "Cash conversion confirms operating discipline.", ko: "현금 전환은 운영 규율을 확인합니다." },
+      sections: [
+        { sectionKey: "supported_analysis", text: { en: "Enterprise adoption broadened across customer cohorts.", ko: "기업 도입은 고객군 전반으로 확대됐습니다." }, claimIds: [claimA], checkpoint: { en: "Adoption remains broad.", ko: "도입 범위가 넓게 유지됩니다." } },
+        { sectionKey: "valuation_comparison", text: { en: "The proxy shares normalized revenue growth and margin periods.", ko: "해당 대용 기업은 정규화된 매출 성장과 마진 기간을 공유합니다." }, claimIds: [claimB], checkpoint: { en: "Period alignment remains valid.", ko: "기간 정렬이 유효하게 유지됩니다." } },
+      ],
+      comparators: [{ comparatorId: "peer", role: "valuation_proxy", rationale: { en: "The same period and normalized revenue metric are available.", ko: "동일 기간의 정규화된 매출 지표를 사용할 수 있습니다." }, comparableMetricKeys: ["revenue_growth"] }],
+      anticipatedQuestions,
+      supportedNumbers: [], permittedClaimIds: [claimA, claimB], permittedEvidenceArtifactIds: [evidenceA, evidenceB], confidence: "medium",
+    } as const;
+    Reflect.set(input.commit.version, "publicPayload", {
+      ...input.commit.version.publicPayload,
+      schemaVersion: "workflow-v2",
+      anticipatedQuestions,
+      editorialPublication: { gateVersion: "editorial-quality-v1", qaPolicy: { ...ANTICIPATED_QUESTIONS_POLICY, supportedCount: anticipatedQuestions.length, moduleVisible: false }, candidate },
+    });
+
+    expect(publishReportAtomically(prepared.options.databasePath, input)).toBe(1);
+    const database = new Database(prepared.options.databasePath, { readonly: true });
+    const rows = database.prepare("SELECT public_payload_json FROM report_versions").all() as readonly { public_payload_json: string }[];
+    database.close();
+    expect(rows).toHaveLength(1);
+    const persisted = JSON.parse(rows[0]!.public_payload_json);
+    expect(persisted).toMatchObject({
+      schemaVersion: "workflow-v2",
+      editorialPublication: { candidate: { confidence: "medium" } },
+    });
+    expect(persisted.anticipatedQuestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ decisionKey: "dominant_growth", rank: 1 }),
+    ]));
+    prepared.cleanup();
+  }, 20_000);
+
+  it("rejects workflow-v2 without a passed pre-publication artifact and leaves no row", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    Reflect.set(input.commit.version, "publicPayload", {
+      ...input.commit.version.publicPayload,
+      schemaVersion: "workflow-v2",
+      anticipatedQuestions: [],
+      editorialPublication: undefined,
+    });
+    const before = publicationState(prepared.options.databasePath, prepared.runId);
+
+    expect(() => publishReportAtomically(prepared.options.databasePath, input))
+      .toThrow("editorial_quality_failed:missing_prepublication_artifact");
+    expect(publicationState(prepared.options.databasePath, prepared.runId)).toEqual(before);
+    prepared.cleanup();
+  }, 20_000);
+
   it.each(Object.entries(faults))(
     "rejects %s without durable publication mutation",
     async (_fault, mutate) => {

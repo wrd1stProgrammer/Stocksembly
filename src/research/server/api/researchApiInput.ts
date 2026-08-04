@@ -7,6 +7,11 @@ import {
 } from "../../domain/researchTarget";
 import type { NormalizedResearchRequest } from "./researchApiContracts";
 import { NormalizedResearchRequestSchema } from "./researchApiContracts";
+import {
+  DEFAULT_RESEARCH_PROFILE,
+  normalizeResearchProfile,
+  ResearchProfileSchema,
+} from "../../domain/researchProfile";
 
 const RequestBodySchema = z
   .object({
@@ -14,6 +19,7 @@ const RequestBodySchema = z
     question: z.string(),
     locale: z.enum(["en", "ko"]),
     researchTarget: ResearchTargetSchema.optional(),
+    researchProfile: ResearchProfileSchema.optional(),
   })
   .strict();
 
@@ -36,6 +42,10 @@ export function parseResearchInput(input: unknown): ResearchInputResult {
       question,
       locale: parsed.data.locale,
       researchTarget: parsed.data.researchTarget ?? COMMITTEE_RESEARCH_TARGET,
+      researchProfile: normalizeResearchProfile(
+        parsed.data.researchProfile ?? DEFAULT_RESEARCH_PROFILE,
+        symbol.data,
+      ),
     }),
   };
 }

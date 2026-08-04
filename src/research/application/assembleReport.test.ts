@@ -10,18 +10,20 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
-import { ResearchReportSchema } from "../domain/report";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
 import { sqliteReportVersionPersistence } from "../server/persistence/sqlite/sqliteReportPersistence";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
 import { temporaryDatabase } from "../server/persistence/sqlite/sqliteStore.contractFixtures";
 import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
+import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
 import {
   corruptAcceptedEnvelope,
   createPreparedChairRound,
 } from "../workflow/chairSynthesis.testSupport";
-import { ChairSynthesisPromptSchema } from "../workflow/chairSynthesisContracts";
+import { loadChairPrompt } from "../workflow/chairSynthesisInput";
+import { WorkflowV2ResearchReportSchema } from "../domain/report";
+import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import {
   CountingArtifactCasFake,
   makeAuthoritativeReportInput,
@@ -48,16 +50,116 @@ describe("persistAuthoritativeReport", () => {
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
     expect(result.report.version).toBe(1);
+    expect(result.report.editorialClaims.map((claim) => claim.roleOwner)).toEqual([
+      "market",
+    ]);
+    expect(
+      result.report.editorialClaims.every((claim) =>
+        WORKFLOW_V1_SPECIALIST_IDS.includes(
+          claim.roleOwner as (typeof WORKFLOW_V1_SPECIALIST_IDS)[number],
+        ),
+      ),
+    ).toBe(true);
     expect(result.descriptor.parentDigests).toEqual(
       input.parentArtifacts.map((parent) => parent.digest),
     );
     expect(await cas.has(result.descriptor.digest)).toBe(true);
+    const savedEditorialPublication = persistence.saved[0]?.version
+      .publicPayload.editorialPublication as
+      | PrePublicationEditorialEnvelope
+      | undefined;
+    const sectionClaimIds = result.report.locales.en.sections.flatMap(
+      (section) => section.claimIds,
+    );
+    expect(new Set(sectionClaimIds).size).toBe(sectionClaimIds.length);
+    expect(result.report.teamViews[0]?.position).toEqual(
+      savedEditorialPublication?.candidate.position,
+    );
+    expect(result.report.locales.en.sections).toEqual(
+      expect.arrayContaining(
+        savedEditorialPublication?.candidate.sections.map(
+          (section) =>
+            expect.objectContaining({
+              id: section.sectionKey,
+              body: section.text.en,
+              claimIds: section.claimIds,
+            }),
+        ) ?? [],
+      ),
+    );
     expect(persistence.saved).toHaveLength(1);
     expect(persistence.saved[0]?.version.publicPayload).toMatchObject({
+      schemaVersion: "workflow-v2",
       reportArtifactDigest: result.descriptor.digest,
       version: 1,
       priorVersionId: null,
+      anticipatedQuestions: expect.any(Array),
+      editorialPublication: {
+        gateVersion: "editorial-quality-v1",
+        candidate: { confidence: result.report.editorialDecision!.confidence },
+        fieldLineage: expect.objectContaining({ "position.en": "synthesis" }),
+      },
     });
+  });
+
+  it("retains qualified user-selected comparators in the published report", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const input = {
+      ...makeAuthoritativeReportInput(),
+      comparators: [
+        {
+          comparatorId: "NASDAQ:AAPL",
+          role: "valuation_proxy" as const,
+          rationale: {
+            en: "User-selected valuation comparison using aligned TTM metrics.",
+            ko: "사용자가 지정한 비교기업이며 정렬된 TTM 지표로 밸류에이션을 비교합니다.",
+          },
+          comparableMetricKeys: ["price_earnings_ttm"],
+        },
+      ],
+    };
+    await seedAuthoritativeParents(cas, input);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      input,
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.comparators).toEqual(input.comparators);
+  });
+
+  it("fails closed before CAS when authenticated editorial claims are absent", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const valid = makeAuthoritativeReportInput();
+    const { editorialClaims: _omitted, ...input } = valid;
+    await seedAuthoritativeParents(cas, valid);
+
+    const result = await persistAuthoritativeReport({ cas, persistence }, input);
+
+    expect(result).toEqual({ kind: "blocked", reason: "editorial_v2_invalid" });
+    expect(cas.putCount).toBe(0);
+    expect(persistence.saved).toHaveLength(0);
+  });
+
+  it("fails closed before CAS for an unregistered editorial claim owner", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const valid = makeAuthoritativeReportInput();
+    const input = structuredClone(valid);
+    const claim = input.editorialClaims[0];
+    if (claim === undefined) throw new TypeError("missing editorial claim fixture");
+    Reflect.set(claim, "roleOwner", "research_committee");
+    await seedAuthoritativeParents(cas, valid);
+
+    const result = await persistAuthoritativeReport({ cas, persistence }, input);
+
+    expect(result).toEqual({ kind: "blocked", reason: "editorial_v2_invalid" });
+    expect(cas.putCount).toBe(0);
+    expect(persistence.saved).toHaveLength(0);
   });
 
   it("publishes when a retained open question contains a sourced market level", async () => {
@@ -161,8 +263,8 @@ describe("persistAuthoritativeReport", () => {
           ],
         },
       },
-      chairSentences: valid.chairSentences.map((sentence, index) =>
-        index === 0
+      chairSentences: valid.chairSentences.map((sentence) =>
+        sentence.kind === "scenario"
           ? {
               ...sentence,
               text: {
@@ -172,6 +274,20 @@ describe("persistAuthoritativeReport", () => {
             }
           : sentence,
       ),
+      chair: {
+        ...valid.chair,
+        sections: valid.chair.sections.map((section) =>
+          section.sectionKey === "operational_scenarios"
+            ? {
+                ...section,
+                publicSummary: {
+                  en: "Quarterly revenue reached $81.6B.",
+                  ko: "분기 매출은 816억달러를 기록했습니다.",
+                },
+              }
+            : section,
+        ),
+      },
     };
     await seedAuthoritativeParents(cas, valid);
 
@@ -189,14 +305,10 @@ describe("persistAuthoritativeReport", () => {
     });
   });
 
-  it("keeps a contradicted retained-dissent claim in the report register", async () => {
+  it("removes a contradicted retained-dissent claim from the report register", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
     const valid = makeAuthoritativeReportInput();
-    const retainedClaimId =
-      valid.structuralAudit.result.retainedDissentClaimIds[0];
-    if (retainedClaimId === undefined)
-      throw new TypeError("missing retained dissent fixture");
     const input = {
       ...valid,
       semanticAudit: {
@@ -207,6 +319,10 @@ describe("persistAuthoritativeReport", () => {
           contradictionSeverity: "severe" as const,
         })),
       },
+      chair: {
+        ...valid.chair,
+        dissentClaimIds: [],
+      },
     };
     await seedAuthoritativeParents(cas, valid);
 
@@ -215,16 +331,8 @@ describe("persistAuthoritativeReport", () => {
       input,
     );
 
-    expect(result.kind, JSON.stringify(result)).toBe("published");
-    if (result.kind !== "published") return;
-    expect(result.report.claims).toContainEqual(
-      expect.objectContaining({
-        claimId: retainedClaimId,
-        materiality: "supporting",
-        semanticVerdict: "not_assessable",
-        sourceIds: ["00000000-0000-4000-8000-000000000305"],
-      }),
-    );
+    expect(result).toEqual({ kind: "blocked", reason: "report_invalid" });
+    expect(persistence.saved).toHaveLength(0);
   });
 
   it("writes no CAS blob or version when bilingual chair parity is invalid", async () => {
@@ -424,7 +532,7 @@ describe("persistAuthoritativeReport", () => {
     expect(persistence.saved).toHaveLength(0);
   });
 
-  it("accepts an authenticated bilingual paraphrase grounded in either locale", async () => {
+  it("rejects a bilingual summary when one locale is not grounded", async () => {
     // Given
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -453,8 +561,8 @@ describe("persistAuthoritativeReport", () => {
     );
 
     // Then
-    expect(result.kind, JSON.stringify(result)).toBe("published");
-    expect(persistence.saved).toHaveLength(1);
+    expect(result).toEqual({ kind: "blocked", reason: "chair_content_mismatch" });
+    expect(persistence.saved).toHaveLength(0);
   });
 
   it("rejects an unauthenticated parent digest and non-contiguous version", async () => {
@@ -647,18 +755,12 @@ describe("persistAuthoritativeReport", () => {
         .passthrough()
         .parse(JSON.parse(fence.envelope_json)).payload,
     );
-    const job = z.object({ result_json: z.string() }).parse(
-      database
-        .prepare(`SELECT result_json FROM idempotency_records
-        WHERE scope = 'chair-synthesis-job' AND idempotency_key = ?`)
-        .get(prepared.runId),
+    const prompt = await loadChairPrompt(
+      database,
+      prepared.options.cas,
+      prepared.runId,
     );
-    const prompt = ChairSynthesisPromptSchema.parse(
-      JSON.parse(
-        z.object({ prompt: z.string() }).parse(JSON.parse(job.result_json))
-          .prompt,
-      ),
-    );
+    if (prompt === undefined) throw new TypeError("missing chair prompt");
     database.close();
 
     // When
@@ -688,6 +790,7 @@ describe("persistAuthoritativeReport", () => {
       runs.report_published_at,
       (SELECT COUNT(*) FROM report_versions) AS versions,
       (SELECT COUNT(*) FROM run_events WHERE event_type = 'report_published') AS events,
+      (SELECT public_payload_json FROM report_versions LIMIT 1) AS version_payload_json,
       (SELECT payload_json FROM run_events
         WHERE event_type = 'report_published') AS payload_json
       FROM runs WHERE run_id = ?`)
@@ -698,8 +801,19 @@ describe("persistAuthoritativeReport", () => {
     const storedReport = await prepared.options.cas.get(
       ArtifactDigestSchema.parse(result.digest),
     );
-    const report = ResearchReportSchema.parse(
+    const report = WorkflowV2ResearchReportSchema.parse(
       JSON.parse(new TextDecoder().decode(storedReport?.bytes)),
+    );
+    expect(report.editorialClaims).not.toHaveLength(0);
+    expect(
+      report.editorialClaims.every((claim) =>
+        WORKFLOW_V1_SPECIALIST_IDS.includes(
+          claim.roleOwner as (typeof WORKFLOW_V1_SPECIALIST_IDS)[number],
+        ),
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(report.editorialClaims)).not.toContain(
+      "research_committee",
     );
     const operational = report.locales.en.scenarios[0];
     const dissent = report.locales.en.dissent[0];
@@ -739,8 +853,23 @@ describe("persistAuthoritativeReport", () => {
     const publicationPayload = JSON.parse(
       z.object({ payload_json: z.string() }).parse(state).payload_json,
     );
+    const versionPayload = JSON.parse(
+      z.object({ version_payload_json: z.string() }).passthrough().parse(state)
+        .version_payload_json,
+    );
+    expect(versionPayload).toMatchObject({
+      schemaVersion: "workflow-v2",
+      anticipatedQuestions: report.anticipatedQuestions,
+      editorialPublication: {
+        qaPolicy: {
+          moduleMinimum: 5,
+          supportedCount: report.anticipatedQuestions.length,
+        },
+        candidate: { confidence: report.editorialDecision!.confidence },
+      },
+    });
     expect(publicationPayload).toEqual({
-      schemaVersion: "workflow-v1",
+      schemaVersion: "workflow-v2",
       reportId: result.reportId,
       reportVersionId: result.versionId,
       artifactId: result.artifactId,

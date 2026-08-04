@@ -187,6 +187,12 @@ export async function persistStructuralAudit(
     );
     if (retention === undefined)
       return blocked("workflow_artifact_authentication_failed");
+    const structuralClaimIds = new Set(
+      parsed.data.claims.map((candidate) => candidate.claim.claimId),
+    );
+    const retainedDissentClaimIds = retention.dissentClaimIds.filter(
+      (claimId) => structuralClaimIds.has(claimId),
+    );
     const evidenceFailure = await verifyEvidence(
       database,
       options,
@@ -196,7 +202,7 @@ export async function persistStructuralAudit(
     const trustedInput = StructuralAuditInputSchema.parse({
       ...parsed.data,
       acceptedMemos: workflow.memos,
-      sourceDissentClaimIds: retention.dissentClaimIds,
+      sourceDissentClaimIds: retainedDissentClaimIds,
       sourceOpenQuestionIds: retention.openQuestions.map(
         (question) => question.questionId,
       ),

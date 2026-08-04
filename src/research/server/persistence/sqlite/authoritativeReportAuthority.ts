@@ -4,7 +4,9 @@ import { z } from "zod";
 import type { PublishAuthoritativeReportInput } from "../../../application/authoritativeReportPublisherContracts";
 import { StructuralAuditArtifactEnvelopeSchema } from "../../../application/structuralAuditPersistenceContracts";
 import {
+  AtomicEditorialClaimSchema,
   ChairSynthesisOutputSchema,
+  MemoOutputSchema,
   SemanticAuditOutputSchema,
 } from "../../../domain/agentOutputs";
 import {
@@ -14,8 +16,13 @@ import {
 } from "../../../domain/contractHelpers";
 import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
 import { normalizeResearchDirection } from "../../../domain/researchDirection";
+import { qualifyInsightSentryPeers } from "../../../domain/qualifyInsightSentryPeers";
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../../../domain/roleRegistry";
 import type { ArtifactCasPort } from "../../../ports/artifacts";
+import type {
+  ResearchReport,
+  WorkflowV2ResearchReport,
+} from "../../../domain/report";
 import { ArtifactDigestSchema } from "../../../ports/artifacts";
 import { loadChairPrompt } from "../../../workflow/chairSynthesisInput";
 import {
@@ -80,18 +87,37 @@ export async function loadReportAuthority(
   databasePath: string,
   cas: ArtifactCasPort,
   input: PublishAuthoritativeReportInput,
+  revision?: Readonly<{
+    reportId: string;
+    reportArtifactId: string;
+    versionId: string;
+    version: number;
+    priorReport: ResearchReport | WorkflowV2ResearchReport;
+    expectedStatus: "completed" | "complete-with-limitations";
+  }>,
 ) {
   const database = new Database(databasePath, { readonly: true });
   try {
-    const run = AuthoritativeRunSchema.safeParse(
-      database
-        .prepare(`SELECT snapshot_id,
+    const runRow = database
+      .prepare(`SELECT snapshot_id,
       version, status, report_id,
       COALESCE(research_requests.question, '') AS question,
       research_requests.locale AS locale FROM runs
       LEFT JOIN research_requests USING(run_id) WHERE run_id = ?`)
-        .get(input.runId),
-    );
+      .get(input.runId);
+    const run =
+      revision === undefined
+        ? AuthoritativeRunSchema.safeParse(runRow)
+        : z
+            .object({
+              snapshot_id: z.string().uuid(),
+              version: z.number().int().nonnegative(),
+              status: z.literal(revision.expectedStatus),
+              report_id: z.literal(revision.reportId),
+              question: z.string(),
+              locale: z.enum(["en", "ko"]),
+            })
+            .safeParse(runRow);
     if (!run.success) return blocked("run_not_publishable");
     const rows = database
       .prepare(`SELECT artifacts.artifact_id, artifacts.run_id,
@@ -182,6 +208,29 @@ export async function loadReportAuthority(
     const prompt = await loadChairPrompt(database, cas, input.runId);
     if (!semantic.success || !chair.success || prompt === undefined)
       return blocked("semantic_chair_or_prompt_invalid");
+    const peerRow = rows.find(
+      (row) => row.logical_key === "evidence:insightsentry:peers",
+    );
+    const peerContent =
+      peerRow === undefined ? undefined : await authenticatedJson(cas, peerRow);
+    const comparatorQualification =
+      peerRow === undefined || peerContent === undefined
+        ? undefined
+        : qualifyInsightSentryPeers({
+            rawPeerArtifactId: peerRow.artifact_id,
+            peers: peerContent.parsed,
+          });
+    const comparators =
+      comparatorQualification?.status !== "qualified"
+        ? []
+        : comparatorQualification.rows
+            .filter((row) => row.displayEligibility)
+            .map((row) => ({
+              comparatorId: row.comparatorId,
+              role: row.role,
+              rationale: row.rationale,
+              comparableMetricKeys: row.comparableMetricKeys,
+            }));
     const teamViews = WORKFLOW_V1_DEPARTMENT_IDS.flatMap((departmentId) => {
       const position = prompt.sentences.find(
         (sentence) => sentence.sentenceId === `position:${departmentId}`,
@@ -234,14 +283,49 @@ export async function loadReportAuthority(
         claim.materiality,
       ]),
     );
-    const versionId = randomUUID();
+    const versionId = revision?.versionId ?? randomUUID();
+    const editorialClaims = [...envelopes.entries()].flatMap(
+      ([logicalKey, envelope]) => {
+        if (!logicalKey.startsWith("memo:")) return [];
+        const memo = MemoOutputSchema.safeParse(envelope.payload);
+        if (!memo.success) return [];
+        return memo.data.positions.flatMap((position) => {
+          if (
+            position.decisionDimension === undefined ||
+            position.roleOwner === undefined ||
+            position.materiality === undefined ||
+            position.falsifier === undefined
+          )
+            return [];
+          const parsed = AtomicEditorialClaimSchema.safeParse({
+            claimId: position.claimId,
+            decisionDimension: position.decisionDimension,
+            roleOwner: position.roleOwner,
+            stanceContribution:
+              position.stance === "supports"
+                ? "supports"
+                : position.stance === "opposes"
+                  ? "opposes"
+                  : "uncertain",
+            materiality: position.materiality,
+            publicThesis: position.publicSummary,
+            evidenceArtifactIds: position.evidenceArtifactIds,
+            counterevidenceArtifactIds: [],
+            decisiveMetricIds: position.decisiveMetricIds ?? [],
+            falsifier: position.falsifier,
+          });
+          return parsed.success ? [parsed.data] : [];
+        });
+      },
+    );
     return {
       locale: run.data.locale,
       runVersion: run.data.version,
-      reportId: randomUUID(),
-      reportArtifactId: randomUUID(),
+      reportId: revision?.reportId ?? randomUUID(),
+      reportArtifactId: revision?.reportArtifactId ?? randomUUID(),
       versionId,
-      version: 1,
+      version: revision?.version ?? 1,
+      ...(revision === undefined ? {} : { priorReport: revision.priorReport }),
       ...(normalizeResearchDirection(run.data.question) === undefined
         ? {}
         : { researchDirection: normalizeResearchDirection(run.data.question) }),
@@ -300,6 +384,9 @@ export async function loadReportAuthority(
       chair: chair.data,
       chairScenarioIds: prompt.scenarioIds,
       chairSentences: prompt.sentences,
+      researchProfile: prompt.mandate.researchProfile,
+      ...(comparators.length === 0 ? {} : { comparators }),
+      ...(editorialClaims.length === 0 ? {} : { editorialClaims }),
     };
   } finally {
     database.close();

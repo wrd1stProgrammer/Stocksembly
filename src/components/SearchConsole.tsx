@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus, SlidersHorizontal, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -9,7 +9,12 @@ import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
 import { filterTickers, searchUsTickers, type Ticker } from "../lib/tickers";
 import { ResearchRequestError } from "../research/client/api";
+import { TickerSymbolSchema } from "../research/domain/ids";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
+import {
+  DEFAULT_RESEARCH_PROFILE,
+  type ResearchProfile,
+} from "../research/domain/researchProfile";
 import {
   COMMITTEE_RESEARCH_TARGET,
   RESEARCH_DEPARTMENT_COPY,
@@ -17,6 +22,7 @@ import {
   recommendResearchTarget,
   researchTargetQueryValue,
 } from "../research/domain/researchTarget";
+import { CreditShortageModal } from "./billing/CreditShortageModal";
 import {
   BorderBeam,
   ResearchButton,
@@ -49,8 +55,15 @@ export function SearchConsole({
   const [selectedTicker, setSelectedTicker] = useState<Ticker>();
   const [isSearching, setIsSearching] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
+  const [creditShortageOpen, setCreditShortageOpen] = useState(false);
+  const [optionsLocked, setOptionsLocked] = useState(false);
   const [targetOverride, setTargetOverride] = useState<ResearchTarget>();
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [researchProfile, setResearchProfile] = useState<ResearchProfile>(
+    DEFAULT_RESEARCH_PROFILE,
+  );
+  const [comparisonDraft, setComparisonDraft] = useState("");
   const router = useRouter();
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const normalizedQuery = query.trim().toLowerCase();
@@ -69,7 +82,9 @@ export function SearchConsole({
     () => recommendResearchTarget(researchQuestion),
     [researchQuestion],
   );
-  const researchTarget = targetOverride ?? recommendation.target;
+  const researchTarget = optionsLocked
+    ? COMMITTEE_RESEARCH_TARGET
+    : (targetOverride ?? recommendation.target);
   const targetCopy =
     researchTarget.kind === "committee"
       ? locale === "ko"
@@ -78,6 +93,92 @@ export function SearchConsole({
       : RESEARCH_DEPARTMENT_COPY[researchTarget.departmentId][
           locale === "ko" ? "ko" : "en"
         ];
+  const profileCopy =
+    locale === "ko"
+      ? {
+          customize: "맞춤 설정",
+          horizon: "투자 기간",
+          horizonNote: "판단이 유효해야 할 시간",
+          counter: "반론 강도",
+          counterNote: "반대 논리를 파고드는 정도",
+          depth: "분석 깊이",
+          depthNote: "에이전트별 논거와 리포트 분량",
+          purpose: "의사결정 목적",
+          purposeNote: "결론을 실제 행동 조건으로 바꾸는 기준",
+          peers: "비교기업",
+          peersNote: "InsightSentry 상대 비교 · 최대 5개",
+          peerPlaceholder: "티커 입력 (예: AMD)",
+          noPeers: "미포함",
+          horizonOptions: {
+            short: "단기",
+            medium: "중기",
+            long: "장기",
+          },
+          counterOptions: { standard: "표준", strong: "강하게" },
+          depthOptions: { core: "핵심", standard: "표준", deep: "심층" },
+          purposeOptions: {
+            new_entry: "신규 진입",
+            holding_review: "보유 점검",
+            position_sizing: "비중 조절",
+            earnings: "실적 전후",
+          },
+        }
+      : {
+          customize: "Customize",
+          horizon: "Investment horizon",
+          horizonNote: "How long the decision should remain valid",
+          counter: "Counterargument",
+          counterNote: "How aggressively the opposing case is tested",
+          depth: "Analysis depth",
+          depthNote: "Evidence breadth and report length",
+          purpose: "Decision purpose",
+          purposeNote: "The action the report should help decide",
+          peers: "Comparisons",
+          peersNote: "InsightSentry relative view · up to 5",
+          peerPlaceholder: "Add ticker (e.g. AMD)",
+          noPeers: "None",
+          horizonOptions: {
+            short: "Short",
+            medium: "Medium",
+            long: "Long",
+          },
+          counterOptions: { standard: "Standard", strong: "Strong" },
+          depthOptions: { core: "Core", standard: "Standard", deep: "Deep" },
+          purposeOptions: {
+            new_entry: "New entry",
+            holding_review: "Holding review",
+            position_sizing: "Position sizing",
+            earnings: "Around earnings",
+          },
+        };
+
+  function updateProfile<Key extends keyof ResearchProfile>(
+    key: Key,
+    value: ResearchProfile[Key],
+  ) {
+    setResearchProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  function addComparisonSymbol() {
+    const parsedSymbol = TickerSymbolSchema.safeParse(
+      comparisonDraft.trim().toUpperCase(),
+    );
+    if (!parsedSymbol.success) return;
+    const symbol = parsedSymbol.data;
+    if (
+      symbol === firstMatch?.symbol ||
+      researchProfile.comparisonSymbols.includes(symbol) ||
+      researchProfile.comparisonSymbols.length >= 5
+    ) {
+      setComparisonDraft("");
+      return;
+    }
+    updateProfile("comparisonSymbols", [
+      ...researchProfile.comparisonSymbols,
+      symbol,
+    ]);
+    setComparisonDraft("");
+  }
   useEffect(() => {
     if (
       normalizedQuery.length === 0 ||
@@ -111,6 +212,36 @@ export function SearchConsole({
       controller.abort();
     };
   }, [localMatches, normalizedQuery, tickerSearch]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/billing/status", {
+      credentials: "same-origin",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) return;
+        return (await response.json()) as {
+          readonly authenticated?: unknown;
+          readonly tier?: unknown;
+        };
+      })
+      .then((status) => {
+        if (!active || status === undefined) return;
+        const locked = status.authenticated === true && status.tier === "free";
+        setOptionsLocked(locked);
+        if (locked) {
+          setTargetOverride(undefined);
+          setTargetPickerOpen(false);
+          setProfileOpen(false);
+          setResearchProfile(DEFAULT_RESEARCH_PROFILE);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function selectTicker(ticker: Ticker) {
     setSelectedTicker(ticker);
@@ -156,6 +287,7 @@ export function SearchConsole({
         locale,
         idempotencyKey,
         researchTarget,
+        researchProfile,
       })
       .then((created) => {
         createdRunId = created.run.runId;
@@ -164,6 +296,11 @@ export function SearchConsole({
       .catch((error: unknown) => {
         if (error instanceof ResearchRequestError && error.status === 401)
           return "unauthorized" as const;
+        if (
+          error instanceof ResearchRequestError &&
+          error.code === "CREDITS_INSUFFICIENT"
+        )
+          return "credits-insufficient" as const;
         return "failed" as const;
       });
     try {
@@ -180,6 +317,10 @@ export function SearchConsole({
         );
         return;
       }
+      if (firstOutcome === "credits-insufficient") {
+        setCreditShortageOpen(true);
+        return;
+      }
       if (firstOutcome === "failed") throw new Error("Research launch failed");
       if (firstOutcome === "created") await pulseDelay;
       const launchQuery = new URLSearchParams({
@@ -187,6 +328,11 @@ export function SearchConsole({
         launch: idempotencyKey,
         question: researchQuestion,
         target: researchTargetQueryValue(researchTarget),
+        horizon: researchProfile.investmentHorizon,
+        counter: researchProfile.counterargumentIntensity,
+        depth: researchProfile.analysisDepth,
+        purpose: researchProfile.decisionPurpose,
+        peers: researchProfile.comparisonSymbols.join(","),
       });
       startTransition(() => {
         router.push(
@@ -211,74 +357,225 @@ export function SearchConsole({
   }
 
   return (
-    <BorderBeam
-      active={isSubmitting}
-      size="pulse-outside"
-      colorVariant="colorful"
-    >
-      <form className="search-console" id="research" onSubmit={submitSearch}>
-        <div className="search-console__primary">
-          <SearchField
-            value={query}
-            label={labels.label}
-            placeholder={labels.placeholder}
-            invalid={invalid}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setSelectedTicker(undefined);
-              setResultsOpen(true);
-            }}
-            onKeyDown={handleKeyDown}
-          />
-          <ResearchQuestionField
-            value={researchQuestion}
-            label={labels.questionLabel}
-            placeholder={labels.questionPlaceholder}
-            onChange={(event) =>
-              setResearchQuestion(
-                Array.from(event.target.value)
-                  .slice(0, RESEARCH_DIRECTION_MAX_CHARACTERS)
-                  .join(""),
-              )
-            }
-          />
-        </div>
+    <>
+      <BorderBeam
+        active={isSubmitting}
+        size="pulse-outside"
+        colorVariant="colorful"
+      >
+        <form className="search-console" id="research" onSubmit={submitSearch}>
+          <div className="search-console__primary">
+            <SearchField
+              value={query}
+              label={labels.label}
+              placeholder={labels.placeholder}
+              invalid={invalid}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setSelectedTicker(undefined);
+                setResultsOpen(true);
+              }}
+              onKeyDown={handleKeyDown}
+            />
+            <ResearchQuestionField
+              value={researchQuestion}
+              label={labels.questionLabel}
+              placeholder={labels.questionPlaceholder}
+              onChange={(event) =>
+                setResearchQuestion(
+                  Array.from(event.target.value)
+                    .slice(0, RESEARCH_DIRECTION_MAX_CHARACTERS)
+                    .join(""),
+                )
+              }
+            />
+          </div>
 
-        <div className="search-console__actions">
-          <section
-            className="research-target"
-            aria-label={locale === "ko" ? "리서치 방식" : "Research mode"}
-          >
-            <button
-              className="research-target__trigger"
-              type="button"
-              aria-expanded={targetPickerOpen}
-              aria-haspopup="menu"
-              title={recommendation.reason[locale]}
-              onClick={() => setTargetPickerOpen((open) => !open)}
+          {profileOpen ? (
+            <section
+              className="research-profile"
+              id="research-profile-panel"
+              aria-label={profileCopy.customize}
             >
-              {targetOverride === undefined ? (
-                <span>{locale === "ko" ? "추천" : "Recommended"}</span>
-              ) : null}
-              <strong>{targetCopy}</strong>
-              <ChevronDown aria-hidden="true" size={16} strokeWidth={1.8} />
+              <header>
+                <div>
+                  <strong>{profileCopy.customize}</strong>
+                  <small>
+                    {
+                      profileCopy.horizonOptions[
+                        researchProfile.investmentHorizon
+                      ]
+                    }
+                    {" · "}
+                    {profileCopy.depthOptions[researchProfile.analysisDepth]}
+                    {" · "}
+                    {
+                      profileCopy.purposeOptions[
+                        researchProfile.decisionPurpose
+                      ]
+                    }
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  <X aria-hidden="true" size={16} />
+                </button>
+              </header>
+              <div className="research-profile__grid">
+                <ProfileChoice
+                  label={profileCopy.horizon}
+                  note={profileCopy.horizonNote}
+                  value={researchProfile.investmentHorizon}
+                  options={profileCopy.horizonOptions}
+                  disabled={optionsLocked}
+                  onChange={(value) =>
+                    updateProfile("investmentHorizon", value)
+                  }
+                />
+                <ProfileChoice
+                  label={profileCopy.counter}
+                  note={profileCopy.counterNote}
+                  value={researchProfile.counterargumentIntensity}
+                  options={profileCopy.counterOptions}
+                  disabled={optionsLocked}
+                  onChange={(value) =>
+                    updateProfile("counterargumentIntensity", value)
+                  }
+                />
+                <ProfileChoice
+                  label={profileCopy.depth}
+                  note={profileCopy.depthNote}
+                  value={researchProfile.analysisDepth}
+                  options={profileCopy.depthOptions}
+                  disabled={optionsLocked}
+                  onChange={(value) => updateProfile("analysisDepth", value)}
+                />
+                <ProfileChoice
+                  label={profileCopy.purpose}
+                  note={profileCopy.purposeNote}
+                  value={researchProfile.decisionPurpose}
+                  options={profileCopy.purposeOptions}
+                  disabled={optionsLocked}
+                  onChange={(value) => updateProfile("decisionPurpose", value)}
+                />
+                <div className="research-profile__peers">
+                  <div>
+                    <strong>{profileCopy.peers}</strong>
+                    <small>{profileCopy.peersNote}</small>
+                  </div>
+                  <div className="research-profile__peer-entry">
+                    <input
+                      value={comparisonDraft}
+                      maxLength={5}
+                      disabled={optionsLocked}
+                      placeholder={profileCopy.peerPlaceholder}
+                      onChange={(event) =>
+                        setComparisonDraft(
+                          event.target.value.replace(/[^a-z.]/giu, ""),
+                        )
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        event.preventDefault();
+                        addComparisonSymbol();
+                      }}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Add comparison"
+                      disabled={
+                        optionsLocked ||
+                        researchProfile.comparisonSymbols.length >= 5
+                      }
+                      onClick={addComparisonSymbol}
+                    >
+                      <Plus aria-hidden="true" size={15} />
+                    </button>
+                  </div>
+                  <div className="research-profile__peer-list">
+                    {researchProfile.comparisonSymbols.length === 0 ? (
+                      <span>{profileCopy.noPeers}</span>
+                    ) : (
+                      researchProfile.comparisonSymbols.map((symbol) => (
+                        <button
+                          key={symbol}
+                          type="button"
+                          disabled={optionsLocked}
+                          onClick={() =>
+                            updateProfile(
+                              "comparisonSymbols",
+                              researchProfile.comparisonSymbols.filter(
+                                (item) => item !== symbol,
+                              ),
+                            )
+                          }
+                        >
+                          {symbol}
+                          <X aria-hidden="true" size={11} />
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          <div className="search-console__actions">
+            <button
+              className="research-profile-trigger"
+              type="button"
+              disabled={optionsLocked}
+              aria-expanded={profileOpen}
+              aria-controls="research-profile-panel"
+              aria-label={profileCopy.customize}
+              title={profileCopy.customize}
+              onClick={() => {
+                setTargetPickerOpen(false);
+                setProfileOpen((open) => !open);
+              }}
+            >
+              <SlidersHorizontal aria-hidden="true" size={17} />
             </button>
-            {targetPickerOpen ? (
-              <div className="research-target__options" role="menu">
-                {[
-                  {
-                    target: COMMITTEE_RESEARCH_TARGET,
-                    label:
-                      locale === "ko"
-                        ? "전체 에이전트 위원회"
-                        : "Full research committee",
-                    note:
-                      locale === "ko"
-                        ? "11명 전체 분석과 반론·최종 판단"
-                        : "All 11 specialists, rebuttal, and final decision",
-                  },
-                  ...(["market", "company", "financial", "risk"] as const).map(
-                    (departmentId) => ({
+            <section
+              className="research-target"
+              aria-label={locale === "ko" ? "리서치 방식" : "Research mode"}
+            >
+              <button
+                className="research-target__trigger"
+                type="button"
+                disabled={optionsLocked}
+                aria-expanded={targetPickerOpen}
+                aria-haspopup="menu"
+                title={recommendation.reason[locale]}
+                onClick={() => {
+                  setProfileOpen(false);
+                  setTargetPickerOpen((open) => !open);
+                }}
+              >
+                <strong>{targetCopy}</strong>
+                <ChevronDown aria-hidden="true" size={16} strokeWidth={1.8} />
+              </button>
+              {targetPickerOpen ? (
+                <div className="research-target__options" role="menu">
+                  {[
+                    {
+                      target: COMMITTEE_RESEARCH_TARGET,
+                      label:
+                        locale === "ko"
+                          ? "전체 에이전트 위원회"
+                          : "Full research committee",
+                      note:
+                        locale === "ko"
+                          ? "11명 전체 분석과 반론·최종 판단"
+                          : "All 11 specialists, rebuttal, and final decision",
+                    },
+                    ...(
+                      ["market", "company", "financial", "risk"] as const
+                    ).map((departmentId) => ({
                       target: {
                         kind: "department" as const,
                         departmentId,
@@ -291,89 +588,129 @@ export function SearchConsole({
                         locale === "ko"
                           ? "해당 팀만 참여하는 심층 검토"
                           : "Focused review by this team only",
-                    }),
-                  ),
-                ].map((option) => {
-                  const selected =
-                    option.target.kind === researchTarget.kind &&
-                    (option.target.kind === "committee" ||
-                      (researchTarget.kind === "department" &&
-                        option.target.departmentId ===
-                          researchTarget.departmentId));
-                  return (
+                    })),
+                  ].map((option) => {
+                    const selected =
+                      option.target.kind === researchTarget.kind &&
+                      (option.target.kind === "committee" ||
+                        (researchTarget.kind === "department" &&
+                          option.target.departmentId ===
+                            researchTarget.departmentId));
+                    return (
+                      <button
+                        key={
+                          option.target.kind === "committee"
+                            ? "committee"
+                            : option.target.departmentId
+                        }
+                        type="button"
+                        role="menuitemradio"
+                        disabled={optionsLocked}
+                        aria-checked={selected}
+                        onClick={() => {
+                          setTargetOverride(option.target);
+                          setTargetPickerOpen(false);
+                        }}
+                      >
+                        <strong>{option.label}</strong>
+                        <small>{option.note}</small>
+                      </button>
+                    );
+                  })}
+                  {targetOverride === undefined ? null : (
                     <button
-                      key={
-                        option.target.kind === "committee"
-                          ? "committee"
-                          : option.target.departmentId
-                      }
+                      className="research-target__auto"
                       type="button"
-                      role="menuitemradio"
-                      aria-checked={selected}
+                      role="menuitem"
+                      disabled={optionsLocked}
                       onClick={() => {
-                        setTargetOverride(option.target);
+                        setTargetOverride(undefined);
                         setTargetPickerOpen(false);
                       }}
                     >
-                      <strong>{option.label}</strong>
-                      <small>{option.note}</small>
+                      {locale === "ko"
+                        ? "질문에 맞춰 다시 추천"
+                        : "Use question-based recommendation"}
                     </button>
-                  );
-                })}
-                {targetOverride === undefined ? null : (
-                  <button
-                    className="research-target__auto"
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setTargetOverride(undefined);
-                      setTargetPickerOpen(false);
-                    }}
-                  >
-                    {locale === "ko"
-                      ? "질문에 맞춰 다시 추천"
-                      : "Use question-based recommendation"}
-                  </button>
-                )}
-              </div>
-            ) : null}
-          </section>
-          <ResearchButton
-            label={labels.action}
-            loadingLabel={labels.loading}
-            disabled={!canStartResearch}
-            loading={isSubmitting}
-          />
-        </div>
+                  )}
+                </div>
+              ) : null}
+            </section>
+            <ResearchButton
+              label={labels.action}
+              loadingLabel={labels.loading}
+              disabled={!canStartResearch}
+              loading={isSubmitting}
+            />
+          </div>
 
-        {submissionError === undefined ? null : (
-          <p role="alert">{submissionError}</p>
+          {submissionError === undefined ? null : (
+            <p role="alert">{submissionError}</p>
+          )}
+
+          {hasQuery && hasResults && resultsOpen ? (
+            <section
+              className="search-results"
+              aria-label={copy[locale].a11y.results}
+            >
+              {matches.map((ticker) => (
+                <button
+                  key={ticker.symbol}
+                  type="button"
+                  onClick={() => selectTicker(ticker)}
+                >
+                  <strong className="search-results__symbol">
+                    {ticker.symbol}
+                  </strong>
+                  <span className="search-results__company">
+                    <span>{ticker.company}</span>
+                    <small>{ticker.sector}</small>
+                  </span>
+                  <span className="search-results__meta">
+                    {ticker.exchange}
+                  </span>
+                </button>
+              ))}
+            </section>
+          ) : null}
+        </form>
+      </BorderBeam>
+      <CreditShortageModal
+        locale={locale}
+        open={creditShortageOpen}
+        onClose={() => setCreditShortageOpen(false)}
+      />
+    </>
+  );
+}
+
+function ProfileChoice<Value extends string>(props: {
+  readonly label: string;
+  readonly note: string;
+  readonly value: Value;
+  readonly options: Readonly<Record<Value, string>>;
+  readonly disabled?: boolean;
+  readonly onChange: (value: Value) => void;
+}) {
+  return (
+    <fieldset className="research-profile__choice">
+      <legend>{props.label}</legend>
+      <small>{props.note}</small>
+      <div>
+        {(Object.entries(props.options) as [Value, string][]).map(
+          ([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={props.value === value}
+              disabled={props.disabled}
+              onClick={() => props.onChange(value)}
+            >
+              {label}
+            </button>
+          ),
         )}
-
-        {hasQuery && hasResults && resultsOpen ? (
-          <section
-            className="search-results"
-            aria-label={copy[locale].a11y.results}
-          >
-            {matches.map((ticker) => (
-              <button
-                key={ticker.symbol}
-                type="button"
-                onClick={() => selectTicker(ticker)}
-              >
-                <strong className="search-results__symbol">
-                  {ticker.symbol}
-                </strong>
-                <span className="search-results__company">
-                  <span>{ticker.company}</span>
-                  <small>{ticker.sector}</small>
-                </span>
-                <span className="search-results__meta">{ticker.exchange}</span>
-              </button>
-            ))}
-          </section>
-        ) : null}
-      </form>
-    </BorderBeam>
+      </div>
+    </fieldset>
   );
 }

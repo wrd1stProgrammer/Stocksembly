@@ -50,6 +50,12 @@ Primary personas:
 | `--color-magenta` | `#b72f86` | low-intensity lower fringe |
 | `--color-positive` | `#52d6a0` | valid ticker state |
 | `--color-danger` | `#ff7188` | errors |
+| `--billing-void` | `#080808` | subscription dialog background |
+| `--billing-surface` | `#151515` | pricing surface and toggle base |
+| `--billing-card` | `#1b1b1b` | plan card surface |
+| `--billing-card-rim` | `#333333` | plan card separation |
+| `--billing-accent` | `#6e89ff` | annual savings and featured plan signal |
+| `--billing-accent-ink` | `#07101f` | text on the billing accent |
 | `--report-paper` | `#f4f1e9` | editorial report canvas |
 | `--report-paper-bright` | `#fbfaf6` | raised report sheet |
 | `--report-ink` | `#161616` | report text and rules |
@@ -178,6 +184,22 @@ Base unit: 4px.
 - Live conversation projection: up to three distinct, current-stage transcript speakers may show simultaneous bubbles. Bubble placement must remain collision-free; collaborative-event participants orient toward one another while the durable workflow continues to own movement timing and parallel execution.
 - Responsive state: desktop owns independent left and right rail controls. Existing tablet/mobile stacking remains authoritative and may hide the left rail when the right rail occupies the available width.
 
+### Subscription Management Modal
+
+- Structure: the signed-in sidebar profile action opens one centered, compact dialog over the current workspace. The desktop panel is capped at 1000px wide and 700px tall; non-subscribers see three Free/Pro/Ultra cards and subscribers see the same plan surface as a management entry point.
+- Surface: black backdrop, charcoal `#151515` shell, and glossy `#1b1b1b` cards derived from the supplied pricing-grid reference. The featured Pro card uses one restrained cobalt-blue accent sleeve and a solid light CTA; there is no decorative gradient or extra status panel.
+- Card primitive: `PricingCard` keeps one shared billing toggle at grid level and gives each plan a compact nested pricing panel, truthful annual total, annual savings chip, credit allowance row, ruled feature heading, and stable CTA. All three cards use the existing `BorderBeam` wrapper while preserving the same Stocksembly tokens.
+- Header: the modal keeps only the page title and close action, followed immediately by the remaining-credit meter. Promotional eyebrow, duplicate membership copy, sandbox label, and status sentence are intentionally omitted from the visual header.
+- Credit meter: a compact remaining-credit value, used percentage, and single horizontal progress bar sit above the plan controls. The default visual value is replaceable by a billing/usage response when that endpoint exists.
+- Credit allocation: Free shows a daily 3-credit allowance; Pro shows 100 credits per month; Ultra shows 500 credits per month. The allowance is a visible value row on each card, while the feature list explains the outcome of the plan.
+- Usage policy: selecting research options never consumes credits; full-agent research consumes 10 credits after successful completion, department-agent research consumes 5 credits after successful completion, every 100 chat messages consumes 10 credits, and opening a research-room report consumes 3 credits. Chat message counts are server-side and failed research does not consume credits.
+- Plan copy: Free communicates delayed research access; Pro communicates selectable research options, unlimited research-room access, and daily briefings for three watchlist names; Ultra communicates ten-name daily briefings and early access to new features.
+- State: annual billing is selected initially, with the effective monthly equivalent shown alongside the truthful annual amount and an explicit “billed yearly” note. Monthly selection swaps the displayed amount and Whop checkout URL without changing card order.
+- Integration: free is a local access state; paid cards receive sanitized plan data and checkout URLs from `/api/billing/plans`. Whop secrets remain server-only so the sandbox-to-production switch is environment configuration, not client code.
+- Scroll ownership: only the inner pricing panel scrolls. Its scrollbar is hidden at rest and becomes visible briefly while the user scrolls or the panel receives focus; the page behind the dialog never scrolls.
+- Credit activity: the bottom of the same scroll surface contains a sparse, border-led ledger of the ten most recent grants and debits. Grants use the cobalt billing accent; usage remains neutral so the sign and amount carry the meaning. Entries come from the account database, not fixture copy.
+- Accessibility: native dialog semantics, labelled heading, Escape and backdrop close, focus-visible close control, a labelled progressbar, and a polite status region for unavailable pricing. Reduced motion removes panel/card movement while preserving the open state.
+
 ### Company Key Metrics Register
 
 - Structure: a ruled two-column register inside the decision brief. Each row pairs one truthful company signal with a compact interpretation drawn from the report's existing market, company, financial, risk, or next-event evidence.
@@ -232,6 +254,13 @@ Base unit: 4px.
 - A 24px state orb precedes the character wave: `solving` for composition and `searching` for external lookup. The orb and text form one compact status line.
 - The wave animates transform and opacity only. Reduced-motion users receive stable full-opacity text without vertical movement.
 
+### Subscription modal transition
+
+- The overlay fades in and the centered panel rises by a small distance; the featured card's accent sleeve rises on hover to carry the supplied component's signature depth.
+- The billing toggle uses a spring-loaded light thumb and annual savings chip. Price changes use a masked blur-roll; plan-card hover only changes rim/transform and does not change layout.
+- All three plan cards use the installed `BorderBeam` primitive with its restrained ocean palette; the effect stays pointer-transparent, follows the existing card rim, and respects reduced motion.
+- The close action, billing toggle, and checkout buttons retain the standard 140–220ms motion tokens. Reduced motion snaps the overlay, thumb, price roll, and card sleeve to their settled states.
+
 - Micro: 140ms ease-out for buttons, chips, and language selection.
 - Standard: 220ms ease-in-out for results.
 - Emphasis: 520ms cubic-bezier(0.16, 1, 0.3, 1) for initial hero reveal.
@@ -242,10 +271,11 @@ Base unit: 4px.
 
 ## 7. Depth & Surface
 
-Strategy: mixed, constrained to the focal console.
+Strategy: mixed, constrained to focal task surfaces.
 
 - Atmosphere: near-black base, faint magenta lower fringe, grid mask, vignette, and fine grain. The former elongated cobalt horizon behind the search composer is intentionally removed.
 - Console: graphite tint, subtle backdrop blur, cool 1px rim, inset sheen, blue reflected light below the input, and one broad soft shadow.
+- Subscription modal: black backdrop, charcoal shell, glossy charcoal cards, a single cobalt-blue billing accent, and restrained tinted shadow; pricing cards are tonal subdivisions inside that panel rather than separate floating windows.
 - Other elements use borders and tonal shift only. No competing floating glass cards.
 
 ## 8. Accessibility Constraints & Accepted Debt

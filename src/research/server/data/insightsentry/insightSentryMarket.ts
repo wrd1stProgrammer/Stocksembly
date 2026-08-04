@@ -6,6 +6,7 @@ import {
 import {
   ACTION_TTL,
   bucket,
+  COMPARISON_DAILY_SERIES_TTL,
   INFO_TTL,
   infoRequest,
   normalizeBars,
@@ -88,6 +89,9 @@ export interface InsightSentryMarket {
   ) => Promise<
     readonly [InsightSentryBarSet, InsightSentryBarSet, InsightSentryBarSet]
   >;
+  readonly comparisonDailyBars: (
+    providerCode: string,
+  ) => Promise<InsightSentryBarSet>;
   readonly companyInfo: (
     providerCode: string,
   ) => Promise<InsightSentryCompanyInfo>;
@@ -103,6 +107,8 @@ export function createInsightSentryMarket(
   async function series(
     providerCode: string,
     request: SeriesRequest,
+    cacheTtlMilliseconds = SERIES_TTL,
+    cacheNamespace?: string,
   ): Promise<InsightSentryBarSet> {
     const result = await client.get({
       endpoint: "/v3/symbols/{symbol}/series",
@@ -119,8 +125,11 @@ export function createInsightSentryMarket(
         extended: false,
         long_poll: false,
       },
-      asOfBucket: bucket(SERIES_TTL),
-      cacheTtlMilliseconds: SERIES_TTL,
+      asOfBucket:
+        cacheNamespace === undefined
+          ? bucket(cacheTtlMilliseconds)
+          : `${cacheNamespace}:${bucket(cacheTtlMilliseconds)}`,
+      cacheTtlMilliseconds,
       schema: SeriesResponseSchema,
     });
     return normalizeBars(result.data, request.timeframe, request.pointCount);
@@ -173,6 +182,18 @@ export function createInsightSentryMarket(
       ]);
       return Object.freeze([hourly, fourHourly, daily]);
     },
+    comparisonDailyBars: async (providerCode) =>
+      series(
+        providerCode,
+        {
+          barType: "day",
+          interval: 1,
+          timeframe: "1d",
+          pointCount: 1_000,
+        },
+        COMPARISON_DAILY_SERIES_TTL,
+        "comparison-daily",
+      ),
     companyInfo: async (providerCode) => {
       const result = await client.get(
         infoRequest(providerCode, INFO_TTL, bucket(INFO_TTL)),

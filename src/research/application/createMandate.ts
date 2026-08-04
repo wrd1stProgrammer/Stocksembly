@@ -14,6 +14,9 @@ import type {
 } from "./createMandateContracts";
 import { normalizeResearchDirection } from "../domain/researchDirection";
 import {
+  normalizeResearchProfile,
+} from "../domain/researchProfile";
+import {
   MANDATE_PREREQUISITE_EVENTS,
   RESEARCH_LOCALES,
   RESEARCH_SCOPES,
@@ -111,6 +114,10 @@ export async function createResearchMandate(
     fail("symbol_mismatch", "symbol does not match the sealed identity");
   const locale = z.enum(RESEARCH_LOCALES).parse(input.locale);
   const scope = z.enum(RESEARCH_SCOPES).parse(input.scope);
+  const researchProfile =
+    input.researchProfile === undefined
+      ? undefined
+      : normalizeResearchProfile(input.researchProfile, symbol);
   const question =
     typeof input.question === "string"
       ? normalizeResearchDirection(input.question)
@@ -138,6 +145,7 @@ export async function createResearchMandate(
     ...(question === undefined ? {} : { question }),
     locale,
     scope,
+    ...(researchProfile === undefined ? {} : { researchProfile }),
     capabilities: admission.snapshot.capabilities,
     materialCruxes: classifyMaterialCruxes(scope, question),
     limitations: mandateLimitations(

@@ -7,6 +7,7 @@ import type { ResearchCompany } from "../../research/types";
 import { CompletedResearchFileV2 } from "./CompletedResearchFileV2";
 
 const TEAMS = [
+  { id: "committee", label: "위원회" },
   { id: "market", label: "시장" },
   { id: "company", label: "기업" },
   { id: "financial", label: "재무" },

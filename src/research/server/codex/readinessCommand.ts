@@ -34,7 +34,7 @@ export async function runReadinessCommand(): Promise<number> {
         ? error
         : new CodexIsolationError("probe");
     process.stderr.write(
-      `${JSON.stringify({ status: "blocked", code: failure.code, check: failure.check })}\n`,
+      `${JSON.stringify({ status: "blocked", code: failure.code, check: failure.check, reason: failure.reason })}\n`,
     );
     return 1;
   }

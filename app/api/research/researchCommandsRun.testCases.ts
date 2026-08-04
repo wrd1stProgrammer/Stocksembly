@@ -1,10 +1,12 @@
 import { expect, it } from "vitest";
+import { z } from "zod";
 import {
   commandRequest,
   createRun,
   databaseScalar,
   postCommand,
   publishRun,
+  setResearchTarget,
   setRunStatus,
 } from "./researchCommands.testSupport";
 import type { ApiHarness } from "./researchRoutes.testSupport";
@@ -50,6 +52,32 @@ export function registerResearchRunCommandTests(
         parent.runId,
       ),
     ).toBe("failed");
+  });
+
+  it("preserves a department target on same-snapshot retry", async () => {
+    const harness = harnessValue();
+    const parent = await createRun(harness, "retry-department-parent");
+    setResearchTarget(harness, parent.runId, "market");
+    setRunStatus(harness, parent.runId, "failed");
+
+    const created = await postCommand(
+      harness,
+      `/api/research/runs/${parent.runId}/retries`,
+      "retry-department-child",
+    );
+    const childRunId = z
+      .object({ run: z.object({ runId: z.string().uuid() }) })
+      .parse(created.body).run.runId;
+
+    expect(created.response.status).toBe(202);
+    expect(
+      databaseScalar(
+        harness,
+        `SELECT research_kind || ':' || department_id
+         FROM research_requests WHERE run_id = ?`,
+        childRunId,
+      ),
+    ).toBe("department:market");
   });
 
   it("rejects retry for queued or completed runs", async () => {

@@ -88,7 +88,7 @@ export function assertExactReadinessEnvironment(
         authenticatedLoopbackProxy(invocation.environment)
       : exactKeys(actualKeys, coreKeys))
   )
-    throw new CodexIsolationError("environment");
+    throw new CodexIsolationError("environment", "environment_keys");
   const expected = Object.freeze({
     CODEX_HOME: join(attemptDir, "codex-home"),
     HOME: join(attemptDir, "home"),
@@ -103,5 +103,5 @@ export function assertExactReadinessEnvironment(
     CHILD_KEYS.some((key) => invocation.environment[key] !== expected[key]) ||
     Object.hasOwn(invocation.environment, inheritedSentinelName)
   )
-    throw new CodexIsolationError("environment");
+    throw new CodexIsolationError("environment", "environment_values");
 }

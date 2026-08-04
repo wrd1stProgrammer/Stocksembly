@@ -8,7 +8,10 @@ import {
   View,
 } from "@react-pdf/renderer";
 import type { Locale } from "../../lib/i18n";
-import type { ResearchReport } from "../domain/report";
+import type {
+  ResearchReport,
+  WorkflowV2ResearchReport,
+} from "../domain/report";
 import { compactNarrative, readerSourceLabel } from "../researchPresentation";
 import { researchReportToFile } from "../researchReportToFile";
 import { renderEditorialResearchReportPdf } from "./renderEditorialResearchReportPdf";
@@ -295,7 +298,7 @@ const styles = StyleSheet.create({
 });
 
 type PdfProps = {
-  readonly report: ResearchReport;
+  readonly report: ResearchReport | WorkflowV2ResearchReport;
   readonly symbol: string;
   readonly locale: Locale;
   readonly createdAt: string;

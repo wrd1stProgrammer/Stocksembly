@@ -24,6 +24,9 @@ const ParentRowSchema = z.object({
   locale: z.enum(["en", "ko"]),
   request_hash: z.string(),
   report_id: z.string().uuid().nullable(),
+  research_kind: z.enum(["committee", "department"]),
+  department_id: z.enum(["market", "company", "financial", "risk"]).nullable(),
+  research_profile_json: z.string(),
 });
 
 type CommandContext = {
@@ -41,7 +44,9 @@ function parentRow(
   const value = database
     .prepare(`SELECT runs.run_id, runs.snapshot_id, runs.status, runs.version,
       runs.report_id, research_requests.symbol, research_requests.question,
-      research_requests.locale, research_requests.request_hash
+      research_requests.locale, research_requests.request_hash,
+      research_requests.research_kind, research_requests.department_id,
+      research_requests.research_profile_json
       FROM runs JOIN research_requests USING(run_id)
       WHERE runs.run_id = ? AND research_requests.principal_id = ?`)
     .get(runId, principalId);
@@ -166,7 +171,9 @@ export function insertChild(
     );
   database
     .prepare(`INSERT INTO research_requests(run_id, principal_id, symbol,
-      question, locale, request_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      question, locale, request_hash, created_at, research_kind, department_id,
+      research_profile_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(
       context.ids.runId,
       context.principalId,
@@ -175,6 +182,9 @@ export function insertChild(
       parent.locale,
       childHash,
       context.now,
+      parent.research_kind,
+      parent.department_id,
+      parent.research_profile_json,
     );
   database
     .prepare(`INSERT INTO run_lineage(child_run_id, parent_run_id, kind,

@@ -46,7 +46,12 @@ export function chairLayerOrderForFacing(facing: OfficeFacing): {
 
 export function chairRootOffsetYForFacing(facing: OfficeFacing): number {
   if (facing === "up") return -13;
-  if (facing === "down") return 1;
+  // The down-facing seated frame keeps its feet at the world pivot, but its
+  // hips sit roughly one cushion-height above it.  Keep the cushion under the
+  // hips and the backrest behind the torso; placing it at the foot pivot
+  // leaves the cushion under the tabletop and makes the actor look perched on
+  // the backrest.
+  if (facing === "down") return -20;
   throw new RangeError(`Work chairs only support vertical facing: ${facing}`);
 }
 

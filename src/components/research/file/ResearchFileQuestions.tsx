@@ -5,25 +5,40 @@ import { ResearchFileSectionHeader } from "./ResearchFilePrimitives";
 export function ResearchFileQuestions({
   file,
   locale,
+  compact = false,
 }: {
   readonly file: ResearchFileData;
   readonly locale: Locale;
+  readonly compact?: boolean;
 }) {
   const questions = file.anticipatedQuestions ?? [];
-  if (questions.length === 0) return null;
+  const persisted = file.presentationVersion === "workflow-v2";
+  if (questions.length === 0 || (persisted && questions.length < 5))
+    return null;
+  const rankedQuestions = [...questions].sort(
+    (first, second) => (first.rank ?? 100) - (second.rank ?? 100),
+  );
+  const visibleCount = 5;
+  const visibleQuestions =
+    compact || persisted
+      ? rankedQuestions.slice(0, visibleCount)
+      : rankedQuestions;
+  const expandableQuestions =
+    compact || persisted ? rankedQuestions.slice(visibleCount) : [];
   const ko = locale === "ko";
   return (
     <section
       className="research-editorial-section research-anticipated-qa"
       data-report-section="anticipated-qa"
+      data-qa-layout={compact ? "compact" : "feature"}
       id="research-anticipated-qa"
     >
       <ResearchFileSectionHeader
         number="Q"
         title={
           ko
-            ? "에이전트가 미리 답한 10가지"
-            : "10 questions, answered in advance"
+            ? `에이전트가 미리 답한 ${questions.length}가지`
+            : `${questions.length} questions, answered in advance`
         }
         description={
           ko
@@ -31,18 +46,57 @@ export function ResearchFileQuestions({
             : "Agents answer the questions investors actually press on: entry timing, priced-in expectations, drawdown paths, and thesis breakers."
         }
       />
-      <div className="research-anticipated-qa__grid">
-        {questions.map((item, index) => (
+      <div
+        className={
+          compact
+            ? "research-team-qa-list"
+            : "research-anticipated-qa__grid"
+        }
+      >
+        {visibleQuestions.map((item, index) => (
           <article key={item.id}>
             <header>
               <span>Q{String(index + 1).padStart(2, "0")}</span>
-              <small>{item.lens[locale]}</small>
+              {item.lens === undefined ? null : (
+                <small>{item.lens[locale]}</small>
+              )}
             </header>
             <h3>{item.question[locale]}</h3>
             <p>{item.answer[locale]}</p>
           </article>
         ))}
       </div>
+      {expandableQuestions.length === 0 ? null : (
+        <details data-qa-expandable-count={expandableQuestions.length}>
+          <summary>
+            {ko
+              ? `나머지 ${expandableQuestions.length}개 질문 보기`
+              : `Show ${expandableQuestions.length} more questions`}
+          </summary>
+          <div
+            className={
+              compact
+                ? "research-team-qa-list"
+                : "research-anticipated-qa__grid"
+            }
+          >
+            {expandableQuestions.map((item, index) => (
+              <article key={item.id}>
+                <header>
+                  <span>
+                    Q{String(index + visibleCount + 1).padStart(2, "0")}
+                  </span>
+                  {item.lens === undefined ? null : (
+                    <small>{item.lens[locale]}</small>
+                  )}
+                </header>
+                <h3>{item.question[locale]}</h3>
+                <p>{item.answer[locale]}</p>
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
     </section>
   );
 }

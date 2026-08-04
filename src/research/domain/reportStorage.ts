@@ -1,19 +1,25 @@
 import { z } from "zod";
-import { type ResearchReport, ResearchReportSchema } from "./report";
+import {
+  type ResearchReport,
+  ResearchReportSchema,
+  type WorkflowV2ResearchReport,
+  WorkflowV2ResearchReportSchema,
+} from "./report";
 import { LocalizedReportSchema } from "./reportComponents";
 
 const StoredRecordSchema = z.record(z.string(), z.unknown());
 const StoredLocaleSchema = z.enum(["en", "ko"]);
 
 /**
- * Published artifacts keep only the language selected for the run. The
- * canonical in-memory report remains backward-compatible with older bilingual
- * artifacts so existing readers and historical reports continue to work.
+ * Workflow-v1 artifacts keep only the language selected for the run. V2 is
+ * persisted unchanged so rollback selection never backfills either artifact.
  */
 export function singleLocaleReportForStorage(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
   locale: "en" | "ko",
 ): Record<string, unknown> {
+  if (report.schemaVersion === "workflow-v2")
+    return structuredClone(report) as Record<string, unknown>;
   const { locales, ...reportFields } = report;
   return {
     ...reportFields,
@@ -36,16 +42,68 @@ export function singleLocaleReportForStorage(
   };
 }
 
+export type PresentationResearchReport =
+  | Readonly<{ kind: "legacy-v1-read-only"; report: Readonly<ResearchReport> }>
+  | Readonly<{
+      kind: "workflow-v2";
+      report: Readonly<WorkflowV2ResearchReport>;
+    }>;
+
+/** Explicit compatibility boundary. Legacy reports are parsed for presentation only. */
+export function parseStoredResearchReportForPresentation(
+  value: unknown,
+): PresentationResearchReport {
+  const report = parseStoredResearchReportVersioned(value);
+  return report.schemaVersion === "workflow-v1"
+    ? { kind: "legacy-v1-read-only", report }
+    : { kind: "workflow-v2", report };
+}
+
+/** Publisher rollback selects an existing artifact and never rewrites either version. */
+export function selectPublisherReportVersion(
+  input: Readonly<{
+    workflowV1: unknown;
+    workflowV2: unknown;
+    rollbackToV1: boolean;
+  }>,
+): ResearchReport | WorkflowV2ResearchReport {
+  const v1 = parseStoredResearchReportVersioned(input.workflowV1);
+  const v2 = parseStoredResearchReportVersioned(input.workflowV2);
+  if (v1.schemaVersion !== "workflow-v1")
+    throw new Error("publisher rollback requires a workflow-v1 artifact");
+  if (v2.schemaVersion !== "workflow-v2")
+    throw new Error("publisher selection requires a workflow-v2 artifact");
+  return input.rollbackToV1 ? v1 : v2;
+}
+
+export function parseStoredResearchReportVersioned(
+  value: unknown,
+): ResearchReport | WorkflowV2ResearchReport {
+  const candidate = StoredRecordSchema.safeParse(value);
+  if (candidate.success) {
+    const { schemaVersion } = candidate.data;
+    if (schemaVersion === "workflow-v2")
+      return WorkflowV2ResearchReportSchema.parse(value);
+  }
+  return parseStoredResearchReport(value);
+}
+
 export function parseStoredResearchReport(value: unknown): ResearchReport {
   const candidate = StoredRecordSchema.safeParse(value);
-  if (
-    !candidate.success ||
-    candidate.data["schemaVersion"] !== "workflow-v1-single-locale"
-  )
+  if (!candidate.success) return ResearchReportSchema.parse(value);
+  const {
+    schemaVersion,
+    locale,
+    narrative: storedNarrative,
+    teamViews: storedTeamViews,
+    claims: storedClaims,
+    providerDisagreements: storedProviderDisagreements,
+  } = candidate.data;
+  if (schemaVersion !== "workflow-v1-single-locale")
     return ResearchReportSchema.parse(value);
 
-  StoredLocaleSchema.parse(candidate.data["locale"]);
-  const narrative = LocalizedReportSchema.parse(candidate.data["narrative"]);
+  StoredLocaleSchema.parse(locale);
+  const narrative = LocalizedReportSchema.parse(storedNarrative);
   const teamViews = z
     .array(
       z
@@ -57,13 +115,13 @@ export function parseStoredResearchReport(value: unknown): ResearchReport {
         })
         .passthrough(),
     )
-    .parse(candidate.data["teamViews"]);
+    .parse(storedTeamViews);
   const claims = z
     .array(z.object({ text: z.string().min(1).optional() }).passthrough())
-    .parse(candidate.data["claims"]);
+    .parse(storedClaims);
   const providerDisagreements = z
     .array(z.object({ note: z.string().min(1) }).passthrough())
-    .parse(candidate.data["providerDisagreements"]);
+    .parse(storedProviderDisagreements);
   const canonicalFields = Object.fromEntries(
     Object.entries(candidate.data).filter(
       ([key]) => key !== "locale" && key !== "narrative",

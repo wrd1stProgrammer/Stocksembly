@@ -4,6 +4,7 @@ import Script from "next/script";
 import type { ReactNode } from "react";
 import { AuthSessionBridge } from "@/src/components/auth/AuthSessionBridge";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+import "@/src/styles/tailwind.css";
 import "@/src/styles/tokens.css";
 import "@/src/styles/global.css";
 import "@/src/styles/layout.css";
@@ -24,6 +25,9 @@ import "@/src/styles/research-workspace-v2.css";
 import "@/src/styles/research-tablet-status.css";
 import "@/src/styles/research-mobile-report.css";
 import "@/src/styles/auth.css";
+import "@/src/styles/signed-in-sidebar.css";
+import "@/src/styles/research-room.css";
+import "@/src/styles/billing.css";
 
 const inter = localFont({
   src: "./fonts/inter-latin-variable.woff2",

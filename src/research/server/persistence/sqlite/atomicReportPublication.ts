@@ -14,6 +14,10 @@ import {
 } from "../../../domain/ids";
 import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
 import { serializeSafeJson } from "./safeJson";
+import {
+  evaluatePrePublicationEditorialGate,
+  type PrePublicationEditorialEnvelope,
+} from "../../../workflow/prePublicationEditorialGate";
 
 const REPORT_PARENT_COUNT = REQUIRED_REPORT_ARTIFACT_ROLES.length + 2;
 
@@ -86,6 +90,29 @@ export function publishReportAtomically(
   const database = new Database(databasePath, { timeout: 5_000 });
   database.pragma("foreign_keys = ON");
   try {
+    const publicPayload = input.commit.version.publicPayload as Record<string, unknown>;
+    if (publicPayload["schemaVersion"] === "workflow-v2") {
+      const envelope = publicPayload["editorialPublication"] as
+        | PrePublicationEditorialEnvelope
+        | undefined;
+      if (
+        envelope?.gateVersion !== "editorial-quality-v1" ||
+        envelope.qaPolicy.moduleMinimum !== 5 ||
+        envelope.qaPolicy.standardTarget !== 10 ||
+        envelope.qaPolicy.supportedCount !==
+          envelope.candidate.anticipatedQuestions.length ||
+        envelope.qaPolicy.moduleVisible !==
+          (envelope.qaPolicy.supportedCount >= envelope.qaPolicy.moduleMinimum)
+      )
+        throw new TypeError("editorial_quality_failed:missing_prepublication_artifact");
+      const quality = evaluatePrePublicationEditorialGate(envelope.candidate);
+      if (!quality.publishable) {
+        const first = quality.hardViolations[0];
+        throw new TypeError(
+          `editorial_quality_failed:${first?.code ?? "unknown"}:${first?.path ?? "unknown"}`,
+        );
+      }
+    }
     return database
       .transaction(() => {
         const identity = PublicationIdentitySchema.parse({
@@ -228,7 +255,7 @@ export function publishReportAtomically(
             identity.eventId,
             input.commit.version.publishedAt,
             serializeSafeJson({
-              schemaVersion: "workflow-v1",
+              schemaVersion: input.commit.version.publicPayload.schemaVersion,
               reportId: identity.version.reportId,
               reportVersionId: identity.version.versionId,
               artifactId: identity.descriptor.artifactId,

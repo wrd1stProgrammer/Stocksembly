@@ -44,6 +44,8 @@ const PRIORITY_INDICATORS = new Set([
   "total_inventory_fq",
   "accounts_receivables_net_fq",
   "diluted_shares_outstanding_fq",
+  "return_on_equity_fq",
+  "return_on_equity_ttm",
   "return_on_invested_capital_fq",
   "market_cap_basic",
   "price_earnings",

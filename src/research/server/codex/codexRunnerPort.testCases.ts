@@ -155,6 +155,59 @@ export function registerPortTests(): void {
       await fixture.root.cleanup();
     });
 
+    it("persists redacted numeric diagnostics for a failed Codex process", async () => {
+      // Given
+      const fixture = await makePlatform();
+      const platform = {
+        ...fixture.platform,
+        runCodex: async () => ({
+          exitCode: 17,
+          signal: "SIGTERM" as const,
+          stdout: [Buffer.from("SECRET_OUTPUT_MUST_NOT_PERSIST")],
+          stdoutBytes: 30,
+          stderrBytes: 41,
+          durationMs: 73,
+        }),
+      };
+      const port = createCodexPortForTesting(platform, fixture.reservations);
+
+      // When
+      await expect(
+        port.run(runInput(fixture.attemptDir)),
+      ).rejects.toMatchObject({
+        code: "process_failed",
+        process: {
+          exitCode: 17,
+          signal: "SIGTERM",
+          stdoutBytes: 30,
+          stderrBytes: 41,
+          durationMs: 73,
+        },
+      });
+
+      // Then
+      const lifecycle = await readFile(
+        join(fixture.attemptDir, "lifecycle.json"),
+        "utf8",
+      );
+      expect(JSON.parse(lifecycle)).toMatchObject({
+        runId: RESERVATION_KEY.runId,
+        jobId: RESERVATION_KEY.jobId,
+        attemptId: RESERVATION_KEY.attemptId,
+        ordinal: RESERVATION_KEY.ordinal,
+        failureClass: "process_failed",
+        process: {
+          exitCode: 17,
+          signal: "SIGTERM",
+          stdoutBytes: 30,
+          stderrBytes: 41,
+          durationMs: 73,
+        },
+      });
+      expect(lifecycle).not.toContain("SECRET_OUTPUT_MUST_NOT_PERSIST");
+      await fixture.root.cleanup();
+    });
+
     it("does not link or spawn without a committed durable ordinal", async () => {
       // Given
       const fixture = await makePlatform();

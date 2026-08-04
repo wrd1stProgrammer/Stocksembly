@@ -44,6 +44,23 @@ export function setRunStatus(
   }
 }
 
+export function setResearchTarget(
+  harness: ApiHarness,
+  runId: string,
+  departmentId: "market" | "company" | "financial" | "risk",
+): void {
+  const database = new Database(harness.databasePath);
+  try {
+    database
+      .prepare(`UPDATE research_requests
+        SET research_kind = 'department', department_id = ?
+        WHERE run_id = ?`)
+      .run(departmentId, runId);
+  } finally {
+    database.close();
+  }
+}
+
 export async function publishRun(
   harness: ApiHarness,
   run: {

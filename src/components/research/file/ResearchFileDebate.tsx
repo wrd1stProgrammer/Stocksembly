@@ -11,6 +11,10 @@ const voteLabels = {
   abstain: { en: "Abstain", ko: "유보" },
 } as const;
 
+function normalized(value: string): string {
+  return value.normalize("NFKC").replace(/\s+/gu, " ").trim().toLowerCase();
+}
+
 export function ResearchFileDebate({
   model,
   file,
@@ -27,6 +31,34 @@ export function ResearchFileDebate({
     file.researchTarget?.kind === "department"
       ? file.researchTarget.departmentId
       : undefined;
+  const departmentReview = (() => {
+    if (departmentId === undefined) return [];
+    const seen = new Set([
+      normalized(model.directAnswer),
+      ...model.teamRows.flatMap((team) => [
+        normalized(team.strongestClaim),
+        normalized(team.evidence),
+      ]),
+    ]);
+    const rows = [
+      { label: ko ? "독립 검토" : "Independent review", value: model.initialView },
+      { label: ko ? "합의 후 결론" : "Consolidated view", value: model.finalView },
+      ...model.acceptedClaims.map((value) => ({
+        label: ko ? "채택된 핵심 주장" : "Accepted claim",
+        value,
+      })),
+      ...model.preservedDissent.map((value) => ({
+        label: ko ? "보존된 이견" : "Preserved dissent",
+        value,
+      })),
+    ];
+    return rows.filter((row) => {
+      const key = normalized(row.value);
+      if (key.length === 0 || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
   return (
     <section
       className="research-editorial-section"
@@ -100,7 +132,10 @@ export function ResearchFileDebate({
                 <em data-vote={team.vote}>{voteLabels[team.vote][locale]}</em>
               </div>
             </div>
-            <p>{team.strongestClaim}</p>
+            {departmentId !== undefined &&
+            normalized(team.strongestClaim) === normalized(model.directAnswer) ? null : (
+              <p>{team.strongestClaim}</p>
+            )}
             <p>{team.evidence}</p>
           </article>
         ))}
@@ -154,6 +189,7 @@ export function ResearchFileDebate({
           </article>
         ))}
       </section>
+      {departmentId !== undefined && departmentReview.length === 0 ? null : (
       <section className="research-chair-ruling">
         <Image
           className="research-team-portrait"
@@ -172,9 +208,11 @@ export function ResearchFileDebate({
                 ? "팀 리드 최종 합의"
                 : "Team lead consolidation"}
           </span>
-          <h3>{model.directAnswer}</h3>
+          {departmentId === undefined ? <h3>{model.directAnswer}</h3> : null}
         </div>
         <dl>
+          {departmentId === undefined ? (
+          <>
           <div>
             <dt>
               {departmentId === undefined
@@ -207,8 +245,18 @@ export function ResearchFileDebate({
             <dt>{ko ? "보존된 이견" : "Preserved dissent"}</dt>
             <dd>{model.preservedDissent.slice(0, 3).join(" · ")}</dd>
           </div>
+          </>
+          ) : (
+            departmentReview.map((row) => (
+              <div key={`${row.label}-${row.value}`}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))
+          )}
         </dl>
       </section>
+      )}
     </section>
   );
 }

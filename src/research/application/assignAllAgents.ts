@@ -21,6 +21,7 @@ import {
   type RoleAssignmentPolicy,
 } from "./assignAllAgentsPolicy";
 import { freezeDeep } from "./createMandateImmutable";
+import { DEFAULT_RESEARCH_PROFILE } from "../domain/researchProfile";
 
 export type {
   AllAgentAssignmentsV1,
@@ -116,6 +117,11 @@ function assignmentFor(
     input.mandate.materialCruxes.includes(policy.primaryCrux);
   const allowedDatasets = [
     ...policy.allowedDatasets,
+    ...((input.mandate.researchProfile ?? DEFAULT_RESEARCH_PROFILE)
+      .decisionPurpose === "earnings" &&
+    ["financial", "valuation", "financial_quality"].includes(policy.roleId)
+      ? (["insightsentry_calendar"] as const)
+      : []),
     "insightsentry_request_ledger" as const,
   ];
   const artifacts = structuredClone(

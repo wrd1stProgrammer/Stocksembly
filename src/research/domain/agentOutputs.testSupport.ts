@@ -62,6 +62,14 @@ export function candidateForStage(
         weakestClaimIds: [claimId],
         revisedClaimIds: [],
         removedClaimIds: [],
+        dispositions: [
+          {
+            claimId,
+            disposition: "accept",
+            reason: text(index + 3),
+          },
+        ],
+        revisions: [],
         publicSummary: text(index),
         dissent: [{ claimId, publicSummary: text(index + 1) }],
         openQuestions: [text(index + 2)],
@@ -135,18 +143,40 @@ export function candidateForStage(
       return {
         kind: "chair_synthesis",
         sourceArtifactIds,
-        sections: [
-          {
-            sectionId: "ten_second_brief",
-            sectionKey: "ten_second_brief",
-            publicSummary: text(index),
-            sentenceIds: [`claim:${claimId}`],
+        decisionBrief: {
+          stance: "wait_for_proof",
+          confidence: "medium",
+          decisiveReason: text(index),
+          strongestCountercase: text(index + 1),
+          falsifier: text(index + 2),
+          primaryClaimIds: [claimId],
+          primarySentenceIds: [`claim:${claimId}`],
+        },
+        sections: ([
+          "ten_second_brief",
+          "supported_analysis",
+          "valuation_comparison",
+          "operational_scenarios",
+          "dissent_unknowns",
+          "change_conditions",
+        ] as const).map((sectionKey, sectionIndex) => {
+          const primarySentenceId =
+            sectionIndex === 0
+              ? `claim:${claimId}`
+              : `section:${sectionKey}:${claimId}`;
+          return {
+            sectionId: sectionKey,
+            sectionKey,
+            publicSummary: text(index + sectionIndex),
+            primarySentenceId,
+            sentenceIds: [primarySentenceId],
             sourceArtifactIds,
             auditedClaimIds: [claimId],
-          },
-        ],
+          };
+        }),
         ballotArtifactIds: sourceArtifactIds,
         dissentClaimIds: [claimId],
+        selectedUnknownIds: [testUuid(3_000 + index)],
         unknowns: [text(index + 1)],
       };
     default:

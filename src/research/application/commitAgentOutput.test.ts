@@ -398,6 +398,42 @@ describe("commitAgentOutput", () => {
     }
   });
 
+  it("canonicalizes an unambiguous content-hash citation alias to its bound artifact", async () => {
+    // Given
+    const store = new MemoryCommitStore();
+    const hashPrefix = sourceHash.slice(0, 12);
+    const hashAlias = ArtifactIdSchema.parse(
+      `${hashPrefix.slice(0, 8)}-${hashPrefix.slice(8)}-4000-8000-000000000001`,
+    );
+    const aliasedCandidate = MemoOutputSchema.parse({
+      ...candidate,
+      sourceArtifactIds: [ids.sourceArtifactId],
+      positions: candidate.positions.map((position) => ({
+        ...position,
+        evidenceArtifactIds: [hashAlias],
+      })),
+    });
+
+    // When
+    const result = await commitAgentOutput(
+      { cas: await casWithSource(), store },
+      command(aliasedCandidate),
+    );
+
+    // Then
+    expect(result).toMatchObject({ kind: "committed" });
+    expect(store.accepted[0]?.envelope.payload).toMatchObject({
+      positions: [{ evidenceArtifactIds: [ids.sourceArtifactId] }],
+    });
+    expect(store.accepted[0]?.envelope.citations).toEqual([
+      {
+        artifactId: ids.sourceArtifactId,
+        contentHash: sourceHash,
+        locator,
+      },
+    ]);
+  });
+
   it("attaches worker provenance and atomically emits one event after a canonical CAS commit", async () => {
     // Given
     const store = new MemoryCommitStore();

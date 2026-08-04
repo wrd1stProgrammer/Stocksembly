@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
+import { FullReportPreview } from "@/src/components/research/FullReportPreview";
 import { TeamReportPreview } from "@/src/components/research/TeamReportPreview";
+import { committeeReportPreviewFixture } from "@/src/research/committeeReportPreviewFixture";
+import { fixtureData } from "@/src/research/compositions/fixture";
+import type { ResearchFileData } from "@/src/research/compositions/types";
 import type { WorkflowDepartmentId } from "@/src/research/domain/roleRegistry";
 import { teamReportPreviewFixture } from "@/src/research/teamReportPreviewFixture";
 
@@ -17,6 +21,37 @@ export default async function TeamReportPreviewPage({
 }) {
   if (process.env.NODE_ENV === "production") notFound();
   const { department } = await params;
+  if (department === "committee")
+    return (
+      <FullReportPreview
+        company={fixtureData.createCompany(
+          "NVDA",
+          "NVIDIA Corporation",
+          "NASDAQ",
+          "Technology",
+        )}
+        report={committeeReportPreviewFixture()}
+        reportId="committee-fixture"
+      />
+    );
+  if (department === "invalid") {
+    const malformedReport = {
+      ...fixtureData.report,
+      researchTarget: { kind: "department", departmentId: "unknown" },
+    } as unknown as ResearchFileData;
+    return (
+      <TeamReportPreview
+        company={fixtureData.createCompany(
+          "NVDA",
+          "NVIDIA Corporation",
+          "NASDAQ",
+          "Technology",
+        )}
+        departmentId="market"
+        report={malformedReport}
+      />
+    );
+  }
   if (!DEPARTMENT_IDS.has(department as WorkflowDepartmentId)) notFound();
   const departmentId = department as WorkflowDepartmentId;
   return (

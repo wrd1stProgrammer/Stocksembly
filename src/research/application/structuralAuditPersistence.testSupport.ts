@@ -11,8 +11,6 @@ type Harness = {
   readonly sources: readonly SpecialistSourceArtifact[];
 };
 
-const CLAIM_ID = "00000000-0000-4000-8000-000000000904";
-
 export function expectedWorkflowRetention(
   harness: Harness,
 ): WorkflowRetentionRegister {
@@ -57,8 +55,14 @@ export function makePersistableStructuralInput(harness: Harness) {
   const locatorHash = hashCanonical(source.locator);
   const evidenceId = source.evidenceId;
   const retention = expectedWorkflowRetention(harness);
+  const structuralClaimId = retention.dissentClaimIds[0];
+  if (structuralClaimId === undefined)
+    throw new TypeError("structural fixture requires authenticated dissent");
+  const retainedDissentClaimIds = retention.dissentClaimIds.filter(
+    (claimId) => claimId === structuralClaimId,
+  );
   const claim = createAtomicClaim({
-    claimId: CLAIM_ID,
+    claimId: structuralClaimId,
     runId,
     snapshotId,
     text: {
@@ -116,8 +120,8 @@ export function makePersistableStructuralInput(harness: Harness) {
     ],
     values: { runId, snapshotId, records: [] },
     acceptedMemos: [],
-    sourceDissentClaimIds: retention.dissentClaimIds,
-    retainedDissentClaimIds: retention.dissentClaimIds,
+    sourceDissentClaimIds: retainedDissentClaimIds,
+    retainedDissentClaimIds,
     sourceOpenQuestionIds: retention.openQuestions.map(
       (question) => question.questionId,
     ),
@@ -126,7 +130,7 @@ export function makePersistableStructuralInput(harness: Harness) {
     ),
     sourceOpenQuestions: retention.openQuestions,
     retainedOpenQuestions: retention.openQuestions,
-    localizedClaimIds: { en: [CLAIM_ID], ko: [CLAIM_ID] },
+    localizedClaimIds: { en: [structuralClaimId], ko: [structuralClaimId] },
     capabilities: [],
     scenarios: [{ field: "revenue", value: "100" }],
   };

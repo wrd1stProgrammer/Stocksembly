@@ -1,4 +1,6 @@
+import type { z } from "zod";
 import type { SpecialistAssignmentV1 } from "../application/assignAllAgentsContracts";
+import type { EditorialDecisionDimensionSchema } from "../domain/agentOutputsShared";
 import { hashCanonical } from "../domain/contractHelpers";
 import {
   AttemptIdSchema,
@@ -6,6 +8,8 @@ import {
   JobIdSchema,
   QuestionIdSchema,
 } from "../domain/ids";
+import type { ResearchProfile } from "../domain/researchProfile";
+import { DEFAULT_RESEARCH_PROFILE } from "../domain/researchProfile";
 import {
   type SpecialistRoleId,
   WORKFLOW_V1_SPECIALIST_IDS,
@@ -13,6 +17,7 @@ import {
 } from "../domain/roleRegistry";
 import type { ValueRecord } from "../domain/valueRegistry";
 import type {
+  SpecialistClaimSlot,
   SpecialistJobRequest,
   SpecialistMemoCandidate,
   SpecialistRoundInput,
@@ -29,9 +34,197 @@ const PRICE_ENABLED_ROLES = new Set<SpecialistRoleId>([
   "valuation",
 ]);
 
+type ClaimSlotBlueprint = {
+  readonly decisionDimension: z.infer<typeof EditorialDecisionDimensionSchema>;
+  readonly analyticalAngle: string;
+  readonly optional?: boolean;
+};
+
+/**
+ * A focused report used to accept one broad sentence from each specialist.
+ * These role-owned angles force the team to produce a research package: at
+ * least six distinct, decision-relevant observations without inventing new
+ * roles or letting the publication layer pad sparse output.
+ */
+const ROLE_CLAIM_BLUEPRINTS = {
+  market: [
+    {
+      decisionDimension: "regime",
+      analyticalAngle: "demand breadth and market participation",
+    },
+    {
+      decisionDimension: "regime",
+      analyticalAngle: "rates, inflation, liquidity, and macro transmission",
+    },
+    {
+      decisionDimension: "catalyst",
+      analyticalAngle:
+        "dated catalyst and the market reaction required for confirmation",
+      optional: true,
+    },
+  ],
+  market_news: [
+    {
+      decisionDimension: "timing",
+      analyticalAngle: "multi-timeframe trend, support, and resistance",
+    },
+    {
+      decisionDimension: "timing",
+      analyticalAngle: "volume, momentum, and flow confirmation",
+    },
+  ],
+  benchmark: [
+    {
+      decisionDimension: "relative_performance",
+      analyticalAngle: "relative strength versus the qualified peer or sector",
+    },
+    {
+      decisionDimension: "relative_performance",
+      analyticalAngle:
+        "valuation and operating context behind the relative move",
+    },
+  ],
+  company: [
+    {
+      decisionDimension: "growth_engine",
+      analyticalAngle: "segment and customer mix driving repeatable growth",
+    },
+    {
+      decisionDimension: "growth_engine",
+      analyticalAngle:
+        "management execution, capacity, and capital-allocation proof",
+    },
+  ],
+  company_product: [
+    {
+      decisionDimension: "adoption",
+      analyticalAngle: "production adoption and customer-use evidence",
+    },
+    {
+      decisionDimension: "adoption",
+      analyticalAngle: "product economics, monetization, and retention",
+    },
+  ],
+  company_competition: [
+    {
+      decisionDimension: "moat",
+      analyticalAngle: "switching costs, ecosystem, and distribution advantage",
+    },
+    {
+      decisionDimension: "competitive_erosion",
+      analyticalAngle: "credible competitor or customer-substitution path",
+    },
+    {
+      decisionDimension: "moat",
+      analyticalAngle: "next operating milestone that proves moat durability",
+      optional: true,
+    },
+  ],
+  financial: [
+    {
+      decisionDimension: "margin",
+      analyticalAngle: "gross and operating margin durability",
+    },
+    {
+      decisionDimension: "reinvestment",
+      analyticalAngle: "capital intensity, returns, and reinvestment runway",
+    },
+    {
+      decisionDimension: "margin",
+      analyticalAngle: "mix and operating leverage bridge",
+      optional: true,
+    },
+  ],
+  valuation: [
+    {
+      decisionDimension: "embedded_expectations",
+      analyticalAngle:
+        "growth and margin path implied by the observed valuation",
+    },
+    {
+      decisionDimension: "embedded_expectations",
+      analyticalAngle:
+        "relative valuation, downside tolerance, and rerating trigger",
+    },
+  ],
+  financial_quality: [
+    {
+      decisionDimension: "cash_conversion",
+      analyticalAngle: "earnings-to-free-cash-flow conversion",
+    },
+    {
+      decisionDimension: "cash_conversion",
+      analyticalAngle: "working capital, dilution, and balance-sheet quality",
+    },
+  ],
+  risk: [
+    {
+      decisionDimension: "downside_path",
+      analyticalAngle: "highest-impact operating failure path",
+    },
+    {
+      decisionDimension: "leading_indicator",
+      analyticalAngle: "earliest measurable warning signal and threshold",
+    },
+    {
+      decisionDimension: "downside_path",
+      analyticalAngle:
+        "compound risk transmission into revenue, margin, cash, or valuation",
+    },
+  ],
+  risk_policy: [
+    {
+      decisionDimension: "mitigant",
+      analyticalAngle: "balance-sheet or operating buffer",
+    },
+    {
+      decisionDimension: "leading_indicator",
+      analyticalAngle: "policy, macro, or governance escalation trigger",
+    },
+    {
+      decisionDimension: "mitigant",
+      analyticalAngle: "recovery condition and management response capacity",
+    },
+  ],
+} as const satisfies Record<SpecialistRoleId, readonly ClaimSlotBlueprint[]>;
+
 function deterministicUuid(seed: unknown): string {
   const hash = hashCanonical(seed);
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
+
+export function allocateSpecialistClaimSlots(
+  identity: {
+    readonly runId: string;
+    readonly snapshotId: string;
+    readonly roleId: SpecialistRoleId;
+  },
+  profile: ResearchProfile = DEFAULT_RESEARCH_PROFILE,
+): readonly SpecialistClaimSlot[] {
+  return ROLE_CLAIM_BLUEPRINTS[identity.roleId].map((blueprint, index) => ({
+    claimId: ClaimIdSchema.parse(
+      deterministicUuid({
+        runId: identity.runId,
+        snapshotId: identity.snapshotId,
+        roleId: identity.roleId,
+        decisionDimension: blueprint.decisionDimension,
+        analyticalAngle: blueprint.analyticalAngle,
+        slotIndex: index,
+        kind: "specialist-claim-slot",
+      }),
+    ),
+    decisionDimension: blueprint.decisionDimension,
+    analyticalAngle: blueprint.analyticalAngle,
+    materiality: index === 0 ? "material" : "supporting",
+    optional:
+      profile.analysisDepth === "core"
+        ? index > 0
+        : profile.analysisDepth === "deep"
+          ? false
+          : "optional" in blueprint
+            ? blueprint.optional
+            : false,
+  }));
 }
 
 function registeredValuesFor(
@@ -70,6 +263,16 @@ export function specialistRequest(
     roleId: role.id,
     ordinal: attempt.ordinal,
   };
+  const claimSlots = allocateSpecialistClaimSlots(
+    {
+      runId: input.mandate.runId,
+      snapshotId: input.snapshot.snapshotId,
+      roleId: role.id,
+    },
+    input.mandate.researchProfile ?? DEFAULT_RESEARCH_PROFILE,
+  );
+  const researchProfile =
+    input.mandate.researchProfile ?? DEFAULT_RESEARCH_PROFILE;
   return {
     promptName: `specialist_memo_prompt_v1:${role.id}`,
     schemaName: `specialist_memo_v1:${role.id}`,
@@ -91,6 +294,7 @@ export function specialistRequest(
       scope: input.mandate.scope,
       locale: input.mandate.locale,
       limitations: input.mandate.limitations,
+      researchProfile,
     },
     capabilityStatement: assignment.evidenceSlice.capabilities,
     evidenceSlice: assignment.evidenceSlice,
@@ -98,6 +302,10 @@ export function specialistRequest(
       assignment,
       input.snapshot.valueRegistry.records,
     ),
+    comparatorQualification: input.comparatorQualification ?? {
+      status: "not_available",
+      reason: "peer_evidence_absent",
+    },
     attempt: {
       jobId: JobIdSchema.parse(deterministicUuid({ ...identity, kind: "job" })),
       attemptId: AttemptIdSchema.parse(
@@ -106,15 +314,307 @@ export function specialistRequest(
       ordinal: attempt.ordinal,
       purpose: attempt.purpose,
     },
+    claimSlots,
     ids: {
-      claimId: ClaimIdSchema.parse(
-        deterministicUuid({ ...identity, kind: "claim" }),
-      ),
+      claimId: claimSlots[0]!.claimId,
       questionId: QuestionIdSchema.parse(
         deterministicUuid({ ...identity, kind: "question" }),
       ),
     },
   };
+}
+
+type ClaimSubmissionRequest = {
+  readonly runId: string;
+  readonly snapshotId: string;
+  readonly roleId: SpecialistRoleId;
+  readonly claimSlots: readonly SpecialistClaimSlot[];
+  readonly allowedArtifactIds: readonly string[];
+  readonly allowedMetricIds: readonly string[];
+  readonly validateEvidence?: boolean;
+  readonly existingDepartmentTheses?: readonly {
+    readonly en: string;
+    readonly ko: string;
+  }[];
+};
+
+export type SpecialistClaimValidationReason =
+  | "specialist_claim_malformed"
+  | "specialist_claim_slot_unallocated"
+  | "specialist_claim_dimension_out_of_role"
+  | "specialist_claim_role_owner_mismatch"
+  | "specialist_claim_too_many_decisive_metrics"
+  | "specialist_claim_unknown_metric"
+  | "specialist_claim_unknown_evidence"
+  | "specialist_claim_duplicate_thesis"
+  | "specialist_claim_required_slot_unused";
+
+/**
+ * Metric references are presentation aids, not the evidence authority. A model
+ * occasionally returns a readable metric label instead of the registered value
+ * id. Keep the grounded claim and discard only those unregistered references;
+ * artifact citations remain subject to the strict commit-time audit.
+ */
+export function sanitizeSpecialistDecisiveMetricIds(
+  candidate: unknown,
+  allowedMetricIds: readonly string[],
+): unknown {
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    !("positions" in candidate) ||
+    !Array.isArray(candidate.positions)
+  )
+    return candidate;
+  const allowed = new Set(allowedMetricIds);
+  return {
+    ...candidate,
+    positions: candidate.positions.map((position) => {
+      if (
+        typeof position !== "object" ||
+        position === null ||
+        !("decisiveMetricIds" in position) ||
+        !Array.isArray(position.decisiveMetricIds)
+      )
+        return position;
+      return {
+        ...position,
+        decisiveMetricIds: position.decisiveMetricIds
+          .filter(
+            (metricId: unknown): metricId is string =>
+              typeof metricId === "string" && allowed.has(metricId),
+          )
+          .slice(0, 3),
+      };
+    }),
+  };
+}
+
+/**
+ * Claim ids and ownership fields are preallocated workflow metadata, not model
+ * analysis. Normalize a position back to its unique semantic slot when the
+ * model makes a copy typo, and drop only surplus positions that do not belong
+ * to any allocated slot. The strict validator still rejects missing required
+ * slots and ambiguous bindings.
+ */
+export function normalizeSpecialistClaimSlotBindings(
+  request: Pick<ClaimSubmissionRequest, "roleId" | "claimSlots">,
+  candidate: unknown,
+): unknown {
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    !("positions" in candidate) ||
+    !Array.isArray(candidate.positions)
+  )
+    return candidate;
+  const allocatedById = new Map(
+    request.claimSlots.map((slot) => [slot.claimId, slot]),
+  );
+  const usedSlots = new Set<string>();
+  const positions: Record<string, unknown>[] = [];
+  for (const raw of candidate.positions) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const position = raw as Record<string, unknown> & {
+      readonly claimId?: unknown;
+      readonly decisionDimension?: unknown;
+      readonly materiality?: unknown;
+    };
+    const claimedId =
+      typeof position.claimId === "string" ? position.claimId : undefined;
+    let slot =
+      claimedId === undefined || usedSlots.has(claimedId)
+        ? undefined
+        : allocatedById.get(claimedId as SpecialistClaimSlot["claimId"]);
+    if (slot === undefined) {
+      const semanticMatches = request.claimSlots.filter(
+        (candidateSlot) =>
+          !usedSlots.has(candidateSlot.claimId) &&
+          candidateSlot.decisionDimension === position.decisionDimension &&
+          candidateSlot.materiality === position.materiality,
+      );
+      if (semanticMatches.length === 1) slot = semanticMatches[0];
+    }
+    if (slot === undefined) continue;
+    usedSlots.add(slot.claimId);
+    positions.push({
+      ...position,
+      claimId: slot.claimId,
+      decisionDimension: slot.decisionDimension,
+      roleOwner: request.roleId,
+      materiality: slot.materiality,
+    });
+  }
+  return { ...candidate, positions };
+}
+
+type ClaimSubmissionValidation =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: SpecialistClaimValidationReason };
+
+export function normalizedSpecialistThesis(value: {
+  readonly en: string;
+  readonly ko: string;
+}) {
+  const normalize = (text: string) =>
+    text
+      .normalize("NFKC")
+      .toLocaleLowerCase("und")
+      .replace(/\[[^\]]*\]|\([^)]*(?:source|citation|출처|인용)[^)]*\)/giu, " ")
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  return `${normalize(value.en)}|${normalize(value.ko)}`;
+}
+
+export function specialistThesisFingerprints(
+  candidate: unknown,
+): readonly string[] {
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    !("positions" in candidate) ||
+    !Array.isArray(candidate.positions)
+  )
+    return [];
+  return candidate.positions.flatMap((position) => {
+    if (
+      typeof position !== "object" ||
+      position === null ||
+      !("publicSummary" in position) ||
+      typeof position.publicSummary !== "object" ||
+      position.publicSummary === null ||
+      !("en" in position.publicSummary) ||
+      !("ko" in position.publicSummary) ||
+      typeof position.publicSummary.en !== "string" ||
+      typeof position.publicSummary.ko !== "string"
+    )
+      return [];
+    return [normalizedSpecialistThesis(position.publicSummary)];
+  });
+}
+
+export function validateSpecialistClaimSubmission(
+  request: ClaimSubmissionRequest,
+  candidate: unknown,
+): ClaimSubmissionValidation {
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    !("positions" in candidate) ||
+    !Array.isArray(candidate.positions) ||
+    candidate.positions.length < 1
+  )
+    return { ok: false, reason: "specialist_claim_malformed" };
+  const allocatedById = new Map(
+    request.claimSlots.map((slot) => [slot.claimId, slot]),
+  );
+  const allowedDimensions = new Set(
+    ROLE_CLAIM_BLUEPRINTS[request.roleId].map(
+      (blueprint) => blueprint.decisionDimension,
+    ),
+  );
+  const allowedArtifacts = new Set(request.allowedArtifactIds);
+  const allowedMetrics = new Set(request.allowedMetricIds);
+  const fingerprints = new Set(
+    (request.existingDepartmentTheses ?? []).map(normalizedSpecialistThesis),
+  );
+  const usedSlots = new Set<string>();
+  for (const raw of candidate.positions) {
+    if (typeof raw !== "object" || raw === null)
+      return { ok: false, reason: "specialist_claim_malformed" };
+    const claim = raw as {
+      readonly claimId?: unknown;
+      readonly decisionDimension?: unknown;
+      readonly roleOwner?: unknown;
+      readonly materiality?: unknown;
+      readonly decisiveMetricIds?: unknown;
+      readonly evidenceArtifactIds?: unknown;
+      readonly publicSummary?: unknown;
+      readonly strongestContraryObservation?: unknown;
+      readonly falsifier?: unknown;
+    };
+    if (typeof claim.claimId !== "string")
+      return { ok: false, reason: "specialist_claim_malformed" };
+    const slot = allocatedById.get(
+      claim.claimId as SpecialistClaimSlot["claimId"],
+    );
+    if (slot === undefined || usedSlots.has(claim.claimId))
+      return { ok: false, reason: "specialist_claim_slot_unallocated" };
+    usedSlots.add(claim.claimId);
+    if (
+      typeof claim.decisionDimension !== "string" ||
+      !allowedDimensions.has(
+        claim.decisionDimension as z.infer<
+          typeof EditorialDecisionDimensionSchema
+        >,
+      ) ||
+      claim.decisionDimension !== slot.decisionDimension
+    )
+      return { ok: false, reason: "specialist_claim_dimension_out_of_role" };
+    if (claim.roleOwner !== request.roleId)
+      return { ok: false, reason: "specialist_claim_role_owner_mismatch" };
+    if (claim.materiality !== slot.materiality)
+      return { ok: false, reason: "specialist_claim_malformed" };
+    if (!Array.isArray(claim.decisiveMetricIds))
+      return { ok: false, reason: "specialist_claim_malformed" };
+    if (claim.decisiveMetricIds.length > 3)
+      return {
+        ok: false,
+        reason: "specialist_claim_too_many_decisive_metrics",
+      };
+    if (
+      claim.decisiveMetricIds.some(
+        (metricId) =>
+          typeof metricId !== "string" || !allowedMetrics.has(metricId),
+      )
+    )
+      return { ok: false, reason: "specialist_claim_unknown_metric" };
+    if (
+      request.validateEvidence !== false &&
+      (!Array.isArray(claim.evidenceArtifactIds) ||
+        claim.evidenceArtifactIds.length < 1 ||
+        claim.evidenceArtifactIds.some(
+          (artifactId) =>
+            typeof artifactId !== "string" || !allowedArtifacts.has(artifactId),
+        ))
+    )
+      return { ok: false, reason: "specialist_claim_unknown_evidence" };
+    if (
+      typeof claim.publicSummary !== "object" ||
+      claim.publicSummary === null ||
+      typeof (claim.publicSummary as Record<string, unknown>)["en"] !==
+        "string" ||
+      typeof (claim.publicSummary as Record<string, unknown>)["ko"] !==
+        "string" ||
+      typeof claim.strongestContraryObservation !== "object" ||
+      claim.strongestContraryObservation === null ||
+      !("en" in claim.strongestContraryObservation) ||
+      !("ko" in claim.strongestContraryObservation) ||
+      typeof claim.strongestContraryObservation.en !== "string" ||
+      typeof claim.strongestContraryObservation.ko !== "string" ||
+      typeof claim.falsifier !== "object" ||
+      claim.falsifier === null ||
+      !("en" in claim.falsifier) ||
+      !("ko" in claim.falsifier) ||
+      typeof claim.falsifier.en !== "string" ||
+      typeof claim.falsifier.ko !== "string"
+    )
+      return { ok: false, reason: "specialist_claim_malformed" };
+    const fingerprint = normalizedSpecialistThesis(
+      claim.publicSummary as { readonly en: string; readonly ko: string },
+    );
+    if (fingerprints.has(fingerprint))
+      return { ok: false, reason: "specialist_claim_duplicate_thesis" };
+    fingerprints.add(fingerprint);
+  }
+  if (
+    request.claimSlots.some(
+      (slot) => !slot.optional && !usedSlots.has(slot.claimId),
+    )
+  )
+    return { ok: false, reason: "specialist_claim_required_slot_unused" };
+  return { ok: true };
 }
 
 export type CandidateInspection =

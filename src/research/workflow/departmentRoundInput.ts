@@ -140,6 +140,32 @@ export async function authenticatedMemoPrompts(
       );
       return member === undefined ? [] : [member];
     });
+    const groundedNumericTokens = [
+      ...new Set(
+        memberArtifacts
+          .flatMap((member) => [
+            ...member.memo.positions.flatMap((position) => [
+              position.publicSummary.en,
+              position.publicSummary.ko,
+              ...(position.strongestContraryObservation === undefined
+                ? []
+                : [
+                    position.strongestContraryObservation.en,
+                    position.strongestContraryObservation.ko,
+                  ]),
+              ...(position.falsifier === undefined
+                ? []
+                : [position.falsifier.en, position.falsifier.ko]),
+            ]),
+            ...member.memo.dissent.flatMap((item) => [
+              item.publicSummary.en,
+              item.publicSummary.ko,
+            ]),
+            ...member.memo.unknowns.flatMap((item) => [item.en, item.ko]),
+          ])
+          .flatMap((text) => text.match(/\d+(?:[.,]\d+)*/gu) ?? []),
+      ),
+    ];
     return memberArtifacts.length === department.memberIds.length
       ? [
           DepartmentJobPromptSchema.parse({
@@ -155,6 +181,11 @@ export async function authenticatedMemoPrompts(
               DEPARTMENT_EDITORIAL_DIRECTION[departmentId],
               "publicSummary must answer the investment question once in at most two sentences: lead with the decision, include the most decision-relevant quantified fact when available, and name one uncertainty that can actually change the view.",
               "Select accepted, strongest, weakest, revised, and removed claims according to evidence quality. Do not accept every claim by default.",
+              "Classify every filled member claim exactly once with dispositions: accept, revise, or remove. Give every disposition a specific bilingual reason. Keep acceptedClaimIds, revisedClaimIds, and removedClaimIds disjoint and exhaustive.",
+              "For each revised claim, retain its authenticated originClaimId and exact sourceArtifactIds in revisions, provide revised bilingual publicSummary, a claim-specific falsifier, and reason. Use originClaimId as the adjudicatedClaimId placeholder and a 64-character lowercase hexadecimal revisionHash placeholder; the trusted boundary derives the distinct deterministic adjudicatedClaimId and content hash.",
+              "For every revised claim, copy the matching disposition.reason exactly into revision.reason in both languages; the trusted boundary requires byte-for-byte equality between those two reason objects.",
+              `Every numeric token anywhere in the output, including summaries, reasons, falsifiers, dissent, and open questions, must come from this complete allowlist derived from member public summaries, dissent summaries, and unknowns: ${JSON.stringify(groundedNumericTokens)}. Do not use any other numeric token, reuse a number that appears only in a member falsifier, or invent a count, duration, threshold, or date.`,
+              "Strongest and weakest claims may reference only accepted or revised claims. If no accepted or revised claim survives, return a targeted rewrite instead of a consolidation.",
               "Keep different roles distinct: each accepted claim should contribute a different decision dimension rather than restating the same growth or risk sentence.",
               "Give every accepted claim its own non-overlapping checkpoint: use a different metric, threshold, disclosure, customer signal, or dated event for each claim. Never copy one change condition into several claims.",
               "Do not reuse publicSummary, the same conclusion sentence, or the same checkpoint language across strongestClaim, weakestClaim, openQuestions, and claim rationales.",

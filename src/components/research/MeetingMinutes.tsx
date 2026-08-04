@@ -21,8 +21,19 @@ type Props = {
   readonly reportVersion: number;
   readonly pendingAgentIds?: readonly AgentProfile["id"][];
   readonly questionsEnabled?: boolean;
+  readonly chatEnabled?: boolean;
+  readonly loadChatHistory?: boolean;
+  readonly originalQuestion?: string;
+  readonly conversation?: readonly ResearchConversationEntry[];
   readonly panelOpen?: boolean;
   readonly onPanelToggle?: () => void;
+};
+
+export type ResearchConversationEntry = {
+  readonly question: string;
+  readonly answer: string;
+  readonly agentId: string;
+  readonly createdAt: string;
 };
 
 function TypedNarrative({
@@ -161,6 +172,61 @@ function conversationLabel(group: ActivityGroup, locale: Locale): string {
   return labels[group][locale];
 }
 
+function ConversationHistory({
+  agents,
+  conversation,
+  locale,
+  originalQuestion,
+}: {
+  readonly agents: readonly AgentProfile[];
+  readonly conversation: readonly ResearchConversationEntry[];
+  readonly locale: Locale;
+  readonly originalQuestion?: string;
+}) {
+  const initial = originalQuestion?.trim();
+  return (
+    <section
+      className="meeting-minutes__conversation-history"
+      aria-label={locale === "ko" ? "채팅 기록" : "Chat history"}
+    >
+      {initial ? (
+        <article data-role="user">
+          <span>{locale === "ko" ? "원 질문" : "Original brief"}</span>
+          <p>{initial}</p>
+        </article>
+      ) : null}
+      {conversation.map((exchange) => {
+        const agent =
+          agents.find((profile) => profile.id === exchange.agentId) ??
+          agents.find((profile) => profile.id === "chair");
+        return (
+          <div
+            className="meeting-minutes__conversation-exchange"
+            key={`${exchange.createdAt}-${exchange.question}`}
+          >
+            <article data-role="user">
+              <span>{locale === "ko" ? "후속 질문" : "Follow-up"}</span>
+              <p>{exchange.question}</p>
+            </article>
+            <article data-role="assistant">
+              {agent === undefined ? null : (
+                <Image src={agent.image} alt="" width={24} height={58} />
+              )}
+              <div>
+                <span>
+                  {agent?.name[locale] ??
+                    (locale === "ko" ? "리서치 의장" : "Research chair")}
+                </span>
+                <p>{exchange.answer}</p>
+              </div>
+            </article>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 export function MeetingMinutes({
   current,
   agents,
@@ -172,6 +238,10 @@ export function MeetingMinutes({
   reportVersion,
   pendingAgentIds = [],
   questionsEnabled = true,
+  chatEnabled = true,
+  loadChatHistory = true,
+  originalQuestion,
+  conversation = [],
   panelOpen = true,
   onPanelToggle,
 }: Props) {
@@ -180,7 +250,11 @@ export function MeetingMinutes({
     () => new Set(),
   );
   const [pendingCount, setPendingCount] = useState(0);
-  const canChat = isComplete && questionsEnabled && reportId !== undefined;
+  const canAsk =
+    isComplete && chatEnabled && questionsEnabled && reportId !== undefined;
+  const hasConversation =
+    (originalQuestion?.trim().length ?? 0) > 0 || conversation.length > 0;
+  const canChat = canAsk || hasConversation;
   const chair = agents.find((profile) => profile.id === "chair");
   const pendingAgentIdSet = useMemo(
     () => new Set(pendingAgentIds),
@@ -482,16 +556,29 @@ export function MeetingMinutes({
       ) : null}
       {canChat ? (
         <div
-          className="meeting-minutes__question-view"
+          className={`meeting-minutes__question-view${
+            hasConversation ? " has-history" : ""
+          }${canAsk ? " has-composer" : ""}`}
           hidden={!panelOpen || mode !== "questions"}
         >
-          <TeamQuestionPanel
-            agents={agents}
-            researchEvents={events}
-            locale={locale}
-            reportId={reportId}
-            reportVersion={reportVersion}
-          />
+          {hasConversation ? (
+            <ConversationHistory
+              agents={agents}
+              conversation={conversation}
+              locale={locale}
+              {...(originalQuestion === undefined ? {} : { originalQuestion })}
+            />
+          ) : null}
+          {canAsk ? (
+            <TeamQuestionPanel
+              agents={agents}
+              researchEvents={events}
+              locale={locale}
+              reportId={reportId}
+              reportVersion={reportVersion}
+              loadHistory={loadChatHistory}
+            />
+          ) : null}
         </div>
       ) : null}
     </aside>

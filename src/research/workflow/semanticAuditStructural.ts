@@ -229,10 +229,7 @@ async function verifySlice(
   const stored = await readCas(cas, row.content_hash);
   if (
     stored === undefined ||
-    hashBytes(stored.bytes) !== row.content_hash ||
-    stored.descriptor.artifactId !== row.artifact_id ||
-    stored.descriptor.runId !== row.run_id ||
-    stored.descriptor.snapshotId !== row.snapshot_id
+    hashBytes(stored.bytes) !== row.content_hash
   )
     return "evidence_content_mismatch";
   if (

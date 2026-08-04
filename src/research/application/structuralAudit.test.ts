@@ -55,7 +55,7 @@ describe("deterministic structural audit", () => {
     ).toBe(true);
     expect(Object.hasOwn(result, "score")).toBe(false);
     expect(result.claimSetHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(result.acceptedRoleIds).toHaveLength(10);
+    expect(result.acceptedRoleIds).toHaveLength(11);
     expect(result.retainedDissentClaimIds).toEqual([result.claims[0]?.claimId]);
     expect(result.retainedOpenQuestionIds).toEqual([
       "00000000-0000-4000-8000-000000000006",

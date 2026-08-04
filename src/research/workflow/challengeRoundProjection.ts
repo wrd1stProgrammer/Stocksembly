@@ -181,7 +181,28 @@ export function projectChallengePrompt(
   const targetClaimId = consolidation?.payload.strongestClaimIds[0];
   if (consolidation === undefined || targetClaimId === undefined)
     return undefined;
-  const positions = departmentPositions(assignment, inputs.memos);
+  const revisionsByOrigin = new Map(
+    consolidation.payload.revisions.map(
+      (revision) => [revision.originClaimId, revision] as const,
+    ),
+  );
+  const positions = departmentPositions(assignment, inputs.memos).map(
+    (entry) => {
+      const revision = revisionsByOrigin.get(entry.position.claimId);
+      return revision === undefined
+        ? entry
+        : {
+            ...entry,
+            position: {
+              ...entry.position,
+              claimId: revision.adjudicatedClaimId,
+              publicSummary: revision.publicSummary,
+              evidenceArtifactIds: revision.sourceArtifactIds,
+              falsifier: revision.falsifier,
+            },
+          };
+    },
+  );
   const target = positions.find(
     (entry) => entry.position.claimId === targetClaimId,
   );
@@ -205,9 +226,7 @@ export function projectChallengePrompt(
         (artifactId) =>
           !target.position.evidenceArtifactIds.includes(artifactId),
       ),
-    ) ??
-    counterCandidates[0] ??
-    positions.find((entry) => entry.position.claimId !== targetClaimId);
+    ) ?? counterCandidates[0];
   if (counter === undefined) return undefined;
   const distinctCounterevidence = counter.position.evidenceArtifactIds.filter(
     (artifactId) => !target.position.evidenceArtifactIds.includes(artifactId),

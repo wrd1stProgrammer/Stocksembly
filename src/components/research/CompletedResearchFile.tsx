@@ -17,6 +17,7 @@ import type {
   ResearchFileData,
 } from "../../research/compositions/types";
 import type { ResearchCompany } from "../../research/types";
+import { CompletedResearchFileV2 } from "./CompletedResearchFileV2";
 
 type Props = {
   readonly company: ResearchCompany;
@@ -423,10 +424,13 @@ export function LegacyCompletedResearchFile({
               {reportId ? (
                 <a
                   href={`/api/research/reports/${reportId}/pdf?lang=${locale}`}
-                  download
+                  onClick={(event) => {
+                    event.preventDefault();
+                    window.print();
+                  }}
                 >
                   <DownloadSimple size={17} aria-hidden="true" />
-                  {ko ? "PDF 다운로드" : "Download PDF"}
+                  {ko ? "PDF로 저장" : "Download PDF"}
                 </a>
               ) : null}
               <button type="button" onClick={onReplay}>
@@ -440,4 +444,10 @@ export function LegacyCompletedResearchFile({
   );
 }
 
-export { CompletedResearchFileV2 as CompletedResearchFile } from "./CompletedResearchFileV2";
+export function CompletedResearchFile(props: Props) {
+  return props.report.presentationVersion === "legacy-v1" ? (
+    <LegacyCompletedResearchFile {...props} />
+  ) : (
+    <CompletedResearchFileV2 {...props} />
+  );
+}

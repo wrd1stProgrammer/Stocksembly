@@ -8,6 +8,7 @@ const FundamentalValueSchema = z.json();
 export const FundamentalsResponseSchema = z.strictObject({
   code: z.string().min(1),
   last_update: UnixMillisecondsSchema,
+  _ct: UnixMillisecondsSchema.optional(),
   data: z.array(
     z.strictObject({
       id: z.string().min(1),

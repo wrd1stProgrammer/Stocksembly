@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import {
+  AtomicEditorialClaimSchema,
   DepartmentConsolidationOutputSchema,
   MemoOutputSchema,
 } from "../../../domain/agentOutputs";
@@ -10,6 +11,11 @@ import {
   hashBytes,
   hashCanonical,
 } from "../../../domain/contractHelpers";
+import {
+  deriveEditorialConfidence,
+  extractNumericTokens,
+  normalizeEditorialText,
+} from "../../../domain/editorialQuality";
 import {
   ArtifactIdSchema,
   ReportIdSchema,
@@ -21,15 +27,31 @@ import { buildResearchMetricSnapshot } from "../../../domain/metricSnapshot";
 import {
   type ResearchReport,
   ResearchReportSchema,
+  type WorkflowV2ResearchReport,
+  WorkflowV2ResearchReportSchema,
 } from "../../../domain/report";
 import { singleLocaleReportForStorage } from "../../../domain/reportStorage";
 import { normalizeReportNarrativeText } from "../../../domain/reportText";
+import {
+  DEFAULT_RESEARCH_PROFILE,
+  ResearchProfileSchema,
+} from "../../../domain/researchProfile";
 import {
   WORKFLOW_V1_ROLE_REGISTRY,
   type WorkflowDepartmentId,
 } from "../../../domain/roleRegistry";
 import type { ArtifactCasPort } from "../../../ports/artifacts";
 import { ArtifactDigestSchema } from "../../../ports/artifacts";
+import {
+  ANTICIPATED_QUESTIONS_POLICY,
+  selectGroundedAnticipatedQuestions,
+} from "../../../workflow/anticipatedQuestionsPublication";
+import {
+  deterministicMetadataRewrite,
+  gateWithOneTargetedRewrite,
+  type PrePublicationEditorialEnvelope,
+} from "../../../workflow/prePublicationEditorialGate";
+import { reserveEditorialQualityRewrite } from "../../../workflow/specialistCommitRetry";
 import { serializeSafeJson } from "./safeJson";
 
 const RunSchema = z.object({
@@ -43,6 +65,30 @@ const RunSchema = z.object({
   research_kind: z.literal("department"),
   department_id: z.enum(["market", "company", "financial", "risk"]),
 });
+
+function loadDepartmentResearchProfile(
+  database: Database.Database,
+  runId: string,
+) {
+  try {
+    const row = database
+      .prepare(
+        "SELECT research_profile_json FROM research_requests WHERE run_id = ?",
+      )
+      .get(runId) as { readonly research_profile_json?: unknown } | undefined;
+    if (typeof row?.research_profile_json !== "string")
+      return DEFAULT_RESEARCH_PROFILE;
+    const parsed = ResearchProfileSchema.safeParse(
+      JSON.parse(row.research_profile_json),
+    );
+    return parsed.success ? parsed.data : DEFAULT_RESEARCH_PROFILE;
+  } catch (error) {
+    if (error instanceof SyntaxError) return DEFAULT_RESEARCH_PROFILE;
+    if (error instanceof Error && /no such column/u.test(error.message))
+      return DEFAULT_RESEARCH_PROFILE;
+    throw error;
+  }
+}
 
 const ArtifactRowSchema = z.object({
   artifact_id: ArtifactIdSchema,
@@ -239,25 +285,18 @@ function localizedSections(
   positions: readonly z.infer<typeof MemoOutputSchema>["positions"][number][],
 ) {
   const accepted = new Set(consolidation.acceptedClaimIds);
+  for (const claimId of consolidation.revisedClaimIds) accepted.add(claimId);
   const strongest = new Set(consolidation.strongestClaimIds);
   const selected = positions.filter((position) =>
     accepted.has(position.claimId),
   );
-  const selectedOrAll = selected.length > 0 ? selected : positions;
+  const selectedOrAll = selected;
   const sourceIds = [
     ...new Set(
       selectedOrAll.flatMap((position) => position.evidenceArtifactIds),
     ),
   ];
   const claimIds = selectedOrAll.map((position) => position.claimId);
-  const evidenceBody = {
-    en: selectedOrAll
-      .map((position) => narrative(position.publicSummary.en, "en"))
-      .join(" "),
-    ko: selectedOrAll
-      .map((position) => narrative(position.publicSummary.ko, "ko"))
-      .join(" "),
-  };
   const strongestPositions = selectedOrAll.filter((position) =>
     strongest.has(position.claimId),
   );
@@ -269,17 +308,54 @@ function localizedSections(
     (position) =>
       !leadPositions.some((lead) => lead.claimId === position.claimId),
   );
-  const teamBody =
-    leadPositions.length > 0
-      ? {
-          en: leadPositions
-            .map((position) => narrative(position.publicSummary.en, "en"))
-            .join(" "),
-          ko: leadPositions
-            .map((position) => narrative(position.publicSummary.ko, "ko"))
-            .join(" "),
-        }
-      : evidenceBody;
+  const dispositionFor = (position: (typeof selectedOrAll)[number]) => {
+    const originClaimId =
+      consolidation.revisions.find(
+        (revision) => revision.adjudicatedClaimId === position.claimId,
+      )?.originClaimId ?? position.claimId;
+    return consolidation.dispositions.find(
+      (disposition) => disposition.claimId === originClaimId,
+    );
+  };
+  const rationaleBody = (
+    selectedPositions: readonly (typeof selectedOrAll)[number][],
+  ) => ({
+    en: selectedPositions
+      .flatMap((position) => {
+        const rationale = dispositionFor(position)?.reason.en;
+        return rationale === undefined ? [] : [narrative(rationale, "en")];
+      })
+      .join(" "),
+    ko: selectedPositions
+      .flatMap((position) => {
+        const rationale = dispositionFor(position)?.reason.ko;
+        return rationale === undefined ? [] : [narrative(rationale, "ko")];
+      })
+      .join(" "),
+  });
+  const leadSummary = {
+    en: leadPositions
+      .map((position) => narrative(position.publicSummary.en, "en"))
+      .join(" "),
+    ko: leadPositions
+      .map((position) => narrative(position.publicSummary.ko, "ko"))
+      .join(" "),
+  };
+  const leadRationaleBody = rationaleBody(leadPositions);
+  const secondaryRationaleBody = rationaleBody(secondaryPositions);
+  const evidenceBody =
+    secondaryRationaleBody.en.length > 0 && secondaryRationaleBody.ko.length > 0
+      ? secondaryRationaleBody
+      : leadRationaleBody;
+  const uniqueDissent = consolidation.dissent.filter((item) =>
+    selectedOrAll.every(
+      (position) =>
+        normalizeEditorialText(item.publicSummary.en) !==
+          normalizeEditorialText(position.publicSummary.en) &&
+        normalizeEditorialText(item.publicSummary.ko) !==
+          normalizeEditorialText(position.publicSummary.ko),
+    ),
+  );
   const secondaryBody =
     secondaryPositions.length > 0
       ? {
@@ -303,23 +379,29 @@ function localizedSections(
   };
   const dissentBody = {
     en:
-      consolidation.dissent
+      uniqueDissent
         .map((dissent) => narrative(dissent.publicSummary.en, "en"))
         .join(" ") || "No material dissent was retained within this team.",
     ko:
-      consolidation.dissent
+      uniqueDissent
         .map((dissent) => narrative(dissent.publicSummary.ko, "ko"))
         .join(" ") || "팀 내부에서 보존된 중대한 이견은 없습니다.",
   };
   const changeBody = {
-    en:
-      consolidation.dissent.length > 0
-        ? `Reassess the team view if the retained counter-evidence is confirmed by the next filing or operating update: ${dissentBody.en}`
-        : openQuestionBody.en,
-    ko:
-      consolidation.dissent.length > 0
-        ? `다음 공시나 운영 지표에서 보존된 반대 근거가 확인되면 팀 판단을 재검토합니다: ${dissentBody.ko}`
-        : openQuestionBody.ko,
+    en: leadPositions
+      .flatMap((position) =>
+        position.falsifier === undefined
+          ? []
+          : [narrative(position.falsifier.en, "en")],
+      )
+      .join(" "),
+    ko: leadPositions
+      .flatMap((position) =>
+        position.falsifier === undefined
+          ? []
+          : [narrative(position.falsifier.ko, "ko")],
+      )
+      .join(" "),
   };
   const base = [
     {
@@ -328,21 +410,10 @@ function localizedSections(
         en: `${DEPARTMENT_COPY[departmentId].name.en} conclusion`,
         ko: `${DEPARTMENT_COPY[departmentId].name.ko} 결론`,
       },
-      body: localizedNarrative(consolidation.publicSummary),
-      claimIds,
-      sourceIds,
-    },
-    {
-      id: "supported_analysis",
-      title: { en: "Evidence-backed findings", ko: "근거로 확인된 핵심 판단" },
-      body: evidenceBody,
-      claimIds,
-      sourceIds,
-    },
-    {
-      id: `${departmentId}_deep_dive`,
-      title: DEPARTMENT_COPY[departmentId].section,
-      body: teamBody,
+      body:
+        leadSummary.en.length > 0 && leadSummary.ko.length > 0
+          ? leadSummary
+          : localizedNarrative(consolidation.publicSummary),
       claimIds: leadPositions.map((position) => position.claimId),
       sourceIds: [
         ...new Set(
@@ -351,46 +422,94 @@ function localizedSections(
       ],
     },
     {
-      id: "valuation_comparison",
-      title:
-        departmentId === "financial"
-          ? { en: "Valuation constraints", ko: "밸류에이션 제약" }
-          : departmentId === "market"
-            ? { en: "Relative leadership check", ko: "상대 주도력 검증" }
-            : departmentId === "company"
-              ? { en: "Moat pressure test", ko: "경쟁우위 압력 테스트" }
-              : { en: "Risk concentration check", ko: "위험 집중도 검증" },
-      body: secondaryBody,
-      claimIds: secondaryPositions.map((position) => position.claimId),
-      sourceIds: [
-        ...new Set(
-          secondaryPositions.flatMap(
-            (position) => position.evidenceArtifactIds,
-          ),
-        ),
-      ],
-    },
-    {
-      id: "operational_scenarios",
-      title: { en: "Questions to monitor", ko: "다음에 확인할 질문" },
-      body: openQuestionBody,
+      id: "supported_analysis",
+      title: { en: "Evidence-backed findings", ko: "근거로 확인된 핵심 판단" },
+      body: evidenceBody,
       claimIds,
       sourceIds,
     },
-    {
-      id: "dissent_unknowns",
-      title: { en: "Dissent and unknowns", ko: "이견과 미확인 사항" },
-      body: dissentBody,
-      claimIds: consolidation.dissent.map((dissent) => dissent.claimId),
-      sourceIds,
-    },
-    {
-      id: "change_conditions",
-      title: { en: "What could change this view", ko: "판단이 바뀌는 조건" },
-      body: changeBody,
-      claimIds: consolidation.dissent.map((dissent) => dissent.claimId),
-      sourceIds,
-    },
+    ...(secondaryPositions.length === 0 ||
+    leadRationaleBody.en.length === 0 ||
+    leadRationaleBody.ko.length === 0
+      ? []
+      : [
+          {
+            id: `${departmentId}_deep_dive`,
+            title: DEPARTMENT_COPY[departmentId].section,
+            body: leadRationaleBody,
+            claimIds: leadPositions.map((position) => position.claimId),
+            sourceIds: [
+              ...new Set(
+                leadPositions.flatMap(
+                  (position) => position.evidenceArtifactIds,
+                ),
+              ),
+            ],
+          },
+        ]),
+    ...(secondaryPositions.length === 0
+      ? []
+      : [
+          {
+            id: "valuation_comparison",
+            title:
+              departmentId === "financial"
+                ? { en: "Valuation constraints", ko: "밸류에이션 제약" }
+                : departmentId === "market"
+                  ? { en: "Relative leadership check", ko: "상대 주도력 검증" }
+                  : departmentId === "company"
+                    ? { en: "Moat pressure test", ko: "경쟁우위 압력 테스트" }
+                    : {
+                        en: "Risk concentration check",
+                        ko: "위험 집중도 검증",
+                      },
+            body: secondaryBody,
+            claimIds: secondaryPositions.map((position) => position.claimId),
+            sourceIds: [
+              ...new Set(
+                secondaryPositions.flatMap(
+                  (position) => position.evidenceArtifactIds,
+                ),
+              ),
+            ],
+          },
+        ]),
+    ...(consolidation.openQuestions.length === 0
+      ? []
+      : [
+          {
+            id: "operational_scenarios",
+            title: { en: "Questions to monitor", ko: "다음에 확인할 질문" },
+            body: openQuestionBody,
+            claimIds,
+            sourceIds,
+          },
+        ]),
+    ...(uniqueDissent.length === 0
+      ? []
+      : [
+          {
+            id: "dissent_unknowns",
+            title: { en: "Dissent and unknowns", ko: "이견과 미확인 사항" },
+            body: dissentBody,
+            claimIds: uniqueDissent.map((dissent) => dissent.claimId),
+            sourceIds,
+          },
+        ]),
+    ...(changeBody.en.length === 0 || changeBody.ko.length === 0
+      ? []
+      : [
+          {
+            id: "change_conditions",
+            title: {
+              en: "What could change this view",
+              ko: "판단이 바뀌는 조건",
+            },
+            body: changeBody,
+            claimIds: consolidation.dissent.map((dissent) => dissent.claimId),
+            sourceIds,
+          },
+        ]),
   ];
   return {
     en: base.map((section) => ({
@@ -408,19 +527,24 @@ function localizedSections(
 
 async function buildReport(
   cas: ArtifactCasPort,
+  databasePath: string,
+  now: string,
   runId: string,
   run: z.infer<typeof RunSchema>,
   rows: readonly z.infer<typeof ArtifactRowSchema>[],
+  researchProfile = DEFAULT_RESEARCH_PROFILE,
 ): Promise<
   | {
-      readonly report: ResearchReport;
+      readonly report: WorkflowV2ResearchReport;
       readonly parentRows: readonly z.infer<typeof ArtifactRowSchema>[];
+      readonly editorialPublication: PrePublicationEditorialEnvelope;
     }
   | undefined
 > {
   const departmentId = run.department_id;
   const memberIds =
     WORKFLOW_V1_ROLE_REGISTRY.departments[departmentId].memberIds;
+  const memberOwnerIds = new Set<string>(memberIds);
   const logicalIds = [
     ...memberIds.map((roleId) => `memo:${roleId}`),
     `consolidation:${departmentId}`,
@@ -451,6 +575,46 @@ async function buildReport(
   if (memoOutputs.length !== memberIds.length || !consolidation.success)
     return undefined;
   const positions = memoOutputs.flatMap((memo) => memo.positions);
+  const acceptedClaimIds = new Set(consolidation.data.acceptedClaimIds);
+  const revisionsByOrigin = new Map(
+    consolidation.data.revisions.map(
+      (revision) => [revision.originClaimId, revision] as const,
+    ),
+  );
+  const revisionsByAdjudicatedId = new Map(
+    consolidation.data.revisions.map(
+      (revision) => [revision.adjudicatedClaimId, revision] as const,
+    ),
+  );
+  const adjudicatedPositions = positions.flatMap((position) => {
+    if (acceptedClaimIds.has(position.claimId)) return [position];
+    const revision = revisionsByOrigin.get(position.claimId);
+    return revision === undefined
+      ? []
+      : [
+          {
+            ...position,
+            claimId: revision.adjudicatedClaimId,
+            publicSummary: revision.publicSummary,
+            evidenceArtifactIds: revision.sourceArtifactIds,
+            falsifier: revision.falsifier,
+          },
+        ];
+  });
+  if (
+    adjudicatedPositions.length !==
+    consolidation.data.acceptedClaimIds.length +
+      consolidation.data.revisedClaimIds.length
+  )
+    return undefined;
+  if (
+    adjudicatedPositions.some(
+      (position) =>
+        position.roleOwner === undefined ||
+        !memberOwnerIds.has(position.roleOwner),
+    )
+  )
+    return undefined;
   const citedSourceIds = [
     ...new Set(positions.flatMap((position) => position.evidenceArtifactIds)),
   ];
@@ -527,6 +691,9 @@ async function buildReport(
   );
   for (const artifact of metricArtifacts)
     if (artifact !== undefined) metricEvidence[artifact[0]] = artifact[1];
+  const peerArtifactRow = rows.find(
+    (candidate) => candidate.logical_key === "evidence:insightsentry:peers",
+  );
   const metricSnapshot = buildResearchMetricSnapshot({
     asOf:
       rows
@@ -534,28 +701,68 @@ async function buildReport(
         .sort()
         .at(-1) ?? new Date().toISOString(),
     ...metricEvidence,
+    ...(metricArtifacts.find((artifact) => artifact?.[0] === "peers") ===
+      undefined || peerArtifactRow === undefined
+      ? {}
+      : {
+          peerEvidenceArtifactId: peerArtifactRow.artifact_id,
+        }),
   });
   const sections = localizedSections(
     departmentId,
     consolidation.data,
-    positions,
+    adjudicatedPositions,
   );
   const strongest = new Set(consolidation.data.strongestClaimIds);
-  const accepted = new Set(consolidation.data.acceptedClaimIds);
-  const claims = positions.map((position) => ({
-    claimId: position.claimId,
-    text: localizedNarrative(position.publicSummary),
-    materiality: strongest.has(position.claimId)
-      ? ("material" as const)
-      : ("supporting" as const),
-    semanticVerdict: accepted.has(position.claimId)
-      ? ("entailed" as const)
-      : ("partial" as const),
-    sourceIds: position.evidenceArtifactIds,
-  }));
+  const dispositionByClaim = new Map(
+    consolidation.data.dispositions.map(
+      (disposition) => [disposition.claimId, disposition] as const,
+    ),
+  );
+  const claims = adjudicatedPositions.map((position) => {
+    const revision = revisionsByAdjudicatedId.get(position.claimId);
+    const disposition = dispositionByClaim.get(
+      revision?.originClaimId ?? position.claimId,
+    );
+    if (position.falsifier === undefined || disposition === undefined)
+      throw new TypeError(
+        "validated adjudicated claim is missing publication metadata",
+      );
+    return {
+      claimId: position.claimId,
+      text: localizedNarrative(position.publicSummary),
+      materiality: strongest.has(position.claimId)
+        ? ("material" as const)
+        : ("supporting" as const),
+      semanticVerdict: acceptedClaimIds.has(position.claimId)
+        ? ("entailed" as const)
+        : ("partial" as const),
+      sourceIds: position.evidenceArtifactIds,
+      checkpoint: localizedNarrative(position.falsifier),
+      disposition:
+        revision === undefined ? ("accepted" as const) : ("revised" as const),
+      ...(revision === undefined
+        ? {}
+        : {
+            originClaimId: revision.originClaimId,
+            revisionHash: revision.revisionHash,
+          }),
+      adjudicationReason: localizedNarrative(disposition.reason),
+    };
+  });
   const dissentClaimIds = new Set(claims.map((claim) => claim.claimId));
   const dissent = consolidation.data.dissent
-    .filter((item) => dissentClaimIds.has(item.claimId))
+    .filter(
+      (item) =>
+        dissentClaimIds.has(item.claimId) &&
+        adjudicatedPositions.every(
+          (position) =>
+            normalizeEditorialText(item.publicSummary.en) !==
+              normalizeEditorialText(position.publicSummary.en) &&
+            normalizeEditorialText(item.publicSummary.ko) !==
+              normalizeEditorialText(position.publicSummary.ko),
+        ),
+    )
     .map((item, index) => ({
       id: `team-dissent-${index + 1}`,
       claimId: item.claimId,
@@ -573,10 +780,30 @@ async function buildReport(
     runId: value.row.run_id,
     snapshotId: value.row.snapshot_id,
   }));
-  const leadPosition = positions.find((position) =>
+  const publishedLeadPosition = adjudicatedPositions.find((position) =>
     strongest.has(position.claimId),
   );
-  const report = ResearchReportSchema.parse({
+  const publishedLeadRevision =
+    publishedLeadPosition === undefined
+      ? undefined
+      : revisionsByAdjudicatedId.get(publishedLeadPosition.claimId);
+  const leadRationale =
+    publishedLeadPosition === undefined
+      ? undefined
+      : dispositionByClaim.get(
+          publishedLeadRevision?.originClaimId ?? publishedLeadPosition.claimId,
+        )?.reason;
+  const leadCounterpoint = publishedLeadPosition?.strongestContraryObservation;
+  if (
+    publishedLeadPosition === undefined ||
+    leadRationale === undefined ||
+    normalizeEditorialText(consolidation.data.publicSummary.en) ===
+      normalizeEditorialText(leadRationale.en) ||
+    normalizeEditorialText(consolidation.data.publicSummary.ko) ===
+      normalizeEditorialText(leadRationale.ko)
+  )
+    return undefined;
+  const legacyReport = ResearchReportSchema.parse({
     schemaVersion: "workflow-v1",
     reportId: ReportIdSchema.parse(randomUUID()),
     versionId: ReportVersionIdSchema.parse(randomUUID()),
@@ -599,10 +826,7 @@ async function buildReport(
           consolidation.data.openQuestions.length > 0
             ? "support_with_reservations"
             : "support",
-        rationale:
-          leadPosition === undefined
-            ? localizedNarrative(consolidation.data.publicSummary)
-            : localizedNarrative(leadPosition.publicSummary),
+        rationale: localizedNarrative(leadCounterpoint ?? leadRationale),
       },
     ],
     artifacts,
@@ -629,8 +853,14 @@ async function buildReport(
         dissent: dissent.map((item) => ({ ...item, text: item.text.en })),
         unknowns: consolidation.data.openQuestions.map((question, index) => ({
           id: `team-unknown-${index + 1}`,
-          impact: narrative(question.en, "en"),
-          nextEvidence: narrative(question.en, "en"),
+          impact: narrative(
+            `The team decision changes if ${question.en}`,
+            "en",
+          ),
+          nextEvidence: narrative(
+            `Next evidence to inspect: ${question.en}`,
+            "en",
+          ),
         })),
       },
       ko: {
@@ -639,15 +869,26 @@ async function buildReport(
         dissent: dissent.map((item) => ({ ...item, text: item.text.ko })),
         unknowns: consolidation.data.openQuestions.map((question, index) => ({
           id: `team-unknown-${index + 1}`,
-          impact: narrative(question.ko, "ko"),
-          nextEvidence: narrative(question.ko, "ko"),
+          impact: narrative(
+            `팀 판단은 다음 조건에서 바뀝니다: ${question.ko}`,
+            "ko",
+          ),
+          nextEvidence: narrative(
+            `다음 근거에서 확인할 항목: ${question.ko}`,
+            "ko",
+          ),
         })),
       },
     },
     versionDelta: {
       priorVersionId: null,
       addedClaimIds: claims.map((claim) => claim.claimId),
-      removedClaimIds: [],
+      removedClaimIds: [
+        ...consolidation.data.removedClaimIds,
+        ...consolidation.data.revisions.map(
+          (revision) => revision.originClaimId,
+        ),
+      ],
     },
     claims,
     sources,
@@ -680,7 +921,234 @@ async function buildReport(
       { id: "focused_team_scope", capability: "cross_team_review" },
     ],
   });
-  return { report, parentRows };
+  const editorialClaims = adjudicatedPositions.map((position) =>
+    AtomicEditorialClaimSchema.parse({
+      claimId: position.claimId,
+      decisionDimension:
+        position.decisionDimension ??
+        (
+          {
+            market: "regime",
+            company: "growth_engine",
+            financial: "margin",
+            risk: "downside_path",
+          } as const
+        )[departmentId],
+      roleOwner: position.roleOwner,
+      stanceContribution:
+        position.stance === "supports"
+          ? "supports"
+          : position.stance === "opposes"
+            ? "opposes"
+            : "uncertain",
+      materiality: strongest.has(position.claimId) ? "material" : "supporting",
+      publicThesis: position.publicSummary,
+      evidenceArtifactIds: position.evidenceArtifactIds,
+      counterevidenceArtifactIds: [],
+      decisiveMetricIds: position.decisiveMetricIds ?? [],
+      falsifier: position.falsifier,
+    }),
+  );
+  const leadClaim = editorialClaims.find((claim) =>
+    strongest.has(claim.claimId),
+  )!;
+  const sourceClasses = sources
+    .filter((source) => leadClaim.evidenceArtifactIds.includes(source.sourceId))
+    .map((source) => source.sourceClass);
+  const decision = {
+    stance:
+      leadClaim.stanceContribution === "supports"
+        ? ("upside_skewed" as const)
+        : leadClaim.stanceContribution === "opposes"
+          ? ("downside_skewed" as const)
+          : ("wait_for_proof" as const),
+    confidence: deriveEditorialConfidence({
+      thesisMateriality: leadClaim.materiality,
+      semanticVerdict:
+        claims.find((claim) => claim.claimId === leadClaim.claimId)
+          ?.semanticVerdict ?? "not_assessable",
+      independentSourceClasses: sourceClasses,
+      authoritativeSourceClasses: sourceClasses,
+      criticalDataFreshness: "unavailable",
+      contradictionSeverity: "none",
+    }),
+    decisiveReason: localizedNarrative(consolidation.data.publicSummary),
+    strongestCountercase:
+      consolidation.data.dissent[0]?.publicSummary ??
+      localizedNarrative(leadRationale),
+    falsifier: leadClaim.falsifier,
+    primaryClaimIds: [leadClaim.claimId],
+  } as const;
+  const anticipated = selectGroundedAnticipatedQuestions({
+    runId,
+    decision,
+    claims: editorialClaims,
+    researchProfile,
+    ...(metricSnapshot === undefined ? {} : { metricSnapshot }),
+    ...(marketSnapshot === undefined ? {} : { marketSnapshot }),
+  });
+  const report = WorkflowV2ResearchReportSchema.parse({
+    ...legacyReport,
+    schemaVersion: "workflow-v2",
+    editorialClaims,
+    editorialDecision: decision,
+    comparators: [],
+    anticipatedQuestions: anticipated.questions,
+  });
+  const checkpointKeys = new Set<string>();
+  const primaryClaimOwners = new Set<string>();
+  // Every public number below comes from an already validated specialist or
+  // department-consolidation field. The publication candidate also surfaces
+  // the strongest contrary observation and adjudication rationale, so their
+  // numeric tokens must remain eligible at the final editorial boundary.
+  // Previously only thesis/falsifier numbers were carried forward, which made
+  // a grounded counterpoint (for example MACD values) abort the whole report.
+  const supportedNumericTexts = [
+    ...editorialClaims.flatMap((claim) => [
+      claim.publicThesis.en,
+      claim.publicThesis.ko,
+      claim.falsifier.en,
+      claim.falsifier.ko,
+    ]),
+    ...adjudicatedPositions.flatMap((position) =>
+      position.strongestContraryObservation === undefined
+        ? []
+        : [
+            position.strongestContraryObservation.en,
+            position.strongestContraryObservation.ko,
+          ],
+    ),
+    consolidation.data.publicSummary.en,
+    consolidation.data.publicSummary.ko,
+    ...consolidation.data.dispositions.flatMap((disposition) => [
+      disposition.reason.en,
+      disposition.reason.ko,
+    ]),
+    ...consolidation.data.openQuestions.flatMap((question) => [
+      question.en,
+      question.ko,
+    ]),
+    ...consolidation.data.dissent.flatMap((item) => [
+      item.publicSummary.en,
+      item.publicSummary.ko,
+    ]),
+  ];
+  const candidate = {
+    position: report.teamViews[0]!.position,
+    rationale: report.teamViews[0]!.rationale,
+    sections: report.locales.en.sections.map((section, index) => {
+      const claim = editorialClaims.find((item) =>
+        section.claimIds.includes(item.claimId),
+      );
+      const key =
+        claim === undefined
+          ? undefined
+          : `${claim.falsifier.en}\u0000${claim.falsifier.ko}`;
+      const owns = key !== undefined && !checkpointKeys.has(key);
+      if (key !== undefined) checkpointKeys.add(key);
+      return {
+        sectionKey: section.id,
+        text: { en: section.body, ko: report.locales.ko.sections[index]!.body },
+        claimIds: section.claimIds.filter((claimId) => {
+          if (primaryClaimOwners.has(claimId)) return false;
+          primaryClaimOwners.add(claimId);
+          return true;
+        }),
+        ...(!owns || claim === undefined
+          ? {}
+          : { checkpoint: claim.falsifier }),
+      };
+    }),
+    comparators: report.comparators,
+    anticipatedQuestions: report.anticipatedQuestions,
+    supportedNumbers: [
+      ...new Set(
+        supportedNumericTexts
+          .flatMap((text) => extractNumericTokens(text))
+          .concat(anticipated.supportedNumbers),
+      ),
+    ],
+    permittedClaimIds: editorialClaims.map((claim) => claim.claimId),
+    permittedEvidenceArtifactIds: [
+      ...new Set(editorialClaims.flatMap((claim) => claim.evidenceArtifactIds)),
+    ],
+    confidence: decision.confidence,
+  } as const;
+  const initialEditorialPublication = {
+    gateVersion: "editorial-quality-v1" as const,
+    qaPolicy: {
+      ...ANTICIPATED_QUESTIONS_POLICY,
+      supportedCount: anticipated.supportedCount,
+      moduleVisible: anticipated.moduleVisible,
+    },
+    candidate,
+  };
+  const gated = await gateWithOneTargetedRewrite(candidate, async (request) =>
+    reserveEditorialQualityRewrite({
+      databasePath,
+      runId,
+      inputHash: hashCanonical(request),
+      now,
+    })
+      ? deterministicMetadataRewrite(candidate, request)
+      : candidate,
+  );
+  if (gated.kind === "rejected") throw new TypeError(gated.reason);
+  const editorialPublication = {
+    ...initialEditorialPublication,
+    qaPolicy: {
+      ...initialEditorialPublication.qaPolicy,
+      supportedCount: gated.candidate.anticipatedQuestions.length,
+      moduleVisible:
+        gated.candidate.anticipatedQuestions.length >=
+        initialEditorialPublication.qaPolicy.moduleMinimum,
+    },
+    candidate: gated.candidate,
+    fieldLineage: gated.fieldLineage,
+  };
+  const retainedSectionKeys = new Set(
+    gated.candidate.sections.map((section) => section.sectionKey),
+  );
+  const gatedSections = new Map(
+    gated.candidate.sections.map((section) => [section.sectionKey, section]),
+  );
+  const gatedLocalizedSections = (locale: "en" | "ko") =>
+    report.locales[locale].sections
+      .filter((section) => retainedSectionKeys.has(section.id))
+      .map((section) => {
+        const gatedSection = gatedSections.get(section.id);
+        return gatedSection === undefined
+          ? section
+          : {
+              ...section,
+              body: gatedSection.text[locale],
+              claimIds: gatedSection.claimIds,
+            };
+      });
+  const finalReport = WorkflowV2ResearchReportSchema.parse({
+    ...report,
+    teamViews: report.teamViews.map((teamView, index) =>
+      index === 0
+        ? {
+            ...teamView,
+            position: gated.candidate.position,
+            rationale: gated.candidate.rationale,
+          }
+        : teamView,
+    ),
+    locales: {
+      en: {
+        ...report.locales.en,
+        sections: gatedLocalizedSections("en"),
+      },
+      ko: {
+        ...report.locales.ko,
+        sections: gatedLocalizedSections("ko"),
+      },
+    },
+    anticipatedQuestions: gated.candidate.anticipatedQuestions,
+  });
+  return { report: finalReport, parentRows, editorialPublication };
 }
 
 export type PublishDepartmentReportResult =
@@ -725,11 +1193,20 @@ export async function publishDepartmentReportForRun(
         FROM artifacts
         LEFT JOIN artifact_citation_metadata USING(artifact_id)
         LEFT JOIN agent_output_commits USING(artifact_id)
-        WHERE artifacts.run_id = ?`)
-      .all(runId)
+        WHERE artifacts.run_id = ?
+          OR (artifacts.snapshot_id = ? AND artifacts.logical_key LIKE 'evidence:%')`)
+      .all(runId, run.data.snapshot_id)
       .map((value) => ArtifactRowSchema.parse(value));
     const publishedAt = options.now?.() ?? new Date().toISOString();
-    const built = await buildReport(options.cas, runId, run.data, rows);
+    const built = await buildReport(
+      options.cas,
+      options.databasePath,
+      publishedAt,
+      runId,
+      run.data,
+      rows,
+      loadDepartmentResearchProfile(database, runId),
+    );
     if (built === undefined)
       return { kind: "incomplete", reason: "department_report_inputs_invalid" };
     const artifactId = ArtifactIdSchema.parse(randomUUID());
@@ -787,7 +1264,7 @@ export async function publishDepartmentReportForRun(
             state, created_at) VALUES (?, ?, ?, 'published', ?)`)
           .run(built.report.reportId, runId, run.data.snapshot_id, publishedAt);
         const publicPayload = {
-          schemaVersion: "workflow-v1",
+          schemaVersion: "workflow-v2",
           reportArtifactDigest: descriptor.digest,
           version: 1,
           priorVersionId: null,
@@ -797,6 +1274,8 @@ export async function publishDepartmentReportForRun(
           limitationIds: built.report.limitations.map(
             (limitation) => limitation.id,
           ),
+          anticipatedQuestions: built.report.anticipatedQuestions!,
+          editorialPublication: built.editorialPublication,
         };
         database
           .prepare(`INSERT INTO report_versions(version_id, report_id, run_id,
@@ -840,7 +1319,7 @@ export async function publishDepartmentReportForRun(
             randomUUID(),
             publishedAt,
             serializeSafeJson({
-              schemaVersion: "workflow-v1",
+              schemaVersion: "workflow-v2",
               reportId: built.report.reportId,
               reportVersionId: built.report.versionId,
               artifactId: descriptor.artifactId,

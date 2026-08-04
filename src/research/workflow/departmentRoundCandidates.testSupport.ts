@@ -6,7 +6,15 @@ const SpecialistPromptSchema = z.object({
   request: z
     .object({
       role: z.object({ id: z.enum(WORKFLOW_V1_SPECIALIST_IDS) }).passthrough(),
-      ids: z.object({ claimId: z.string().uuid() }).passthrough(),
+      claimSlots: z
+        .array(
+          z.object({
+            claimId: z.string().uuid(),
+            decisionDimension: z.string().min(1),
+            materiality: z.enum(["material", "supporting"]),
+          }),
+        )
+        .min(1),
     })
     .passthrough(),
   sourceArtifactIds: z.array(z.string().uuid()).min(1),
@@ -14,6 +22,11 @@ const SpecialistPromptSchema = z.object({
 
 export type DepartmentFault =
   | "none"
+  | "adjudication"
+  | "adjudication_all_departments"
+  | "adjudication_revised_strongest"
+  | "position_rationale_same"
+  | "position_rationale_normalized"
   | "uncited_number"
   | "new_claim"
   | "new_evidence"
@@ -68,7 +81,8 @@ export function specialistCandidate(input: string, fault: DepartmentFault) {
     JSON.parse(input.split("\n", 1)[0] ?? ""),
   );
   const roleId = prompt.request.role.id;
-  const claimId = prompt.request.ids.claimId;
+  const slot = prompt.request.claimSlots[0]!;
+  const claimId = slot.claimId;
   const dissent =
     roleId === "market_news"
       ? [{ claimId, publicSummary: publicText("market dissent") }]
@@ -91,9 +105,15 @@ export function specialistCandidate(input: string, fault: DepartmentFault) {
     positions: [
       {
         claimId,
+        decisionDimension: slot.decisionDimension,
+        roleOwner: roleId,
         stance: roleId === "market_news" ? "opposes" : "supports",
+        materiality: slot.materiality,
         publicSummary,
         evidenceArtifactIds: prompt.sourceArtifactIds,
+        decisiveMetricIds: [],
+        strongestContraryObservation: publicText(`${roleId} contrary`),
+        falsifier: publicText(`${roleId} checkpoint`),
       },
     ],
     dissent,
@@ -148,16 +168,102 @@ export function departmentCandidate(
     weakestClaimIds: [lastClaim],
     revisedClaimIds: [],
     removedClaimIds: [],
+    dispositions: claims.map((claimId) => ({
+      claimId,
+      disposition: "accept" as const,
+      reason: publicText("retain authenticated claim"),
+    })),
+    revisions: [],
     publicSummary:
       faultSummary ??
       request.memberArtifacts[0]?.memo.positions[0]?.publicSummary ??
       publicText(`${request.department.id} consolidation`),
     dissent,
-    openQuestions: request.memberArtifacts.flatMap(
-      (member) => member.memo.unknowns,
-    ),
+    openQuestions: request.memberArtifacts
+      .flatMap((member) => member.memo.unknowns)
+      .slice(0, 2),
     evidencePriorityArtifactIds,
   };
+  if (
+    (request.department.id === "market" && fault === "adjudication") ||
+    fault === "adjudication_all_departments" ||
+    (request.department.id === "market" &&
+      fault === "adjudication_revised_strongest")
+  ) {
+    const accepted = claims[0]!;
+    const revised = claims[1]!;
+    const removed = claims[2];
+    const revisedPosition = request.memberArtifacts
+      .flatMap((member) => member.memo.positions)
+      .find((position) => position.claimId === revised)!;
+    return {
+      ...base,
+      agreementClaimIds: [accepted, revised],
+      disagreementClaimIds: removed === undefined ? [] : [removed],
+      acceptedClaimIds: [accepted],
+      revisedClaimIds: [revised],
+      removedClaimIds: removed === undefined ? [] : [removed],
+      strongestClaimIds:
+        fault === "adjudication_revised_strongest" ? [revised] : [accepted],
+      weakestClaimIds:
+        fault === "adjudication_revised_strongest" ? [accepted] : [revised],
+      dispositions: [
+        {
+          claimId: accepted,
+          disposition: "accept" as const,
+          reason: publicText("direct evidence supports retention"),
+        },
+        {
+          claimId: revised,
+          disposition: "revise" as const,
+          reason: publicText("the news claim needs narrower wording"),
+        },
+        ...(removed === undefined
+          ? []
+          : [
+              {
+                claimId: removed,
+                disposition: "remove" as const,
+                reason: publicText(
+                  "the comparison does not change the decision",
+                ),
+              },
+            ]),
+      ],
+      revisions: [
+        {
+          originClaimId: revised,
+          adjudicatedClaimId: revised,
+          publicSummary: publicText("revised news context"),
+          falsifier: publicText("news context checkpoint"),
+          revisionHash: "0".repeat(64),
+          reason: publicText("the news claim needs narrower wording"),
+          sourceArtifactIds: revisedPosition.evidenceArtifactIds,
+        },
+      ],
+      publicSummary: publicText("lead decision preserves only supported market claims"),
+      openQuestions: base.openQuestions.slice(0, 2),
+    };
+  }
+  if (
+    request.department.id === "market" &&
+    fault === "position_rationale_same"
+  )
+    return {
+      ...base,
+      publicSummary: base.dispositions[0]!.reason,
+    };
+  if (
+    request.department.id === "market" &&
+    fault === "position_rationale_normalized"
+  )
+    return {
+      ...base,
+      publicSummary: {
+        en: `  ${base.dispositions[0]!.reason.en.toUpperCase()}!!!  `,
+        ko: `  ${base.dispositions[0]!.reason.ko.normalize("NFD")}!!!  `,
+      },
+    };
   if (request.department.id !== "financial") return base;
   if (fault === "new_claim")
     return {

@@ -31,6 +31,24 @@ export function registerProcessTests(): void {
       expect(Buffer.concat(result.stdout).toString()).toBe("ok");
     });
 
+    it("reports a process signal without persisting process output", async () => {
+      // When
+      const result = await executeSpawn({
+        ...BASE_INVOCATION,
+        argv: ["-e", "process.kill(process.pid, 'SIGTERM')"],
+        stdin: "",
+      });
+
+      // Then
+      expect(result).toMatchObject({
+        exitCode: -1,
+        signal: "SIGTERM",
+        stdoutBytes: 0,
+        stderrBytes: 0,
+      });
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
     it("terminates the process group on timeout", async () => {
       // Given
       const invocation = {

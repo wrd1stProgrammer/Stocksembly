@@ -12,14 +12,18 @@ import {
   DepartmentReportArtifactProvenanceSchema,
 } from "./reportArtifactProvenance";
 import {
+  AtomicEditorialClaimSchema,
   CapabilitySummarySchema,
   ClaimRegisterEntrySchema,
+  ComparatorSchema,
   DataCoverageSchema,
   LimitationSchema,
   LocalizedReportSchema,
+  PersistedQuestionAnswerSchema,
   ProviderDisagreementSchema,
   SourceRegisterEntrySchema,
   StructuralMetricSchema,
+  TeamEditorialDecisionSchema,
   VersionDeltaSchema,
 } from "./reportComponents";
 import { PublicationStatusSchema } from "./reportText";
@@ -112,9 +116,9 @@ function dissentSignatures(
     .sort();
 }
 
-export const ResearchReportSchema = z
+const VersionedResearchReportContractSchema = z
   .object({
-    schemaVersion: z.literal("workflow-v1"),
+    schemaVersion: z.enum(["workflow-v1", "workflow-v2"]),
     reportId: ReportIdSchema,
     versionId: ReportVersionIdSchema,
     version: z.number().int().positive(),
@@ -154,9 +158,101 @@ export const ResearchReportSchema = z
     providerDisagreements: z.array(ProviderDisagreementSchema),
     metrics: z.array(StructuralMetricSchema).min(1),
     limitations: z.array(LimitationSchema),
+    editorialClaims: z.array(AtomicEditorialClaimSchema).max(64).optional(),
+    editorialDecision: TeamEditorialDecisionSchema.optional(),
+    comparators: z.array(ComparatorSchema).max(64).optional(),
+    anticipatedQuestions: z.array(PersistedQuestionAnswerSchema).max(32).optional(),
   })
   .strict()
   .superRefine((report, context) => {
+    if (
+      report.schemaVersion === "workflow-v1" &&
+      [
+        report.editorialClaims,
+        report.editorialDecision,
+        report.comparators,
+        report.anticipatedQuestions,
+      ].some((value) => value !== undefined)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["schemaVersion"],
+        message: "workflow-v1 cannot contain workflow-v2 editorial fields",
+      });
+    if (report.schemaVersion === "workflow-v2") {
+      for (const field of [
+        "editorialClaims",
+        "editorialDecision",
+        "comparators",
+        "anticipatedQuestions",
+      ] as const)
+        if (report[field] === undefined)
+          context.addIssue({
+            code: "custom",
+            path: [field],
+            message: `workflow-v2 requires ${field}`,
+          });
+      const editorialClaimIds = new Set(
+        report.editorialClaims?.map((claim) => claim.claimId) ?? [],
+      );
+      const registeredClaimIds = new Set(report.claims.map((claim) => claim.claimId));
+      if (editorialClaimIds.size !== (report.editorialClaims?.length ?? 0))
+        context.addIssue({
+          code: "custom",
+          path: ["editorialClaims"],
+          message: "duplicate editorial claim ownership",
+        });
+      const artifactIds = new Set([
+        ...report.artifacts.map((artifact) => artifact.artifactId),
+        ...report.sources.map((source) => source.sourceId),
+      ]);
+      for (const claim of report.editorialClaims ?? [])
+        if (!registeredClaimIds.has(claim.claimId))
+          context.addIssue({
+            code: "custom",
+            path: ["editorialClaims"],
+            message: "editorial claim is absent from the provenance register",
+          });
+        else if (
+          [...claim.evidenceArtifactIds, ...claim.counterevidenceArtifactIds].some(
+            (artifactId) => !artifactIds.has(artifactId),
+          )
+        )
+          context.addIssue({
+            code: "custom",
+            path: ["editorialClaims"],
+            message: "editorial claim cites an unknown evidence artifact",
+          });
+      for (const claimId of report.editorialDecision?.primaryClaimIds ?? [])
+        if (!editorialClaimIds.has(claimId))
+          context.addIssue({
+            code: "custom",
+            path: ["editorialDecision", "primaryClaimIds"],
+            message: "editorial decision cites an unknown claim",
+          });
+      for (const question of report.anticipatedQuestions ?? []) {
+        for (const claimId of question.primaryClaimIds)
+          if (!editorialClaimIds.has(claimId))
+            context.addIssue({
+              code: "custom",
+              path: ["anticipatedQuestions"],
+              message: "anticipated Q&A cites an unknown claim",
+            });
+        if (question.evidenceArtifactIds.some((artifactId) => !artifactIds.has(artifactId)))
+          context.addIssue({
+            code: "custom",
+            path: ["anticipatedQuestions"],
+            message: "anticipated Q&A cites unknown evidence",
+          });
+      }
+      const ranks = report.anticipatedQuestions?.map((question) => question.rank) ?? [];
+      if (new Set(ranks).size !== ranks.length)
+        context.addIssue({
+          code: "custom",
+          path: ["anticipatedQuestions"],
+          message: "anticipated Q&A ranks must be unique",
+        });
+    }
     for (const key of ["sections", "scenarios"] as const)
       if (
         JSON.stringify(citationSignatures(report.locales.en[key])) !==
@@ -320,4 +416,29 @@ export const ResearchReportSchema = z
           });
       }
   });
-export type ResearchReport = z.infer<typeof ResearchReportSchema>;
+
+type VersionedResearchReport = z.infer<typeof VersionedResearchReportContractSchema>;
+export type ResearchReport = VersionedResearchReport & {
+  readonly schemaVersion: "workflow-v1";
+};
+export type WorkflowV2ResearchReport = VersionedResearchReport & {
+  readonly schemaVersion: "workflow-v2";
+  readonly editorialClaims: NonNullable<VersionedResearchReport["editorialClaims"]>;
+  readonly editorialDecision: NonNullable<VersionedResearchReport["editorialDecision"]>;
+  readonly comparators: NonNullable<VersionedResearchReport["comparators"]>;
+  readonly anticipatedQuestions: NonNullable<VersionedResearchReport["anticipatedQuestions"]>;
+};
+
+export const ResearchReportSchema = VersionedResearchReportContractSchema
+  .refine((report) => report.schemaVersion === "workflow-v1", {
+    path: ["schemaVersion"],
+    message: "legacy schema requires workflow-v1",
+  })
+  .transform((report) => report as ResearchReport);
+
+export const WorkflowV2ResearchReportSchema = VersionedResearchReportContractSchema
+  .refine((report) => report.schemaVersion === "workflow-v2", {
+    path: ["schemaVersion"],
+    message: "editorial schema requires workflow-v2",
+  })
+  .transform((report) => report as WorkflowV2ResearchReport);

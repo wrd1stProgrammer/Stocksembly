@@ -100,7 +100,7 @@ describe("defaultResearchQuestion", () => {
 });
 
 describe("InsightSentry initial workflow collection", () => {
-  it("uses cache/skip behavior to keep a successful cold run at ten calls and a repeat within five to eight", async () => {
+  it("uses cache/skip behavior to keep a successful cold run bounded and reduce repeat calls", async () => {
     // Given
     const root = await mkdtemp(join(tmpdir(), "insightsentry-success-"));
     const adapter: InsightSentryWireAdapter = async (request) => {
@@ -149,8 +149,12 @@ describe("InsightSentry initial workflow collection", () => {
         );
       if (path.endsWith("/series")) {
         const interval = Number(request.url.searchParams.get("bar_interval"));
-        const series = Array.from({ length: 40 }, (_, index) => ({
-          time: 1_753_000_000 + index * interval * 3_600,
+        const daily = request.url.searchParams.get("bar_type") === "day";
+        const providerCode = path.includes("NASDAQ:MSFT")
+          ? "NASDAQ:MSFT"
+          : "NASDAQ:NVDA";
+        const series = Array.from({ length: daily ? 300 : 40 }, (_, index) => ({
+          time: 1_727_000_000 + index * interval * (daily ? 86_400 : 3_600),
           open: 150 + index * 0.5,
           high: 151 + index * 0.5,
           low: 149 + index * 0.5,
@@ -160,14 +164,50 @@ describe("InsightSentry initial workflow collection", () => {
         return wireResponse(
           200,
           JSON.stringify({
-            code: "NASDAQ:NVDA",
+            code: providerCode,
             last_update: 1_753_348_800_000,
             _ct: 1_753_348_800_000,
-            bar_type: `${interval}h`,
+            bar_type: daily ? "day" : `${interval}h`,
             series,
           }),
         );
       }
+      if (path.endsWith("/screeners/stock"))
+        return wireResponse(
+          200,
+          JSON.stringify({
+            hasNext: false,
+            current_page: 1,
+            total_page: 1,
+            current_items: 2,
+            data: [
+              {
+                symbol_code: "NASDAQ:NVDA",
+                name: "NVIDIA Corporation",
+                sector: "Electronic Technology",
+                market_cap: 4_000,
+                price_earnings_ttm: 35,
+                enterprise_value_ebitda_ttm: 28,
+                enterprise_value_to_revenue_ttm: 22,
+                total_revenue_yoy_growth_ttm: 55,
+                gross_margin_ttm: 72,
+                operating_margin_ttm: 61,
+              },
+              {
+                symbol_code: "NASDAQ:MSFT",
+                name: "Microsoft Corporation",
+                sector: "Electronic Technology",
+                market_cap: 3_000,
+                price_earnings_ttm: 31,
+                enterprise_value_ebitda_ttm: 24,
+                enterprise_value_to_revenue_ttm: 12,
+                total_revenue_yoy_growth_ttm: 18,
+                gross_margin_ttm: 69,
+                operating_margin_ttm: 46,
+              },
+            ],
+          }),
+        );
       if (path.endsWith("/fundamentals"))
         return wireResponse(
           200,
@@ -231,6 +271,11 @@ describe("InsightSentry initial workflow collection", () => {
       },
       configuration: PROVIDER_CONFIGURATION,
       adapter,
+      peerProfile: {
+        annualAccessionNumber: "0001045810-26-000001",
+        annualText: "NVIDIA competes with Microsoft in accelerated computing.",
+      },
+      requestedComparisonSymbols: ["MSFT"],
     } as const;
 
     // When
@@ -246,9 +291,12 @@ describe("InsightSentry initial workflow collection", () => {
     });
 
     // Then
-    expect(cold.requestLedger.uniqueUpstreamCalls).toBe(10);
+    expect(cold.requestLedger.uniqueUpstreamCalls).toBe(15);
     expect(warm.requestLedger.uniqueUpstreamCalls).toBeGreaterThanOrEqual(5);
     expect(warm.requestLedger.uniqueUpstreamCalls).toBeLessThanOrEqual(8);
+    expect(
+      warm.requestLedger.entries.some((entry) => entry.url.includes("MSFT")),
+    ).toBe(false);
     expect(cold.evidence).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ dataset: "market_bars" }),
@@ -286,6 +334,21 @@ describe("InsightSentry initial workflow collection", () => {
     expect(decoded.analysis.timeframeAgreement).toMatch(
       /^(?:agrees_bullish|agrees_bearish|disagrees)$/u,
     );
+    const peers = cold.sources.find(
+      (source) => source.evidenceId === "insightsentry:peers",
+    );
+    if (peers === undefined) throw new TypeError("peer source fixture missing");
+    const peerData = JSON.parse(new TextDecoder().decode(peers.bytes));
+    expect(peerData.subject).toMatchObject({
+      symbol: "NASDAQ:NVDA",
+      performance3Month: expect.any(Number),
+      performance1Year: expect.any(Number),
+    });
+    expect(peerData.peers[0]).toMatchObject({
+      symbol: "NASDAQ:MSFT",
+      performance3Month: expect.any(Number),
+      performance1Year: expect.any(Number),
+    });
     await rm(root, { recursive: true, force: true });
   });
 

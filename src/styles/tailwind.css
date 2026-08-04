@@ -1,0 +1,7 @@
+@layer theme, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Keep Stocksembly's existing global reset. Tailwind is used for installed UI
+   components without applying its preflight to the rest of the product. */

@@ -15,7 +15,32 @@ type Props = {
   readonly theme: "light" | "dark";
   readonly onThemeChange: (theme: "light" | "dark") => void;
   readonly titleRef: RefObject<HTMLHeadingElement | null>;
+  readonly decisionCockpit?: boolean;
+  readonly surfaceNavigation?: readonly {
+    readonly href: `#${string}`;
+    readonly label: Readonly<Record<Locale, string>>;
+  }[];
 };
+
+const PUBLIC_STANCE_LABELS = {
+  upside_skewed: { en: "Upside case leads", ko: "상방 논지 우세" },
+  wait_for_proof: { en: "Wait for proof", ko: "추가 확인 필요" },
+  downside_skewed: { en: "Downside case leads", ko: "하방 논지 우세" },
+} as const;
+
+function publicConclusionLabel(
+  model: ResearchFileEditorialModel,
+  locale: Locale,
+): string {
+  const stance = model.structuredDecision?.stance;
+  if (stance !== undefined) return PUBLIC_STANCE_LABELS[stance][locale];
+  if (model.conclusionLabel in PUBLIC_STANCE_LABELS) {
+    return PUBLIC_STANCE_LABELS[
+      model.conclusionLabel as keyof typeof PUBLIC_STANCE_LABELS
+    ][locale];
+  }
+  return model.conclusionLabel;
+}
 
 export function ResearchFileHeader({
   company,
@@ -26,6 +51,8 @@ export function ResearchFileHeader({
   theme,
   onThemeChange,
   titleRef,
+  decisionCockpit = false,
+  surfaceNavigation,
 }: Props) {
   const ko = locale === "ko";
   const departmentId =
@@ -59,7 +86,10 @@ export function ResearchFileHeader({
         }[departmentId];
   return (
     <>
-      <header className="research-editorial-cover" data-report-section="cover">
+      <header
+        className={`research-editorial-cover${decisionCockpit ? " research-editorial-cover--committee" : ""}`}
+        data-report-section="cover"
+      >
         <div className="research-editorial-cover__utility">
           <div>
             <strong>{company.symbol}</strong>
@@ -102,86 +132,96 @@ export function ResearchFileHeader({
           <h1 id="research-file-title" ref={titleRef} tabIndex={-1}>
             {model.question}
           </h1>
-          <div className="research-conclusion-hero">
-            <div>
-              <span>
-                {teamName === undefined
-                  ? ko
-                    ? "팀 결론 지수"
-                    : "Team conclusion index"
-                  : ko
-                    ? `${teamName} 근거 확신도`
-                    : `${teamName} evidence confidence`}
-              </span>
-              <p>
-                <strong>{model.conclusionIndex}</strong>
-                <small>/ 100</small>
-              </p>
-              <small>
-                {teamName === undefined
-                  ? ko
-                    ? `팀 판단 40% · 주장 근거 35% · 최종 판단 25% · 근거 신뢰도 ${model.evidenceReliability}%`
-                    : `Team votes 40% · claim evidence 35% · final posture 25% · evidence confidence ${model.evidenceReliability}%`
-                  : ko
-                    ? `팀 합의 50% · 주장 근거 50% · 교차팀 검토 제외 · 근거 신뢰도 ${model.evidenceReliability}%`
-                    : `Team agreement 50% · claim evidence 50% · cross-team review excluded · evidence confidence ${model.evidenceReliability}%`}
-              </small>
+          {decisionCockpit ? null : (
+            <div className="research-team-verdict">
+              <div>
+                <span>
+                  {teamName === undefined
+                    ? ko
+                      ? "최종 판단"
+                      : "Final view"
+                    : ko
+                      ? `${teamName} 결론`
+                      : `${teamName} conclusion`}
+                </span>
+                <h2>{model.directAnswer}</h2>
+              </div>
+              <dl>
+                <div>
+                  <dt>{ko ? "판단" : "Posture"}</dt>
+                  <dd>{publicConclusionLabel(model, locale)}</dd>
+                </div>
+                <div>
+                  <dt>{ko ? "팀 확신도" : "Team confidence"}</dt>
+                  <dd>{model.conclusionIndex}/100</dd>
+                </div>
+                <div>
+                  <dt>{ko ? "근거 신뢰도" : "Evidence reliability"}</dt>
+                  <dd>{model.evidenceReliability}%</dd>
+                </div>
+              </dl>
             </div>
-            <strong>{model.conclusionLabel}</strong>
-          </div>
-          <div className="research-editorial-cover__answer">
-            <span>{ko ? "직접 답변" : "Direct answer"}</span>
-            <p>{model.directAnswer}</p>
-            <strong>{model.conclusionLabel}</strong>
-          </div>
+          )}
         </div>
-        <dl className="research-editorial-cover__metrics">
-          {model.headlineMetrics.map((metric) => (
-            <div key={metric.label}>
-              <dt>{metric.label}</dt>
-              <dd>{metric.value}</dd>
-            </div>
-          ))}
-        </dl>
+        {decisionCockpit ? null : (
+          <dl className="research-editorial-cover__metrics">
+            {model.headlineMetrics.map((metric) => (
+              <div key={metric.label}>
+                <dt>{metric.label}</dt>
+                <dd>{metric.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </header>
       <nav
         className="research-editorial-index"
         aria-label={ko ? "리서치 파일 섹션" : "Research file sections"}
       >
-        {file.comparison === undefined ? null : (
-          <a href="#research-changes">{ko ? "변경점" : "Changes"}</a>
-        )}
-        <a href="#decision-brief">
-          {departmentNavigation !== undefined
-            ? departmentNavigation.decision
-            : teamName === undefined
-              ? ko
-                ? "판단 요약"
-                : "Decision"
-              : ko
-                ? "팀 결론"
-                : "Team view"}
-        </a>
-        {file.researchTarget?.kind === "department" ? null : (
-          <a href="#evidence-analysis">{ko ? "핵심 근거" : "Evidence"}</a>
-        )}
-        <a href="#decision-scenarios">
-          {departmentNavigation?.scenarios ??
-            (ko ? "비교·밸류에이션" : "Valuation")}
-        </a>
-        <a href="#team-debate">
-          {teamName === undefined
-            ? ko
-              ? "팀 토론·판정"
-              : "Debate"
-            : ko
-              ? "합의·이견"
-              : "Agreement"}
-        </a>
-        {(file.anticipatedQuestions?.length ?? 0) === 0 ? null : (
-          <a href="#research-anticipated-qa">
-            {ko ? "예상 Q&A" : "Investor Q&A"}
-          </a>
+        {surfaceNavigation === undefined ? (
+          <>
+            {file.comparison === undefined ? null : (
+              <a href="#research-changes">{ko ? "변경점" : "Changes"}</a>
+            )}
+            <a href="#decision-brief">
+              {departmentNavigation !== undefined
+                ? departmentNavigation.decision
+                : teamName === undefined
+                  ? ko
+                    ? "판단 요약"
+                    : "Decision"
+                  : ko
+                    ? "팀 결론"
+                    : "Team view"}
+            </a>
+            {file.researchTarget?.kind === "department" ? null : (
+              <a href="#evidence-analysis">{ko ? "핵심 근거" : "Evidence"}</a>
+            )}
+            <a href="#decision-scenarios">
+              {departmentNavigation?.scenarios ??
+                (ko ? "비교·밸류에이션" : "Valuation")}
+            </a>
+            <a href="#team-debate">
+              {teamName === undefined
+                ? ko
+                  ? "팀 토론·판정"
+                  : "Debate"
+                : ko
+                  ? "합의·이견"
+                  : "Agreement"}
+            </a>
+            {(file.anticipatedQuestions?.length ?? 0) === 0 ? null : (
+              <a href="#research-anticipated-qa">
+                {ko ? "예상 Q&A" : "Investor Q&A"}
+              </a>
+            )}
+          </>
+        ) : (
+          surfaceNavigation.map((item) => (
+            <a key={item.href} href={item.href}>
+              {item.label[locale]}
+            </a>
+          ))
         )}
       </nav>
     </>

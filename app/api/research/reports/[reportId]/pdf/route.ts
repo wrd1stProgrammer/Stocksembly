@@ -1,4 +1,4 @@
-import { ResearchReportSchema } from "@/src/research/domain/report";
+import { parseStoredResearchReportVersioned } from "@/src/research/domain/reportStorage";
 import { renderResearchReportPdf } from "@/src/research/pdf/researchReportPdf";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
@@ -27,12 +27,15 @@ export async function GET(
   );
   if (!reportResponse.ok) return reportResponse;
   const reportBody: unknown = await reportResponse.json();
-  const parsed = ResearchReportSchema.safeParse(nested(reportBody, "report"));
-  if (!parsed.success)
+  let report;
+  try {
+    report = parseStoredResearchReportVersioned(nested(reportBody, "report"));
+  } catch {
     return Response.json({ error: "REPORT_INVALID" }, { status: 500 });
+  }
 
   const runUrl = new URL(
-    `/api/research/runs/${parsed.data.runId}`,
+    `/api/research/runs/${report.runId}`,
     request.url,
   );
   const runResponse = await api.handle(
@@ -50,7 +53,7 @@ export async function GET(
       ? createdAtValue
       : new Date().toISOString();
   const bytes = await renderResearchReportPdf({
-    report: parsed.data,
+    report,
     symbol,
     locale,
     createdAt,
@@ -58,7 +61,7 @@ export async function GET(
   return new Response(new Uint8Array(bytes), {
     headers: {
       "cache-control": "private, no-store",
-      "content-disposition": `attachment; filename="${symbol}-research-file-v${parsed.data.version}.pdf"`,
+      "content-disposition": `attachment; filename="${symbol}-research-file-v${report.version}.pdf"`,
       "content-type": "application/pdf",
     },
   });

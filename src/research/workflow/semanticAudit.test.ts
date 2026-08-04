@@ -8,7 +8,11 @@ import { makePersistableStructuralInput } from "../application/structuralAuditPe
 import { StructuralAuditArtifactEnvelopeSchema } from "../application/structuralAuditPersistenceContracts";
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, QuestionIdSchema, RunIdSchema } from "../domain/ids";
-import { ArtifactDigestSchema } from "../ports/artifacts";
+import {
+  type ArtifactCasPort,
+  type ArtifactDigest,
+  ArtifactDigestSchema,
+} from "../ports/artifacts";
 import { sha256Value } from "../server/codex/codexArtifacts";
 import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import type {
@@ -33,6 +37,34 @@ import { persistStructuralAudit } from "./structuralAuditPersistence";
 import { authenticatedWorkflowRetentionRegister } from "./structuralAuditWorkflowRegister";
 
 const roots: string[] = [];
+
+class EvidenceDescriptorAliasingCas implements ArtifactCasPort {
+  constructor(
+    private readonly delegate: ArtifactCasPort,
+    private readonly structuralDigest: ArtifactDigest,
+  ) {}
+
+  put: ArtifactCasPort["put"] = async (artifact) =>
+    await this.delegate.put(artifact);
+
+  async get(digest: ArtifactDigest) {
+    const read = await this.delegate.get(digest);
+    if (read === undefined || digest === this.structuralDigest) return read;
+    return {
+      bytes: read.bytes,
+      descriptor: {
+        ...read.descriptor,
+        artifactId: ArtifactIdSchema.parse(
+          "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        ),
+        runId: RunIdSchema.parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+      },
+    };
+  }
+
+  has: ArtifactCasPort["has"] = async (digest) =>
+    (await this.get(digest)) !== undefined;
+}
 
 class SemanticCodexFake extends FollowupResponseCodexFake {
   semanticLaunches = 0;
@@ -247,9 +279,14 @@ async function preparedRound(
   if (retention === undefined)
     throw new TypeError("workflow retention fixture is invalid");
   const baseStructuralInput = makePersistableStructuralInput(prepared.harness);
+  const structuralClaimIds = new Set(
+    baseStructuralInput.claims.map((candidate) => candidate.claim.claimId),
+  );
   const structuralInput = {
     ...baseStructuralInput,
-    retainedDissentClaimIds: retention.dissentClaimIds,
+    retainedDissentClaimIds: retention.dissentClaimIds.filter((claimId) =>
+      structuralClaimIds.has(claimId),
+    ),
     retainedOpenQuestionIds: retention.openQuestions.map(
       (question) => question.questionId,
     ),
@@ -405,12 +442,33 @@ describe("schema-bound semantic evidence verifier", () => {
     expect(staged).toEqual({ kind: "staged" });
   });
 
+  it("stages valid evidence when the content-addressed store aliases descriptor metadata", async () => {
+    const { prepared, structuralAudit, questionIds } = await preparedRound();
+    const cas = new EvidenceDescriptorAliasingCas(
+      prepared.harness.cas,
+      ArtifactDigestSchema.parse(structuralAudit.structuralAuditContentHash),
+    );
+    const audit = createSqliteSemanticAudit({ ...prepared.options, cas });
+
+    const staged = await stageAudit(
+      audit,
+      RunIdSchema.parse(prepared.harness.input.mandate.runId),
+      structuralAudit.structuralAuditArtifactId,
+      questionIds,
+    );
+    await audit.close();
+
+    expect(staged).toEqual({ kind: "staged" });
+  });
+
   it("commits exactly one non-character artifact and freezes semantic dispositions", async () => {
     // Given
-    const { codex, prepared, structuralAudit, questionIds } =
+    const { codex, prepared, structuralAudit, envelope, questionIds } =
       await preparedRound();
     const audit = createSqliteSemanticAudit(prepared.options);
-    const claimId = "00000000-0000-4000-8000-000000000904";
+    const claimId = envelope.result.claims[0]?.claimId;
+    if (claimId === undefined)
+      throw new TypeError("semantic fixture requires one structural claim");
 
     // When
     const staged = await stageAudit(

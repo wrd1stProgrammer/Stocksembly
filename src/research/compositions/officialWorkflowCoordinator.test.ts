@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { semanticAuditCoordinatorAction } from "./officialWorkflowCoordinator";
+import {
+  semanticAuditCoordinatorAction,
+  workflowFailureCode,
+} from "./officialWorkflowCoordinator";
 
 describe("official workflow coordinator", () => {
   it("continues after an accepted publishable semantic audit", () => {
@@ -33,5 +36,14 @@ describe("official workflow coordinator", () => {
         publishable: false,
       }),
     ).toBe("terminalize");
+  });
+
+  it("preserves a stable editorial terminal code without generic retry exhaustion", () => {
+    expect(
+      workflowFailureCode(
+        "report_publication",
+        "editorial_quality_failed:unsupported_number",
+      ),
+    ).toBe("editorial_quality_failed:unsupported_number");
   });
 });

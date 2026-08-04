@@ -38,6 +38,21 @@ const SpecialistJobSchema = z
             limitations: z.array(
               z.object({ kind: z.string(), detail: z.string() }).strict(),
             ),
+            researchProfile: z
+              .object({
+                investmentHorizon: z.enum(["short", "medium", "long"]),
+                counterargumentIntensity: z.enum(["standard", "strong"]),
+                analysisDepth: z.enum(["core", "standard", "deep"]),
+                decisionPurpose: z.enum([
+                  "new_entry",
+                  "holding_review",
+                  "position_sizing",
+                  "earnings",
+                ]),
+                comparisonSymbols: z.array(z.string()).max(5),
+              })
+              .strict()
+              .optional(),
           })
           .strict(),
       })

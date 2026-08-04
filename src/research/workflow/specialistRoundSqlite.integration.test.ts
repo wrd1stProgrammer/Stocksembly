@@ -5,7 +5,9 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { createOfficialSpecialistRound } from "../compositions/officialWorker";
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
+import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
+import { codexInputHash } from "../server/codex/codexReservation";
 import { createLeaseEngine } from "../worker/leaseEngine";
 import {
   createRuntimeAttemptHandler,
@@ -15,8 +17,10 @@ import {
 import { createSqliteSpecialistRound } from "./specialistRoundSqlite";
 import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
 import { prepareSpecialistJobs } from "./specialistRoundSqliteStage";
+import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 
 const temporaryRoots: string[] = [];
+const specialistCount = WORKFLOW_V1_SPECIALIST_IDS.length;
 
 afterEach(() => {
   while (temporaryRoots.length > 0) {
@@ -116,7 +120,7 @@ describe("official SQLite specialist round", () => {
     ).toBe(true);
   });
 
-  it("durably commits ten isolated memos with global concurrency three and replays after restart", async () => {
+  it("durably commits every isolated specialist memo with global concurrency three and replays after restart", async () => {
     // Given
     const root = mkdtempSync(join(tmpdir(), "specialist-round-sqlite-"));
     temporaryRoots.push(root);
@@ -141,23 +145,24 @@ describe("official SQLite specialist round", () => {
 
     // Then
     expect(completed.receipts.map((receipt) => receipt.outcome)).toEqual(
-      Array.from({ length: 10 }, () => "accepted"),
+      Array.from({ length: specialistCount }, () => "accepted"),
     );
-    expect(completed.artifactIds).toHaveLength(10);
+    expect(completed.artifactIds).toHaveLength(specialistCount);
     expect(completed.departmentStartAllowed).toBe(true);
-    expect(completed.receipts).toHaveLength(10);
-    expect(completed.receipts.map((receipt) => receipt.ordinal)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-    ]);
+    expect(completed.receipts).toHaveLength(specialistCount);
+    expect(completed.receipts.map((receipt) => receipt.ordinal)).toEqual(
+      Array.from({ length: specialistCount }, (_, index) => index + 1),
+    );
     expect(
       completed.receipts.every((receipt) => receipt.evidenceRecorded),
     ).toBe(true);
     expect(
       new Set(completed.receipts.map((receipt) => receipt.attemptId)).size,
-    ).toBe(10);
-    expect(new Set(completed.artifactIds).size).toBe(10);
-    expect(completed.eventSequences).toHaveLength(10);
-    expect(harness.codex.maximumActive).toBe(3);
+    ).toBe(specialistCount);
+    expect(new Set(completed.artifactIds).size).toBe(specialistCount);
+    expect(completed.eventSequences).toHaveLength(specialistCount);
+    expect(harness.codex.maximumActive).toBeGreaterThan(1);
+    expect(harness.codex.maximumActive).toBeLessThanOrEqual(3);
     expect(replay).toEqual(completed);
   });
 
@@ -194,15 +199,15 @@ describe("official SQLite specialist round", () => {
     await alwaysRound.close();
 
     // Then
-    expect(recovered.receipts).toHaveLength(11);
+    expect(recovered.receipts).toHaveLength(specialistCount + 1);
     expect(recovered.receipts.at(-1)?.outcome).toBe("accepted");
-    expect(recovered.artifactIds).toHaveLength(10);
+    expect(recovered.artifactIds).toHaveLength(specialistCount);
     expect(recovered.departmentStartAllowed).toBe(true);
-    expect(recovered.receipts.at(-1)?.ordinal).toBe(11);
-    expect(recovered.artifactIds).toHaveLength(10);
+    expect(recovered.receipts.at(-1)?.ordinal).toBe(specialistCount + 1);
+    expect(recovered.artifactIds).toHaveLength(specialistCount);
     expect(incomplete.departmentStartAllowed).toBe(false);
-    expect(incomplete.receipts).toHaveLength(11);
-    expect(incomplete.artifactIds).toHaveLength(9);
+    expect(incomplete.receipts).toHaveLength(specialistCount + 1);
+    expect(incomplete.artifactIds).toHaveLength(specialistCount - 1);
   });
 
   it("corrects an invented citation with the durable replacement attempt", async () => {
@@ -210,8 +215,9 @@ describe("official SQLite specialist round", () => {
     const root = mkdtempSync(join(tmpdir(), "specialist-citation-retry-"));
     temporaryRoots.push(root);
     const harness = await makeSqliteRoundHarness("citation_once");
+    const databasePath = join(root, "research.sqlite");
     const round = createSqliteSpecialistRound({
-      databasePath: join(root, "research.sqlite"),
+      databasePath,
       attemptRoot: join(root, "attempts"),
       ownerId: "worker-citation-retry",
       cas: harness.cas,
@@ -226,13 +232,38 @@ describe("official SQLite specialist round", () => {
 
     // Then
     expect(result.departmentStartAllowed).toBe(true);
-    expect(result.artifactIds).toHaveLength(10);
-    expect(result.receipts).toHaveLength(11);
+    expect(result.artifactIds).toHaveLength(specialistCount);
+    expect(result.receipts).toHaveLength(specialistCount + 1);
     const correctivePrompt = harness.codex.prompts.find((prompt) =>
       prompt.includes("CORRECTIVE RETRY — INVALID CITATION IDS"),
     );
     expect(correctivePrompt).toContain("00000000-0000-4000-8000-000000000999");
     expect(correctivePrompt).toContain(harness.sources[0]?.artifactId);
+    const database = new Database(databasePath, { readonly: true });
+    const replacement = database
+      .prepare(`SELECT attempts.input_hash AS attemptInputHash,
+        research_call_ordinals.input_hash AS ordinalInputHash,
+        jobs.input_hash AS jobInputHash
+        FROM attempts JOIN jobs USING(job_id)
+        JOIN research_call_ordinals USING(attempt_id)
+        WHERE replacement_of_attempt_id IS NOT NULL
+        ORDER BY ordinal LIMIT 1`)
+      .get() as {
+      attemptInputHash: string;
+      ordinalInputHash: string;
+      jobInputHash: string;
+    };
+    database.close();
+    const correctedInputHash = codexInputHash({
+      stage: "memo",
+      prompt: correctivePrompt!,
+      outputSchema: SpecialistMemoOutputSchema,
+    });
+    expect(replacement).toEqual({
+      attemptInputHash: correctedInputHash,
+      ordinalInputHash: correctedInputHash,
+      jobInputHash: correctedInputHash,
+    });
   });
 
   it("records the citation-specific reason when the corrective attempt also fails", async () => {
@@ -266,7 +297,7 @@ describe("official SQLite specialist round", () => {
 
     // Then
     expect(result.departmentStartAllowed).toBe(false);
-    expect(result.artifactIds).toHaveLength(9);
+    expect(result.artifactIds).toHaveLength(specialistCount - 1);
     expect(reason).toBe("specialist_citation_invalid_after_retry");
   });
 

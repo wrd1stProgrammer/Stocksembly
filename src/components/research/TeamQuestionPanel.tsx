@@ -12,11 +12,13 @@ import {
   compactNarrative,
 } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
+import { CreditShortageModal } from "../billing/CreditShortageModal";
 import { ConsultationAnswerMessage } from "./ConsultationAnswerMessage";
 import { useAgentConsultation } from "./useAgentConsultation";
 
 type Props = {
   readonly agents: readonly AgentProfile[];
+  readonly loadHistory?: boolean;
   readonly researchEvents?: readonly ResearchEvent[];
   readonly locale: Locale;
   readonly reportId: string;
@@ -359,6 +361,7 @@ function AgentSelectionModal({
 
 export function TeamQuestionPanel({
   agents,
+  loadHistory = true,
   researchEvents = [],
   locale,
   reportId,
@@ -372,10 +375,17 @@ export function TeamQuestionPanel({
   const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [advancedReasoning, setAdvancedReasoning] = useState(false);
-  const { ask, isSubmitting, messages } = useAgentConsultation({
+  const {
+    ask,
+    creditShortageOpen,
+    dismissCreditShortage,
+    isSubmitting,
+    messages,
+  } = useAgentConsultation({
     ...(questionClient === undefined ? {} : { client: questionClient }),
     locale,
     reportId,
+    loadHistory,
   });
   const selectedAgent =
     agents.find((agent) => agent.id === agentId) ?? agents.at(0);
@@ -394,124 +404,138 @@ export function TeamQuestionPanel({
   };
 
   return (
-    <section
-      className="team-question-panel"
-      aria-label={
-        locale === "ko" ? "리서치 전문 상담" : "Research consultation"
-      }
-    >
-      <div className="team-question-panel__messages" aria-live="polite">
-        {messages.length === 0 ? (
-          <div className="team-question-panel__empty">
-            <Image src={selectedAgent.image} alt="" width={42} height={101} />
-            <div>
-              <strong>{selectedAgent.name[locale]}</strong>
-            </div>
-            <div className="team-question-panel__starters">
-              {starterQuestions[locale].map((starter) => (
-                <button
-                  type="button"
-                  key={starter}
-                  onClick={() => setQuestion(starter)}
-                >
-                  {starter}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          messages.map((message) => {
-            const agent =
-              agents.find((profile) => profile.id === message.agentId) ??
-              selectedAgent;
-            return message.kind === "question" ? (
-              <article
-                className="team-question-panel__question"
-                key={message.id}
-              >
-                <p>{message.text}</p>
-              </article>
-            ) : (
-              <ConsultationAnswerMessage
-                key={message.id}
-                agent={agent}
-                locale={locale}
-                message={message}
-              />
-            );
-          })
-        )}
-      </div>
-
-      <BorderBeam
-        className="team-question-panel__beam"
-        size="md"
-        colorVariant="mono"
-        strength={0.99}
+    <>
+      <section
+        className="team-question-panel"
+        aria-label={
+          locale === "ko" ? "리서치 전문 상담" : "Research consultation"
+        }
       >
-        <form className="team-question-panel__composer" onSubmit={submit}>
-          <label className="sr-only" htmlFor="team-question-input">
-            {locale === "ko" ? "질문" : "Question"}
-          </label>
-          <textarea
-            id="team-question-input"
-            value={question}
-            maxLength={1_200}
-            rows={2}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder={
-              locale === "ko"
-                ? `${selectedAgent.name[locale]}에게 질문...`
-                : `Ask ${selectedAgent.name[locale]}...`
-            }
-          />
-          <div className="team-question-panel__composer-tools">
-            <button
-              type="button"
-              className="team-question-panel__agent-select"
-              aria-haspopup="dialog"
-              aria-expanded={agentModalOpen}
-              onClick={() => setAgentModalOpen(true)}
-            >
-              <Image src={selectedAgent.image} alt="" width={22} height={32} />
-              <span>{selectedAgent.name[locale]}</span>
-              <CaretDown size={13} aria-hidden="true" />
-              <span className="sr-only">
-                {locale === "ko" ? "에이전트 선택" : "Choose agent"}
-              </span>
-            </button>
-            <label className="team-question-panel__easy">
-              <input
-                type="checkbox"
-                checked={advancedReasoning}
-                onChange={(event) => setAdvancedReasoning(event.target.checked)}
-              />
-              <span aria-hidden="true" />
-              {locale === "ko" ? "고급추론" : "Advanced reasoning"}
+        <div className="team-question-panel__messages" aria-live="polite">
+          {messages.length === 0 ? (
+            <div className="team-question-panel__empty">
+              <Image src={selectedAgent.image} alt="" width={42} height={101} />
+              <div>
+                <strong>{selectedAgent.name[locale]}</strong>
+              </div>
+              <div className="team-question-panel__starters">
+                {starterQuestions[locale].map((starter) => (
+                  <button
+                    type="button"
+                    key={starter}
+                    onClick={() => setQuestion(starter)}
+                  >
+                    {starter}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            messages.map((message) => {
+              const agent =
+                agents.find((profile) => profile.id === message.agentId) ??
+                selectedAgent;
+              return message.kind === "question" ? (
+                <article
+                  className="team-question-panel__question"
+                  key={message.id}
+                >
+                  <p>{message.text}</p>
+                </article>
+              ) : (
+                <ConsultationAnswerMessage
+                  key={message.id}
+                  agent={agent}
+                  locale={locale}
+                  message={message}
+                />
+              );
+            })
+          )}
+        </div>
+
+        <BorderBeam
+          className="team-question-panel__beam"
+          size="md"
+          colorVariant="mono"
+          strength={0.99}
+        >
+          <form className="team-question-panel__composer" onSubmit={submit}>
+            <label className="sr-only" htmlFor="team-question-input">
+              {locale === "ko" ? "질문" : "Question"}
             </label>
-            <button
-              type="submit"
-              disabled={!question.trim() || isSubmitting}
-              aria-label={locale === "ko" ? "질문 보내기" : "Send question"}
-            >
-              <ArrowUp size={19} />
-            </button>
-          </div>
-        </form>
-      </BorderBeam>
-      {agentModalOpen ? (
-        <AgentSelectionModal
-          agents={agents}
-          events={researchEvents}
-          locale={locale}
-          selectedAgentId={selectedAgent.id}
-          onClose={() => setAgentModalOpen(false)}
-          onSelect={(agent) => {
-            setAgentId(agent.id);
-            setAgentModalOpen(false);
-          }}
-        />
-      ) : null}
-    </section>
+            <textarea
+              id="team-question-input"
+              value={question}
+              maxLength={1_200}
+              rows={2}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder={
+                locale === "ko"
+                  ? `${selectedAgent.name[locale]}에게 질문...`
+                  : `Ask ${selectedAgent.name[locale]}...`
+              }
+            />
+            <div className="team-question-panel__composer-tools">
+              <button
+                type="button"
+                className="team-question-panel__agent-select"
+                aria-haspopup="dialog"
+                aria-expanded={agentModalOpen}
+                onClick={() => setAgentModalOpen(true)}
+              >
+                <Image
+                  src={selectedAgent.image}
+                  alt=""
+                  width={22}
+                  height={32}
+                />
+                <span>{selectedAgent.name[locale]}</span>
+                <CaretDown size={13} aria-hidden="true" />
+                <span className="sr-only">
+                  {locale === "ko" ? "에이전트 선택" : "Choose agent"}
+                </span>
+              </button>
+              <label className="team-question-panel__easy">
+                <input
+                  type="checkbox"
+                  checked={advancedReasoning}
+                  onChange={(event) =>
+                    setAdvancedReasoning(event.target.checked)
+                  }
+                />
+                <span aria-hidden="true" />
+                {locale === "ko" ? "고급추론" : "Advanced reasoning"}
+              </label>
+              <button
+                type="submit"
+                disabled={!question.trim() || isSubmitting}
+                aria-label={locale === "ko" ? "질문 보내기" : "Send question"}
+              >
+                <ArrowUp size={19} />
+              </button>
+            </div>
+          </form>
+        </BorderBeam>
+        {agentModalOpen ? (
+          <AgentSelectionModal
+            agents={agents}
+            events={researchEvents}
+            locale={locale}
+            selectedAgentId={selectedAgent.id}
+            onClose={() => setAgentModalOpen(false)}
+            onSelect={(agent) => {
+              setAgentId(agent.id);
+              setAgentModalOpen(false);
+            }}
+          />
+        ) : null}
+      </section>
+      <CreditShortageModal
+        locale={locale}
+        open={creditShortageOpen}
+        onClose={dismissCreditShortage}
+      />
+    </>
   );
 }

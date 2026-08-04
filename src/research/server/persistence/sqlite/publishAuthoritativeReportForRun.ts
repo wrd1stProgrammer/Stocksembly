@@ -6,6 +6,8 @@ import type {
 } from "../../../application/authoritativeReportPublisherContracts";
 import { publishReportAtomically } from "./atomicReportPublication";
 import { loadReportAuthority } from "./authoritativeReportAuthority";
+import { reserveEditorialQualityRewrite } from "../../../workflow/specialistCommitRetry";
+import { hashCanonical } from "../../../domain/contractHelpers";
 
 export type PublishAuthoritativeReportResult =
   | {
@@ -43,6 +45,13 @@ export async function publishAuthoritativeReportForRun(
             commit,
           }),
       },
+      reserveEditorialRewrite: (inputHash) =>
+        reserveEditorialQualityRewrite({
+          databasePath: options.databasePath,
+          runId: input.runId,
+          inputHash: hashCanonical(inputHash),
+          now: options.now?.() ?? new Date().toISOString(),
+        }),
     },
     authority,
   );

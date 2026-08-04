@@ -188,9 +188,18 @@ export class ChallengeCodexFake implements CodexPort {
         ...specialist,
         positions: specialist.positions.map((position) => ({
           ...position,
-          publicSummary: sourceSummary,
+          publicSummary:
+            sourceSummary.en === "Source-backed operating evidence"
+              ? {
+                  en: `${sourceSummary.en} ${position.claimId.slice(0, 8)}`,
+                  ko: `${sourceSummary.ko} ${position.claimId.slice(0, 8)}`,
+                }
+              : sourceSummary,
           stance: sourcePositionStance(this.fault, position.stance),
-          evidenceArtifactIds: [evidenceArtifactId],
+          evidenceArtifactIds:
+            this.fault === "none"
+              ? position.evidenceArtifactIds
+              : [evidenceArtifactId],
         })),
       };
     }

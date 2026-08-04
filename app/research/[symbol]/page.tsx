@@ -7,6 +7,7 @@ import type { Locale } from "../../../src/lib/i18n";
 import { PublicRunDetailSchema } from "../../../src/research/client/schemas";
 import { TickerSymbolSchema } from "../../../src/research/domain/ids";
 import { researchTargetFromQuery } from "../../../src/research/domain/researchTarget";
+import { researchProfileFromQuery } from "../../../src/research/domain/researchProfile";
 import { getLiveResearchApi } from "../../../src/research/server/api/liveResearchApi";
 
 type Props = {
@@ -17,6 +18,11 @@ type Props = {
     readonly question?: string;
     readonly run?: string;
     readonly target?: string;
+    readonly horizon?: string;
+    readonly counter?: string;
+    readonly depth?: string;
+    readonly purpose?: string;
+    readonly peers?: string;
   }>;
 };
 
@@ -41,6 +47,7 @@ export default async function ResearchPage({ params, searchParams }: Props) {
         locale={locale}
         idempotencyKey={query.launch}
         researchTarget={researchTargetFromQuery(query.target)}
+        researchProfile={researchProfileFromQuery(query)}
       />
     );
   if (query.run === undefined)
@@ -53,7 +60,6 @@ export default async function ResearchPage({ params, searchParams }: Props) {
   const host = incomingHeaders.get("host");
   if (host === null)
     return <ResearchRoom initialLocale={locale} recovery="run-unavailable" />;
-
   const response = await (await getLiveResearchApi()).handle(
     new Request(`http://${host}/api/research/runs/${query.run}`, {
       headers: {

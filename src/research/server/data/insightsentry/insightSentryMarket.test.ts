@@ -231,6 +231,44 @@ describe("InsightSentry market adapter", () => {
     );
   });
 
+  it("uses a six-hour durable cache window for comparator daily history", async () => {
+    const fixture = fixtureClient([
+      {
+        code: "NASDAQ:MSFT",
+        last_update: 1_753_315_200_000,
+        _ct: 1_753_315_200_000,
+        bar_type: "day",
+        series: [
+          {
+            time: 1_753_304_400,
+            open: 500,
+            high: 505,
+            low: 498,
+            close: 503,
+            volume: 10_000,
+          },
+        ],
+      },
+    ]);
+
+    await createInsightSentryMarket(fixture.client).comparisonDailyBars(
+      "NASDAQ:MSFT",
+    );
+
+    expect(fixture.requests).toEqual([
+      expect.objectContaining({
+        endpoint: "/v3/symbols/{symbol}/series",
+        pathSegments: ["symbols", "NASDAQ:MSFT", "series"],
+        parameters: {
+          bar_type: "day",
+          bar_interval: 1,
+          dp: 1_000,
+        },
+        cacheTtlMilliseconds: 6 * 60 * 60 * 1_000,
+      }),
+    ]);
+  });
+
   it("fails closed when a bar contains a non-finite or invalid OHLCV value", async () => {
     // Given
     const fixture = fixtureClient([

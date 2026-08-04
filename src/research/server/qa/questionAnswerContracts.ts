@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { ClaimIdSchema } from "../../domain/ids";
 import { questionLookupPlan } from "../../domain/questionLookupPlan";
-import type { ResearchReport } from "../../domain/report";
+import type {
+  ResearchReport,
+  WorkflowV2ResearchReport,
+} from "../../domain/report";
 import {
   type CodexRuntimeOverride,
   QA_ADVANCED_RUNTIME,
@@ -63,7 +66,7 @@ export function questionRuntimeOverride(question: {
 }
 
 function claimText(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
   claimId: string,
 ): { readonly en: string; readonly ko: string } | undefined {
   const registered = report.claims.find(
@@ -80,7 +83,7 @@ function claimText(
 }
 
 export function groundedClaims(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
 ): readonly GroundedQuestionClaim[] {
   return report.claims.flatMap((claim) => {
     const text = claimText(report, claim.claimId);
@@ -91,7 +94,7 @@ export function groundedClaims(
 }
 
 export function questionPrompt(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
   questionId: string,
   question: { readonly en: string; readonly ko: string },
 ): string {
@@ -111,7 +114,7 @@ export function questionPrompt(
 }
 
 export function questionInputHash(
-  report: ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport,
   questionId: string,
   question: { readonly en: string; readonly ko: string },
 ): string {

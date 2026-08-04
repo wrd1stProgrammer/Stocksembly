@@ -1,8 +1,92 @@
 import { describe, expect, it } from "vitest";
+import {
+  ComparatorQualificationInputSchema,
+  qualifyComparators,
+} from "./domain/comparatorQualification";
 import { researchFileFixture } from "./mockResearchFile";
 import { buildResearchFileEditorialModel } from "./researchFileEditorialModel";
 
 describe("buildResearchFileEditorialModel", () => {
+  it("conditionally carries typed comparator eligibility without inventing comparison prose", () => {
+    // Given
+    const evidenceArtifactIds = ["peer-evidence"];
+    const qualification = qualifyComparators(
+      ComparatorQualificationInputSchema.parse({
+        rawPeerArtifactId: "peer-evidence",
+        subject: {
+          comparatorId: "subject",
+          name: "Subject",
+          primaryProductMarket: "satellite launch",
+          primaryCustomerMarket: "space operators",
+          metrics: [
+            {
+              key: "forward_pe",
+              value: 40,
+              period: "NTM-2026-Q2",
+              unit: "multiple",
+              evidenceArtifactIds,
+            },
+          ],
+        },
+        comparators: [
+          {
+            comparatorId: "telecom",
+            name: "Telecom",
+            role: "direct_competitor",
+            rationale: {
+              en: "Broad screen result.",
+              ko: "광범위 스크린 결과입니다.",
+            },
+            primaryProductMarket: "mobile networks",
+            primaryCustomerMarket: "telecom carriers",
+            metrics: [
+              {
+                key: "forward_pe",
+                value: 15,
+                period: "FY2024",
+                unit: "EUR",
+                currency: "EUR",
+                evidenceArtifactIds,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const file = {
+      ...researchFileFixture,
+      metricSnapshot: {
+        asOf: "2026-07-31T00:00:00.000Z",
+        metrics: [],
+        comparatorQualification: qualification,
+      },
+    };
+
+    // When
+    const model = buildResearchFileEditorialModel(file, "en");
+    const unqualified = buildResearchFileEditorialModel(
+      researchFileFixture,
+      "en",
+    );
+
+    // Then
+    expect(model.comparatorQualification).toEqual(qualification);
+    expect(model.comparatorQualification).toMatchObject({
+      status: "no_qualified_comparison",
+      rawArtifactCount: 1,
+      rows: [
+        expect.objectContaining({
+          displayEligibility: false,
+          exclusionReasons: expect.arrayContaining([
+            "market_overlap_required",
+            "period_mismatch",
+          ]),
+        }),
+      ],
+    });
+    expect(unqualified).not.toHaveProperty("comparatorQualification");
+  });
+
   it("turns the report into populated reader-facing judgments without empty-link fallbacks", () => {
     const model = buildResearchFileEditorialModel(researchFileFixture, "ko");
     const serialized = JSON.stringify(model);

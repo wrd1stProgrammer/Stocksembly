@@ -24,6 +24,7 @@ import {
   appendRunEvent,
   transitionRun,
 } from "../server/persistence/sqlite/runRepository";
+import { chairResumeReceiptExceptionAvailable } from "../workflow/chairResumePermit";
 import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
 import { createSqliteChallengeRound } from "../workflow/challengeRound";
 import { createSqliteDepartmentRound } from "../workflow/departmentRound";
@@ -178,7 +179,7 @@ function terminalizeWorkflowFailure(
         stateId: "incomplete",
         occurredAt,
         payload: {
-          code: `${stage}:${reason}`,
+          code: workflowFailureCode(stage, reason),
           summary: {
             en: `Research stopped because ${stage} could not pass deterministic validation (${reason}).`,
             ko: `${stage} 단계가 확정적 검증을 통과하지 못해 리서치를 종료했습니다 (${reason}).`,
@@ -190,6 +191,12 @@ function terminalizeWorkflowFailure(
   } finally {
     database.close();
   }
+}
+
+export function workflowFailureCode(stage: string, reason: string): string {
+  return reason.startsWith("editorial_quality_failed:")
+    ? reason
+    : `${stage}:${reason}`;
 }
 
 type SemanticAuditCoordinatorInput = {
@@ -281,14 +288,16 @@ function departmentTargetForRun(
           .enum(["market", "company", "financial", "risk"])
           .nullable(),
       })
-      .parse(
+      .safeParse(
         database
           .prepare(`SELECT research_kind, department_id
             FROM research_requests WHERE run_id = ?`)
           .get(runId),
       );
-    return row.research_kind === "department" && row.department_id !== null
-      ? row.department_id
+    if (!row.success) return undefined;
+    return row.data.research_kind === "department" &&
+      row.data.department_id !== null
+      ? row.data.department_id
       : undefined;
   } finally {
     database.close();
@@ -354,14 +363,26 @@ export function createOfficialWorkflowCoordinator(
           },
           runId,
         );
-        if (published.kind !== "published")
+        if (published.kind !== "published") {
+          const occurredAt = options.now?.() ?? new Date().toISOString();
+          if (
+            terminalizeWorkflowFailure(
+              options.databasePath,
+              runId,
+              "department_report_publication",
+              published.reason,
+              occurredAt,
+            )
+          )
+            return;
           recordBlockedStage(
             options.databasePath,
             runId,
             "department_report_publication",
             published.reason,
-            options.now?.() ?? new Date().toISOString(),
+            occurredAt,
           );
+        }
         return;
       } finally {
         await departments.close();
@@ -513,6 +534,11 @@ export function createOfficialWorkflowCoordinator(
       const chairReplay = chair.replay(runId);
       if (!chairReplay.publishable) {
         if (
+          chairReplay.incompleteReason === "replacement_exhausted" &&
+          chairResumeReceiptExceptionAvailable(options.databasePath, runId)
+        )
+          return;
+        if (
           chairReplay.artifactIds.length > 0 ||
           chairReplay.incompleteReason === "replacement_exhausted"
         ) {
@@ -539,17 +565,29 @@ export function createOfficialWorkflowCoordinator(
         return;
       }
       const accepted = acceptedChair(options.databasePath, runId);
-      const published = await options.publishReport({
-        runId,
-        acceptedChairArtifactId: accepted.artifactId,
-        fence: {
-          jobId: accepted.jobId,
-          attemptId: accepted.attemptId,
-          ordinal: accepted.ordinal,
-          ownerId: accepted.ownerId,
-          token: accepted.token,
-        },
-      });
+      let published:
+        | { readonly kind: "published" }
+        | { readonly kind: "incomplete"; readonly reason?: string };
+      try {
+        published = await options.publishReport({
+          runId,
+          acceptedChairArtifactId: accepted.artifactId,
+          fence: {
+            jobId: accepted.jobId,
+            attemptId: accepted.attemptId,
+            ordinal: accepted.ordinal,
+            ownerId: accepted.ownerId,
+            token: accepted.token,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.startsWith("editorial_quality_failed:")
+        )
+          published = { kind: "incomplete", reason: error.message };
+        else throw error;
+      }
       if (published.kind !== "published") {
         const occurredAt = options.now?.() ?? new Date().toISOString();
         const reason = published.reason ?? "publication_incomplete";

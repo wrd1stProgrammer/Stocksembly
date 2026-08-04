@@ -203,6 +203,88 @@ export function referencedArtifactIds(
   }
 }
 
+type CitableArtifactIdentity = {
+  readonly artifactId: z.infer<typeof ArtifactIdSchema>;
+  readonly contentHash: string;
+};
+
+/**
+ * Agents occasionally render the first 48 bits of an evidence content hash as
+ * a UUID instead of copying the artifact ID printed beside it. Resolve that
+ * representation only when it identifies exactly one artifact already bound
+ * to this attempt. Unknown and ambiguous references remain invalid citations.
+ */
+export function canonicalizeArtifactReferences(
+  payload: AgentOutputCandidate,
+  artifacts: readonly CitableArtifactIdentity[],
+): AgentOutputCandidate {
+  const exactIds = new Set(artifacts.map((artifact) => artifact.artifactId));
+  const prefixCandidates = new Map<string, string[]>();
+  for (const artifact of artifacts) {
+    const prefix = artifact.contentHash.slice(0, 12);
+    prefixCandidates.set(prefix, [
+      ...(prefixCandidates.get(prefix) ?? []),
+      artifact.artifactId,
+    ]);
+  }
+  const canonical = (
+    artifactId: z.infer<typeof ArtifactIdSchema>,
+  ): z.infer<typeof ArtifactIdSchema> => {
+    if (exactIds.has(artifactId)) return artifactId;
+    const matches = prefixCandidates.get(
+      artifactId.replaceAll("-", "").slice(0, 12),
+    );
+    return matches?.length === 1
+      ? ArtifactIdSchema.parse(matches[0])
+      : artifactId;
+  };
+  const sourceArtifactIds = payload.sourceArtifactIds.map(canonical);
+  switch (payload.kind) {
+    case "memo":
+      return {
+        ...payload,
+        sourceArtifactIds,
+        positions: payload.positions.map((position) => ({
+          ...position,
+          evidenceArtifactIds: position.evidenceArtifactIds.map(canonical),
+        })),
+      };
+    case "department_consolidation":
+      return {
+        ...payload,
+        sourceArtifactIds,
+        evidencePriorityArtifactIds:
+          payload.evidencePriorityArtifactIds.map(canonical),
+      };
+    case "blind_challenge":
+    case "follow_up":
+      return {
+        ...payload,
+        sourceArtifactIds,
+        evidenceArtifactIds: payload.evidenceArtifactIds.map(canonical),
+      };
+    case "owner_response_ballot":
+      return { ...payload, sourceArtifactIds };
+    case "semantic_audit":
+      return {
+        ...payload,
+        sourceArtifactIds,
+        verdicts: payload.verdicts.map((verdict) => ({
+          ...verdict,
+          evidenceArtifactIds: verdict.evidenceArtifactIds.map(canonical),
+        })),
+      };
+    case "chair_synthesis":
+      return {
+        ...payload,
+        sourceArtifactIds,
+        ballotArtifactIds: payload.ballotArtifactIds.map(canonical),
+      };
+    default:
+      return assertNever(payload);
+  }
+}
+
 export function committedEventType(stage: AgentOutputStage): string {
   switch (stage) {
     case "memo":

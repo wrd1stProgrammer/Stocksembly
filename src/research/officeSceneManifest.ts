@@ -210,9 +210,8 @@ export const OFFICE_SCENE_MANIFEST = {
       role: { en: "Market Lead", ko: "시장 책임" },
       specialty: { en: "Market regime and synthesis", ko: "시장 국면·종합" },
       seat: {
-        // The lead sits directly above the table.  Keep the input on the
-        // table's north edge so the chair, actor and laptop share one visual
-        // anchor instead of floating a full tile above the furniture.
+        // Keep the lead directly above the tabletop.  The input rests on the
+        // table's north edge while the actor remains on the chair anchor.
         cell: { x: 7, y: 7 },
         inputCell: { x: 7, y: 8 },
         facing: "down",

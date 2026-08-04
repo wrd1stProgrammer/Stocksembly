@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-export const BLS_SERIES_IDS = ["CUUR0000SA0", "LNS14000000"] as const;
+export const BLS_SERIES_IDS = [
+  "CUUR0000SA0",
+  "CUUR0000SA0L1E",
+  "LNS14000000",
+  "CES0000000001",
+  "CES0500000003",
+  "WPUFD4",
+] as const;
 export type BlsSeriesId = (typeof BLS_SERIES_IDS)[number];
 
 const BlsFootnoteSchema = z

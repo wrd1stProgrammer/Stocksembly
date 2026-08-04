@@ -19,8 +19,9 @@ import type {
 } from "../../research/compositions/types";
 import {
   type ResearchReport,
-  ResearchReportSchema,
+  type WorkflowV2ResearchReport,
 } from "../../research/domain/report";
+import { parseStoredResearchReportVersioned } from "../../research/domain/reportStorage";
 import {
   type ResearchComparison,
   ResearchComparisonSchema,
@@ -33,6 +34,7 @@ import { activeIdsForSnapshot } from "../../research/officePlaybackView";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import { researchReportToFile } from "../../research/researchReportToFile";
+import { formatSignedPercent } from "../../research/publicPresentation";
 import type { ResearchCompany } from "../../research/types";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
@@ -99,7 +101,7 @@ function companyFor(
   const change =
     marketSnapshot?.changePercent === undefined
       ? "—"
-      : `${marketSnapshot.changePercent >= 0 ? "+" : ""}${marketSnapshot.changePercent.toLocaleString("en-US", { maximumFractionDigits: 2 })}%`;
+      : formatSignedPercent(marketSnapshot.changePercent);
   return {
     symbol,
     company: ticker?.company ?? symbol,
@@ -112,6 +114,19 @@ function companyFor(
       ko: "공개 데이터 기반 리서치",
     },
   };
+}
+
+export function formatResearchHistoryDate(
+  createdAt: string,
+  locale: Locale,
+): string {
+  const date = new Date(createdAt);
+  const year = String(date.getUTCFullYear()).slice(-2);
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return locale === "ko"
+    ? `${year}.${month}.${day}`
+    : `${month}.${day}.${year}`;
 }
 
 function scopeOfficeSnapshot(
@@ -159,11 +174,11 @@ function runLabel(run: PublicRun, ordinal: number, locale: Locale): string {
     : `${team} deep dive ${ordinal}`;
 }
 
-async function loadReport(
+export async function loadReport(
   reportId: string,
   reloadSequence: number,
 ): Promise<{
-  readonly report: ResearchReport;
+  readonly report: ResearchReport | WorkflowV2ResearchReport;
   readonly comparison?: ResearchComparison;
 }> {
   let lastError: Error = new Error("Published report is unavailable");
@@ -184,7 +199,7 @@ async function loadReport(
         typeof body === "object" && body !== null
           ? Reflect.get(body, "report")
           : undefined;
-      const report = ResearchReportSchema.parse(value);
+      const report = parseStoredResearchReportVersioned(value);
       const comparisonValue =
         typeof body === "object" && body !== null
           ? Reflect.get(body, "comparison")
@@ -209,7 +224,9 @@ export function LiveOfficeResearchRoom({
   initialSnapshot,
 }: Props) {
   const [locale, setLocale] = useState(initialLocale);
-  const [report, setReport] = useState<ResearchReport>();
+  const [report, setReport] = useState<
+    ResearchReport | WorkflowV2ResearchReport
+  >();
   const [comparison, setComparison] = useState<ResearchComparison>();
   const [reportLoadState, setReportLoadState] = useState<
     "idle" | "loading" | "failed"
@@ -251,17 +268,6 @@ export function LiveOfficeResearchRoom({
     report?.marketSnapshot ?? liveQuote,
   );
   const history = useMemo<readonly ResearchHistoryGroup[]>(() => {
-    const formatter = new Intl.DateTimeFormat(
-      locale === "ko" ? "ko-KR" : "en-US",
-      {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "UTC",
-      },
-    );
     return [...new Set(historyRuns.map((run) => run.symbol))].map((symbol) => {
       const ticker = findTicker(symbol);
       const runs = historyRuns.filter((run) => run.symbol === symbol);
@@ -274,8 +280,8 @@ export function LiveOfficeResearchRoom({
         runs: runs.map((run, index) => ({
           runId: run.runId,
           ...(run.reportId === undefined ? {} : { reportId: run.reportId }),
-          label: runLabel(run, runs.length - index, locale),
-          date: formatter.format(new Date(run.createdAt)),
+          label: run.question?.trim() || runLabel(run, runs.length - index, locale),
+          date: formatResearchHistoryDate(run.createdAt, locale),
           current: run.runId === projection.snapshot.run.runId,
           live:
             run.runId === projection.snapshot.run.runId &&
@@ -347,6 +353,13 @@ export function LiveOfficeResearchRoom({
 
   useEffect(() => {
     const symbol = projection.snapshot.run.symbol;
+    if (
+      (projection.snapshot.run.reportId !== undefined && report === undefined) ||
+      report?.marketSnapshot !== undefined
+    ) {
+      setLiveQuote(undefined);
+      return;
+    }
     const controller = new AbortController();
     setLiveQuote(undefined);
     void fetchResearchQuote(symbol, controller.signal)
@@ -356,7 +369,7 @@ export function LiveOfficeResearchRoom({
           setLiveQuote(undefined);
       });
     return () => controller.abort();
-  }, [projection.snapshot.run.symbol]);
+  }, [projection.snapshot.run.reportId, projection.snapshot.run.symbol, report]);
 
   useEffect(() => {
     const reportId = projection.snapshot.run.reportId;
@@ -496,11 +509,7 @@ export function LiveOfficeResearchRoom({
             ? {}
             : { reportId: projection.snapshot.run.reportId })}
           reportVersion={report?.version ?? 1}
-          pendingAgentIds={
-            projection.snapshot.run.researchTarget?.kind === "department"
-              ? activity.active
-              : []
-          }
+          pendingAgentIds={activity.active}
           panelOpen={transcriptOpen}
           onPanelToggle={() => setTranscriptOpen((open) => !open)}
         />

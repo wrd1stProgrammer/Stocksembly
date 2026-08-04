@@ -50,6 +50,7 @@ describe("Dr. Park constrained chair synthesis", () => {
     expect(replay.sectionIds).toEqual([
       "ten_second_brief",
       "supported_analysis",
+      "valuation_comparison",
       "operational_scenarios",
       "dissent_unknowns",
       "change_conditions",
@@ -61,16 +62,13 @@ describe("Dr. Park constrained chair synthesis", () => {
   it.each([
     "invent_price",
     "invent_number",
-    "invent_claim",
-    "invent_source",
     "invent_probability",
     "invent_recommendation",
     "drop_position",
-    "drop_dissent",
     "drop_unknown",
     "ko_mismatch",
   ] as const)(
-    "rejects %s and accepts at most one clean replacement",
+    "projects deterministic %s fields and accepts without a rewrite",
     async (fault) => {
       // Given / When
       const { fixture, replay } = await runFault(fault);
@@ -78,15 +76,64 @@ describe("Dr. Park constrained chair synthesis", () => {
       // Then
       expect(
         replay.receipts.map((receipt) => [receipt.ordinal, receipt.outcome]),
-      ).toEqual([
-        [24, "invalid_schema"],
-        [25, "accepted"],
-      ]);
+      ).toEqual([[25, "accepted"]]);
       expect(replay.artifactIds).toHaveLength(1);
       expect(replay.characterActorId).toBe("chair");
+      expect(fixture.codex.chairLaunches).toBe(1);
+    },
+  );
+
+  it.each(["invent_claim", "invent_source", "drop_dissent"] as const)(
+    "rejects non-projectable %s and accepts one bounded rewrite",
+    async (fault) => {
+      const { fixture, replay } = await runFault(fault);
+      expect(
+        replay.receipts.map((receipt) => [receipt.ordinal, receipt.outcome]),
+      ).toEqual([
+        [25, "invalid_schema"],
+        [26, "accepted"],
+      ]);
+      expect(replay.artifactIds).toHaveLength(1);
       expect(fixture.codex.chairLaunches).toBe(2);
     },
   );
+
+  it("rebinds the targeted rewrite to its exact durable input hash", async () => {
+    const fixture = await createPreparedChairRound("invent_claim");
+    const chair = createSqliteChairSynthesis(fixture.options);
+    try {
+      await chair.stage({ runId: fixture.runId });
+      await chair.drain(fixture.runId);
+      const database = new Database(fixture.options.databasePath, {
+        readonly: true,
+      });
+      const rows = database
+        .prepare(`SELECT attempts.replacement_of_attempt_id AS replacementOf,
+          attempts.input_hash AS attemptHash, jobs.input_hash AS jobHash,
+          research_call_ordinals.input_hash AS ordinalHash
+          FROM attempts JOIN jobs USING(job_id)
+          JOIN research_call_ordinals USING(attempt_id)
+          WHERE attempts.run_id = ?
+            AND attempts.logical_artifact_key = 'chair_synthesis:chair'
+          ORDER BY research_call_ordinals.ordinal`)
+        .all(fixture.runId) as readonly {
+        replacementOf: string | null;
+        attemptHash: string;
+        jobHash: string;
+        ordinalHash: string;
+      }[];
+      database.close();
+
+      expect(rows).toHaveLength(2);
+      expect(rows[1]?.replacementOf).not.toBeNull();
+      expect(rows[1]?.attemptHash).not.toBe(rows[0]?.attemptHash);
+      expect(rows[1]?.attemptHash).toBe(rows[1]?.jobHash);
+      expect(rows[1]?.attemptHash).toBe(rows[1]?.ordinalHash);
+    } finally {
+      await chair.close();
+      fixture.cleanup();
+    }
+  });
 
   it.each([
     "invalid_first",
@@ -101,7 +148,7 @@ describe("Dr. Park constrained chair synthesis", () => {
 
       // Then
       expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([
-        24, 25,
+        25, 26,
       ]);
       expect(replay.receipts.every((receipt) => receipt.evidenceRecorded)).toBe(
         true,
@@ -116,11 +163,19 @@ describe("Dr. Park constrained chair synthesis", () => {
     const { fixture, replay } = await runFault("invalid");
 
     // Then
-    expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([24, 25]);
+    expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([25, 26]);
     expect(replay.artifactIds).toHaveLength(0);
     expect(replay.incompleteReason).toBe("replacement_exhausted");
     expect(replay.characterActorId).toBeNull();
     expect(replay.publishable).toBe(false);
+    expect(fixture.codex.chairLaunches).toBe(2);
+  });
+
+  it("routes a transient readiness failure into one bounded chair retry", async () => {
+    const { fixture, replay } = await runFault("isolation_first");
+
+    expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([25, 26]);
+    expect(replay.artifactIds).toHaveLength(1);
     expect(fixture.codex.chairLaunches).toBe(2);
   });
 
@@ -176,7 +231,7 @@ describe("Dr. Park constrained chair synthesis", () => {
     // Then
     expect(replay.artifactIds).toHaveLength(1);
     expect(replay.receipts).toEqual([
-      expect.objectContaining({ ordinal: 24, outcome: "accepted" }),
+      expect.objectContaining({ ordinal: 25, outcome: "accepted" }),
     ]);
     expect(replay.characterActorId).toBe("chair");
     expect(publishedChairArtifactId).toBe(replay.artifactIds[0]);
@@ -249,7 +304,7 @@ describe("Dr. Park constrained chair synthesis", () => {
     const replay = await chair.drain(fixture.runId);
 
     // Then
-    expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([24]);
+    expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([25]);
     expect(replay.artifactIds).toHaveLength(0);
     expect(replay.incompleteReason).toBe("chair_artifact_missing");
     expect(replay.characterActorId).toBeNull();
@@ -364,14 +419,14 @@ describe("Dr. Park constrained chair synthesis", () => {
 
     // Then
     expect(accepted).toEqual(candidate);
-    expect(brief.auditedClaimIds).toHaveLength(1);
+    expect(brief.auditedClaimIds).toEqual([expect.any(String), claimB]);
     expect(scenario.auditedClaimIds).toEqual([]);
     expect(scenario.publicSummary.en).toBe("Revenue: 100");
     expect(scenario.publicSummary.ko).toBe("매출: 100");
     expect(canonicalized).toEqual(accepted);
   });
 
-  it("allows retained dissent to ground a condition that would change the chair's view", () => {
+  it("rejects reusing retained dissent in the change-condition section", () => {
     // Given
     const { prompt, candidate } = mixedClaimValidationFixture();
     const dissent = prompt.sentences.find(
@@ -398,10 +453,10 @@ describe("Dr. Park constrained chair synthesis", () => {
     );
 
     // Then
-    expect(accepted).not.toEqual({});
+    expect(accepted).toEqual({});
   });
 
-  it("allows retained dissent to qualify the supported analysis", () => {
+  it("rejects reusing retained dissent in supported analysis", () => {
     // Given
     const { prompt, candidate } = mixedClaimValidationFixture();
     const dissent = prompt.sentences.find(
@@ -428,11 +483,11 @@ describe("Dr. Park constrained chair synthesis", () => {
     );
 
     // Then
-    expect(accepted).not.toEqual({});
+    expect(accepted).toEqual({});
   });
 
   it.each(["supported_analysis", "operational_scenarios"] as const)(
-    "allows an audited unknown to qualify %s",
+    "rejects an unknown outside the narrow sentence kinds for %s",
     (sectionKey) => {
       // Given
       const { prompt, candidate } = mixedClaimValidationFixture();
@@ -460,11 +515,11 @@ describe("Dr. Park constrained chair synthesis", () => {
       );
 
       // Then
-      expect(accepted).not.toEqual({});
+      expect(accepted).toEqual({});
     },
   );
 
-  it("allows the market team position to ground operational scenarios", () => {
+  it("rejects a team position outside operational scenario ownership", () => {
     // Given
     const { prompt, candidate } = mixedClaimValidationFixture();
     const marketPosition = prompt.sentences.find(
@@ -491,7 +546,7 @@ describe("Dr. Park constrained chair synthesis", () => {
     );
 
     // Then
-    expect(accepted).not.toEqual({});
+    expect(accepted).toEqual({});
   });
 
   it("keeps publication state empty when the trusted post-chair publisher is incomplete", async () => {

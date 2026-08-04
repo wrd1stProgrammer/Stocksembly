@@ -23,6 +23,39 @@ export const READINESS_CHECKS = [
 ] as const;
 export type ReadinessCheck = (typeof READINESS_CHECKS)[number];
 
+export const READINESS_REASONS = [
+  "report_validation",
+  "platform_policy",
+  "workspace_prepare",
+  "binary_verify",
+  "certificate_probe",
+  "binary_stat",
+  "sandbox_probe",
+  "feature_probe",
+  "login_probe",
+  "runner_process",
+  "runner_contract",
+  "environment_keys",
+  "environment_values",
+  "input_validation",
+  "reservation_validation",
+  "host_policy",
+  "origin_protection",
+  "runtime_prepare",
+  "sandbox_profile",
+  "manifest_write",
+  "signature_probe",
+  "version_probe",
+  "model_probe",
+  "artifact_audit",
+  "cleanup",
+] as const;
+export type ReadinessReason = (typeof READINESS_REASONS)[number];
+export type SafeReadinessDiagnostics = {
+  readonly check: ReadinessCheck;
+  readonly reason: ReadinessReason;
+};
+
 export type ReadinessObservation = {
   readonly evidence: SafeCodexEvidence;
   readonly expectedBinaryHash: string;
@@ -73,7 +106,10 @@ export class CodexIsolationError extends Error {
   readonly name = "CodexIsolationError";
   readonly code = "CODEX_ISOLATION_FAILED";
 
-  constructor(readonly check: ReadinessCheck) {
+  constructor(
+    readonly check: ReadinessCheck,
+    readonly reason: ReadinessReason = "report_validation",
+  ) {
     super("Codex isolation readiness failed");
   }
 }
@@ -162,18 +198,42 @@ export type CodexReadinessProbe = (
   scope: ReadinessScope,
 ) => Promise<SafeCodexReadinessReport>;
 
+type ReadinessGuardOptions = {
+  readonly fingerprint?: () => string;
+  readonly successTtlMs?: number;
+  readonly now?: () => number;
+};
+
+const processReadiness = new Map<
+  string,
+  { readonly promise: Promise<void>; expiresAt: number }
+>();
+let readinessGuardOrdinal = 0;
+
 export function createReadinessGuardedCodexPort(
   inner: CodexPort,
   probe: CodexReadinessProbe,
+  options: ReadinessGuardOptions = {},
 ): CodexPort {
-  let readiness: Promise<void> | undefined;
+  const now = options.now ?? Date.now;
+  const successTtlMs = options.successTtlMs ?? 30_000;
+  const fallbackFingerprint = `instance:${++readinessGuardOrdinal}`;
   const ensureReady = (): Promise<void> => {
-    readiness ??= probe("pre_launch")
+    const fingerprint = options.fingerprint?.() ?? fallbackFingerprint;
+    const existing = processReadiness.get(fingerprint);
+    if (existing !== undefined && existing.expiresAt > now())
+      return existing.promise;
+    const readiness = probe("pre_launch")
       .then(() => undefined)
       .catch((error: unknown) => {
-        readiness = undefined;
+        if (processReadiness.get(fingerprint)?.promise === readiness)
+          processReadiness.delete(fingerprint);
         throw error;
       });
+    processReadiness.set(fingerprint, {
+      promise: readiness,
+      expiresAt: now() + successTtlMs,
+    });
     return readiness;
   };
   return Object.freeze({

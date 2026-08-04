@@ -101,7 +101,14 @@ const BlsLocatorSchema = z
     kind: z.literal("macro"),
     source: z.literal("bls_allowlist"),
     sourceUrl: SourceUrlSchema,
-    seriesId: z.enum(["CUUR0000SA0", "LNS14000000"]),
+    seriesId: z.enum([
+      "CUUR0000SA0",
+      "CUUR0000SA0L1E",
+      "LNS14000000",
+      "CES0000000001",
+      "CES0500000003",
+      "WPUFD4",
+    ]),
     period: z.string().trim().min(1).max(32),
     observationDate: z
       .string()

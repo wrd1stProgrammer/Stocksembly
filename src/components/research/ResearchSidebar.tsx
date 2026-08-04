@@ -2,7 +2,6 @@
 
 import {
   CaretDown,
-  ClockCounterClockwise,
   MagnifyingGlass,
   PaperPlaneTilt,
   SidebarSimple,
@@ -13,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { Brand } from "../Brand";
 import type { ResearchSidebarProps } from "./researchSidebarTypes";
 
-function CompanyLogo({ symbol }: { readonly symbol: string }) {
+export function CompanyLogo({ symbol }: { readonly symbol: string }) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {
@@ -187,13 +186,8 @@ export function ResearchSidebar({
                                   }
                             }
                           >
-                            <ClockCounterClockwise size={15} />
                             <span>
-                              <strong>
-                                {locale === "ko" && run.live
-                                  ? "진행 중인 전체 분석"
-                                  : run.label}
-                              </strong>
+                              <strong title={run.label}>{run.label}</strong>
                               <small>{run.date}</small>
                             </span>
                             {run.live ? (

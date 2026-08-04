@@ -4,6 +4,9 @@ import type {
   ResearchEvidenceStrength,
   ResearchFileData,
 } from "./compositions/types";
+import type { ComparatorQualificationResult } from "./domain/comparatorQualificationContracts";
+import { workflowRoleById } from "./domain/roleRegistry";
+import { publicEvidenceLabel } from "./publicPresentation";
 import {
   buildEditorialInsights,
   type EditorialDebate,
@@ -122,13 +125,22 @@ export type EditorialEvidenceBalance = {
 };
 
 export type EditorialDecisionPath = {
-  readonly id: "confirm" | "hold" | "invalidate";
+  readonly id: "confirm" | "hold" | "challenge" | "invalidate";
   readonly label: string;
   readonly headline: string;
   readonly detail: string;
 };
 
 export type ResearchFileEditorialModel = {
+  readonly structuredDecision?: NonNullable<
+    ResearchFileData["structuredEditorial"]
+  >["decision"];
+  readonly structuredClaims?: NonNullable<
+    ResearchFileData["structuredEditorial"]
+  >["claims"];
+  readonly qualifiedComparators?: NonNullable<
+    ResearchFileData["structuredEditorial"]
+  >["comparators"];
   readonly question: string;
   readonly directAnswer: string;
   readonly posture: string;
@@ -148,6 +160,7 @@ export type ResearchFileEditorialModel = {
   readonly valuationConclusion: string;
   readonly nextVerificationEvent: string;
   readonly comparisonRows: readonly EditorialComparisonRow[];
+  readonly comparatorQualification?: ComparatorQualificationResult;
   readonly scenarios: readonly {
     readonly id: string;
     readonly label: string;
@@ -502,6 +515,9 @@ function readerEvidenceLabel(
   title: string,
   locale: Locale,
 ): { readonly publisher: string; readonly title: string } {
+  const publicLabel = publicEvidenceLabel(publisher, title, locale);
+  if (publicLabel.publisher !== publisher || publicLabel.title !== title)
+    return publicLabel;
   if (locale === "ko") {
     if (/U\.?S\.? Treasury/iu.test(publisher))
       return {
@@ -688,6 +704,7 @@ const METRIC_PRIORITY = {
   market: [
     "current_price",
     "daily_change_percent",
+    "market_cap",
     "relative_performance_3m",
     "relative_performance_1y",
     "pe",
@@ -707,6 +724,7 @@ const METRIC_PRIORITY = {
     "operating_margin",
     "free_cash_flow",
     "capital_expenditures",
+    "roe",
     "roic",
     "forward_pe",
     "pe",
@@ -1022,10 +1040,443 @@ function distinctCallouts(
   });
 }
 
+function buildWorkflowV2EditorialModel(
+  file: ResearchFileData,
+  locale: Locale,
+): ResearchFileEditorialModel | undefined {
+  const structured = file.structuredEditorial;
+  if (file.presentationVersion !== "workflow-v2" || structured === undefined)
+    return undefined;
+  const ko = locale === "ko";
+  const text = (value: LocalizedText) => value[locale];
+  const sectionCopy = (
+    item: ResearchFileData["analysis"][number] | undefined,
+  ) =>
+    item === undefined
+      ? ""
+      : dedupeEditorialTexts([text(item.summary), text(item.detail)]).join(" ");
+  const sectionFullCopy = (
+    item: ResearchFileData["analysis"][number] | undefined,
+  ) =>
+    item === undefined
+      ? ""
+      : [text(item.summary), text(item.detail)]
+          .filter((value) => value.trim().length > 0)
+          .join(" ");
+  const sectionMatching = (pattern: RegExp, fallbackIndex: number) =>
+    file.analysis.find((item) => pattern.test(text(item.title))) ??
+    file.analysis[fallbackIndex];
+  const supportedSection = sectionMatching(/supported|analysis|판단|분석/iu, 0);
+  const valuationSection = sectionMatching(
+    /valuation|comparison|expectation|밸류|가치|비교|기대/iu,
+    1,
+  );
+  const operatingSection = sectionMatching(
+    /operat|scenario|path|실적|운영|시나리오|경로/iu,
+    2,
+  );
+  const changeSection = sectionMatching(
+    /change|condition|falsif|변경|조건|무효/iu,
+    Math.max(0, file.analysis.length - 1),
+  );
+  const distinctCandidate = (
+    candidates: readonly (string | undefined)[],
+    references: readonly string[],
+  ) =>
+    candidates
+      .map((candidate) => compactEditorialText(candidate ?? "", 2))
+      .find(
+        (candidate) =>
+          candidate.length > 0 &&
+          references.every(
+            (reference) =>
+              reference.length === 0 ||
+              !editoriallySimilar(candidate, reference),
+          ),
+      ) ?? "";
+  const teams: readonly EditorialTeamRow[] = file.teamViews.map((team) => ({
+    departmentId: team.departmentId,
+    teamName: text(team.teamName),
+    vote: team.vote,
+    strongestClaim: text(team.position),
+    evidence: text(team.rationale),
+    portraitPath: `/research/office-v7/portraits/${team.departmentId}.png`,
+  }));
+  const supportClaims = structured.claims.filter(
+    (claim) => claim.stanceContribution === "supports",
+  );
+  const opposingClaims = structured.claims.filter(
+    (claim) => claim.stanceContribution === "opposes",
+  );
+  const primaryClaims = structured.decision.primaryClaimIds.flatMap(
+    (claimId) => {
+      const claim = structured.claims.find(
+        (candidate) => candidate.claimId === claimId,
+      );
+      return claim === undefined ? [] : [claim];
+    },
+  );
+  const usedClaimEvidence: string[] = [];
+  const usedCounterpoints: string[] = [];
+  const claimRows: readonly EditorialAnalysisRow[] = structured.claims.map(
+    (claim, index) => {
+      const thesis = text(claim.publicThesis);
+      const checkpoint = text(claim.falsifier);
+      const role = workflowRoleById(claim.roleOwner);
+      const team = teams.find(
+        (candidate) => candidate.departmentId === role?.departmentId,
+      );
+      const oppositePool =
+        claim.stanceContribution === "opposes" ? supportClaims : opposingClaims;
+      const opposite = oppositePool[index % Math.max(oppositePool.length, 1)];
+      const counterpoint = distinctCandidate(
+        [
+          opposite === undefined ? undefined : text(opposite.publicThesis),
+          text(structured.decision.strongestCountercase),
+          team?.strongestClaim,
+          checkpoint,
+        ],
+        [thesis, ...usedCounterpoints],
+      );
+      const dimensionSection =
+        claim.decisionDimension === "embedded_expectations"
+          ? valuationSection
+          : ["catalyst", "leading_indicator", "downside_path"].includes(
+                claim.decisionDimension,
+              )
+            ? operatingSection
+            : supportedSection;
+      const evidence = distinctCandidate(
+        [
+          dimensionSection === undefined
+            ? undefined
+            : text(dimensionSection.detail),
+          dimensionSection === undefined
+            ? undefined
+            : text(dimensionSection.summary),
+          team?.evidence,
+          sectionCopy(file.analysis[index % Math.max(file.analysis.length, 1)]),
+        ],
+        [thesis, counterpoint, checkpoint, ...usedClaimEvidence],
+      );
+      const resolvedEvidence = evidence || team?.evidence || thesis;
+      const resolvedCounterpoint = counterpoint || checkpoint;
+      usedClaimEvidence.push(resolvedEvidence);
+      usedCounterpoints.push(resolvedCounterpoint);
+      return {
+        id: claim.claimId,
+        title: claim.decisionDimension.replaceAll("_", " "),
+        agentView: thesis,
+        evidence: resolvedEvidence,
+        counterpoint: resolvedCounterpoint,
+        checkpoint,
+        evidenceId: claim.claimId,
+        strength:
+          file.claimMatrix?.find((candidate) => candidate.id === claim.claimId)
+            ?.strength ?? "moderate",
+      };
+    },
+  );
+  const qualification = file.metricSnapshot?.comparatorQualification;
+  const qualifiedRows =
+    qualification?.status === "qualified"
+      ? qualification.rows.filter((row) => row.displayEligibility)
+      : [];
+  const qualifiedComparisonRows: readonly EditorialComparisonRow[] =
+    qualifiedRows.map((row) => ({
+      label: row.name,
+      companyView: row.normalizedMetrics
+        .map(
+          (metric) =>
+            `${metric.key}: ${metric.value} ${metric.unit} (${metric.period})`,
+        )
+        .join(" · "),
+      benchmarkLens: row.rationale[locale],
+      interpretation: row.normalizationNote ?? row.rationale[locale],
+      ...(row.evidenceArtifactIds[0] === undefined
+        ? {}
+        : { evidenceId: row.evidenceArtifactIds[0] }),
+    }));
+  const valuationClaim = structured.claims.find(
+    (claim) => claim.decisionDimension === "embedded_expectations",
+  );
+  const growthClaim = structured.claims.find((claim) =>
+    ["growth_engine", "adoption", "moat"].includes(claim.decisionDimension),
+  );
+  const financialClaim = structured.claims.find((claim) =>
+    ["margin", "margin_durability", "cash_conversion"].includes(
+      claim.decisionDimension,
+    ),
+  );
+  const riskClaim = structured.claims.find((claim) =>
+    ["downside_path", "leading_indicator"].includes(claim.decisionDimension),
+  );
+  const sectionComparisonRow = (input: {
+    readonly label: string;
+    readonly section: ResearchFileData["analysis"][number] | undefined;
+    readonly fallbackClaim: (typeof structured.claims)[number] | undefined;
+    readonly checkpoint: string;
+  }): EditorialComparisonRow | undefined => {
+    const companyView = distinctCandidate(
+      [
+        input.section === undefined ? undefined : text(input.section.summary),
+        input.fallbackClaim === undefined
+          ? undefined
+          : text(input.fallbackClaim.publicThesis),
+      ],
+      [],
+    );
+    const benchmarkLens = distinctCandidate(
+      [
+        input.section === undefined ? undefined : text(input.section.detail),
+        input.fallbackClaim === undefined
+          ? undefined
+          : text(input.fallbackClaim.falsifier),
+      ],
+      [companyView],
+    );
+    if (companyView.length === 0 && benchmarkLens.length === 0)
+      return undefined;
+    return {
+      label: input.label,
+      companyView: companyView || benchmarkLens,
+      benchmarkLens,
+      interpretation: distinctCandidate(
+        [input.checkpoint, text(structured.decision.falsifier)],
+        [companyView, benchmarkLens],
+      ),
+    };
+  };
+  const derivedComparisonRows = [
+    sectionComparisonRow({
+      label: ko ? "밸류에이션 프레임" : "Valuation frame",
+      section: valuationSection,
+      fallbackClaim: valuationClaim ?? financialClaim,
+      checkpoint:
+        valuationClaim === undefined ? "" : text(valuationClaim.falsifier),
+    }),
+    sectionComparisonRow({
+      label: ko ? "사업·실적 전환" : "Operating conversion",
+      section: operatingSection,
+      fallbackClaim: growthClaim ?? financialClaim,
+      checkpoint: growthClaim === undefined ? "" : text(growthClaim.falsifier),
+    }),
+    sectionComparisonRow({
+      label: ko ? "하방 검증선" : "Downside test",
+      section: changeSection,
+      fallbackClaim: riskClaim ?? opposingClaims[0],
+      checkpoint: text(structured.decision.falsifier),
+    }),
+  ].filter((row): row is EditorialComparisonRow => row !== undefined);
+  const comparisonRows =
+    qualifiedComparisonRows.length > 0
+      ? qualifiedComparisonRows
+      : derivedComparisonRows;
+  const groupedMetrics = metricGroups(file, locale);
+  const sourceIndex = file.evidenceIndex.map((source) => ({
+    ...source,
+    ...readerEvidenceLabel(source.publisher, source.title, locale),
+  }));
+  const catalysts = structured.claims
+    .filter((claim) => claim.decisionDimension === "catalyst")
+    .map((claim) => ({
+      headline: text(claim.publicThesis),
+      body: text(claim.falsifier),
+    }));
+  const risks = structured.claims
+    .filter((claim) =>
+      ["downside_path", "leading_indicator"].includes(claim.decisionDimension),
+    )
+    .map((claim) => ({
+      headline: text(claim.publicThesis),
+      body: text(claim.falsifier),
+    }));
+  const sourceScenarios = file.scenarios.map((scenario) => ({
+    id: scenario.id,
+    label: text(scenario.label),
+    thesis: text(scenario.thesis),
+    assumptions: scenario.assumptions.flatMap((assumption) =>
+      assumption.kind === "metric"
+        ? [
+            `${text(assumption.metric)} ${text(assumption.displayValue)} · ${text(assumption.basis)}`,
+          ]
+        : [],
+    ),
+  }));
+  const operatingSentences = sentences(sectionFullCopy(operatingSection));
+  const scenarioSeed = (pattern: RegExp, fallback: string) =>
+    operatingSentences.find((sentence) => pattern.test(sentence)) ?? fallback;
+  const fallbackScenarios = [
+    {
+      id: "operating-proof",
+      label: ko ? "실적이 증명해야 할 경로" : "Operating proof path",
+      thesis: scenarioSeed(
+        /favour|favor|construct|positive|긍정|개선|유지/iu,
+        financialClaim === undefined
+          ? text(structured.decision.decisiveReason)
+          : text(financialClaim.publicThesis),
+      ),
+      assumptions: dedupeEditorialTexts([
+        growthClaim === undefined ? "" : text(growthClaim.publicThesis),
+        financialClaim === undefined ? "" : text(financialClaim.falsifier),
+      ]),
+    },
+    {
+      id: "conversion-risk",
+      label: ko ? "전환 실패 경로" : "Conversion risk path",
+      thesis: scenarioSeed(
+        /adverse|downside|slow|하방|부정|둔화/iu,
+        text(structured.decision.strongestCountercase),
+      ),
+      assumptions: dedupeEditorialTexts([
+        riskClaim === undefined ? "" : text(riskClaim.publicThesis),
+        opposingClaims[0] === undefined
+          ? ""
+          : text(opposingClaims[0].falsifier),
+      ]),
+    },
+    {
+      id: "earliest-warning",
+      label: ko ? "가장 이른 경고 신호" : "Earliest warning",
+      thesis: scenarioSeed(
+        /earliest|warning|signal|가장 이른|경고|신호/iu,
+        text(structured.decision.falsifier),
+      ),
+      assumptions: dedupeEditorialTexts([
+        primaryClaims[0] === undefined ? "" : text(primaryClaims[0].falsifier),
+        sectionCopy(changeSection),
+      ]),
+    },
+  ]
+    .map((scenario) => ({
+      ...scenario,
+      assumptions: scenario.assumptions.filter(
+        (assumption) => !editoriallySimilar(assumption, scenario.thesis),
+      ),
+    }))
+    .filter(
+      (scenario) =>
+        scenario.thesis.trim().length > 0 && scenario.assumptions.length > 0,
+    );
+  const scenarios =
+    sourceScenarios.length > 0 ? sourceScenarios : fallbackScenarios;
+  const conclusionIndex =
+    structured.decision.stance === "upside_skewed"
+      ? 75
+      : structured.decision.stance === "wait_for_proof"
+        ? 50
+        : 25;
+  const evidenceReliability = reliability(file);
+  const directAnswer = text(structured.decision.decisiveReason);
+  const primaryClaim = structured.decision.primaryClaimIds.flatMap(
+    (claimId) => {
+      const claim = structured.claims.find(
+        (candidate) => candidate.claimId === claimId,
+      );
+      return claim === undefined ? [] : [claim];
+    },
+  )[0];
+  const primaryFalsifier =
+    primaryClaim === undefined ? "" : text(primaryClaim.falsifier);
+  const countercase = text(structured.decision.strongestCountercase);
+  return {
+    structuredDecision: structured.decision,
+    structuredClaims: structured.claims,
+    qualifiedComparators: structured.comparators,
+    question: file.researchDirection ?? "",
+    directAnswer,
+    posture: "",
+    conclusionIndex,
+    conclusionLabel: structured.decision.stance,
+    evidenceReliability,
+    headlineMetrics: [
+      ...(file.marketSnapshot === undefined
+        ? []
+        : [
+            {
+              label: ko ? "현재가" : "Observed price",
+              value: `${file.marketSnapshot.currency} ${file.marketSnapshot.price}`,
+            },
+          ]),
+    ],
+    lensRows: structured.decision.primaryClaimIds.flatMap((claimId) => {
+      const claim = structured.claims.find(
+        (candidate) => candidate.claimId === claimId,
+      );
+      return claim === undefined
+        ? []
+        : [
+            {
+              label: claim.decisionDimension.replaceAll("_", " "),
+              content: text(claim.publicThesis),
+            },
+          ];
+    }),
+    companySnapshot: [],
+    catalysts,
+    risks,
+    coverage: file.coverage,
+    analysisRows: claimRows,
+    valuationConclusion:
+      valuationClaim === undefined
+        ? compactEditorialText(
+            sectionCopy(valuationSection) ||
+              text(
+                financialClaim?.publicThesis ??
+                  structured.decision.decisiveReason,
+              ),
+            3,
+          )
+        : text(valuationClaim.publicThesis),
+    nextVerificationEvent:
+      structured.claims.find((claim) => claim.decisionDimension === "catalyst")
+        ?.publicThesis[locale] ?? "",
+    comparisonRows,
+    ...(qualification === undefined
+      ? {}
+      : { comparatorQualification: qualification }),
+    scenarios,
+    teamRows: teams,
+    debates: [],
+    initialView: directAnswer,
+    finalView: directAnswer,
+    acceptedClaims: supportClaims.map((claim) => text(claim.publicThesis)),
+    preservedDissent: [
+      countercase,
+      ...opposingClaims.map((claim) => text(claim.publicThesis)),
+    ],
+    evidenceIndex: sourceIndex,
+    sourceGroups: sourceGroups(file, sourceIndex, locale),
+    visualMetrics: Object.values(groupedMetrics).flat(),
+    metricGroups: groupedMetrics,
+    evidenceBalance: evidenceBalance(file, locale),
+    decisionPaths: [
+      {
+        id: "hold",
+        label: ko ? "현재 판단" : "Current decision",
+        headline: directAnswer,
+        detail: countercase,
+      },
+      ...(primaryFalsifier.length === 0
+        ? []
+        : [
+            {
+              id: "invalidate" as const,
+              label: ko ? "판단 무효화" : "Invalidation",
+              headline: primaryFalsifier,
+              detail: primaryFalsifier,
+            },
+          ]),
+    ],
+  };
+}
+
 export function buildResearchFileEditorialModel(
   file: ResearchFileData,
   locale: Locale,
 ): ResearchFileEditorialModel {
+  const workflowV2 = buildWorkflowV2EditorialModel(file, locale);
+  if (workflowV2 !== undefined) return workflowV2;
   const ko = locale === "ko";
   const focusedDepartment =
     file.researchTarget?.kind === "department"
@@ -1699,6 +2150,11 @@ export function buildResearchFileEditorialModel(
       1,
     ),
     comparisonRows,
+    ...(file.metricSnapshot?.comparatorQualification === undefined
+      ? {}
+      : {
+          comparatorQualification: file.metricSnapshot.comparatorQualification,
+        }),
     scenarios,
     teamRows,
     debates,

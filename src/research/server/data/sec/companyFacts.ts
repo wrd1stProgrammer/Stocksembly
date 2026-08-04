@@ -6,6 +6,10 @@ import {
 } from "./companyFactsJson";
 import { metricDefinition, periodKind } from "./companyFactsMetrics";
 import { selectCompanyFacts } from "./companyFactsSelection";
+import {
+  COMPANY_FACT_FILING_FORMS,
+  isRegistrationFinancialForm,
+} from "./secFilingForms";
 import type {
   CompanyFactCandidate,
   SelectedCompanyFact,
@@ -59,7 +63,7 @@ const FilingSchema = z
       .string()
       .regex(/^\d{10}-\d{2}-\d{6}$/)
       .optional(),
-    form: z.enum(["10-K", "10-K/A", "10-Q", "10-Q/A"]),
+    form: z.enum(COMPANY_FACT_FILING_FORMS),
     filedAt: z.iso.datetime({ offset: true }),
     acceptedAt: z.iso.datetime({ offset: true }),
     period: z.iso.date(),
@@ -125,7 +129,8 @@ function candidateReason(input: {
   else if (
     input.filing.form !== input.observation.form ||
     input.filing.filedAt.slice(0, 10) !== input.observation.filed ||
-    input.filing.period !== input.observation.end
+    (!isRegistrationFinancialForm(input.filing.form) &&
+      input.filing.period !== input.observation.end)
   )
     reason = "filing_lineage_mismatch";
   else if (

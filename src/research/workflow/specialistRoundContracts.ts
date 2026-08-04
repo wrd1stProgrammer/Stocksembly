@@ -3,7 +3,14 @@ import type { AllAgentAssignmentsV1 } from "../application/assignAllAgents";
 import type { EvidenceSliceV1 } from "../application/assignAllAgentsContracts";
 import type { SnapshotManifest } from "../application/buildSnapshot";
 import type { ResearchMandateV1 } from "../application/createMandateContracts";
-import { BilingualPublicTextSchema } from "../domain/agentOutputsShared";
+import type { PreSynthesisComparatorQualification } from "./preSynthesisComparatorQualification";
+import {
+  BilingualPublicTextSchema,
+  DissentListSchema,
+  EditorialDecisionDimensionSchema,
+  SourceArtifactIdsSchema,
+  UnknownListSchema,
+} from "../domain/agentOutputsShared";
 import { HashSchema } from "../domain/evidenceSchemas";
 import {
   type AttemptId,
@@ -21,9 +28,45 @@ import {
   WORKFLOW_V1_SPECIALIST_IDS,
 } from "../domain/roleRegistry";
 import type { ValueRecord } from "../domain/valueRegistry";
+import type { ResearchProfile } from "../domain/researchProfile";
 
 const EvidenceRefSchema = z
   .object({ evidenceId: z.string().min(1), contentHash: HashSchema })
+  .strict()
+  .readonly();
+
+export const SpecialistMemoOutputSchema = z
+  .object({
+    kind: z.literal("memo"),
+    sourceArtifactIds: SourceArtifactIdsSchema,
+    positions: z
+      .array(
+        z
+          .object({
+            claimId: ClaimIdSchema,
+            decisionDimension: EditorialDecisionDimensionSchema,
+            roleOwner: z.enum(WORKFLOW_V1_SPECIALIST_IDS),
+            stance: z.enum(["supports", "opposes", "uncertain"]),
+            materiality: z.enum(["material", "supporting"]),
+            publicSummary: BilingualPublicTextSchema,
+            evidenceArtifactIds: z
+              .array(z.string().uuid())
+              .min(1)
+              .max(64)
+              .readonly(),
+            decisiveMetricIds: z.array(z.string().min(1)).max(3).readonly(),
+            strongestContraryObservation: BilingualPublicTextSchema,
+            falsifier: BilingualPublicTextSchema,
+          })
+          .strict()
+          .readonly(),
+      )
+      .min(1)
+      .max(3)
+      .readonly(),
+    dissent: DissentListSchema,
+    unknowns: UnknownListSchema,
+  })
   .strict()
   .readonly();
 
@@ -77,6 +120,7 @@ export type SpecialistRoundInput = {
   readonly mandate: ResearchMandateV1;
   readonly snapshot: SnapshotManifest;
   readonly assignments: AllAgentAssignmentsV1;
+  readonly comparatorQualification?: PreSynthesisComparatorQualification;
 };
 
 export type SpecialistJobRequest = {
@@ -98,17 +142,29 @@ export type SpecialistJobRequest = {
     readonly scope: "broad" | "focused";
     readonly locale: "en" | "ko";
     readonly limitations: ResearchMandateV1["limitations"];
+    readonly researchProfile: ResearchProfile;
   };
   readonly capabilityStatement: EvidenceSliceV1["capabilities"];
   readonly evidenceSlice: EvidenceSliceV1;
   readonly registeredValues: readonly ValueRecord[];
+  readonly comparatorQualification: PreSynthesisComparatorQualification;
   readonly attempt: {
     readonly jobId: JobId;
     readonly attemptId: AttemptId;
     readonly ordinal: number;
     readonly purpose: "mandatory_first" | "required_replacement";
   };
+  readonly claimSlots: readonly SpecialistClaimSlot[];
   readonly ids: { readonly claimId: ClaimId; readonly questionId: QuestionId };
+};
+
+export type SpecialistClaimSlot = {
+  readonly claimId: ClaimId;
+  readonly decisionDimension: z.infer<typeof EditorialDecisionDimensionSchema>;
+  /** The concrete analytical job inside a broader decision dimension. */
+  readonly analyticalAngle: string;
+  readonly materiality: "material" | "supporting";
+  readonly optional: boolean;
 };
 
 export type SpecialistProcessResult =

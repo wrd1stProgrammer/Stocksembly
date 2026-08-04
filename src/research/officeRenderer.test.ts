@@ -180,6 +180,39 @@ describe("manifest-derived office snapshot renderer", () => {
     }
   });
 
+  it("uses the authoritative adjacent step for a walking sprite", () => {
+    // Given
+    const base = snapshotAt(360);
+    const previous = updateActor(base, "market", (actor) => ({
+      ...actor,
+      action: "walk",
+      cell: Object.freeze({ x: 10, y: 10 }),
+      world: Object.freeze({ x: 336, y: 352 }),
+      facing: "right",
+    }));
+    const current = updateActor(previous, "market", (actor) => ({
+      ...actor,
+      action: "walk",
+      cell: Object.freeze({ x: 9, y: 10 }),
+      world: Object.freeze({ x: 304, y: 352 }),
+      // A stale directive-facing value must not make a left-moving actor
+      // render the right-facing row.
+      facing: "right",
+    }));
+
+    // When
+    const maya = project(current, previous).actors.find(
+      (actor) => actor.id === "market",
+    );
+
+    // Then
+    expect(maya).toMatchObject({
+      facing: "left",
+      animation: "walk",
+      frame: { row: 2, columns: [0, 1, 2, 1] },
+    });
+  });
+
   it("uses the target-facing row for orient even after opposite movement", () => {
     // Given
     const base = snapshotAt(360);

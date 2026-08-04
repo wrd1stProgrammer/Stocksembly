@@ -149,6 +149,9 @@ export async function authenticatedWorkflowRetentionRegister(
       for (const claimId of payload.disagreementClaimIds) dissent.add(claimId);
       for (const item of payload.dissent) dissent.add(item.claimId);
     }
+    if (payload.kind === "blind_challenge") {
+      for (const claimId of payload.challengedClaimIds) dissent.add(claimId);
+    }
     if (payload.kind === "owner_response_ballot") {
       for (const item of payload.dissent) dissent.add(item.claimId);
     }

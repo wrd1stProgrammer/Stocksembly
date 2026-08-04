@@ -11,6 +11,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 1,
     },
+    {
+      url: `${BASE_URL}/research-room`,
+      lastModified: updatedAt,
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
     ...[
       "terms",
       "privacy",

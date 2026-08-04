@@ -2,25 +2,36 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { commitAgentOutput } from "../application/commitAgentOutput";
-import { MemoOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
 import {
   ArtifactIdSchema,
   AttemptIdSchema,
   EventIdSchema,
 } from "../domain/ids";
+import { workflowRoleById } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { CodexRunnerError } from "../server/codex/codexErrors";
 import {
   researchRuntimeOverride,
   trustedResearchRuntime,
 } from "../server/codex/codexPolicy";
+import { codexInputHash } from "../server/codex/codexReservation";
 import type { SafeCodexEvidence } from "../server/codex/codexTypes";
 import { captureAttemptWebEvidence } from "../server/codex/codexWebCapture";
+import { CodexIsolationError } from "../server/codex/readiness";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
 import { retryRejectedCommit } from "./specialistCommitRetry";
+import type { SpecialistJobRequest } from "./specialistRoundContracts";
+import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
+import {
+  normalizeSpecialistClaimSlotBindings,
+  type SpecialistClaimValidationReason,
+  sanitizeSpecialistDecisiveMetricIds,
+  specialistThesisFingerprints,
+  validateSpecialistClaimSubmission,
+} from "./specialistRoundInput";
 import type { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
 import type {
   PersistedSpecialistJob,
@@ -44,8 +55,25 @@ type CitationCorrection = {
 type ExecuteOutcome =
   | "accepted"
   | "commit_rejected"
+  | {
+      readonly kind: "isolation_unavailable";
+      readonly check: CodexIsolationError["check"];
+      readonly reason: CodexIsolationError["reason"];
+    }
   | "incomplete"
-  | "citation_invalid_after_retry";
+  | "citation_invalid_after_retry"
+  | SpecialistClaimValidationReason;
+
+export function isSpecialistAttemptReadableSource(
+  job: Pick<PersistedSpecialistJob, "comparatorQualification">,
+  artifactId: string,
+): boolean {
+  const rawPeerArtifactId =
+    job.comparatorQualification.status === "available"
+      ? job.comparatorQualification.qualification.rawPeerArtifactId
+      : job.comparatorQualification.rawPeerArtifactId;
+  return rawPeerArtifactId !== artifactId;
+}
 
 function correctivePrompt(
   prompt: string,
@@ -61,7 +89,7 @@ ${correction.invalidArtifactIds.join("\n")}
 Cite only artifact IDs from this allowlist:
 ${correction.allowedArtifactIds.join("\n")}
 
-Do not invent, transform, or copy any other artifact ID. Rebuild the memo using only the available evidence.`;
+Do not cite or convert contentHash, rawHash, or normalizedHash values. Do not invent, transform, or copy any other artifact ID. Rebuild the memo using only the available evidence.`;
 }
 
 function generatedIds() {
@@ -94,6 +122,7 @@ export function createSpecialistRoundAttemptHandler(
     claim: { readonly ownerId: string; readonly token: number },
     job: PersistedSpecialistJob,
     prompt: string,
+    inputHash: string,
     evidence: SafeCodexEvidence,
   ): boolean =>
     recordSuccessfulRunnerEvidence(
@@ -113,7 +142,7 @@ export function createSpecialistRoundAttemptHandler(
           process.env["STOCKSEMBLY_LUNA_SUPPORT_SPECIALISTS"] === "1",
         ),
         promptHash: hashCanonical(prompt),
-        inputHash: job.inputHash,
+        inputHash,
       },
       evidence,
     );
@@ -129,7 +158,15 @@ export function createSpecialistRoundAttemptHandler(
       `memo:${attemptRole(attempt, context.authority)}`,
     );
     const claim = context.authority.claimForAttempt(attempt.attemptId);
-    if (job === undefined || claim === undefined) return "incomplete";
+    const attemptInputHash = context.authority.inputHashForAttempt(
+      attempt.attemptId,
+    );
+    if (
+      job === undefined ||
+      claim === undefined ||
+      attemptInputHash === undefined
+    )
+      return "incomplete";
     const key = {
       runId: attempt.runId,
       jobId: attempt.jobId,
@@ -144,7 +181,11 @@ export function createSpecialistRoundAttemptHandler(
       mkdirSync(attemptDir, { recursive: true });
       const evidenceDirectory = join(attemptDir, "evidence");
       mkdirSync(evidenceDirectory, { recursive: true });
-      for (const source of context.authority.sourceArtifactsForJob(job.jobId)) {
+      for (const source of context.authority
+        .sourceArtifactsForJob(job.jobId)
+        .filter((artifact) =>
+          isSpecialistAttemptReadableSource(job, artifact.artifactId),
+        )) {
         const artifact = await context.options.cas.get(
           ArtifactDigestSchema.parse(source.contentHash),
         );
@@ -162,7 +203,7 @@ export function createSpecialistRoundAttemptHandler(
         stage: "memo",
         ...(runtime === undefined ? {} : { runtime }),
         prompt,
-        outputSchema: MemoOutputSchema,
+        outputSchema: SpecialistMemoOutputSchema,
         captureWebEvidence: async (webEvidence) =>
           await captureAttemptWebEvidence(
             context.options.cas,
@@ -185,12 +226,72 @@ export function createSpecialistRoundAttemptHandler(
       if (!(error instanceof Error)) throw error;
       writeFileSync(
         join(context.options.attemptRoot, attempt.attemptId, "error.txt"),
-        `${error.name}: ${error.message}\n`,
+        `${error.name}: ${error.message}${
+          error instanceof CodexIsolationError ? ` (${error.check})` : ""
+        }\n`,
       );
+      if (error instanceof CodexIsolationError)
+        return {
+          kind: "isolation_unavailable",
+          check: error.check,
+          reason: error.reason,
+        };
       return "incomplete";
     }
-    if (!recordEvidence(attempt, claim, job, prompt, runnerEvidence))
+    if (
+      !recordEvidence(
+        attempt,
+        claim,
+        job,
+        prompt,
+        attemptInputHash,
+        runnerEvidence,
+      )
+    )
       return "incomplete";
+    const promptRequest = JSON.parse(job.prompt.split("\n", 1)[0]!) as {
+      readonly request: SpecialistJobRequest;
+    };
+    const allowedMetricIds = promptRequest.request.registeredValues.map(
+      (value) => value.valueId,
+    );
+    candidate = sanitizeSpecialistDecisiveMetricIds(
+      candidate,
+      allowedMetricIds,
+    );
+    candidate = normalizeSpecialistClaimSlotBindings(
+      {
+        roleId: job.roleId,
+        claimSlots: promptRequest.request.claimSlots,
+      },
+      candidate,
+    );
+    const claimValidation = validateSpecialistClaimSubmission(
+      {
+        runId: job.runId,
+        snapshotId: job.snapshotId,
+        roleId: job.roleId,
+        claimSlots: promptRequest.request.claimSlots,
+        allowedArtifactIds: job.sourceArtifactIds,
+        allowedMetricIds,
+        validateEvidence: false,
+      },
+      candidate,
+    );
+    if (!claimValidation.ok) return claimValidation.reason;
+    const departmentId = workflowRoleById(job.roleId)?.departmentId;
+    if (
+      departmentId === undefined ||
+      departmentId === "chair" ||
+      !context.authority.reserveDepartmentTheses({
+        runId: job.runId,
+        departmentId,
+        roleId: job.roleId,
+        fingerprints: specialistThesisFingerprints(candidate),
+        at: now(),
+      })
+    )
+      return "specialist_claim_duplicate_thesis";
     const ids = generatedIds();
     const occurredAt = now();
     const committed = await retryRejectedCommit(
@@ -212,6 +313,22 @@ export function createSpecialistRoundAttemptHandler(
     if (committed.kind === "citation_incomplete")
       return "citation_invalid_after_retry";
     if (committed.kind === "citation_replacement_reserved") {
+      const nextCorrection = {
+        invalidArtifactIds: committed.invalidArtifactIds,
+        allowedArtifactIds: committed.allowedArtifactIds,
+      };
+      const replacementInputHash = codexInputHash({
+        stage: "memo",
+        prompt: correctivePrompt(job.prompt, nextCorrection),
+        outputSchema: SpecialistMemoOutputSchema,
+      });
+      if (
+        !context.authority.rebindReplacementInput(
+          ids.replacementAttemptId,
+          replacementInputHash,
+        )
+      )
+        return "incomplete";
       context.authority.consumeReplacementBudget(attempt.runId);
       context.authority.markReplacementRunning(ids.replacementAttemptId);
       return await execute(
@@ -222,10 +339,7 @@ export function createSpecialistRoundAttemptHandler(
         },
         signal,
         activity,
-        {
-          invalidArtifactIds: committed.invalidArtifactIds,
-          allowedArtifactIds: committed.allowedArtifactIds,
-        },
+        nextCorrection,
       );
     }
     if (committed.kind !== "replacement_reserved") return "incomplete";
@@ -252,6 +366,21 @@ export function createSpecialistRoundAttemptHandler(
           code: "specialist_commit_rejected",
           retryAt: now(),
         };
+      if (
+        typeof outcome === "object" &&
+        outcome.kind === "isolation_unavailable"
+      )
+        return {
+          kind: "transient",
+          code: "codex_isolation_temporarily_unavailable",
+          retryAt: now(),
+          readiness: { check: outcome.check, reason: outcome.reason },
+        };
+      if (
+        typeof outcome === "string" &&
+        outcome.startsWith("specialist_claim_")
+      )
+        return { kind: "repair", code: outcome, retryAt: now() };
       return {
         kind: "incomplete",
         code:

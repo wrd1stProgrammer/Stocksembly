@@ -30,7 +30,12 @@ export class RunEventsSse {
     this.#heartbeatIntervalMs = options.heartbeatIntervalMs ?? 15_000;
   }
 
-  response(request: Request, principalId: string, runId: string): Response {
+  response(
+    request: Request,
+    principalId: string,
+    runId: string,
+    onTerminal?: () => Promise<void>,
+  ): Response {
     if (!RunIdSchema.safeParse(runId).success)
       return apiError(404, "NOT_FOUND");
     const parsed = resolveSseCursor(request);
@@ -59,6 +64,7 @@ export class RunEventsSse {
         serviceSignal: this.#service.signal,
         pollIntervalMs: this.#pollIntervalMs,
         heartbeatIntervalMs: this.#heartbeatIntervalMs,
+        ...(onTerminal === undefined ? {} : { onTerminal }),
       }),
       { headers: responseHeaders },
     );

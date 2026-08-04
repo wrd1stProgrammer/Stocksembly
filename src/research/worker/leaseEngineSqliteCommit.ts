@@ -142,6 +142,11 @@ function exhaustedRunSummary(code: string): {
       en: "The final chair synthesis did not pass its output validation after two attempts.",
       ko: "최종 의장 종합 결과가 두 번의 시도 후에도 출력 검증을 통과하지 못했습니다.",
     };
+  if (code === "sec_primary_filing_missing" || code === "sec_10k_missing")
+    return {
+      en: "Research stopped because no usable SEC company filing was available for this security.",
+      ko: "이 종목에서 분석에 사용할 수 있는 SEC 기업 공시를 찾지 못해 리서치를 중단했습니다.",
+    };
   return {
     en: "Research stopped after the available attempt was exhausted.",
     ko: "허용된 실행 재시도를 소진해 리서치를 중단했습니다.",
@@ -265,6 +270,17 @@ export function commitAttempt(
         payload: {
           classification: input.outcome.kind,
           ...("code" in input.outcome ? { code: input.outcome.code } : {}),
+          ...("diagnostics" in input.outcome &&
+          input.outcome.diagnostics !== undefined
+            ? { process: input.outcome.diagnostics }
+            : {}),
+          ...("readiness" in input.outcome &&
+          input.outcome.readiness !== undefined
+            ? { readiness: input.outcome.readiness }
+            : {}),
+          ...("runner" in input.outcome && input.outcome.runner !== undefined
+            ? { runner: input.outcome.runner }
+            : {}),
         },
       },
     });

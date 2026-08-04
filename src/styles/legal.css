@@ -1,9 +1,7 @@
 .legal-page {
   min-height: 100vh;
   padding: 0 max(var(--space-6), calc((100vw - var(--landing-width)) / 2));
-  background:
-    radial-gradient(circle at 70% 0%, rgb(66 104 255 / 9%), transparent 34rem),
-    var(--color-void);
+  background: #070708;
   color: var(--color-text);
 }
 

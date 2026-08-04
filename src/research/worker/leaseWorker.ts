@@ -10,6 +10,11 @@ import {
 import type { ResearchWorkSignal } from "../ports/researchQueue";
 import { createLiveResearchQueue } from "../server/queue/sqsResearchQueue";
 import {
+  runProductionCodexWorkerAdmission,
+  runProductionReadinessDiagnostic,
+} from "../server/codex/codexRunner";
+import { resumeCommitteeChair } from "./chairResume";
+import {
   type AttemptHandler,
   type AttemptOutcome,
   createLeaseEngine,
@@ -31,8 +36,9 @@ const LegacyArgumentsSchema = z.tuple([
   z.enum(["accepted", "wait-for-signal"]),
   z.enum(["--serve", "--drain"]),
 ]);
-const RuntimeArgumentsSchema = z.tuple([
-  z.enum(["serve", "readiness", "health"]),
+const RuntimeArgumentsSchema = z.union([
+  z.tuple([z.enum(["serve", "readiness", "readiness-diagnostic", "health"])]),
+  z.tuple([z.literal("resume-chair"), z.string().uuid(), z.string().uuid()]),
 ]);
 const ErrorCodeSchema = z.object({ code: z.string() });
 
@@ -45,8 +51,16 @@ type LegacyWorkerArguments = {
 };
 type RuntimeWorkerArguments = {
   readonly kind: "runtime";
-  readonly command: "serve" | "readiness" | "health";
-};
+} & (
+  | {
+      readonly command: "serve" | "readiness" | "readiness-diagnostic" | "health";
+    }
+  | {
+      readonly command: "resume-chair";
+      readonly runId: string;
+      readonly authorizationId: string;
+    }
+);
 type WorkerArguments = LegacyWorkerArguments | RuntimeWorkerArguments;
 export class LeaseWorkerCliError extends Error {
   readonly name = "LeaseWorkerCliError";
@@ -55,7 +69,15 @@ export class LeaseWorkerCliError extends Error {
 function parseArguments(values: readonly string[]): WorkerArguments {
   const normalized = values[0] === "--" ? values.slice(1) : values;
   const runtime = RuntimeArgumentsSchema.safeParse(normalized);
-  if (runtime.success) return { kind: "runtime", command: runtime.data[0] };
+  if (runtime.success)
+    return runtime.data[0] === "resume-chair"
+      ? {
+          kind: "runtime",
+          command: "resume-chair",
+          runId: runtime.data[1],
+          authorizationId: runtime.data[2],
+        }
+      : { kind: "runtime", command: runtime.data[0] };
   const legacy = LegacyArgumentsSchema.safeParse(normalized);
   if (!legacy.success)
     throw new LeaseWorkerCliError("Invalid lease worker arguments");
@@ -119,7 +141,7 @@ export async function runLeaseWorkerProcess(
   if (argumentsValue.kind === "runtime") {
     if (handler !== undefined)
       throw new LeaseWorkerCliError("Handler injection is legacy-only");
-    await runRuntimeCommand(argumentsValue.command);
+    await runRuntimeCommand(argumentsValue);
     return;
   }
   await runWorker(argumentsValue, undefined, handler);
@@ -132,14 +154,52 @@ export async function createRuntimeAttemptHandler(
   return await createOfficialAttemptHandler(options, overrides);
 }
 
+export async function prepareAdmittedWorkerRuntime<Runtime, Lease>(input: {
+  readonly admit: () => Promise<void>;
+  readonly prepare: () => Promise<Runtime>;
+  readonly acquire: (runtime: Runtime) => Promise<Lease>;
+}): Promise<{ readonly runtime: Runtime; readonly lease: Lease }> {
+  await input.admit();
+  const runtime = await input.prepare();
+  const lease = await input.acquire(runtime);
+  return { runtime, lease };
+}
+
 async function runRuntimeCommand(
-  command: RuntimeWorkerArguments["command"],
+  argumentsValue: RuntimeWorkerArguments,
 ): Promise<void> {
+  const { command } = argumentsValue;
+  if (command === "resume-chair") {
+    const runtime = await prepareWorkerRuntime();
+    const result = resumeCommitteeChair({
+      databasePath: runtime.databasePath,
+      runId: argumentsValue.runId,
+      authorizationId: argumentsValue.authorizationId,
+      now: new Date().toISOString(),
+    });
+    writeLifecycle({
+      kind: "chair_resume",
+      status: result.kind,
+      ...(result.kind === "rejected"
+        ? { reason: result.reason }
+        : { grantedLaunch: result.grantedLaunch }),
+    });
+    if (result.kind === "rejected")
+      throw new LeaseWorkerCliError(`Chair resume rejected: ${result.reason}`);
+    return;
+  }
   if (command === "readiness") {
     writeLifecycle({
       kind: "worker_readiness",
       status: "ready",
       ...(await runtimeDetails()),
+    });
+    return;
+  }
+  if (command === "readiness-diagnostic") {
+    writeLifecycle({
+      kind: "worker_readiness_diagnostic",
+      result: JSON.stringify(await runProductionReadinessDiagnostic()),
     });
     return;
   }
@@ -153,8 +213,11 @@ async function runRuntimeCommand(
     });
     return;
   }
-  const runtime = await prepareWorkerRuntime();
-  const lease = await acquireWorkerLease(runtime);
+  const { runtime, lease } = await prepareAdmittedWorkerRuntime({
+    admit: runProductionCodexWorkerAdmission,
+    prepare: prepareWorkerRuntime,
+    acquire: acquireWorkerLease,
+  });
   const workSignal = createLiveResearchQueue();
   let workflow: OfficialAttemptHandler | undefined;
   try {
@@ -243,6 +306,10 @@ async function runWorker(
               outcome: result.outcome.kind,
               ...("code" in result.outcome
                 ? { code: result.outcome.code }
+                : {}),
+              ...("runner" in result.outcome &&
+              result.outcome.runner !== undefined
+                ? { runnerPhase: result.outcome.runner.phase }
                 : {}),
             });
           else

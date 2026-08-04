@@ -5,18 +5,13 @@ import type { Locale } from "../../lib/i18n";
 import type { ResearchFileData } from "../../research/compositions/types";
 import { buildResearchFileEditorialModel } from "../../research/researchFileEditorialModel";
 import type { ResearchCompany } from "../../research/types";
-import { ResearchFileAnalysis } from "./file/ResearchFileAnalysis";
-import { ResearchFileComparison } from "./file/ResearchFileComparison";
-import { ResearchFileDebate } from "./file/ResearchFileDebate";
-import { ResearchFileDecision } from "./file/ResearchFileDecision";
-import {
-  ResearchFileDepartmentBrief,
-  ResearchFileDepartmentFramework,
-} from "./file/ResearchFileDepartmentBrief";
-import { ResearchFileHeader } from "./file/ResearchFileHeader";
-import { ResearchFileQuestions } from "./file/ResearchFileQuestions";
-import { ResearchFileSources } from "./file/ResearchFileSources";
-import { ResearchFileValuation } from "./file/ResearchFileValuation";
+import { CommitteeReportSurface } from "./file/CommitteeReportSurface";
+import { CompanyReportSurface } from "./file/CompanyReportSurface";
+import { FinancialReportSurface } from "./file/FinancialReportSurface";
+import { MarketReportSurface } from "./file/MarketReportSurface";
+import type { ResearchReportSurfaceProps } from "./file/ResearchReportSurfaceShell";
+import { RiskReportSurface } from "./file/RiskReportSurface";
+import { UnsupportedResearchReport } from "./file/UnsupportedResearchReport";
 
 type Props = {
   readonly company: ResearchCompany;
@@ -43,24 +38,10 @@ export function CompletedResearchFileV2({
     () => buildResearchFileEditorialModel(report, locale),
     [locale, report],
   );
-  const departmentId =
-    report.researchTarget?.kind === "department"
-      ? report.researchTarget.departmentId
-      : undefined;
 
   useEffect(() => {
     const stored = window.localStorage.getItem(themeStorageKey);
     if (stored === "dark" || stored === "light") setTheme(stored);
-  }, []);
-
-  useEffect(() => {
-    const active = document.activeElement;
-    if (
-      active instanceof HTMLInputElement ||
-      active instanceof HTMLTextAreaElement
-    )
-      return;
-    titleRef.current?.focus({ preventScroll: true });
   }, []);
 
   const changeTheme = (nextTheme: "light" | "dark") => {
@@ -68,72 +49,35 @@ export function CompletedResearchFileV2({
     window.localStorage.setItem(themeStorageKey, nextTheme);
   };
 
-  return (
-    <section
-      className="completed-research-file"
-      aria-labelledby="research-file-title"
-    >
-      <article
-        className="research-editorial-document"
-        data-report-theme={theme}
-        {...(departmentId === undefined
-          ? {}
-          : { "data-report-department": departmentId })}
-      >
-        <ResearchFileHeader
-          company={company}
-          file={report}
-          model={model}
-          locale={locale}
-          version={version}
-          theme={theme}
-          onThemeChange={changeTheme}
-          titleRef={titleRef}
-        />
-        {report.comparison === undefined ? null : (
-          <ResearchFileComparison
-            comparison={report.comparison}
-            locale={locale}
-          />
-        )}
-        {departmentId === undefined ? (
-          <ResearchFileDecision file={report} model={model} locale={locale} />
-        ) : (
-          <ResearchFileDepartmentBrief
-            departmentId={departmentId}
-            file={report}
-            model={model}
-            locale={locale}
-          />
-        )}
-        {departmentId === undefined ? (
-          <ResearchFileAnalysis file={report} model={model} locale={locale} />
-        ) : null}
-        {departmentId === undefined ? (
-          <ResearchFileValuation file={report} model={model} locale={locale} />
-        ) : (
-          <ResearchFileDepartmentFramework
-            departmentId={departmentId}
-            file={report}
-            model={model}
-            locale={locale}
-          />
-        )}
-        <ResearchFileDebate
-          file={report}
-          model={model}
-          locale={locale}
-          number={departmentId === undefined ? "04" : "03"}
-        />
-        <ResearchFileQuestions file={report} locale={locale} />
-        <ResearchFileSources
-          model={model}
-          locale={locale}
-          version={version}
-          {...(reportId === undefined ? {} : { reportId })}
-          onReplay={onReplay}
-        />
-      </article>
-    </section>
-  );
+  const surfaceProps: ResearchReportSurfaceProps = {
+    company,
+    locale,
+    report,
+    model,
+    version,
+    ...(reportId === undefined ? {} : { reportId }),
+    onReplay,
+    theme,
+    onThemeChange: changeTheme,
+    titleRef,
+  };
+
+  const target = report.researchTarget;
+  if (target === undefined || target.kind === "committee")
+    return <CommitteeReportSurface {...surfaceProps} />;
+  if (target.kind !== "department")
+    return <UnsupportedResearchReport locale={locale} />;
+
+  switch (target.departmentId) {
+    case "market":
+      return <MarketReportSurface {...surfaceProps} />;
+    case "company":
+      return <CompanyReportSurface {...surfaceProps} />;
+    case "financial":
+      return <FinancialReportSurface {...surfaceProps} />;
+    case "risk":
+      return <RiskReportSurface {...surfaceProps} />;
+    default:
+      return <UnsupportedResearchReport locale={locale} />;
+  }
 }

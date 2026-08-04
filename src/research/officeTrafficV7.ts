@@ -1,6 +1,7 @@
 import {
   findOfficeRoute,
   findYieldRoute,
+  isOfficeCellWalkable,
   type NavigationGrid,
   officeCellKey,
 } from "./officeNavigation";
@@ -68,11 +69,35 @@ function resumeFromYield(
   };
 }
 
-function nextCell(actor: OfficeTrafficActor): Cell | null {
+function edgeKey(from: Cell, to: Cell): string {
+  const fromKey = officeCellKey(from);
+  const toKey = officeCellKey(to);
+  return fromKey < toKey ? `${fromKey}|${toKey}` : `${toKey}|${fromKey}`;
+}
+
+function canTraverse(grid: NavigationGrid, from: Cell, to: Cell): boolean {
+  const distance = Math.abs(from.x - to.x) + Math.abs(from.y - to.y);
+  return (
+    distance === 1 &&
+    isOfficeCellWalkable(grid, from) &&
+    isOfficeCellWalkable(grid, to) &&
+    !grid.blockedEdges.some(
+      (blockedEdge) =>
+        edgeKey(blockedEdge.from, blockedEdge.to) === edgeKey(from, to),
+    )
+  );
+}
+
+function nextCell(
+  grid: NavigationGrid,
+  actor: OfficeTrafficActor,
+): Cell | null {
   if (!actor.ready || actor.mode === "arrived" || actor.mode === "failed") {
     return null;
   }
-  return actor.route[actor.routeIndex + 1] ?? null;
+  const next = actor.route[actor.routeIndex + 1] ?? null;
+  if (next === null || !canTraverse(grid, actor.cell, next)) return null;
+  return next;
 }
 
 function replanBlockedActor(context: OfficeReplanContext): OfficeTrafficActor {
@@ -157,7 +182,29 @@ export function stepOfficeTraffic(
   const moved = new Map<string, OfficeTrafficActor>();
   const blockers = new Map<string, string | null>();
   for (const actor of resumed) {
-    const destination = nextCell(actor);
+    const plannedDestination = actor.route[actor.routeIndex + 1] ?? null;
+    const destination = nextCell(grid, actor);
+    // Routes are authored by the grid, but keep the traffic layer as the
+    // final collision authority.  A stale/corrupt route must be replanned in
+    // place instead of allowing a diagonal or wall-crossing jump followed by
+    // a visual snap on the next render frame.
+    if (
+      plannedDestination !== null &&
+      destination === null &&
+      actor.ready &&
+      actor.mode !== "arrived" &&
+      actor.mode !== "failed"
+    ) {
+      blockers.set(actor.id, null);
+      moved.set(actor.id, {
+        ...actor,
+        route: Object.freeze([]),
+        routeIndex: 0,
+        mode: "waiting",
+        waitTicks: WAIT_BEFORE_REPLAN_TICKS - 1,
+      });
+      continue;
+    }
     if (!destination) {
       moved.set(actor.id, { ...actor, ready: true });
       continue;

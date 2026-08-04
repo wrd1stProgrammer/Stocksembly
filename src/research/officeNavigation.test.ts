@@ -146,6 +146,46 @@ describe("office navigation", () => {
     ).toBe(2);
   });
 
+  it("replans a malformed route instead of allowing a wall-crossing jump", () => {
+    // Given
+    const grid = createNavigationGrid({
+      columns: 3,
+      rows: 1,
+      walkableCells: [cell(0, 0), cell(1, 0), cell(2, 0)],
+      yieldAnchors: [],
+    });
+    const initial = createOfficeTraffic(grid, [
+      { id: "market", priority: 0, start: cell(0, 0), destination: cell(2, 0) },
+    ]);
+    const malformed = Object.freeze({
+      ...initial,
+      actors: Object.freeze(
+        initial.actors.map((actor) =>
+          Object.freeze({
+            ...actor,
+            // This diagonal/non-walkable edge simulates a stale route from a
+            // previous room layout.
+            destination: cell(1, 1),
+            route: Object.freeze([cell(0, 0), cell(1, 1)]),
+          }),
+        ),
+      ),
+    });
+
+    // When
+    const next = stepOfficeTraffic(grid, malformed);
+    const actor = next.actors[0];
+
+    // Then
+    expect(actor).toMatchObject({
+      cell: cell(0, 0),
+      mode: "waiting",
+      route: [],
+      waitTicks: 12,
+    });
+    expect(next.reservations).toEqual([]);
+  });
+
   it("resolves a head-on chokepoint after three failed replans without a swap", () => {
     // Given
     const grid = createNavigationGrid({

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { hashBytes } from "../domain/contractHelpers";
 import { schemaDocument } from "../server/codex/codexArtifacts";
 import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
-  chairSynthesisModelPrompt,
 } from "./chairSynthesisContracts";
+import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
 import {
   SemanticAuditModelOutputSchema,
   SemanticAuditPromptSchema,
@@ -118,13 +119,27 @@ describe("late-stage model prompt compaction", () => {
       sentences,
     });
     const compact = chairSynthesisModelPrompt(prompt);
+    const parsed = z
+      .object({
+        evidenceBoundary: z.literal("BEGIN_UNTRUSTED_EVIDENCE_CATALOG"),
+        evidenceBoundaryEnd: z.literal("END_UNTRUSTED_EVIDENCE_CATALOG"),
+        unknownIds: z.array(z.string().uuid()),
+        sentences: z.array(
+          z.object({
+            sentenceId: z.string(),
+            text: z.object({ en: z.string(), ko: z.string() }),
+          }),
+        ),
+      })
+      .passthrough()
+      .parse(JSON.parse(compact));
 
-    expect(compact).toContain("What changes the thesis?");
-    expect(compact).toContain("claim:0");
-    expect(compact).toContain("claim 문장");
-    expect(compact).not.toContain("claim text");
+    expect(parsed.sentences[0]).toEqual({
+      sentenceId: "claim:0",
+      text: { en: "claim text", ko: "claim 문장" },
+    });
+    expect(parsed.unknownIds).toEqual([id(3)]);
     expect(compact).not.toContain(id(1));
-    expect(compact.length).toBeLessThan(JSON.stringify(prompt).length * 0.75);
     expect(
       ChairSynthesisModelOutputSchema.safeParse({
         kind: "chair_synthesis",

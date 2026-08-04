@@ -1,0 +1,554 @@
+"use client";
+
+import {
+  fetchAuthSession,
+  fetchUserAttributes,
+  getCurrentUser,
+  signOut,
+} from "aws-amplify/auth";
+import {
+  Check,
+  ChevronRight,
+  CircleHelp,
+  Clock3,
+  CreditCard,
+  FileText,
+  Home,
+  Languages,
+  LayoutDashboard,
+  LibraryBig,
+  LogOut,
+  PanelLeft,
+  Scale,
+  ShieldAlert,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createAuthenticatedResearchClient } from "../auth/researchClient";
+import { clearResearchSession } from "../auth/researchSession";
+import { copy, type Locale } from "../lib/i18n";
+import type { PublicRun } from "../research/client/schemas";
+import { Brand } from "./Brand";
+import { CompanyLogo } from "./research/ResearchSidebar";
+
+type SignedInSidebarProps = {
+  readonly locale: Locale;
+  readonly collapsed: boolean;
+  readonly onCollapsedChange: (collapsed: boolean) => void;
+  readonly onLocaleChange: (locale: Locale) => void;
+  readonly onSignedOut: () => void;
+  readonly onOpenSubscription?: () => void;
+  readonly subscriptionTier?: "unknown" | "free" | "paid";
+  readonly activeItem?: "dashboard" | "research-room";
+};
+
+export const SIGNED_IN_SIDEBAR_STORAGE_KEY =
+  "stocksembly:signed-in-sidebar-collapsed";
+export const PREFERRED_LOCALE_STORAGE_KEY = "stocksembly:preferred-locale";
+
+type LoadState = "loading" | "ready" | "failed";
+
+type HistoryGroup = {
+  readonly symbol: string;
+  readonly runs: readonly PublicRun[];
+};
+
+function statusLabel(status: PublicRun["status"], locale: Locale) {
+  if (status === "queued" || status === "running" || status === "cancelling") {
+    return locale === "ko" ? "분석 중" : "Researching";
+  }
+  if (status === "completed" || status === "complete-with-limitations") {
+    return locale === "ko" ? "완료" : "Complete";
+  }
+  return locale === "ko" ? "중단됨" : "Stopped";
+}
+
+function dateLabel(value: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+export function SignedInSidebar({
+  locale,
+  collapsed,
+  onCollapsedChange,
+  onLocaleChange,
+  onSignedOut,
+  onOpenSubscription,
+  subscriptionTier = "unknown",
+  activeItem = "dashboard",
+}: SignedInSidebarProps) {
+  const [runs, setRuns] = useState<readonly PublicRun[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const [identity, setIdentity] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState<string>();
+  const profileWrapRef = useRef<HTMLDivElement>(null);
+
+  const loadRuns = useCallback(async () => {
+    setLoadState("loading");
+    try {
+      const client = createAuthenticatedResearchClient();
+      await client.bootstrapSession();
+      setRuns((await client.listRuns?.(12)) ?? []);
+      setLoadState("ready");
+    } catch {
+      setLoadState("failed");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRuns();
+    void getCurrentUser()
+      .then(async (user) => {
+        const [attributes, session] = await Promise.all([
+          fetchUserAttributes().catch(() => undefined),
+          fetchAuthSession().catch(() => undefined),
+        ]);
+        const payload = session?.tokens?.idToken?.payload;
+        const emailFromToken =
+          typeof payload?.["email"] === "string" ? payload["email"] : undefined;
+        const pictureFromToken =
+          typeof payload?.["picture"] === "string"
+            ? payload["picture"]
+            : undefined;
+        const picture = attributes?.picture ?? pictureFromToken;
+        setIdentity(attributes?.email ?? emailFromToken ?? user.username ?? "");
+        setProfileImageUrl(
+          picture?.startsWith("https://") ? picture : undefined,
+        );
+      })
+      .catch(() => undefined);
+  }, [loadRuns]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const closeFromOutside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        !profileWrapRef.current?.contains(event.target)
+      ) {
+        setProfileOpen(false);
+      }
+    };
+    const closeFromKeyboard = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (languageOpen) setLanguageOpen(false);
+      else setProfileOpen(false);
+    };
+    window.addEventListener("pointerdown", closeFromOutside);
+    window.addEventListener("keydown", closeFromKeyboard);
+    return () => {
+      window.removeEventListener("pointerdown", closeFromOutside);
+      window.removeEventListener("keydown", closeFromKeyboard);
+    };
+  }, [languageOpen, profileOpen]);
+
+  useEffect(() => {
+    if (!profileOpen) setLanguageOpen(false);
+  }, [profileOpen]);
+
+  const historyGroups = useMemo<readonly HistoryGroup[]>(() => {
+    const grouped = new Map<string, PublicRun[]>();
+    for (const run of runs) {
+      const group = grouped.get(run.symbol) ?? [];
+      group.push(run);
+      grouped.set(run.symbol, group);
+    }
+    return [...grouped.entries()].map(([symbol, groupedRuns]) => ({
+      symbol,
+      runs: groupedRuns,
+    }));
+  }, [runs]);
+
+  async function handleSignOut() {
+    setProfileOpen(false);
+    await clearResearchSession().catch(() => undefined);
+    await signOut().catch(() => undefined);
+    onSignedOut();
+  }
+
+  function handleOpenSubscription() {
+    setProfileOpen(false);
+    onOpenSubscription?.();
+  }
+
+  async function handleLocaleSelection(nextLocale: Locale) {
+    setLanguageOpen(false);
+    onLocaleChange(nextLocale);
+    window.localStorage.setItem(PREFERRED_LOCALE_STORAGE_KEY, nextLocale);
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("lang", nextLocale);
+    window.history.replaceState(window.history.state, "", url);
+
+    await fetch("/api/account/preferences", {
+      method: "PUT",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locale: nextLocale }),
+    }).catch(() => undefined);
+  }
+
+  const profileAvatar = (
+    <span className="signed-in-sidebar__profile-avatar">
+      {profileImageUrl ? (
+        <Image
+          src={profileImageUrl}
+          alt=""
+          width={38}
+          height={38}
+          unoptimized
+          referrerPolicy="no-referrer"
+          onError={() => setProfileImageUrl(undefined)}
+        />
+      ) : (
+        <UserRound size={17} aria-hidden="true" />
+      )}
+    </span>
+  );
+
+  return (
+    <aside
+      className="signed-in-sidebar"
+      data-collapsed={collapsed ? "true" : "false"}
+      aria-label={
+        locale === "ko" ? "워크스페이스 사이드바" : "Workspace sidebar"
+      }
+    >
+      <div className="signed-in-sidebar__top">
+        <Brand locale={locale} />
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          aria-controls="signed-in-sidebar-content"
+          aria-label={
+            locale === "ko"
+              ? collapsed
+                ? "좌측 사이드바 펼치기"
+                : "좌측 사이드바 접기"
+              : collapsed
+                ? "Expand left sidebar"
+                : "Collapse left sidebar"
+          }
+          onClick={() => {
+            const next = !collapsed;
+            window.localStorage.setItem(
+              SIGNED_IN_SIDEBAR_STORAGE_KEY,
+              String(next),
+            );
+            onCollapsedChange(next);
+          }}
+        >
+          <span className="signed-in-sidebar__toggle-brand" aria-hidden="true">
+            <Image
+              src="/brand/stocksembly-mark-v2.png"
+              alt=""
+              width={24}
+              height={24}
+            />
+          </span>
+          <span className="signed-in-sidebar__toggle-panel" aria-hidden="true">
+            <PanelLeft size={18} />
+          </span>
+        </button>
+      </div>
+
+      <div
+        className="signed-in-sidebar__content"
+        id="signed-in-sidebar-content"
+        aria-hidden={collapsed}
+      >
+        <nav
+          className="signed-in-sidebar__nav"
+          aria-label={locale === "ko" ? "워크스페이스" : "Workspace"}
+        >
+          <Link
+            className={activeItem === "dashboard" ? "is-active" : undefined}
+            href={`/?lang=${locale}#product`}
+          >
+            <LayoutDashboard size={18} />
+            <span>{locale === "ko" ? "대시보드" : "Dashboard"}</span>
+          </Link>
+          <Link
+            className={activeItem === "research-room" ? "is-active" : undefined}
+            href={`/research-room?lang=${locale}`}
+          >
+            <LibraryBig size={18} />
+            <span>{locale === "ko" ? "리서치룸" : "Research room"}</span>
+          </Link>
+        </nav>
+
+        <section
+          className="signed-in-sidebar__history"
+          aria-labelledby="signed-in-history-title"
+        >
+          <header>
+            <span id="signed-in-history-title">
+              {locale === "ko" ? "최근 항목" : "Recent research"}
+            </span>
+            <Clock3 size={14} aria-hidden="true" />
+          </header>
+          {loadState === "loading" ? (
+            <div className="signed-in-sidebar__history-loading" role="status">
+              <i />
+              <i />
+              <span className="sr-only">
+                {locale === "ko"
+                  ? "최근 리서치 불러오는 중"
+                  : "Loading recent research"}
+              </span>
+            </div>
+          ) : loadState === "failed" ? (
+            <button type="button" onClick={() => void loadRuns()}>
+              {locale === "ko" ? "다시 시도" : "Try again"}
+            </button>
+          ) : historyGroups.length === 0 ? (
+            <p>
+              {locale === "ko"
+                ? "아직 리서치 기록이 없습니다."
+                : "No recent research"}
+            </p>
+          ) : (
+            <div className="signed-in-sidebar__history-groups">
+              {historyGroups.map((group) => (
+                <details key={group.symbol}>
+                  <summary>
+                    <CompanyLogo symbol={group.symbol} />
+                    <span>
+                      <strong>{group.symbol}</strong>
+                      <small>
+                        {group.runs.length}{" "}
+                        {locale === "ko" ? "개 분석" : "analyses"}
+                      </small>
+                    </span>
+                    <ChevronRight size={15} aria-hidden="true" />
+                  </summary>
+                  <ol>
+                    {group.runs.map((run) => (
+                      <li key={run.runId}>
+                        <Link
+                          href={`/research/${run.symbol}?run=${run.runId}&lang=${locale}`}
+                        >
+                          <Clock3 size={14} aria-hidden="true" />
+                          <span>
+                            <strong>{statusLabel(run.status, locale)}</strong>
+                            <time dateTime={run.createdAt}>
+                              {dateLabel(run.createdAt, locale)}
+                            </time>
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <footer className="signed-in-sidebar__footer">
+        <div className="signed-in-sidebar__profile-wrap" ref={profileWrapRef}>
+          <div className="signed-in-sidebar__profile-row">
+            <button
+              type="button"
+              className="signed-in-sidebar__profile-trigger"
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+              aria-label={
+                locale === "ko" ? "계정 메뉴 열기" : "Open account menu"
+              }
+              onClick={() => setProfileOpen((open) => !open)}
+            >
+              {profileAvatar}
+            </button>
+            {subscriptionTier === "free" ? (
+              onOpenSubscription ? (
+                <button
+                  type="button"
+                  className="signed-in-sidebar__upgrade-link"
+                  onClick={handleOpenSubscription}
+                >
+                  <CreditCard size={14} aria-hidden="true" />
+                  <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
+                </button>
+              ) : (
+                <Link
+                  className="signed-in-sidebar__upgrade-link"
+                  href={`/pricing?lang=${locale}`}
+                >
+                  <CreditCard size={14} aria-hidden="true" />
+                  <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
+                </Link>
+              )
+            ) : null}
+          </div>
+          {profileOpen ? (
+            <div className="signed-in-sidebar__profile-menu" role="menu">
+              <header>
+                {profileAvatar}
+                <strong>
+                  {identity ||
+                    (locale === "ko" ? "로그인 사용자" : "Signed-in user")}
+                </strong>
+              </header>
+              <div className="signed-in-sidebar__profile-menu-group">
+                {onOpenSubscription ? (
+                  <button
+                    type="button"
+                    className="signed-in-sidebar__subscription-action"
+                    role="menuitem"
+                    onClick={handleOpenSubscription}
+                  >
+                    <CreditCard size={18} />
+                    <span>
+                      {subscriptionTier === "free"
+                        ? locale === "ko"
+                          ? "업그레이드"
+                          : "Upgrade"
+                        : subscriptionTier === "paid"
+                          ? locale === "ko"
+                            ? "구독 관리"
+                            : "Manage subscription"
+                          : locale === "ko"
+                            ? "멤버십 보기"
+                            : "View membership"}
+                    </span>
+                    <ChevronRight size={16} />
+                  </button>
+                ) : (
+                  <Link href={`/pricing?lang=${locale}`} role="menuitem">
+                    <CreditCard size={18} />
+                    <span>
+                      {subscriptionTier === "free"
+                        ? locale === "ko"
+                          ? "업그레이드"
+                          : "Upgrade"
+                        : subscriptionTier === "paid"
+                          ? locale === "ko"
+                            ? "구독 관리"
+                            : "Manage subscription"
+                          : locale === "ko"
+                            ? "멤버십 보기"
+                            : "View membership"}
+                    </span>
+                    <ChevronRight size={16} />
+                  </Link>
+                )}
+                <Link href={`/?lang=${locale}#research`} role="menuitem">
+                  <UserRound size={18} />
+                  <span>{locale === "ko" ? "내 리서치" : "My research"}</span>
+                </Link>
+                <Link href={`/research-room?lang=${locale}`} role="menuitem">
+                  <LibraryBig size={18} />
+                  <span>{locale === "ko" ? "리서치룸" : "Research room"}</span>
+                </Link>
+                <div className="signed-in-sidebar__language-entry">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    aria-haspopup="menu"
+                    aria-expanded={languageOpen}
+                    onClick={() => setLanguageOpen((open) => !open)}
+                  >
+                    <Languages size={18} />
+                    <span>{locale === "ko" ? "언어" : "Language"}</span>
+                    <small>{locale === "ko" ? "한국어" : "English"}</small>
+                    <ChevronRight size={16} />
+                  </button>
+                  {languageOpen ? (
+                    <div
+                      className="signed-in-sidebar__language-menu"
+                      role="menu"
+                      aria-label={
+                        locale === "ko" ? "언어 선택" : "Choose language"
+                      }
+                    >
+                      <p>
+                        {locale === "ko" ? "표시 언어" : "Display language"}
+                      </p>
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={locale === "ko"}
+                        onClick={() => void handleLocaleSelection("ko")}
+                      >
+                        <span>
+                          <strong>한국어</strong>
+                          <small>KO</small>
+                        </span>
+                        {locale === "ko" ? <Check size={15} /> : null}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={locale === "en"}
+                        onClick={() => void handleLocaleSelection("en")}
+                      >
+                        <span>
+                          <strong>English</strong>
+                          <small>EN</small>
+                        </span>
+                        {locale === "en" ? <Check size={15} /> : null}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="signed-in-sidebar__profile-menu-group">
+                <a href="mailto:kicoa24@gmail.com" role="menuitem">
+                  <CircleHelp size={18} />
+                  <span>{locale === "ko" ? "고객 지원" : "Support"}</span>
+                  <ChevronRight size={16} />
+                </a>
+                <Link href="/terms" role="menuitem">
+                  <FileText size={18} />
+                  <span>{copy[locale].footer.terms}</span>
+                  <ChevronRight size={16} />
+                </Link>
+                <Link href="/privacy" role="menuitem">
+                  <ShieldCheck size={18} />
+                  <span>{copy[locale].footer.privacy}</span>
+                  <ChevronRight size={16} />
+                </Link>
+                <Link href="/disclaimer" role="menuitem">
+                  <Scale size={18} />
+                  <span>{copy[locale].footer.disclaimerLabel}</span>
+                  <ChevronRight size={16} />
+                </Link>
+                <Link href="/risk-disclosure" role="menuitem">
+                  <ShieldAlert size={18} />
+                  <span>{copy[locale].footer.risk}</span>
+                  <ChevronRight size={16} />
+                </Link>
+                <Link href={`/?lang=${locale}`} role="menuitem">
+                  <Home size={18} />
+                  <span>{locale === "ko" ? "홈" : "Home"}</span>
+                </Link>
+              </div>
+              <div className="signed-in-sidebar__profile-menu-group">
+                <button
+                  type="button"
+                  className="signed-in-sidebar__profile-logout"
+                  role="menuitem"
+                  onClick={() => void handleSignOut()}
+                >
+                  <LogOut size={18} />
+                  <span>{locale === "ko" ? "로그아웃" : "Sign out"}</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </footer>
+    </aside>
+  );
+}

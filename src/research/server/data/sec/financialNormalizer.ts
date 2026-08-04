@@ -21,6 +21,7 @@ import type {
   FinancialAvailability,
   FinancialNormalizationResult,
 } from "./financialNormalizerTypes";
+import { COMPANY_FACT_FILING_FORMS } from "./secFilingForms";
 
 export type {
   FinancialAvailability,
@@ -48,7 +49,7 @@ const CandidateSchema = z
     end: z.iso.date(),
     periodKind: z.enum(["annual", "quarter", "instant"]),
     accessionNumber: z.string().regex(/^\d{10}-\d{2}-\d{6}$/),
-    form: z.enum(["10-K", "10-K/A", "10-Q", "10-Q/A"]),
+    form: z.enum(COMPANY_FACT_FILING_FORMS),
     filedAt: z.iso.datetime({ offset: true }),
     acceptedAt: z.iso.datetime({ offset: true }),
     fy: z.number().int().optional(),

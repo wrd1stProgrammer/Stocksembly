@@ -483,7 +483,15 @@ describe("leased research worker", () => {
       {
         run: async () => {
           if (!dependencyAvailable)
-            throw new CodexRunnerError("network_unavailable");
+            throw new CodexRunnerError("network_unavailable", {
+              process: {
+                exitCode: 17,
+                signal: null,
+                stdoutBytes: 29,
+                stderrBytes: 41,
+                durationMs: 73,
+              },
+            });
           return { kind: "accepted" };
         },
       },
@@ -519,6 +527,39 @@ describe("leased research worker", () => {
       expect(fixture.runtimeStates(seed.runId)).toContain(
         "blocked-external-dependency",
       );
+      const persisted = JSON.stringify(
+        fixture.attemptCommittedPayloads(seed.runId),
+      );
+      expect(persisted).toContain(
+        '"process":{"exitCode":17,"signal":null,"stdoutBytes":29,"stderrBytes":41,"durationMs":73}',
+      );
+      expect(persisted).not.toContain("SECRET");
+    } finally {
+      await engine.shutdown();
+      fixture.cleanup();
+    }
+  });
+
+  it("persists only stable readiness diagnostics for a blocked launch", async () => {
+    const fixture = createLeaseEngineFixture();
+    const engine = fixture.openEngine("readiness-diagnostic-worker", {
+      run: async () => ({
+        kind: "transient",
+        code: "codex_isolation_temporarily_unavailable",
+        retryAt: fixture.clock.now(),
+        readiness: { check: "login", reason: "login_probe" },
+      }),
+    });
+    const seed = fixture.seedResearchJob(113);
+
+    try {
+      await engine.poll();
+
+      expect(fixture.eventPayload(seed.runId, "attempt_committed")).toMatchObject({
+        classification: "transient",
+        code: "codex_isolation_temporarily_unavailable",
+        readiness: { check: "login", reason: "login_probe" },
+      });
     } finally {
       await engine.shutdown();
       fixture.cleanup();

@@ -27,13 +27,16 @@ const correctiveFaults = [
   "absent_korean_speech",
   "absent_maya_speech",
   "absent_maya_korean_speech",
-  "qualitative_new_fact",
-  "qualitative_new_dissent",
   "extra_open_question",
 ] as const satisfies readonly DepartmentFault[];
 
 describe("department consolidation trust boundary", () => {
-  it.each(["source_backed_role_words", "source_backed_issuer_report"] as const)(
+  it.each([
+    "source_backed_role_words",
+    "source_backed_issuer_report",
+    "qualitative_new_fact",
+    "qualitative_new_dissent",
+  ] as const)(
     "accepts authenticated %s outside persona attribution",
     async (fault) => {
       // Given

@@ -151,9 +151,23 @@ describe("immutable all-agent assignments", () => {
       (item) => item.roleId === "company",
     );
     const risk = firstResult.assignments.find((item) => item.roleId === "risk");
+    const financial = firstResult.assignments.find(
+      (item) => item.roleId === "financial",
+    );
     expect(market?.allowedDatasets).toContain("insightsentry_news_market");
+    expect(market?.allowedDatasets).toContain("bls_macro");
+    expect(market?.allowedDatasets).toContain("sec_institutional_holdings");
     expect(company?.allowedDatasets).toContain("insightsentry_news_company");
+    expect(company?.allowedDatasets).toContain("sec_insider_transactions");
+    expect(company?.allowedDatasets).toContain("sec_institutional_holdings");
+    expect(financial?.allowedDatasets).toContain("sec_insider_transactions");
+    expect(financial?.allowedDatasets).toContain(
+      "sec_institutional_holdings",
+    );
     expect(risk?.allowedDatasets).toContain("insightsentry_news_risk");
+    expect(risk?.allowedDatasets).toContain("bls_macro");
+    expect(risk?.allowedDatasets).toContain("sec_insider_transactions");
+    expect(risk?.allowedDatasets).toContain("sec_institutional_holdings");
     expect(june?.allowedDatasets).not.toEqual(
       expect.arrayContaining([
         "insightsentry_news_company",

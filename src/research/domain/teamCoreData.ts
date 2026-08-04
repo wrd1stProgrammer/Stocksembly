@@ -1,14 +1,20 @@
 import type { SnapshotDataset } from "../application/buildSnapshot";
+import type { z } from "zod";
+import type { EditorialDecisionDimensionSchema } from "./agentOutputsShared";
 import type { WorkflowDepartmentId } from "./roleRegistry";
 
 export type TeamCoreDataContract = {
   readonly datasets: readonly SnapshotDataset[];
   readonly metricIds: readonly string[];
+  readonly decisionDimensions: readonly z.infer<
+    typeof EditorialDecisionDimensionSchema
+  >[];
   readonly decisionFrame: string;
 };
 
 export const TEAM_CORE_DATA = {
   market: {
+    decisionDimensions: ["regime", "timing", "relative_performance", "catalyst"],
     datasets: [
       "market_bars",
       "insightsentry_quote",
@@ -27,12 +33,18 @@ export const TEAM_CORE_DATA = {
       "rsi_4h",
       "volume_confirmation",
       "treasury_10y",
+      "core_cpi_trend",
+      "nonfarm_payroll_trend",
+      "average_hourly_earnings_trend",
+      "producer_price_trend",
+      "beneficial_owner_change",
       "peer_dispersion",
     ],
     decisionFrame:
       "Separate trend, relative strength, expectations, and macro regime. State which observable change would invalidate the market view.",
   },
   company: {
+    decisionDimensions: ["growth_engine", "adoption", "moat", "competitive_erosion"],
     datasets: [
       "sec_filing",
       "insightsentry_documents",
@@ -50,16 +62,20 @@ export const TEAM_CORE_DATA = {
       "product_adoption",
       "customer_concentration",
       "competitive_margin_gap",
+      "insider_net_activity",
+      "beneficial_owner_change",
       "next_company_event",
     ],
     decisionFrame:
       "Prove the business mechanism: product or segment change, competitive response, and the operating KPI that confirms or breaks the moat.",
   },
   financial: {
+    decisionDimensions: ["margin", "cash_conversion", "reinvestment", "embedded_expectations"],
     datasets: [
       "sec_company_facts",
       "sec_filing",
       "insightsentry_fundamentals",
+      "insightsentry_calendar",
       "insightsentry_quote",
       "insightsentry_peers",
       "insightsentry_documents",
@@ -76,12 +92,15 @@ export const TEAM_CORE_DATA = {
       "diluted_shares",
       "forward_eps",
       "forward_revenue",
+      "insider_net_activity",
+      "beneficial_owner_change",
       "peer_valuation_premium",
     ],
     decisionFrame:
       "Bridge growth to cash generation and valuation. Distinguish reported results, forward expectations, and the margin of safety implied by the current price.",
   },
   risk: {
+    decisionDimensions: ["downside_path", "leading_indicator", "mitigant"],
     datasets: [
       "sec_filing",
       "insightsentry_documents",
@@ -102,6 +121,12 @@ export const TEAM_CORE_DATA = {
       "geographic_concentration",
       "customer_concentration",
       "policy_event",
+      "core_cpi_trend",
+      "labor_market_trend",
+      "wage_pressure",
+      "producer_price_pressure",
+      "insider_net_activity",
+      "beneficial_owner_change",
       "recovery_condition",
     ],
     decisionFrame:

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { GroundedAnswerSchema } from "../domain/question";
 import { ResearchTargetSchema } from "../domain/researchTarget";
+import { ResearchProfileSchema } from "../domain/researchProfile";
 import { RUN_STATUS } from "../domain/runStateContracts";
 import { WORKFLOW_PUBLIC_EVENT_KINDS } from "../workflow/publicEventsContracts";
 
@@ -11,8 +12,10 @@ export const PublicRunSchema = z
     runId: UuidSchema,
     snapshotId: UuidSchema,
     symbol: z.string().regex(/^[A-Z]{1,5}$/u),
+    question: z.string().max(4_000).optional(),
     locale: z.enum(["en", "ko"]),
     researchTarget: ResearchTargetSchema.optional(),
+    researchProfile: ResearchProfileSchema.optional(),
     status: z.enum([
       RUN_STATUS.queued,
       RUN_STATUS.running,

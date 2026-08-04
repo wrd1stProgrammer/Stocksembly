@@ -9,6 +9,7 @@ import type {
   ResearchSnapshotFor,
 } from "../compositionMode";
 import type { ResearchMetricSnapshot } from "../domain/metricSnapshot";
+import type { WorkflowV2ResearchReport } from "../domain/report";
 import type { ResearchComparison } from "../domain/researchComparison";
 import type { ResearchTarget } from "../domain/researchTarget";
 import type { AgentProfile, ResearchCompany, ResearchPhase } from "../types";
@@ -25,6 +26,18 @@ export type ResearchEvidenceStrength =
   | "unverified";
 
 export type ResearchFileData = {
+  readonly presentationVersion?: "legacy-v1" | "workflow-v2";
+  readonly structuredEditorial?: {
+    readonly decision: WorkflowV2ResearchReport["editorialDecision"];
+    readonly claims: WorkflowV2ResearchReport["editorialClaims"];
+    readonly claimRegister: WorkflowV2ResearchReport["claims"];
+    readonly comparators: WorkflowV2ResearchReport["comparators"];
+    readonly conflicts: readonly {
+      readonly claimId: string;
+      readonly counterevidenceArtifactIds: readonly string[];
+    }[];
+  };
+  readonly reportDecisionFalsifier?: LocalizedText;
   readonly researchTarget?: ResearchTarget;
   readonly comparison?: ResearchComparison;
   readonly researchDirection?: string;
@@ -56,6 +69,11 @@ export type ResearchFileData = {
     readonly strength: ResearchEvidenceStrength;
     readonly counterpoint?: LocalizedText;
     readonly checkpoint?: LocalizedText;
+    readonly roleOwner?: string;
+    readonly decisionDimension?: WorkflowV2ResearchReport["editorialClaims"][number]["decisionDimension"];
+    readonly decisiveMetricIds?: readonly string[];
+    readonly evidenceArtifactIds?: readonly string[];
+    readonly counterevidenceArtifactIds?: readonly string[];
   }[];
   readonly evidenceIndex: readonly {
     readonly id: string;
@@ -130,6 +148,8 @@ export type ResearchFileData = {
           readonly note: LocalizedText;
         }
     )[];
+    readonly claimIds?: readonly string[];
+    readonly sourceArtifactIds?: readonly string[];
   }[];
   readonly appendix: readonly {
     readonly title: LocalizedText;

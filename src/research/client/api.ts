@@ -1,6 +1,7 @@
 import ky, { HTTPError, type KyInstance } from "ky";
 import type { Locale } from "../../lib/i18n";
 import type { ResearchTarget } from "../domain/researchTarget";
+import type { ResearchProfile } from "../domain/researchProfile";
 import {
   ApiErrorResponseSchema,
   CancelRunResponseSchema,
@@ -50,6 +51,7 @@ type StartRunInput = {
   readonly question: string;
   readonly locale: Locale;
   readonly researchTarget?: ResearchTarget;
+  readonly researchProfile?: ResearchProfile;
   readonly idempotencyKey: string;
 };
 
@@ -178,6 +180,9 @@ export function createResearchClient(
             ...(input.researchTarget === undefined
               ? {}
               : { researchTarget: input.researchTarget }),
+            ...(input.researchProfile === undefined
+              ? {}
+              : { researchProfile: input.researchProfile }),
           },
         ),
         (value) => CreateRunResponseSchema.parse(value),

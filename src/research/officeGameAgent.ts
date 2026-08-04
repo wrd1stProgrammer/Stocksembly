@@ -20,6 +20,11 @@ import type { OfficeRenderActor } from "./officeRenderer";
 import type { OfficeActorUiLayout } from "./officeRendererUiLayout";
 import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 
+// Keep the foot cadence deliberately slower than the fixed navigation clock.
+// The simulation can reserve a cell every 50ms, but the four authored frames
+// need a relaxed cadence or a short traverse looks like frantic foot-scuffing.
+const WALK_ANIMATION_SPEED = 0.1;
+
 export type MutableAgentDisplayRuntime = {
   readonly id: OfficeRenderActor["id"];
   readonly body: Container;
@@ -64,7 +69,7 @@ function playAnimation(
   runtime.currentAnimation = key;
   runtime.sprite.textures = [...runtime.clips[key]];
   if (state.animation === "walk") {
-    runtime.sprite.animationSpeed = 0.13;
+    runtime.sprite.animationSpeed = WALK_ANIMATION_SPEED;
     runtime.sprite.gotoAndPlay(0);
     return;
   }

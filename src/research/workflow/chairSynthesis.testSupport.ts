@@ -6,6 +6,7 @@ import { z } from "zod";
 import { makePersistableStructuralInput } from "../application/structuralAuditPersistence.testSupport";
 import { StructuralAuditArtifactEnvelopeSchema } from "../application/structuralAuditPersistenceContracts";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
+import { createAtomicClaim } from "../domain/claims";
 import { canonicalJson, hashCanonical } from "../domain/contractHelpers";
 import {
   ArtifactIdSchema,
@@ -23,7 +24,7 @@ import type {
   CodexRunInput,
   CodexRunResult,
 } from "../server/codex/codexRunner";
-import { CodexRunnerError } from "../server/codex/codexRunner";
+import { CodexIsolationError } from "../server/codex/readiness";
 import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisPromptSchema,
@@ -33,6 +34,7 @@ import { stageAcceptedDepartments } from "./challengeRound.testSupport";
 import { createSqliteFollowupAndResponseRound } from "./followupAndResponseRound";
 import { FollowupResponseCodexFake } from "./followupAndResponseRound.testSupport";
 import { createSqliteSemanticAudit } from "./semanticAudit";
+import { specialistRequest } from "./specialistRoundInput";
 import { persistStructuralAudit } from "./structuralAuditPersistence";
 import { authenticatedWorkflowRetentionRegister } from "./structuralAuditWorkflowRegister";
 
@@ -43,6 +45,7 @@ export type ChairFault =
   | "crash_first"
   | "lost_first"
   | "uncertain_first"
+  | "isolation_first"
   | "invent_price"
   | "invent_number"
   | "invent_claim"
@@ -95,19 +98,119 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
         })),
       });
     }
+    if (input.stage === "owner_response_ballot") {
+      const result = await super.run(input);
+      const ballot = z
+        .object({
+          dispositions: z.array(
+            z.object({ claimId: z.string().uuid() }).passthrough(),
+          ),
+        })
+        .passthrough()
+        .parse(result.candidate);
+      return {
+        ...result,
+        candidate: input.outputSchema.parse({
+          ...ballot,
+          dispositions: ballot.dispositions.map((disposition) => ({
+            ...disposition,
+            disposition: "accept",
+          })),
+        }),
+      };
+    }
     if (input.stage !== "chair_synthesis") return await super.run(input);
     this.chairLaunches += 1;
-    if (this.fault === "crash_first" && this.chairLaunches === 1)
-      throw new TypeError("simulated chair crash");
-    if (this.fault === "lost_first" && this.chairLaunches === 1)
-      throw new CodexRunnerError("timeout");
-    if (this.fault === "uncertain_first" && this.chairLaunches === 1)
-      throw new CodexRunnerError("process_failed");
-    if (
-      this.fault === "invalid" ||
-      (this.fault === "invalid_first" && this.chairLaunches === 1)
-    )
-      return this.chairResult(input, {});
+    if (this.fault === "isolation_first" && this.chairLaunches === 1)
+      throw new CodexIsolationError("probe");
+    const promptRecord = z
+      .record(z.string(), z.unknown())
+      .parse(JSON.parse(input.prompt));
+    if (promptRecord["kind"] === "chair_section_rewrite_request") {
+      const rewrite = z
+        .object({
+          target: z.object({ sectionKey: z.enum(CHAIR_SECTION_KEYS) }),
+          requiredPrimaryAssignment: z.object({
+            sectionKey: z.enum(CHAIR_SECTION_KEYS),
+            primarySentenceId: z.string(),
+            primaryClaimIds: z.array(z.string().uuid()),
+          }),
+          requiredConflictAdjudication: z
+            .object({
+              departmentDecisionSentenceIds: z.array(z.string()),
+              reasonSentenceId: z.string(),
+            })
+            .nullable(),
+          preserve: z
+            .object({
+              primarySentenceId: z.string(),
+              sentenceIds: z.array(z.string()),
+              conflictAdjudication: z.unknown(),
+            })
+            .optional(),
+          sentences: z.array(
+            z.object({
+              sentenceId: z.string(),
+              kind: z.string(),
+              text: z.object({ en: z.string(), ko: z.string() }),
+            }),
+          ),
+        })
+        .passthrough()
+        .parse(promptRecord);
+      const sentenceIds =
+        rewrite.preserve?.sentenceIds ??
+        (rewrite.target.sectionKey === "supported_analysis" &&
+        rewrite.requiredConflictAdjudication !== null
+          ? rewrite.requiredConflictAdjudication.departmentDecisionSentenceIds
+          : [rewrite.requiredPrimaryAssignment.primarySentenceId]);
+      const selected = sentenceIds.flatMap((sentenceId) => {
+        const sentence = rewrite.sentences.find(
+          (item) => item.sentenceId === sentenceId,
+        );
+        return sentence === undefined ? [] : [sentence];
+      });
+      const primary = rewrite.sentences.find(
+        (sentence) =>
+          sentence.sentenceId ===
+          (rewrite.preserve?.primarySentenceId ??
+            rewrite.requiredPrimaryAssignment.primarySentenceId),
+      );
+      if (primary === undefined) return this.chairResult(input, {});
+      if (this.fault === "invalid")
+        return this.chairResult(input, {
+          kind: "chair_section_rewrite",
+          section: {
+            sectionKey: rewrite.target.sectionKey,
+            publicSummary: primary.text,
+            primarySentenceId: "sentence:not-in-catalog",
+            sentenceIds: ["sentence:not-in-catalog"],
+            conflictAdjudication: null,
+          },
+        });
+      return this.chairResult(input, {
+        kind: "chair_section_rewrite",
+        section: {
+          sectionKey: rewrite.target.sectionKey,
+          publicSummary: primary.text,
+          primarySentenceId: primary.sentenceId,
+          sentenceIds: selected.map((sentence) => sentence.sentenceId),
+          conflictAdjudication:
+            rewrite.preserve?.conflictAdjudication ??
+            (rewrite.target.sectionKey === "supported_analysis" &&
+            rewrite.requiredConflictAdjudication !== null
+              ? {
+                  departmentDecisionSentenceIds:
+                    rewrite.requiredConflictAdjudication
+                      .departmentDecisionSentenceIds,
+                  resolution: "proof_required",
+                  reasonSentenceId:
+                    rewrite.requiredConflictAdjudication.reasonSentenceId,
+                }
+              : null),
+        },
+      });
+    }
     const prompt = z
       .object({
         mandate: z.object({ locale: z.enum(["en", "ko"]) }).passthrough(),
@@ -131,59 +234,200 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
               "scenario",
               "change_condition",
             ]),
-            text: z.string(),
+            claimIds: z.array(z.string().uuid()),
+            text: z.object({ en: z.string(), ko: z.string() }),
           }),
         ),
+        unknownIds: z.array(z.string().uuid()),
+        sectionPrimaryAssignments: z.array(
+          z.object({
+            sectionKey: z.enum(CHAIR_SECTION_KEYS),
+            primarySentenceId: z.string(),
+            primaryClaimIds: z.array(z.string().uuid()),
+          }),
+        ),
+        directionalBriefContract: z.object({
+          requiredStance: z.enum([
+            "upside_skewed",
+            "wait_for_proof",
+            "downside_skewed",
+          ]),
+          requiredConfidence: z.enum(["high", "medium", "low"]),
+          requiredPrimarySentenceIds: z.array(z.string()),
+          requiredPrimaryClaimIds: z.array(z.string().uuid()),
+          roles: z.object({
+            decisive: z.object({
+              assignedSentenceId: z.string(),
+              canonicalText: z.object({ en: z.string(), ko: z.string() }),
+            }).passthrough(),
+            countercase: z.object({
+              assignedSentenceId: z.string(),
+              canonicalText: z.object({ en: z.string(), ko: z.string() }),
+            }).passthrough(),
+            falsifier: z.object({
+              assignedSentenceId: z.string(),
+              canonicalText: z.object({ en: z.string(), ko: z.string() }),
+            }).passthrough(),
+          }),
+        }).passthrough(),
+        teamConflictContract: z.object({
+          detected: z.boolean(),
+          requiredOwnedPositionSentenceIds: z.array(z.string()),
+          requiredDepartmentDecisionSentenceIds: z.array(z.string()),
+        }).passthrough(),
       })
       .passthrough()
       .parse(JSON.parse(input.prompt));
     const firstLaunch = this.chairLaunches === 1;
-    const idsFor = (key: (typeof CHAIR_SECTION_KEYS)[number]) => {
-      const kinds =
-        key === "ten_second_brief"
-          ? ["claim"]
-          : key === "supported_analysis"
-            ? ["position", "ballot"]
-            : key === "valuation_comparison"
-              ? ["claim"]
-              : key === "operational_scenarios"
-                ? ["scenario"]
-                : key === "dissent_unknowns"
-                  ? ["dissent", "unknown"]
-                  : ["change_condition"];
-      return prompt.sentences
-        .filter((sentence) => kinds.includes(sentence.kind))
-        .map((sentence) => sentence.sentenceId);
+    const assignedIdsFor = (
+      sectionKey: (typeof CHAIR_SECTION_KEYS)[number],
+    ): readonly string[] => {
+      const assignment = prompt.sectionPrimaryAssignments.find(
+        (item) => item.sectionKey === sectionKey,
+      );
+      if (assignment === undefined)
+        throw new TypeError("missing fixture primary assignment");
+      return sectionKey === "supported_analysis" &&
+        prompt.teamConflictContract.detected
+        ? prompt.teamConflictContract.requiredOwnedPositionSentenceIds
+        : [assignment.primarySentenceId];
     };
-    const sections = CHAIR_SECTION_KEYS.map((sectionKey) => {
-      let sentenceIds = idsFor(sectionKey);
+    const idsBySection: Record<
+      (typeof CHAIR_SECTION_KEYS)[number],
+      readonly string[]
+    > = {
+      ten_second_brief: assignedIdsFor("ten_second_brief"),
+      supported_analysis: assignedIdsFor("supported_analysis"),
+      valuation_comparison: assignedIdsFor("valuation_comparison"),
+      operational_scenarios: assignedIdsFor("operational_scenarios"),
+      dissent_unknowns: assignedIdsFor("dissent_unknowns"),
+      change_conditions: assignedIdsFor("change_conditions"),
+    };
+    let sections = CHAIR_SECTION_KEYS.map((sectionKey) => {
+      let sentenceIds = [...idsBySection[sectionKey]];
       if (
         this.fault === "drop_position" &&
         firstLaunch &&
         sectionKey === "supported_analysis"
       )
-        sentenceIds = sentenceIds.filter((id) => id !== "position:market");
-      const selected = sentenceIds.map((id) =>
-        prompt.sentences.find((sentence) => sentence.sentenceId === id),
+        sentenceIds = sentenceIds.slice(0, 1);
+      const assignment = prompt.sectionPrimaryAssignments.find(
+        (item) => item.sectionKey === sectionKey,
       );
-      let text = selected
-        .flatMap((sentence) => (sentence === undefined ? [] : [sentence.text]))
-        .join(" ");
+      const primary = prompt.sentences.find(
+        (sentence) => sentence.sentenceId === assignment?.primarySentenceId,
+      );
+      if (primary === undefined)
+        throw new TypeError("chair section has no assigned primary");
+      const bilingual = { ...primary.text };
       if (firstLaunch && sectionKey === "ten_second_brief") {
-        if (this.fault === "invent_price") text += " Target price 999.";
-        if (this.fault === "invent_number") text += " Revenue is 777.";
-        if (this.fault === "invent_probability") text += " Probability is 80%.";
-        if (this.fault === "invent_recommendation") text += " Buy now.";
-        if (this.fault === "ko_mismatch") text += " unaudited mismatch";
+        if (this.fault === "invent_price") bilingual.en += " Target price 999.";
+        if (this.fault === "invent_number") bilingual.en += " Revenue is 777.";
+        if (this.fault === "invent_probability")
+          bilingual.en += " Probability is 80%.";
+        if (this.fault === "invent_recommendation") bilingual.en += " Buy now.";
+        if (this.fault === "ko_mismatch") bilingual.ko += " unaudited mismatch";
       }
+      const primarySentenceId = primary.sentenceId;
       return {
         sectionKey,
-        publicSummary: text,
+        publicSummary: bilingual,
+        primarySentenceId,
         sentenceIds,
+        conflictAdjudication:
+          sectionKey === "supported_analysis" &&
+          prompt.teamConflictContract.detected
+            ? {
+                departmentDecisionSentenceIds:
+                  prompt.teamConflictContract
+                    .requiredDepartmentDecisionSentenceIds,
+                resolution: "proof_required" as const,
+                reasonSentenceId: primarySentenceId,
+              }
+            : null,
       };
     });
+    const decisive = prompt.sentences.find(
+      (sentence) =>
+        sentence.sentenceId ===
+        prompt.directionalBriefContract.roles.decisive.assignedSentenceId,
+    );
+    const countercase = prompt.sentences.find(
+      (sentence) =>
+        sentence.sentenceId ===
+        prompt.directionalBriefContract.roles.countercase.assignedSentenceId,
+    );
+    const falsifier = prompt.sentences.find(
+      (sentence) =>
+        sentence.sentenceId ===
+        prompt.directionalBriefContract.roles.falsifier.assignedSentenceId,
+    );
+    if (
+      decisive === undefined ||
+      countercase === undefined ||
+      falsifier === undefined
+    )
+      return this.chairResult(input, {});
+    if (
+      (firstLaunch &&
+        [
+          "invent_claim",
+          "invent_source",
+          "drop_dissent",
+          "invalid_first",
+          "crash_first",
+          "lost_first",
+          "uncertain_first",
+        ].includes(this.fault)) ||
+      this.fault === "invalid"
+    )
+      sections = sections.map((section) =>
+        section.sectionKey === "ten_second_brief"
+          ? {
+              ...section,
+              sentenceIds: [...section.sentenceIds, "sentence:not-in-catalog"],
+            }
+          : section,
+      );
+    if (firstLaunch && this.fault === "drop_unknown")
+      sections = sections.map((section) =>
+        section.sectionKey === "dissent_unknowns"
+          ? {
+              ...section,
+              primarySentenceId: "sentence:not-in-catalog",
+              sentenceIds: ["sentence:not-in-catalog"],
+            }
+          : section,
+      );
+    if (firstLaunch && this.fault === "ko_mismatch")
+      sections = sections.map((section) =>
+        section.sectionKey === "ten_second_brief"
+          ? {
+              ...section,
+              publicSummary: { ...section.publicSummary, ko: "CLAIM A" },
+            }
+          : section,
+      );
     return this.chairResult(input, {
       kind: "chair_synthesis",
+      decisionBrief: {
+        stance: prompt.directionalBriefContract.requiredStance,
+        confidence: prompt.directionalBriefContract.requiredConfidence,
+        decisiveReason:
+          prompt.directionalBriefContract.roles.decisive.canonicalText,
+        strongestCountercase:
+          prompt.directionalBriefContract.roles.countercase.canonicalText,
+        falsifier:
+          prompt.directionalBriefContract.roles.falsifier.canonicalText,
+        decisiveSentenceId: decisive.sentenceId,
+        countercaseSentenceId: countercase.sentenceId,
+        falsifierSentenceId: falsifier.sentenceId,
+        primaryClaimIds:
+          prompt.directionalBriefContract.requiredPrimaryClaimIds,
+        primarySentenceIds:
+          prompt.directionalBriefContract.requiredPrimarySentenceIds,
+      },
+      selectedUnknownIds: prompt.unknownIds.slice(0, 1),
       sections,
     });
   }
@@ -226,6 +470,18 @@ export async function createPreparedChairRound(fault: ChairFault) {
   const root = mkdtempSync(join(tmpdir(), "chair-synthesis-"));
   const prepared = await stageAcceptedDepartments(root, "none", codex);
   const runId = RunIdSchema.parse(prepared.harness.input.mandate.runId);
+  const requestDatabase = new Database(prepared.options.databasePath);
+  requestDatabase
+    .prepare(`INSERT OR IGNORE INTO research_requests(
+      run_id, principal_id, symbol, question, locale, request_hash, created_at)
+      VALUES (?, ?, 'TEST', 'Evaluate authenticated committee evidence', 'en', ?, ?)`)
+    .run(
+      runId,
+      "a".repeat(64),
+      hashCanonical({ runId, kind: "chair-test-request" }),
+      "2026-07-23T00:00:00.000Z",
+    );
+  requestDatabase.close();
   const challenges = createSqliteChallengeRound(prepared.options);
   await challenges.stage({
     runId,
@@ -284,9 +540,73 @@ export async function createPreparedChairRound(fault: ChairFault) {
   if (retention === undefined)
     throw new TypeError("workflow retention fixture is unauthenticated");
   const baseStructuralInput = makePersistableStructuralInput(prepared.harness);
+  const adjudicatedClaimId = retention.dissentClaimIds[0];
+  const baseClaim = baseStructuralInput.claims[0];
+  if (adjudicatedClaimId === undefined || baseClaim === undefined)
+    throw new TypeError("chair fixture requires one adjudicated claim");
+  const supportingAssignmentIndex =
+    prepared.harness.input.assignments.assignments.findIndex(
+      (assignment) => assignment.roleId !== "market_news",
+    );
+  const supportingAssignment =
+    prepared.harness.input.assignments.assignments[supportingAssignmentIndex];
+  if (supportingAssignment === undefined)
+    throw new TypeError("chair fixture requires one supporting assignment");
+  const supportingClaimId = specialistRequest(
+    prepared.harness.input,
+    supportingAssignment,
+    { ordinal: supportingAssignmentIndex + 1, purpose: "mandatory_first" },
+  ).claimSlots[0]!.claimId;
+  const originalClaim = baseClaim.claim;
+  const fixtureClaim = (claimId: z.infer<typeof ClaimIdSchema>) =>
+    createAtomicClaim({
+      claimId,
+      runId: originalClaim.runId,
+      snapshotId: originalClaim.snapshotId,
+      text: originalClaim.text,
+      epistemicClass: originalClaim.epistemicClass,
+      stance: originalClaim.stance,
+      materiality: originalClaim.materiality,
+      claimType: originalClaim.claimType,
+      supportingEvidence: originalClaim.supportingEvidence,
+      opposingEvidence: originalClaim.opposingEvidence,
+      asOf: originalClaim.asOf,
+      freshness: originalClaim.freshness,
+      uncertainty: originalClaim.uncertainty,
+      ...(originalClaim.changeCondition === undefined
+        ? {}
+        : {
+            changeCondition: {
+              en: originalClaim.changeCondition.en,
+              ko: originalClaim.changeCondition.ko,
+              ...(originalClaim.changeCondition.triggerEvidenceIds === undefined
+                ? {}
+                : {
+                    triggerEvidenceIds:
+                      originalClaim.changeCondition.triggerEvidenceIds,
+                  }),
+            },
+          }),
+      auditStatus: originalClaim.auditStatus,
+      auditReasons: originalClaim.auditReasons,
+      unsupportedFragments: originalClaim.unsupportedFragments,
+    });
   const structuralInput = {
     ...baseStructuralInput,
-    retainedDissentClaimIds: retention.dissentClaimIds,
+    claims: [
+      {
+        ...baseClaim,
+        claim: fixtureClaim(adjudicatedClaimId),
+      },
+      { ...baseClaim, claim: fixtureClaim(supportingClaimId) },
+    ],
+    localizedClaimIds: {
+      en: [adjudicatedClaimId, supportingClaimId],
+      ko: [adjudicatedClaimId, supportingClaimId],
+    },
+    retainedDissentClaimIds: retention.dissentClaimIds.filter((claimId) =>
+      [adjudicatedClaimId, supportingClaimId].includes(claimId),
+    ),
     retainedOpenQuestionIds: retention.openQuestions.map(
       (question) => question.questionId,
     ),
@@ -419,6 +739,7 @@ export async function corruptAcceptedEnvelope(
 export function mixedClaimValidationFixture() {
   const claimA = ClaimIdSchema.parse("11111111-1111-4111-8111-111111111111");
   const claimB = ClaimIdSchema.parse("22222222-2222-4222-8222-222222222222");
+  const claimC = ClaimIdSchema.parse("33333333-3333-4333-8333-333333333333");
   const ballotIds = WORKFLOW_V1_DEPARTMENT_IDS.map((_, index) =>
     ArtifactIdSchema.parse(
       `30000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
@@ -451,7 +772,7 @@ export function mixedClaimValidationFixture() {
       limitations: [],
     },
     capabilities: [{ key: "market_price", availability: "unavailable" }],
-    auditedClaimIds: [claimA, claimB],
+    auditedClaimIds: [claimA, claimB, claimC],
     departmentPositions: WORKFLOW_V1_DEPARTMENT_IDS.map(
       (departmentId, index) => ({
         departmentId,
@@ -464,7 +785,10 @@ export function mixedClaimValidationFixture() {
       vote: "support",
     })),
     dissentClaimIds: [claimB],
-    unknownIds: ["55555555-5555-4555-8555-555555555555"],
+    unknownIds: [
+      "55555555-5555-4555-8555-555555555555",
+      "66666666-6666-4666-8666-666666666666",
+    ],
     scenarioIds: ["scenario:revenue"],
     changeConditionClaimIds: [claimB],
     sourceArtifactIds,
@@ -475,6 +799,13 @@ export function mixedClaimValidationFixture() {
         claimIds: [claimA],
         sourceArtifactIds: [sourceArtifactIds[0]],
         text: { en: "Claim A", ko: "주장 A" },
+      },
+      {
+        sentenceId: `claim:${claimC}`,
+        kind: "claim",
+        claimIds: [claimC],
+        sourceArtifactIds: [sourceArtifactIds[0]],
+        text: { en: "Valuation C", ko: "가치평가 C" },
       },
       ...positions,
       ...ballots,
@@ -493,6 +824,13 @@ export function mixedClaimValidationFixture() {
         text: { en: "Unknown", ko: "미확인" },
       },
       {
+        sentenceId: "unknown:66666666-6666-4666-8666-666666666666",
+        kind: "unknown",
+        claimIds: [],
+        sourceArtifactIds: [sourceArtifactIds[0]],
+        text: { en: "Trigger unknown", ko: "변경 미확인" },
+      },
+      {
         sentenceId: "scenario:revenue",
         kind: "scenario",
         claimIds: [],
@@ -508,23 +846,37 @@ export function mixedClaimValidationFixture() {
       },
     ],
   });
-  const kindsBySection: Readonly<
+  const idsBySection: Readonly<
     Record<(typeof CHAIR_SECTION_KEYS)[number], readonly string[]>
   > = {
-    ten_second_brief: ["claim"],
-    supported_analysis: ["position", "ballot"],
-    valuation_comparison: ["claim"],
-    operational_scenarios: ["scenario"],
-    dissent_unknowns: ["dissent", "unknown"],
-    change_conditions: ["change_condition"],
+    ten_second_brief: [
+      `claim:${claimA}`,
+      `dissent:${claimB}`,
+      `change_condition:${claimB}`,
+    ],
+    supported_analysis: positions
+      .slice(1)
+      .concat(positions.slice(0, 1))
+      .map((sentence) => sentence.sentenceId),
+    valuation_comparison: [`claim:${claimC}`],
+    operational_scenarios: ["scenario:revenue"],
+    dissent_unknowns: ["unknown:55555555-5555-4555-8555-555555555555"],
+    change_conditions: ["unknown:66666666-6666-4666-8666-666666666666"],
   };
   const sections = CHAIR_SECTION_KEYS.map((sectionKey) => {
-    const selected = prompt.sentences.filter((sentence) =>
-      kindsBySection[sectionKey].includes(sentence.kind),
-    );
+    const selected = idsBySection[sectionKey].flatMap((sentenceId) => {
+      const sentence = prompt.sentences.find(
+        (item) => item.sentenceId === sentenceId,
+      );
+      return sentence === undefined ? [] : [sentence];
+    });
+    const primary = selected[0];
+    if (primary === undefined)
+      throw new TypeError("chair fixture section is empty");
     return {
       sectionId: sectionKey,
       sectionKey,
+      primarySentenceId: primary.sentenceId,
       sentenceIds: selected.map((sentence) => sentence.sentenceId),
       auditedClaimIds: [
         ...new Set(selected.flatMap((sentence) => sentence.claimIds)),
@@ -532,18 +884,48 @@ export function mixedClaimValidationFixture() {
       sourceArtifactIds: [
         ...new Set(selected.flatMap((sentence) => sentence.sourceArtifactIds)),
       ],
-      publicSummary: {
-        en: selected.map((sentence) => sentence.text.en).join(" "),
-        ko: selected.map((sentence) => sentence.text.ko).join(" "),
-      },
+      publicSummary:
+        sectionKey === "supported_analysis"
+          ? {
+              en: "company position conflicts with market position",
+              ko: "company 입장과 market 입장이 충돌합니다",
+            }
+          : {
+              en: selected.map((sentence) => sentence.text.en).join(" "),
+              ko: selected.map((sentence) => sentence.text.ko).join(" "),
+            },
+      ...(sectionKey === "supported_analysis"
+        ? {
+            conflictAdjudication: {
+              departmentDecisionSentenceIds: selected
+                .slice(0, 2)
+                .map((sentence) => sentence.sentenceId),
+              resolution: "proof_required" as const,
+              reasonSentenceId: selected[0]!.sentenceId,
+            },
+          }
+        : {}),
     };
   });
   const candidate = ChairSynthesisOutputSchema.parse({
     kind: "chair_synthesis",
     sourceArtifactIds,
+    decisionBrief: {
+      stance: "wait_for_proof",
+      confidence: "medium",
+      decisiveReason: { en: "Claim A", ko: "주장 A" },
+      strongestCountercase: { en: "Dissent B", ko: "반대 B" },
+      falsifier: { en: "Change B", ko: "변경 B" },
+      decisiveSentenceId: `claim:${claimA}`,
+      countercaseSentenceId: `dissent:${claimB}`,
+      falsifierSentenceId: `change_condition:${claimB}`,
+      primaryClaimIds: [claimA],
+      primarySentenceIds: [`claim:${claimA}`],
+    },
     sections,
     ballotArtifactIds: ballotIds,
     dissentClaimIds: [claimB],
+    selectedUnknownIds: ["55555555-5555-4555-8555-555555555555"],
     unknowns: [{ en: "Unknown", ko: "미확인" }],
   });
   return { prompt, candidate, claimB };

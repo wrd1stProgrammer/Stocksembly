@@ -17,6 +17,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
       <Brand locale={locale} />
       <nav aria-label={copy[locale].a11y.navigation}>
         <a href="#product">{labels.product}</a>
+        <a href={`/pricing?lang=${locale}`}>{labels.pricing}</a>
       </nav>
       <div className="site-header__actions">
         <LanguageToggle locale={locale} onChange={onLocaleChange} />

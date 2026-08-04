@@ -517,6 +517,7 @@ export function createInsightSentryPeerScreen(input: {
   readonly asOf: string;
   readonly annualAccessionNumber: string;
   readonly annualText: string;
+  readonly requestedSymbols?: readonly string[];
 }): PeerScreen {
   return async ({ symbol, limit }) => {
     const now = Date.parse(input.asOf);
@@ -524,6 +525,7 @@ export function createInsightSentryPeerScreen(input: {
       SELECTOR_VERSION,
       symbol.toUpperCase(),
       input.annualAccessionNumber,
+      [...(input.requestedSymbols ?? [])].sort().join(","),
     ].join("|");
     const cached = await readSelection(input.dataRoot, key, now);
     const universe = await collectUniverse(input.client, input.asOf);
@@ -537,6 +539,26 @@ export function createInsightSentryPeerScreen(input: {
       universe.rows.map((row) => [row.symbol_code.toUpperCase(), row]),
     );
     const normalizedAnnualText = input.annualText.toLowerCase();
+    const requested = new Set(
+      (input.requestedSymbols ?? []).map((value) => value.toUpperCase()),
+    );
+    const requestedRows = [...requested].flatMap((requestedSymbol) => {
+      const row = [...bySymbol.values()].find(
+        (candidate) =>
+          tickerFromCode(candidate.symbol_code) === requestedSymbol ||
+          candidate.symbol_code.toUpperCase() === requestedSymbol,
+      );
+      if (row === undefined || row.symbol_code === target.symbol_code) return [];
+      const scored = scoredCandidate(target, row, normalizedAnnualText);
+      return [
+        {
+          ...scored,
+          classification: "direct_competitor" as const,
+          reasons: ["user-selected comparator"],
+          score: 1,
+        },
+      ];
+    });
     const cachedRows =
       cached?.selected.flatMap((item) => {
         const row = bySymbol.get(item.symbol.toUpperCase());
@@ -549,18 +571,21 @@ export function createInsightSentryPeerScreen(input: {
               },
             ];
       }) ?? [];
-    const useCache = cachedRows.length >= MIN_PEERS;
-    const selected = useCache
-      ? cachedRows.slice(0, limit)
-      : selectPeers({
-          target,
-          universe: universe.rows,
-          normalizedAnnualText,
-          limit: Math.min(DEFAULT_PEERS, limit),
-        });
-    if (selected.length < MIN_PEERS)
+    const customSelection = requested.size > 0;
+    const useCache = !customSelection && cachedRows.length >= MIN_PEERS;
+    const selected = customSelection
+      ? requestedRows.slice(0, Math.min(5, limit))
+      : useCache
+        ? cachedRows.slice(0, limit)
+        : selectPeers({
+            target,
+            universe: universe.rows,
+            normalizedAnnualText,
+            limit: Math.min(DEFAULT_PEERS, limit),
+          });
+    if (selected.length < (customSelection ? 1 : MIN_PEERS))
       throw new RangeError("insufficient comparable companies");
-    if (!useCache) {
+    if (!customSelection && !useCache) {
       const createdAt = new Date(now).toISOString();
       await writeSelection(input.dataRoot, {
         key,

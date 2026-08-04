@@ -42,12 +42,18 @@ export function publicArtifactEventFields(
         payload.unknowns.map((item) => limitationId(payload.kind, item)),
       );
     case "department_consolidation":
+      const removedClaimIds = new Set(payload.removedClaimIds);
       return fields(
         payload.publicSummary,
         [
           ...payload.acceptedClaimIds,
-          ...payload.disagreementClaimIds,
-          ...payload.dissent.map((item) => item.claimId),
+          ...payload.revisedClaimIds,
+          ...payload.disagreementClaimIds.filter(
+            (claimId) => !removedClaimIds.has(claimId),
+          ),
+          ...payload.dissent
+            .map((item) => item.claimId)
+            .filter((claimId) => !removedClaimIds.has(claimId)),
         ],
         [...payload.sourceArtifactIds, ...payload.evidencePriorityArtifactIds],
         payload.openQuestions.map((item) => limitationId(payload.kind, item)),

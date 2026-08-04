@@ -3,7 +3,17 @@ import { z } from "zod";
 import {
   type AccountStore,
   AccountStoreUnavailableError,
+  type CreditAvailability,
 } from "../../../accounts/server/accountStore";
+import type { Locale } from "../../../lib/i18n";
+import type {
+  BillingPlanKey,
+  WhopBillingStatus,
+} from "../../../lib/whop/contracts";
+import {
+  createWhopCheckout,
+  type WhopWebhookEvent,
+} from "../../../lib/whop/server";
 import {
   attachQuestionExternalApiEvidence,
   questionLookupPlan,
@@ -35,6 +45,8 @@ export type CreateResearchApiOptions = {
   readonly readiness: () => Promise<boolean>;
   readonly availableDiskBytes: () => Promise<number>;
   readonly loadReport?: PublicReportLoader;
+  /** Billing is mandatory for the live API; tests and fixture APIs may omit it. */
+  readonly billingRequired?: boolean;
   readonly now?: () => string;
   readonly createId?: () => string;
   readonly accountStore?: AccountStore;
@@ -56,6 +68,28 @@ export interface ResearchApi {
   readonly bootstrapSession: () => Promise<string>;
   readonly bootstrapSessionResponse: (request: Request) => Promise<Response>;
   readonly rotateIdentity: () => Promise<void>;
+  readonly researchRoomAccess: (request: Request) => Promise<{
+    readonly authenticated: boolean;
+    readonly tier: "free" | "paid";
+  }>;
+  readonly consumeResearchRoomCredit: (
+    request: Request,
+    reportId: string,
+  ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
+  readonly billingStatus: (request: Request) => Promise<WhopBillingStatus>;
+  readonly billingCheckout: (
+    request: Request,
+    planKey: BillingPlanKey,
+  ) => Promise<Response>;
+  readonly handleWhopWebhook: (event: WhopWebhookEvent) => Promise<void>;
+  readonly preferredLocale: (request: Request) => Promise<{
+    readonly authenticated: boolean;
+    readonly locale?: Locale;
+  }>;
+  readonly updatePreferredLocale: (
+    request: Request,
+    locale: Locale,
+  ) => Promise<{ readonly authenticated: boolean; readonly stored: boolean }>;
   readonly handle: (request: Request) => Promise<Response>;
   readonly close: () => Promise<void>;
 }
@@ -81,6 +115,30 @@ function policyError(status: 403 | 413 | 415): Response {
     case 415:
       return apiError(415, "CONTENT_TYPE_UNSUPPORTED");
   }
+}
+
+function emptyBillingStatus(authenticated: boolean) {
+  const now = new Date();
+  const periodStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  );
+  const periodEnd = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+  );
+  return {
+    authenticated,
+    tier: "free" as const,
+    status: "none" as const,
+    credits: {
+      remaining: 0,
+      allowance: 0,
+      used: 0,
+      usedPercent: 0,
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+    },
+    recentActivity: [],
+  };
 }
 
 async function listRuns(
@@ -210,15 +268,18 @@ async function reportDetail(
   const previous = await context.options.loadReport(previousPublication);
   return previous === undefined
     ? apiJson({ report: loaded })
-    : apiJson({
-        report: loaded,
-        comparison: buildResearchComparison({
-          current: loaded,
-          previous,
-          currentPublishedAt: report.publishedAt,
-          previousPublishedAt: previousPublication.publishedAt,
-        }),
-      });
+    : loaded.schemaVersion !== "workflow-v1" ||
+        previous.schemaVersion !== "workflow-v1"
+      ? apiJson({ report: loaded })
+      : apiJson({
+          report: loaded,
+          comparison: buildResearchComparison({
+            current: loaded,
+            previous,
+            currentPublishedAt: report.publishedAt,
+            previousPublishedAt: previousPublication.publishedAt,
+          }),
+        });
 }
 
 async function dispatch(
@@ -232,6 +293,18 @@ async function dispatch(
     repository: context.commands,
     now: context.options.now ?? (() => new Date().toISOString()),
     createId: context.options.createId ?? randomUUID,
+    beforeQuestion: async () => {
+      if (
+        context.options.billingRequired === true &&
+        context.options.accountStore?.checkChatCredits === undefined
+      )
+        throw new AccountStoreUnavailableError(
+          "ACCOUNT_STORE_REQUIRED_FOR_CHAT",
+        );
+      const available =
+        await context.options.accountStore?.checkChatCredits?.(principal);
+      return available?.allowed ?? true;
+    },
     onQuestion: async (question) => {
       await context.options.accountStore?.recordConsultation?.(
         principal,
@@ -282,7 +355,23 @@ async function dispatch(
     return await runDetail(context, principal, run);
   const runEvents = path.match(/^\/api\/research\/runs\/([^/]+)\/events$/)?.[1];
   if (runEvents !== undefined && request.method === "GET")
-    return context.runEvents.response(request, principal, runEvents);
+    return context.runEvents.response(
+      request,
+      principal,
+      runEvents,
+      async () => {
+        const detail = context.repository.detail(principal, runEvents);
+        if (detail === undefined) return;
+        try {
+          await context.options.accountStore?.recordResearchRun(
+            principal,
+            detail.run,
+          );
+        } catch {
+          // The next run-detail or billing read retries the idempotent record.
+        }
+      },
+    );
   const report = path.match(/^\/api\/research\/reports\/([^/]+)$/)?.[1];
   if (report !== undefined && request.method === "GET")
     return await reportDetail(context, principal, report);
@@ -335,6 +424,165 @@ export async function createResearchApi(
     },
     async rotateIdentity() {
       await context.auth.rotateIdentity();
+    },
+    async researchRoomAccess(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return { authenticated: false, tier: "free" };
+      if (options.accountStore === undefined)
+        return { authenticated: true, tier: "free" };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        return {
+          authenticated: true,
+          tier:
+            (await options.accountStore.researchRoomAccess?.(
+              authentication.principal.id,
+            )) ?? "free",
+        };
+      } catch {
+        return { authenticated: true, tier: "free" };
+      }
+    },
+    async consumeResearchRoomCredit(request, reportId) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return {
+          authenticated: false,
+          allowed: true,
+          remaining: 0,
+          required: 0,
+        };
+      if (options.accountStore?.consumeResearchRoomCredit === undefined)
+        return {
+          authenticated: true,
+          allowed: options.billingRequired !== true,
+          remaining: 0,
+          required: options.billingRequired === true ? 3 : 0,
+        };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        return {
+          authenticated: true,
+          ...(await options.accountStore.consumeResearchRoomCredit(
+            authentication.principal.id,
+            `research-room:${authentication.principal.id}:${reportId}:${randomUUID()}`,
+            reportId,
+          )),
+        };
+      } catch {
+        return {
+          authenticated: true,
+          allowed: false,
+          remaining: 0,
+          required: 3,
+        };
+      }
+    },
+    async billingStatus(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return emptyBillingStatus(false);
+      if (
+        options.billingRequired === true &&
+        options.accountStore?.billingStatus === undefined
+      )
+        throw new AccountStoreUnavailableError(
+          "ACCOUNT_STORE_REQUIRED_FOR_BILLING",
+        );
+      if (options.accountStore === undefined) return emptyBillingStatus(true);
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        const status = await options.accountStore.billingStatus?.(
+          authentication.principal.id,
+        );
+        return status === undefined
+          ? emptyBillingStatus(true)
+          : { authenticated: true, ...status };
+      } catch {
+        return emptyBillingStatus(true);
+      }
+    },
+    async billingCheckout(request, planKey) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return apiError(401, "AUTHENTICATION_REQUIRED");
+      if (options.accountStore === undefined)
+        return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      const configuredOrigin = process.env["STOCKSEMBLY_PUBLIC_ORIGIN"];
+      const origin = configuredOrigin ?? new URL(request.url).origin;
+      const checkout = await createWhopCheckout({
+        planKey,
+        principalId: authentication.principal.id,
+        returnUrl: `${origin.replace(/\/$/u, "")}/?billing=success`,
+        idempotencyKey: `stocksembly:${authentication.principal.id}:${planKey}:${randomUUID()}`,
+      });
+      return Response.redirect(checkout.purchaseUrl, 303);
+    },
+    async handleWhopWebhook(event) {
+      if (
+        options.billingRequired === true &&
+        options.accountStore?.handleWhopWebhook === undefined
+      )
+        throw new AccountStoreUnavailableError(
+          "ACCOUNT_STORE_REQUIRED_FOR_WEBHOOK",
+        );
+      await options.accountStore?.handleWhopWebhook?.(event);
+    },
+    async preferredLocale(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return { authenticated: false };
+      if (options.accountStore === undefined) return { authenticated: true };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        const locale = await options.accountStore.preferredLocale?.(
+          authentication.principal.id,
+        );
+        return locale === undefined
+          ? { authenticated: true }
+          : { authenticated: true, locale };
+      } catch {
+        return { authenticated: true };
+      }
+    },
+    async updatePreferredLocale(request, locale) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return { authenticated: false, stored: false };
+      if (options.accountStore === undefined)
+        return { authenticated: true, stored: false };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        if (options.accountStore.updatePreferredLocale === undefined)
+          return { authenticated: true, stored: false };
+        await options.accountStore.updatePreferredLocale(
+          authentication.principal.id,
+          locale,
+        );
+        return { authenticated: true, stored: true };
+      } catch {
+        return { authenticated: true, stored: false };
+      }
     },
     async handle(request) {
       const policy = await enforceRequestPolicy(request, {

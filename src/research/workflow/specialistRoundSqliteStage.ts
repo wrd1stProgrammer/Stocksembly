@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { MemoOutputSchema } from "../domain/agentOutputs";
 import { hashBytes } from "../domain/contractHelpers";
 import { EventIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { workflowRoleById } from "../domain/roleRegistry";
@@ -7,7 +6,9 @@ import { TEAM_CORE_DATA } from "../domain/teamCoreData";
 import { codexInputHash } from "../server/codex/codexRunner";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import type { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { qualifyComparatorsBeforeSynthesis } from "./preSynthesisComparatorQualification";
 import type { SpecialistRoundInput } from "./specialistRound";
+import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import {
   specialistRequest,
   validateSpecialistRoundInput,
@@ -20,6 +21,12 @@ import type {
 } from "./specialistRoundSqliteContracts";
 
 type SqliteStore = ReturnType<typeof openSqliteStore>;
+
+export function permittedSpecialistInlineArtifact(artifact: {
+  readonly dataset: string;
+}): boolean {
+  return artifact.dataset !== "insightsentry_peers";
+}
 
 type StageContext = {
   readonly options: SqliteSpecialistRoundOptions;
@@ -187,8 +194,15 @@ export function prepareSpecialistJobs(
     )
       throw new TypeError("source bytes do not match the sealed snapshot");
   }
+  const qualifiedInput =
+    input.comparatorQualification === undefined
+      ? {
+          ...input,
+          comparatorQualification: qualifyComparatorsBeforeSynthesis(sources),
+        }
+      : input;
   return assignments.map((assignment, index) => {
-    const request = specialistRequest(input, assignment, {
+    const request = specialistRequest(qualifiedInput, assignment, {
       ordinal: index + 1,
       purpose: "mandatory_first",
     });
@@ -205,8 +219,9 @@ export function prepareSpecialistJobs(
       },
     );
     let remainingEvidenceBytes = MAX_INLINE_EVIDENCE_BYTES;
-    const inlineEvidence = assignment.evidenceSlice.artifacts.map(
-      (artifact) => {
+    const inlineEvidence = assignment.evidenceSlice.artifacts
+      .filter(permittedSpecialistInlineArtifact)
+      .map((artifact) => {
         const source = sourceByEvidence.get(artifact.evidenceId);
         if (source === undefined)
           throw new TypeError("sealed source artifact is missing");
@@ -234,34 +249,72 @@ export function prepareSpecialistJobs(
           remainingEvidenceBytes - Buffer.byteLength(block),
         );
         return block;
-      },
-    );
+      });
     const prompt = [
       JSON.stringify({ request, sourceArtifactIds }),
       "",
       "All permitted sealed evidence is inlined below. Native hosted web search may be used for public context; do not call any other tool or read files.",
-      "Answer the mandate question directly from your specialist role. Do not say that the claim or question was not supplied: the mandate.question field is the controlling research question.",
-      "Lead with an investment-relevant judgment, then cite the strongest supporting and opposing evidence. Company identity or business-description facts are context, not a conclusion.",
+      "For sourceArtifactIds and evidenceArtifactIds, copy only exact UUIDs from the top-level sourceArtifactIds allowlist. contentHash, rawHash, and normalizedHash values are integrity metadata, not citation IDs, and must never be cited or converted into UUIDs.",
+      "Fill every required preallocated request.claimSlots item owned by this role. Each slot includes an analyticalAngle and must produce one decision-relevant atomic claim that directly answers that angle. Optional supporting slots may remain unused only when the evidence cannot support a distinct claim.",
+      "For each filled slot, preserve its claimId and decisionDimension, set roleOwner to request.role.id, cite evidence, select no more than three decisive metric IDs, state the single strongest contrary observation, and give a claim-specific observable falsifier.",
+      "Claims from the same role must not restate one another. Give each slot a different mechanism, metric combination, investor implication, and falsifier; do not split one sentence into several cosmetic claims.",
+      `CUSTOM RESEARCH PROFILE ${JSON.stringify(request.mandate.researchProfile)}`,
+      "Apply the custom profile to analysis, not merely wording. short emphasizes the next catalyst and timing; medium emphasizes the next two to four reporting periods; long emphasizes moat, reinvestment, and terminal economics. new_entry requires entry prerequisites and valuation tolerance; holding_review requires thesis health and hold-or-reassess triggers; position_sizing requires asymmetry, concentration risk, and add/reduce conditions; earnings requires the dated earnings calendar, available estimates, recent filing, and the metric most likely to move the thesis before versus after the release.",
+      "When counterargumentIntensity is strong, spend material analytical weight on the strongest evidence-backed opposing case and identify what the consensus view may be missing. Do not manufacture symmetry when one side is better supported.",
+      "When analysisDepth is core, prioritize the single decisive claim and only add a distinct supporting claim when it changes the decision. For standard, cover every required slot. For deep, fill every slot and connect the mechanism to a measurable investor implication.",
+      request.mandate.researchProfile.comparisonSymbols.length === 0
+        ? "No user-selected comparison company is in scope. Do not create a peer comparison section from generic sector references."
+        : `Use only these user-selected comparison symbols when the qualified comparator evidence supports them: ${request.mandate.researchProfile.comparisonSymbols.join(", ")}.`,
+      "Use only exact request.registeredValues[].id values in decisiveMetricIds. If no registered value directly supports the claim, return decisiveMetricIds as an empty array.",
       `TEAM DATA CONTRACT ${JSON.stringify(teamData)}`,
-      "Use the available team datasets and metrics in that contract as the team's decision board. Do not claim a contracted metric is unavailable until you have checked all inlined evidence. If it is genuinely absent, name the observable trigger instead of writing a provider or scope disclaimer.",
-      ...(assignment.roleId === "benchmark"
+      "Use the available team datasets and metrics in that contract as the team's decision board. Check all inlined evidence before deciding a contracted metric is absent; when it is absent, name the concrete observable trigger that would resolve the claim.",
+      ...(["benchmark", "company_competition", "valuation"].includes(
+        assignment.roleId,
+      )
         ? [
-            "When insightsentry_peers is available, distinguish filing-linked direct competitors from operating comparables. Compare named companies across 3-month and 1-year share performance, revenue growth, margins, market-cap scale, and available valuation multiples; explain dispersion instead of listing numbers.",
+            "Use request.comparatorQualification as the only permitted peer-comparison input. Never infer or recalculate a peer set or median from raw peer evidence.",
           ]
-        : assignment.roleId === "company_competition"
-          ? [
-              "When insightsentry_peers is available, explain why each material peer belongs in the set and distinguish product-market rivalry from companies used only as operating or valuation comparables.",
-            ]
-          : assignment.roleId === "valuation"
-            ? [
-                "When insightsentry_peers is available, calculate available peer medians, state the subject company's premium or discount, and judge whether growth and margin differences justify it. Never reduce the conclusion to a bare cautious/supportive label.",
-              ]
-            : []),
-      "Return exactly one positions item using request.ids.claimId. Combine the role's material findings into that single investment-relevant position.",
-      "Keep publicSummary concise: at most two short sentences per locale. State what the evidence changes for the investment case and the most important uncertainty.",
+        : []),
+      ...((["market", "risk", "risk_policy"] as const).includes(
+        assignment.roleId as "market" | "risk" | "risk_policy",
+      )
+        ? [
+            "Use the expanded BLS pack as a regime, not a data dump: distinguish headline versus core inflation, employment level and unemployment, wage pressure, and producer-price pressure. Explain the transmission into demand, margins, discount rates, or downside triggers.",
+          ]
+        : []),
+      ...((
+        [
+          "market",
+          "company",
+          "company_product",
+          "company_competition",
+          "financial",
+          "financial_quality",
+          "risk",
+          "risk_policy",
+          "valuation",
+        ] as const
+      ).includes(
+        assignment.roleId as
+          | "market"
+          | "company"
+          | "company_product"
+          | "company_competition"
+          | "financial"
+          | "financial_quality"
+          | "risk"
+          | "risk_policy"
+          | "valuation",
+      )
+        ? [
+            "For SEC ownership evidence, separate open-market insider purchases or sales from grants, exercises, tax withholding, and planned dispositions. Treat Schedule 13D/G as material beneficial-owner disclosure, not as a complete institutional-flow feed; focus on changes that alter incentives, concentration, or governance risk.",
+          ]
+        : []),
+      `ROLE-OWNED DECISION DIMENSIONS ${JSON.stringify(request.claimSlots.map((slot) => slot.decisionDimension))}`,
+      "Keep each claim publicSummary atomic and concise: one short thesis per locale.",
       "Make the position distinct to this specialist role. Do not repeat a generic growth-is-strong-but-uncertain template when the evidence supports a more specific demand, moat, margin, valuation, market, or risk judgment.",
       "Unknowns are not disclaimer storage. Return at most two unknowns and phrase each as the observable metric, threshold, filing line, or dated event that would resolve the uncertainty.",
-      "Do not mention that sealed, licensed, provider, consensus, recommendation, or scope data is missing in publicSummary or unknowns. If a dataset is unavailable, state the concrete real-world variable the investor should verify next.",
+      "Public text must state concrete real-world observations and verification conditions only.",
       "Return only JSON that matches the required output schema.",
       ...inlineEvidence,
     ].join("\n");
@@ -275,10 +328,11 @@ export function prepareSpecialistJobs(
       inputHash: codexInputHash({
         stage: "memo",
         prompt,
-        outputSchema: MemoOutputSchema,
+        outputSchema: SpecialistMemoOutputSchema,
       }),
       inputManifestHash: assignment.evidenceSlice.sliceHash,
       sourceArtifactIds,
+      comparatorQualification: request.comparatorQualification,
     } satisfies PersistedSpecialistJob;
   });
 }

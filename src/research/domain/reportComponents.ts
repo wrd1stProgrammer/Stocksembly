@@ -2,6 +2,12 @@ import { z } from "zod";
 import { ClaimIdSchema, ReportVersionIdSchema, SourceIdSchema } from "./ids";
 import { SemanticVerdictSchema } from "./reportSemantic";
 import { LocalizedTextSchema, ReportNarrativeTextSchema } from "./reportText";
+export {
+  AtomicEditorialClaimSchema,
+  ComparatorSchema,
+  PersistedQuestionAnswerSchema,
+  TeamEditorialDecisionSchema,
+} from "./agentOutputsShared";
 
 export const ReportSectionSchema = z
   .object({
@@ -66,6 +72,11 @@ export const ClaimRegisterEntrySchema = z
     materiality: z.enum(["material", "supporting"]),
     semanticVerdict: SemanticVerdictSchema,
     sourceIds: z.array(SourceIdSchema),
+    checkpoint: LocalizedTextSchema.optional(),
+    disposition: z.enum(["accepted", "revised"]).optional(),
+    originClaimId: ClaimIdSchema.optional(),
+    revisionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    adjudicationReason: LocalizedTextSchema.optional(),
   })
   .strict();
 export const SourceRegisterEntrySchema = z

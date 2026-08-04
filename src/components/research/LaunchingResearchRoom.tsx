@@ -8,8 +8,10 @@ import {
   type ResearchClient,
   ResearchRequestError,
 } from "../../research/client/api";
+import type { ResearchProfile } from "../../research/domain/researchProfile";
 import type { ResearchTarget } from "../../research/domain/researchTarget";
 import { Brand } from "../Brand";
+import { CreditShortageModal } from "../billing/CreditShortageModal";
 
 type Props = {
   readonly symbol: string;
@@ -17,6 +19,7 @@ type Props = {
   readonly locale: Locale;
   readonly idempotencyKey: string;
   readonly researchTarget: ResearchTarget;
+  readonly researchProfile?: ResearchProfile;
 };
 
 const LAUNCH_ATTEMPTS = 4;
@@ -57,10 +60,12 @@ export function LaunchingResearchRoom({
   locale,
   idempotencyKey,
   researchTarget,
+  researchProfile,
 }: Props) {
   const router = useRouter();
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const [failed, setFailed] = useState(false);
+  const [creditShortageOpen, setCreditShortageOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -72,6 +77,7 @@ export function LaunchingResearchRoom({
         locale,
         idempotencyKey,
         researchTarget,
+        ...(researchProfile === undefined ? {} : { researchProfile }),
       });
       launchPromises.set(idempotencyKey, launch);
     }
@@ -91,6 +97,13 @@ export function LaunchingResearchRoom({
           );
           return;
         }
+        if (
+          error instanceof ResearchRequestError &&
+          error.code === "CREDITS_INSUFFICIENT"
+        ) {
+          setCreditShortageOpen(true);
+          return;
+        }
         setFailed(true);
       });
     return () => {
@@ -102,6 +115,7 @@ export function LaunchingResearchRoom({
     locale,
     question,
     researchTarget,
+    researchProfile,
     router,
     symbol,
   ]);
@@ -157,6 +171,11 @@ export function LaunchingResearchRoom({
         <i />
         <i />
       </aside>
+      <CreditShortageModal
+        locale={locale}
+        open={creditShortageOpen}
+        onClose={() => setCreditShortageOpen(false)}
+      />
     </div>
   );
 }

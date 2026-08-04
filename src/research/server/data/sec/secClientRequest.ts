@@ -49,8 +49,12 @@ export function buildSecUrl(request: SecRequest): URL {
     case "filing_document": {
       const cik = request.cik.replace(/^0+/, "") || "0";
       const accession = request.accessionNumber.replaceAll("-", "");
+      const primaryDocument = request.primaryDocument.replace(
+        /^xsl[A-Za-z0-9_-]*\//iu,
+        "",
+      );
       return new URL(
-        `https://www.sec.gov/Archives/edgar/data/${cik}/${accession}/${request.primaryDocument}`,
+        `https://www.sec.gov/Archives/edgar/data/${cik}/${accession}/${primaryDocument}`,
       );
     }
   }

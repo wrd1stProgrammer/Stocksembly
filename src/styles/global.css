@@ -70,60 +70,52 @@ a {
   border-radius: var(--radius-control);
 }
 .app-shell {
+  --color-void: #050506;
+  --color-night: #08080a;
+  --color-panel: #0d0d10;
+  --color-panel-raised: #151518;
+  --color-field: #09090b;
+  --color-text-muted: #aaaab2;
+  --color-text-subtle: #74747d;
+  --color-border: #29292e;
+  --color-border-bright: #45454d;
   position: relative;
   isolation: isolate;
   min-height: 100dvh;
   overflow: hidden;
-  background: var(--color-void);
+  background: #050506;
 }
 .atmosphere {
   position: absolute;
-  inset: 0 0 auto;
-  height: min(1040px, 100dvh);
-  z-index: -1;
+  inset: 0;
+  height: auto;
+  min-height: 100%;
+  z-index: 0;
   pointer-events: none;
-  background:
-    radial-gradient(
-      ellipse 55% 25% at 50% 96%,
-      color-mix(in srgb, var(--color-magenta) 42%, transparent),
-      transparent 72%
-    ),
-    linear-gradient(
-      180deg,
-      var(--color-void) 0%,
-      var(--color-night) 48%,
-      var(--color-void) 100%
-    );
+  overflow: hidden;
+  background: #050506;
 }
 .atmosphere::before {
-  content: "";
-  position: absolute;
-  inset: 12% -8% 0;
-  opacity: 0.46;
-  background-image:
-    linear-gradient(
-      color-mix(in srgb, var(--color-accent-bright) 24%, transparent) 1px,
-      transparent 1px
-    ),
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--color-accent-bright) 22%, transparent) 1px,
-      transparent 1px
-    );
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at 50% 58%, black, transparent 72%);
-  transform: perspective(600px) rotateX(61deg) scale(1.4);
-  transform-origin: center 70%;
+  content: none;
 }
 .atmosphere::after {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background: radial-gradient(
     ellipse at center,
-    transparent 36%,
-    color-mix(in srgb, var(--color-void) 58%, transparent) 100%
+    transparent 42%,
+    rgb(5 5 6 / 18%) 78%,
+    rgb(5 5 6 / 54%) 100%
   );
+}
+.atmosphere__starfall {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 .spin {
   animation: spin 0.8s linear infinite;

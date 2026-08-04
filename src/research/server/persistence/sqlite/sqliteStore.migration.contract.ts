@@ -43,9 +43,9 @@ describe("SQLite ordered migrations", () => {
     const store = open(path);
 
     // Then
-    expect(store.schemaVersions()).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-    ]);
+    expect(store.schemaVersions()).toEqual(
+      loadOrderedMigrations().map((migration) => migration.version),
+    );
     expect(store.pragmas()).toEqual({
       journalMode: "wal",
       foreignKeys: 1,
@@ -73,6 +73,7 @@ describe("SQLite ordered migrations", () => {
       "reports",
       "research_call_ordinals",
       "research_requests",
+      "research_room_views",
       "run_events",
       "run_lineage",
       "run_public_limitations",
@@ -108,12 +109,11 @@ describe("SQLite ordered migrations", () => {
     const reopened = open(path);
 
     // Then
-    expect(applied).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-    ]);
-    expect(reopened.schemaVersions()).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-    ]);
+    const expectedVersions = loadOrderedMigrations().map(
+      (migration) => migration.version,
+    );
+    expect(applied).toEqual(expectedVersions);
+    expect(reopened.schemaVersions()).toEqual(expectedVersions);
   });
 
   it("upgrades a populated version-three schema without losing its attempt", () => {
@@ -180,9 +180,9 @@ describe("SQLite ordered migrations", () => {
     const upgraded = open(path);
 
     // Then
-    expect(upgraded.schemaVersions()).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-    ]);
+    expect(upgraded.schemaVersions()).toEqual(
+      loadOrderedMigrations().map((migration) => migration.version),
+    );
     expect(upgraded.findAttempt(ids.attemptId)).toMatchObject({
       attemptId: ids.attemptId,
       status: "unknown",
@@ -273,9 +273,9 @@ describe("SQLite ordered migrations", () => {
     const inspection = new Database(path, { readonly: true });
 
     // Then
-    expect(upgraded.schemaVersions()).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-    ]);
+    expect(upgraded.schemaVersions()).toEqual(
+      loadOrderedMigrations().map((migration) => migration.version),
+    );
     expect(
       inspection
         .prepare(`SELECT stage, reasoning, browsing_policy

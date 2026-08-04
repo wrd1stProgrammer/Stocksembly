@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isRegistrationFinancialForm } from "./secFilingForms";
 
 const FilingColumnsSchema = z
   .object({
@@ -7,7 +8,7 @@ const FilingColumnsSchema = z
     filingDate: z.array(z.iso.date()),
     acceptanceDateTime: z.array(z.string().trim().min(1)),
     reportDate: z.array(z.string()),
-    primaryDocument: z.array(z.string().min(1)),
+    primaryDocument: z.array(z.string()),
   })
   .passthrough();
 
@@ -89,23 +90,26 @@ function columnsToRecords(
     const form = columns.form[index];
     const filingDate = columns.filingDate[index];
     const acceptanceDateTime = columns.acceptanceDateTime[index];
-    const period = columns.reportDate[index];
+    const reportedPeriod = columns.reportDate[index];
     const primaryDocument = columns.primaryDocument[index];
     if (
       accessionNumber === undefined ||
       form === undefined ||
       filingDate === undefined ||
       acceptanceDateTime === undefined ||
-      period === undefined ||
+      reportedPeriod === undefined ||
       primaryDocument === undefined
     )
       return undefined;
+    if (primaryDocument.trim().length === 0) continue;
     const accepted = acceptedAt(acceptanceDateTime);
-    if (
-      accepted === undefined ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(period)
-    )
-      continue;
+    if (accepted === undefined) continue;
+    const period = /^\d{4}-\d{2}-\d{2}$/.test(reportedPeriod)
+      ? reportedPeriod
+      : isRegistrationFinancialForm(form.toUpperCase())
+        ? filingDate
+        : undefined;
+    if (period === undefined) continue;
     records.push(
       Object.freeze({
         accessionNumber,

@@ -52,6 +52,7 @@ type Copy = {
   readonly nav: {
     readonly product: string;
     readonly getStarted: string;
+    readonly pricing: string;
   };
   readonly hero: {
     readonly eyebrow: string;
@@ -64,6 +65,11 @@ type Copy = {
   readonly landing: {
     readonly sourcesLabel: string;
     readonly sources: readonly string[];
+    readonly publishedTime: {
+      readonly justNow: string;
+      readonly minutesAgo: (minutes: number) => string;
+      readonly hoursMinutesAgo: (hours: number, minutes: number) => string;
+    };
   };
   readonly footer: {
     readonly purpose: string;
@@ -107,6 +113,7 @@ export const copy: Readonly<Record<Locale, Copy>> = {
     nav: {
       product: "Product",
       getStarted: "Get started",
+      pricing: "Plans",
     },
     hero: {
       eyebrow: "Multi-agent research for US equities",
@@ -127,6 +134,12 @@ export const copy: Readonly<Record<Locale, Copy>> = {
         "Company releases",
         "Trusted news",
       ],
+      publishedTime: {
+        justNow: "Just now",
+        minutesAgo: (minutes) => `${minutes}m ago`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `${hours}h${minutes > 0 ? ` ${minutes}m` : ""} ago`,
+      },
     },
     footer: {
       purpose:
@@ -170,6 +183,7 @@ export const copy: Readonly<Record<Locale, Copy>> = {
     nav: {
       product: "제품",
       getStarted: "시작하기",
+      pricing: "요금제",
     },
     hero: {
       eyebrow: "미국주식 AI 에이전트 팀 리서치",
@@ -190,6 +204,12 @@ export const copy: Readonly<Record<Locale, Copy>> = {
         "기업 발표",
         "검증된 뉴스",
       ],
+      publishedTime: {
+        justNow: "방금 전",
+        minutesAgo: (minutes) => `${minutes}분 전`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `${hours}시간${minutes > 0 ? ` ${minutes}분` : ""} 전`,
+      },
     },
     footer: {
       purpose: "출처는 붙이고 의견 차이는 남기는 AI 주식 리서치.",

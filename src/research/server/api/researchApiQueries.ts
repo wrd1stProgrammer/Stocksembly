@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { RunIdSchema } from "../../domain/ids";
+import { ResearchProfileSchema } from "../../domain/researchProfile";
 import { WORKFLOW_PUBLIC_EVENT_KINDS } from "../../workflow/publicEventsContracts";
 import { parseSafeJson } from "../persistence/sqlite/safeJson";
 import type {
@@ -24,11 +25,15 @@ function publicRun(input: unknown): PublicRun {
     runId: row.run_id,
     snapshotId: row.snapshot_id,
     symbol: row.symbol,
+    ...(row.question === undefined ? {} : { question: row.question }),
     locale: row.locale,
     researchTarget:
       row.research_kind === "department" && row.department_id !== null
         ? { kind: "department", departmentId: row.department_id }
         : { kind: "committee" },
+    researchProfile: ResearchProfileSchema.parse(
+      parseSafeJson(row.research_profile_json),
+    ),
     status: row.status,
     lastEventSeq: row.last_event_seq,
     createdAt: row.created_at,
@@ -44,8 +49,10 @@ export function listPublicRuns(
 ): readonly PublicRun[] {
   const values = database
     .prepare(`SELECT runs.run_id, runs.snapshot_id,
-    research_requests.symbol, research_requests.locale,
+    research_requests.symbol, research_requests.question,
+    research_requests.locale,
     research_requests.research_kind, research_requests.department_id,
+    research_requests.research_profile_json,
     runs.status,
     runs.last_event_seq, runs.created_at, runs.report_id FROM runs
     JOIN research_requests USING(run_id)
@@ -69,8 +76,10 @@ export function findPublicRun(
 ): PublicRun | undefined {
   const value = database
     .prepare(`SELECT runs.run_id, runs.snapshot_id,
-    research_requests.symbol, research_requests.locale,
+    research_requests.symbol, research_requests.question,
+    research_requests.locale,
     research_requests.research_kind, research_requests.department_id,
+    research_requests.research_profile_json,
     runs.status,
     runs.last_event_seq, runs.created_at, runs.report_id FROM runs
     JOIN research_requests USING(run_id)
@@ -79,13 +88,10 @@ export function findPublicRun(
   return value === undefined ? undefined : publicRun(value);
 }
 
-export function listPublicEvents(
+export function listPublicEventsForRun(
   database: Database.Database,
-  principalId: string,
   runId: string,
-): readonly PublicResearchEvent[] | undefined {
-  if (findPublicRun(database, principalId, runId) === undefined)
-    return undefined;
+): readonly PublicResearchEvent[] {
   return database
     .prepare(`SELECT sequence, event_type, state_id,
     occurred_at, payload_json FROM run_events
@@ -126,6 +132,16 @@ export function listPublicEvents(
         },
       ];
     });
+}
+
+export function listPublicEvents(
+  database: Database.Database,
+  principalId: string,
+  runId: string,
+): readonly PublicResearchEvent[] | undefined {
+  if (findPublicRun(database, principalId, runId) === undefined)
+    return undefined;
+  return listPublicEventsForRun(database, runId);
 }
 
 export function findPublicReport(

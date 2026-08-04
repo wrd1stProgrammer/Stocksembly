@@ -14,7 +14,7 @@ const strengthLabels = {
   moderate: { en: "Moderate evidence", ko: "보통 근거" },
   limited: { en: "Limited evidence", ko: "제한적 근거" },
   contested: { en: "Contested", ko: "상충 근거" },
-  unverified: { en: "Unverified", ko: "검증 불가" },
+  unverified: { en: "Not yet verified", ko: "근거 미확인" },
 } as const;
 
 export function ResearchFileSectionHeader({
@@ -24,7 +24,7 @@ export function ResearchFileSectionHeader({
 }: SectionHeaderProps) {
   return (
     <header className="research-editorial-heading">
-      <span>{number}</span>
+      <span aria-hidden="true">{number}</span>
       <div>
         <h2>{title}</h2>
         <p>{description}</p>

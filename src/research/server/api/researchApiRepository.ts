@@ -26,6 +26,7 @@ import type {
   RunCursor,
 } from "./researchApiContracts";
 import { PublicRunSchema } from "./researchApiContracts";
+import { ResearchProfileSchema } from "../../domain/researchProfile";
 import {
   findPublicReport,
   findPublicRun,
@@ -49,11 +50,15 @@ function runFromRow(input: unknown): PublicRun {
     runId: row.run_id,
     snapshotId: row.snapshot_id,
     symbol: row.symbol,
+    ...(row.question === undefined ? {} : { question: row.question }),
     locale: row.locale,
     researchTarget:
       row.research_kind === "department" && row.department_id !== null
         ? { kind: "department", departmentId: row.department_id }
         : { kind: "committee" },
+    researchProfile: ResearchProfileSchema.parse(
+      parseSafeJson(row.research_profile_json),
+    ),
     status: row.status,
     lastEventSeq: row.last_event_seq,
     createdAt: row.created_at,
@@ -70,8 +75,10 @@ function publicRunJson(run: PublicRun) {
     runId: run.runId,
     snapshotId: run.snapshotId,
     symbol: run.symbol,
+    ...(run.question === undefined ? {} : { question: run.question }),
     locale: run.locale,
     researchTarget: run.researchTarget,
+    researchProfile: run.researchProfile,
     status: run.status,
     lastEventSeq: run.lastEventSeq,
     createdAt: run.createdAt,
@@ -172,8 +179,8 @@ export class ResearchApiRepository {
         this.#database
           .prepare(`INSERT INTO research_requests(
         run_id, principal_id, symbol, question, locale, request_hash, created_at,
-        research_kind, department_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        research_kind, department_id, research_profile_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
           .run(
             runId,
             principalId,
@@ -186,6 +193,7 @@ export class ResearchApiRepository {
             request.researchTarget.kind === "department"
               ? request.researchTarget.departmentId
               : null,
+            serializeSafeJson(request.researchProfile),
           );
         const run = runFromRow(this.runRow(principalId, runId));
         this.#database
@@ -226,8 +234,10 @@ export class ResearchApiRepository {
   runRow(principalId: string, runId: string): unknown {
     return this.#database
       .prepare(`SELECT runs.run_id, runs.snapshot_id,
-      research_requests.symbol, research_requests.locale,
+      research_requests.symbol, research_requests.question,
+      research_requests.locale,
       research_requests.research_kind, research_requests.department_id,
+      research_requests.research_profile_json,
       runs.status,
       runs.last_event_seq, runs.created_at, runs.report_id FROM runs
       JOIN research_requests USING(run_id)

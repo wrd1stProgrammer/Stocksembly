@@ -1,6 +1,7 @@
 import type { CapabilityManifest } from "../domain/capabilities";
 import type { SpecialistRoleId } from "../domain/roleRegistry";
 import type { SnapshotManifest } from "./buildSnapshot";
+import type { ResearchProfile } from "../domain/researchProfile";
 
 export const RESEARCH_LOCALES = ["en", "ko"] as const;
 export type ResearchLocale = (typeof RESEARCH_LOCALES)[number];
@@ -39,6 +40,7 @@ export type ResearchMandateV1 = {
   readonly question?: string;
   readonly locale: ResearchLocale;
   readonly scope: ResearchScope;
+  readonly researchProfile?: ResearchProfile;
   readonly capabilities: CapabilityManifest;
   readonly materialCruxes: readonly MaterialCrux[];
   readonly limitations: readonly MandateLimitation[];
@@ -74,6 +76,7 @@ export type CreateMandateInput = {
   readonly question?: unknown;
   readonly locale: unknown;
   readonly scope: unknown;
+  readonly researchProfile?: unknown;
   readonly capabilities: CapabilityManifest;
   readonly rosterIds: readonly string[];
 };

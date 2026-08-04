@@ -52,9 +52,13 @@ export function semanticPublicationBlockers(
   }[],
 ): readonly string[] {
   void questionCoverage;
+  const materialClaims = claims.filter((claim) =>
+    materialClaimIds.has(claim.claimId),
+  );
+  if (materialClaims.some((claim) => claim.verdict !== "contradicted"))
+    return [];
   return [
-    ...claims.flatMap((claim) =>
-      materialClaimIds.has(claim.claimId) &&
+    ...materialClaims.flatMap((claim) =>
       claim.verdict === "contradicted" &&
       claim.contradictionSeverity === "severe"
         ? [`material_claim_contradicted:${claim.claimId}`]

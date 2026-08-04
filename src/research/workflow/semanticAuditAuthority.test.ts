@@ -41,6 +41,32 @@ describe("semantic publication policy", () => {
     expect(blockers).toEqual(["material_claim_contradicted:claim-1"]);
   });
 
+  it("removes one contradicted material claim without terminating surviving research", () => {
+    // Given
+    const material = new Set(["claim-1", "claim-2"]);
+
+    // When
+    const blockers = semanticPublicationBlockers(
+      material,
+      [
+        {
+          claimId: "claim-1",
+          verdict: "contradicted",
+          contradictionSeverity: "severe",
+        },
+        {
+          claimId: "claim-2",
+          verdict: "entailed",
+          contradictionSeverity: "none",
+        },
+      ],
+      [],
+    );
+
+    // Then
+    expect(blockers).toEqual([]);
+  });
+
   it("removes a limited contradiction without terminating the report", () => {
     // Given
     const material = new Set(["claim-1"]);

@@ -61,12 +61,14 @@ export function createRunEventsStream(input: {
   readonly serviceSignal: AbortSignal;
   readonly pollIntervalMs: number;
   readonly heartbeatIntervalMs: number;
+  readonly onTerminal?: () => Promise<void>;
 }): ReadableStream<Uint8Array> {
   let cursor = input.cursor;
   let snapshot = input.initial;
   let queue = [...snapshot.entries];
   let lastHeartbeat = Date.now();
   let disposed = input.requestSignal.aborted || input.serviceSignal.aborted;
+  let terminalHandled = false;
 
   const dispose = () => {
     if (disposed) return;
@@ -89,6 +91,10 @@ export function createRunEventsStream(input: {
           return;
         }
         if (terminal(snapshot) && cursor >= snapshot.lastEventSeq) {
+          if (!terminalHandled) {
+            terminalHandled = true;
+            await input.onTerminal?.();
+          }
           dispose();
           controller.close();
           return;
