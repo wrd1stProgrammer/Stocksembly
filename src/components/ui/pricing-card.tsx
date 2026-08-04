@@ -30,6 +30,8 @@ type PricingCardProps = {
   readonly amount: number | null;
   readonly total: number | null;
   readonly checkoutUrl?: string | undefined;
+  readonly onCheckout?: (() => void) | undefined;
+  readonly checkoutPending?: boolean;
   readonly onFreeSelect?: (() => void) | undefined;
 };
 
@@ -74,6 +76,8 @@ export function PricingCard({
   amount,
   total,
   checkoutUrl,
+  onCheckout,
+  checkoutPending = false,
   onFreeSelect,
 }: PricingCardProps) {
   const isAnnual = cycle === "annual";
@@ -199,6 +203,24 @@ export function PricingCard({
               onClick={onFreeSelect}
             >
               {locale === "ko" ? "계속 무료로 사용" : "Continue free"}
+            </button>
+          ) : checkoutUrl && onCheckout ? (
+            <button
+              type="button"
+              className="subscription-plan-card__action"
+              onClick={onCheckout}
+              disabled={checkoutPending}
+            >
+              {checkoutPending
+                ? locale === "ko"
+                  ? "결제 페이지 여는 중..."
+                  : "Opening checkout..."
+                : locale === "ko"
+                  ? "시작하기"
+                  : "Get started"}
+              {!checkoutPending ? (
+                <ArrowUpRight size={16} aria-hidden="true" />
+              ) : null}
             </button>
           ) : checkoutUrl ? (
             <a

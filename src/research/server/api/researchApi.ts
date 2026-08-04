@@ -530,6 +530,8 @@ export async function createResearchApi(
         returnUrl: `${origin.replace(/\/$/u, "")}/?billing=success`,
         idempotencyKey: `stocksembly:${authentication.principal.id}:${planKey}:${randomUUID()}`,
       });
+      if (request.headers.get("accept")?.includes("application/json"))
+        return apiJson({ purchaseUrl: checkout.purchaseUrl });
       return Response.redirect(checkout.purchaseUrl, 303);
     },
     async handleWhopWebhook(event) {

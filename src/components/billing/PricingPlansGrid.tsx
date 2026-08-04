@@ -2,6 +2,7 @@
 
 import { MotionConfig, motion } from "motion/react";
 import { useId, useState } from "react";
+import { currentAuthTokens } from "../../auth/researchSession";
 import type { Locale } from "../../lib/i18n";
 import { PricingCard, type PricingCardPlan } from "../ui/pricing-card";
 
@@ -88,7 +89,52 @@ export function PricingPlansGrid({
   onFreeSelect,
 }: PricingPlansGridProps) {
   const [cycle, setCycle] = useState<BillingCycle>(initialCycle);
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string>();
+  const [checkoutError, setCheckoutError] = useState(false);
   const isAnnual = cycle === "annual";
+
+  async function handleCheckout(checkoutUrl: string, planId: string) {
+    if (checkoutPlanId !== undefined) return;
+    setCheckoutPlanId(planId);
+    setCheckoutError(false);
+    try {
+      const tokens = await currentAuthTokens();
+      if (tokens.accessToken === undefined) {
+        const next = `${window.location.pathname}${window.location.search}`;
+        window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+
+      const response = await fetch(checkoutUrl, {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${tokens.accessToken}`,
+          ...(tokens.identityToken
+            ? { "x-stocksembly-identity-token": tokens.identityToken }
+            : {}),
+        },
+      });
+      const payload = (await response.json().catch(() => undefined)) as
+        | { readonly purchaseUrl?: unknown }
+        | undefined;
+
+      if (response.status === 401) {
+        const next = `${window.location.pathname}${window.location.search}`;
+        window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      if (!response.ok || typeof payload?.purchaseUrl !== "string")
+        throw new Error("BILLING_CHECKOUT_UNAVAILABLE");
+
+      window.location.assign(payload.purchaseUrl);
+    } catch {
+      setCheckoutError(true);
+    } finally {
+      setCheckoutPlanId(undefined);
+    }
+  }
 
   return (
     <MotionConfig reducedMotion="user">
@@ -117,11 +163,26 @@ export function PricingPlansGrid({
                 amount={effectiveMonthly}
                 total={total}
                 checkoutUrl={checkoutUrl}
+                onCheckout={
+                  checkoutUrl
+                    ? () => {
+                        void handleCheckout(checkoutUrl, plan.id);
+                      }
+                    : undefined
+                }
+                checkoutPending={checkoutPlanId === plan.id}
                 onFreeSelect={onFreeSelect}
               />
             );
           })}
         </div>
+        {checkoutError ? (
+          <p className="subscription-modal__notice is-error" role="alert">
+            {locale === "ko"
+              ? "결제 페이지를 열지 못했습니다. 잠시 후 다시 시도해 주세요."
+              : "We could not open checkout. Please try again in a moment."}
+          </p>
+        ) : null}
       </section>
     </MotionConfig>
   );
