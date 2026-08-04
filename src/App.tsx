@@ -26,6 +26,30 @@ import type {
   WhopPricingResponse,
 } from "./lib/whop/contracts";
 
+function localFallbackBillingStatus(): WhopBillingStatus {
+  const now = new Date();
+  const periodStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  );
+  const periodEnd = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+  );
+  return {
+    authenticated: true,
+    tier: "free",
+    status: "none",
+    credits: {
+      remaining: 0,
+      allowance: 0,
+      used: 0,
+      usedPercent: 0,
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+    },
+    recentActivity: [],
+  };
+}
+
 export function App() {
   const [locale, setLocale] = useState<Locale>("en");
   const [signedIn, setSignedIn] = useState(false);
@@ -138,6 +162,12 @@ export function App() {
             setSubscriptionTier("paid");
           if (typeof status.credits?.remaining === "number")
             setBillingStatus(status);
+        } else if (
+          process.env.NODE_ENV !== "production" &&
+          statusResponse.status === 503
+        ) {
+          setSubscriptionTier("free");
+          setBillingStatus(localFallbackBillingStatus());
         } else {
           setBillingPlansError(true);
         }

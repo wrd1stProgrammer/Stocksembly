@@ -1,0 +1,86 @@
+name: Provision test account
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_REGION: us-east-1
+      COGNITO_USER_POOL_ID: us-east-1_aBlbfohE8
+      INSTANCE_ID: i-030eacac11712c94d
+      TEST_ACCOUNT_EMAIL: ${{ secrets.STOCKSEMBLY_TEST_ACCOUNT_EMAIL }}
+      TEST_ACCOUNT_PASSWORD: ${{ secrets.STOCKSEMBLY_TEST_ACCOUNT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6.1.1
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Create or reset Cognito account
+        id: cognito
+        run: |
+          set -euo pipefail
+          if ! aws cognito-idp admin-get-user \
+            --user-pool-id "$COGNITO_USER_POOL_ID" \
+            --username "$TEST_ACCOUNT_EMAIL" \
+            >/dev/null 2>&1; then
+            aws cognito-idp admin-create-user \
+              --user-pool-id "$COGNITO_USER_POOL_ID" \
+              --username "$TEST_ACCOUNT_EMAIL" \
+              --user-attributes \
+                Name=email,Value="$TEST_ACCOUNT_EMAIL" \
+                Name=email_verified,Value=true \
+              --message-action SUPPRESS \
+              >/dev/null
+          fi
+          aws cognito-idp admin-update-user-attributes \
+            --user-pool-id "$COGNITO_USER_POOL_ID" \
+            --username "$TEST_ACCOUNT_EMAIL" \
+            --user-attributes \
+              Name=email,Value="$TEST_ACCOUNT_EMAIL" \
+              Name=email_verified,Value=true \
+            >/dev/null
+          aws cognito-idp admin-set-user-password \
+            --user-pool-id "$COGNITO_USER_POOL_ID" \
+            --username "$TEST_ACCOUNT_EMAIL" \
+            --password "$TEST_ACCOUNT_PASSWORD" \
+            --permanent
+          subject="$(aws cognito-idp admin-get-user \
+            --user-pool-id "$COGNITO_USER_POOL_ID" \
+            --username "$TEST_ACCOUNT_EMAIL" \
+            --query 'UserAttributes[?Name==`sub`].Value' \
+            --output text)"
+          test -n "$subject"
+          printf 'subject=%s\n' "$subject" >> "$GITHUB_OUTPUT"
+      - name: Seed 100 credits through Systems Manager
+        env:
+          TEST_ACCOUNT_SUBJECT: ${{ steps.cognito.outputs.subject }}
+        run: |
+          set -euo pipefail
+          identity_payload="$(printf '%s\n%s' \
+            "$TEST_ACCOUNT_SUBJECT" \
+            "$TEST_ACCOUNT_EMAIL" | base64 -w 0)"
+          seed_script="$(base64 -w 0 infra/aws/provision-test-account.ssm.sh)"
+          parameters="$(jq -nc \
+            --arg command "printf '%s' '${seed_script}' | base64 --decode | sudo bash -s -- '${identity_payload}'" \
+            '{commands:[$command]}')"
+          command_id="$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' \
+            --output text)"
+          aws ssm wait command-executed \
+            --command-id "$command_id" \
+            --instance-id "$INSTANCE_ID"
+          aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$INSTANCE_ID" \
+            --query '{status:Status,stdout:StandardOutputContent,stderr:StandardErrorContent}'
