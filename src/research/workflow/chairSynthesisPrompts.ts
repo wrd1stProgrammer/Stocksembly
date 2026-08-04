@@ -190,7 +190,9 @@ export function chairSynthesisModelPrompt(
   const teamConflictDetected =
     new Set(prompt.ballots.map((ballot) => ballot.vote)).size > 1 ||
     prompt.dissentClaimIds.length > 0;
-  const sentenceIdsByKind = (kind: ChairSynthesisPrompt["sentences"][number]["kind"]) =>
+  const sentenceIdsByKind = (
+    kind: ChairSynthesisPrompt["sentences"][number]["kind"],
+  ) =>
     prompt.sentences
       .filter((sentence) => sentence.kind === kind)
       .map((sentence) => sentence.sentenceId);
@@ -222,20 +224,18 @@ export function chairSynthesisModelPrompt(
       vote,
     })),
     unknownIds: prompt.unknownIds,
-    sentences: prompt.sentences.map(
-      ({ sentenceId, kind, claimIds, text }) => ({
-        sentenceId,
-        kind,
-        claimIds,
-        text,
-        groundingAllowlist: {
-          enTokens: groundingTokens(text.en),
-          koTokens: groundingTokens(text.ko),
-          enNumbers: groundedNumbers(text.en),
-          koNumbers: groundedNumbers(text.ko),
-        },
-      }),
-    ),
+    sentences: prompt.sentences.map(({ sentenceId, kind, claimIds, text }) => ({
+      sentenceId,
+      kind,
+      claimIds,
+      text,
+      groundingAllowlist: {
+        enTokens: groundingTokens(text.en),
+        koTokens: groundingTokens(text.ko),
+        enNumbers: groundedNumbers(text.en),
+        koNumbers: groundedNumbers(text.ko),
+      },
+    })),
     ownershipContract: {
       maxSectionsPerSentence: 1,
       ledger: prompt.sentences.map((sentence) => ({
@@ -275,11 +275,7 @@ export function chairSynthesisModelPrompt(
       falsifierSentenceIds: sentenceIdsByKind("change_condition"),
     },
     directionalBriefContract: {
-      allowedStances: [
-        "upside_skewed",
-        "wait_for_proof",
-        "downside_skewed",
-      ],
+      allowedStances: ["upside_skewed", "wait_for_proof", "downside_skewed"],
       requiredStance: directionalAssignment.stance,
       requiredConfidence: directionalAssignment.confidence,
       primarySectionKey: "ten_second_brief",
@@ -358,20 +354,18 @@ export function chairSynthesisModelPrompt(
         sectionKey === "ten_second_brief"
           ? Math.min(2, targetEvidenceCount)
           : targetEvidenceCount,
-      publicSummaryConstruction:
-        `Write one cohesive editorial paragraph from the owned sentenceIds. The paragraph must contain a directional judgment, the evidence mechanism, the strongest relevant counterpoint, and the investor implication or observable change condition. ${
-          prompt.mandate.researchProfile.analysisDepth === "core"
-            ? "Use 2-3 concise sentences and keep only the decisive signal."
-            : prompt.mandate.researchProfile.analysisDepth === "deep"
-              ? "Use 4-6 substantive sentences and connect at least three distinct evidence signals when available."
-              : "Use 3-5 substantive sentences and connect at least two distinct evidence signals when available."
-        } Omit a component only when that section's allowed evidence kinds cannot support it. Never disguise weak prose with a fixed label, prefix, suffix, synonym swap, or generic data-availability caveat. Interpret every number cluster through a comparison, mechanism, or decision consequence. Do not repeat the same conclusion, metric bundle, or caveat used by another section.`,
+      publicSummaryConstruction: `Write one cohesive editorial paragraph from the owned sentenceIds. The paragraph must contain a directional judgment, the evidence mechanism, the strongest relevant counterpoint, and the investor implication or observable change condition. ${
+        prompt.mandate.researchProfile.analysisDepth === "core"
+          ? "Use 2-3 concise sentences and keep only the decisive signal."
+          : prompt.mandate.researchProfile.analysisDepth === "deep"
+            ? "Use 4-6 substantive sentences and connect at least three distinct evidence signals when available."
+            : "Use 3-5 substantive sentences and connect at least two distinct evidence signals when available."
+      } Omit a component only when that section's allowed evidence kinds cannot support it. Never disguise weak prose with a fixed label, prefix, suffix, synonym swap, or generic data-availability caveat. Interpret every number cluster through a comparison, mechanism, or decision consequence. Do not repeat the same conclusion, metric bundle, or caveat used by another section.`,
       ...(sectionKey === "supported_analysis"
         ? {
-            requiresConflictAdjudication:
-              teamConflictDetected
-                ? "Non-null. Own every requiredOwnedPositionSentenceId in this section, set departmentDecisionSentenceIds exactly to requiredDepartmentDecisionSentenceIds, choose a resolution, and set reasonSentenceId exactly to this section's primarySentenceId."
-                : "Null because no team conflict was detected in the audited ballots or dissent ledger.",
+            requiresConflictAdjudication: teamConflictDetected
+              ? "Non-null. Own every requiredOwnedPositionSentenceId in this section, set departmentDecisionSentenceIds exactly to requiredDepartmentDecisionSentenceIds, choose a resolution, and set reasonSentenceId exactly to this section's primarySentenceId."
+              : "Null because no team conflict was detected in the audited ballots or dissent ledger.",
           }
         : {}),
     })),
@@ -486,8 +480,7 @@ export function chairSectionRewritePrompt(input: {
       counterargumentIntensity:
         input.prompt.mandate.researchProfile.counterargumentIntensity,
       analysisDepth: input.prompt.mandate.researchProfile.analysisDepth,
-      comparisonSymbols:
-        input.prompt.mandate.researchProfile.comparisonSymbols,
+      comparisonSymbols: input.prompt.mandate.researchProfile.comparisonSymbols,
     },
     instructions: proseOnly
       ? `Rewrite only publicSummary and preserve primarySentenceId, sentenceIds, and conflictAdjudication exactly. Do not patch the old wording with a label, prefix, suffix, synonym swap, or generic caveat; rebuild the thought from the preserved evidence. ${

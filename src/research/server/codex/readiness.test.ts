@@ -375,8 +375,7 @@ describe("Codex readiness admission", () => {
     expect(mapped).toMatchObject({
       code: "CODEX_ISOLATION_FAILED",
       check,
-      reason:
-        check === "schema" ? "runner_contract" : "runner_process",
+      reason: check === "schema" ? "runner_contract" : "runner_process",
     });
   });
 

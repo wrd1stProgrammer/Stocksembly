@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { validReport } from "./report.testSupport";
 import {
-  parseStoredResearchReportForPresentation,
   parseStoredResearchReport,
+  parseStoredResearchReportForPresentation,
   selectPublisherReportVersion,
   singleLocaleReportForStorage,
 } from "./reportStorage";
@@ -22,18 +22,20 @@ function validV2Report() {
   return {
     ...report,
     schemaVersion: "workflow-v2",
-    editorialClaims: [{
-      claimId,
-      decisionDimension: "margin",
-      roleOwner: "financial_quality",
-      stanceContribution: "supports",
-      materiality: "material",
-      publicThesis: text,
-      evidenceArtifactIds: [evidenceArtifactId],
-      counterevidenceArtifactIds: [],
-      decisiveMetricIds: [],
-      falsifier,
-    }],
+    editorialClaims: [
+      {
+        claimId,
+        decisionDimension: "margin",
+        roleOwner: "financial_quality",
+        stanceContribution: "supports",
+        materiality: "material",
+        publicThesis: text,
+        evidenceArtifactIds: [evidenceArtifactId],
+        counterevidenceArtifactIds: [],
+        decisiveMetricIds: [],
+        falsifier,
+      },
+    ],
     editorialDecision: {
       stance: "upside_skewed",
       confidence: "medium",
@@ -42,21 +44,28 @@ function validV2Report() {
       falsifier,
       primaryClaimIds: [claimId],
     },
-    comparators: [{
-      comparatorId: "peer-a",
-      role: "direct_competitor",
-      rationale: text,
-      comparableMetricKeys: ["operating_margin"],
-    }],
-    anticipatedQuestions: [{
-      questionId: "00000000-0000-4000-8000-000000000099",
-      decisionKey: "margin_durability",
-      question: { en: "What breaks the thesis?", ko: "무엇이 논지를 깨뜨리나요?" },
-      answer: falsifier,
-      primaryClaimIds: [claimId],
-      evidenceArtifactIds: [evidenceArtifactId],
-      rank: 1,
-    }],
+    comparators: [
+      {
+        comparatorId: "peer-a",
+        role: "direct_competitor",
+        rationale: text,
+        comparableMetricKeys: ["operating_margin"],
+      },
+    ],
+    anticipatedQuestions: [
+      {
+        questionId: "00000000-0000-4000-8000-000000000099",
+        decisionKey: "margin_durability",
+        question: {
+          en: "What breaks the thesis?",
+          ko: "무엇이 논지를 깨뜨리나요?",
+        },
+        answer: falsifier,
+        primaryClaimIds: [claimId],
+        evidenceArtifactIds: [evidenceArtifactId],
+        rank: 1,
+      },
+    ],
   };
 }
 
@@ -102,8 +111,16 @@ describe("single-locale report storage", () => {
 
     const legacy = parseStoredResearchReportForPresentation(v1);
     expect(legacy.kind).toBe("legacy-v1-read-only");
-    expect(parseStoredResearchReportForPresentation(v2).kind).toBe("workflow-v2");
-    expect(selectPublisherReportVersion({ workflowV1: v1, workflowV2: v2, rollbackToV1: true }).schemaVersion).toBe("workflow-v1");
+    expect(parseStoredResearchReportForPresentation(v2).kind).toBe(
+      "workflow-v2",
+    );
+    expect(
+      selectPublisherReportVersion({
+        workflowV1: v1,
+        workflowV2: v2,
+        rollbackToV1: true,
+      }).schemaVersion,
+    ).toBe("workflow-v1");
     expect(JSON.stringify(v1)).toBe(beforeV1);
     expect(JSON.stringify(v2)).toBe(beforeV2);
   });

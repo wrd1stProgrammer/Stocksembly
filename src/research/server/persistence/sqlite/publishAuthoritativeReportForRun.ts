@@ -4,10 +4,10 @@ import type {
   PublishAuthoritativeReportInput,
   PublishAuthoritativeReportOptions,
 } from "../../../application/authoritativeReportPublisherContracts";
+import { hashCanonical } from "../../../domain/contractHelpers";
+import { reserveEditorialQualityRewrite } from "../../../workflow/specialistCommitRetry";
 import { publishReportAtomically } from "./atomicReportPublication";
 import { loadReportAuthority } from "./authoritativeReportAuthority";
-import { reserveEditorialQualityRewrite } from "../../../workflow/specialistCommitRetry";
-import { hashCanonical } from "../../../domain/contractHelpers";
 
 export type PublishAuthoritativeReportResult =
   | {

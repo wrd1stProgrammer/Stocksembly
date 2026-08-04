@@ -152,14 +152,16 @@ export function candidateForStage(
           primaryClaimIds: [claimId],
           primarySentenceIds: [`claim:${claimId}`],
         },
-        sections: ([
-          "ten_second_brief",
-          "supported_analysis",
-          "valuation_comparison",
-          "operational_scenarios",
-          "dissent_unknowns",
-          "change_conditions",
-        ] as const).map((sectionKey, sectionIndex) => {
+        sections: (
+          [
+            "ten_second_brief",
+            "supported_analysis",
+            "valuation_comparison",
+            "operational_scenarios",
+            "dissent_unknowns",
+            "change_conditions",
+          ] as const
+        ).map((sectionKey, sectionIndex) => {
           const primarySentenceId =
             sectionIndex === 0
               ? `claim:${claimId}`

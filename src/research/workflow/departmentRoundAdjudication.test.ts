@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
 import type { z } from "zod";
+import type { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
 import { departmentCandidate } from "./departmentRoundCandidates.testSupport";
 import type { DepartmentJobPrompt } from "./departmentRoundContracts";
 import { DepartmentJobPromptSchema } from "./departmentRoundContracts";
@@ -96,22 +96,38 @@ function candidate(): Record<string, unknown> {
     revisedClaimIds: [IDS.revised],
     removedClaimIds: [IDS.removed],
     dispositions: [
-      { claimId: IDS.accepted, disposition: "accept", reason: text("Retained because price evidence is direct") },
-      { claimId: IDS.revised, disposition: "revise", reason: text("Narrowed to the observed momentum") },
-      { claimId: IDS.removed, disposition: "remove", reason: text("Rumor lacks corroboration") },
+      {
+        claimId: IDS.accepted,
+        disposition: "accept",
+        reason: text("Retained because price evidence is direct"),
+      },
+      {
+        claimId: IDS.revised,
+        disposition: "revise",
+        reason: text("Narrowed to the observed momentum"),
+      },
+      {
+        claimId: IDS.removed,
+        disposition: "remove",
+        reason: text("Rumor lacks corroboration"),
+      },
     ],
     revisions: [
       {
         originClaimId: IDS.revised,
         adjudicatedClaimId: IDS.revised,
-        publicSummary: text("Momentum reached 20 but needs volume confirmation"),
+        publicSummary: text(
+          "Momentum reached 20 but needs volume confirmation",
+        ),
         falsifier: text("Momentum fails if volume does not confirm 20"),
         revisionHash: "0".repeat(64),
         reason: text("Narrowed to the observed momentum"),
         sourceArtifactIds: [IDS.evidenceA],
       },
     ],
-    publicSummary: text("Lead decision: retain support while 20 momentum awaits volume."),
+    publicSummary: text(
+      "Lead decision: retain support while 20 momentum awaits volume.",
+    ),
     dissent: [],
     openQuestions: [
       text("Will volume confirm 20 momentum?"),
@@ -131,10 +147,12 @@ describe("department adjudication trust boundary", () => {
         acceptedClaimIds: ["77777777-7777-4777-8777-777777777777"],
       }),
     ).toBeUndefined();
-    expect(inspectDepartmentCandidate(job(), base)?.evidencePriorityArtifactIds)
-      .toEqual([IDS.evidenceA]);
-    expect(hasOnlyGroundedNumbers(["Unsupported 99 result"], ["Observed 10"]))
-      .toBe(false);
+    expect(
+      inspectDepartmentCandidate(job(), base)?.evidencePriorityArtifactIds,
+    ).toEqual([IDS.evidenceA]);
+    expect(
+      hasOnlyGroundedNumbers(["Unsupported 99 result"], ["Observed 10"]),
+    ).toBe(false);
     const actorRequest = request();
     const actorPosition = actorRequest.memberArtifacts[0]?.memo.positions[0];
     expect(actorPosition).toBeDefined();
@@ -147,10 +165,16 @@ describe("department adjudication trust boundary", () => {
               ...member,
               memo: {
                 ...member.memo,
-                positions: member.memo.positions.map((position, positionIndex) =>
-                  positionIndex === 0
-                    ? { ...position, publicSummary: text("company_product said this is valid") }
-                    : position,
+                positions: member.memo.positions.map(
+                  (position, positionIndex) =>
+                    positionIndex === 0
+                      ? {
+                          ...position,
+                          publicSummary: text(
+                            "company_product said this is valid",
+                          ),
+                        }
+                      : position,
                 ),
               },
             },
@@ -241,18 +265,92 @@ describe("department adjudication trust boundary", () => {
   });
 
   it.each([
-    ["duplicate disposition", () => ({ dispositions: [...(candidate()["dispositions"] as unknown[]), (candidate()["dispositions"] as unknown[])[0]] })],
-    ["missing disposition", () => ({ dispositions: (candidate()["dispositions"] as unknown[]).slice(0, 2) })],
+    [
+      "duplicate disposition",
+      () => ({
+        dispositions: [
+          ...(candidate()["dispositions"] as unknown[]),
+          (candidate()["dispositions"] as unknown[])[0],
+        ],
+      }),
+    ],
+    [
+      "missing disposition",
+      () => ({
+        dispositions: (candidate()["dispositions"] as unknown[]).slice(0, 2),
+      }),
+    ],
     ["strongest removed", () => ({ strongestClaimIds: [IDS.removed] })],
-    ["empty survivors", () => ({ acceptedClaimIds: [], revisedClaimIds: [], strongestClaimIds: [], weakestClaimIds: [] })],
-    ["invalid revision lineage", () => ({ revisions: [{ ...(candidate()["revisions"] as Record<string, unknown>[])[0], originClaimId: IDS.removed }] })],
-    ["invalid revision evidence", () => ({ revisions: [{ ...(candidate()["revisions"] as Record<string, unknown>[])[0], sourceArtifactIds: [IDS.evidenceB] }] })],
-    [">2 questions", () => ({ openQuestions: [...(candidate()["openQuestions"] as unknown[]), text("Third question") ] })],
-    ["missing reason", () => ({ dispositions: (candidate()["dispositions"] as Record<string, unknown>[]).map((item, index) => index === 0 ? { claimId: item["claimId"], disposition: item["disposition"] } : item) })],
-    ["unknown evidence", () => ({ evidencePriorityArtifactIds: ["77777777-7777-4777-8777-777777777777"] })],
-    ["unsupported number", () => ({ publicSummary: text("Unsupported 99 result") })],
-    ["foreign actor", () => ({ publicSummary: text("company_product said this is valid") })],
-    ["removed prose leak", () => ({ openQuestions: [text("Rumor implies 30 upside")] })],
+    [
+      "empty survivors",
+      () => ({
+        acceptedClaimIds: [],
+        revisedClaimIds: [],
+        strongestClaimIds: [],
+        weakestClaimIds: [],
+      }),
+    ],
+    [
+      "invalid revision lineage",
+      () => ({
+        revisions: [
+          {
+            ...(candidate()["revisions"] as Record<string, unknown>[])[0],
+            originClaimId: IDS.removed,
+          },
+        ],
+      }),
+    ],
+    [
+      "invalid revision evidence",
+      () => ({
+        revisions: [
+          {
+            ...(candidate()["revisions"] as Record<string, unknown>[])[0],
+            sourceArtifactIds: [IDS.evidenceB],
+          },
+        ],
+      }),
+    ],
+    [
+      ">2 questions",
+      () => ({
+        openQuestions: [
+          ...(candidate()["openQuestions"] as unknown[]),
+          text("Third question"),
+        ],
+      }),
+    ],
+    [
+      "missing reason",
+      () => ({
+        dispositions: (
+          candidate()["dispositions"] as Record<string, unknown>[]
+        ).map((item, index) =>
+          index === 0
+            ? { claimId: item["claimId"], disposition: item["disposition"] }
+            : item,
+        ),
+      }),
+    ],
+    [
+      "unknown evidence",
+      () => ({
+        evidencePriorityArtifactIds: ["77777777-7777-4777-8777-777777777777"],
+      }),
+    ],
+    [
+      "unsupported number",
+      () => ({ publicSummary: text("Unsupported 99 result") }),
+    ],
+    [
+      "foreign actor",
+      () => ({ publicSummary: text("company_product said this is valid") }),
+    ],
+    [
+      "removed prose leak",
+      () => ({ openQuestions: [text("Rumor implies 30 upside")] }),
+    ],
   ] as const)("rejects %s", (_label, mutate) => {
     expect(
       inspectDepartmentCandidate(job(), { ...candidate(), ...mutate() }),

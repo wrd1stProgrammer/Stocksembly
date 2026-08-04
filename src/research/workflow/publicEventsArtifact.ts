@@ -41,7 +41,7 @@ export function publicArtifactEventFields(
         ],
         payload.unknowns.map((item) => limitationId(payload.kind, item)),
       );
-    case "department_consolidation":
+    case "department_consolidation": {
       const removedClaimIds = new Set(payload.removedClaimIds);
       return fields(
         payload.publicSummary,
@@ -58,6 +58,7 @@ export function publicArtifactEventFields(
         [...payload.sourceArtifactIds, ...payload.evidencePriorityArtifactIds],
         payload.openQuestions.map((item) => limitationId(payload.kind, item)),
       );
+    }
     case "blind_challenge":
       return fields(
         payload.publicChallenge,

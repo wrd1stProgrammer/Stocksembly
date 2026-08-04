@@ -9,8 +9,8 @@ import {
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
-import type { SpecialistRoundInput } from "./specialistRound";
 import { PreSynthesisComparatorQualificationSchema } from "./preSynthesisComparatorQualification";
+import type { SpecialistRoundInput } from "./specialistRound";
 
 const HashSchema = z.string().regex(/^[a-f0-9]{64}$/);
 

@@ -50,7 +50,9 @@
   padding: 18px 16px;
   border-right: 1px solid var(--editorial-rule);
 }
-.tape article:last-child { border-right: 0; }
+.tape article:last-child {
+  border-right: 0;
+}
 .tape article > span {
   display: block;
   color: var(--editorial-muted);
@@ -228,7 +230,9 @@
   gap: 36px;
   border-top: 3px solid var(--editorial-rule-strong);
 }
-.confirmation > header { padding-top: 22px; }
+.confirmation > header {
+  padding-top: 22px;
+}
 .confirmation > header > span {
   color: var(--editorial-accent);
   font-size: 0.68rem;
@@ -240,7 +244,9 @@
   font-size: 1rem;
   line-height: 1.45;
 }
-.confirmation ol { list-style: none; }
+.confirmation ol {
+  list-style: none;
+}
 .confirmation ol {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -263,8 +269,15 @@
   color: var(--editorial-accent);
   font: 760 0.7rem var(--font-mono, monospace);
 }
-.confirmation li strong { font-size: 0.76rem; text-transform: uppercase; }
-.confirmation li p { margin-top: 7px; font-size: 0.78rem; line-height: 1.55; }
+.confirmation li strong {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+.confirmation li p {
+  margin-top: 7px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
 
 .timingGrid {
   display: grid;

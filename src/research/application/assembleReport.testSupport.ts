@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { AtomicEditorialClaimSchema } from "../domain/agentOutputs";
+import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import {
   REQUIRED_REPORT_ARTIFACT_ROLES,
   WORKFLOW_V1_REPORT_LOGICAL_ARTIFACT_IDS,
@@ -68,12 +68,30 @@ export function makeAuthoritativeReportInput() {
     "change_conditions",
   ] as const;
   const sectionText = {
-    ten_second_brief: { en: "Revenue evidence favors waiting for proof.", ko: "매출 근거는 추가 확인을 기다리는 판단을 지지합니다." },
-    supported_analysis: { en: "Filing evidence confirms the reported operating trend.", ko: "공시 근거는 보고된 운영 추세를 확인합니다." },
-    valuation_comparison: { en: "Valuation comparison remains conditional on aligned periods.", ko: "밸류에이션 비교는 기간 정렬을 전제로 합니다." },
-    operational_scenarios: { en: "The revenue scenario defines an observable operating range.", ko: "매출 시나리오는 관찰 가능한 운영 범위를 제시합니다." },
-    dissent_unknowns: { en: "The retained dissent identifies unresolved execution risk.", ko: "유지된 이견은 미해결 실행 위험을 식별합니다." },
-    change_conditions: { en: "A later filing would change the registered conclusion.", ko: "후속 공시는 기록된 결론을 변경할 수 있습니다." },
+    ten_second_brief: {
+      en: "Revenue evidence favors waiting for proof.",
+      ko: "매출 근거는 추가 확인을 기다리는 판단을 지지합니다.",
+    },
+    supported_analysis: {
+      en: "Filing evidence confirms the reported operating trend.",
+      ko: "공시 근거는 보고된 운영 추세를 확인합니다.",
+    },
+    valuation_comparison: {
+      en: "Valuation comparison remains conditional on aligned periods.",
+      ko: "밸류에이션 비교는 기간 정렬을 전제로 합니다.",
+    },
+    operational_scenarios: {
+      en: "The revenue scenario defines an observable operating range.",
+      ko: "매출 시나리오는 관찰 가능한 운영 범위를 제시합니다.",
+    },
+    dissent_unknowns: {
+      en: "The retained dissent identifies unresolved execution risk.",
+      ko: "유지된 이견은 미해결 실행 위험을 식별합니다.",
+    },
+    change_conditions: {
+      en: "A later filing would change the registered conclusion.",
+      ko: "후속 공시는 기록된 결론을 변경할 수 있습니다.",
+    },
   } as const;
   return {
     reportId: uuid(300),
@@ -180,21 +198,23 @@ export function makeAuthoritativeReportInput() {
     editorialClaims: result.claims.flatMap((claim) =>
       claim.changeCondition === undefined
         ? []
-        : [AtomicEditorialClaimSchema.parse({
-            claimId: claim.claimId,
-            decisionDimension: "growth_engine" as const,
-            roleOwner: "market",
-            stanceContribution: "uncertain" as const,
-            materiality: claim.materiality,
-            publicThesis: claim.text,
-            evidenceArtifactIds: ["00000000-0000-4000-8000-000000000005"],
-            counterevidenceArtifactIds: [],
-            decisiveMetricIds: [],
-            falsifier: {
-              en: claim.changeCondition.en,
-              ko: claim.changeCondition.ko,
-            },
-          })],
+        : [
+            AtomicEditorialClaimSchema.parse({
+              claimId: claim.claimId,
+              decisionDimension: "growth_engine" as const,
+              roleOwner: "market",
+              stanceContribution: "uncertain" as const,
+              materiality: claim.materiality,
+              publicThesis: claim.text,
+              evidenceArtifactIds: ["00000000-0000-4000-8000-000000000005"],
+              counterevidenceArtifactIds: [],
+              decisiveMetricIds: [],
+              falsifier: {
+                en: claim.changeCondition.en,
+                ko: claim.changeCondition.ko,
+              },
+            }),
+          ],
     ),
     chairScenarioIds: ["scenario:revenue"],
     chairSentences: sections.map((sectionKey) => ({
@@ -218,10 +238,21 @@ export function makeAuthoritativeReportInput() {
       decisionBrief: {
         stance: "wait_for_proof" as const,
         confidence: "medium" as const,
-        decisiveReason: result.claims[0]?.text ?? { en: "Missing claim.", ko: "주장이 없습니다." },
-        strongestCountercase: result.claims[0]?.text ?? { en: "Missing claim.", ko: "주장이 없습니다." },
-        falsifier: result.claims[0]?.text ?? { en: "Missing claim.", ko: "주장이 없습니다." },
-        primaryClaimIds: result.claims.slice(0, 1).map((claim) => claim.claimId),
+        decisiveReason: result.claims[0]?.text ?? {
+          en: "Missing claim.",
+          ko: "주장이 없습니다.",
+        },
+        strongestCountercase: result.claims[0]?.text ?? {
+          en: "Missing claim.",
+          ko: "주장이 없습니다.",
+        },
+        falsifier: result.claims[0]?.text ?? {
+          en: "Missing claim.",
+          ko: "주장이 없습니다.",
+        },
+        primaryClaimIds: result.claims
+          .slice(0, 1)
+          .map((claim) => claim.claimId),
         decisiveSentenceId: "sentence:ten_second_brief",
         countercaseSentenceId: "sentence:ten_second_brief",
         falsifierSentenceId: "sentence:ten_second_brief",
@@ -245,7 +276,10 @@ export function makeAuthoritativeReportInput() {
         ...(sectionKey === "supported_analysis"
           ? {
               conflictAdjudication: {
-                departmentDecisionSentenceIds: ["position:market", "position:company"],
+                departmentDecisionSentenceIds: [
+                  "position:market",
+                  "position:company",
+                ],
                 resolution: "proof_required" as const,
                 reasonSentenceId: "sentence:supported_analysis",
               },

@@ -232,18 +232,10 @@ describe("initial collection concurrency", () => {
 
   it("separates beneficial-owner filings about the issuer from the issuer's own investment filings", () => {
     expect(
-      ownershipDataset(
-        "SC 13G/A",
-        "0000315066-24-002826",
-        "0001045810",
-      ),
+      ownershipDataset("SC 13G/A", "0000315066-24-002826", "0001045810"),
     ).toBe("sec_institutional_holdings");
     expect(
-      ownershipDataset(
-        "SCHEDULE 13G",
-        "0001045810-26-000062",
-        "0001045810",
-      ),
+      ownershipDataset("SCHEDULE 13G", "0001045810-26-000062", "0001045810"),
     ).toBe("sec_filing");
     expect(
       ownershipDataset("13F-HR", "0001045810-26-000001", "0001045810"),

@@ -85,8 +85,13 @@ describe("financial and risk analytical products", () => {
     (department) => {
       const report = teamReportPreviewFixture(department);
       const rendered = renderReport(report);
-      const directAnswer = buildResearchFileEditorialModel(report, "en").directAnswer;
-      expect(rendered.container.textContent?.split(directAnswer)).toHaveLength(2);
+      const directAnswer = buildResearchFileEditorialModel(
+        report,
+        "en",
+      ).directAnswer;
+      expect(rendered.container.textContent?.split(directAnswer)).toHaveLength(
+        2,
+      );
     },
   );
 

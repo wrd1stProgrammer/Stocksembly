@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { hashCanonical, timestampMillis } from "../domain/contractHelpers";
 import { TickerSymbolSchema } from "../domain/ids";
+import { normalizeResearchDirection } from "../domain/researchDirection";
+import { normalizeResearchProfile } from "../domain/researchProfile";
 import {
   WORKFLOW_V1_CHAIR_ID,
   WORKFLOW_V1_ROSTER_FINGERPRINT,
@@ -12,10 +14,6 @@ import type {
   CreateMandateInput,
   ResearchMandateV1,
 } from "./createMandateContracts";
-import { normalizeResearchDirection } from "../domain/researchDirection";
-import {
-  normalizeResearchProfile,
-} from "../domain/researchProfile";
 import {
   MANDATE_PREREQUISITE_EVENTS,
   RESEARCH_LOCALES,

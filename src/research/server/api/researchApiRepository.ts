@@ -9,6 +9,7 @@ import {
   SnapshotIdSchema,
 } from "../../domain/ids";
 import { checkRunAdmission } from "../../domain/limits";
+import { ResearchProfileSchema } from "../../domain/researchProfile";
 import { applyOrderedMigrations } from "../persistence/sqlite/migrations";
 import {
   parseSafeJson,
@@ -26,7 +27,6 @@ import type {
   RunCursor,
 } from "./researchApiContracts";
 import { PublicRunSchema } from "./researchApiContracts";
-import { ResearchProfileSchema } from "../../domain/researchProfile";
 import {
   findPublicReport,
   findPublicRun,

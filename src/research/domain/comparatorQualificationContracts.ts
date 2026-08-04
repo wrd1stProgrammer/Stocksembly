@@ -21,7 +21,10 @@ const NormalizationSchema = z
   .readonly();
 export const ComparableMetricSchema = z
   .object({
-    key: z.string().trim().regex(/^[a-z][a-z0-9_]*$/u),
+    key: z
+      .string()
+      .trim()
+      .regex(/^[a-z][a-z0-9_]*$/u),
     value: z.number().finite(),
     period: z.string().trim().min(1),
     unit: z.string().trim().min(1),

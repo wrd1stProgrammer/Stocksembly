@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { assertHostPolicy } from "../server/codex/codexPlatform";
 import { CodexRunnerError } from "../server/codex/codexErrors";
+import { assertHostPolicy } from "../server/codex/codexPlatform";
 import { prepareAdmittedWorkerRuntime } from "./leaseWorker";
 
 describe("worker Codex admission", () => {

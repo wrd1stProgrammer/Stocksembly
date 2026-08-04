@@ -32,9 +32,7 @@ describe("CompletedResearchFile", () => {
       />,
     );
 
-    expect(
-      screen.getByText("EVIDENCE-AUDITED EQUITY RESEARCH"),
-    ).toBeVisible();
+    expect(screen.getByText("EVIDENCE-AUDITED EQUITY RESEARCH")).toBeVisible();
     expect(
       screen.getByRole("heading", {
         name: "The evidence behind the headline",

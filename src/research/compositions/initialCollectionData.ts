@@ -2,8 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import type { SnapshotEvidence } from "../application/buildSnapshot";
 import type { CapabilityDisclosure } from "../domain/capabilities";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
-import type { ValueRegistry } from "../domain/valueRegistry";
 import type { ResearchProfile } from "../domain/researchProfile";
+import type { ValueRegistry } from "../domain/valueRegistry";
 import type { ArtifactCasPort, ArtifactDescriptor } from "../ports/artifacts";
 import { BLS_SOURCE_URL, createBlsAdapter } from "../server/data/macro/bls";
 import type {
@@ -233,10 +233,7 @@ export function structuredOwnershipFiling(
         soleVotingPower: filingTagValue(block, "soleVotingPower"),
         sharedVotingPower: filingTagValue(block, "sharedVotingPower"),
         soleDispositivePower: filingTagValue(block, "soleDispositivePower"),
-        sharedDispositivePower: filingTagValue(
-          block,
-          "sharedDispositivePower",
-        ),
+        sharedDispositivePower: filingTagValue(block, "sharedDispositivePower"),
         comments: filingTagValue(block, "comments"),
       }))
       .filter((person) =>
@@ -311,17 +308,15 @@ export function selectPrimaryCompanyFiling<
     readonly form: string;
     readonly acceptedAt: string;
   },
->(
-  records: readonly T[],
-): T | undefined {
+>(records: readonly T[]): T | undefined {
   const latest = (forms: readonly string[]) =>
     records
       .filter((record) => forms.includes(record.form))
-      .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))[0];
+      .sort((left, right) =>
+        right.acceptedAt.localeCompare(left.acceptedAt),
+      )[0];
   return (
-    latest(["10-K"]) ??
-    latest(["8-K"]) ??
-    latest(["424B4", "S-1/A", "S-1"])
+    latest(["10-K"]) ?? latest(["8-K"]) ?? latest(["424B4", "S-1/A", "S-1"])
   );
 }
 
@@ -432,11 +427,8 @@ export async function collectInitialEvidence(
   const institutionalFilings = submissions.value.records
     .filter(
       (record) =>
-        ownershipDataset(
-          record.form,
-          record.accessionNumber,
-          reference.cik,
-        ) === "sec_institutional_holdings",
+        ownershipDataset(record.form, record.accessionNumber, reference.cik) ===
+        "sec_institutional_holdings",
     )
     .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
     .slice(0, 6);
@@ -490,9 +482,10 @@ export async function collectInitialEvidence(
       .at(-1) ?? new Date().toISOString();
   const cutoffAt = new Date(Date.parse(retrievedAt) + 1_000).toISOString();
   const lineage = submissions.value.records
-    .filter((record) =>
-      ["10-K", "10-K/A", "10-Q", "10-Q/A"].includes(record.form) ||
-      isRegistrationFinancialForm(record.form),
+    .filter(
+      (record) =>
+        ["10-K", "10-K/A", "10-Q", "10-Q/A"].includes(record.form) ||
+        isRegistrationFinancialForm(record.form),
     )
     .map(({ primaryDocument: _primaryDocument, ...record }) => record);
   const parsedFacts = parseCompanyFacts(factsResult.bytes, {
@@ -761,23 +754,21 @@ export async function collectInitialEvidence(
           },
         ]
       : []),
-    ...sealedBlsRecords.map(
-      ({ definition, latest, bytes, artifact }) => ({
-        evidenceId: definition.evidenceId,
-        artifactId: artifact.artifactId,
-        bytes,
-        mediaType: "application/json",
-        locator: {
-          kind: "macro" as const,
-          source: "bls_allowlist" as const,
-          sourceUrl: BLS_SOURCE_URL,
-          seriesId: definition.seriesId,
-          period: latest.period,
-          observationDate: latest.observationDate,
-          unit: definition.unit,
-        },
-      }),
-    ),
+    ...sealedBlsRecords.map(({ definition, latest, bytes, artifact }) => ({
+      evidenceId: definition.evidenceId,
+      artifactId: artifact.artifactId,
+      bytes,
+      mediaType: "application/json",
+      locator: {
+        kind: "macro" as const,
+        source: "bls_allowlist" as const,
+        sourceUrl: BLS_SOURCE_URL,
+        seriesId: definition.seriesId,
+        period: latest.period,
+        observationDate: latest.observationDate,
+        unit: definition.unit,
+      },
+    })),
     ...provider.sources,
   ];
   return {

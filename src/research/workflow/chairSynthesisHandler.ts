@@ -117,9 +117,7 @@ export function createChairSynthesisAttemptHandler(
               sectionKey: rewrite.issue.sectionKey,
               reason: rewrite.issue.reason,
               excludedSentenceIds,
-              ...(originalSection === undefined
-                ? {}
-                : { originalSection }),
+              ...(originalSection === undefined ? {} : { originalSection }),
             });
       if (
         rewrite !== undefined &&
@@ -313,7 +311,10 @@ export function createChairSynthesisAttemptHandler(
         incompleteCodes.get(attempt.runId) ?? "chair_synthesis_missing";
       incompleteCodes.delete(attempt.runId);
       if (outcome === "accepted") return { kind: "accepted" };
-      if (typeof outcome === "object" && outcome.kind === "isolation_unavailable")
+      if (
+        typeof outcome === "object" &&
+        outcome.kind === "isolation_unavailable"
+      )
         return {
           kind: "transient",
           code: "codex_isolation_temporarily_unavailable",

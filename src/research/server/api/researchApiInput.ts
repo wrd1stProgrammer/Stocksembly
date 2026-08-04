@@ -2,16 +2,16 @@ import { z } from "zod";
 import { TickerSymbolSchema } from "../../domain/ids";
 import { normalizeResearchDirection } from "../../domain/researchDirection";
 import {
+  DEFAULT_RESEARCH_PROFILE,
+  normalizeResearchProfile,
+  ResearchProfileSchema,
+} from "../../domain/researchProfile";
+import {
   COMMITTEE_RESEARCH_TARGET,
   ResearchTargetSchema,
 } from "../../domain/researchTarget";
 import type { NormalizedResearchRequest } from "./researchApiContracts";
 import { NormalizedResearchRequestSchema } from "./researchApiContracts";
-import {
-  DEFAULT_RESEARCH_PROFILE,
-  normalizeResearchProfile,
-  ResearchProfileSchema,
-} from "../../domain/researchProfile";
 
 const RequestBodySchema = z
   .object({

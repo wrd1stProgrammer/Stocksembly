@@ -1,7 +1,7 @@
 import type { z } from "zod";
-import {
+import type {
   AtomicEditorialClaimSchema,
-  type ChairSynthesisOutputSchema,
+  ChairSynthesisOutputSchema,
 } from "../domain/agentOutputs";
 import {
   extractNumericTokens,
@@ -9,14 +9,16 @@ import {
   sanitizePublicEditorialText,
 } from "../domain/editorialQuality";
 import {
-  WorkflowV2ResearchReportSchema,
   type ResearchReport,
   type WorkflowV2ResearchReport,
+  WorkflowV2ResearchReportSchema,
 } from "../domain/report";
-import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import type { ResearchProfile } from "../domain/researchProfile";
-import { selectGroundedAnticipatedQuestions } from "./anticipatedQuestionsPublication";
-import { ANTICIPATED_QUESTIONS_POLICY } from "./anticipatedQuestionsPublication";
+import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
+import {
+  ANTICIPATED_QUESTIONS_POLICY,
+  selectGroundedAnticipatedQuestions,
+} from "./anticipatedQuestionsPublication";
 import type {
   PrePublicationEditorialCandidate,
   PrePublicationEditorialEnvelope,

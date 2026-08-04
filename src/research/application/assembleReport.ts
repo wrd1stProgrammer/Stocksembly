@@ -2,10 +2,10 @@ import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { ArtifactIdSchema } from "../domain/ids";
 import { evaluatePublicationQuality } from "../domain/qualityPolicy";
 import { ResearchReportSchema } from "../domain/report";
-import { composeWorkflowV2Report } from "../workflow/workflowV2PublicationComposer";
 import { SourceRegisterEntrySchema } from "../domain/reportComponents";
 import { SemanticAuditSchema } from "../domain/reportSemantic";
 import { normalizeReportNarrativeText } from "../domain/reportText";
+import { composeWorkflowV2Report } from "../workflow/workflowV2PublicationComposer";
 import type {
   AssembleReportResult,
   AssemblyInput,

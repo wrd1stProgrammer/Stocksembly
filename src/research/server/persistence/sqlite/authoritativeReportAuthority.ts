@@ -14,15 +14,15 @@ import {
   hashBytes,
   hashCanonical,
 } from "../../../domain/contractHelpers";
-import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
-import { normalizeResearchDirection } from "../../../domain/researchDirection";
 import { qualifyInsightSentryPeers } from "../../../domain/qualifyInsightSentryPeers";
-import { WORKFLOW_V1_DEPARTMENT_IDS } from "../../../domain/roleRegistry";
-import type { ArtifactCasPort } from "../../../ports/artifacts";
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
 } from "../../../domain/report";
+import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
+import { normalizeResearchDirection } from "../../../domain/researchDirection";
+import { WORKFLOW_V1_DEPARTMENT_IDS } from "../../../domain/roleRegistry";
+import type { ArtifactCasPort } from "../../../ports/artifacts";
 import { ArtifactDigestSchema } from "../../../ports/artifacts";
 import { loadChairPrompt } from "../../../workflow/chairSynthesisInput";
 import {

@@ -161,7 +161,10 @@ const VersionedResearchReportContractSchema = z
     editorialClaims: z.array(AtomicEditorialClaimSchema).max(64).optional(),
     editorialDecision: TeamEditorialDecisionSchema.optional(),
     comparators: z.array(ComparatorSchema).max(64).optional(),
-    anticipatedQuestions: z.array(PersistedQuestionAnswerSchema).max(32).optional(),
+    anticipatedQuestions: z
+      .array(PersistedQuestionAnswerSchema)
+      .max(32)
+      .optional(),
   })
   .strict()
   .superRefine((report, context) => {
@@ -195,7 +198,9 @@ const VersionedResearchReportContractSchema = z
       const editorialClaimIds = new Set(
         report.editorialClaims?.map((claim) => claim.claimId) ?? [],
       );
-      const registeredClaimIds = new Set(report.claims.map((claim) => claim.claimId));
+      const registeredClaimIds = new Set(
+        report.claims.map((claim) => claim.claimId),
+      );
       if (editorialClaimIds.size !== (report.editorialClaims?.length ?? 0))
         context.addIssue({
           code: "custom",
@@ -214,9 +219,10 @@ const VersionedResearchReportContractSchema = z
             message: "editorial claim is absent from the provenance register",
           });
         else if (
-          [...claim.evidenceArtifactIds, ...claim.counterevidenceArtifactIds].some(
-            (artifactId) => !artifactIds.has(artifactId),
-          )
+          [
+            ...claim.evidenceArtifactIds,
+            ...claim.counterevidenceArtifactIds,
+          ].some((artifactId) => !artifactIds.has(artifactId))
         )
           context.addIssue({
             code: "custom",
@@ -238,14 +244,19 @@ const VersionedResearchReportContractSchema = z
               path: ["anticipatedQuestions"],
               message: "anticipated Q&A cites an unknown claim",
             });
-        if (question.evidenceArtifactIds.some((artifactId) => !artifactIds.has(artifactId)))
+        if (
+          question.evidenceArtifactIds.some(
+            (artifactId) => !artifactIds.has(artifactId),
+          )
+        )
           context.addIssue({
             code: "custom",
             path: ["anticipatedQuestions"],
             message: "anticipated Q&A cites unknown evidence",
           });
       }
-      const ranks = report.anticipatedQuestions?.map((question) => question.rank) ?? [];
+      const ranks =
+        report.anticipatedQuestions?.map((question) => question.rank) ?? [];
       if (new Set(ranks).size !== ranks.length)
         context.addIssue({
           code: "custom",
@@ -417,28 +428,40 @@ const VersionedResearchReportContractSchema = z
       }
   });
 
-type VersionedResearchReport = z.infer<typeof VersionedResearchReportContractSchema>;
+type VersionedResearchReport = z.infer<
+  typeof VersionedResearchReportContractSchema
+>;
 export type ResearchReport = VersionedResearchReport & {
   readonly schemaVersion: "workflow-v1";
 };
 export type WorkflowV2ResearchReport = VersionedResearchReport & {
   readonly schemaVersion: "workflow-v2";
-  readonly editorialClaims: NonNullable<VersionedResearchReport["editorialClaims"]>;
-  readonly editorialDecision: NonNullable<VersionedResearchReport["editorialDecision"]>;
+  readonly editorialClaims: NonNullable<
+    VersionedResearchReport["editorialClaims"]
+  >;
+  readonly editorialDecision: NonNullable<
+    VersionedResearchReport["editorialDecision"]
+  >;
   readonly comparators: NonNullable<VersionedResearchReport["comparators"]>;
-  readonly anticipatedQuestions: NonNullable<VersionedResearchReport["anticipatedQuestions"]>;
+  readonly anticipatedQuestions: NonNullable<
+    VersionedResearchReport["anticipatedQuestions"]
+  >;
 };
 
-export const ResearchReportSchema = VersionedResearchReportContractSchema
-  .refine((report) => report.schemaVersion === "workflow-v1", {
-    path: ["schemaVersion"],
-    message: "legacy schema requires workflow-v1",
-  })
-  .transform((report) => report as ResearchReport);
+export const ResearchReportSchema =
+  VersionedResearchReportContractSchema.refine(
+    (report) => report.schemaVersion === "workflow-v1",
+    {
+      path: ["schemaVersion"],
+      message: "legacy schema requires workflow-v1",
+    },
+  ).transform((report) => report as ResearchReport);
 
-export const WorkflowV2ResearchReportSchema = VersionedResearchReportContractSchema
-  .refine((report) => report.schemaVersion === "workflow-v2", {
-    path: ["schemaVersion"],
-    message: "editorial schema requires workflow-v2",
-  })
-  .transform((report) => report as WorkflowV2ResearchReport);
+export const WorkflowV2ResearchReportSchema =
+  VersionedResearchReportContractSchema.refine(
+    (report) => report.schemaVersion === "workflow-v2",
+    {
+      path: ["schemaVersion"],
+      message: "editorial schema requires workflow-v2",
+    },
+  ).transform((report) => report as WorkflowV2ResearchReport);

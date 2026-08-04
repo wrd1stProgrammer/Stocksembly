@@ -1,5 +1,5 @@
-import type { SnapshotDataset } from "../application/buildSnapshot";
 import type { z } from "zod";
+import type { SnapshotDataset } from "../application/buildSnapshot";
 import type { EditorialDecisionDimensionSchema } from "./agentOutputsShared";
 import type { WorkflowDepartmentId } from "./roleRegistry";
 
@@ -14,7 +14,12 @@ export type TeamCoreDataContract = {
 
 export const TEAM_CORE_DATA = {
   market: {
-    decisionDimensions: ["regime", "timing", "relative_performance", "catalyst"],
+    decisionDimensions: [
+      "regime",
+      "timing",
+      "relative_performance",
+      "catalyst",
+    ],
     datasets: [
       "market_bars",
       "insightsentry_quote",
@@ -44,7 +49,12 @@ export const TEAM_CORE_DATA = {
       "Separate trend, relative strength, expectations, and macro regime. State which observable change would invalidate the market view.",
   },
   company: {
-    decisionDimensions: ["growth_engine", "adoption", "moat", "competitive_erosion"],
+    decisionDimensions: [
+      "growth_engine",
+      "adoption",
+      "moat",
+      "competitive_erosion",
+    ],
     datasets: [
       "sec_filing",
       "insightsentry_documents",
@@ -70,7 +80,12 @@ export const TEAM_CORE_DATA = {
       "Prove the business mechanism: product or segment change, competitive response, and the operating KPI that confirms or breaks the moat.",
   },
   financial: {
-    decisionDimensions: ["margin", "cash_conversion", "reinvestment", "embedded_expectations"],
+    decisionDimensions: [
+      "margin",
+      "cash_conversion",
+      "reinvestment",
+      "embedded_expectations",
+    ],
     datasets: [
       "sec_company_facts",
       "sec_filing",

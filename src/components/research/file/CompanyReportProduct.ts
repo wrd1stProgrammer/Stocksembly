@@ -6,7 +6,9 @@ import type { ResearchFileEditorialModel } from "../../../research/researchFileE
 
 export type CompanyMetric = ResearchMetricPoint & { readonly period: string };
 
-function normalizeMetric(metric: ResearchMetricPoint): CompanyMetric | undefined {
+function normalizeMetric(
+  metric: ResearchMetricPoint,
+): CompanyMetric | undefined {
   if (metric.id.trim().length === 0 || !Number.isFinite(metric.value))
     return undefined;
   return {
@@ -120,7 +122,9 @@ export function buildCompanyReportProduct(
     }),
     segments: segments.length >= 2 ? segments : undefined,
     adoptionProof: proof.filter((claim) => claim.metrics.length > 0),
-    growthEngines: claims.filter((claim) => claim.dimension === "growth_engine"),
+    growthEngines: claims.filter(
+      (claim) => claim.dimension === "growth_engine",
+    ),
     adoptionClaims: claims.filter((claim) => claim.dimension === "adoption"),
     moatLayers: claims.filter((claim) => claim.dimension === "moat"),
     comparatorRows,

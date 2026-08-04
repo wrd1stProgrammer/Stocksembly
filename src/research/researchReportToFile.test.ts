@@ -73,11 +73,18 @@ describe("researchReportToFile presentation version boundary", () => {
       [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     );
     expect(
-      new Set(file.anticipatedQuestions?.map((question) => question.question.en)),
+      new Set(
+        file.anticipatedQuestions?.map((question) => question.question.en),
+      ),
     ).toHaveProperty("size", 10);
-    expect(JSON.stringify(file.anticipatedQuestions?.map(({ question, answer }) => ({ question, answer })))).not.toMatch(
-      /_[a-z0-9]{8}(?:["\s])/u,
-    );
+    expect(
+      JSON.stringify(
+        file.anticipatedQuestions?.map(({ question, answer }) => ({
+          question,
+          answer,
+        })),
+      ),
+    ).not.toMatch(/_[a-z0-9]{8}(?:["\s])/u);
     expect(model.directAnswer).toBe(report.editorialDecision.decisiveReason.en);
     expect(model.debates).toEqual([]);
     expect(model.comparisonRows).toEqual([]);
@@ -88,8 +95,12 @@ describe("researchReportToFile presentation version boundary", () => {
     const report = WorkflowV2ResearchReportSchema.parse({
       ...source,
       claims: source.claims.map(
-        ({ disposition: _disposition, originClaimId: _origin, revisionHash: _revision, ...claim }) =>
-          claim,
+        ({
+          disposition: _disposition,
+          originClaimId: _origin,
+          revisionHash: _revision,
+          ...claim
+        }) => claim,
       ),
     });
 

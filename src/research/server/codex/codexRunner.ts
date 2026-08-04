@@ -78,8 +78,7 @@ export async function runProductionCodexWorkerAdmission(): Promise<void> {
   });
   const guarded = createReadinessGuardedCodexPort(
     inner,
-    async () =>
-      await runProductionCodexReadinessProbe("worker_admission"),
+    async () => await runProductionCodexReadinessProbe("worker_admission"),
     { fingerprint: () => readinessFingerprint(platform) },
   );
   await guarded.run({} as CodexRunInput<unknown>);

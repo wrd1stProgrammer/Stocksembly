@@ -1,7 +1,9 @@
 import type { AttemptId, JobId, RunId, SnapshotId } from "../domain/ids";
 import { LIMITS } from "../domain/limits.constants";
-import type { SafeProcessDiagnostics } from "../server/codex/codexErrors";
-import type { SafeCodexRunnerPhase } from "../server/codex/codexErrors";
+import type {
+  SafeCodexRunnerPhase,
+  SafeProcessDiagnostics,
+} from "../server/codex/codexErrors";
 import type { SafeReadinessDiagnostics } from "../server/codex/readiness";
 import type { JsonValue } from "../server/persistence/sqlite/safeJson";
 

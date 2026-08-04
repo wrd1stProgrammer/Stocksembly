@@ -6,14 +6,14 @@ import {
 } from "./companyFactsJson";
 import { metricDefinition, periodKind } from "./companyFactsMetrics";
 import { selectCompanyFacts } from "./companyFactsSelection";
-import {
-  COMPANY_FACT_FILING_FORMS,
-  isRegistrationFinancialForm,
-} from "./secFilingForms";
 import type {
   CompanyFactCandidate,
   SelectedCompanyFact,
 } from "./companyFactsTypes";
+import {
+  COMPANY_FACT_FILING_FORMS,
+  isRegistrationFinancialForm,
+} from "./secFilingForms";
 
 const DecimalValueSchema = z
   .string()
@@ -44,8 +44,14 @@ const ObservationSchema = z
   .passthrough();
 const ConceptSchema = z
   .object({
-    label: z.string().nullable().transform((value) => value ?? ""),
-    description: z.string().nullable().transform((value) => value ?? ""),
+    label: z
+      .string()
+      .nullable()
+      .transform((value) => value ?? ""),
+    description: z
+      .string()
+      .nullable()
+      .transform((value) => value ?? ""),
     units: z.record(z.string(), z.array(ObservationSchema)),
   })
   .passthrough();

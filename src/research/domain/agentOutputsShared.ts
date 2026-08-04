@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  ArtifactIdSchema,
-  ClaimIdSchema,
-  QuestionIdSchema,
-} from "./ids";
+import { ArtifactIdSchema, ClaimIdSchema, QuestionIdSchema } from "./ids";
 
 const URL_PATTERN =
   /(?:\b[a-z][a-z0-9+.-]{1,31}:(?:\/\/|[^\s])|(?:^|\s)\/\/[^\s]|\bwww\.)/i;
@@ -111,14 +107,22 @@ export const UnknownListSchema = z
 const DistinctArtifactIdsSchema = z
   .array(ArtifactIdSchema)
   .max(64)
-  .refine((values) => new Set(values).size === values.length, "duplicate evidence")
+  .refine(
+    (values) => new Set(values).size === values.length,
+    "duplicate evidence",
+  )
   .readonly();
 
 export const AtomicEditorialClaimSchema = z
   .object({
     claimId: ClaimIdSchema,
     decisionDimension: EditorialDecisionDimensionSchema,
-    roleOwner: z.string().trim().min(1).max(80).regex(/^[a-z][a-z0-9_]*$/),
+    roleOwner: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .regex(/^[a-z][a-z0-9_]*$/),
     stanceContribution: z.enum(["supports", "opposes", "uncertain"]),
     materiality: z.enum(["material", "supporting"]),
     publicThesis: BilingualPublicTextSchema,
@@ -127,7 +131,10 @@ export const AtomicEditorialClaimSchema = z
     decisiveMetricIds: z
       .array(RegisteredValueIdSchema)
       .max(3)
-      .refine((values) => new Set(values).size === values.length, "duplicate decisive metric")
+      .refine(
+        (values) => new Set(values).size === values.length,
+        "duplicate decisive metric",
+      )
       .readonly(),
     falsifier: BilingualPublicTextSchema,
   })
@@ -163,10 +170,20 @@ export const ComparatorSchema = z
     ]),
     rationale: BilingualPublicTextSchema,
     comparableMetricKeys: z
-      .array(z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_]*$/))
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(100)
+          .regex(/^[a-z][a-z0-9_]*$/),
+      )
       .min(1)
       .max(32)
-      .refine((values) => new Set(values).size === values.length, "duplicate comparable metric")
+      .refine(
+        (values) => new Set(values).size === values.length,
+        "duplicate comparable metric",
+      )
       .readonly(),
   })
   .strict()
@@ -175,7 +192,12 @@ export const ComparatorSchema = z
 export const PersistedQuestionAnswerSchema = z
   .object({
     questionId: QuestionIdSchema,
-    decisionKey: z.string().trim().min(1).max(100).regex(/^[a-z][a-z0-9_]*$/),
+    decisionKey: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .regex(/^[a-z][a-z0-9_]*$/),
     question: BilingualPublicTextSchema,
     answer: BilingualPublicTextSchema,
     primaryClaimIds: ClaimIdsSchema,

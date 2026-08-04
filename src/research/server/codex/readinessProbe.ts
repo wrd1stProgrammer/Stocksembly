@@ -23,8 +23,8 @@ import type { CodexRunInput, SpawnInvocation } from "./codexTypes";
 import {
   buildSafeReadinessReport,
   CodexIsolationError,
-  type ReadinessScope,
   type ReadinessReason,
+  type ReadinessScope,
   type SafeCodexReadinessReport,
 } from "./readiness";
 import { assertExactReadinessEnvironment } from "./readinessEnvironment";
@@ -99,15 +99,11 @@ export async function runProductionCodexReadinessProbe(
   let probeRoot: string | undefined;
   process.env[environmentName] = environmentSentinel;
   try {
-    const platform = await readinessPhase(
-      "platform_policy",
-      "profile",
-      () => {
-        const value = productionCodexPlatform();
-        assertHostPolicy(value.hostEnvironment, value.pins.locale);
-        return value;
-      },
-    );
+    const platform = await readinessPhase("platform_policy", "profile", () => {
+      const value = productionCodexPlatform();
+      assertHostPolicy(value.hostEnvironment, value.pins.locale);
+      return value;
+    });
     await readinessPhase("workspace_prepare", "temporary_storage", async () => {
       await writeFile(projectSentinelPath, projectSentinel, {
         flag: "wx",
@@ -237,10 +233,8 @@ export async function runProductionCodexReadinessProbe(
         return await platform.runCodex(invocation);
       },
     });
-    const result = await readinessPhase(
-      "runner_process",
-      "probe",
-      () => runCodexWithPlatform(input, readinessPlatform, reservations),
+    const result = await readinessPhase("runner_process", "probe", () =>
+      runCodexWithPlatform(input, readinessPlatform, reservations),
     );
     const forbidden = [
       projectSentinel,
@@ -248,11 +242,11 @@ export async function runProductionCodexReadinessProbe(
       environmentSentinel,
       allowedEvidence,
     ] as const;
-    const artifactExposure = (
-      await readinessPhase("artifact_audit", "sentinel", () =>
-        artifactsAreClear(attemptDir, forbidden),
-      )
-    )
+    const artifactExposure = (await readinessPhase(
+      "artifact_audit",
+      "sentinel",
+      () => artifactsAreClear(attemptDir, forbidden),
+    ))
       ? "clear"
       : "detected";
     return buildSafeReadinessReport(scope, {

@@ -1,3 +1,4 @@
+import { workflowRoleById } from "../../../research/domain/roleRegistry";
 import {
   claimOwnedCheckpoint,
   type DepartmentReportBodyProps,
@@ -13,7 +14,6 @@ import {
 } from "./FinancialReportModel";
 import styles from "./financial-report.module.css";
 import { ResearchFileSectionHeader } from "./ResearchFilePrimitives";
-import { workflowRoleById } from "../../../research/domain/roleRegistry";
 
 function Sparkline({ values }: { readonly values: readonly number[] }) {
   const minimum = Math.min(...values);
@@ -61,9 +61,15 @@ export function FinancialReportBrief({
         description={copy.primaryDescription}
       />
       {diagnostics.length === 0 ? null : (
-        <section className={styles["diagnostics"]} data-financial-diagnostics={diagnostics.length}>
+        <section
+          className={styles["diagnostics"]}
+          data-financial-diagnostics={diagnostics.length}
+        >
           {diagnostics.map((diagnostic) => (
-            <article key={diagnostic.id} data-source-ids={diagnostic.sourceIds.join(",")}>
+            <article
+              key={diagnostic.id}
+              data-source-ids={diagnostic.sourceIds.join(",")}
+            >
               <span>{diagnostic.label[locale]}</span>
               <strong>{diagnostic.value.toFixed(1)}%</strong>
               <p>{diagnostic.interpretation[locale]}</p>
@@ -72,7 +78,10 @@ export function FinancialReportBrief({
         </section>
       )}
       {periods.length === 0 ? (
-        <section className={styles["snapshot"]} data-financial-snapshot="current">
+        <section
+          className={styles["snapshot"]}
+          data-financial-snapshot="current"
+        >
           {snapshot.map((metric) => (
             <article key={metric.id}>
               <span>{metric.label[locale]}</span>
@@ -82,7 +91,10 @@ export function FinancialReportBrief({
           ))}
           {snapshot.length === 0
             ? financialClaims.slice(0, 3).map((claim) => (
-                <article key={claim.claimId} className={styles["snapshotClaim"]}>
+                <article
+                  key={claim.claimId}
+                  className={styles["snapshotClaim"]}
+                >
                   <span>{claim.decisionDimension.replaceAll("_", " ")}</span>
                   <p>{claim.publicThesis[locale]}</p>
                 </article>
@@ -119,7 +131,8 @@ export function FinancialReportBrief({
               const metric = periods.at(-1)?.metrics[metricId];
               if (metric === undefined) return null;
               const first = periods[0]?.metrics[metricId];
-              const delta = first === undefined ? 0 : metric.value - first.value;
+              const delta =
+                first === undefined ? 0 : metric.value - first.value;
               const deltaLabel =
                 metric.unit === "percent"
                   ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%p`
@@ -131,7 +144,9 @@ export function FinancialReportBrief({
                   <figcaption>
                     <span>{metric.label[locale]}</span>
                     <strong>{formatFinancialMetric(metric, locale)}</strong>
-                    <em data-direction={delta >= 0 ? "up" : "down"}>{deltaLabel}</em>
+                    <em data-direction={delta >= 0 ? "up" : "down"}>
+                      {deltaLabel}
+                    </em>
                   </figcaption>
                   <Sparkline
                     values={periods.map(
@@ -244,14 +259,19 @@ export function FinancialReportFramework({
         </section>
       )}
       {claimTests.length === 0 ? null : (
-        <section className={styles["claimTests"]} data-financial-expectation-tests="claims">
-          <h3>{ko ? "현재 가격을 검증할 운영 질문" : "Operating tests for the current price"}</h3>
+        <section
+          className={styles["claimTests"]}
+          data-financial-expectation-tests="claims"
+        >
+          <h3>
+            {ko
+              ? "현재 가격을 검증할 운영 질문"
+              : "Operating tests for the current price"}
+          </h3>
           <ol>
             {claimTests.slice(0, 6).map((claim, index) => (
               <li key={claim.id}>
-                <span>
-                  TEST {String(index + 1).padStart(2, "0")}
-                </span>
+                <span>TEST {String(index + 1).padStart(2, "0")}</span>
                 <div>
                   <strong>{claim.thesis}</strong>
                   {claim.falsifier.trim() === claim.thesis.trim() ? null : (

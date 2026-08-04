@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { GroundedAnswerSchema } from "../domain/question";
-import { ResearchTargetSchema } from "../domain/researchTarget";
 import { ResearchProfileSchema } from "../domain/researchProfile";
+import { ResearchTargetSchema } from "../domain/researchTarget";
 import { RUN_STATUS } from "../domain/runStateContracts";
 import { WORKFLOW_PUBLIC_EVENT_KINDS } from "../workflow/publicEventsContracts";
 

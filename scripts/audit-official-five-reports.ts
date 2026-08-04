@@ -84,17 +84,20 @@ for (const entry of ledger.entries) {
   };
   const persistedSupportedNumbers =
     publicationPayload.editorialPublication?.candidate?.supportedNumbers;
-  const supportedNumbers = Array.isArray(persistedSupportedNumbers) &&
+  const supportedNumbers =
+    Array.isArray(persistedSupportedNumbers) &&
     persistedSupportedNumbers.every((value) => typeof value === "string")
-    ? persistedSupportedNumbers
-    : [
-      ...new Set(report.editorialClaims.flatMap((claim) => [
-        ...extractNumericTokens(claim.publicThesis.en),
-        ...extractNumericTokens(claim.publicThesis.ko),
-        ...extractNumericTokens(claim.falsifier.en),
-        ...extractNumericTokens(claim.falsifier.ko),
-      ])),
-    ];
+      ? persistedSupportedNumbers
+      : [
+          ...new Set(
+            report.editorialClaims.flatMap((claim) => [
+              ...extractNumericTokens(claim.publicThesis.en),
+              ...extractNumericTokens(claim.publicThesis.ko),
+              ...extractNumericTokens(claim.falsifier.en),
+              ...extractNumericTokens(claim.falsifier.ko),
+            ]),
+          ),
+        ];
   const localeAudits = (["en", "ko"] as const).map((locale) => {
     const team = report.teamViews[0];
     if (team === undefined)

@@ -40,11 +40,7 @@ const PeerEvidenceSchema = z
 const METRIC_FIELDS = [
   ["priceEarningsTtm", "price_earnings_ttm", "multiple"],
   ["enterpriseValueEbitdaTtm", "enterprise_value_ebitda_ttm", "multiple"],
-  [
-    "enterpriseValueRevenueTtm",
-    "enterprise_value_to_revenue_ttm",
-    "multiple",
-  ],
+  ["enterpriseValueRevenueTtm", "enterprise_value_to_revenue_ttm", "multiple"],
   ["revenueGrowthTtm", "revenue_growth_ttm", "percent"],
   ["grossMarginTtm", "gross_margin_ttm", "percent"],
   ["operatingMarginTtm", "operating_margin_ttm", "percent"],
@@ -91,7 +87,8 @@ export function qualifyInsightSentryPeers(input: {
     },
     comparators: parsed.data.peers.map((peer) => {
       const userSelected = peer.selectionReasons.some(
-        (reason) => reason.toLocaleLowerCase("und") === "user-selected comparator",
+        (reason) =>
+          reason.toLocaleLowerCase("und") === "user-selected comparator",
       );
       return {
         comparatorId: peer.symbol,

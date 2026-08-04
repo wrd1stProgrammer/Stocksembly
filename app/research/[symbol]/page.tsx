@@ -6,8 +6,8 @@ import { ResearchRoom } from "../../../src/components/research/ResearchRoom";
 import type { Locale } from "../../../src/lib/i18n";
 import { PublicRunDetailSchema } from "../../../src/research/client/schemas";
 import { TickerSymbolSchema } from "../../../src/research/domain/ids";
-import { researchTargetFromQuery } from "../../../src/research/domain/researchTarget";
 import { researchProfileFromQuery } from "../../../src/research/domain/researchProfile";
+import { researchTargetFromQuery } from "../../../src/research/domain/researchTarget";
 import { getLiveResearchApi } from "../../../src/research/server/api/liveResearchApi";
 
 type Props = {

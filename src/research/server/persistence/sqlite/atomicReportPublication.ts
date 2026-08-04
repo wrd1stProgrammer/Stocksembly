@@ -13,11 +13,11 @@ import {
   SnapshotIdSchema,
 } from "../../../domain/ids";
 import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
-import { serializeSafeJson } from "./safeJson";
 import {
   evaluatePrePublicationEditorialGate,
   type PrePublicationEditorialEnvelope,
 } from "../../../workflow/prePublicationEditorialGate";
+import { serializeSafeJson } from "./safeJson";
 
 const REPORT_PARENT_COUNT = REQUIRED_REPORT_ARTIFACT_ROLES.length + 2;
 
@@ -90,7 +90,10 @@ export function publishReportAtomically(
   const database = new Database(databasePath, { timeout: 5_000 });
   database.pragma("foreign_keys = ON");
   try {
-    const publicPayload = input.commit.version.publicPayload as Record<string, unknown>;
+    const publicPayload = input.commit.version.publicPayload as Record<
+      string,
+      unknown
+    >;
     if (publicPayload["schemaVersion"] === "workflow-v2") {
       const envelope = publicPayload["editorialPublication"] as
         | PrePublicationEditorialEnvelope
@@ -102,9 +105,11 @@ export function publishReportAtomically(
         envelope.qaPolicy.supportedCount !==
           envelope.candidate.anticipatedQuestions.length ||
         envelope.qaPolicy.moduleVisible !==
-          (envelope.qaPolicy.supportedCount >= envelope.qaPolicy.moduleMinimum)
+          envelope.qaPolicy.supportedCount >= envelope.qaPolicy.moduleMinimum
       )
-        throw new TypeError("editorial_quality_failed:missing_prepublication_artifact");
+        throw new TypeError(
+          "editorial_quality_failed:missing_prepublication_artifact",
+        );
       const quality = evaluatePrePublicationEditorialGate(envelope.candidate);
       if (!quality.publishable) {
         const first = quality.hardViolations[0];

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ClaimIdSchema, ReportVersionIdSchema, SourceIdSchema } from "./ids";
 import { SemanticVerdictSchema } from "./reportSemantic";
 import { LocalizedTextSchema, ReportNarrativeTextSchema } from "./reportText";
+
 export {
   AtomicEditorialClaimSchema,
   ComparatorSchema,
@@ -75,7 +76,10 @@ export const ClaimRegisterEntrySchema = z
     checkpoint: LocalizedTextSchema.optional(),
     disposition: z.enum(["accepted", "revised"]).optional(),
     originClaimId: ClaimIdSchema.optional(),
-    revisionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    revisionHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .optional(),
     adjudicationReason: LocalizedTextSchema.optional(),
   })
   .strict();

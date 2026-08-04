@@ -67,17 +67,26 @@ describe("workflow-v2 editorial contracts", () => {
     const qa = {
       questionId: id(7),
       decisionKey: "margin_durability",
-      question: { en: "What breaks the thesis?", ko: "무엇이 논지를 깨뜨리나요?" },
+      question: {
+        en: "What breaks the thesis?",
+        ko: "무엇이 논지를 깨뜨리나요?",
+      },
       answer: claim.falsifier,
       primaryClaimIds: [claim.claimId],
       evidenceArtifactIds: [id(2)],
       rank: 1,
     } as const;
 
-    expect(AtomicEditorialClaimSchema.parse(claim).decisiveMetricIds).toHaveLength(3);
-    expect(TeamEditorialDecisionSchema.parse(decision).stance).toBe("upside_skewed");
+    expect(
+      AtomicEditorialClaimSchema.parse(claim).decisiveMetricIds,
+    ).toHaveLength(3);
+    expect(TeamEditorialDecisionSchema.parse(decision).stance).toBe(
+      "upside_skewed",
+    );
     expect(ComparatorSchema.parse(comparator).role).toBe("direct_competitor");
-    expect(PersistedQuestionAnswerSchema.parse(qa).decisionKey).toBe("margin_durability");
+    expect(PersistedQuestionAnswerSchema.parse(qa).decisionKey).toBe(
+      "margin_durability",
+    );
     expect(
       WorkflowV2EditorialOutputSchema.parse({
         schemaVersion: "workflow-v2",
@@ -90,34 +99,43 @@ describe("workflow-v2 editorial contracts", () => {
   });
 
   it("rejects malformed stance, untyped comparator, and a missing role owner", () => {
-    expect(AtomicEditorialClaimSchema.safeParse({ ...claim, roleOwner: undefined }).success).toBe(false);
-    expect(TeamEditorialDecisionSchema.safeParse({
-      stance: "balanced",
-      confidence: "high",
-      decisiveReason: claim.publicThesis,
-      strongestCountercase: claim.falsifier,
-      falsifier: claim.falsifier,
-      primaryClaimIds: [claim.claimId],
-    }).success).toBe(false);
-    expect(ComparatorSchema.safeParse({
-      comparatorId: "peer-a",
-      rationale: claim.publicThesis,
-      comparableMetricKeys: ["margin"],
-    }).success).toBe(false);
-    expect(WorkflowV2EditorialOutputSchema.safeParse({
-      schemaVersion: "workflow-v2",
-      claims: [claim, claim],
-      decision: {
-        stance: "wait_for_proof",
-        confidence: "low",
+    expect(
+      AtomicEditorialClaimSchema.safeParse({ ...claim, roleOwner: undefined })
+        .success,
+    ).toBe(false);
+    expect(
+      TeamEditorialDecisionSchema.safeParse({
+        stance: "balanced",
+        confidence: "high",
         decisiveReason: claim.publicThesis,
         strongestCountercase: claim.falsifier,
         falsifier: claim.falsifier,
         primaryClaimIds: [claim.claimId],
-      },
-      comparators: [],
-      anticipatedQuestions: [],
-    }).success).toBe(false);
+      }).success,
+    ).toBe(false);
+    expect(
+      ComparatorSchema.safeParse({
+        comparatorId: "peer-a",
+        rationale: claim.publicThesis,
+        comparableMetricKeys: ["margin"],
+      }).success,
+    ).toBe(false);
+    expect(
+      WorkflowV2EditorialOutputSchema.safeParse({
+        schemaVersion: "workflow-v2",
+        claims: [claim, claim],
+        decision: {
+          stance: "wait_for_proof",
+          confidence: "low",
+          decisiveReason: claim.publicThesis,
+          strongestCountercase: claim.falsifier,
+          falsifier: claim.falsifier,
+          primaryClaimIds: [claim.claimId],
+        },
+        comparators: [],
+        anticipatedQuestions: [],
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -130,21 +148,27 @@ describe("deterministic editorial quality", () => {
       koNoSpaceCharTrigramDice: 0.72,
     });
     expect(normalizeEditorialText("  ＡBC, [1] 12.5%!! ")).toBe("abc 12 5");
-    expect(textSimilarity(
-      "Revenue growth remains durable because enterprise demand supports margins",
-      "Enterprise demand supports durable revenue growth and margins",
-      "en",
-    ).duplicate).toBe(true);
-    expect(textSimilarity(
-      "수요 회복으로 매출 성장과 영업 마진 개선이 이어집니다",
-      "수요 회복으로 매출 성장과 영업 마진 개선이 지속됩니다",
-      "ko",
-    ).duplicate).toBe(true);
-    expect(textSimilarity(
-      "Revenue growth accelerates with enterprise adoption",
-      "Regulatory penalties could constrain overseas distribution",
-      "en",
-    ).duplicate).toBe(false);
+    expect(
+      textSimilarity(
+        "Revenue growth remains durable because enterprise demand supports margins",
+        "Enterprise demand supports durable revenue growth and margins",
+        "en",
+      ).duplicate,
+    ).toBe(true);
+    expect(
+      textSimilarity(
+        "수요 회복으로 매출 성장과 영업 마진 개선이 이어집니다",
+        "수요 회복으로 매출 성장과 영업 마진 개선이 지속됩니다",
+        "ko",
+      ).duplicate,
+    ).toBe(true);
+    expect(
+      textSimilarity(
+        "Revenue growth accelerates with enterprise adoption",
+        "Regulatory penalties could constrain overseas distribution",
+        "en",
+      ).duplicate,
+    ).toBe(false);
   });
 
   it("executes exact reject and just-below allow probes for all four similarity thresholds", () => {
@@ -168,44 +192,71 @@ describe("deterministic editorial quality", () => {
     const koDiceBelow = scoreSetDice(...withCommon(17, 8));
 
     expect(enJaccardAt).toBe(0.68);
-    expect(isSimilarityThresholdViolation("en_content_word_jaccard", enJaccardAt)).toBe(true);
+    expect(
+      isSimilarityThresholdViolation("en_content_word_jaccard", enJaccardAt),
+    ).toBe(true);
     expect(enJaccardBelow).toBeLessThan(0.68);
-    expect(isSimilarityThresholdViolation("en_content_word_jaccard", enJaccardBelow)).toBe(false);
+    expect(
+      isSimilarityThresholdViolation("en_content_word_jaccard", enJaccardBelow),
+    ).toBe(false);
     expect(enDiceAt).toBe(0.78);
-    expect(isSimilarityThresholdViolation("en_char_trigram_dice", enDiceAt)).toBe(true);
+    expect(
+      isSimilarityThresholdViolation("en_char_trigram_dice", enDiceAt),
+    ).toBe(true);
     expect(enDiceBelow).toBeLessThan(0.78);
-    expect(isSimilarityThresholdViolation("en_char_trigram_dice", enDiceBelow)).toBe(false);
+    expect(
+      isSimilarityThresholdViolation("en_char_trigram_dice", enDiceBelow),
+    ).toBe(false);
     expect(koJaccardAt).toBe(0.6);
-    expect(isSimilarityThresholdViolation("ko_word_bigram_jaccard", koJaccardAt)).toBe(true);
+    expect(
+      isSimilarityThresholdViolation("ko_word_bigram_jaccard", koJaccardAt),
+    ).toBe(true);
     expect(koJaccardBelow).toBeLessThan(0.6);
-    expect(isSimilarityThresholdViolation("ko_word_bigram_jaccard", koJaccardBelow)).toBe(false);
+    expect(
+      isSimilarityThresholdViolation("ko_word_bigram_jaccard", koJaccardBelow),
+    ).toBe(false);
     expect(koDiceAt).toBe(0.72);
-    expect(isSimilarityThresholdViolation("ko_no_space_char_trigram_dice", koDiceAt)).toBe(true);
+    expect(
+      isSimilarityThresholdViolation("ko_no_space_char_trigram_dice", koDiceAt),
+    ).toBe(true);
     expect(koDiceBelow).toBeLessThan(0.72);
-    expect(isSimilarityThresholdViolation("ko_no_space_char_trigram_dice", koDiceBelow)).toBe(false);
+    expect(
+      isSimilarityThresholdViolation(
+        "ko_no_space_char_trigram_dice",
+        koDiceBelow,
+      ),
+    ).toBe(false);
   });
 
   it("keeps bilingual prose golden reject and allowed pairs distinct", () => {
-    expect(textSimilarity(
-      "Enterprise demand supports durable revenue growth and margins",
-      "Durable revenue growth and margins are supported by enterprise demand",
-      "en",
-    ).duplicate).toBe(true);
-    expect(textSimilarity(
-      "Enterprise adoption is accelerating revenue growth",
-      "Regulatory penalties may constrain overseas distribution",
-      "en",
-    ).duplicate).toBe(false);
-    expect(textSimilarity(
-      "수요 회복으로 매출 성장과 영업 마진 개선이 이어집니다",
-      "수요 회복으로 매출 성장과 영업 마진 개선이 지속됩니다",
-      "ko",
-    ).duplicate).toBe(true);
-    expect(textSimilarity(
-      "기업 수요 회복이 매출 성장과 마진을 지지합니다",
-      "규제 강화는 해외 유통과 제품 승인을 지연시킬 수 있습니다",
-      "ko",
-    ).duplicate).toBe(false);
+    expect(
+      textSimilarity(
+        "Enterprise demand supports durable revenue growth and margins",
+        "Durable revenue growth and margins are supported by enterprise demand",
+        "en",
+      ).duplicate,
+    ).toBe(true);
+    expect(
+      textSimilarity(
+        "Enterprise adoption is accelerating revenue growth",
+        "Regulatory penalties may constrain overseas distribution",
+        "en",
+      ).duplicate,
+    ).toBe(false);
+    expect(
+      textSimilarity(
+        "수요 회복으로 매출 성장과 영업 마진 개선이 이어집니다",
+        "수요 회복으로 매출 성장과 영업 마진 개선이 지속됩니다",
+        "ko",
+      ).duplicate,
+    ).toBe(true);
+    expect(
+      textSimilarity(
+        "기업 수요 회복이 매출 성장과 마진을 지지합니다",
+        "규제 강화는 해외 유통과 제품 승인을 지연시킬 수 있습니다",
+        "ko",
+      ).duplicate,
+    ).toBe(false);
   });
 
   it("rejects position prose cloned into a section with stable field paths", () => {
@@ -214,11 +265,13 @@ describe("deterministic editorial quality", () => {
       position: "Cash conversion supports durable margins.",
       rationale: "Operating discipline improved through the filing period.",
       supportedNumbers: [],
-      sections: [{
-        sectionKey: "decision",
-        claimIds: [id(1)],
-        text: "Cash conversion supports durable margins.",
-      }],
+      sections: [
+        {
+          sectionKey: "decision",
+          claimIds: [id(1)],
+          text: "Cash conversion supports durable margins.",
+        },
+      ],
       comparators: [],
       anticipatedQuestions: [],
     });
@@ -239,34 +292,64 @@ describe("deterministic editorial quality", () => {
       rationale: "Margins improve 37% as adoption expands.",
       supportedNumbers: ["12"],
       sections: [
-        { sectionKey: "decision", claimIds: [id(1)], text: "Margins improve 37%." },
-        { sectionKey: "analysis", claimIds: [id(1)], text: "Margins improve 37%." },
+        {
+          sectionKey: "decision",
+          claimIds: [id(1)],
+          text: "Margins improve 37%.",
+        },
+        {
+          sectionKey: "analysis",
+          claimIds: [id(1)],
+          text: "Margins improve 37%.",
+        },
       ],
       comparators: [{ comparatorId: "peer-a" }],
       anticipatedQuestions: [
-        { decisionKey: "a", answer: "We can browse the provided data and use tools." },
-        { decisionKey: "b", answer: "We can browse provided data using tools." },
+        {
+          decisionKey: "a",
+          answer: "We can browse the provided data and use tools.",
+        },
+        {
+          decisionKey: "b",
+          answer: "We can browse provided data using tools.",
+        },
       ],
     });
     expect(result.passed).toBe(false);
-    expect(result.reasons).toEqual(expect.arrayContaining([
-      "exact_duplicate",
-      "position_equals_rationale",
-      "unsupported_number",
-      "section_ownership_conflict",
-      "untyped_comparator",
-      "capability_leakage",
-      "qa_overlap",
-    ]));
-    expect(evaluateEditorialQuality({
-      locale: "en",
-      position: "The filing supports margin durability.",
-      rationale: "Cash conversion improved while reinvestment stayed disciplined.",
-      supportedNumbers: [],
-      sections: [{ sectionKey: "decision", claimIds: [id(1)], text: "Margin durability is supported." }],
-      comparators: [],
-      anticipatedQuestions: [],
-    })).toEqual({ passed: true, reasons: [], issues: [], metrics: expect.any(Object) });
+    expect(result.reasons).toEqual(
+      expect.arrayContaining([
+        "exact_duplicate",
+        "position_equals_rationale",
+        "unsupported_number",
+        "section_ownership_conflict",
+        "untyped_comparator",
+        "capability_leakage",
+        "qa_overlap",
+      ]),
+    );
+    expect(
+      evaluateEditorialQuality({
+        locale: "en",
+        position: "The filing supports margin durability.",
+        rationale:
+          "Cash conversion improved while reinvestment stayed disciplined.",
+        supportedNumbers: [],
+        sections: [
+          {
+            sectionKey: "decision",
+            claimIds: [id(1)],
+            text: "Margin durability is supported.",
+          },
+        ],
+        comparators: [],
+        anticipatedQuestions: [],
+      }),
+    ).toEqual({
+      passed: true,
+      reasons: [],
+      issues: [],
+      metrics: expect.any(Object),
+    });
   });
 
   it("flags forbidden public vocabulary and dense supported number dumps separately", () => {
@@ -280,10 +363,12 @@ describe("deterministic editorial quality", () => {
       anticipatedQuestions: [],
     });
 
-    expect(result.reasons).toEqual(expect.arrayContaining([
-      "forbidden_public_vocabulary",
-      "numeric_density",
-    ]));
+    expect(result.reasons).toEqual(
+      expect.arrayContaining([
+        "forbidden_public_vocabulary",
+        "numeric_density",
+      ]),
+    );
     expect(result.reasons).not.toContain("unsupported_number");
   });
 
@@ -297,8 +382,20 @@ describe("deterministic editorial quality", () => {
       contradictionSeverity: "none",
     } as const;
     expect(deriveEditorialConfidence(highFacts)).toBe("high");
-    expect(deriveEditorialConfidence({ ...highFacts, rewriteProse: "weak wording" })).toBe("high");
-    expect(deriveEditorialConfidence({ ...highFacts, independentSourceClasses: ["official_filing"] })).toBe("medium");
-    expect(deriveEditorialConfidence({ ...highFacts, contradictionSeverity: "severe" })).toBe("low");
+    expect(
+      deriveEditorialConfidence({ ...highFacts, rewriteProse: "weak wording" }),
+    ).toBe("high");
+    expect(
+      deriveEditorialConfidence({
+        ...highFacts,
+        independentSourceClasses: ["official_filing"],
+      }),
+    ).toBe("medium");
+    expect(
+      deriveEditorialConfidence({
+        ...highFacts,
+        contradictionSeverity: "severe",
+      }),
+    ).toBe("low");
   });
 });

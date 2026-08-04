@@ -55,12 +55,12 @@ export function codexIsolationError(
     error.phase === "reservation_validation" ||
     error.phase === "host_policy" ||
     error.phase === "origin_protection" ||
-    error.phase === "runtime_prepare"
-    || error.phase === "sandbox_profile"
-    || error.phase === "manifest_write"
-    || error.phase === "signature_probe"
-    || error.phase === "version_probe"
-    || error.phase === "model_probe"
+    error.phase === "runtime_prepare" ||
+    error.phase === "sandbox_profile" ||
+    error.phase === "manifest_write" ||
+    error.phase === "signature_probe" ||
+    error.phase === "version_probe" ||
+    error.phase === "model_probe"
       ? error.phase
       : error.phase === "sandbox_binary"
         ? "binary_verify"
@@ -70,7 +70,9 @@ export function codexIsolationError(
   return new CodexIsolationError(check, phaseReason ?? reason);
 }
 
-export async function createReadinessRoot(parentDirectory = tmpdir()): Promise<string> {
+export async function createReadinessRoot(
+  parentDirectory = tmpdir(),
+): Promise<string> {
   return await realpath(
     await mkdtemp(join(parentDirectory, ".stocksembly-readiness-")),
   );

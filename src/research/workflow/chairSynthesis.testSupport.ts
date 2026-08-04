@@ -246,35 +246,45 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
             primaryClaimIds: z.array(z.string().uuid()),
           }),
         ),
-        directionalBriefContract: z.object({
-          requiredStance: z.enum([
-            "upside_skewed",
-            "wait_for_proof",
-            "downside_skewed",
-          ]),
-          requiredConfidence: z.enum(["high", "medium", "low"]),
-          requiredPrimarySentenceIds: z.array(z.string()),
-          requiredPrimaryClaimIds: z.array(z.string().uuid()),
-          roles: z.object({
-            decisive: z.object({
-              assignedSentenceId: z.string(),
-              canonicalText: z.object({ en: z.string(), ko: z.string() }),
-            }).passthrough(),
-            countercase: z.object({
-              assignedSentenceId: z.string(),
-              canonicalText: z.object({ en: z.string(), ko: z.string() }),
-            }).passthrough(),
-            falsifier: z.object({
-              assignedSentenceId: z.string(),
-              canonicalText: z.object({ en: z.string(), ko: z.string() }),
-            }).passthrough(),
-          }),
-        }).passthrough(),
-        teamConflictContract: z.object({
-          detected: z.boolean(),
-          requiredOwnedPositionSentenceIds: z.array(z.string()),
-          requiredDepartmentDecisionSentenceIds: z.array(z.string()),
-        }).passthrough(),
+        directionalBriefContract: z
+          .object({
+            requiredStance: z.enum([
+              "upside_skewed",
+              "wait_for_proof",
+              "downside_skewed",
+            ]),
+            requiredConfidence: z.enum(["high", "medium", "low"]),
+            requiredPrimarySentenceIds: z.array(z.string()),
+            requiredPrimaryClaimIds: z.array(z.string().uuid()),
+            roles: z.object({
+              decisive: z
+                .object({
+                  assignedSentenceId: z.string(),
+                  canonicalText: z.object({ en: z.string(), ko: z.string() }),
+                })
+                .passthrough(),
+              countercase: z
+                .object({
+                  assignedSentenceId: z.string(),
+                  canonicalText: z.object({ en: z.string(), ko: z.string() }),
+                })
+                .passthrough(),
+              falsifier: z
+                .object({
+                  assignedSentenceId: z.string(),
+                  canonicalText: z.object({ en: z.string(), ko: z.string() }),
+                })
+                .passthrough(),
+            }),
+          })
+          .passthrough(),
+        teamConflictContract: z
+          .object({
+            detected: z.boolean(),
+            requiredOwnedPositionSentenceIds: z.array(z.string()),
+            requiredDepartmentDecisionSentenceIds: z.array(z.string()),
+          })
+          .passthrough(),
       })
       .passthrough()
       .parse(JSON.parse(input.prompt));

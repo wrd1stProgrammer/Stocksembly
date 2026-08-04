@@ -1,7 +1,7 @@
 import ky, { HTTPError, type KyInstance } from "ky";
 import type { Locale } from "../../lib/i18n";
-import type { ResearchTarget } from "../domain/researchTarget";
 import type { ResearchProfile } from "../domain/researchProfile";
+import type { ResearchTarget } from "../domain/researchTarget";
 import {
   ApiErrorResponseSchema,
   CancelRunResponseSchema,

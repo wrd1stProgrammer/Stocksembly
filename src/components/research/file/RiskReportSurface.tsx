@@ -12,11 +12,19 @@ export function RiskReportSurface(props: ResearchReportSurfaceProps) {
       props={props}
       surfaceNavigation={[
         { href: "#decision-brief", label: { en: "Risk map", ko: "리스크 맵" } },
-        { href: "#decision-scenarios", label: { en: "Alerts", ko: "경보·대응" } },
+        {
+          href: "#decision-scenarios",
+          label: { en: "Alerts", ko: "경보·대응" },
+        },
         { href: "#team-roundtable", label: { en: "Team view", ko: "팀 판단" } },
         ...((props.report.anticipatedQuestions?.length ?? 0) === 0
           ? []
-          : [{ href: "#research-anticipated-qa" as const, label: { en: "Investor Q&A", ko: "예상 Q&A" } }]),
+          : [
+              {
+                href: "#research-anticipated-qa" as const,
+                label: { en: "Investor Q&A", ko: "예상 Q&A" },
+              },
+            ]),
         { href: "#source-register", label: { en: "Sources", ko: "출처" } },
       ]}
     >

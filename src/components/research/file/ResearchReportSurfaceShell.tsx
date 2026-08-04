@@ -4,10 +4,10 @@ import type { ResearchFileData } from "../../../research/compositions/types";
 import type { WorkflowDepartmentId } from "../../../research/domain/roleRegistry";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 import type { ResearchCompany } from "../../../research/types";
+import { DepartmentResearchDesk } from "./DepartmentResearchDesk";
 import { ResearchFileHeader } from "./ResearchFileHeader";
 import { ResearchFileQuestions } from "./ResearchFileQuestions";
 import { ResearchFileSources } from "./ResearchFileSources";
-import { DepartmentResearchDesk } from "./DepartmentResearchDesk";
 
 export type ResearchReportSurface =
   | "committee"

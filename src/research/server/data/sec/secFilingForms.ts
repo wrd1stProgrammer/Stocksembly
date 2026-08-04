@@ -1,8 +1,4 @@
-export const REGISTRATION_FINANCIAL_FORMS = [
-  "S-1",
-  "S-1/A",
-  "424B4",
-] as const;
+export const REGISTRATION_FINANCIAL_FORMS = ["S-1", "S-1/A", "424B4"] as const;
 
 export const COMPANY_FACT_FILING_FORMS = [
   "10-K",

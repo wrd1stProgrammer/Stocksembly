@@ -10,20 +10,20 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
+import { WorkflowV2ResearchReportSchema } from "../domain/report";
+import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
 import { sqliteReportVersionPersistence } from "../server/persistence/sqlite/sqliteReportPersistence";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
 import { temporaryDatabase } from "../server/persistence/sqlite/sqliteStore.contractFixtures";
 import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
-import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
 import {
   corruptAcceptedEnvelope,
   createPreparedChairRound,
 } from "../workflow/chairSynthesis.testSupport";
 import { loadChairPrompt } from "../workflow/chairSynthesisInput";
-import { WorkflowV2ResearchReportSchema } from "../domain/report";
-import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
+import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
 import {
   CountingArtifactCasFake,
   makeAuthoritativeReportInput,
@@ -50,9 +50,9 @@ describe("persistAuthoritativeReport", () => {
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
     expect(result.report.version).toBe(1);
-    expect(result.report.editorialClaims.map((claim) => claim.roleOwner)).toEqual([
-      "market",
-    ]);
+    expect(
+      result.report.editorialClaims.map((claim) => claim.roleOwner),
+    ).toEqual(["market"]);
     expect(
       result.report.editorialClaims.every((claim) =>
         WORKFLOW_V1_SPECIALIST_IDS.includes(
@@ -77,13 +77,12 @@ describe("persistAuthoritativeReport", () => {
     );
     expect(result.report.locales.en.sections).toEqual(
       expect.arrayContaining(
-        savedEditorialPublication?.candidate.sections.map(
-          (section) =>
-            expect.objectContaining({
-              id: section.sectionKey,
-              body: section.text.en,
-              claimIds: section.claimIds,
-            }),
+        savedEditorialPublication?.candidate.sections.map((section) =>
+          expect.objectContaining({
+            id: section.sectionKey,
+            body: section.text.en,
+            claimIds: section.claimIds,
+          }),
         ) ?? [],
       ),
     );
@@ -138,7 +137,10 @@ describe("persistAuthoritativeReport", () => {
     const { editorialClaims: _omitted, ...input } = valid;
     await seedAuthoritativeParents(cas, valid);
 
-    const result = await persistAuthoritativeReport({ cas, persistence }, input);
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      input,
+    );
 
     expect(result).toEqual({ kind: "blocked", reason: "editorial_v2_invalid" });
     expect(cas.putCount).toBe(0);
@@ -151,11 +153,15 @@ describe("persistAuthoritativeReport", () => {
     const valid = makeAuthoritativeReportInput();
     const input = structuredClone(valid);
     const claim = input.editorialClaims[0];
-    if (claim === undefined) throw new TypeError("missing editorial claim fixture");
+    if (claim === undefined)
+      throw new TypeError("missing editorial claim fixture");
     Reflect.set(claim, "roleOwner", "research_committee");
     await seedAuthoritativeParents(cas, valid);
 
-    const result = await persistAuthoritativeReport({ cas, persistence }, input);
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      input,
+    );
 
     expect(result).toEqual({ kind: "blocked", reason: "editorial_v2_invalid" });
     expect(cas.putCount).toBe(0);
@@ -223,9 +229,7 @@ describe("persistAuthoritativeReport", () => {
       semanticAudit: {
         ...valid.semanticAudit,
         verdicts: valid.semanticAudit.verdicts.map((verdict, index) =>
-          index === 0
-            ? { ...verdict, verdict: "partial" as const }
-            : verdict,
+          index === 0 ? { ...verdict, verdict: "partial" as const } : verdict,
         ),
       },
     };
@@ -561,7 +565,10 @@ describe("persistAuthoritativeReport", () => {
     );
 
     // Then
-    expect(result).toEqual({ kind: "blocked", reason: "chair_content_mismatch" });
+    expect(result).toEqual({
+      kind: "blocked",
+      reason: "chair_content_mismatch",
+    });
     expect(persistence.saved).toHaveLength(0);
   });
 

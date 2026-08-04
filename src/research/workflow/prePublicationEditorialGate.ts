@@ -3,13 +3,13 @@ import {
   containsForbiddenPublicVocabulary,
   containsGenericLimitationLanguage,
   containsNumericDump,
+  type EditorialLocale,
+  type EditorialQualityReason,
   evaluateEditorialQuality,
   extractNumericTokens,
   meaningfullyRepeats,
   normalizeEditorialText,
   sanitizePublicEditorialText,
-  type EditorialLocale,
-  type EditorialQualityReason,
 } from "../domain/editorialQuality";
 import { ANTICIPATED_QUESTIONS_POLICY } from "./anticipatedQuestionsPublication";
 
@@ -65,10 +65,11 @@ export type PrePublicationEditorialCandidate = Readonly<{
 
 export type PrePublicationEditorialEnvelope = Readonly<{
   gateVersion: "editorial-quality-v1";
-  qaPolicy: typeof ANTICIPATED_QUESTIONS_POLICY & Readonly<{
-    supportedCount: number;
-    moduleVisible: boolean;
-  }>;
+  qaPolicy: typeof ANTICIPATED_QUESTIONS_POLICY &
+    Readonly<{
+      supportedCount: number;
+      moduleVisible: boolean;
+    }>;
   candidate: PrePublicationEditorialCandidate;
   fieldLineage?: Readonly<Record<string, "synthesis" | "targeted_rewrite">>;
 }>;
@@ -84,7 +85,9 @@ function issue(
   path: string,
   relatedPath?: string,
 ): PublicationQualityViolation {
-  return relatedPath === undefined ? { code, path } : { code, path, relatedPath };
+  return relatedPath === undefined
+    ? { code, path }
+    : { code, path, relatedPath };
 }
 
 function publicFields(candidate: PrePublicationEditorialCandidate) {
@@ -154,7 +157,9 @@ function localeViolations(
     })),
   });
   const localize = (path: string) =>
-    /^(?:position|rationale|sections\[\d+\]\.text|anticipatedQuestions\[\d+\]\.answer)$/u.test(path)
+    /^(?:position|rationale|sections\[\d+\]\.text|anticipatedQuestions\[\d+\]\.answer)$/u.test(
+      path,
+    )
       ? `${path}.${locale}`
       : path;
   return evaluated.issues.map((entry) =>
@@ -180,7 +185,9 @@ export function evaluatePrePublicationEditorialGate(
     ...localeViolations(candidate, "ko"),
   ];
   const fields = publicFields(candidate);
-  const supported = new Set(candidate.supportedNumbers.map((value) => value.replaceAll(",", "")));
+  const supported = new Set(
+    candidate.supportedNumbers.map((value) => value.replaceAll(",", "")),
+  );
   for (const field of fields) {
     if (GENERIC_HEDGES.some((pattern) => pattern.test(field.text)))
       violations.push(issue("generic_hedge", field.path));
@@ -203,7 +210,11 @@ export function evaluatePrePublicationEditorialGate(
   }
   for (const locale of ["en", "ko"] as const) {
     for (let left = 0; left < candidate.sections.length; left += 1) {
-      for (let right = left + 1; right < candidate.sections.length; right += 1) {
+      for (
+        let right = left + 1;
+        right < candidate.sections.length;
+        right += 1
+      ) {
         const first = candidate.sections[left];
         const second = candidate.sections[right];
         if (
@@ -227,7 +238,8 @@ export function evaluatePrePublicationEditorialGate(
     for (const claimId of section.claimIds) {
       const path = `sections[${index}].claimIds`;
       const owner = claimOwner.get(claimId);
-      if (owner !== undefined) violations.push(issue("section_ownership_conflict", path, owner));
+      if (owner !== undefined)
+        violations.push(issue("section_ownership_conflict", path, owner));
       else claimOwner.set(claimId, path);
       if (!candidate.permittedClaimIds.includes(claimId))
         violations.push(issue("section_ownership_conflict", path));
@@ -238,7 +250,8 @@ export function evaluatePrePublicationEditorialGate(
       const path = `sections[${index}].checkpoint.${locale}`;
       const key = normalizeEditorialText(checkpoint);
       const owner = checkpointOwner.get(`${locale}:${key}`);
-      if (owner !== undefined) violations.push(issue("checkpoint_ownership_conflict", path, owner));
+      if (owner !== undefined)
+        violations.push(issue("checkpoint_ownership_conflict", path, owner));
       else checkpointOwner.set(`${locale}:${key}`, path);
     }
   });
@@ -250,45 +263,90 @@ export function evaluatePrePublicationEditorialGate(
     const base = `anticipatedQuestions[${index}]`;
     const decisionPath = `${base}.decisionKey`;
     const priorDecision = decisionOwner.get(qa.decisionKey);
-    if (priorDecision !== undefined) violations.push(issue("qa_decision_key_conflict", decisionPath, priorDecision));
+    if (priorDecision !== undefined)
+      violations.push(
+        issue("qa_decision_key_conflict", decisionPath, priorDecision),
+      );
     else decisionOwner.set(qa.decisionKey, decisionPath);
     const evidenceKey = `${qa.decisionKey}|${[...qa.evidenceArtifactIds].sort().join(",")}`;
     const priorEvidence = evidenceOwner.get(evidenceKey);
-    if (priorEvidence !== undefined) violations.push(issue("qa_evidence_conflict", `${base}.evidenceArtifactIds`, priorEvidence));
+    if (priorEvidence !== undefined)
+      violations.push(
+        issue(
+          "qa_evidence_conflict",
+          `${base}.evidenceArtifactIds`,
+          priorEvidence,
+        ),
+      );
     else evidenceOwner.set(evidenceKey, `${base}.evidenceArtifactIds`);
     for (const locale of ["en", "ko"] as const) {
       const questionKey = `${locale}:${normalizeEditorialText(qa.question[locale])}`;
       const priorQuestion = questionOwner.get(questionKey);
       if (priorQuestion !== undefined)
-        violations.push(issue("qa_question_conflict", `${base}.question.${locale}`, priorQuestion));
+        violations.push(
+          issue(
+            "qa_question_conflict",
+            `${base}.question.${locale}`,
+            priorQuestion,
+          ),
+        );
       else questionOwner.set(questionKey, `${base}.question.${locale}`);
     }
     for (const claimId of qa.primaryClaimIds) {
       primaryCounts.set(claimId, (primaryCounts.get(claimId) ?? 0) + 1);
       if (!candidate.permittedClaimIds.includes(claimId))
-        violations.push(issue("qa_primary_claim_limit", `${base}.primaryClaimIds`));
+        violations.push(
+          issue("qa_primary_claim_limit", `${base}.primaryClaimIds`),
+        );
     }
-    if (qa.evidenceArtifactIds.some((id) => !candidate.permittedEvidenceArtifactIds.includes(id)))
-      violations.push(issue("qa_evidence_conflict", `${base}.evidenceArtifactIds`));
+    if (
+      qa.evidenceArtifactIds.some(
+        (id) => !candidate.permittedEvidenceArtifactIds.includes(id),
+      )
+    )
+      violations.push(
+        issue("qa_evidence_conflict", `${base}.evidenceArtifactIds`),
+      );
   });
   for (const [claimId, count] of primaryCounts)
     if (count > ANTICIPATED_QUESTIONS_POLICY.maximumPerPrimaryClaim) {
       const owners = candidate.anticipatedQuestions
-        .map((qa, index) => qa.primaryClaimIds.includes(claimId) ? index : -1)
+        .map((qa, index) => (qa.primaryClaimIds.includes(claimId) ? index : -1))
         .filter((index) => index >= 0);
-      for (const index of owners.slice(ANTICIPATED_QUESTIONS_POLICY.maximumPerPrimaryClaim))
-        violations.push(issue("qa_primary_claim_limit", `anticipatedQuestions[${index}].primaryClaimIds`));
+      for (const index of owners.slice(
+        ANTICIPATED_QUESTIONS_POLICY.maximumPerPrimaryClaim,
+      ))
+        violations.push(
+          issue(
+            "qa_primary_claim_limit",
+            `anticipatedQuestions[${index}].primaryClaimIds`,
+          ),
+        );
     }
   candidate.comparators.forEach((comparator, index) => {
-    const rationale = comparator.rationale as { en?: unknown; ko?: unknown } | undefined;
+    const rationale = comparator.rationale as
+      | { en?: unknown; ko?: unknown }
+      | undefined;
     if (
-      !rationale || typeof rationale.en !== "string" || typeof rationale.ko !== "string" ||
-      [rationale.en, rationale.ko].some((text) => typeof text !== "string" || normalizeEditorialText(text).split(" ").length < 3)
-    ) violations.push(issue("weak_comparator", `comparators[${index}].rationale`));
+      !rationale ||
+      typeof rationale.en !== "string" ||
+      typeof rationale.ko !== "string" ||
+      [rationale.en, rationale.ko].some(
+        (text) =>
+          typeof text !== "string" ||
+          normalizeEditorialText(text).split(" ").length < 3,
+      )
+    )
+      violations.push(
+        issue("weak_comparator", `comparators[${index}].rationale`),
+      );
   });
   const unique = new Map<string, PublicationQualityViolation>();
   for (const violation of violations)
-    unique.set(`${violation.code}|${violation.path}|${violation.relatedPath ?? ""}`, violation);
+    unique.set(
+      `${violation.code}|${violation.path}|${violation.relatedPath ?? ""}`,
+      violation,
+    );
   const distinct = [...unique.values()];
   const hardViolations = distinct.filter(
     (violation) => publicationViolationSeverity(violation) === "hard",
@@ -419,25 +477,45 @@ export function deterministicMetadataRewrite(
     }),
   }));
   const decisionKeys = new Set<string>();
-  rewritten.anticipatedQuestions = rewritten.anticipatedQuestions.map((question, index) => {
-    const path = `anticipatedQuestions[${index}].decisionKey`;
-    const duplicate = decisionKeys.has(question.decisionKey);
-    const decisionKey = duplicate && request.fieldPaths.includes(path)
-      ? `${question.decisionKey}:${question.questionId}`
-      : question.decisionKey;
-    decisionKeys.add(decisionKey);
-    return decisionKey === question.decisionKey ? question : { ...question, decisionKey };
-  });
+  rewritten.anticipatedQuestions = rewritten.anticipatedQuestions.map(
+    (question, index) => {
+      const path = `anticipatedQuestions[${index}].decisionKey`;
+      const duplicate = decisionKeys.has(question.decisionKey);
+      const decisionKey =
+        duplicate && request.fieldPaths.includes(path)
+          ? `${question.decisionKey}:${question.questionId}`
+          : question.decisionKey;
+      decisionKeys.add(decisionKey);
+      return decisionKey === question.decisionKey
+        ? question
+        : { ...question, decisionKey };
+    },
+  );
   return rewritten;
 }
 
 export async function gateWithOneTargetedRewrite(
   original: PrePublicationEditorialCandidate,
-  rewrite: (request: TargetedRewriteRequest) => Promise<PrePublicationEditorialCandidate>,
-): Promise<Readonly<
-  | { kind: "accepted"; candidate: PrePublicationEditorialCandidate; rewritten: boolean; fieldLineage: Readonly<Record<string, "synthesis" | "targeted_rewrite">> }
-  | { kind: "rejected"; reason: string; violations: readonly PublicationQualityViolation[] }
->> {
+  rewrite: (
+    request: TargetedRewriteRequest,
+  ) => Promise<PrePublicationEditorialCandidate>,
+): Promise<
+  Readonly<
+    | {
+        kind: "accepted";
+        candidate: PrePublicationEditorialCandidate;
+        rewritten: boolean;
+        fieldLineage: Readonly<
+          Record<string, "synthesis" | "targeted_rewrite">
+        >;
+      }
+    | {
+        kind: "rejected";
+        reason: string;
+        violations: readonly PublicationQualityViolation[];
+      }
+  >
+> {
   const sanitizedOriginal = sanitizePrePublicationCandidate(original);
   const first = evaluatePrePublicationEditorialGate(sanitizedOriginal);
   const synthesisLineage = candidateFieldPaths(sanitizedOriginal);
@@ -450,25 +528,50 @@ export async function gateWithOneTargetedRewrite(
         synthesisLineage.map((path) => [path, "synthesis"]),
       ),
     };
-  const paths = [...new Set(first.violations.flatMap((entry) => [entry.path, ...(entry.relatedPath === undefined ? [] : [entry.relatedPath])]))].sort();
+  const paths = [
+    ...new Set(
+      first.violations.flatMap((entry) => [
+        entry.path,
+        ...(entry.relatedPath === undefined ? [] : [entry.relatedPath]),
+      ]),
+    ),
+  ].sort();
   const rewritten = await rewrite({
     attempt: 1,
     fieldPaths: paths,
     violations: first.violations,
     permittedClaimIds: sanitizedOriginal.permittedClaimIds,
-    permittedEvidenceArtifactIds: sanitizedOriginal.permittedEvidenceArtifactIds,
+    permittedEvidenceArtifactIds:
+      sanitizedOriginal.permittedEvidenceArtifactIds,
     permittedNumbers: sanitizedOriginal.supportedNumbers,
     untrustedCandidateJson: `<untrusted_editorial_candidate>${JSON.stringify(sanitizedOriginal)}</untrusted_editorial_candidate>`,
   });
   if (rewritten.confidence !== sanitizedOriginal.confidence)
-    return { kind: "rejected", reason: "editorial_quality_failed:confidence_changed", violations: [] };
+    return {
+      kind: "rejected",
+      reason: "editorial_quality_failed:confidence_changed",
+      violations: [],
+    };
   const normalizedRewrite = sanitizePrePublicationCandidate(rewritten);
-  const changedPaths = changedLeafPaths(sanitizedOriginal, normalizedRewrite).sort();
-  const unpermittedChange = changedPaths.find((path) =>
-    !paths.some((permitted) => path === permitted || path.startsWith(`${permitted}.`) || path.startsWith(`${permitted}[`)),
+  const changedPaths = changedLeafPaths(
+    sanitizedOriginal,
+    normalizedRewrite,
+  ).sort();
+  const unpermittedChange = changedPaths.find(
+    (path) =>
+      !paths.some(
+        (permitted) =>
+          path === permitted ||
+          path.startsWith(`${permitted}.`) ||
+          path.startsWith(`${permitted}[`),
+      ),
   );
   if (unpermittedChange !== undefined)
-    return { kind: "rejected", reason: `editorial_quality_failed:rewrite_scope:${unpermittedChange}`, violations: [] };
+    return {
+      kind: "rejected",
+      reason: `editorial_quality_failed:rewrite_scope:${unpermittedChange}`,
+      violations: [],
+    };
   const second = evaluatePrePublicationEditorialGate(normalizedRewrite);
   if (!second.publishable)
     return {
@@ -481,7 +584,9 @@ export async function gateWithOneTargetedRewrite(
     candidate: normalizedRewrite,
     rewritten: changedPaths.length > 0,
     fieldLineage: Object.fromEntries([
-      ...candidateFieldPaths(rewritten).map((path) => [path, "synthesis"] as const),
+      ...candidateFieldPaths(rewritten).map(
+        (path) => [path, "synthesis"] as const,
+      ),
       ...changedPaths.map((path) => [path, "targeted_rewrite"] as const),
     ]),
   };
@@ -495,10 +600,16 @@ function candidateFieldPaths(
 
 function leafPaths(value: unknown, path = ""): readonly string[] {
   if (Array.isArray(value))
-    return value.length === 0 ? [path] : value.flatMap((entry, index) => leafPaths(entry, `${path}[${index}]`));
+    return value.length === 0
+      ? [path]
+      : value.flatMap((entry, index) => leafPaths(entry, `${path}[${index}]`));
   if (typeof value === "object" && value !== null) {
     const entries = Object.entries(value);
-    return entries.length === 0 ? [path] : entries.flatMap(([key, entry]) => leafPaths(entry, path === "" ? key : `${path}.${key}`));
+    return entries.length === 0
+      ? [path]
+      : entries.flatMap(([key, entry]) =>
+          leafPaths(entry, path === "" ? key : `${path}.${key}`),
+        );
   }
   return [path];
 }
@@ -507,18 +618,41 @@ function changedLeafPaths(left: unknown, right: unknown, path = ""): string[] {
   if (Object.is(left, right)) return [];
   if (Array.isArray(left) && Array.isArray(right)) {
     const changed = left.length === right.length ? [] : [`${path}.length`];
-    for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
-      if (index >= left.length || index >= right.length) changed.push(`${path}[${index}]`);
-      else changed.push(...changedLeafPaths(left[index], right[index], `${path}[${index}]`));
+    for (
+      let index = 0;
+      index < Math.max(left.length, right.length);
+      index += 1
+    ) {
+      if (index >= left.length || index >= right.length)
+        changed.push(`${path}[${index}]`);
+      else
+        changed.push(
+          ...changedLeafPaths(left[index], right[index], `${path}[${index}]`),
+        );
     }
     return changed;
   }
-  if (typeof left === "object" && left !== null && typeof right === "object" && right !== null) {
+  if (
+    typeof left === "object" &&
+    left !== null &&
+    typeof right === "object" &&
+    right !== null
+  ) {
     const changed: string[] = [];
-    for (const key of [...new Set([...Object.keys(left), ...Object.keys(right)])].sort()) {
+    for (const key of [
+      ...new Set([...Object.keys(left), ...Object.keys(right)]),
+    ].sort()) {
       const childPath = path === "" ? key : `${path}.${key}`;
-      if (!Object.hasOwn(left, key) || !Object.hasOwn(right, key)) changed.push(childPath);
-      else changed.push(...changedLeafPaths(Reflect.get(left, key), Reflect.get(right, key), childPath));
+      if (!Object.hasOwn(left, key) || !Object.hasOwn(right, key))
+        changed.push(childPath);
+      else
+        changed.push(
+          ...changedLeafPaths(
+            Reflect.get(left, key),
+            Reflect.get(right, key),
+            childPath,
+          ),
+        );
     }
     return changed;
   }

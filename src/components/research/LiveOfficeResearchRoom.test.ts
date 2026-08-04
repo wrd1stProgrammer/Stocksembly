@@ -9,9 +9,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("loads a workflow-v2 report returned by the public API", async () => {
   const report = workflowV2PresentationFixture();
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-    Response.json({ report }),
-  ));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ report })));
 
   await expect(loadReport(report.reportId, 0)).resolves.toMatchObject({
     report: { schemaVersion: "workflow-v2", reportId: report.reportId },

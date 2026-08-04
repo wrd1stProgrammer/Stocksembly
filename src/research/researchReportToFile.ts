@@ -1,5 +1,6 @@
 import { buildAnticipatedQuestions } from "./anticipatedQuestions";
 import type { ResearchFileData } from "./compositions/types";
+import { sanitizePublicEditorialText } from "./domain/editorialQuality";
 import type { ResearchReport, WorkflowV2ResearchReport } from "./domain/report";
 import type { ResearchComparison } from "./domain/researchComparison";
 import { workflowRoleById } from "./domain/roleRegistry";
@@ -11,7 +12,6 @@ import {
   qualitativePosture,
   readerSourceLabel,
 } from "./researchPresentation";
-import { sanitizePublicEditorialText } from "./domain/editorialQuality";
 
 function localized(en: string, ko: string) {
   return Object.freeze({ en, ko });

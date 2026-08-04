@@ -1,6 +1,6 @@
 import type { Locale } from "../lib/i18n";
-import type { ResearchReport } from "./domain/report";
 import { sanitizePublicEditorialText } from "./domain/editorialQuality";
+import type { ResearchReport } from "./domain/report";
 
 const SENTENCE_BOUNDARY = /(?<=[.!?。！？])\s+/u;
 const PERIOD_MARKER = "\u2063";

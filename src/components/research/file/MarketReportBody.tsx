@@ -264,7 +264,9 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
               <li key={claim.id}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
                 <div>
-                  <strong>{marketDimensionLabel(claim.dimension, locale)}</strong>
+                  <strong>
+                    {marketDimensionLabel(claim.dimension, locale)}
+                  </strong>
                   <p>{claim.falsifier}</p>
                 </div>
               </li>
@@ -296,7 +298,8 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
             </ol>
           </section>
         )}
-        {product.catalysts.length === 0 && product.catalystWatch.length === 0 ? null : (
+        {product.catalysts.length === 0 &&
+        product.catalystWatch.length === 0 ? null : (
           <section
             className={styles.clock}
             data-market-landmark="catalyst-clock"

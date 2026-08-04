@@ -58,7 +58,9 @@ test("captures and exercises all official decision-report surfaces", async ({
           authorization,
         },
       });
-      const sessionResponse = await context.request.get("/api/research/session");
+      const sessionResponse = await context.request.get(
+        "/api/research/session",
+      );
       expect(sessionResponse.status()).toBe(204);
       const page = await context.newPage();
       const consoleErrors: string[] = [];
@@ -95,11 +97,15 @@ test("captures and exercises all official decision-report surfaces", async ({
       }
 
       if (viewport.name === "desktop") {
-        await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+        await page.evaluate(() =>
+          (document.activeElement as HTMLElement | null)?.blur(),
+        );
         await page.keyboard.press("Tab");
         const focused = page.locator(":focus");
         await expect(focused).toBeVisible();
-        expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
+        expect(
+          await page.evaluate(() => document.activeElement?.tagName),
+        ).not.toBe("BODY");
         await page.getByRole("button", { name: "다크" }).click();
         await expect(surface).toHaveAttribute("data-report-theme", "dark");
         const moreQuestions = page.locator("details[data-qa-expandable-count]");
@@ -127,9 +133,9 @@ test("captures and exercises all official decision-report surfaces", async ({
           const directAnswer = await page
             .locator(".research-editorial-cover__answer p")
             .innerText();
-          await expect(page.locator('[data-report-section="debate"]')).not.toContainText(
-            directAnswer,
-          );
+          await expect(
+            page.locator('[data-report-section="debate"]'),
+          ).not.toContainText(directAnswer);
         }
         const pdf = page.getByRole("link", { name: "PDF 다운로드" });
         await expect(pdf).toHaveAttribute(

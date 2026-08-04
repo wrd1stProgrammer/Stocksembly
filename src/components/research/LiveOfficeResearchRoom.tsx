@@ -17,9 +17,9 @@ import type {
   ResearchFileData,
   ResearchHistoryGroup,
 } from "../../research/compositions/types";
-import {
-  type ResearchReport,
-  type WorkflowV2ResearchReport,
+import type {
+  ResearchReport,
+  WorkflowV2ResearchReport,
 } from "../../research/domain/report";
 import { parseStoredResearchReportVersioned } from "../../research/domain/reportStorage";
 import {
@@ -33,8 +33,8 @@ import { agents } from "../../research/mockResearch";
 import { activeIdsForSnapshot } from "../../research/officePlaybackView";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
-import { researchReportToFile } from "../../research/researchReportToFile";
 import { formatSignedPercent } from "../../research/publicPresentation";
+import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
@@ -280,7 +280,8 @@ export function LiveOfficeResearchRoom({
         runs: runs.map((run, index) => ({
           runId: run.runId,
           ...(run.reportId === undefined ? {} : { reportId: run.reportId }),
-          label: run.question?.trim() || runLabel(run, runs.length - index, locale),
+          label:
+            run.question?.trim() || runLabel(run, runs.length - index, locale),
           date: formatResearchHistoryDate(run.createdAt, locale),
           current: run.runId === projection.snapshot.run.runId,
           live:
@@ -354,7 +355,8 @@ export function LiveOfficeResearchRoom({
   useEffect(() => {
     const symbol = projection.snapshot.run.symbol;
     if (
-      (projection.snapshot.run.reportId !== undefined && report === undefined) ||
+      (projection.snapshot.run.reportId !== undefined &&
+        report === undefined) ||
       report?.marketSnapshot !== undefined
     ) {
       setLiveQuote(undefined);
@@ -369,7 +371,11 @@ export function LiveOfficeResearchRoom({
           setLiveQuote(undefined);
       });
     return () => controller.abort();
-  }, [projection.snapshot.run.reportId, projection.snapshot.run.symbol, report]);
+  }, [
+    projection.snapshot.run.reportId,
+    projection.snapshot.run.symbol,
+    report,
+  ]);
 
   useEffect(() => {
     const reportId = projection.snapshot.run.reportId;

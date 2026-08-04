@@ -1,9 +1,9 @@
 import {
-  ComparatorQualificationResultSchema,
+  type ComparableMetric,
   type ComparatorQualificationInput,
   type ComparatorQualificationResult,
+  ComparatorQualificationResultSchema,
   type ExclusionReason,
-  type ComparableMetric,
   type NormalizedMetric,
 } from "./comparatorQualificationContracts";
 
@@ -50,9 +50,13 @@ function mismatchReasons(
   peerMetric: NormalizedMetric,
 ): ExclusionReason[] {
   const reasons: ExclusionReason[] = [];
-  if (subjectMetric.period !== peerMetric.period) reasons.push("period_mismatch");
+  if (subjectMetric.period !== peerMetric.period)
+    reasons.push("period_mismatch");
   if (subjectMetric.unit !== peerMetric.unit) reasons.push("unit_mismatch");
-  if ((subjectMetric.currency ?? "unitless") !== (peerMetric.currency ?? "unitless"))
+  if (
+    (subjectMetric.currency ?? "unitless") !==
+    (peerMetric.currency ?? "unitless")
+  )
     reasons.push("currency_mismatch");
   return reasons;
 }
@@ -69,7 +73,10 @@ export function qualifyComparators(
   input: ComparatorQualificationInput,
 ): ComparatorQualificationResult {
   const subjectMetrics = new Map(
-    input.subject.metrics.map((metric) => [metric.key, effectiveMetric(metric)]),
+    input.subject.metrics.map((metric) => [
+      metric.key,
+      effectiveMetric(metric),
+    ]),
   );
   const seen = new Set<string>();
   const rows = input.comparators.map((comparator) => {
@@ -85,7 +92,9 @@ export function qualifyComparators(
       return reasons.length === 0 ? [peerMetric] : [];
     });
     const valuation = aligned.find((metric) => VALUATION_KEYS.has(metric.key));
-    const operating = aligned.filter((metric) => OPERATING_KEYS.has(metric.key));
+    const operating = aligned.filter((metric) =>
+      OPERATING_KEYS.has(metric.key),
+    );
     const reasons: ExclusionReason[] = [
       ...(duplicate ? (["duplicate_comparator"] as const) : []),
       ...metricReasons,
@@ -109,9 +118,13 @@ export function qualifyComparators(
     const blocking = reasons.some(
       (reason) =>
         reason !== "operating_valuation_normalization_required" &&
-        !(comparator.role === "operating_comparable" &&
-          ["period_mismatch", "unit_mismatch", "currency_mismatch"].includes(reason) &&
-          operating.length > 0),
+        !(
+          comparator.role === "operating_comparable" &&
+          ["period_mismatch", "unit_mismatch", "currency_mismatch"].includes(
+            reason,
+          ) &&
+          operating.length > 0
+        ),
     );
     const displayEligibility = !blocking;
     const medianEligibility =
@@ -191,7 +204,9 @@ export function qualifyComparators(
             : { currency: subjectValuation.currency }),
           evidenceArtifactIds: [
             ...new Set(
-              eligibleValuations.flatMap((metric) => metric.evidenceArtifactIds),
+              eligibleValuations.flatMap(
+                (metric) => metric.evidenceArtifactIds,
+              ),
             ),
           ],
         }

@@ -41,8 +41,14 @@ export function ResearchFileDebate({
       ]),
     ]);
     const rows = [
-      { label: ko ? "독립 검토" : "Independent review", value: model.initialView },
-      { label: ko ? "합의 후 결론" : "Consolidated view", value: model.finalView },
+      {
+        label: ko ? "독립 검토" : "Independent review",
+        value: model.initialView,
+      },
+      {
+        label: ko ? "합의 후 결론" : "Consolidated view",
+        value: model.finalView,
+      },
       ...model.acceptedClaims.map((value) => ({
         label: ko ? "채택된 핵심 주장" : "Accepted claim",
         value,
@@ -133,7 +139,8 @@ export function ResearchFileDebate({
               </div>
             </div>
             {departmentId !== undefined &&
-            normalized(team.strongestClaim) === normalized(model.directAnswer) ? null : (
+            normalized(team.strongestClaim) ===
+              normalized(model.directAnswer) ? null : (
               <p>{team.strongestClaim}</p>
             )}
             <p>{team.evidence}</p>
@@ -190,72 +197,72 @@ export function ResearchFileDebate({
         ))}
       </section>
       {departmentId !== undefined && departmentReview.length === 0 ? null : (
-      <section className="research-chair-ruling">
-        <Image
-          className="research-team-portrait"
-          src={`/research/office-v7/portraits/${departmentId ?? "chair"}.png`}
-          alt=""
-          width={88}
-          height={88}
-        />
-        <div>
-          <span>
-            {departmentId === undefined
-              ? ko
-                ? "의장 최종 종합"
-                : "Chair synthesis"
-              : ko
-                ? "팀 리드 최종 합의"
-                : "Team lead consolidation"}
-          </span>
-          {departmentId === undefined ? <h3>{model.directAnswer}</h3> : null}
-        </div>
-        <dl>
-          {departmentId === undefined ? (
-          <>
+        <section className="research-chair-ruling">
+          <Image
+            className="research-team-portrait"
+            src={`/research/office-v7/portraits/${departmentId ?? "chair"}.png`}
+            alt=""
+            width={88}
+            height={88}
+          />
           <div>
-            <dt>
+            <span>
               {departmentId === undefined
                 ? ko
-                  ? "초기 판단"
-                  : "Initial view"
+                  ? "의장 최종 종합"
+                  : "Chair synthesis"
                 : ko
-                  ? "독립 검토"
-                  : "Independent review"}
-            </dt>
-            <dd>{model.initialView}</dd>
+                  ? "팀 리드 최종 합의"
+                  : "Team lead consolidation"}
+            </span>
+            {departmentId === undefined ? <h3>{model.directAnswer}</h3> : null}
           </div>
-          <div>
-            <dt>
-              {departmentId === undefined
-                ? ko
-                  ? "토론 후 판단"
-                  : "Post-debate view"
-                : ko
-                  ? "합의 후 결론"
-                  : "Consolidated view"}
-            </dt>
-            <dd>{model.finalView}</dd>
-          </div>
-          <div>
-            <dt>{ko ? "채택된 핵심 주장" : "Accepted claims"}</dt>
-            <dd>{model.acceptedClaims.slice(0, 3).join(" · ")}</dd>
-          </div>
-          <div>
-            <dt>{ko ? "보존된 이견" : "Preserved dissent"}</dt>
-            <dd>{model.preservedDissent.slice(0, 3).join(" · ")}</dd>
-          </div>
-          </>
-          ) : (
-            departmentReview.map((row) => (
-              <div key={`${row.label}-${row.value}`}>
-                <dt>{row.label}</dt>
-                <dd>{row.value}</dd>
-              </div>
-            ))
-          )}
-        </dl>
-      </section>
+          <dl>
+            {departmentId === undefined ? (
+              <>
+                <div>
+                  <dt>
+                    {departmentId === undefined
+                      ? ko
+                        ? "초기 판단"
+                        : "Initial view"
+                      : ko
+                        ? "독립 검토"
+                        : "Independent review"}
+                  </dt>
+                  <dd>{model.initialView}</dd>
+                </div>
+                <div>
+                  <dt>
+                    {departmentId === undefined
+                      ? ko
+                        ? "토론 후 판단"
+                        : "Post-debate view"
+                      : ko
+                        ? "합의 후 결론"
+                        : "Consolidated view"}
+                  </dt>
+                  <dd>{model.finalView}</dd>
+                </div>
+                <div>
+                  <dt>{ko ? "채택된 핵심 주장" : "Accepted claims"}</dt>
+                  <dd>{model.acceptedClaims.slice(0, 3).join(" · ")}</dd>
+                </div>
+                <div>
+                  <dt>{ko ? "보존된 이견" : "Preserved dissent"}</dt>
+                  <dd>{model.preservedDissent.slice(0, 3).join(" · ")}</dd>
+                </div>
+              </>
+            ) : (
+              departmentReview.map((row) => (
+                <div key={`${row.label}-${row.value}`}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </div>
+              ))
+            )}
+          </dl>
+        </section>
       )}
     </section>
   );

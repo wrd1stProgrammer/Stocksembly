@@ -555,7 +555,9 @@ describe("leased research worker", () => {
     try {
       await engine.poll();
 
-      expect(fixture.eventPayload(seed.runId, "attempt_committed")).toMatchObject({
+      expect(
+        fixture.eventPayload(seed.runId, "attempt_committed"),
+      ).toMatchObject({
         classification: "transient",
         code: "codex_isolation_temporarily_unavailable",
         readiness: { check: "login", reason: "login_probe" },

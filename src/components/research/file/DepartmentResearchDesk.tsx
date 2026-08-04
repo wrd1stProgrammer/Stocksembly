@@ -18,22 +18,47 @@ type DeskClaim = {
 };
 
 const ROLE_COPY: Readonly<
-  Record<string, { readonly name: string; readonly en: string; readonly ko: string }>
+  Record<
+    string,
+    { readonly name: string; readonly en: string; readonly ko: string }
+  >
 > = {
   market: { name: "Maya", en: "Market lead", ko: "시장 책임" },
   market_news: { name: "June", en: "Technical analyst", ko: "기술적 분석" },
-  benchmark: { name: "Alex", en: "Cross-asset analyst", ko: "상대가치·크로스에셋" },
+  benchmark: {
+    name: "Alex",
+    en: "Cross-asset analyst",
+    ko: "상대가치·크로스에셋",
+  },
   company: { name: "Ethan", en: "Company lead", ko: "기업 책임" },
-  company_product: { name: "Aria", en: "Product analyst", ko: "제품·채택 분석" },
-  company_competition: { name: "Leo", en: "Competitive intelligence", ko: "경쟁정보 분석" },
+  company_product: {
+    name: "Aria",
+    en: "Product analyst",
+    ko: "제품·채택 분석",
+  },
+  company_competition: {
+    name: "Leo",
+    en: "Competitive intelligence",
+    ko: "경쟁정보 분석",
+  },
   financial: { name: "Noah", en: "Financial lead", ko: "재무 책임" },
   valuation: { name: "Sofia", en: "Valuation analyst", ko: "가치평가 분석" },
-  financial_quality: { name: "Hana", en: "Earnings-quality analyst", ko: "이익의 질 분석" },
+  financial_quality: {
+    name: "Hana",
+    en: "Earnings-quality analyst",
+    ko: "이익의 질 분석",
+  },
   risk: { name: "Liam", en: "Risk lead", ko: "리스크 책임" },
-  risk_policy: { name: "Min", en: "Policy & scenario analyst", ko: "정책·시나리오 분석" },
+  risk_policy: {
+    name: "Min",
+    en: "Policy & scenario analyst",
+    ko: "정책·시나리오 분석",
+  },
 };
 
-const DIMENSION_COPY: Readonly<Record<string, { readonly en: string; readonly ko: string }>> = {
+const DIMENSION_COPY: Readonly<
+  Record<string, { readonly en: string; readonly ko: string }>
+> = {
   regime: { en: "Market regime", ko: "시장 국면" },
   timing: { en: "Entry timing", ko: "진입 타이밍" },
   relative_performance: { en: "Relative performance", ko: "상대 성과" },
@@ -51,7 +76,9 @@ const DIMENSION_COPY: Readonly<Record<string, { readonly en: string; readonly ko
   mitigant: { en: "Risk buffer", ko: "완충 요인" },
 };
 
-const DEPARTMENT_ROLES: Readonly<Record<WorkflowDepartmentId, readonly string[]>> = {
+const DEPARTMENT_ROLES: Readonly<
+  Record<WorkflowDepartmentId, readonly string[]>
+> = {
   market: ["market", "market_news", "benchmark"],
   company: ["company", "company_product", "company_competition"],
   financial: ["financial", "valuation", "financial_quality"],
@@ -154,7 +181,9 @@ export function DepartmentResearchDesk({
     const roleClaims = claims.filter((claim) => claim.roleOwner === roleId);
     return roleClaims.length === 0 ? [] : [{ roleId, claims: roleClaims }];
   });
-  const team = file.teamViews.find((view) => view.departmentId === departmentId);
+  const team = file.teamViews.find(
+    (view) => view.departmentId === departmentId,
+  );
   const decision = model.structuredDecision;
   const directAnswerFingerprint = normalize(model.directAnswer);
   const firstDistinct = (...values: readonly (string | undefined)[]): string =>
@@ -216,7 +245,10 @@ export function DepartmentResearchDesk({
                 : "Each specialist owns a distinct decision lens, evidence read, and reversal condition."}
             </p>
           </header>
-          <div className={styles["agentGrid"]} data-agent-count={grouped.length}>
+          <div
+            className={styles["agentGrid"]}
+            data-agent-count={grouped.length}
+          >
             {grouped.map(({ roleId, claims: roleClaims }) => {
               const role = ROLE_COPY[roleId] ?? {
                 name: workflowRoleById(roleId)?.name ?? roleId,
@@ -256,7 +288,8 @@ export function DepartmentResearchDesk({
                           </small>
                         </div>
                         <strong>{claim.thesis}</strong>
-                        {claim.falsifier.trim() === claim.thesis.trim() ? null : (
+                        {claim.falsifier.trim() ===
+                        claim.thesis.trim() ? null : (
                           <p>
                             <b>{ko ? "반전 조건" : "Reversal"}</b>
                             {claim.falsifier}
@@ -289,7 +322,11 @@ export function DepartmentResearchDesk({
             <span>{ko ? "투자 판단 보드" : "INVESTMENT DECISION BOARD"}</span>
             <h2>{stanceLabel(decision?.stance, locale)}</h2>
           </div>
-          <p>{ko ? "결론보다 조건을 먼저 확인합니다." : "Read the conditions before the conclusion."}</p>
+          <p>
+            {ko
+              ? "결론보다 조건을 먼저 확인합니다."
+              : "Read the conditions before the conclusion."}
+          </p>
         </header>
         <div className={styles["decisionGrid"]}>
           {decisionRows.map((row, index) => (

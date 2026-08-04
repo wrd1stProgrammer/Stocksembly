@@ -783,9 +783,9 @@ describe("persisted anticipated Q&A selection", () => {
     expect(
       selected.questions.slice(0, 4).map((question) => question.decisionKey),
     ).toContain("strongest_countercase");
-    expect(selected.questions.map((question) => question.decisionKey)).toContain(
-      "consensus_price_gap",
-    );
+    expect(
+      selected.questions.map((question) => question.decisionKey),
+    ).toContain("consensus_price_gap");
     expect(
       selected.questions.find(
         (question) => question.decisionKey === "consensus_price_gap",

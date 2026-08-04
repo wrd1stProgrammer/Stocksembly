@@ -17,7 +17,7 @@
 .decisionHeader span,
 .arbitration > span {
   color: var(--editorial-accent);
-  font: 780 0.67rem/1.2 var(--font-mono, monospace);
+  font: 780 0.67rem / 1.2 var(--font-mono, monospace);
   letter-spacing: 0.08em;
 }
 
@@ -271,7 +271,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .agentGrid[data-agent-count="3"] .agentMemo:first-child li:last-child:nth-child(odd) {
+  .agentGrid[data-agent-count="3"]
+    .agentMemo:first-child
+    li:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
 }

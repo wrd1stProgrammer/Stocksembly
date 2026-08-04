@@ -102,7 +102,8 @@ export function selectFinancialDiagnostics(
   file: Pick<ResearchFileData, "metricSnapshot">,
 ): readonly FinancialDiagnostic[] {
   const metrics = file.metricSnapshot?.metrics ?? [];
-  const latest = (id: string) => [...metrics].reverse().find((metric) => metric.id === id);
+  const latest = (id: string) =>
+    [...metrics].reverse().find((metric) => metric.id === id);
   const revenue = latest("revenue_ttm");
   const freeCashFlow = latest("free_cash_flow");
   const capex = latest("capital_expenditures");
@@ -110,7 +111,11 @@ export function selectFinancialDiagnostics(
   const operatingMargin = latest("operating_margin");
   const forwardPe = latest("forward_pe") ?? latest("pe");
   const diagnostics: FinancialDiagnostic[] = [];
-  if (revenue !== undefined && revenue.value !== 0 && freeCashFlow !== undefined)
+  if (
+    revenue !== undefined &&
+    revenue.value !== 0 &&
+    freeCashFlow !== undefined
+  )
     diagnostics.push({
       id: "free-cash-flow-margin",
       label: { en: "FCF / revenue", ko: "매출 대비 잉여현금" },
@@ -138,7 +143,10 @@ export function selectFinancialDiagnostics(
     diagnostics.push({
       id: "operating-capture",
       label: { en: "Gross-to-operating capture", ko: "총마진의 영업이익 전환" },
-      value: grossMargin.value === 0 ? 0 : (operatingMargin.value / grossMargin.value) * 100,
+      value:
+        grossMargin.value === 0
+          ? 0
+          : (operatingMargin.value / grossMargin.value) * 100,
       unit: "percent",
       sourceIds: [grossMargin.source, operatingMargin.source],
       interpretation: {

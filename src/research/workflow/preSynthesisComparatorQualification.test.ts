@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { qualifyComparatorsBeforeSynthesis } from "./preSynthesisComparatorQualification";
-import { permittedSpecialistInlineArtifact } from "./specialistRoundSqliteStage";
 import { isSpecialistAttemptReadableSource } from "./specialistRoundSqliteHandler";
+import { permittedSpecialistInlineArtifact } from "./specialistRoundSqliteStage";
 
 const peerEvidence = {
   providerUpdatedAt: "2026-07-30T00:00:00.000Z",
@@ -100,7 +100,9 @@ describe("pre-synthesis comparator qualification", () => {
         },
       },
     });
-    expect(JSON.stringify(sources.map((source) => [...source.bytes]))).toBe(before);
+    expect(JSON.stringify(sources.map((source) => [...source.bytes]))).toBe(
+      before,
+    );
   });
 
   it("returns a typed no-data state for malformed sealed peer bytes", () => {

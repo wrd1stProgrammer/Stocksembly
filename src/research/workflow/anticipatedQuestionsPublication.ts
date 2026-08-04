@@ -746,9 +746,10 @@ export function selectGroundedAnticipatedQuestions(
       )
     )
       continue;
-    const calculatedCandidate = /(?:consensus_price_gap|implied_forward_earnings_multiple|forward_revenue_expectation|free_cash_flow_conversion|capital_intensity|qualified_peer_premium|consensus_positioning)/u.test(
-      candidate.decisionKey,
-    );
+    const calculatedCandidate =
+      /(?:consensus_price_gap|implied_forward_earnings_multiple|forward_revenue_expectation|free_cash_flow_conversion|capital_intensity|qualified_peer_premium|consensus_positioning)/u.test(
+        candidate.decisionKey,
+      );
     if (
       selected.some(
         (question) =>

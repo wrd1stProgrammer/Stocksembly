@@ -548,7 +548,8 @@ export function createInsightSentryPeerScreen(input: {
           tickerFromCode(candidate.symbol_code) === requestedSymbol ||
           candidate.symbol_code.toUpperCase() === requestedSymbol,
       );
-      if (row === undefined || row.symbol_code === target.symbol_code) return [];
+      if (row === undefined || row.symbol_code === target.symbol_code)
+        return [];
       const scored = scoredCandidate(target, row, normalizedAnnualText);
       return [
         {

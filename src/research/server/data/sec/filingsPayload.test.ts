@@ -9,10 +9,7 @@ describe("SEC submissions registration filing dates", () => {
         name: "SPACE EXPLORATION TECHNOLOGIES CORP",
         filings: {
           recent: {
-            accessionNumber: [
-              "0001628280-26-036964",
-              "0001628280-26-042639",
-            ],
+            accessionNumber: ["0001628280-26-036964", "0001628280-26-042639"],
             form: ["S-1", "424B4"],
             filingDate: ["2026-05-20", "2026-06-12"],
             acceptanceDateTime: [
@@ -44,10 +41,7 @@ describe("SEC submissions registration filing dates", () => {
         name: "Coca-Cola Consolidated, Inc.",
         filings: {
           recent: {
-            accessionNumber: [
-              "0000317540-26-000001",
-              "0000317540-01-000001",
-            ],
+            accessionNumber: ["0000317540-26-000001", "0000317540-01-000001"],
             form: ["10-Q", "4"],
             filingDate: ["2026-05-01", "2001-01-02"],
             acceptanceDateTime: [

@@ -420,10 +420,7 @@ export function CommitteeDecisionCockpit({
                   {keyMetrics.map((metric) => (
                     <div key={metric.id}>
                       <dt>
-                        <span
-                          className="committee-cockpit__metric-help"
-                          tabIndex={0}
-                        >
+                        <span className="committee-cockpit__metric-help">
                           {metric.label}
                           <i aria-hidden="true">?</i>
                           {metricDescription(metric.id, locale) ===

@@ -4,13 +4,10 @@ import {
   ReportIdSchema,
   ReportVersionIdSchema,
 } from "../domain/ids";
-import { WorkflowV2ResearchReportSchema, type WorkflowV2ResearchReport } from "../domain/report";
 import {
-  deterministicMetadataRewrite,
-  evaluatePrePublicationEditorialGate,
-  gateWithOneTargetedRewrite,
-  type PrePublicationEditorialEnvelope,
-} from "../workflow/prePublicationEditorialGate";
+  type WorkflowV2ResearchReport,
+  WorkflowV2ResearchReportSchema,
+} from "../domain/report";
 import { singleLocaleReportForStorage } from "../domain/reportStorage";
 import {
   type ArtifactCasPort,
@@ -18,6 +15,12 @@ import {
   ArtifactDigestSchema,
 } from "../ports/artifacts";
 import type { ReportVersionWrite } from "../ports/reportVersions";
+import {
+  deterministicMetadataRewrite,
+  evaluatePrePublicationEditorialGate,
+  gateWithOneTargetedRewrite,
+  type PrePublicationEditorialEnvelope,
+} from "../workflow/prePublicationEditorialGate";
 import { assembleReport } from "./assembleReport";
 import type { AssemblyInput } from "./assembleReportContracts";
 
@@ -74,9 +77,9 @@ export async function persistAuthoritativeReport(
       if (options.reserveEditorialRewrite?.(hashCanonical(request)) === false)
         return assembled.editorialPublication.candidate;
       return deterministicMetadataRewrite(
-          assembled.editorialPublication.candidate,
-          request,
-        );
+        assembled.editorialPublication.candidate,
+        request,
+      );
     },
   );
   const savedEditorialPublication = options.savedEditorialPublication;

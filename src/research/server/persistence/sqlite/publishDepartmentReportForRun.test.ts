@@ -3,16 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, expect, it } from "vitest";
-import { parseStoredResearchReportVersioned } from "../../../domain/reportStorage";
 import { normalizeEditorialText } from "../../../domain/editorialQuality";
 import {
   ArtifactIdSchema,
   RunIdSchema,
   SnapshotIdSchema,
 } from "../../../domain/ids";
+import { parseStoredResearchReportVersioned } from "../../../domain/reportStorage";
+import { ArtifactDigestSchema } from "../../../ports/artifacts";
 import { createSqliteDepartmentRound } from "../../../workflow/departmentRound";
 import { stageAcceptedSpecialists } from "../../../workflow/departmentRound.testSupport";
-import { ArtifactDigestSchema } from "../../../ports/artifacts";
 import {
   parseDepartmentMarketSnapshot,
   publishDepartmentReportForRun,
@@ -143,7 +143,9 @@ it("publishes accepted/revised/removed adjudication without resurrecting removed
   const runId = prepared.harness.input.mandate.runId;
   await round.stage({
     runId: RunIdSchema.parse(runId),
-    memberArtifactIds: round.acceptedMemos(runId).map((memo) => memo.artifactId),
+    memberArtifactIds: round
+      .acceptedMemos(runId)
+      .map((memo) => memo.artifactId),
   });
   const replay = await round.drain(runId);
   await round.close();
@@ -181,12 +183,19 @@ it("publishes accepted/revised/removed adjudication without resurrecting removed
   const raw = new TextDecoder().decode(stored?.bytes);
   const report = parseStoredResearchReportVersioned(JSON.parse(raw));
   expect(report.schemaVersion).toBe("workflow-v2");
-  if (report.schemaVersion !== "workflow-v2") throw new TypeError("missing v2 report");
+  if (report.schemaVersion !== "workflow-v2")
+    throw new TypeError("missing v2 report");
   expect(report.anticipatedQuestions.length).toBeGreaterThan(0);
   expect(report.anticipatedQuestions.length).toBeLessThanOrEqual(10);
-  const persistedDatabase = new Database(prepared.options.databasePath, { readonly: true });
+  const persistedDatabase = new Database(prepared.options.databasePath, {
+    readonly: true,
+  });
   const persistedPayload = JSON.parse(
-    (persistedDatabase.prepare("SELECT public_payload_json AS payload FROM report_versions").get() as { payload: string }).payload,
+    (
+      persistedDatabase
+        .prepare("SELECT public_payload_json AS payload FROM report_versions")
+        .get() as { payload: string }
+    ).payload,
   );
   persistedDatabase.close();
   expect(persistedPayload).toMatchObject({
@@ -230,14 +239,20 @@ it("publishes accepted/revised/removed adjudication without resurrecting removed
   expect(report.claims.every((claim) => claim.checkpoint !== undefined)).toBe(
     true,
   );
-  expect(
-    new Set(report.claims.map((claim) => claim.checkpoint?.en)).size,
-  ).toBe(report.claims.length);
+  expect(new Set(report.claims.map((claim) => claim.checkpoint?.en)).size).toBe(
+    report.claims.length,
+  );
   expect(report.teamViews[0]?.position).not.toEqual(
     report.teamViews[0]?.rationale,
   );
-  expect(report.locales.en.unknowns.every((item) => item.impact !== item.nextEvidence)).toBe(true);
-  expect(JSON.stringify(report.locales)).not.toContain(removed.publicSummary.en);
+  expect(
+    report.locales.en.unknowns.every(
+      (item) => item.impact !== item.nextEvidence,
+    ),
+  ).toBe(true);
+  expect(JSON.stringify(report.locales)).not.toContain(
+    removed.publicSummary.en,
+  );
   expect(
     report.locales.en.sections.every(
       (section) => !section.claimIds.includes(removed.claimId),
@@ -278,7 +293,10 @@ it.each(["market", "company", "financial", "risk"] as const)(
     );
 
     const result = await publishDepartmentReportForRun(
-      { databasePath: prepared.options.databasePath, cas: prepared.options.cas },
+      {
+        databasePath: prepared.options.databasePath,
+        cas: prepared.options.cas,
+      },
       runId,
     );
     if (result.kind === "incomplete") throw new Error(result.reason);
@@ -342,9 +360,9 @@ it.each(["market", "company", "financial", "risk"] as const)(
         (section) => !section.claimIds.includes(revisedOrigin),
       ),
     ).toBe(true);
-    expect(
-      normalizeEditorialText(report.teamViews[0]!.position.en),
-    ).not.toBe(normalizeEditorialText(report.teamViews[0]!.rationale.en));
+    expect(normalizeEditorialText(report.teamViews[0]!.position.en)).not.toBe(
+      normalizeEditorialText(report.teamViews[0]!.rationale.en),
+    );
     expect(
       report.locales.en.unknowns.every(
         (unknown) =>
@@ -377,7 +395,9 @@ it("publishes a revised strongest claim through its origin disposition", async (
   const runId = prepared.harness.input.mandate.runId;
   await round.stage({
     runId: RunIdSchema.parse(runId),
-    memberArtifactIds: round.acceptedMemos(runId).map((memo) => memo.artifactId),
+    memberArtifactIds: round
+      .acceptedMemos(runId)
+      .map((memo) => memo.artifactId),
   });
   await round.drain(runId);
   await round.close();
@@ -438,7 +458,9 @@ it("fails closed when the lead position is reused as its rationale", async () =>
   const runId = prepared.harness.input.mandate.runId;
   await round.stage({
     runId: RunIdSchema.parse(runId),
-    memberArtifactIds: round.acceptedMemos(runId).map((memo) => memo.artifactId),
+    memberArtifactIds: round
+      .acceptedMemos(runId)
+      .map((memo) => memo.artifactId),
   });
   await round.drain(runId);
   await round.close();
@@ -447,17 +469,15 @@ it("fails closed when the lead position is reused as its rationale", async () =>
     .prepare(
       "INSERT INTO research_requests(run_id, principal_id, symbol, question, locale, request_hash, created_at, research_kind, department_id) VALUES (?, ?, 'TSLA', 'Evaluate market evidence', 'en', ?, ?, 'department', 'market')",
     )
-    .run(
-      runId,
-      "a".repeat(64),
-      "b".repeat(64),
-      "2026-07-23T00:00:00.000Z",
-    );
+    .run(runId, "a".repeat(64), "b".repeat(64), "2026-07-23T00:00:00.000Z");
   database.close();
 
   await expect(
     publishDepartmentReportForRun(
-      { databasePath: prepared.options.databasePath, cas: prepared.options.cas },
+      {
+        databasePath: prepared.options.databasePath,
+        cas: prepared.options.cas,
+      },
       runId,
     ),
   ).resolves.toEqual({
@@ -467,7 +487,9 @@ it("fails closed when the lead position is reused as its rationale", async () =>
 });
 
 it("fails closed when lead position and rationale normalize to the same text", async () => {
-  const root = mkdtempSync(join(tmpdir(), "department-publication-normalized-"));
+  const root = mkdtempSync(
+    join(tmpdir(), "department-publication-normalized-"),
+  );
   roots.push(root);
   const prepared = await stageAcceptedSpecialists(
     root,
@@ -477,7 +499,9 @@ it("fails closed when lead position and rationale normalize to the same text", a
   const runId = prepared.harness.input.mandate.runId;
   await round.stage({
     runId: RunIdSchema.parse(runId),
-    memberArtifactIds: round.acceptedMemos(runId).map((memo) => memo.artifactId),
+    memberArtifactIds: round
+      .acceptedMemos(runId)
+      .map((memo) => memo.artifactId),
   });
   await round.drain(runId);
   await round.close();
@@ -486,17 +510,15 @@ it("fails closed when lead position and rationale normalize to the same text", a
     .prepare(
       "INSERT INTO research_requests(run_id, principal_id, symbol, question, locale, request_hash, created_at, research_kind, department_id) VALUES (?, ?, 'TSLA', 'Evaluate market evidence', 'en', ?, ?, 'department', 'market')",
     )
-    .run(
-      runId,
-      "a".repeat(64),
-      "b".repeat(64),
-      "2026-07-23T00:00:00.000Z",
-    );
+    .run(runId, "a".repeat(64), "b".repeat(64), "2026-07-23T00:00:00.000Z");
   database.close();
 
   await expect(
     publishDepartmentReportForRun(
-      { databasePath: prepared.options.databasePath, cas: prepared.options.cas },
+      {
+        databasePath: prepared.options.databasePath,
+        cas: prepared.options.cas,
+      },
       runId,
     ),
   ).resolves.toEqual({

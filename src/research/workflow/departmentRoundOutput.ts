@@ -20,7 +20,10 @@ function publicTexts(candidate: DepartmentCandidate): readonly string[] {
       item.publicSummary.ko,
     ]),
     ...candidate.openQuestions.flatMap((item) => [item.en, item.ko]),
-    ...candidate.dispositions.flatMap((item) => [item.reason.en, item.reason.ko]),
+    ...candidate.dispositions.flatMap((item) => [
+      item.reason.en,
+      item.reason.ko,
+    ]),
     ...candidate.revisions.flatMap((item) => [
       item.publicSummary.en,
       item.publicSummary.ko,
@@ -210,7 +213,9 @@ export function inspectDepartmentCandidate(
   );
   const positionsByClaim = new Map(
     request.memberArtifacts.flatMap((member) =>
-      member.memo.positions.map((position) => [position.claimId, position] as const),
+      member.memo.positions.map(
+        (position) => [position.claimId, position] as const,
+      ),
     ),
   );
   if (
@@ -246,12 +251,18 @@ export function inspectDepartmentCandidate(
     const summary = positionSummaries.get(claimId);
     return summary === undefined
       ? []
-      : [normalizeEditorialText(summary.en), normalizeEditorialText(summary.ko)];
+      : [
+          normalizeEditorialText(summary.en),
+          normalizeEditorialText(summary.ko),
+        ];
   });
   const retainedPublicTexts = [
     candidate.publicSummary.en,
     candidate.publicSummary.ko,
-    ...candidate.openQuestions.flatMap((question) => [question.en, question.ko]),
+    ...candidate.openQuestions.flatMap((question) => [
+      question.en,
+      question.ko,
+    ]),
     ...candidate.dissent.flatMap((item) => [
       item.publicSummary.en,
       item.publicSummary.ko,
@@ -266,7 +277,9 @@ export function inspectDepartmentCandidate(
   if (candidate.revisions.length !== revisedOriginClaimIds.length)
     return undefined;
   const revisionsByOrigin = new Map(
-    candidate.revisions.map((revision) => [revision.originClaimId, revision] as const),
+    candidate.revisions.map(
+      (revision) => [revision.originClaimId, revision] as const,
+    ),
   );
   if (
     revisionsByOrigin.size !== candidate.revisions.length ||
@@ -367,7 +380,9 @@ export function inspectDepartmentCandidate(
   ]);
   if (survivorIds.size === 0) return undefined;
   const survivorFalsifiers = [
-    ...acceptedClaimIds.map((claimId) => positionsByClaim.get(claimId)?.falsifier),
+    ...acceptedClaimIds.map(
+      (claimId) => positionsByClaim.get(claimId)?.falsifier,
+    ),
     ...canonicalRevisions.map((revision) => revision?.falsifier),
   ];
   if (survivorFalsifiers.some((falsifier) => falsifier === undefined))

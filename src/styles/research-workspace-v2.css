@@ -8256,10 +8256,7 @@
   }
 
   .research-editorial-document
-    > :is(
-      .research-editorial-section,
-      .committee-cockpit
-    ) {
+    > :is(.research-editorial-section, .committee-cockpit) {
     break-before: page;
     page-break-before: always;
   }
@@ -8329,8 +8326,7 @@
     page-break-inside: avoid;
   }
 
-  details[data-committee-sources]
-    > .research-source-register__collapsible {
+  details[data-committee-sources] > .research-source-register__collapsible {
     display: block !important;
   }
 
@@ -8711,7 +8707,9 @@
 
 .research-team-qa-list article header span {
   color: var(--editorial-accent);
-  font: 800 12px var(--font-geist-mono), monospace;
+  font:
+    800 12px var(--font-geist-mono),
+    monospace;
   letter-spacing: 0.12em;
 }
 

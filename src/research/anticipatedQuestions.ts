@@ -190,7 +190,9 @@ function metricAnswerById(
   ...ids: readonly string[]
 ): LocalizedText | undefined {
   const metric = ids
-    .map((id) => file.metricSnapshot?.metrics.find((candidate) => candidate.id === id))
+    .map((id) =>
+      file.metricSnapshot?.metrics.find((candidate) => candidate.id === id),
+    )
     .find((candidate) => candidate !== undefined);
   return metric === undefined ? undefined : formatMetric(metric);
 }
@@ -338,20 +340,32 @@ export function buildAnticipatedQuestions(
             metricAnswerById(file, "pe", "forward_pe") ?? file.valuation,
             metricAnswerById(file, "peer_premium:pe") ?? file.expectation,
           ),
-          combineAnswers(file.expectation, analysisAnswer(file, 3) ?? objection),
+          combineAnswers(
+            file.expectation,
+            analysisAnswer(file, 3) ?? objection,
+          ),
           combineAnswers(file.nextEvent, analysisAnswer(file, 5) ?? strongest),
-          combineAnswers(file.changeCondition, analysisAnswer(file, 2) ?? objection),
+          combineAnswers(
+            file.changeCondition,
+            analysisAnswer(file, 2) ?? objection,
+          ),
         ]
       : department === "company"
         ? [
             analysisAnswer(file, 0) ?? teamView?.position ?? file.thesis,
             combineAnswers(
-              metricAnswerById(file, "segment_share:data_center") ?? file.thesis,
+              metricAnswerById(file, "segment_share:data_center") ??
+                file.thesis,
               analysisAnswer(file, 3) ?? strongest,
             ),
-            combineAnswers(file.expectation, analysisAnswer(file, 0) ?? strongest),
+            combineAnswers(
+              file.expectation,
+              analysisAnswer(file, 0) ?? strongest,
+            ),
             analysisAnswer(file, 4) ?? objection,
-            analysisAnswer(file, 2) ?? analysisAnswer(file, 5) ?? file.nextEvent,
+            analysisAnswer(file, 2) ??
+              analysisAnswer(file, 5) ??
+              file.nextEvent,
             file.changeCondition,
           ]
         : department === "financial"
@@ -361,15 +375,20 @@ export function buildAnticipatedQuestions(
                 analysisAnswer(file, 1) ?? file.expectation,
               ),
               combineAnswers(
-                metricAnswerById(file, "gross_margin", "operating_margin") ?? file.expectation,
+                metricAnswerById(file, "gross_margin", "operating_margin") ??
+                  file.expectation,
                 analysisAnswer(file, 3) ?? strongest,
               ),
               combineAnswers(
                 metricAnswerById(file, "free_cash_flow") ?? strongest,
-                metricAnswerById(file, "revenue_ttm") ?? analysisAnswer(file, 1) ?? strongest,
+                metricAnswerById(file, "revenue_ttm") ??
+                  analysisAnswer(file, 1) ??
+                  strongest,
               ),
               combineAnswers(
-                metricAnswerById(file, "cash") ?? teamView?.position ?? file.thesis,
+                metricAnswerById(file, "cash") ??
+                  teamView?.position ??
+                  file.thesis,
                 metricAnswerById(file, "net_debt") ?? file.expectation,
               ),
               analysisAnswer(file, 5) ?? file.valuation,
@@ -385,9 +404,14 @@ export function buildAnticipatedQuestions(
               ),
               combineAnswers(
                 metricAnswerById(file, "cash") ?? strongest,
-                analysisAnswer(file, 4) ?? teamView?.rationale ?? file.expectation,
+                analysisAnswer(file, 4) ??
+                  teamView?.rationale ??
+                  file.expectation,
               ),
-              combineAnswers(file.changeCondition, analysisAnswer(file, 5) ?? objection),
+              combineAnswers(
+                file.changeCondition,
+                analysisAnswer(file, 5) ?? objection,
+              ),
             ];
   return [
     ...tailored.map((question, index) =>

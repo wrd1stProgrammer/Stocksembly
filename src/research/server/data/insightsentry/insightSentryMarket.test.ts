@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { createInsightSentryMarket } from "./insightSentryMarket";
 import type {
   InsightSentryClient,
   InsightSentryRequest,
   InsightSentryResult,
 } from "./insightSentryTypes";
-import { createInsightSentryMarket } from "./insightSentryMarket";
 
 const retrievedAt = "2026-07-24T00:00:00.000Z";
 
@@ -13,7 +13,9 @@ function fixtureClient(payloads: readonly unknown[]): {
   readonly requests: {
     readonly endpoint: string;
     readonly pathSegments: readonly string[];
-    readonly parameters: Readonly<Record<string, string | number | boolean | readonly string[]>>;
+    readonly parameters: Readonly<
+      Record<string, string | number | boolean | readonly string[]>
+    >;
     readonly adjustmentFlags?: Readonly<Record<string, boolean>>;
     readonly cacheTtlMilliseconds: number;
   }[];
@@ -22,7 +24,9 @@ function fixtureClient(payloads: readonly unknown[]): {
   const requests: {
     readonly endpoint: string;
     readonly pathSegments: readonly string[];
-    readonly parameters: Readonly<Record<string, string | number | boolean | readonly string[]>>;
+    readonly parameters: Readonly<
+      Record<string, string | number | boolean | readonly string[]>
+    >;
     readonly adjustmentFlags?: Readonly<Record<string, boolean>>;
     readonly cacheTtlMilliseconds: number;
   }[] = [];
@@ -163,9 +167,30 @@ describe("InsightSentry market adapter", () => {
       _ct: 1_753_315_200_000,
       bar_type: "1h",
       series: [
-        { time: 1_753_308_000, open: 171, high: 173, low: 170, close: 172, volume: 8 },
-        { time: 1_753_304_400, open: 170, high: 172, low: 169, close: 171, volume: 7 },
-        { time: 1_753_308_000, open: 171, high: 173, low: 170, close: 172, volume: 8 },
+        {
+          time: 1_753_308_000,
+          open: 171,
+          high: 173,
+          low: 170,
+          close: 172,
+          volume: 8,
+        },
+        {
+          time: 1_753_304_400,
+          open: 170,
+          high: 172,
+          low: 169,
+          close: 171,
+          volume: 7,
+        },
+        {
+          time: 1_753_308_000,
+          open: 171,
+          high: 173,
+          low: 170,
+          close: 172,
+          volume: 8,
+        },
       ],
     };
     const fixture = fixtureClient([
@@ -278,7 +303,14 @@ describe("InsightSentry market adapter", () => {
         _ct: 1_753_315_200_000,
         bar_type: "1h",
         series: [
-          { time: 1_753_304_400, open: 170, high: 169, low: 168, close: 171, volume: 7 },
+          {
+            time: 1_753_304_400,
+            open: 170,
+            high: 169,
+            low: 168,
+            close: 171,
+            volume: 7,
+          },
         ],
       },
       {
@@ -287,7 +319,14 @@ describe("InsightSentry market adapter", () => {
         _ct: 1_753_315_200_000,
         bar_type: "4h",
         series: [
-          { time: 1_753_304_400, open: 170, high: 172, low: 168, close: 171, volume: 7 },
+          {
+            time: 1_753_304_400,
+            open: 170,
+            high: 172,
+            low: 168,
+            close: 171,
+            volume: 7,
+          },
         ],
       },
       {
@@ -296,7 +335,14 @@ describe("InsightSentry market adapter", () => {
         _ct: 1_753_315_200_000,
         bar_type: "day",
         series: [
-          { time: 1_753_304_400, open: 170, high: 172, low: 168, close: 171, volume: 7 },
+          {
+            time: 1_753_304_400,
+            open: 170,
+            high: 172,
+            low: 168,
+            close: 171,
+            volume: 7,
+          },
         ],
       },
     ]);
@@ -358,11 +404,9 @@ describe("InsightSentry market adapter", () => {
       marketState: "PRE",
       lastPrice: 172,
     });
-    expect(fixture.requests.map(({ cacheTtlMilliseconds }) => cacheTtlMilliseconds)).toEqual([
-      30 * 24 * 60 * 60 * 1_000,
-      7 * 24 * 60 * 60 * 1_000,
-      15_000,
-    ]);
+    expect(
+      fixture.requests.map(({ cacheTtlMilliseconds }) => cacheTtlMilliseconds),
+    ).toEqual([30 * 24 * 60 * 60 * 1_000, 7 * 24 * 60 * 60 * 1_000, 15_000]);
     expect(fixture.requests[2]?.adjustmentFlags).toEqual({
       split: true,
       dadj: false,

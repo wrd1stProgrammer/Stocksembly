@@ -103,11 +103,7 @@ function evidenceWindow(
     const score = tokens.reduce(
       (total, token) =>
         total +
-        (window.includes(token)
-          ? /\\d|[$%]/u.test(token)
-            ? 3
-            : 1
-          : 0),
+        (window.includes(token) ? (/\\d|[$%]/u.test(token) ? 3 : 1) : 0),
       0,
     );
     if (score > bestScore) {
@@ -117,10 +113,7 @@ function evidenceWindow(
   }
   return {
     start: bestStart,
-    text: exactText.slice(
-      bestStart,
-      bestStart + SEMANTIC_EVIDENCE_WINDOW,
-    ),
+    text: exactText.slice(bestStart, bestStart + SEMANTIC_EVIDENCE_WINDOW),
   };
 }
 
@@ -204,9 +197,9 @@ function sliceMatchesClaim(
   });
 }
 
-function uniqueClaimsById<
-  T extends { readonly claimId: string },
->(items: readonly T[]): readonly T[] {
+function uniqueClaimsById<T extends { readonly claimId: string }>(
+  items: readonly T[],
+): readonly T[] {
   const seen = new Set<string>();
   return items.filter((item) => {
     if (seen.has(item.claimId)) return false;
@@ -227,10 +220,7 @@ async function verifySlice(
   if (row.run_id !== input.runId || row.snapshot_id !== snapshotId)
     return "cross_run_or_snapshot_evidence";
   const stored = await readCas(cas, row.content_hash);
-  if (
-    stored === undefined ||
-    hashBytes(stored.bytes) !== row.content_hash
-  )
+  if (stored === undefined || hashBytes(stored.bytes) !== row.content_hash)
     return "evidence_content_mismatch";
   if (
     row.locator_json === null ||

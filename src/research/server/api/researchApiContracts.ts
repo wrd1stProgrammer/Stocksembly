@@ -7,13 +7,13 @@ import {
 } from "../../domain/ids";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../../domain/researchDirection";
 import {
-  COMMITTEE_RESEARCH_TARGET,
-  ResearchTargetSchema,
-} from "../../domain/researchTarget";
-import {
   DEFAULT_RESEARCH_PROFILE,
   ResearchProfileSchema,
 } from "../../domain/researchProfile";
+import {
+  COMMITTEE_RESEARCH_TARGET,
+  ResearchTargetSchema,
+} from "../../domain/researchTarget";
 import { RunStatusSchema } from "../../domain/runStateContracts";
 
 export const NormalizedResearchRequestSchema = z

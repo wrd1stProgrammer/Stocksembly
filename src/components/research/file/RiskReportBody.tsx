@@ -14,7 +14,9 @@ function formatRiskMetric(value: number, unit: string, locale: "en" | "ko") {
     const billions = value / 1_000_000_000;
     return `$${billions.toFixed(1)}B`;
   }
-  return new Intl.NumberFormat(locale === "ko" ? "ko-KR" : "en-US", { maximumFractionDigits: 1 }).format(value);
+  return new Intl.NumberFormat(locale === "ko" ? "ko-KR" : "en-US", {
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
@@ -30,9 +32,7 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
     .slice(0, 6);
   const impactLabel = (value: "high" | "moderate") =>
     ko ? (value === "high" ? "높음" : "중간") : value;
-  const observeLabel = (
-    value: "measurable" | "observable" | "limited",
-  ) =>
+  const observeLabel = (value: "measurable" | "observable" | "limited") =>
     ko
       ? value === "measurable"
         ? "수치 확인"
@@ -53,11 +53,19 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
         description={copy.primaryDescription}
       />
       {exposureMetrics.length === 0 ? null : (
-        <section className={styles["exposureTape"]} data-risk-exposure-count={exposureMetrics.length}>
+        <section
+          className={styles["exposureTape"]}
+          data-risk-exposure-count={exposureMetrics.length}
+        >
           {exposureMetrics.map((metric) => (
-            <article key={`${metric.id}:${metric.period ?? metric.observedAt}`} data-source-id={metric.source}>
+            <article
+              key={`${metric.id}:${metric.period ?? metric.observedAt}`}
+              data-source-id={metric.source}
+            >
               <span>{metric.label[locale]}</span>
-              <strong>{formatRiskMetric(metric.value, metric.unit, locale)}</strong>
+              <strong>
+                {formatRiskMetric(metric.value, metric.unit, locale)}
+              </strong>
               <small>{metric.period ?? metric.observedAt.slice(0, 10)}</small>
             </article>
           ))}
@@ -173,7 +181,9 @@ export function RiskReportFramework({
   const copy = departmentSectionCopy("risk", locale);
   const risks = rankStructuredRisks(file, locale);
   const mitigants = risks.filter((risk) => risk.dimension === "mitigant");
-  const indicators = risks.filter((risk) => risk.dimension === "leading_indicator");
+  const indicators = risks.filter(
+    (risk) => risk.dimension === "leading_indicator",
+  );
   const breaker = risks.find((risk) => risk.dimension === "downside_path");
   const scenarios = file.scenarios.slice(0, 3);
   return (
@@ -196,29 +206,38 @@ export function RiskReportFramework({
           <h3 id="escalation-title">
             {ko ? "증거 기반 단계 상향" : "Evidence-led escalation"}
           </h3>
-          {(indicators.length === 0 ? risks : indicators).slice(0, 4).map((risk, index) => (
-            <article
-              key={risk.claimId}
-              data-escalation-score={risk.priorityScore}
-            >
-              <span>{ko ? `${index + 1}단계` : `Level ${index + 1}`}</span>
-              <div>
-                <strong>{risk.indicator}</strong>
-                <small>
-                  {ko
-                    ? `우선순위 ${risk.priorityScore}/7`
-                    : `Priority ${risk.priorityScore}/7`}
-                </small>
-              </div>
-            </article>
-          ))}
+          {(indicators.length === 0 ? risks : indicators)
+            .slice(0, 4)
+            .map((risk, index) => (
+              <article
+                key={risk.claimId}
+                data-escalation-score={risk.priorityScore}
+              >
+                <span>{ko ? `${index + 1}단계` : `Level ${index + 1}`}</span>
+                <div>
+                  <strong>{risk.indicator}</strong>
+                  <small>
+                    {ko
+                      ? `우선순위 ${risk.priorityScore}/7`
+                      : `Priority ${risk.priorityScore}/7`}
+                  </small>
+                </div>
+              </article>
+            ))}
         </section>
       )}
       {scenarios.length === 0 ? null : (
-        <section className={styles["scenarios"]} data-risk-scenarios={scenarios.length}>
+        <section
+          className={styles["scenarios"]}
+          data-risk-scenarios={scenarios.length}
+        >
           <header>
             <span>{ko ? "하방 시나리오" : "DOWNSIDE SCENARIOS"}</span>
-            <h3>{ko ? "위험이 손익과 판단으로 전이되는 순서를 봅니다" : "Trace how risk reaches earnings and the investment call"}</h3>
+            <h3>
+              {ko
+                ? "위험이 손익과 판단으로 전이되는 순서를 봅니다"
+                : "Trace how risk reaches earnings and the investment call"}
+            </h3>
           </header>
           <div>
             {scenarios.map((scenario, index) => (
@@ -228,13 +247,19 @@ export function RiskReportFramework({
                   <h3>{scenario.label[locale]}</h3>
                   <strong>{scenario.thesis[locale]}</strong>
                   <ul>
-                    {scenario.assumptions.slice(0, 3).map((assumption, assumptionIndex) => (
-                      <li key={`${scenario.id}:${assumptionIndex}`}>
-                        {assumption.kind === "metric"
-                          ? `${assumption.metric[locale]} · ${assumption.displayValue[locale]}`
-                          : assumption.note[locale]}
-                      </li>
-                    ))}
+                    {scenario.assumptions.slice(0, 3).map((assumption) => {
+                      const assumptionKey =
+                        assumption.kind === "metric"
+                          ? `${assumption.kind}:${assumption.metric.en}:${assumption.displayValue.en}`
+                          : `${assumption.kind}:${assumption.note.en}`;
+                      return (
+                        <li key={`${scenario.id}:${assumptionKey}`}>
+                          {assumption.kind === "metric"
+                            ? `${assumption.metric[locale]} · ${assumption.displayValue[locale]}`
+                            : assumption.note[locale]}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </article>

@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
 import { rmSync } from "node:fs";
 import Database from "better-sqlite3";
-import { createRunFixture, temporaryDatabase } from "../server/persistence/sqlite/sqliteStore.contractFixtures";
+import { describe, expect, it } from "vitest";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
-import { reserveEditorialQualityRewrite, retryRejectedCommit } from "./specialistCommitRetry";
+import {
+  createRunFixture,
+  temporaryDatabase,
+} from "../server/persistence/sqlite/sqliteStore.contractFixtures";
+import {
+  reserveEditorialQualityRewrite,
+  retryRejectedCommit,
+} from "./specialistCommitRetry";
 
 describe("retryRejectedCommit", () => {
   it("retries a rejected specialist commit instead of losing a valid memo", async () => {
@@ -26,12 +32,13 @@ describe("retryRejectedCommit", () => {
     const run = createRunFixture(991);
     store.createRun(run);
     store.close();
-    const reserve = () => reserveEditorialQualityRewrite({
-      databasePath: temporary.path,
-      runId: run.runId,
-      inputHash: "a".repeat(64),
-      now: "2026-07-31T00:00:00.000Z",
-    });
+    const reserve = () =>
+      reserveEditorialQualityRewrite({
+        databasePath: temporary.path,
+        runId: run.runId,
+        inputHash: "a".repeat(64),
+        now: "2026-07-31T00:00:00.000Z",
+      });
 
     expect(reserve()).toBe(true);
     expect(reserve()).toBe(true);
@@ -44,10 +51,12 @@ describe("retryRejectedCommit", () => {
       }),
     ).toBe(false);
     const database = new Database(temporary.path, { readonly: true });
-    const state = database.prepare(`SELECT requested_replacement_calls AS budget,
+    const state = database
+      .prepare(`SELECT requested_replacement_calls AS budget,
       (SELECT COUNT(*) FROM idempotency_records
        WHERE scope = 'editorial-quality-rewrite') AS reservations
-      FROM runs WHERE run_id = ?`).get(run.runId);
+      FROM runs WHERE run_id = ?`)
+      .get(run.runId);
     database.close();
     expect(state).toEqual({ budget: 4, reservations: 1 });
     rmSync(temporary.directory, { recursive: true, force: true });

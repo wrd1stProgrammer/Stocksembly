@@ -120,12 +120,7 @@ export function ResearchFileSources({
                 <ol>
                   {group.sources.map((source) => (
                     <li key={`${group.number}-${source.id}`}>
-                      <strong
-                        title={source.id}
-                        aria-label={`${ko ? "출처 ID" : "Source ID"} ${source.id}`}
-                      >
-                        {source.id.slice(0, 8)}
-                      </strong>
+                      <strong title={source.id}>{source.id.slice(0, 8)}</strong>
                       <span>{source.publisher}</span>
                       <p>
                         {source.url === undefined ? (

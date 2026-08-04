@@ -1,11 +1,11 @@
+import type { z } from "zod";
+import type { AtomicEditorialClaimSchema } from "../domain/agentOutputs";
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
 } from "../domain/report";
-import type { z } from "zod";
-import type { AtomicEditorialClaimSchema } from "../domain/agentOutputs";
-import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
 import type { ResearchProfile } from "../domain/researchProfile";
+import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
 
 export type AssemblyInput = {
   readonly locale?: "en" | "ko";

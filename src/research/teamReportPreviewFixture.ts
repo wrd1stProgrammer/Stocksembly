@@ -1139,7 +1139,10 @@ function withStructuredTeamProductData(
       claimId: `00000000-0000-4000-8000-${String(500 + index + Object.keys(blueprints).indexOf(departmentId) * 10).padStart(12, "0")}`,
       decisionDimension,
       roleOwner,
-      stanceContribution: index === 5 || (departmentId === "risk" && index < 4) ? "opposes" : "supports",
+      stanceContribution:
+        index === 5 || (departmentId === "risk" && index < 4)
+          ? "opposes"
+          : "supports",
       materiality: index % 2 === 0 ? "material" : "supporting",
       publicThesis: text(
         `${analysis.summary.en} ${analysis.detail.en}`,
@@ -1151,7 +1154,8 @@ function withStructuredTeamProductData(
       falsifier:
         index === 5
           ? report.changeCondition
-          : report.concerns[index % report.concerns.length] ?? report.changeCondition,
+          : (report.concerns[index % report.concerns.length] ??
+            report.changeCondition),
     } as unknown as EditorialClaim;
   });
   if (claims.length === 0) return report;

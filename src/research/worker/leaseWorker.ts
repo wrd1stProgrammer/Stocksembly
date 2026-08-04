@@ -8,11 +8,11 @@ import {
   type OfficialAttemptHandlerOverrides,
 } from "../compositions/officialWorker";
 import type { ResearchWorkSignal } from "../ports/researchQueue";
-import { createLiveResearchQueue } from "../server/queue/sqsResearchQueue";
 import {
   runProductionCodexWorkerAdmission,
   runProductionReadinessDiagnostic,
 } from "../server/codex/codexRunner";
+import { createLiveResearchQueue } from "../server/queue/sqsResearchQueue";
 import { resumeCommitteeChair } from "./chairResume";
 import {
   type AttemptHandler,
@@ -53,7 +53,11 @@ type RuntimeWorkerArguments = {
   readonly kind: "runtime";
 } & (
   | {
-      readonly command: "serve" | "readiness" | "readiness-diagnostic" | "health";
+      readonly command:
+        | "serve"
+        | "readiness"
+        | "readiness-diagnostic"
+        | "health";
     }
   | {
       readonly command: "resume-chair";

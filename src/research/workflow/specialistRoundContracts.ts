@@ -3,7 +3,6 @@ import type { AllAgentAssignmentsV1 } from "../application/assignAllAgents";
 import type { EvidenceSliceV1 } from "../application/assignAllAgentsContracts";
 import type { SnapshotManifest } from "../application/buildSnapshot";
 import type { ResearchMandateV1 } from "../application/createMandateContracts";
-import type { PreSynthesisComparatorQualification } from "./preSynthesisComparatorQualification";
 import {
   BilingualPublicTextSchema,
   DissentListSchema,
@@ -22,13 +21,14 @@ import {
   type RunId,
   type SnapshotId,
 } from "../domain/ids";
+import type { ResearchProfile } from "../domain/researchProfile";
 import {
   EVIDENCE_NEEDS,
   type SpecialistRoleId,
   WORKFLOW_V1_SPECIALIST_IDS,
 } from "../domain/roleRegistry";
 import type { ValueRecord } from "../domain/valueRegistry";
-import type { ResearchProfile } from "../domain/researchProfile";
+import type { PreSynthesisComparatorQualification } from "./preSynthesisComparatorQualification";
 
 const EvidenceRefSchema = z
   .object({ evidenceId: z.string().min(1), contentHash: HashSchema })

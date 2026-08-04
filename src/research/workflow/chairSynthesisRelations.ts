@@ -11,13 +11,13 @@ import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import {
-  ChallengeJobPromptSchema,
-  PersistedChallengeJobSchema,
-} from "./challengeRoundContracts";
-import {
   type ChairArtifactRow,
   chairAgentPayload,
 } from "./chairSynthesisArtifacts";
+import {
+  ChallengeJobPromptSchema,
+  PersistedChallengeJobSchema,
+} from "./challengeRoundContracts";
 
 type Context = {
   readonly database: Database.Database;
@@ -93,7 +93,9 @@ export async function loadChairRelations(context: Context) {
     );
     const authenticatedRevisionIds = new Set(
       position.data.revisions
-        .filter((revision) => context.auditedClaimIds.has(revision.originClaimId))
+        .filter((revision) =>
+          context.auditedClaimIds.has(revision.originClaimId),
+        )
         .map((revision) => revision.adjudicatedClaimId),
     );
     positions.push({

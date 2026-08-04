@@ -356,9 +356,7 @@ describe("CommitteeReportSurface", () => {
     expect(
       container.querySelector("[data-cockpit-next-event]"),
     ).toHaveTextContent("Risk-specific falsifier");
-    expect(
-      container.querySelector("[data-operating-scenarios]"),
-    ).toBeVisible();
+    expect(container.querySelector("[data-operating-scenarios]")).toBeVisible();
     expect(
       container.querySelectorAll(
         "[data-operating-scenarios] .committee-operating-scenarios__grid > article",

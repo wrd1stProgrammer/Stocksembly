@@ -148,10 +148,7 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
     }
   }
 
-  releaseSystemCollectionReservation(
-    runId: string,
-    attemptId: string,
-  ): void {
+  releaseSystemCollectionReservation(runId: string, attemptId: string): void {
     this.#database.transaction(() => {
       const removed = this.#database
         .prepare(`DELETE FROM research_call_ordinals
@@ -211,7 +208,9 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
 
   inputHashForAttempt(attemptId: string): string | undefined {
     const row = this.#database
-      .prepare("SELECT input_hash AS inputHash FROM attempts WHERE attempt_id = ?")
+      .prepare(
+        "SELECT input_hash AS inputHash FROM attempts WHERE attempt_id = ?",
+      )
       .get(attemptId) as { readonly inputHash: string } | undefined;
     return row?.inputHash;
   }
@@ -287,32 +286,35 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
   rebindReplacementInput(attemptId: string, inputHash: string): boolean {
     if (!/^[0-9a-f]{64}$/u.test(inputHash)) return false;
     try {
-      return this.#database.transaction(() => {
-        const row = this.#database
-          .prepare(`SELECT attempts.job_id AS jobId FROM attempts
+      return this.#database
+        .transaction(() => {
+          const row = this.#database
+            .prepare(`SELECT attempts.job_id AS jobId FROM attempts
             JOIN jobs USING(job_id)
             WHERE attempts.attempt_id = ?
               AND attempts.replacement_of_attempt_id IS NOT NULL
               AND jobs.attempt_id = attempts.attempt_id
               AND NOT EXISTS (SELECT 1 FROM agent_runner_evidence
                 WHERE agent_runner_evidence.attempt_id = attempts.attempt_id)`)
-          .get(attemptId) as { readonly jobId: string } | undefined;
-        if (row === undefined) throw new TypeError("replacement input is not rebindable");
-        const job = this.#database
-          .prepare(`UPDATE jobs SET input_hash = ?
+            .get(attemptId) as { readonly jobId: string } | undefined;
+          if (row === undefined)
+            throw new TypeError("replacement input is not rebindable");
+          const job = this.#database
+            .prepare(`UPDATE jobs SET input_hash = ?
             WHERE job_id = ? AND attempt_id = ?`)
-          .run(inputHash, row.jobId, attemptId).changes;
-        const attempt = this.#database
-          .prepare(`UPDATE attempts SET input_hash = ? WHERE attempt_id = ?`)
-          .run(inputHash, attemptId).changes;
-        const ordinal = this.#database
-          .prepare(`UPDATE research_call_ordinals SET input_hash = ?
+            .run(inputHash, row.jobId, attemptId).changes;
+          const attempt = this.#database
+            .prepare(`UPDATE attempts SET input_hash = ? WHERE attempt_id = ?`)
+            .run(inputHash, attemptId).changes;
+          const ordinal = this.#database
+            .prepare(`UPDATE research_call_ordinals SET input_hash = ?
             WHERE attempt_id = ?`)
-          .run(inputHash, attemptId).changes;
-        if (job !== 1 || attempt !== 1 || ordinal !== 1)
-          throw new TypeError("replacement input rebind was incomplete");
-        return true;
-      }).immediate();
+            .run(inputHash, attemptId).changes;
+          if (job !== 1 || attempt !== 1 || ordinal !== 1)
+            throw new TypeError("replacement input rebind was incomplete");
+          return true;
+        })
+        .immediate();
     } catch (error) {
       if (error instanceof Error) return false;
       throw error;

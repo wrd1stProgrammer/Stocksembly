@@ -3,6 +3,7 @@ import {
   isSha256,
   timestampMillis,
 } from "../domain/contractHelpers";
+import { DEFAULT_RESEARCH_PROFILE } from "../domain/researchProfile";
 import { evaluateModelTransfer } from "../domain/rights";
 import {
   WORKFLOW_V1_ROSTER_FINGERPRINT,
@@ -21,7 +22,6 @@ import {
   type RoleAssignmentPolicy,
 } from "./assignAllAgentsPolicy";
 import { freezeDeep } from "./createMandateImmutable";
-import { DEFAULT_RESEARCH_PROFILE } from "../domain/researchProfile";
 
 export type {
   AllAgentAssignmentsV1,

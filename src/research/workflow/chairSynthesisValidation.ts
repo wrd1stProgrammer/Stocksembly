@@ -1,6 +1,6 @@
+import { z } from "zod";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
-import { z } from "zod";
 import {
   containsCapabilityLeakage,
   containsForbiddenPublicVocabulary,
@@ -19,14 +19,14 @@ import {
   ChairSynthesisPromptSchema,
 } from "./chairSynthesisContracts";
 import {
+  chairDirectionalBriefAssignment,
+  chairSectionPrimaryAssignments,
+} from "./chairSynthesisPrompts";
+import {
   decisionTextsAreDistinct,
   isSymmetricHedge,
   publicTextIsValid,
 } from "./chairSynthesisTextValidation";
-import {
-  chairDirectionalBriefAssignment,
-  chairSectionPrimaryAssignments,
-} from "./chairSynthesisPrompts";
 
 type ChairSectionKey = (typeof CHAIR_SECTION_KEYS)[number];
 type ChairPrompt = ReturnType<typeof ChairSynthesisPromptSchema.parse>;
@@ -60,7 +60,9 @@ function normalizedModelCandidate(raw: unknown): unknown {
     decisionBrief: record["decisionBrief"],
     selectedUnknownIds: record["selectedUnknownIds"],
     sections: record["sections"].map((section) => {
-      const parsedSection = z.record(z.string(), z.unknown()).safeParse(section);
+      const parsedSection = z
+        .record(z.string(), z.unknown())
+        .safeParse(section);
       if (!parsedSection.success) return section;
       const value = parsedSection.data;
       return {
@@ -74,8 +76,11 @@ function normalizedModelCandidate(raw: unknown): unknown {
   };
 }
 
-function evidenceDerivedConfidence(prompt: ChairPrompt): "high" | "medium" | "low" {
-  const distinctVotes = new Set(prompt.ballots.map((ballot) => ballot.vote)).size;
+function evidenceDerivedConfidence(
+  prompt: ChairPrompt,
+): "high" | "medium" | "low" {
+  const distinctVotes = new Set(prompt.ballots.map((ballot) => ballot.vote))
+    .size;
   if (distinctVotes >= 3) return "low";
   if (distinctVotes === 2 || prompt.dissentClaimIds.length > 0) return "medium";
   return "high";
@@ -92,8 +97,10 @@ function minimumSummaryTokens(
 ): number {
   const brief = sectionKey === "ten_second_brief";
   const depth = prompt.mandate.researchProfile.analysisDepth;
-  if (depth === "core") return brief ? (locale === "ko" ? 6 : 8) : locale === "ko" ? 8 : 10;
-  if (depth === "deep") return brief ? (locale === "ko" ? 10 : 12) : locale === "ko" ? 16 : 20;
+  if (depth === "core")
+    return brief ? (locale === "ko" ? 6 : 8) : locale === "ko" ? 8 : 10;
+  if (depth === "deep")
+    return brief ? (locale === "ko" ? 10 : 12) : locale === "ko" ? 16 : 20;
   return brief ? (locale === "ko" ? 8 : 10) : locale === "ko" ? 12 : 15;
 }
 
@@ -111,16 +118,15 @@ function editorialSummaryIssue(
       return "capability_leakage";
     if (containsGenericLimitationLanguage(text))
       return "generic_limitation_language";
-    if (containsNumericDump(text))
-      return "numeric_dump_without_interpretation";
+    if (containsNumericDump(text)) return "numeric_dump_without_interpretation";
     if (
       prompt.mandate.question !== undefined &&
       summaryTokenCount(text) <
-      (section.sentenceIds.length <= 1
-        ? locale === "ko"
-          ? 5
-          : 6
-        : minimumSummaryTokens(prompt, section.sectionKey, locale))
+        (section.sentenceIds.length <= 1
+          ? locale === "ko"
+            ? 5
+            : 6
+          : minimumSummaryTokens(prompt, section.sectionKey, locale))
     )
       return "low_information_summary";
     if (
@@ -247,9 +253,7 @@ export function projectChairAssignments(
     prompt.dissentClaimIds.length > 0;
   const nonSupportedPrimaryIds = new Set(
     assignments
-      .filter(
-        (assignment) => assignment.sectionKey !== "supported_analysis",
-      )
+      .filter((assignment) => assignment.sectionKey !== "supported_analysis")
       .map((assignment) => assignment.primarySentenceId),
   );
   const requiredPositionSentenceIds = prompt.sentences
@@ -293,8 +297,7 @@ export function projectChairAssignments(
         values.indexOf(sentenceId) === index &&
         !projectedSentenceIds.has(sentenceId),
     );
-    for (const sentenceId of sentenceIds)
-      projectedSentenceIds.add(sentenceId);
+    for (const sentenceId of sentenceIds) projectedSentenceIds.add(sentenceId);
     return {
       ...section,
       primarySentenceId: assignment.primarySentenceId,
@@ -354,9 +357,14 @@ function issueForCandidate(
   for (const sectionKey of CHAIR_SECTION_KEYS) {
     const count = keys.filter((key) => key === sectionKey).length;
     if (count !== 1)
-      return { sectionKey, reason: count === 0 ? "missing_section" : "duplicate_section" };
+      return {
+        sectionKey,
+        reason: count === 0 ? "missing_section" : "duplicate_section",
+      };
   }
-  const catalog = new Map(prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]));
+  const catalog = new Map(
+    prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]),
+  );
   const ownedSentenceIds = new Set<string>();
   const ownedPrimaryClaimIds = new Set<string>();
   const priorSections: ModelCandidate["sections"][number][] = [];
@@ -377,7 +385,8 @@ function issueForCandidate(
         sectionKey: section.sectionKey,
         reason: "unexpected_conflict_adjudication",
       };
-    const allowedKinds: readonly string[] = CHAIR_SECTION_ALLOWED_KINDS[section.sectionKey];
+    const allowedKinds: readonly string[] =
+      CHAIR_SECTION_ALLOWED_KINDS[section.sectionKey];
     const selected = section.sentenceIds.flatMap((sentenceId) => {
       const sentence = catalog.get(sentenceId);
       return sentence === undefined ? [] : [sentence];
@@ -388,25 +397,57 @@ function issueForCandidate(
       !section.sentenceIds.includes(section.primarySentenceId) ||
       selected.some((sentence) => !allowedKinds.includes(sentence.kind))
     )
-      return { sectionKey: section.sectionKey, reason: "invalid_sentence_ownership" };
+      return {
+        sectionKey: section.sectionKey,
+        reason: "invalid_sentence_ownership",
+      };
     for (const sentence of selected) {
       if (ownedSentenceIds.has(sentence.sentenceId))
-        return { sectionKey: section.sectionKey, reason: "duplicate_sentence_ownership" };
+        return {
+          sectionKey: section.sectionKey,
+          reason: "duplicate_sentence_ownership",
+        };
       ownedSentenceIds.add(sentence.sentenceId);
-      if (sentence.claimIds.some((claimId) => !prompt.auditedClaimIds.includes(claimId)))
-        return { sectionKey: section.sectionKey, reason: "removed_or_foreign_claim" };
+      if (
+        sentence.claimIds.some(
+          (claimId) => !prompt.auditedClaimIds.includes(claimId),
+        )
+      )
+        return {
+          sectionKey: section.sectionKey,
+          reason: "removed_or_foreign_claim",
+        };
     }
     const primary = catalog.get(section.primarySentenceId);
     if (primary === undefined)
-      return { sectionKey: section.sectionKey, reason: "invalid_primary_sentence" };
+      return {
+        sectionKey: section.sectionKey,
+        reason: "invalid_primary_sentence",
+      };
     for (const claimId of primary.claimIds) {
       if (ownedPrimaryClaimIds.has(claimId))
-        return { sectionKey: section.sectionKey, reason: "duplicate_primary_claim_ownership" };
+        return {
+          sectionKey: section.sectionKey,
+          reason: "duplicate_primary_claim_ownership",
+        };
       ownedPrimaryClaimIds.add(claimId);
     }
-    if (!publicTextIsValid(section.publicSummary, selected, section.sectionKey === "ten_second_brief" ? 360 : 4_000))
-      return { sectionKey: section.sectionKey, reason: "invalid_bilingual_summary" };
-    const editorialIssue = editorialSummaryIssue(prompt, section, priorSections);
+    if (
+      !publicTextIsValid(
+        section.publicSummary,
+        selected,
+        section.sectionKey === "ten_second_brief" ? 360 : 4_000,
+      )
+    )
+      return {
+        sectionKey: section.sectionKey,
+        reason: "invalid_bilingual_summary",
+      };
+    const editorialIssue = editorialSummaryIssue(
+      prompt,
+      section,
+      priorSections,
+    );
     if (
       editorialIssue !== undefined &&
       !ignoredEditorialReasons.has(editorialIssue)
@@ -445,15 +486,27 @@ function issueForCandidate(
           section.publicSummary.en === joined.en ||
           section.publicSummary.ko === joined.ko)
       )
-        return { sectionKey: section.sectionKey, reason: "team_conflict_not_adjudicated" };
+        return {
+          sectionKey: section.sectionKey,
+          reason: "team_conflict_not_adjudicated",
+        };
     }
   }
-  const brief = candidate.sections.find((section) => section.sectionKey === "ten_second_brief");
-  if (brief === undefined) return { sectionKey: "ten_second_brief", reason: "missing_section" };
-  if (isSymmetricHedge(candidate.decisionBrief.decisiveReason) || isSymmetricHedge(brief.publicSummary))
+  const brief = candidate.sections.find(
+    (section) => section.sectionKey === "ten_second_brief",
+  );
+  if (brief === undefined)
+    return { sectionKey: "ten_second_brief", reason: "missing_section" };
+  if (
+    isSymmetricHedge(candidate.decisionBrief.decisiveReason) ||
+    isSymmetricHedge(brief.publicSummary)
+  )
     return { sectionKey: "ten_second_brief", reason: "symmetric_hedge" };
   if (candidate.decisionBrief.confidence !== evidenceDerivedConfidence(prompt))
-    return { sectionKey: "ten_second_brief", reason: "confidence_not_evidence_derived" };
+    return {
+      sectionKey: "ten_second_brief",
+      reason: "confidence_not_evidence_derived",
+    };
   const decisionTexts = [
     candidate.decisionBrief.decisiveReason,
     candidate.decisionBrief.strongestCountercase,
@@ -464,7 +517,9 @@ function issueForCandidate(
     candidate.decisionBrief.countercaseSentenceId,
     candidate.decisionBrief.falsifierSentenceId,
   ];
-  const roleSentences = roleSentenceIds.map((sentenceId) => catalog.get(sentenceId));
+  const roleSentences = roleSentenceIds.map((sentenceId) =>
+    catalog.get(sentenceId),
+  );
   if (
     candidate.decisionBrief.stance !== directionalAssignment.stance ||
     candidate.decisionBrief.confidence !== directionalAssignment.confidence ||
@@ -480,21 +535,37 @@ function issueForCandidate(
     roleSentences[0]?.kind !== "claim" ||
     roleSentences[1]?.kind !== "dissent" ||
     roleSentences[2]?.kind !== "change_condition" ||
-    candidate.decisionBrief.primarySentenceIds.some((id) => !brief.sentenceIds.includes(id)) ||
-    candidate.decisionBrief.primaryClaimIds.some((id) => !prompt.auditedClaimIds.includes(id)) ||
+    candidate.decisionBrief.primarySentenceIds.some(
+      (id) => !brief.sentenceIds.includes(id),
+    ) ||
+    candidate.decisionBrief.primaryClaimIds.some(
+      (id) => !prompt.auditedClaimIds.includes(id),
+    ) ||
     decisionTexts.some((text, index) => {
       const sentence = roleSentences[index];
-      return sentence === undefined || !publicTextIsValid(text, [sentence], 360);
+      return (
+        sentence === undefined || !publicTextIsValid(text, [sentence], 360)
+      );
     })
   )
-    return { sectionKey: "ten_second_brief", reason: "invalid_directional_brief" };
+    return {
+      sectionKey: "ten_second_brief",
+      reason: "invalid_directional_brief",
+    };
   if (!decisionTextsAreDistinct(decisionTexts))
-    return { sectionKey: "ten_second_brief", reason: "decision_components_not_distinct" };
+    return {
+      sectionKey: "ten_second_brief",
+      reason: "decision_components_not_distinct",
+    };
   if (
-    new Set(candidate.selectedUnknownIds).size !== candidate.selectedUnknownIds.length ||
+    new Set(candidate.selectedUnknownIds).size !==
+      candidate.selectedUnknownIds.length ||
     candidate.selectedUnknownIds.some((id) => !prompt.unknownIds.includes(id))
   )
-    return { sectionKey: "dissent_unknowns", reason: "invalid_unknown_selection" };
+    return {
+      sectionKey: "dissent_unknowns",
+      reason: "invalid_unknown_selection",
+    };
   return undefined;
 }
 
@@ -505,7 +576,9 @@ function resolvedCandidate(
 ): unknown {
   const issue = issueForCandidate(prompt, candidate, ignoredEditorialReasons);
   if (issue !== undefined) return {};
-  const catalog = new Map(prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]));
+  const catalog = new Map(
+    prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]),
+  );
   const sections = candidate.sections.map((section) => {
     const selected = section.sentenceIds.flatMap((id) => {
       const sentence = catalog.get(id);
@@ -517,8 +590,12 @@ function resolvedCandidate(
       publicSummary: section.publicSummary,
       primarySentenceId: section.primarySentenceId,
       sentenceIds: section.sentenceIds,
-      sourceArtifactIds: [...new Set(selected.flatMap((sentence) => sentence.sourceArtifactIds))],
-      auditedClaimIds: [...new Set(selected.flatMap((sentence) => sentence.claimIds))],
+      sourceArtifactIds: [
+        ...new Set(selected.flatMap((sentence) => sentence.sourceArtifactIds)),
+      ],
+      auditedClaimIds: [
+        ...new Set(selected.flatMap((sentence) => sentence.claimIds)),
+      ],
       ...(section.conflictAdjudication === null
         ? {}
         : { conflictAdjudication: section.conflictAdjudication }),
@@ -528,7 +605,8 @@ function resolvedCandidate(
     const sentence = catalog.get(`unknown:${unknownId}`);
     return sentence?.kind === "unknown" ? [sentence.text] : [];
   });
-  if (selectedUnknowns.length !== candidate.selectedUnknownIds.length) return {};
+  if (selectedUnknowns.length !== candidate.selectedUnknownIds.length)
+    return {};
   return ChairSynthesisOutputSchema.parse({
     kind: "chair_synthesis",
     sourceArtifactIds: prompt.sourceArtifactIds,
@@ -541,16 +619,24 @@ function resolvedCandidate(
   });
 }
 
-export function chairCandidateIssue(promptJson: string, raw: unknown): ChairCandidateIssue | undefined {
+export function chairCandidateIssue(
+  promptJson: string,
+  raw: unknown,
+): ChairCandidateIssue | undefined {
   const prompt = ChairSynthesisPromptSchema.parse(JSON.parse(promptJson));
-  const candidate = ChairSynthesisModelOutputSchema.safeParse(normalizedModelCandidate(raw));
-  if (!candidate.success) return { sectionKey: "ten_second_brief", reason: "invalid_model_output" };
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(
+    normalizedModelCandidate(raw),
+  );
+  if (!candidate.success)
+    return { sectionKey: "ten_second_brief", reason: "invalid_model_output" };
   return issueForCandidate(prompt, candidate.data);
 }
 
 export function validChairCandidate(promptJson: string, raw: unknown): unknown {
   const prompt = ChairSynthesisPromptSchema.parse(JSON.parse(promptJson));
-  const candidate = ChairSynthesisModelOutputSchema.safeParse(normalizedModelCandidate(raw));
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(
+    normalizedModelCandidate(raw),
+  );
   return candidate.success ? resolvedCandidate(prompt, candidate.data) : {};
 }
 
@@ -647,31 +733,38 @@ export function repairChairCandidate(
 ): unknown {
   if (rewriteRaw === undefined) return {};
   const prompt = ChairSynthesisPromptSchema.parse(JSON.parse(promptJson));
-  const candidate = ChairSynthesisModelOutputSchema.safeParse(normalizedModelCandidate(raw));
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(
+    normalizedModelCandidate(raw),
+  );
   const rewrite = ChairSectionRewriteSchema.safeParse(rewriteRaw);
   if (!candidate.success || !rewrite.success) return {};
   const issue = issueForCandidate(prompt, candidate.data);
-  if (issue === undefined || rewrite.data.section.sectionKey !== issue.sectionKey) return {};
+  if (
+    issue === undefined ||
+    rewrite.data.section.sectionKey !== issue.sectionKey
+  )
+    return {};
   const originalSection = candidate.data.sections.find(
     (section) => section.sectionKey === issue.sectionKey,
   );
-  const rewrittenSection =
-    PROSE_REWRITE_REASONS.has(issue.reason)
-      ? originalSection !== undefined &&
-        originalSection.primarySentenceId ===
-          rewrite.data.section.primarySentenceId &&
-        JSON.stringify(originalSection.sentenceIds) ===
-          JSON.stringify(rewrite.data.section.sentenceIds) &&
-        JSON.stringify(originalSection.conflictAdjudication) ===
-          JSON.stringify(rewrite.data.section.conflictAdjudication)
-        ? {
-            ...originalSection,
-            publicSummary: rewrite.data.section.publicSummary,
-          }
-        : undefined
-      : rewrite.data.section;
+  const rewrittenSection = PROSE_REWRITE_REASONS.has(issue.reason)
+    ? originalSection !== undefined &&
+      originalSection.primarySentenceId ===
+        rewrite.data.section.primarySentenceId &&
+      JSON.stringify(originalSection.sentenceIds) ===
+        JSON.stringify(rewrite.data.section.sentenceIds) &&
+      JSON.stringify(originalSection.conflictAdjudication) ===
+        JSON.stringify(rewrite.data.section.conflictAdjudication)
+      ? {
+          ...originalSection,
+          publicSummary: rewrite.data.section.publicSummary,
+        }
+      : undefined
+    : rewrite.data.section;
   if (rewrittenSection === undefined) return {};
-  const sections = candidate.data.sections.filter((section) => section.sectionKey !== issue.sectionKey);
+  const sections = candidate.data.sections.filter(
+    (section) => section.sectionKey !== issue.sectionKey,
+  );
   const rewrittenCandidate = {
     ...candidate.data,
     sections: [...sections, rewrittenSection],

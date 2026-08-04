@@ -150,7 +150,9 @@ export async function runCodexWithPlatform<Candidate>(
       ...(platform.beforeLink === undefined
         ? {}
         : { beforeLink: platform.beforeLink }),
-      ...(platform.linkFile === undefined ? {} : { linkFile: platform.linkFile }),
+      ...(platform.linkFile === undefined
+        ? {}
+        : { linkFile: platform.linkFile }),
     }),
   );
   const runtime = await runnerPhase("runtime_prepare", () =>

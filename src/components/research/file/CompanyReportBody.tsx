@@ -62,7 +62,10 @@ export function CompanyReportBrief(props: DepartmentReportBodyProps) {
       </header>
 
       {product.operatingSnapshot.length === 0 ? null : (
-        <section className={styles.operatingTape} data-company-landmark="operating-snapshot">
+        <section
+          className={styles.operatingTape}
+          data-company-landmark="operating-snapshot"
+        >
           {product.operatingSnapshot.slice(0, 6).map((metric) => (
             <article key={metric.id}>
               <span>{metric.label[locale]}</span>
@@ -149,16 +152,31 @@ export function CompanyReportBrief(props: DepartmentReportBodyProps) {
       )}
 
       {engineClaims.length === 0 ? null : (
-        <section className={styles.engineGrid} data-company-landmark="growth-adoption-ledger">
+        <section
+          className={styles.engineGrid}
+          data-company-landmark="growth-adoption-ledger"
+        >
           <header>
             <span>{ko ? "사업 메커니즘" : "BUSINESS MECHANISM"}</span>
-            <h3>{ko ? "성장 동력과 채택 증거를 분리해 읽습니다" : "Separate the growth engine from adoption proof"}</h3>
+            <h3>
+              {ko
+                ? "성장 동력과 채택 증거를 분리해 읽습니다"
+                : "Separate the growth engine from adoption proof"}
+            </h3>
           </header>
           <div data-card-count={engineClaims.length}>
             {engineClaims.map((claim, index) => (
               <article key={claim.id}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
-                <small>{claim.dimension === "growth_engine" ? (ko ? "성장 엔진" : "Growth engine") : (ko ? "채택 증거" : "Adoption")}</small>
+                <small>
+                  {claim.dimension === "growth_engine"
+                    ? ko
+                      ? "성장 엔진"
+                      : "Growth engine"
+                    : ko
+                      ? "채택 증거"
+                      : "Adoption"}
+                </small>
                 <strong>{claim.thesis}</strong>
                 <p>{claim.falsifier}</p>
               </article>
@@ -289,15 +307,17 @@ export function CompanyReportFramework(props: DepartmentReportBodyProps) {
                 </li>
               ))}
             </ol>
-            {product.erosion.length === 0 ? null : <ol>
-              {product.erosion.map((claim) => (
-                <li key={claim.id}>
-                  <span>−</span>
-                  <strong>{claim.thesis}</strong>
-                  <p>{claim.falsifier}</p>
-                </li>
-              ))}
-            </ol>}
+            {product.erosion.length === 0 ? null : (
+              <ol>
+                {product.erosion.map((claim) => (
+                  <li key={claim.id}>
+                    <span>−</span>
+                    <strong>{claim.thesis}</strong>
+                    <p>{claim.falsifier}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
         </section>
       )}

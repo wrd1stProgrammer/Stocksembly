@@ -48,9 +48,7 @@ export function ResearchFileQuestions({
       />
       <div
         className={
-          compact
-            ? "research-team-qa-list"
-            : "research-anticipated-qa__grid"
+          compact ? "research-team-qa-list" : "research-anticipated-qa__grid"
         }
       >
         {visibleQuestions.map((item, index) => (

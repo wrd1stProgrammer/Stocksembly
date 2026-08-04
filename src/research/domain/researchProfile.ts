@@ -43,9 +43,7 @@ export function normalizeResearchProfile(
   input: unknown,
   subjectSymbol?: string,
 ): ResearchProfile {
-  const parsed = ResearchProfileSchema.parse(
-    input ?? DEFAULT_RESEARCH_PROFILE,
-  );
+  const parsed = ResearchProfileSchema.parse(input ?? DEFAULT_RESEARCH_PROFILE);
   const subject = subjectSymbol?.trim().toUpperCase();
   return ResearchProfileSchema.parse({
     ...parsed,

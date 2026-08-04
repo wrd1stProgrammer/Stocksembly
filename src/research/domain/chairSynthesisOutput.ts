@@ -13,9 +13,16 @@ export const ChairConflictAdjudicationSchema = z
       .array(z.string().trim().min(1).max(160))
       .min(2)
       .max(8)
-      .refine((values) => new Set(values).size === values.length, "duplicate department decision")
+      .refine(
+        (values) => new Set(values).size === values.length,
+        "duplicate department decision",
+      )
       .readonly(),
-    resolution: z.enum(["upside_dominates", "proof_required", "downside_dominates"]),
+    resolution: z.enum([
+      "upside_dominates",
+      "proof_required",
+      "downside_dominates",
+    ]),
     reasonSentenceId: z.string().trim().min(1).max(160),
   })
   .strict()

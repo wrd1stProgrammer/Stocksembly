@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { ChairSynthesisOutputSchema } from "./chairSynthesisOutput";
 import {
   AtomicEditorialClaimSchema,
   BilingualPublicTextSchema,
@@ -12,6 +11,7 @@ import {
   TeamEditorialDecisionSchema,
   UnknownListSchema,
 } from "./agentOutputsShared";
+import { ChairSynthesisOutputSchema } from "./chairSynthesisOutput";
 
 export {
   AtomicEditorialClaimSchema,
@@ -29,23 +29,39 @@ export const WorkflowV2EditorialOutputSchema = z
     claims: z.array(AtomicEditorialClaimSchema).min(1).max(64).readonly(),
     decision: TeamEditorialDecisionSchema,
     comparators: z.array(ComparatorSchema).max(64).readonly(),
-    anticipatedQuestions: z.array(PersistedQuestionAnswerSchema).max(32).readonly(),
+    anticipatedQuestions: z
+      .array(PersistedQuestionAnswerSchema)
+      .max(32)
+      .readonly(),
   })
   .strict()
   .superRefine((output, context) => {
     const claimIds = output.claims.map((claim) => claim.claimId);
     if (new Set(claimIds).size !== claimIds.length)
-      context.addIssue({ code: "custom", path: ["claims"], message: "duplicate claim ownership" });
+      context.addIssue({
+        code: "custom",
+        path: ["claims"],
+        message: "duplicate claim ownership",
+      });
     const knownClaimIds = new Set(claimIds);
     for (const claimId of output.decision.primaryClaimIds)
       if (!knownClaimIds.has(claimId))
-        context.addIssue({ code: "custom", path: ["decision", "primaryClaimIds"], message: "decision cites unknown claim" });
+        context.addIssue({
+          code: "custom",
+          path: ["decision", "primaryClaimIds"],
+          message: "decision cites unknown claim",
+        });
     for (const qa of output.anticipatedQuestions)
       for (const claimId of qa.primaryClaimIds)
         if (!knownClaimIds.has(claimId))
-          context.addIssue({ code: "custom", path: ["anticipatedQuestions"], message: "Q&A cites unknown claim" });
+          context.addIssue({
+            code: "custom",
+            path: ["anticipatedQuestions"],
+            message: "Q&A cites unknown claim",
+          });
   })
   .readonly();
+
 import { ClaimIdSchema, QuestionIdSchema } from "./ids";
 
 export {

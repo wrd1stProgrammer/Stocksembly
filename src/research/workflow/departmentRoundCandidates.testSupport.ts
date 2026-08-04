@@ -241,14 +241,13 @@ export function departmentCandidate(
           sourceArtifactIds: revisedPosition.evidenceArtifactIds,
         },
       ],
-      publicSummary: publicText("lead decision preserves only supported market claims"),
+      publicSummary: publicText(
+        "lead decision preserves only supported market claims",
+      ),
       openQuestions: base.openQuestions.slice(0, 2),
     };
   }
-  if (
-    request.department.id === "market" &&
-    fault === "position_rationale_same"
-  )
+  if (request.department.id === "market" && fault === "position_rationale_same")
     return {
       ...base,
       publicSummary: base.dispositions[0]!.reason,

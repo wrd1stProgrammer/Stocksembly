@@ -15,25 +15,25 @@ import {
   SnapshotIdSchema,
 } from "../domain/ids";
 import { normalizeResearchDirection } from "../domain/researchDirection";
-import { ResearchTargetSchema } from "../domain/researchTarget";
 import { ResearchProfileSchema } from "../domain/researchProfile";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import { ResearchTargetSchema } from "../domain/researchTarget";
 import {
   WORKFLOW_V1_CHAIR_ID,
   WORKFLOW_V1_ROLE_REGISTRY,
   WORKFLOW_V1_SPECIALIST_IDS,
 } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
+import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
 import type { AttemptHandler } from "../worker/leaseEngine";
+import { qualifyComparatorsBeforeSynthesis } from "../workflow/preSynthesisComparatorQualification";
 import type { SpecialistRoundInput } from "../workflow/specialistRound";
 import type { SpecialistRoundSqliteAuthority } from "../workflow/specialistRoundSqliteAuthority";
 import {
   prepareSpecialistJobs,
   specialistJobSeed,
 } from "../workflow/specialistRoundSqliteStage";
-import { qualifyComparatorsBeforeSynthesis } from "../workflow/preSynthesisComparatorQualification";
 import { collectInitialEvidence } from "./initialCollectionData";
 
 const RequestSchema = z.object({

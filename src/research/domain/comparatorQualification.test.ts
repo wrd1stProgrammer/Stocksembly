@@ -66,7 +66,9 @@ describe("comparator qualification", () => {
     };
 
     // When
-    const result = qualifyComparators(ComparatorQualificationInputSchema.parse(input));
+    const result = qualifyComparators(
+      ComparatorQualificationInputSchema.parse(input),
+    );
 
     // Then
     expect(result).toMatchObject({
@@ -197,7 +199,9 @@ describe("comparator qualification", () => {
         expect.objectContaining({
           comparableMetricKeys: [],
           displayEligibility: false,
-          exclusionReasons: expect.arrayContaining(["operating_metric_required"]),
+          exclusionReasons: expect.arrayContaining([
+            "operating_metric_required",
+          ]),
         }),
       ],
     });
@@ -321,7 +325,10 @@ describe("comparator qualification", () => {
       subject,
       comparators: [
         { ...peer("peer-a", "direct_competitor", 20), role: "similar_company" },
-        { ...peer("peer-b", "direct_competitor", 30), rationale: { en: " ", ko: "" } },
+        {
+          ...peer("peer-b", "direct_competitor", 30),
+          rationale: { en: " ", ko: "" },
+        },
       ],
     };
 

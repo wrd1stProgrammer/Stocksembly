@@ -15,8 +15,8 @@ import {
   type PersistedChairJob,
   PersistedChairJobSchema,
 } from "./chairSynthesisContracts";
-import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
 import { loadChairPrompt } from "./chairSynthesisInput";
+import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
 
 const RunSchema = z.object({
   snapshot_id: SnapshotIdSchema,

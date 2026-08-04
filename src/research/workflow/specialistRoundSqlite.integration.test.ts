@@ -14,10 +14,10 @@ import {
   LeaseWorkerCliError,
   runLeaseWorkerProcess,
 } from "../worker/leaseWorker";
+import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import { createSqliteSpecialistRound } from "./specialistRoundSqlite";
 import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
 import { prepareSpecialistJobs } from "./specialistRoundSqliteStage";
-import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 
 const temporaryRoots: string[] = [];
 const specialistCount = WORKFLOW_V1_SPECIALIST_IDS.length;

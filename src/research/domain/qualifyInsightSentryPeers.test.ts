@@ -76,9 +76,18 @@ it("keeps explicitly selected companies as valuation comparators", () => {
     status: "qualified",
     valuation: { status: "eligible", eligibleCompanyCount: 3 },
     rows: [
-      expect.objectContaining({ role: "valuation_proxy", displayEligibility: true }),
-      expect.objectContaining({ role: "valuation_proxy", displayEligibility: true }),
-      expect.objectContaining({ role: "valuation_proxy", displayEligibility: true }),
+      expect.objectContaining({
+        role: "valuation_proxy",
+        displayEligibility: true,
+      }),
+      expect.objectContaining({
+        role: "valuation_proxy",
+        displayEligibility: true,
+      }),
+      expect.objectContaining({
+        role: "valuation_proxy",
+        displayEligibility: true,
+      }),
     ],
   });
 });

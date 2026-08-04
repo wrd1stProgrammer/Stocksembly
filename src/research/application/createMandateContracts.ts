@@ -1,7 +1,7 @@
 import type { CapabilityManifest } from "../domain/capabilities";
+import type { ResearchProfile } from "../domain/researchProfile";
 import type { SpecialistRoleId } from "../domain/roleRegistry";
 import type { SnapshotManifest } from "./buildSnapshot";
-import type { ResearchProfile } from "../domain/researchProfile";
 
 export const RESEARCH_LOCALES = ["en", "ko"] as const;
 export type ResearchLocale = (typeof RESEARCH_LOCALES)[number];

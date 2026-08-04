@@ -342,8 +342,15 @@ const CONCEPT_PATTERNS: readonly Readonly<{
   { key: "customer", pattern: /\bcustomer\b|고객/iu },
   { key: "price", pattern: /\b(?:price|multiple)\b|주가|가격|배수/iu },
   { key: "returns", pattern: /\breturn\b|수익률/iu },
-  { key: "positive", pattern: /\b(?:increase|improve|expand|strong)\w*\b|증가|개선|확대|강화/iu },
-  { key: "negative", pattern: /\b(?:decline|weaken|contract|deteriorate)\w*\b|감소|약화|축소|악화/iu },
+  {
+    key: "positive",
+    pattern: /\b(?:increase|improve|expand|strong)\w*\b|증가|개선|확대|강화/iu,
+  },
+  {
+    key: "negative",
+    pattern:
+      /\b(?:decline|weaken|contract|deteriorate)\w*\b|감소|약화|축소|악화/iu,
+  },
 ];
 
 function meaningFingerprint(value: string): ReadonlySet<string> {
@@ -357,10 +364,14 @@ function meaningFingerprint(value: string): ReadonlySet<string> {
 export function meaningfullyRepeats(left: string, right: string): boolean {
   const conceptsLeft = meaningFingerprint(left);
   const conceptsRight = meaningFingerprint(right);
-  const sharedConcepts = [...conceptsLeft].filter((key) => conceptsRight.has(key));
+  const sharedConcepts = [...conceptsLeft].filter((key) =>
+    conceptsRight.has(key),
+  );
   const leftNumbers = new Set(extractNumericTokens(left));
   const rightNumbers = new Set(extractNumericTokens(right));
-  const sharedNumbers = [...leftNumbers].filter((token) => rightNumbers.has(token));
+  const sharedNumbers = [...leftNumbers].filter((token) =>
+    rightNumbers.has(token),
+  );
   const sameDirection = ["positive", "negative"].some(
     (key) => conceptsLeft.has(key) && conceptsRight.has(key),
   );

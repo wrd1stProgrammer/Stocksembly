@@ -24,7 +24,9 @@ export type MarketMetric = ResearchMetricPoint & {
   readonly period: string;
 };
 
-function normalizeMetric(metric: ResearchMetricPoint): MarketMetric | undefined {
+function normalizeMetric(
+  metric: ResearchMetricPoint,
+): MarketMetric | undefined {
   if (
     metric.id.trim().length === 0 ||
     !Number.isFinite(metric.value) ||

@@ -16,32 +16,29 @@ export async function GET(
   context: { readonly params: Promise<{ readonly reportId: string }> },
 ): Promise<Response> {
   const { reportId } = await context.params;
-  const locale = new URL(request.url).searchParams.get("lang") === "ko" ? "ko" : "en";
+  const locale =
+    new URL(request.url).searchParams.get("lang") === "ko" ? "ko" : "en";
   const api = await getLiveResearchApi();
-  const reportUrl = new URL(
-    `/api/research/reports/${reportId}`,
-    request.url,
-  );
+  const reportUrl = new URL(`/api/research/reports/${reportId}`, request.url);
   const reportResponse = await api.handle(
     new Request(reportUrl, { headers: request.headers }),
   );
   if (!reportResponse.ok) return reportResponse;
   const reportBody: unknown = await reportResponse.json();
-  let report;
+  let report: ReturnType<typeof parseStoredResearchReportVersioned>;
   try {
     report = parseStoredResearchReportVersioned(nested(reportBody, "report"));
   } catch {
     return Response.json({ error: "REPORT_INVALID" }, { status: 500 });
   }
 
-  const runUrl = new URL(
-    `/api/research/runs/${report.runId}`,
-    request.url,
-  );
+  const runUrl = new URL(`/api/research/runs/${report.runId}`, request.url);
   const runResponse = await api.handle(
     new Request(runUrl, { headers: request.headers }),
   );
-  const runBody: unknown = runResponse.ok ? await runResponse.json() : undefined;
+  const runBody: unknown = runResponse.ok
+    ? await runResponse.json()
+    : undefined;
   const symbolValue = nested(nested(runBody, "run"), "symbol");
   const createdAtValue = nested(nested(runBody, "run"), "createdAt");
   const symbol =

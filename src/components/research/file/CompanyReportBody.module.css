@@ -250,8 +250,12 @@
 .peers tr {
   border-bottom: 1px solid var(--editorial-rule);
 }
-.peers table { table-layout: fixed; }
-.peers th { width: 25%; }
+.peers table {
+  table-layout: fixed;
+}
+.peers th {
+  width: 25%;
+}
 .peers tr > * {
   min-width: 0;
   padding: 18px;

@@ -22,7 +22,9 @@ describe("chair synthesis directional contract", () => {
       },
     };
 
-    expect(chairCandidateIssue(JSON.stringify(requestPrompt), candidate)).toEqual({
+    expect(
+      chairCandidateIssue(JSON.stringify(requestPrompt), candidate),
+    ).toEqual({
       sectionKey: "ten_second_brief",
       reason: "low_information_summary",
     });
@@ -69,9 +71,21 @@ describe("chair synthesis directional contract", () => {
         primarySectionKey: string;
         allowedPrimaryClaimIds: readonly string[];
         roles: {
-          decisive: { allowedSentenceIds: readonly string[]; assignedSentenceId: string; canonicalText: { en: string; ko: string } };
-          countercase: { allowedSentenceIds: readonly string[]; assignedSentenceId: string; canonicalText: { en: string; ko: string } };
-          falsifier: { allowedSentenceIds: readonly string[]; assignedSentenceId: string; canonicalText: { en: string; ko: string } };
+          decisive: {
+            allowedSentenceIds: readonly string[];
+            assignedSentenceId: string;
+            canonicalText: { en: string; ko: string };
+          };
+          countercase: {
+            allowedSentenceIds: readonly string[];
+            assignedSentenceId: string;
+            canonicalText: { en: string; ko: string };
+          };
+          falsifier: {
+            allowedSentenceIds: readonly string[];
+            assignedSentenceId: string;
+            canonicalText: { en: string; ko: string };
+          };
         };
         requiredPrimarySentenceIds: readonly string[];
         requiredPrimaryClaimIds: readonly string[];
@@ -119,7 +133,9 @@ describe("chair synthesis directional contract", () => {
           entry.eligibleSectionKeys.length > 0,
       ),
     ).toBe(true);
-    expect(modelPrompt.decisionRoleOwnershipContract.decisiveSentenceIds).toEqual(
+    expect(
+      modelPrompt.decisionRoleOwnershipContract.decisiveSentenceIds,
+    ).toEqual(
       prompt.sentences
         .filter((sentence) => sentence.kind === "claim")
         .map((sentence) => sentence.sentenceId),
@@ -131,7 +147,9 @@ describe("chair synthesis directional contract", () => {
         .filter((sentence) => sentence.kind === "dissent")
         .map((sentence) => sentence.sentenceId),
     );
-    expect(modelPrompt.decisionRoleOwnershipContract.falsifierSentenceIds).toEqual(
+    expect(
+      modelPrompt.decisionRoleOwnershipContract.falsifierSentenceIds,
+    ).toEqual(
       prompt.sentences
         .filter((sentence) => sentence.kind === "change_condition")
         .map((sentence) => sentence.sentenceId),
@@ -163,7 +181,9 @@ describe("chair synthesis directional contract", () => {
     expect(modelPrompt.teamConflictContract.reasonSentenceRule).toBe(
       "use_primarySentenceId",
     );
-    expect(modelPrompt.teamConflictContract.allowedReasonSentenceIds.length).toBeGreaterThan(0);
+    expect(
+      modelPrompt.teamConflictContract.allowedReasonSentenceIds.length,
+    ).toBeGreaterThan(0);
     expect(modelPrompt.teamConflictContract.nullSectionKeys).not.toContain(
       "supported_analysis",
     );
@@ -198,15 +218,16 @@ describe("chair synthesis directional contract", () => {
       prompt.sentences.find(
         (sentence) =>
           sentence.sentenceId ===
-          modelPrompt.directionalBriefContract.roles.decisive.assignedSentenceId,
+          modelPrompt.directionalBriefContract.roles.decisive
+            .assignedSentenceId,
       )?.text,
     );
     expect(
       modelPrompt.directionalBriefContract.requiredPrimarySentenceIds,
     ).toEqual([`claim:${prompt.auditedClaimIds[0]}`]);
-    expect(modelPrompt.directionalBriefContract.requiredPrimaryClaimIds).toEqual([
-      prompt.auditedClaimIds[0],
-    ]);
+    expect(
+      modelPrompt.directionalBriefContract.requiredPrimaryClaimIds,
+    ).toEqual([prompt.auditedClaimIds[0]]);
     expect(modelPrompt.sectionPrimaryAssignments).toHaveLength(6);
     expect(
       new Set(
@@ -235,7 +256,8 @@ describe("chair synthesis directional contract", () => {
       decisiveSentenceId:
         modelPrompt.directionalBriefContract.roles.decisive.assignedSentenceId,
       countercaseSentenceId:
-        modelPrompt.directionalBriefContract.roles.countercase.assignedSentenceId,
+        modelPrompt.directionalBriefContract.roles.countercase
+          .assignedSentenceId,
       falsifierSentenceId:
         modelPrompt.directionalBriefContract.roles.falsifier.assignedSentenceId,
     });
@@ -244,7 +266,9 @@ describe("chair synthesis directional contract", () => {
         (section) =>
           /\p{Script=Latin}/u.test(section.publicSummary.en) &&
           /\p{Script=Hangul}/u.test(section.publicSummary.ko) &&
-          section.publicSummary.en.normalize("NFKC").toLocaleLowerCase("und") !==
+          section.publicSummary.en
+            .normalize("NFKC")
+            .toLocaleLowerCase("und") !==
             section.publicSummary.ko.normalize("NFKC").toLocaleLowerCase("und"),
       ),
     ).toBe(true);
@@ -268,7 +292,10 @@ describe("chair synthesis directional contract", () => {
       decisionBrief: {
         ...candidate.decisionBrief,
         decisiveReason: { en: "Generic outlook.", ko: "일반적 전망입니다." },
-        strongestCountercase: { en: "Generic outlook.", ko: "일반적 전망입니다." },
+        strongestCountercase: {
+          en: "Generic outlook.",
+          ko: "일반적 전망입니다.",
+        },
         falsifier: { en: "Generic outlook.", ko: "일반적 전망입니다." },
       },
     };
@@ -330,17 +357,17 @@ describe("chair synthesis directional contract", () => {
         ...prompt,
         sentences: prompt.sentences.filter(
           (sentence) =>
-            sentence.kind !== "dissent" &&
-            sentence.kind !== "change_condition",
+            sentence.kind !== "dissent" && sentence.kind !== "change_condition",
         ),
       }),
     ).toThrow("chair_directional_assignment_incomplete");
   });
 
   it("requires every chair section property in the strict model schema", () => {
-    const document = schemaDocument(
-      ChairSynthesisModelOutputSchema,
-    ) as Record<string, any>;
+    const document = schemaDocument(ChairSynthesisModelOutputSchema) as Record<
+      string,
+      any
+    >;
 
     expect(document["properties"]["sections"]["items"]["required"]).toContain(
       "conflictAdjudication",
@@ -415,7 +442,8 @@ describe("chair synthesis directional contract", () => {
     const missing = candidate.sections.find(
       (section) => section.sectionKey === "operational_scenarios",
     );
-    if (missing === undefined) throw new TypeError("missing rewrite fixture section");
+    if (missing === undefined)
+      throw new TypeError("missing rewrite fixture section");
     const incomplete = {
       ...candidate,
       sections: candidate.sections.filter(
@@ -528,7 +556,11 @@ describe("chair synthesis directional contract", () => {
       },
     };
 
-    const repairedRaw = repairChairCandidate(JSON.stringify(prompt), invalid, rewrite);
+    const repairedRaw = repairChairCandidate(
+      JSON.stringify(prompt),
+      invalid,
+      rewrite,
+    );
     const repaired = ChairSynthesisOutputSchema.parse(repairedRaw);
     const brief = repaired.sections.find(
       (section) => section.sectionKey === "ten_second_brief",
@@ -642,12 +674,16 @@ describe("chair synthesis directional contract", () => {
     // Given
     const { prompt, candidate } = mixedClaimValidationFixture();
     const briefSentenceId = candidate.sections[0]?.sentenceIds[0];
-    if (briefSentenceId === undefined) throw new TypeError("missing brief sentence");
+    if (briefSentenceId === undefined)
+      throw new TypeError("missing brief sentence");
     const invalid = {
       ...candidate,
       sections: candidate.sections.map((section) =>
         section.sectionKey === "supported_analysis"
-          ? { ...section, sentenceIds: [...section.sentenceIds, briefSentenceId] }
+          ? {
+              ...section,
+              sentenceIds: [...section.sentenceIds, briefSentenceId],
+            }
           : section,
       ),
     };
@@ -702,8 +738,14 @@ describe("chair synthesis directional contract", () => {
   });
 
   it.each([
-    { en: "Claim A has equal upside and downside", ko: "주장 A의 상방과 하방은 동일합니다" },
-    { en: "Claim A risks and rewards are balanced", ko: "주장 A의 기회와 위험은 균형입니다" },
+    {
+      en: "Claim A has equal upside and downside",
+      ko: "주장 A의 상방과 하방은 동일합니다",
+    },
+    {
+      en: "Claim A risks and rewards are balanced",
+      ko: "주장 A의 기회와 위험은 균형입니다",
+    },
   ])("rejects normalized symmetric balance language", (publicSummary) => {
     const { prompt, candidate } = mixedClaimValidationFixture();
     const invalid = {
@@ -811,7 +853,9 @@ describe("chair synthesis directional contract", () => {
         },
       ],
     };
-    const modelPrompt = JSON.parse(chairSynthesisModelPrompt(promptWithChallenge)) as {
+    const modelPrompt = JSON.parse(
+      chairSynthesisModelPrompt(promptWithChallenge),
+    ) as {
       directionalBriefContract: {
         roles: { countercase: { assignedSentenceId: string } };
       };
@@ -840,7 +884,9 @@ describe("chair synthesis directional contract", () => {
       },
     };
 
-    expect(chairCandidateIssue(JSON.stringify(duplicatePrompt), invalid)).toEqual({
+    expect(
+      chairCandidateIssue(JSON.stringify(duplicatePrompt), invalid),
+    ).toEqual({
       sectionKey: "ten_second_brief",
       reason: "decision_components_not_distinct",
     });
@@ -909,7 +955,10 @@ describe("chair synthesis directional contract", () => {
       ...candidate,
       sections: candidate.sections.map((section) => ({
         ...section,
-        publicSummary: { en: section.publicSummary.en, ko: section.publicSummary.en },
+        publicSummary: {
+          en: section.publicSummary.en,
+          ko: section.publicSummary.en,
+        },
       })),
     };
 
@@ -938,9 +987,11 @@ describe("chair synthesis directional contract", () => {
     };
 
     expect(validChairCandidate(JSON.stringify(prompt), invalid)).toEqual({});
-    expect(ChairSynthesisOutputSchema.parse(
-      validChairCandidate(JSON.stringify(prompt), candidate),
-    ).kind).toBe("chair_synthesis");
+    expect(
+      ChairSynthesisOutputSchema.parse(
+        validChairCandidate(JSON.stringify(prompt), candidate),
+      ).kind,
+    ).toBe("chair_synthesis");
   });
 
   it("does not restore an unselected prompt unknown", () => {
@@ -982,7 +1033,10 @@ describe("chair synthesis directional contract", () => {
       sourceArtifactIds: [prompt.sourceArtifactIds[0]],
       text: { en: "Removed claim", ko: "제거된 주장" },
     };
-    const expandedPrompt = { ...prompt, sentences: [...prompt.sentences, foreignSentence] };
+    const expandedPrompt = {
+      ...prompt,
+      sentences: [...prompt.sentences, foreignSentence],
+    };
     const invalid = {
       ...candidate,
       sections: candidate.sections.map((section) =>
@@ -993,7 +1047,10 @@ describe("chair synthesis directional contract", () => {
     };
 
     // When
-    const accepted = validChairCandidate(JSON.stringify(expandedPrompt), invalid);
+    const accepted = validChairCandidate(
+      JSON.stringify(expandedPrompt),
+      invalid,
+    );
 
     // Then
     expect(accepted).toEqual({});
