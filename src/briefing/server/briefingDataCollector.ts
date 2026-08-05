@@ -127,6 +127,37 @@ function coverageStart(cutoffAt: string): string {
   return new Date(Date.parse(cutoffAt) - 24 * 60 * 60 * 1_000).toISOString();
 }
 
+const COMPANY_SUFFIXES = new Set([
+  "corp",
+  "corporation",
+  "company",
+  "inc",
+  "incorporated",
+  "limited",
+  "ltd",
+  "plc",
+]);
+
+function referencesTrackedCompany(
+  item: BriefingWatchlistItem,
+  title: string,
+  detail: string,
+): boolean {
+  const haystack = `${title} ${detail}`.toLowerCase();
+  const tickerPattern = new RegExp(
+    `(^|[^a-z0-9])${item.symbol.toLowerCase().replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")}([^a-z0-9]|$)`,
+    "u",
+  );
+  if (tickerPattern.test(haystack)) return true;
+  return item.company
+    .toLowerCase()
+    .split(/[^a-z0-9]+/u)
+    .filter((term) => term.length >= 4 && !COMPANY_SUFFIXES.has(term))
+    .some((term) =>
+      new RegExp(`(^|[^a-z0-9])${term}([^a-z0-9]|$)`, "u").test(haystack),
+    );
+}
+
 export type BriefingDataCollector = {
   readonly collect: (input: {
     readonly item: BriefingWatchlistItem;
@@ -208,11 +239,17 @@ export function createBriefingDataCollector(input: {
           ? news.value.data
           : undefined;
       if (newsData === undefined) limitations.push("news");
-      const newsEvents = (newsData?.events ?? []).filter(
-        (event) =>
+      const newsEvents = (newsData?.events ?? []).filter((event) => {
+        const detail =
+          newsData?.excerpts.find(
+            (excerpt) => excerpt.eventKey === event.eventKey,
+          )?.content ?? event.title;
+        return (
           Date.parse(event.publishedAt) >= Date.parse(startAt) &&
-          Date.parse(event.publishedAt) <= Date.parse(cutoffAt),
-      );
+          Date.parse(event.publishedAt) <= Date.parse(cutoffAt) &&
+          referencesTrackedCompany(item, event.title, detail)
+        );
+      });
       const newsSignals: BriefingSignal[] = newsEvents
         .slice(0, 5)
         .map((event) => ({

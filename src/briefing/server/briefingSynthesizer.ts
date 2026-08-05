@@ -259,6 +259,31 @@ function promptFor(
   signals: readonly BriefingSignal[],
   previous: BriefingEditionPayload | undefined,
 ): string {
+  const promptSnapshot = {
+    ...snapshot,
+    quote: {
+      ...snapshot.quote,
+      ...(snapshot.quote.value === undefined
+        ? {}
+        : { value: Number(snapshot.quote.value.toFixed(2)) }),
+      ...(snapshot.quote.changePercent === undefined
+        ? {}
+        : {
+            changePercent: Number(snapshot.quote.changePercent.toFixed(2)),
+          }),
+    },
+    fundamentals: Object.fromEntries(
+      Object.entries(snapshot.fundamentals).map(([key, value]) => [
+        key,
+        typeof value !== "number"
+          ? value
+          : Math.abs(value) >= 1_000
+            ? Math.round(value)
+            : Number(value.toFixed(2)),
+      ]),
+    ),
+    signals,
+  };
   return [
     "You are the chair of a four-agent US equity pre-market briefing.",
     `Write the entire response in ${locale === "ko" ? "natural Korean" : "concise professional English"}.`,
@@ -271,9 +296,10 @@ function promptFor(
     "materialChanges must use only the supplied signal IDs. Omit a signal if it repeats the previous briefing without a material change.",
     "upcomingEvents must preserve supplied ISO dates exactly.",
     "Set changedSincePrevious or stillWatching to null when that field is not applicable. Do not omit schema fields.",
+    "Display prices and percentages with at most two decimals. Do not recite the cutoff timestamp unless its time is decision-relevant.",
     JSON.stringify(
       {
-        snapshot: { ...snapshot, signals },
+        snapshot: promptSnapshot,
         previous:
           previous === undefined
             ? null
@@ -390,6 +416,14 @@ export async function synthesizeBriefingEdition(input: {
           },
         ];
   });
+  const materialSourceUrls = new Set(
+    materialChanges.flatMap((signal) =>
+      signal.sourceUrl === undefined ? [] : [signal.sourceUrl],
+    ),
+  );
+  const citedSources = input.snapshot.sources.filter((source) =>
+    materialSourceUrls.has(source.url),
+  );
   return Object.freeze({
     schemaVersion: 1,
     symbol: input.snapshot.symbol,
@@ -419,7 +453,7 @@ export async function synthesizeBriefingEdition(input: {
     ...(draft.stillWatching === null
       ? {}
       : { stillWatching: draft.stillWatching }),
-    sources: input.snapshot.sources,
+    sources: Object.freeze(citedSources),
     limitations: input.snapshot.limitations,
   });
 }
