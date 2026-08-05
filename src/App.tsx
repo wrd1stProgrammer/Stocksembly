@@ -443,7 +443,11 @@ export function App() {
               </span>
             </p>
           </div>
-          <SearchConsole locale={locale} />
+          <SearchConsole
+            locale={locale}
+            subscriptionTier={subscriptionTier}
+            creditsRemaining={billingStatus?.credits.remaining}
+          />
           <LandingOfficePreview locale={locale} />
           <LandingResearchRoomPreview locale={locale} />
           <p className="hero__proof">

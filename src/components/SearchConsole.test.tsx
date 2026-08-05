@@ -37,6 +37,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   testState.authConfigured = false;
   testState.authenticated = true;
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: () => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
 });
 
 afterEach(() => {
@@ -56,6 +64,54 @@ describe("SearchConsole durable research launch", () => {
     expect(
       screen.queryByRole("button", { name: "NVDA" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("explains that custom settings are subscriber-only for free users", async () => {
+    render(
+      <SearchConsole
+        locale="ko"
+        subscriptionTier="free"
+        creditsRemaining={5}
+      />,
+    );
+
+    const customize = screen.getByRole("button", { name: "맞춤 설정" });
+    expect(customize).toHaveAttribute("aria-disabled", "true");
+    expect(customize).toHaveAttribute("data-locked", "true");
+    fireEvent.click(customize);
+
+    expect(
+      await screen.findByRole("dialog", {
+        name: "맞춤 설정은 구독 사용자 전용입니다",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the credit modal before launching when the balance is too low", async () => {
+    render(
+      <SearchConsole
+        locale="en"
+        subscriptionTier="free"
+        creditsRemaining={0}
+      />,
+    );
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "NVDA" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      { target: { value: "What is priced in?" } },
+    );
+
+    const form = screen.getByRole("searchbox").closest("form");
+    if (!(form instanceof HTMLFormElement))
+      throw new TypeError("search form missing");
+    fireEvent.submit(form);
+
+    expect(
+      await screen.findByRole("dialog", { name: "Not enough credits" }),
+    ).toBeInTheDocument();
+    expect(testState.startRun).not.toHaveBeenCalled();
   });
 
   it("redirects a signed-out production user before creating a run", async () => {

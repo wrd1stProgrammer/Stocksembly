@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { CreditShortageModal } from "@/src/components/billing/CreditShortageModal";
+import { MembershipAccessModal } from "@/src/components/billing/MembershipAccessModal";
 import { PublishedResearchWorkspace } from "@/src/components/researchRoom/PublishedResearchWorkspace";
 import type { Locale } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
@@ -74,6 +75,7 @@ export default async function ResearchRoomReportPage({
   if (report === "locked") {
     return (
       <main className="research-room-locked" lang={locale}>
+        <MembershipAccessModal locale={locale} open reason="recent-report" />
         <LockKeyhole size={34} />
         <span>MEMBER EDITION</span>
         <h1>
@@ -101,7 +103,12 @@ export default async function ResearchRoomReportPage({
   if (credit.authenticated && !credit.allowed) {
     return (
       <main className="research-room-locked" lang={locale}>
-        <CreditShortageModal locale={locale} open />
+        <CreditShortageModal
+          locale={locale}
+          open
+          remaining={credit.remaining}
+          required={credit.required}
+        />
         <span>CREDIT LIMIT</span>
         <h1>
           {locale === "ko"

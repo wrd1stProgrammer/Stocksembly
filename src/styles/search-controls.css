@@ -261,6 +261,17 @@
   color: var(--color-text);
   background: rgb(255 255 255 / 6%);
 }
+.research-profile-trigger[data-locked="true"] {
+  color: #69707c;
+  background: rgb(255 255 255 / 2%);
+  cursor: pointer;
+}
+.research-profile-trigger[data-locked="true"]:hover,
+.research-profile-trigger[data-locked="true"]:focus-visible {
+  color: #c8d4ff;
+  background: rgb(88 121 255 / 12%);
+  outline: none;
+}
 .research-profile {
   position: absolute;
   z-index: 30;

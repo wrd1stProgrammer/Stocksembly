@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowUpRight, X } from "lucide-react";
+import { BorderBeam } from "border-beam";
+import { ArrowUpRight, CreditCard, X } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
@@ -10,9 +11,17 @@ type Props = {
   readonly locale: Locale;
   readonly open: boolean;
   readonly onClose?: () => void;
+  readonly remaining?: number | undefined;
+  readonly required?: number;
 };
 
-export function CreditShortageModal({ locale, open, onClose }: Props) {
+export function CreditShortageModal({
+  locale,
+  open,
+  onClose,
+  remaining,
+  required,
+}: Props) {
   const titleId = useId();
   const [mounted, setMounted] = useState(false);
   const dismiss = useCallback(() => {
@@ -41,48 +50,73 @@ export function CreditShortageModal({ locale, open, onClose }: Props) {
 
   return createPortal(
     <div className="credit-shortage-modal__backdrop" role="presentation">
-      <section
-        className="credit-shortage-modal__dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
+      <BorderBeam
+        className="credit-shortage-modal__beam"
+        size="pulse-outside"
+        colorVariant="colorful"
+        theme="dark"
+        strength={0.79}
+        borderRadius={20}
       >
-        <button
-          type="button"
-          className="credit-shortage-modal__close"
-          aria-label={locale === "ko" ? "닫기" : "Close"}
-          onClick={dismiss}
+        <section
+          className="credit-shortage-modal__dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
         >
-          <X size={18} aria-hidden="true" />
-        </button>
-        <span className="credit-shortage-modal__eyebrow">
-          {locale === "ko" ? "CREDIT LIMIT" : "CREDIT LIMIT"}
-        </span>
-        <h2 id={titleId}>
-          {locale === "ko" ? "크레딧이 부족합니다" : "Not enough credits"}
-        </h2>
-        <p>
-          {locale === "ko"
-            ? "이 기능을 계속 이용하려면 플랜을 업그레이드해 주세요."
-            : "Upgrade your plan to keep using this feature."}
-        </p>
-        <div className="credit-shortage-modal__actions">
           <button
             type="button"
-            className="credit-shortage-modal__dismiss"
+            className="credit-shortage-modal__close"
+            aria-label={locale === "ko" ? "닫기" : "Close"}
             onClick={dismiss}
           >
-            {locale === "ko" ? "닫기" : "Close"}
+            <X size={18} aria-hidden="true" />
           </button>
-          <Link
-            className="credit-shortage-modal__upgrade"
-            href="/?billing=plans"
-          >
-            {locale === "ko" ? "플랜 보기" : "View plans"}
-            <ArrowUpRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
+          <div className="credit-shortage-modal__icon" aria-hidden="true">
+            <CreditCard size={27} strokeWidth={1.8} />
+          </div>
+          <span className="credit-shortage-modal__eyebrow">
+            {locale === "ko" ? "CREDIT LIMIT" : "CREDIT LIMIT"}
+          </span>
+          <h2 id={titleId}>
+            {locale === "ko" ? "크레딧이 부족합니다" : "Not enough credits"}
+          </h2>
+          <p>
+            {locale === "ko"
+              ? "이번 리서치에 필요한 크레딧이 현재 잔액보다 많습니다. 플랜을 확인하거나 다음 지급을 기다려 주세요."
+              : "This research needs more credits than your current balance. Review a plan or wait for your next credit grant."}
+          </p>
+          {typeof remaining === "number" && typeof required === "number" ? (
+            <div className="credit-shortage-modal__balance">
+              <span>{locale === "ko" ? "현재 잔액" : "Current balance"}</span>
+              <strong>
+                {remaining.toLocaleString()}
+                <small>
+                  {locale === "ko"
+                    ? `크레딧 · ${required} 필요`
+                    : `credits · ${required} required`}
+                </small>
+              </strong>
+            </div>
+          ) : null}
+          <div className="credit-shortage-modal__actions">
+            <button
+              type="button"
+              className="credit-shortage-modal__dismiss"
+              onClick={dismiss}
+            >
+              {locale === "ko" ? "닫기" : "Close"}
+            </button>
+            <Link
+              className="credit-shortage-modal__upgrade"
+              href="/?billing=plans"
+            >
+              {locale === "ko" ? "플랜 보기" : "View plans"}
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      </BorderBeam>
     </div>,
     document.body,
   );

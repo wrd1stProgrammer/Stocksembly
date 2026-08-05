@@ -1,4 +1,10 @@
-import { ChevronDown, Plus, SlidersHorizontal, X } from "lucide-react";
+import {
+  ChevronDown,
+  LockKeyhole,
+  Plus,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -9,6 +15,7 @@ import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
 import { filterTickers, searchUsTickers, type Ticker } from "../lib/tickers";
 import { notifyBillingChanged } from "../lib/whop/billingEvents";
+import { researchCreditCost } from "../lib/whop/creditPolicy";
 import { ResearchRequestError } from "../research/client/api";
 import { TickerSymbolSchema } from "../research/domain/ids";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
@@ -24,6 +31,7 @@ import {
   researchTargetQueryValue,
 } from "../research/domain/researchTarget";
 import { CreditShortageModal } from "./billing/CreditShortageModal";
+import { MembershipAccessModal } from "./billing/MembershipAccessModal";
 import {
   BorderBeam,
   ResearchButton,
@@ -35,6 +43,8 @@ const LAUNCH_PULSE_MILLISECONDS = 3_000;
 
 type SearchConsoleProps = {
   readonly locale: Locale;
+  readonly subscriptionTier?: "unknown" | "free" | "paid";
+  readonly creditsRemaining?: number | undefined;
   readonly tickerSearch?: (
     query: string,
     signal: AbortSignal,
@@ -43,6 +53,8 @@ type SearchConsoleProps = {
 
 export function SearchConsole({
   locale,
+  subscriptionTier = "unknown",
+  creditsRemaining,
   tickerSearch = searchUsTickers,
 }: SearchConsoleProps) {
   const labels = copy[locale].search;
@@ -57,6 +69,7 @@ export function SearchConsole({
   const [isSearching, setIsSearching] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
   const [creditShortageOpen, setCreditShortageOpen] = useState(false);
+  const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const [targetOverride, setTargetOverride] = useState<ResearchTarget>();
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -83,6 +96,8 @@ export function SearchConsole({
     [researchQuestion],
   );
   const researchTarget = targetOverride ?? recommendation.target;
+  const requiredCredits = researchCreditCost(researchTarget);
+  const customSettingsLocked = subscriptionTier === "free";
   const targetCopy =
     researchTarget.kind === "committee"
       ? locale === "ko"
@@ -245,6 +260,11 @@ export function SearchConsole({
         );
         return;
       }
+    }
+    if (creditsRemaining !== undefined && creditsRemaining < requiredCredits) {
+      setIsSubmitting(false);
+      setCreditShortageOpen(true);
+      return;
     }
     const idempotencyKey = crypto.randomUUID();
     let createdRunId: string | undefined;
@@ -492,12 +512,22 @@ export function SearchConsole({
               aria-controls="research-profile-panel"
               aria-label={profileCopy.customize}
               title={profileCopy.customize}
+              aria-disabled={customSettingsLocked || undefined}
+              data-locked={customSettingsLocked ? "true" : undefined}
               onClick={() => {
+                if (customSettingsLocked) {
+                  setMembershipGateOpen(true);
+                  return;
+                }
                 setTargetPickerOpen(false);
                 setProfileOpen((open) => !open);
               }}
             >
-              <SlidersHorizontal aria-hidden="true" size={17} />
+              {customSettingsLocked ? (
+                <LockKeyhole aria-hidden="true" size={16} />
+              ) : (
+                <SlidersHorizontal aria-hidden="true" size={17} />
+              )}
             </button>
             <section
               className="research-target"
@@ -634,7 +664,15 @@ export function SearchConsole({
       <CreditShortageModal
         locale={locale}
         open={creditShortageOpen}
+        required={requiredCredits}
+        remaining={creditsRemaining}
         onClose={() => setCreditShortageOpen(false)}
+      />
+      <MembershipAccessModal
+        locale={locale}
+        open={membershipGateOpen}
+        reason="customize"
+        onClose={() => setMembershipGateOpen(false)}
       />
     </>
   );

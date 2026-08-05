@@ -31,6 +31,7 @@ import type {
   ResearchRoomSort,
 } from "../../research/server/researchRoom/researchRoomCatalog";
 import { Brand } from "../Brand";
+import { MembershipAccessModal } from "../billing/MembershipAccessModal";
 import { CompanyLogo } from "../research/ResearchSidebar";
 import { SignedInSidebar } from "../SignedInSidebar";
 
@@ -140,6 +141,7 @@ export function ResearchRoomCatalog({
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const firstRequest = useRef(true);
 
   useEffect(() => {
@@ -437,12 +439,19 @@ export function ResearchRoomCatalog({
                   </article>
                 );
                 return report.locked ? (
-                  <div
+                  <button
+                    type="button"
                     className="research-room-catalog__card"
                     key={report.reportId}
+                    aria-label={
+                      locale === "ko"
+                        ? `${report.symbol} 최신 리서치 구독 안내`
+                        : `${report.symbol} subscriber access`
+                    }
+                    onClick={() => setMembershipGateOpen(true)}
                   >
                     {card}
-                  </div>
+                  </button>
                 ) : (
                   <Link
                     className="research-room-catalog__card"
@@ -494,6 +503,12 @@ export function ResearchRoomCatalog({
           </section>
         </main>
       </div>
+      <MembershipAccessModal
+        locale={locale}
+        open={membershipGateOpen}
+        reason="recent-report"
+        onClose={() => setMembershipGateOpen(false)}
+      />
     </div>
   );
 }

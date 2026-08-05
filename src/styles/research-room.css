@@ -343,6 +343,16 @@
   min-height: 238px;
   display: block;
 }
+.research-room-catalog__card:is(button) {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .research-room-catalog__card article {
   height: 100%;
   min-height: 238px;
@@ -361,6 +371,17 @@
   border-color: #393d46;
   background: #111318;
   transform: translateY(-2px);
+}
+.research-room-catalog__card:is(button):hover article,
+.research-room-catalog__card:is(button):focus-visible article {
+  border-color: #393d46;
+  background: #111318;
+  transform: translateY(-2px);
+}
+.research-room-catalog__card:is(button):focus-visible {
+  outline: 2px solid #6f8fff;
+  outline-offset: 3px;
+  border-radius: 12px;
 }
 .research-room-catalog__card article[data-locked="true"] {
   background: #090a0d;
