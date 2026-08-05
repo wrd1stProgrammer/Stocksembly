@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
@@ -71,9 +71,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
                   type="button"
                   role="option"
                   aria-selected={locale === value}
-                  className={
-                    locale === value ? "is-selected" : undefined
-                  }
+                  className={locale === value ? "is-selected" : undefined}
                   key={value}
                   onClick={() => selectLocale(value)}
                 >
