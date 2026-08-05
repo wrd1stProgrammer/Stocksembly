@@ -343,6 +343,15 @@
   min-height: 238px;
   display: block;
 }
+.research-room-catalog__beam {
+  min-width: 0;
+  min-height: 238px;
+  display: block;
+  border-radius: 12px;
+}
+.research-room-catalog__beam > .research-room-catalog__card {
+  height: 100%;
+}
 .research-room-catalog__card:is(button) {
   width: 100%;
   padding: 0;

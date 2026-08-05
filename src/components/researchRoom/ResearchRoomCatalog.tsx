@@ -1,5 +1,6 @@
 "use client";
 
+import { BorderBeam } from "border-beam";
 import {
   ArrowUpRight,
   Building2,
@@ -21,6 +22,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { copy, type Locale } from "../../lib/i18n";
 import { RESEARCH_DEPARTMENT_COPY } from "../../research/domain/researchTarget";
 import type {
@@ -55,6 +57,27 @@ const scopeOptions: readonly Scope[] = [
   "financial",
   "risk",
 ];
+
+function ResearchRoomCardFrame({ children }: { readonly children: ReactNode }) {
+  const [active, setActive] = useState(false);
+  return (
+    <BorderBeam
+      className="research-room-catalog__beam"
+      size="pulse-outside"
+      colorVariant="mono"
+      active={active}
+      strength={0.82}
+      borderRadius={12}
+      onMouseEnter={() => setActive(true)}
+      onMouseLeave={() => setActive(false)}
+      onFocus={() => setActive(true)}
+      onBlur={() => setActive(false)}
+      onPointerDown={() => setActive(true)}
+    >
+      {children}
+    </BorderBeam>
+  );
+}
 
 function scopeLabel(value: Scope, locale: Locale): string {
   const labels = {
@@ -439,28 +462,30 @@ export function ResearchRoomCatalog({
                   </article>
                 );
                 return report.locked ? (
-                  <button
-                    type="button"
-                    className="research-room-catalog__card"
-                    key={report.reportId}
-                    aria-label={
-                      locale === "ko"
-                        ? `${report.symbol} 최신 리서치 구독 안내`
-                        : `${report.symbol} subscriber access`
-                    }
-                    onClick={() => setMembershipGateOpen(true)}
-                  >
-                    {card}
-                  </button>
+                  <ResearchRoomCardFrame key={report.reportId}>
+                    <button
+                      type="button"
+                      className="research-room-catalog__card"
+                      aria-label={
+                        locale === "ko"
+                          ? `${report.symbol} 최신 리서치 구독 안내`
+                          : `${report.symbol} subscriber access`
+                      }
+                      onClick={() => setMembershipGateOpen(true)}
+                    >
+                      {card}
+                    </button>
+                  </ResearchRoomCardFrame>
                 ) : (
-                  <Link
-                    className="research-room-catalog__card"
-                    key={report.reportId}
-                    href={`/research-room/${report.reportId}?lang=${locale}`}
-                    aria-label={`${report.symbol} ${report.question}`}
-                  >
-                    {card}
-                  </Link>
+                  <ResearchRoomCardFrame key={report.reportId}>
+                    <Link
+                      className="research-room-catalog__card"
+                      href={`/research-room/${report.reportId}?lang=${locale}`}
+                      aria-label={`${report.symbol} ${report.question}`}
+                    >
+                      {card}
+                    </Link>
+                  </ResearchRoomCardFrame>
                 );
               })}
               {reports.length === 0 ? (
