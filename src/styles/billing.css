@@ -1394,8 +1394,12 @@ body.subscription-modal-is-open {
 
 .credit-shortage-modal__upgrade {
   border: 1px solid var(--billing-accent);
-  background: var(--billing-accent);
-  color: var(--billing-accent-ink);
+  background: #f3f4f6;
+  color: #15171c;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
 }
 
 .credit-shortage-modal__dismiss:hover,
@@ -1406,9 +1410,15 @@ body.subscription-modal-is-open {
 
 .credit-shortage-modal__upgrade:hover,
 .credit-shortage-modal__upgrade:focus-visible {
-  border-color: var(--billing-accent-bright);
-  background: var(--billing-accent-bright);
+  border-color: #ffffff;
+  background: #ffffff;
   outline: none;
+  transform: translateY(-1px);
+}
+
+.credit-shortage-modal__upgrade:active {
+  background: #e4e6eb;
+  transform: translateY(0);
 }
 
 .membership-access-modal-is-open {
@@ -1532,9 +1542,13 @@ body.subscription-modal-is-open {
 }
 
 .membership-access-modal__upgrade {
-  border: 1px solid var(--billing-accent);
-  background: var(--billing-accent);
-  color: var(--billing-accent-ink);
+  border: 1px solid #f3f4f6;
+  background: #f3f4f6;
+  color: #15171c;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
 }
 
 .membership-access-modal__dismiss:hover,
@@ -1545,9 +1559,15 @@ body.subscription-modal-is-open {
 
 .membership-access-modal__upgrade:hover,
 .membership-access-modal__upgrade:focus-visible {
-  border-color: var(--billing-accent-bright);
-  background: var(--billing-accent-bright);
+  border-color: #ffffff;
+  background: #ffffff;
   outline: none;
+  transform: translateY(-1px);
+}
+
+.membership-access-modal__upgrade:active {
+  background: #e4e6eb;
+  transform: translateY(0);
 }
 
 .credit-grant-modal-is-open {
