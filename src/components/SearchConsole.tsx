@@ -8,6 +8,7 @@ import { currentAuthTokens } from "../auth/researchSession";
 import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";
 import { filterTickers, searchUsTickers, type Ticker } from "../lib/tickers";
+import { notifyBillingChanged } from "../lib/whop/billingEvents";
 import { ResearchRequestError } from "../research/client/api";
 import { TickerSymbolSchema } from "../research/domain/ids";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
@@ -322,6 +323,7 @@ export function SearchConsole({
         return;
       }
       if (firstOutcome === "failed") throw new Error("Research launch failed");
+      if (createdRunId !== undefined) notifyBillingChanged();
       if (firstOutcome === "created") await pulseDelay;
       const launchQuery = new URLSearchParams({
         lang: locale,

@@ -24,6 +24,7 @@ export type BillingCredits = {
 
 export type BillingCreditActivityCode =
   | "free_daily_grant"
+  | "free_signup_grant"
   | "pro_monthly_grant"
   | "ultra_monthly_grant"
   | "full_research"
@@ -41,12 +42,27 @@ export type BillingCreditActivity = {
   readonly occurredAt: string;
 };
 
+export type BillingCreditNotice = {
+  readonly id: string;
+  readonly kind: "signup" | "daily";
+  readonly amount: number;
+  readonly grantedAt: string;
+  readonly balance: number;
+};
+
 export type WhopBillingStatus = {
   readonly authenticated: boolean;
   readonly tier: BillingTier;
   readonly status: BillingStatus;
   readonly credits: BillingCredits;
   readonly recentActivity: readonly BillingCreditActivity[];
+  /** The newest free-credit grant, used by the client to show a one-time modal. */
+  readonly creditNotice?: BillingCreditNotice;
+  readonly planKey?: BillingPlanKey;
+  readonly planId?: string;
+  readonly currentPeriodStart?: string;
+  readonly currentPeriodEnd?: string;
+  readonly cancelAtPeriodEnd?: boolean;
   readonly manageUrl?: string;
 };
 

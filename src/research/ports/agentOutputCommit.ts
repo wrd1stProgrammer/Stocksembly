@@ -76,6 +76,7 @@ export type TrustedAgentOutputEnvelope = {
   readonly browsingPolicy: "disabled" | "audited_web";
   readonly toolTranscriptHash: string;
   readonly cliVersion:
+    | "codex-cli 0.147.0-alpha.1.2"
     | "codex-cli 0.146.0-alpha.9.2"
     | "codex-cli 0.146.0-alpha.3.1"
     | "codex-cli 0.145.0";

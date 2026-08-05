@@ -205,6 +205,31 @@ const migrations = [
       );
     `,
   },
+  {
+    version: 6,
+    name: "006_credit_grant_ledger_and_room_idempotency",
+    sql: `
+      ALTER TABLE credit_grants
+        DROP CONSTRAINT IF EXISTS credit_grants_principal_id_period_key_key;
+
+      CREATE INDEX credit_grants_user_created_idx
+        ON credit_grants(principal_id, created_at DESC, grant_key DESC);
+
+      CREATE INDEX usage_events_research_room_report_idx
+        ON usage_events(principal_id, report_id)
+        WHERE kind = 'research_room';
+    `,
+  },
+  {
+    version: 7,
+    name: "007_normalize_legacy_free_grants",
+    sql: `
+      UPDATE credit_grants
+      SET plan_code = 'free_daily',
+          updated_at = GREATEST(updated_at, now())
+      WHERE plan_code = 'free';
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

@@ -10,6 +10,7 @@ import {
   containsForbiddenPublicVocabulary,
   sanitizePublicEditorialText,
 } from "../domain/editorialQuality";
+import { TickerSymbolSchema } from "../domain/ids";
 import { selectGroundedAnticipatedQuestions } from "./anticipatedQuestionsPublication";
 import {
   deterministicMetadataRewrite,
@@ -743,7 +744,7 @@ describe("persisted anticipated Q&A selection", () => {
         counterargumentIntensity: "strong",
         analysisDepth: "deep",
         decisionPurpose: "earnings",
-        comparisonSymbols: ["MSFT"],
+        comparisonSymbols: [TickerSymbolSchema.parse("MSFT")],
       },
       marketSnapshot: { lastPrice: 100 },
       metricSnapshot: {

@@ -3,7 +3,7 @@ import type { ResearchTarget } from "../../research/domain/researchTarget";
 export const CREDIT_COSTS = {
   committeeResearch: 10,
   departmentResearch: 5,
-  chatBundle: 10,
+  chatBundle: 5,
   chatBundleSize: 100,
   researchRoomView: 3,
 } as const;

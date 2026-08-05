@@ -4,7 +4,8 @@ import { getCurrentUser } from "aws-amplify/auth";
 import { ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { configureAmplifyAuth } from "./auth/amplifyClient";
-import { syncResearchSession } from "./auth/researchSession";
+import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
+import { CreditGrantModal } from "./components/billing/CreditGrantModal";
 import { SubscriptionModal } from "./components/billing/SubscriptionModal";
 import { Header } from "./components/Header";
 import { LandingOfficePreview } from "./components/LandingOfficePreview";
@@ -20,11 +21,41 @@ import {
 import { StarfallFieldBackground } from "./components/ui/starfall-field";
 import type { Locale } from "./lib/i18n";
 import { copy } from "./lib/i18n";
+import { BILLING_CHANGED_EVENT } from "./lib/whop/billingEvents";
 import type {
   WhopBillingStatus,
   WhopPricingPlan,
   WhopPricingResponse,
 } from "./lib/whop/contracts";
+
+const CREDIT_NOTICE_SEEN_STORAGE_KEY = "stocksembly:credit-notice-seen";
+const LOCAL_DEV_SIGNUP_NOTICE_ID = "local-preview-signup-v2";
+
+async function authenticatedFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  const tokens = await currentAuthTokens();
+  const headers = new Headers(init.headers);
+  if (tokens.accessToken !== undefined)
+    headers.set("authorization", `Bearer ${tokens.accessToken}`);
+  if (tokens.identityToken !== undefined)
+    headers.set("x-stocksembly-identity-token", tokens.identityToken);
+  return await fetch(input, {
+    ...init,
+    credentials: "same-origin",
+    headers,
+  });
+}
+
+function isLocalBrowser(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "::1"
+  );
+}
 
 function localFallbackBillingStatus(): WhopBillingStatus {
   const now = new Date();
@@ -39,14 +70,29 @@ function localFallbackBillingStatus(): WhopBillingStatus {
     tier: "free",
     status: "none",
     credits: {
-      remaining: 0,
-      allowance: 0,
+      remaining: 5,
+      allowance: 30,
       used: 0,
       usedPercent: 0,
       periodStart: periodStart.toISOString(),
       periodEnd: periodEnd.toISOString(),
     },
-    recentActivity: [],
+    recentActivity: [
+      {
+        id: LOCAL_DEV_SIGNUP_NOTICE_ID,
+        kind: "grant",
+        code: "free_signup_grant",
+        amount: 5,
+        occurredAt: now.toISOString(),
+      },
+    ],
+    creditNotice: {
+      id: LOCAL_DEV_SIGNUP_NOTICE_ID,
+      kind: "signup",
+      amount: 5,
+      grantedAt: now.toISOString(),
+      balance: 5,
+    },
   };
 }
 
@@ -66,7 +112,99 @@ export function App() {
   >();
   const [billingPlansLoading, setBillingPlansLoading] = useState(false);
   const [billingPlansError, setBillingPlansError] = useState(false);
+  const [creditGrantNotice, setCreditGrantNotice] =
+    useState<WhopBillingStatus["creditNotice"]>();
+  const [creditGrantModalOpen, setCreditGrantModalOpen] = useState(false);
+  const [creditNoticeOwnerKey, setCreditNoticeOwnerKey] = useState("anonymous");
   const content = copy[locale];
+
+  const applyBillingStatus = useCallback(
+    (status: WhopBillingStatus) => {
+      if (status.tier === "free") setSubscriptionTier("free");
+      if (status.tier === "pro" || status.tier === "ultra")
+        setSubscriptionTier("paid");
+      const isLocalPreview = isLocalBrowser();
+      const localPreviewNotice =
+        isLocalPreview && status.tier === "free"
+          ? {
+              id: LOCAL_DEV_SIGNUP_NOTICE_ID,
+              kind: "signup" as const,
+              amount: 5,
+              grantedAt: new Date().toISOString(),
+              balance: Math.max(5, status.credits.remaining),
+            }
+          : undefined;
+      const latestGrant = status.recentActivity.find(
+        (activity) =>
+          activity.kind === "grant" &&
+          (activity.code === "free_signup_grant" ||
+            activity.code === "free_daily_grant"),
+      );
+      const recoveredNotice =
+        latestGrant === undefined
+          ? undefined
+          : {
+              id: latestGrant.id,
+              kind:
+                latestGrant.code === "free_signup_grant"
+                  ? ("signup" as const)
+                  : ("daily" as const),
+              amount: Math.abs(latestGrant.amount),
+              grantedAt: latestGrant.occurredAt,
+              balance: status.credits.remaining,
+            };
+      const notice =
+        status.creditNotice ?? recoveredNotice ?? localPreviewNotice;
+      if (typeof status.credits?.remaining === "number") {
+        setBillingStatus(
+          status.creditNotice !== undefined || localPreviewNotice === undefined
+            ? status
+            : {
+                ...status,
+                credits: {
+                  ...status.credits,
+                  remaining: Math.max(5, status.credits.remaining),
+                  allowance: Math.max(30, status.credits.allowance),
+                  usedPercent: Math.min(
+                    100,
+                    Math.round(
+                      (Math.max(0, status.credits.used) /
+                        Math.max(30, status.credits.allowance)) *
+                        1000,
+                    ) / 10,
+                  ),
+                },
+              },
+        );
+      }
+      if (notice === undefined || typeof window === "undefined") return;
+      const seenNoticeKey = `${CREDIT_NOTICE_SEEN_STORAGE_KEY}:${creditNoticeOwnerKey}`;
+      if (window.localStorage.getItem(seenNoticeKey) === notice.id) return;
+      setCreditGrantNotice(notice);
+      setCreditGrantModalOpen(true);
+    },
+    [creditNoticeOwnerKey],
+  );
+
+  const closeCreditGrantModal = useCallback(() => {
+    const notice = creditGrantNotice;
+    if (notice !== undefined)
+      window.localStorage.setItem(
+        `${CREDIT_NOTICE_SEEN_STORAGE_KEY}:${creditNoticeOwnerKey}`,
+        notice.id,
+      );
+    setCreditGrantModalOpen(false);
+  }, [creditGrantNotice, creditNoticeOwnerKey]);
+
+  const refreshBillingStatus = useCallback(async () => {
+    if (!signedIn) return;
+    const response = await authenticatedFetch("/api/billing/status", {
+      cache: "no-store",
+    }).catch(() => undefined);
+    if (response?.ok !== true) return;
+    const status = (await response.json()) as WhopBillingStatus;
+    applyBillingStatus(status);
+  }, [applyBillingStatus, signedIn]);
 
   const changeLocale = useCallback((nextLocale: Locale) => {
     setLocale(nextLocale);
@@ -78,7 +216,8 @@ export function App() {
 
   const openSubscriptionModal = useCallback(() => {
     setSubscriptionModalOpen(true);
-  }, []);
+    void refreshBillingStatus();
+  }, [refreshBillingStatus]);
 
   const closeSubscriptionModal = useCallback(() => {
     setSubscriptionModalOpen(false);
@@ -133,6 +272,8 @@ export function App() {
       setBillingPlansLoading(false);
       setBillingPlansError(false);
       setSubscriptionModalOpen(false);
+      setCreditGrantNotice(undefined);
+      setCreditGrantModalOpen(false);
       return;
     }
 
@@ -146,28 +287,23 @@ export function App() {
       .catch(() => undefined)
       .then(() =>
         Promise.all([
-          fetch("/api/billing/plans", { credentials: "same-origin" }),
-          fetch("/api/billing/status", { credentials: "same-origin" }),
+          authenticatedFetch("/api/billing/plans"),
+          authenticatedFetch("/api/billing/status"),
         ]),
       )
       .then(async ([plansResponse, statusResponse]) => {
-        if (!plansResponse.ok) throw new Error("BILLING_PLANS_UNAVAILABLE");
-        const payload = (await plansResponse.json()) as WhopPricingResponse;
         if (!active) return;
-        setBillingPlans(payload.plans);
+        if (plansResponse.ok) {
+          const payload = (await plansResponse.json()) as WhopPricingResponse;
+          setBillingPlans(payload.plans);
+        } else {
+          setBillingPlansError(true);
+        }
         if (statusResponse.ok) {
           const status = (await statusResponse.json()) as WhopBillingStatus;
-          if (status.tier === "free") setSubscriptionTier("free");
-          if (status.tier === "pro" || status.tier === "ultra")
-            setSubscriptionTier("paid");
-          if (typeof status.credits?.remaining === "number")
-            setBillingStatus(status);
-        } else if (
-          process.env.NODE_ENV !== "production" &&
-          statusResponse.status === 503
-        ) {
-          setSubscriptionTier("free");
-          setBillingStatus(localFallbackBillingStatus());
+          applyBillingStatus(status);
+        } else if (isLocalBrowser() && statusResponse.status === 503) {
+          applyBillingStatus(localFallbackBillingStatus());
         } else {
           setBillingPlansError(true);
         }
@@ -183,14 +319,36 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [signedIn]);
+  }, [applyBillingStatus, signedIn]);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let active = true;
+    const refreshIfActive = async () => {
+      if (!active) return;
+      await refreshBillingStatus();
+    };
+    const handleBillingChanged = () => {
+      void refreshIfActive();
+    };
+    window.addEventListener(BILLING_CHANGED_EVENT, handleBillingChanged);
+    const interval = window.setInterval(refreshIfActive, 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener(BILLING_CHANGED_EVENT, handleBillingChanged);
+    };
+  }, [refreshBillingStatus, signedIn]);
 
   useEffect(() => {
     if (!configureAmplifyAuth()) return;
     let active = true;
     void getCurrentUser()
-      .then(() => {
-        if (active) setSignedIn(true);
+      .then((user) => {
+        if (active) {
+          setCreditNoticeOwnerKey(user.userId || user.username);
+          setSignedIn(true);
+        }
       })
       .catch(() => {
         if (active) setSignedIn(false);
@@ -201,14 +359,22 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (
-      !signedIn ||
-      new URLSearchParams(window.location.search).get("billing") !== "plans"
-    )
-      return;
-    setSubscriptionModalOpen(true);
+    if (!signedIn) return;
     const url = new URL(window.location.href);
-    url.searchParams.delete("billing");
+    const billingReturn = url.searchParams.get("billing");
+    if (billingReturn !== "plans" && billingReturn !== "success") return;
+
+    setSubscriptionModalOpen(true);
+    for (const key of [
+      "billing",
+      "receipt_id",
+      "payment_id",
+      "checkout_status",
+      "status",
+      "state_id",
+    ]) {
+      url.searchParams.delete(key);
+    }
     window.history.replaceState(window.history.state, "", url);
   }, [signedIn]);
 
@@ -291,12 +457,19 @@ export function App() {
       <SubscriptionModal
         open={subscriptionModalOpen}
         locale={locale}
-        subscriptionTier={subscriptionTier === "paid" ? "paid" : "free"}
+        subscriptionTier={subscriptionTier}
         plans={billingPlans}
         billingStatus={billingStatus}
         loading={billingPlansLoading}
         error={billingPlansError}
         onClose={closeSubscriptionModal}
+      />
+      <CreditGrantModal
+        locale={locale}
+        open={creditGrantModalOpen}
+        notice={creditGrantNotice}
+        onClose={closeCreditGrantModal}
+        onOpenMyPage={openSubscriptionModal}
       />
     </div>
   );

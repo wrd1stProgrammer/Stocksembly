@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { CheckCircle2, ExternalLink, X } from "lucide-react";
 import { type CSSProperties, useEffect, useId, useMemo, useRef } from "react";
 import type { Locale } from "../../lib/i18n";
 import type {
@@ -16,7 +16,7 @@ import {
 type SubscriptionModalProps = {
   readonly open: boolean;
   readonly locale: Locale;
-  readonly subscriptionTier: "free" | "paid";
+  readonly subscriptionTier: "unknown" | "free" | "paid";
   readonly plans: readonly WhopPricingPlan[];
   readonly billingStatus: WhopBillingStatus | undefined;
   readonly loading: boolean;
@@ -88,14 +88,174 @@ function CreditMeter({
   );
 }
 
+function formatBillingDate(value: string | undefined, locale: Locale): string {
+  if (value === undefined) return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "—";
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).format(date);
+}
+
+function SubscriptionOverview({
+  locale,
+  plans,
+  billingStatus,
+}: {
+  readonly locale: Locale;
+  readonly plans: readonly WhopPricingPlan[];
+  readonly billingStatus: WhopBillingStatus | undefined;
+}) {
+  const titleId = useId();
+  const tier =
+    billingStatus?.tier === "ultra"
+      ? "Ultra"
+      : billingStatus?.tier === "pro"
+        ? "Pro"
+        : "Free";
+  const plan =
+    (billingStatus?.planKey
+      ? plans.find((candidate) => candidate.key === billingStatus.planKey)
+      : undefined) ??
+    (billingStatus?.planId
+      ? plans.find((candidate) => candidate.planId === billingStatus.planId)
+      : undefined);
+  const cycle =
+    plan?.interval === "year" || billingStatus?.planKey?.endsWith("-annual")
+      ? locale === "ko"
+        ? "연간 결제"
+        : "Annual billing"
+      : plan?.interval === "month" ||
+          billingStatus?.planKey?.endsWith("-monthly")
+        ? locale === "ko"
+          ? "월간 결제"
+          : "Monthly billing"
+        : "—";
+  const amount = plan
+    ? `$${plan.amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+    : "—";
+  const paymentPeriodStart =
+    billingStatus?.currentPeriodStart ?? billingStatus?.credits.periodStart;
+  const paymentPeriodEnd =
+    billingStatus?.currentPeriodEnd ?? billingStatus?.credits.periodEnd;
+  const statusCopy =
+    billingStatus?.status === "past_due"
+      ? locale === "ko"
+        ? "결제 확인 필요"
+        : "Payment issue"
+      : billingStatus?.status === "trialing"
+        ? locale === "ko"
+          ? "체험 중"
+          : "Trial"
+        : locale === "ko"
+          ? "활성"
+          : "Active";
+  const manageUrl =
+    billingStatus?.manageUrl ?? `/pricing?lang=${encodeURIComponent(locale)}`;
+  const hasProviderManageUrl = billingStatus?.manageUrl !== undefined;
+  const periodCaption = billingStatus?.cancelAtPeriodEnd
+    ? locale === "ko"
+      ? "플랜 종료 예정"
+      : "Plan ends"
+    : locale === "ko"
+      ? "다음 결제일"
+      : "Next payment";
+
+  return (
+    <section className="subscription-overview" aria-labelledby={titleId}>
+      <header className="subscription-overview__header">
+        <div className="subscription-overview__plan-lockup">
+          <h3 id={titleId}>{tier}</h3>
+          <span className="subscription-overview__period-label">{cycle}</span>
+        </div>
+        <span
+          className={`subscription-overview__status${
+            billingStatus?.status === "past_due" ? " is-warning" : ""
+          }`}
+        >
+          <CheckCircle2 size={15} aria-hidden="true" />
+          {statusCopy}
+        </span>
+      </header>
+
+      <div className="subscription-overview__divider" />
+
+      <div className="subscription-overview__payment">
+        <div className="subscription-overview__price">
+          <span className="subscription-overview__label">
+            {locale === "ko" ? "결제 금액" : "Payment"}
+          </span>
+          <div className="subscription-overview__price-value">
+            <strong>{amount}</strong>
+            <span>{cycle}</span>
+          </div>
+        </div>
+        <div className="subscription-overview__period">
+          <span className="subscription-overview__label">
+            {locale === "ko" ? "결제 기간" : "Billing period"}
+          </span>
+          <strong>
+            {formatBillingDate(paymentPeriodStart, locale)}
+            <span aria-hidden="true">—</span>
+            {formatBillingDate(paymentPeriodEnd, locale)}
+          </strong>
+          <small>
+            {periodCaption}
+            {billingStatus?.currentPeriodEnd
+              ? ` ${formatBillingDate(billingStatus.currentPeriodEnd, locale)}`
+              : ""}
+          </small>
+        </div>
+      </div>
+
+      <dl className="subscription-overview__facts">
+        <div>
+          <dt>{locale === "ko" ? "월 제공 크레딧" : "Monthly credits"}</dt>
+          <dd>
+            {billingStatus?.credits.allowance.toLocaleString() ?? "—"}
+            <small>{locale === "ko" ? "크레딧" : "credits"}</small>
+          </dd>
+        </div>
+        <div>
+          <dt>{locale === "ko" ? "결제 주기" : "Billing cycle"}</dt>
+          <dd>{cycle}</dd>
+        </div>
+        <div>
+          <dt>{locale === "ko" ? "크레딧 기간" : "Credit period"}</dt>
+          <dd>
+            {formatBillingDate(billingStatus?.credits.periodStart, locale)}
+            <small>—</small>
+            {formatBillingDate(billingStatus?.credits.periodEnd, locale)}
+          </dd>
+        </div>
+      </dl>
+
+      <a
+        className="subscription-overview__manage"
+        href={manageUrl}
+        {...(hasProviderManageUrl
+          ? { target: "_blank", rel: "noreferrer" }
+          : {})}
+      >
+        {locale === "ko" ? "플랜 변경하기" : "Change plan"}
+        <ExternalLink size={16} aria-hidden="true" />
+      </a>
+    </section>
+  );
+}
+
 function creditActivityLabel(
   activity: BillingCreditActivity,
   locale: Locale,
 ): string {
   if (locale === "ko") {
     switch (activity.code) {
+      case "free_signup_grant":
+        return "가입 보너스 크레딧";
       case "free_daily_grant":
-        return "매일 무료 크레딧";
+        return "출석체크 무료 크레딧";
       case "pro_monthly_grant":
         return "Pro 월 크레딧";
       case "ultra_monthly_grant":
@@ -115,8 +275,10 @@ function creditActivityLabel(
     }
   }
   switch (activity.code) {
+    case "free_signup_grant":
+      return "Sign-up bonus credits";
     case "free_daily_grant":
-      return "Daily free credits";
+      return "Daily check-in credits";
     case "pro_monthly_grant":
       return "Pro monthly credits";
     case "ultra_monthly_grant":
@@ -149,17 +311,19 @@ function CreditActivity({
   activities,
   loading,
   locale,
+  title,
 }: {
   readonly activities: readonly BillingCreditActivity[];
   readonly loading: boolean;
   readonly locale: Locale;
+  readonly title?: string;
 }) {
   const titleId = useId();
   return (
     <section className="subscription-credit-activity" aria-labelledby={titleId}>
       <header className="subscription-credit-activity__header">
         <h3 id={titleId}>
-          {locale === "ko" ? "최근 내역" : "Recent activity"}
+          {title ?? (locale === "ko" ? "최근 내역" : "Recent activity")}
         </h3>
         <span>{locale === "ko" ? "최근 10건" : "Last 10"}</span>
       </header>
@@ -231,13 +395,13 @@ function planCards(
       features:
         locale === "ko"
           ? [
-              "매일 3 크레딧 제공",
+              "가입 시 +5 · 출석체크 +3 크레딧 (월 최대 30)",
               "지연된 리서치 결과 열람",
               "기본 리서치 결과",
               "공개 리서치 아카이브",
             ]
           : [
-              "3 credits every day",
+              "+5 at sign-up · +3 check-in (up to 30/month)",
               "View delayed research results",
               "Core research results",
               "Public research archive",
@@ -280,7 +444,7 @@ function planCards(
     {
       id: "ultra",
       name: "Ultra",
-      creditAllowance: 500,
+      creditAllowance: 300,
       description:
         locale === "ko"
           ? "가장 넓은 액세스와 신기능 우선 공개를 제공합니다."
@@ -313,6 +477,7 @@ function planCards(
 export function SubscriptionModal({
   open,
   locale,
+  subscriptionTier,
   plans,
   billingStatus,
   loading,
@@ -323,6 +488,8 @@ export function SubscriptionModal({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollingTimerRef = useRef<number | undefined>(undefined);
+  const isSubscribed = subscriptionTier === "paid";
+  const billingStateUnknown = subscriptionTier === "unknown";
   const planCardsForLocale = useMemo(
     () => planCards(plans, locale),
     [locale, plans],
@@ -396,7 +563,7 @@ export function SubscriptionModal({
         </header>
 
         <CreditMeter locale={locale} billingStatus={billingStatus} />
-        {error ? (
+        {error && !isSubscribed && !billingStateUnknown ? (
           <p className="subscription-modal__notice is-error" role="alert">
             {locale === "ko"
               ? "가격 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
@@ -404,22 +571,56 @@ export function SubscriptionModal({
           </p>
         ) : null}
 
-        <PricingPlansGrid
-          plans={planCardsForLocale}
-          locale={locale}
-          initialCycle="annual"
-          onFreeSelect={onClose}
-        />
-        <CreditActivity
-          activities={billingStatus?.recentActivity ?? []}
-          loading={loading}
-          locale={locale}
-        />
-        <p className="subscription-modal__footnote">
-          {locale === "ko"
-            ? "결제는 Whop의 보안 결제 페이지에서 진행됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
-            : "Checkout is handled securely by Whop. Annual plans are charged as one yearly total."}
-        </p>
+        {isSubscribed ? (
+          <CreditActivity
+            activities={billingStatus?.recentActivity ?? []}
+            loading={loading}
+            locale={locale}
+            title={locale === "ko" ? "크레딧 사용 내역" : "Credit activity"}
+          />
+        ) : null}
+
+        {billingStateUnknown ? (
+          <p
+            className="subscription-modal__notice"
+            role={loading ? "status" : "alert"}
+          >
+            {loading
+              ? locale === "ko"
+                ? "구독 상태 확인 중..."
+                : "Checking subscription status..."
+              : locale === "ko"
+                ? "구독 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
+                : "We could not confirm your subscription. Please try again."}
+          </p>
+        ) : isSubscribed ? (
+          <SubscriptionOverview
+            locale={locale}
+            plans={plans}
+            billingStatus={billingStatus}
+          />
+        ) : (
+          <PricingPlansGrid
+            plans={planCardsForLocale}
+            locale={locale}
+            initialCycle="annual"
+            onFreeSelect={onClose}
+          />
+        )}
+        {!isSubscribed && !billingStateUnknown ? (
+          <CreditActivity
+            activities={billingStatus?.recentActivity ?? []}
+            loading={loading}
+            locale={locale}
+          />
+        ) : null}
+        {!isSubscribed && !billingStateUnknown ? (
+          <p className="subscription-modal__footnote">
+            {locale === "ko"
+              ? "결제는 Whop의 보안 결제 페이지에서 진행됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
+              : "Checkout is handled securely by Whop. Annual plans are charged as one yearly total."}
+          </p>
+        ) : null}
       </div>
     </dialog>
   );

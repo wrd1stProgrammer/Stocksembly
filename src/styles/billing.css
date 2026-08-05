@@ -1359,6 +1359,193 @@ body.subscription-modal-is-open {
   outline: none;
 }
 
+.credit-grant-modal-is-open {
+  overflow: hidden;
+}
+
+.credit-grant-modal__backdrop {
+  position: fixed;
+  z-index: 130;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 78%);
+  backdrop-filter: blur(9px);
+  animation: credit-grant-modal-fade-in 180ms ease-out both;
+}
+
+.credit-grant-modal__beam {
+  width: min(400px, 100%);
+  min-width: 0;
+  border-radius: 20px;
+}
+
+.credit-grant-modal__dialog {
+  position: relative;
+  width: 100%;
+  padding: 30px 26px 24px;
+  border: 1px solid color-mix(in srgb, var(--billing-card-rim) 78%, transparent);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% 11%, rgb(48 112 255 / 11%), transparent 9rem),
+    var(--billing-surface);
+  box-shadow:
+    0 28px 90px rgb(0 0 0 / 58%),
+    inset 0 1px 0 rgb(255 255 255 / 5%);
+  color: var(--billing-text);
+  text-align: center;
+  animation: credit-grant-modal-rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.credit-grant-modal__close {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--billing-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.credit-grant-modal__close:hover,
+.credit-grant-modal__close:focus-visible {
+  border-color: var(--billing-card-rim);
+  color: var(--billing-text);
+  outline: none;
+}
+
+.credit-grant-modal__icon {
+  display: grid;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 16px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--billing-accent-bright);
+  background: rgb(31 82 190 / 28%);
+  box-shadow:
+    0 0 0 1px rgb(83 139 255 / 28%),
+    0 10px 26px rgb(0 0 0 / 24%);
+}
+
+.credit-grant-modal__eyebrow {
+  display: block;
+  color: var(--billing-muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.credit-grant-modal__dialog h2 {
+  margin: 11px auto 14px;
+  max-width: 320px;
+  color: var(--billing-text);
+  font-size: clamp(1.18rem, 3.4vw, 1.55rem);
+  letter-spacing: -0.045em;
+  line-height: 1.28;
+}
+
+.credit-grant-modal__amount {
+  display: block;
+  color: var(--billing-text);
+  font-size: clamp(2.9rem, 9vw, 4rem);
+  font-weight: 750;
+  letter-spacing: -0.075em;
+  line-height: 0.95;
+}
+
+.credit-grant-modal__amount small {
+  margin-left: 6px;
+  color: var(--billing-muted);
+  font-size: 0.9rem;
+  font-weight: 550;
+  letter-spacing: -0.03em;
+}
+
+.credit-grant-modal__dialog p {
+  max-width: 320px;
+  margin: 15px auto 14px;
+  color: var(--billing-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.credit-grant-modal__balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  border-radius: 14px;
+  padding: 12px 15px;
+  color: var(--billing-muted);
+  background: rgb(255 255 255 / 4%);
+  font-size: 0.78rem;
+}
+
+.credit-grant-modal__balance strong {
+  color: var(--billing-text);
+  font-size: 1rem;
+}
+
+.credit-grant-modal__balance small {
+  margin-left: 4px;
+  color: var(--billing-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.credit-grant-modal__confirm {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  color: #111216;
+  background: #f1f2f4;
+  font-size: 0.84rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.credit-grant-modal__confirm:hover,
+.credit-grant-modal__confirm:focus-visible {
+  background: #ffffff;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+@keyframes credit-grant-modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes credit-grant-modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .credit-shortage-modal__backdrop {
     backdrop-filter: none;
@@ -1554,6 +1741,216 @@ body.subscription-modal-is-open {
   color: var(--billing-accent);
 }
 
+/* Paid members see account management, not the acquisition grid. */
+.subscription-overview {
+  margin: 18px 28px 0;
+  padding: 24px 0 4px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--billing-card-rim) 82%, transparent);
+}
+
+.subscription-overview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.subscription-overview__plan-lockup {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.subscription-overview__plan-lockup h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 650;
+  letter-spacing: -0.075em;
+}
+
+.subscription-overview__period-label {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 560;
+  letter-spacing: -0.025em;
+}
+
+.subscription-overview__status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--billing-accent) 42%, transparent);
+  border-radius: var(--radius-pill);
+  padding: 7px 11px;
+  color: var(--billing-accent);
+  background: color-mix(in srgb, var(--billing-accent) 10%, transparent);
+  font-size: 0.68rem;
+  font-weight: 720;
+}
+
+.subscription-overview__status.is-warning {
+  border-color: color-mix(in srgb, var(--color-danger) 54%, transparent);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+.subscription-overview__divider {
+  height: 1px;
+  margin: 20px 0 0;
+  background: color-mix(in srgb, var(--billing-card-rim) 78%, transparent);
+}
+
+.subscription-overview__payment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 22px;
+  margin-top: 16px;
+  border: 1px solid color-mix(in srgb, var(--billing-card-rim) 88%, transparent);
+  border-radius: 18px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--billing-accent) 8%, transparent),
+      transparent 52%
+    ),
+    color-mix(in srgb, var(--billing-card) 78%, var(--billing-surface));
+}
+
+.subscription-overview__price,
+.subscription-overview__period {
+  min-width: 0;
+}
+
+.subscription-overview__period {
+  border-left: 1px solid
+    color-mix(in srgb, var(--billing-card-rim) 74%, transparent);
+  padding-left: 22px;
+}
+
+.subscription-overview__label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--color-text-subtle);
+  font-size: 0.68rem;
+  font-weight: 620;
+}
+
+.subscription-overview__price-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.subscription-overview__price-value strong {
+  color: var(--color-text);
+  font-size: clamp(2.45rem, 5vw, 3.75rem);
+  font-weight: 650;
+  letter-spacing: -0.085em;
+  line-height: 0.95;
+}
+
+.subscription-overview__price-value span {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 560;
+}
+
+.subscription-overview__period > strong {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--color-text);
+  font-size: clamp(1rem, 2vw, 1.28rem);
+  font-weight: 620;
+  letter-spacing: -0.04em;
+  line-height: 1.25;
+}
+
+.subscription-overview__period > strong span {
+  color: var(--color-text-subtle);
+  font-weight: 450;
+}
+
+.subscription-overview__period small {
+  display: block;
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+}
+
+.subscription-overview__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 20px 0 18px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--billing-card-rim) 78%, transparent);
+}
+
+.subscription-overview__facts > div {
+  min-width: 0;
+}
+
+.subscription-overview__facts dt {
+  margin-bottom: 7px;
+  color: var(--color-text-subtle);
+  font-size: 0.67rem;
+}
+
+.subscription-overview__facts dd {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.02rem;
+  font-weight: 620;
+  letter-spacing: -0.025em;
+}
+
+.subscription-overview__facts dd small {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.subscription-overview__manage {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--billing-card-rim);
+  border-radius: var(--radius-pill);
+  padding: 0 18px;
+  color: var(--color-text);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 720;
+  text-decoration: none;
+  transition:
+    border-color var(--motion-micro),
+    background var(--motion-micro),
+    color var(--motion-micro);
+}
+
+.subscription-overview__manage:hover,
+.subscription-overview__manage:focus-visible {
+  border-color: var(--billing-accent);
+  color: var(--billing-accent);
+  background: color-mix(in srgb, var(--billing-accent) 8%, transparent);
+  outline: none;
+}
+
 @media (max-width: 860px) {
   .subscription-plan-card__credit-line {
     margin-right: 14px;
@@ -1564,12 +1961,45 @@ body.subscription-modal-is-open {
     margin-right: 18px;
     margin-left: 18px;
   }
+
+  .subscription-overview {
+    margin-right: 18px;
+    margin-left: 18px;
+  }
 }
 
 @media (max-width: 700px) {
   .subscription-plan-card__credit-line {
     margin-right: 20px;
     margin-left: 20px;
+  }
+
+  .subscription-overview__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .subscription-overview__payment {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .subscription-overview__period {
+    border-top: 1px solid
+      color-mix(in srgb, var(--billing-card-rim) 74%, transparent);
+    border-left: 0;
+    padding-top: 16px;
+    padding-left: 0;
+  }
+
+  .subscription-overview__facts {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .subscription-overview__manage {
+    width: 100%;
   }
 }
 

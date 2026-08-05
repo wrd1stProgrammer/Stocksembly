@@ -1,5 +1,8 @@
 "use client";
 
+// Amplify v6 requires the OAuth listener to consume the Hosted UI callback
+// code before fetchAuthSession can restore the browser session.
+import "aws-amplify/auth/enable-oauth-listener";
 import { Amplify } from "aws-amplify";
 
 type PublicAuthConfiguration = {

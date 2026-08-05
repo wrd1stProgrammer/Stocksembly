@@ -1,7 +1,9 @@
 import type { Locale } from "../../lib/i18n";
 import type {
   BillingCreditActivity,
+  BillingCreditNotice,
   BillingCredits,
+  BillingPlanKey,
   BillingStatus,
   BillingTier,
 } from "../../lib/whop/contracts";
@@ -29,6 +31,12 @@ export type AccountBillingStatus = {
   readonly status: BillingStatus;
   readonly credits: BillingCredits;
   readonly recentActivity: readonly BillingCreditActivity[];
+  readonly creditNotice?: BillingCreditNotice;
+  readonly planKey?: BillingPlanKey;
+  readonly planId?: string;
+  readonly currentPeriodStart?: string;
+  readonly currentPeriodEnd?: string;
+  readonly cancelAtPeriodEnd?: boolean;
   readonly manageUrl?: string;
 };
 

@@ -523,7 +523,7 @@ export async function createResearchApi(
           authenticated: true,
           ...(await options.accountStore.consumeResearchRoomCredit(
             authentication.principal.id,
-            `research-room:${authentication.principal.id}:${reportId}:${randomUUID()}`,
+            `research-room:${authentication.principal.id}:${reportId}`,
             reportId,
           )),
         };

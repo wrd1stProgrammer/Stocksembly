@@ -5,11 +5,13 @@ import type { BillingPlanKey, BillingTier, WhopPricingPlan } from "./contracts";
 export type { BillingPlanKey, WhopPricingPlan } from "./contracts";
 
 export const FREE_DAILY_CREDIT_ALLOWANCE = 3;
+export const FREE_SIGNUP_CREDIT_ALLOWANCE = 5;
+export const FREE_MONTHLY_CREDIT_CAP = 30;
 
 export const MONTHLY_CREDIT_ALLOWANCE: Readonly<Record<BillingTier, number>> = {
   free: 0,
   pro: 100,
-  ultra: 500,
+  ultra: 300,
 };
 
 const WhopPlanSchema = z.object({

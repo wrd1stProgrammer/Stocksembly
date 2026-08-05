@@ -167,6 +167,10 @@ function publicationFor(row: z.infer<typeof CatalogRowSchema>): PublicReport {
 }
 
 function selectSql(where = "") {
+  // The room is a public catalog, not a user's history.  Keep this query
+  // rooted in published SQLite reports and deliberately do not join or
+  // filter by research_requests.principal_id; ownership is only used for
+  // private history and billing, never for catalog discovery.
   return `SELECT reports.report_id, report_versions.run_id,
     report_versions.snapshot_id, report_versions.version_id,
     report_versions.version, report_versions.artifact_id,

@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { Locale } from "../../lib/i18n";
 import type {
   BillingCreditActivity,
+  BillingCreditNotice,
   BillingPlanKey,
   BillingTier,
 } from "../../lib/whop/contracts";
@@ -22,6 +23,8 @@ import {
   billingPlanKeyForWhopPlanId,
   billingTierForPlanKey,
   FREE_DAILY_CREDIT_ALLOWANCE,
+  FREE_MONTHLY_CREDIT_CAP,
+  FREE_SIGNUP_CREDIT_ALLOWANCE,
   MONTHLY_CREDIT_ALLOWANCE,
 } from "../../lib/whop/server";
 import type {
@@ -50,6 +53,8 @@ const SecretSchema = z.object({
   password: z.string().min(1),
   dbname: z.string().min(1).optional(),
 });
+
+const FREE_CREDIT_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -100,28 +105,20 @@ function periodBounds(now: Date): {
   };
 }
 
-function dailyPeriodBounds(now: Date): {
-  readonly start: Date;
-  readonly end: Date;
-  readonly key: string;
-} {
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1_000);
-  return {
-    start,
-    end,
-    key: start.toISOString().slice(0, 10),
-  };
-}
-
 type CreditPeriodContext = {
   readonly tier: BillingTier;
   readonly status: AccountBillingStatus["status"];
   readonly allowance: number;
   readonly isFree: boolean;
   readonly bounds: ReturnType<typeof periodBounds>;
+  readonly accountCreatedAt: string;
+};
+
+type CreditGrantRow = {
+  readonly grant_key: string;
+  readonly plan_code: string;
+  readonly credits: number;
+  readonly created_at: string;
 };
 
 async function creditPeriodContext(
@@ -133,10 +130,15 @@ async function creditPeriodContext(
     plan_code: string;
     status: string;
     monthly_credit_limit: number | null;
+    account_created_at: string;
   }>(
-    `SELECT plan_code, status, monthly_credit_limit
+    `SELECT entitlements.plan_code,
+            entitlements.status,
+            entitlements.monthly_credit_limit,
+            app_users.created_at AS account_created_at
      FROM entitlements
-     WHERE principal_id = $1
+     JOIN app_users ON app_users.principal_id = entitlements.principal_id
+     WHERE entitlements.principal_id = $1
      LIMIT 1`,
     [principalId],
   );
@@ -146,14 +148,21 @@ async function creditPeriodContext(
   const paidStatus = ["active", "trialing", "past_due"].includes(rawStatus);
   const tier = paidStatus ? rawTier : "free";
   const isFree = tier === "free";
-  const bounds = isFree ? dailyPeriodBounds(now) : periodBounds(now);
+  const bounds = periodBounds(now);
   const configuredAllowance = Number(entitlement?.monthly_credit_limit ?? 0);
   const allowance = isFree
-    ? FREE_DAILY_CREDIT_ALLOWANCE
+    ? 0
     : configuredAllowance > 0
       ? configuredAllowance
       : MONTHLY_CREDIT_ALLOWANCE[tier];
-  return { tier, status: rawStatus, allowance, isFree, bounds };
+  return {
+    tier,
+    status: rawStatus,
+    allowance,
+    isFree,
+    bounds,
+    accountCreatedAt: entitlement?.account_created_at ?? now.toISOString(),
+  };
 }
 
 async function ensureCreditGrant(
@@ -161,26 +170,141 @@ async function ensureCreditGrant(
   principalId: string,
   context: CreditPeriodContext,
   now: Date,
-): Promise<void> {
-  if (context.allowance <= 0) return;
+): Promise<CreditGrantRow | undefined> {
+  if (!context.isFree) {
+    if (context.allowance <= 0) return undefined;
+    await client.query(
+      `INSERT INTO credit_grants(
+        grant_key, principal_id, period_key, plan_code, credits,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $6)
+      ON CONFLICT (grant_key) DO UPDATE SET
+        credits = GREATEST(credit_grants.credits, EXCLUDED.credits),
+        plan_code = EXCLUDED.plan_code,
+        updated_at = EXCLUDED.updated_at`,
+      [
+        `credit:${principalId}:${context.bounds.key}`,
+        principalId,
+        context.bounds.key,
+        context.tier,
+        context.allowance,
+        now.toISOString(),
+      ],
+    );
+    return undefined;
+  }
+
+  const existing = await client.query<CreditGrantRow>(
+    `SELECT grant_key, plan_code, credits, created_at
+     FROM credit_grants
+     WHERE principal_id = $1
+       AND plan_code IN ('free_signup', 'free_daily')
+     ORDER BY created_at ASC, grant_key ASC`,
+    [principalId],
+  );
+  let signupGrant = existing.rows.find(
+    (grant) => grant.plan_code === "free_signup",
+  );
+  if (signupGrant === undefined) {
+    const createdAt = Date.parse(context.accountCreatedAt);
+    const grantAt = Number.isFinite(createdAt) ? new Date(createdAt) : now;
+    const inserted = await client.query<CreditGrantRow>(
+      `INSERT INTO credit_grants(
+        grant_key, principal_id, period_key, plan_code, credits,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, 'free_signup', $4, $5, $5)
+      ON CONFLICT (grant_key) DO NOTHING
+      RETURNING grant_key, plan_code, credits, created_at`,
+      [
+        `free-signup:${principalId}`,
+        principalId,
+        grantAt.toISOString().slice(0, 10),
+        FREE_SIGNUP_CREDIT_ALLOWANCE,
+        grantAt.toISOString(),
+      ],
+    );
+    signupGrant = inserted.rows[0] ?? {
+      grant_key: `free-signup:${principalId}`,
+      plan_code: "free_signup",
+      credits: FREE_SIGNUP_CREDIT_ALLOWANCE,
+      created_at: grantAt.toISOString(),
+    };
+  }
+
+  const signupAt = Date.parse(signupGrant.created_at);
+  if (!Number.isFinite(signupAt)) return signupGrant;
+
+  const firstDailyEligibleAt = signupAt + FREE_CREDIT_INTERVAL_MS;
+  // Older deployments could issue a daily grant before the sign-up grant was
+  // backfilled. Remove only those impossible rows so the ledger and balance
+  // agree again; valid daily grants remain untouched.
   await client.query(
+    `DELETE FROM credit_grants
+     WHERE principal_id = $1
+       AND plan_code = 'free_daily'
+       AND created_at < $2::timestamptz`,
+    [principalId, new Date(firstDailyEligibleAt).toISOString()],
+  );
+
+  const validGrants = existing.rows.filter((grant) => {
+    if (grant.plan_code !== "free_daily") return false;
+    const createdAt = Date.parse(grant.created_at);
+    return Number.isFinite(createdAt) && createdAt >= firstDailyEligibleAt;
+  });
+  const newestGrant =
+    [...validGrants, signupGrant]
+      .sort((left, right) => {
+        const byTime =
+          Date.parse(left.created_at) - Date.parse(right.created_at);
+        return byTime !== 0
+          ? byTime
+          : left.grant_key.localeCompare(right.grant_key);
+      })
+      .at(-1) ?? signupGrant;
+  const latestGrantAt = Date.parse(newestGrant.created_at);
+  const nextDailyEligibleAt = Number.isFinite(latestGrantAt)
+    ? latestGrantAt + FREE_CREDIT_INTERVAL_MS
+    : firstDailyEligibleAt;
+  if (
+    now.getTime() < firstDailyEligibleAt ||
+    now.getTime() < nextDailyEligibleAt
+  )
+    return newestGrant;
+
+  const monthTotal = await client.query<{ granted: number }>(
+    `SELECT COALESCE(SUM(credits), 0)::int AS granted
+     FROM credit_grants
+     WHERE principal_id = $1
+       AND plan_code IN ('free_signup', 'free_daily')
+       AND created_at >= $2::timestamptz
+       AND created_at < $3::timestamptz`,
+    [
+      principalId,
+      context.bounds.start.toISOString(),
+      context.bounds.end.toISOString(),
+    ],
+  );
+  const remainingMonthlyCap = Math.max(
+    0,
+    FREE_MONTHLY_CREDIT_CAP - Number(monthTotal.rows[0]?.granted ?? 0),
+  );
+  if (remainingMonthlyCap <= 0) return newestGrant;
+  const inserted = await client.query<CreditGrantRow>(
     `INSERT INTO credit_grants(
       grant_key, principal_id, period_key, plan_code, credits,
       created_at, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $6)
-    ON CONFLICT (principal_id, period_key) DO UPDATE SET
-      credits = GREATEST(credit_grants.credits, EXCLUDED.credits),
-      plan_code = EXCLUDED.plan_code,
-      updated_at = EXCLUDED.updated_at`,
+    ) VALUES ($1, $2, $3, 'free_daily', $4, $5, $5)
+    ON CONFLICT (grant_key) DO NOTHING
+    RETURNING grant_key, plan_code, credits, created_at`,
     [
-      `credit:${principalId}:${context.bounds.key}`,
+      `free-daily:${principalId}:${now.toISOString()}`,
       principalId,
       context.bounds.key,
-      context.isFree ? "free" : context.tier,
-      context.allowance,
+      Math.min(FREE_DAILY_CREDIT_ALLOWANCE, remainingMonthlyCap),
       now.toISOString(),
     ],
   );
+  return inserted.rows[0] ?? newestGrant;
 }
 
 async function usedCredits(
@@ -203,6 +327,56 @@ async function usedCredits(
   return Math.max(0, Number(result.rows[0]?.used ?? 0));
 }
 
+async function grantedCredits(
+  client: PoolClient,
+  principalId: string,
+  context: CreditPeriodContext,
+): Promise<number> {
+  const planCodes = context.isFree
+    ? ["free_signup", "free_daily"]
+    : [context.tier];
+  const result = await client.query<{ granted: number }>(
+    `SELECT COALESCE(SUM(credits), 0)::int AS granted
+     FROM credit_grants
+     WHERE principal_id = $1
+       AND plan_code = ANY($2::text[])
+       AND created_at >= $3::timestamptz
+       AND created_at < $4::timestamptz`,
+    [
+      principalId,
+      planCodes,
+      context.bounds.start.toISOString(),
+      context.bounds.end.toISOString(),
+    ],
+  );
+  return Math.max(0, Number(result.rows[0]?.granted ?? 0));
+}
+
+async function latestFreeGrantNotice(
+  client: PoolClient,
+  principalId: string,
+  balance: number,
+): Promise<BillingCreditNotice | undefined> {
+  const result = await client.query<CreditGrantRow>(
+    `SELECT grant_key, plan_code, credits, created_at
+     FROM credit_grants
+     WHERE principal_id = $1
+       AND plan_code IN ('free_signup', 'free_daily')
+     ORDER BY created_at DESC, grant_key DESC
+     LIMIT 1`,
+    [principalId],
+  );
+  const grant = result.rows[0];
+  if (grant === undefined) return undefined;
+  return {
+    id: grant.grant_key,
+    kind: grant.plan_code === "free_signup" ? "signup" : "daily",
+    amount: Number(grant.credits),
+    grantedAt: new Date(grant.created_at).toISOString(),
+    balance,
+  };
+}
+
 function availability(remaining: number, required: number): CreditAvailability {
   return {
     allowed: remaining >= required,
@@ -216,6 +390,7 @@ function activityCode(
   code: string,
 ): BillingCreditActivity["code"] {
   if (kind === "grant") {
+    if (code === "free_signup") return "free_signup_grant";
     if (code === "pro") return "pro_monthly_grant";
     if (code === "ultra") return "ultra_monthly_grant";
     return "free_daily_grant";
@@ -356,7 +531,7 @@ export class PostgresAccountStore implements AccountStore {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query(
+      const insertedUser = await client.query<{ created_at: string }>(
         `INSERT INTO app_users(
           principal_id, cognito_subject, username, email, display_name,
           created_at, updated_at, last_seen_at
@@ -368,7 +543,8 @@ export class PostgresAccountStore implements AccountStore {
           updated_at = CASE
             WHEN app_users.last_seen_at < EXCLUDED.last_seen_at - interval '15 minutes'
             THEN EXCLUDED.updated_at ELSE app_users.updated_at END,
-          last_seen_at = GREATEST(app_users.last_seen_at, EXCLUDED.last_seen_at)`,
+          last_seen_at = GREATEST(app_users.last_seen_at, EXCLUDED.last_seen_at)
+        RETURNING created_at`,
         [
           principal.id,
           subject,
@@ -386,6 +562,29 @@ export class PostgresAccountStore implements AccountStore {
         ON CONFLICT (principal_id) DO NOTHING`,
         [principal.id, observedAt],
       );
+      // The sign-up grant is created with the account, rather than waiting
+      // for the first billing page visit. The idempotent key keeps retries
+      // from issuing the welcome credits twice.
+      if (insertedUser.rowCount === 1) {
+        const accountCreatedAt = isoTimestamp(
+          insertedUser.rows[0]?.created_at,
+          new Date(),
+        );
+        await client.query(
+          `INSERT INTO credit_grants(
+            grant_key, principal_id, period_key, plan_code, credits,
+            created_at, updated_at
+          ) VALUES ($1, $2, $3, 'free_signup', $4, $5, $5)
+          ON CONFLICT (grant_key) DO NOTHING`,
+          [
+            `free-signup:${principal.id}`,
+            principal.id,
+            accountCreatedAt.slice(0, 10),
+            FREE_SIGNUP_CREDIT_ALLOWANCE,
+            accountCreatedAt,
+          ],
+        );
+      }
       await client.query("COMMIT");
       this.#syncedUsers.set(
         principal.id,
@@ -482,8 +681,9 @@ export class PostgresAccountStore implements AccountStore {
       const context = await creditPeriodContext(client, principalId, now);
       await ensureCreditGrant(client, principalId, context, now);
       const used = await usedCredits(client, principalId, context);
+      const granted = await grantedCredits(client, principalId, context);
       const result = availability(
-        Math.max(0, context.allowance - used),
+        Math.max(0, granted - used),
         normalizedRequired,
       );
       await client.query("COMMIT");
@@ -532,10 +732,8 @@ export class PostgresAccountStore implements AccountStore {
           ? CREDIT_COSTS.chatBundle
           : 1;
       const used = await usedCredits(client, principalId, context);
-      const result = availability(
-        Math.max(0, context.allowance - used),
-        required,
-      );
+      const granted = await grantedCredits(client, principalId, context);
+      const result = availability(Math.max(0, granted - used), required);
       await client.query("COMMIT");
       return result;
     } catch (error) {
@@ -568,8 +766,22 @@ export class PostgresAccountStore implements AccountStore {
       const context = await creditPeriodContext(client, principalId, now);
       await ensureCreditGrant(client, principalId, context, now);
       const used = await usedCredits(client, principalId, context);
-      const remaining = Math.max(0, context.allowance - used);
+      const granted = await grantedCredits(client, principalId, context);
+      const remaining = Math.max(0, granted - used);
       const required = CREDIT_COSTS.researchRoomView;
+      const alreadyViewed = await client.query(
+        `SELECT 1
+         FROM usage_events
+         WHERE principal_id = $1
+           AND kind = 'research_room'
+           AND report_id = $2
+         LIMIT 1`,
+        [principalId, reportId],
+      );
+      if (alreadyViewed.rows.length > 0) {
+        await client.query("COMMIT");
+        return availability(remaining, 0);
+      }
       if (remaining < required) {
         await client.query("COMMIT");
         return availability(remaining, required);
@@ -593,7 +805,7 @@ export class PostgresAccountStore implements AccountStore {
       await client.query("COMMIT");
       return availability(
         inserted.rows.length === 0 ? remaining : remaining - required,
-        required,
+        inserted.rows.length === 0 ? 0 : required,
       );
     } catch (error) {
       await client.query("ROLLBACK");
@@ -677,6 +889,13 @@ export class PostgresAccountStore implements AccountStore {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      await client.query(
+        `SELECT principal_id
+         FROM entitlements
+         WHERE principal_id = $1
+         FOR UPDATE`,
+        [principalId],
+      );
       const insertedQuestion = await client.query<{ question_id: string }>(
         `INSERT INTO report_consultations(
           question_id, report_id, principal_id, public_question,
@@ -772,67 +991,41 @@ export class PostgresAccountStore implements AccountStore {
 
   async billingStatus(principalId: string): Promise<AccountBillingStatus> {
     const now = new Date();
-    const monthlyBounds = periodBounds(now);
-    const dailyBounds = dailyPeriodBounds(now);
+    const bounds = periodBounds(now);
     try {
-      const entitlementResult = await this.pool.query<{
-        plan_code: string;
-        status: string;
-        monthly_credit_limit: number | null;
-        manage_url: string | null;
-      }>(
-        `SELECT plan_code, status, monthly_credit_limit, manage_url
-         FROM entitlements
-         WHERE principal_id = $1
-         LIMIT 1`,
-        [principalId],
-      );
-      const entitlement = entitlementResult.rows[0];
-      const rawStatus = billingStatus(entitlement?.status);
-      const rawTier = tierForPlanCode(entitlement?.plan_code);
-      const paidStatus = ["active", "trialing", "past_due"].includes(rawStatus);
-      const tier = paidStatus ? rawTier : "free";
-      const isFree = tier === "free";
-      const bounds = isFree ? dailyBounds : monthlyBounds;
-      const configuredAllowance = Number(
-        entitlement?.monthly_credit_limit ?? 0,
-      );
-      const allowance = isFree
-        ? FREE_DAILY_CREDIT_ALLOWANCE
-        : configuredAllowance > 0
-          ? configuredAllowance
-          : MONTHLY_CREDIT_ALLOWANCE[tier];
       const client = await this.pool.connect();
       try {
         await client.query("BEGIN");
-        if (allowance > 0) {
-          await client.query(
-            `INSERT INTO credit_grants(
-              grant_key, principal_id, period_key, plan_code, credits,
-              created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $6)
-            ON CONFLICT (principal_id, period_key) DO UPDATE SET
-              credits = GREATEST(credit_grants.credits, EXCLUDED.credits),
-              plan_code = EXCLUDED.plan_code,
-              updated_at = EXCLUDED.updated_at`,
-            [
-              `credit:${principalId}:${bounds.key}`,
-              principalId,
-              bounds.key,
-              isFree ? "free" : tier,
-              allowance,
-              now.toISOString(),
-            ],
-          );
-        }
-        const usage = await client.query<{ used: number }>(
-          `SELECT COALESCE(SUM(quantity), 0)::int AS used
-           FROM usage_events
+        await client.query(
+          `SELECT principal_id
+           FROM entitlements
            WHERE principal_id = $1
-             AND occurred_at >= $2::timestamptz
-             AND occurred_at < $3::timestamptz`,
-          [principalId, bounds.start.toISOString(), bounds.end.toISOString()],
+           FOR UPDATE`,
+          [principalId],
         );
+        const context = await creditPeriodContext(client, principalId, now);
+        await ensureCreditGrant(client, principalId, context, now);
+        const used = await usedCredits(client, principalId, context);
+        const allowance = await grantedCredits(client, principalId, context);
+        const remaining = Math.max(0, allowance - used);
+        const creditAllowance = context.isFree
+          ? FREE_MONTHLY_CREDIT_CAP
+          : allowance;
+        const entitlementResult = await client.query<{
+          whop_plan_id: string | null;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          cancel_at_period_end: boolean;
+          manage_url: string | null;
+        }>(
+          `SELECT whop_plan_id, current_period_start, current_period_end,
+                  cancel_at_period_end, manage_url
+           FROM entitlements
+           WHERE principal_id = $1
+           FOR UPDATE`,
+          [principalId],
+        );
+        const entitlement = entitlementResult.rows[0];
         const activity = await client.query<{
           activity_id: string;
           kind: "grant" | "usage";
@@ -862,19 +1055,28 @@ export class PostgresAccountStore implements AccountStore {
            LIMIT 10`,
           [principalId],
         );
+        const notice = context.isFree
+          ? await latestFreeGrantNotice(client, principalId, remaining)
+          : undefined;
         await client.query("COMMIT");
-        const used = Math.max(0, Number(usage.rows[0]?.used ?? 0));
+        const planKey = billingPlanKeyForWhopPlanId(
+          entitlement?.whop_plan_id ?? undefined,
+        );
+        const tier = context.tier;
         return {
           tier,
-          status: rawStatus,
+          status: context.status,
           credits: {
-            remaining: Math.max(0, allowance - used),
-            allowance,
+            remaining,
+            allowance: creditAllowance,
             used,
             usedPercent:
-              allowance === 0
+              creditAllowance === 0
                 ? 0
-                : Math.min(100, Math.round((used / allowance) * 1000) / 10),
+                : Math.min(
+                    100,
+                    Math.round((used / creditAllowance) * 1000) / 10,
+                  ),
             periodStart: bounds.start.toISOString(),
             periodEnd: bounds.end.toISOString(),
           },
@@ -885,6 +1087,20 @@ export class PostgresAccountStore implements AccountStore {
             amount: Number(row.amount),
             occurredAt: new Date(row.occurred_at).toISOString(),
           })),
+          ...(notice === undefined ? {} : { creditNotice: notice }),
+          ...(entitlement?.whop_plan_id
+            ? { planId: entitlement.whop_plan_id }
+            : {}),
+          ...(planKey === undefined ? {} : { planKey }),
+          ...(entitlement?.current_period_start
+            ? { currentPeriodStart: entitlement.current_period_start }
+            : {}),
+          ...(entitlement?.current_period_end
+            ? { currentPeriodEnd: entitlement.current_period_end }
+            : {}),
+          ...(entitlement?.cancel_at_period_end
+            ? { cancelAtPeriodEnd: true }
+            : {}),
           ...(entitlement?.manage_url === null ||
           entitlement?.manage_url === undefined
             ? {}

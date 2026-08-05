@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import type { Locale } from "../../lib/i18n";
+import { notifyBillingChanged } from "../../lib/whop/billingEvents";
 import {
   type ResearchClient,
   ResearchRequestError,
@@ -203,6 +204,7 @@ export function useAgentConsultation({
                 },
         ),
       );
+      notifyBillingChanged();
     } catch (error) {
       if (!mounted.current) return;
       if (
