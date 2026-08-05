@@ -980,6 +980,27 @@
   font: inherit;
   font-size: 0.83rem;
 }
+.public-research-viewer__chat-input {
+  width: 100%;
+  min-height: 82px;
+  max-height: 180px;
+  overflow: hidden;
+}
+.public-research-viewer__chat-mirror {
+  width: 100%;
+  min-height: 82px;
+  max-height: 180px;
+  padding: 11px;
+  overflow: hidden;
+  color: #eef0f5;
+  font: inherit;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+.public-research-viewer__chat-mirror > span {
+  color: #8790a1;
+  opacity: 1;
+}
 .public-research-viewer__conversation textarea:focus {
   border-color: #526bba;
 }

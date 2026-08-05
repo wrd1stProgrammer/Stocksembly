@@ -40,7 +40,7 @@ export function Showcase() {
           value={value}
           label={labels.label}
           placeholder={labels.placeholder}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={setValue}
           onKeyDown={() => undefined}
         />
       </section>

@@ -361,8 +361,8 @@ export function SearchConsole({
               label={labels.label}
               placeholder={labels.placeholder}
               invalid={invalid}
-              onChange={(event) => {
-                setQuery(event.target.value);
+              onChange={(value) => {
+                setQuery(value);
                 setSelectedTicker(undefined);
                 setResultsOpen(true);
               }}
@@ -372,9 +372,9 @@ export function SearchConsole({
               value={researchQuestion}
               label={labels.questionLabel}
               placeholder={labels.questionPlaceholder}
-              onChange={(event) =>
+              onChange={(value) =>
                 setResearchQuestion(
-                  Array.from(event.target.value)
+                  Array.from(value)
                     .slice(0, RESEARCH_DIRECTION_MAX_CHARACTERS)
                     .join(""),
                 )

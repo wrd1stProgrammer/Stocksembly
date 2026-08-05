@@ -7661,6 +7661,27 @@
   font-size: var(--research-type-body);
   line-height: 1.5;
 }
+.team-question-panel__composer-input {
+  width: 100%;
+  min-height: 52px;
+  max-height: 96px;
+  overflow: hidden;
+}
+.team-question-panel__composer-mirror {
+  width: 100%;
+  min-height: 52px;
+  max-height: 96px;
+  padding: var(--research-space-1) 0;
+  overflow: hidden;
+  color: var(--research-text);
+  font: inherit;
+  font-size: var(--research-type-body);
+  line-height: 1.5;
+}
+.team-question-panel__composer-mirror > span {
+  color: var(--research-text-faint);
+  opacity: 1;
+}
 
 .team-question-panel__composer textarea::placeholder {
   color: var(--research-text-faint);

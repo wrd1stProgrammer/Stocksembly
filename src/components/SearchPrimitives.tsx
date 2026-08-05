@@ -1,10 +1,8 @@
 import { ArrowUp, LoaderCircle } from "lucide-react";
-import type {
-  ChangeEventHandler,
-  KeyboardEventHandler,
-  ReactNode,
-} from "react";
+import type { KeyboardEventHandler, ReactNode } from "react";
+import { useId } from "react";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
+import { LiveCaretInput } from "./live-caret-input";
 
 type BorderBeamProps = {
   readonly children: ReactNode;
@@ -37,20 +35,32 @@ type SearchFieldProps = {
   readonly placeholder: string;
   readonly invalid?: boolean;
   readonly disabled?: boolean;
-  readonly onChange: ChangeEventHandler<HTMLInputElement>;
+  readonly onChange: (value: string) => void;
   readonly onKeyDown: KeyboardEventHandler<HTMLInputElement>;
 };
 
 export function SearchField(props: SearchFieldProps) {
+  const id = useId();
   return (
-    <label className="search-field" data-invalid={props.invalid || undefined}>
+    <label
+      className="search-field"
+      data-invalid={props.invalid || undefined}
+      htmlFor={id}
+    >
       <span className="composer-field__label">{props.label}</span>
-      <input
+      <LiveCaretInput
+        className="search-field__live-input"
+        fieldClassName="search-field__mirror"
+        id={id}
         type="search"
         value={props.value}
         placeholder={props.placeholder}
         disabled={props.disabled}
         aria-invalid={props.invalid}
+        aria-label={props.label}
+        cursorVariant="line"
+        charAnimation="spring"
+        color="var(--color-accent-bright)"
         onChange={props.onChange}
         onKeyDown={props.onKeyDown}
       />
@@ -63,20 +73,28 @@ type ResearchQuestionFieldProps = {
   readonly label: string;
   readonly placeholder: string;
   readonly disabled?: boolean;
-  readonly onChange: ChangeEventHandler<HTMLTextAreaElement>;
+  readonly onChange: (value: string) => void;
 };
 
 export function ResearchQuestionField(props: ResearchQuestionFieldProps) {
+  const id = useId();
   return (
-    <label className="research-question-field">
+    <label className="research-question-field" htmlFor={id}>
       <span className="composer-field__label">{props.label}</span>
-      <textarea
+      <LiveCaretInput
+        className="research-question-field__live-input"
+        fieldClassName="research-question-field__mirror"
+        multiline
+        id={id}
         value={props.value}
         aria-label={props.label}
         placeholder={props.placeholder}
         disabled={props.disabled}
         maxLength={RESEARCH_DIRECTION_MAX_CHARACTERS}
         rows={1}
+        cursorVariant="line"
+        charAnimation="spring"
+        color="var(--color-accent-bright)"
         onChange={props.onChange}
       />
       <small aria-live="polite">

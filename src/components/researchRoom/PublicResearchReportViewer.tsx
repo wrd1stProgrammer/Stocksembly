@@ -17,6 +17,7 @@ import type { ResearchFileData } from "../../research/compositions/types";
 import { agents } from "../../research/mockResearch";
 import type { ResearchRoomConversation } from "../../research/server/researchRoom/researchRoomCatalog";
 import type { ResearchCompany } from "../../research/types";
+import { LiveCaretInput } from "../live-caret-input";
 import { CompletedResearchFile } from "../research/CompletedResearchFile";
 
 type PrivateMessage = {
@@ -284,14 +285,21 @@ export function PublicResearchReportViewer({
 
         {privateMode ? (
           <form onSubmit={(event) => void submit(event)}>
-            <textarea
+            <LiveCaretInput
+              className="public-research-viewer__chat-input"
+              fieldClassName="public-research-viewer__chat-mirror"
+              multiline
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={setQuestion}
               maxLength={600}
+              rows={3}
               placeholder={
                 locale === "ko" ? "이 리포트에 질문..." : "Ask this report..."
               }
               aria-label={locale === "ko" ? "개인 질문" : "Private question"}
+              cursorVariant="line"
+              charAnimation="spring"
+              color="#8ca8ff"
             />
             <div>
               <button

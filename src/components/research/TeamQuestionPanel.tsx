@@ -13,6 +13,7 @@ import {
 } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
 import { CreditShortageModal } from "../billing/CreditShortageModal";
+import { LiveCaretInput } from "../live-caret-input";
 import { ConsultationAnswerMessage } from "./ConsultationAnswerMessage";
 import { useAgentConsultation } from "./useAgentConsultation";
 
@@ -464,17 +465,23 @@ export function TeamQuestionPanel({
             <label className="sr-only" htmlFor="team-question-input">
               {locale === "ko" ? "질문" : "Question"}
             </label>
-            <textarea
+            <LiveCaretInput
+              className="team-question-panel__composer-input"
+              fieldClassName="team-question-panel__composer-mirror"
+              multiline
               id="team-question-input"
               value={question}
               maxLength={1_200}
               rows={2}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={setQuestion}
               placeholder={
                 locale === "ko"
                   ? `${selectedAgent.name[locale]}에게 질문...`
                   : `Ask ${selectedAgent.name[locale]}...`
               }
+              cursorVariant="line"
+              charAnimation="spring"
+              color="var(--research-accent-bright)"
             />
             <div className="team-question-panel__composer-tools">
               <button

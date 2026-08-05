@@ -494,6 +494,17 @@
   font-size: 0.88rem;
   line-height: 1.35;
 }
+.search-field__live-input {
+  width: 100%;
+  min-width: 0;
+}
+.search-field__mirror {
+  width: 100%;
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
 .search-field input::placeholder {
   color: var(--color-text-subtle);
   opacity: 1;
@@ -531,6 +542,29 @@
   font-size: 0.88rem;
   line-height: 1.35;
   resize: none;
+}
+.research-question-field__live-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 26px;
+  max-height: 48px;
+  overflow: hidden;
+}
+.research-question-field__mirror {
+  width: 100%;
+  min-width: 0;
+  min-height: 26px;
+  max-height: 48px;
+  padding: 0 48px 0 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.research-question-field__mirror > span {
+  color: var(--color-text-subtle);
+  opacity: 1;
 }
 .research-question-field textarea::placeholder {
   color: var(--color-text-subtle);
