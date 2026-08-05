@@ -21,8 +21,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { copy, type Locale } from "../../lib/i18n";
 import { RESEARCH_DEPARTMENT_COPY } from "../../research/domain/researchTarget";
 import type {

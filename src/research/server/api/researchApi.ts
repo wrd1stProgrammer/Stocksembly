@@ -5,13 +5,13 @@ import {
   AccountStoreUnavailableError,
   type CreditAvailability,
 } from "../../../accounts/server/accountStore";
-import type { Locale } from "../../../lib/i18n";
 import type {
   BriefingEditionPayload,
   BriefingRoomState,
   BriefingWatchlistItem,
 } from "../../../briefing/domain/contracts";
 import { nextUsPremarketBriefingAt } from "../../../briefing/domain/marketCalendar";
+import type { Locale } from "../../../lib/i18n";
 import type {
   BillingPlanKey,
   WhopBillingStatus,
@@ -105,8 +105,16 @@ export interface ResearchApi {
     item: Omit<BriefingWatchlistItem, "position" | "createdAt">,
   ) => Promise<
     | { readonly authenticated: false }
-    | { readonly authenticated: true; readonly result: "added" | "exists"; readonly item: BriefingWatchlistItem }
-    | { readonly authenticated: true; readonly result: "limit"; readonly limit: number }
+    | {
+        readonly authenticated: true;
+        readonly result: "added" | "exists";
+        readonly item: BriefingWatchlistItem;
+      }
+    | {
+        readonly authenticated: true;
+        readonly result: "limit";
+        readonly limit: number;
+      }
     | { readonly authenticated: true; readonly result: "forbidden" }
   >;
   readonly removeBriefingWatchlistItem: (

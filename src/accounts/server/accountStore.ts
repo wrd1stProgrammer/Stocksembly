@@ -1,4 +1,3 @@
-import type { Locale } from "../../lib/i18n";
 import type {
   BriefingAccess,
   BriefingAudience,
@@ -8,6 +7,7 @@ import type {
   BriefingWatchlistItem,
   SaveBriefingEdition,
 } from "../../briefing/domain/contracts";
+import type { Locale } from "../../lib/i18n";
 import type {
   BillingCreditActivity,
   BillingCreditNotice,

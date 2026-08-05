@@ -1243,7 +1243,10 @@ export class PostgresAccountStore implements AccountStore {
         [principalId],
       );
       const row = entitlement.rows[0];
-      const limit = watchlistLimit(tierForPlanCode(row?.plan_code), row?.status);
+      const limit = watchlistLimit(
+        tierForPlanCode(row?.plan_code),
+        row?.status,
+      );
       if (limit === 0) {
         await client.query("ROLLBACK");
         return { kind: "forbidden" };
@@ -1271,7 +1274,10 @@ export class PostgresAccountStore implements AccountStore {
           item: briefingWatchlistItem(existingItem),
         };
       }
-      const count = await client.query<{ count: number; next_position: number }>(
+      const count = await client.query<{
+        count: number;
+        next_position: number;
+      }>(
         `SELECT COUNT(*)::int AS count,
                 COALESCE(MAX(position), -1)::int + 1 AS next_position
          FROM briefing_watchlist_items
