@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
   GetSecretValueCommand,
@@ -5,6 +6,15 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { z } from "zod";
+import type {
+  BriefingAccess,
+  BriefingAudience,
+  BriefingEditionPayload,
+  BriefingListItem,
+  BriefingSourceSnapshot,
+  BriefingWatchlistItem,
+  SaveBriefingEdition,
+} from "../../briefing/domain/contracts";
 import type { Locale } from "../../lib/i18n";
 import type {
   BillingCreditActivity,
@@ -424,6 +434,35 @@ function billingStatus(
 
 function tierForPlanCode(value: string | undefined): BillingTier {
   return value === "pro" || value === "ultra" ? value : "free";
+}
+
+function watchlistLimit(tier: BillingTier, status: string | undefined): number {
+  if (status !== "active" && status !== "trialing") return 0;
+  if (tier === "ultra") return 10;
+  if (tier === "pro") return 3;
+  return 0;
+}
+
+function briefingWatchlistItem(row: {
+  symbol: string;
+  provider_code: string;
+  company: string;
+  exchange: string;
+  position: number;
+  created_at: string;
+}): BriefingWatchlistItem {
+  const exchange =
+    row.exchange === "NYSE" || row.exchange === "NYSE_AMERICAN"
+      ? row.exchange
+      : "NASDAQ";
+  return Object.freeze({
+    symbol: row.symbol,
+    providerCode: row.provider_code,
+    company: row.company,
+    exchange,
+    position: Number(row.position),
+    createdAt: new Date(row.created_at).toISOString(),
+  });
 }
 
 function isoTimestamp(value: string | undefined, fallback: Date): string {
@@ -1126,6 +1165,461 @@ export class PostgresAccountStore implements AccountStore {
       !["active", "trialing"].includes(status.status)
       ? "free"
       : "paid";
+  }
+
+  async briefingAccess(principalId: string): Promise<BriefingAccess> {
+    try {
+      const result = await this.pool.query<{
+        plan_code: string;
+        status: string;
+      }>(
+        `SELECT plan_code, status
+         FROM entitlements
+         WHERE principal_id = $1`,
+        [principalId],
+      );
+      const row = result.rows[0];
+      const tier = tierForPlanCode(row?.plan_code);
+      const limit = watchlistLimit(tier, row?.status);
+      return {
+        authenticated: true,
+        tier,
+        enabled: limit > 0,
+        watchlistLimit: limit,
+      };
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_ACCESS_READ_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async listBriefingWatchlist(
+    principalId: string,
+  ): Promise<readonly BriefingWatchlistItem[]> {
+    try {
+      const result = await this.pool.query<{
+        symbol: string;
+        provider_code: string;
+        company: string;
+        exchange: string;
+        position: number;
+        created_at: string;
+      }>(
+        `SELECT symbol, provider_code, company, exchange, position, created_at
+         FROM briefing_watchlist_items
+         WHERE principal_id = $1 AND active = true
+         ORDER BY position, created_at, symbol`,
+        [principalId],
+      );
+      return Object.freeze(result.rows.map(briefingWatchlistItem));
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_WATCHLIST_READ_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async addBriefingWatchlistItem(
+    principalId: string,
+    item: Omit<BriefingWatchlistItem, "position" | "createdAt">,
+  ): Promise<
+    | { readonly kind: "added"; readonly item: BriefingWatchlistItem }
+    | { readonly kind: "exists"; readonly item: BriefingWatchlistItem }
+    | { readonly kind: "limit"; readonly limit: number }
+    | { readonly kind: "forbidden" }
+  > {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const entitlement = await client.query<{
+        plan_code: string;
+        status: string;
+      }>(
+        `SELECT plan_code, status
+         FROM entitlements
+         WHERE principal_id = $1
+         FOR UPDATE`,
+        [principalId],
+      );
+      const row = entitlement.rows[0];
+      const limit = watchlistLimit(tierForPlanCode(row?.plan_code), row?.status);
+      if (limit === 0) {
+        await client.query("ROLLBACK");
+        return { kind: "forbidden" };
+      }
+      const existing = await client.query<{
+        symbol: string;
+        provider_code: string;
+        company: string;
+        exchange: string;
+        position: number;
+        created_at: string;
+        active: boolean;
+      }>(
+        `SELECT symbol, provider_code, company, exchange, position, created_at,
+                active
+         FROM briefing_watchlist_items
+         WHERE principal_id = $1 AND symbol = $2`,
+        [principalId, item.symbol],
+      );
+      const existingItem = existing.rows[0];
+      if (existingItem?.active === true) {
+        await client.query("COMMIT");
+        return {
+          kind: "exists",
+          item: briefingWatchlistItem(existingItem),
+        };
+      }
+      const count = await client.query<{ count: number; next_position: number }>(
+        `SELECT COUNT(*)::int AS count,
+                COALESCE(MAX(position), -1)::int + 1 AS next_position
+         FROM briefing_watchlist_items
+         WHERE principal_id = $1 AND active = true`,
+        [principalId],
+      );
+      if (Number(count.rows[0]?.count ?? 0) >= limit) {
+        await client.query("ROLLBACK");
+        return { kind: "limit", limit };
+      }
+      if (existingItem !== undefined) {
+        const updated = await client.query<{
+          symbol: string;
+          provider_code: string;
+          company: string;
+          exchange: string;
+          position: number;
+          created_at: string;
+        }>(
+          `UPDATE briefing_watchlist_items
+           SET active = true, provider_code = $3, company = $4, exchange = $5,
+               position = $6, updated_at = now()
+           WHERE principal_id = $1 AND symbol = $2
+           RETURNING symbol, provider_code, company, exchange, position, created_at`,
+          [
+            principalId,
+            item.symbol,
+            item.providerCode,
+            item.company,
+            item.exchange,
+            Number(count.rows[0]?.next_position ?? 0),
+          ],
+        );
+        await client.query("COMMIT");
+        return {
+          kind: "exists",
+          item: briefingWatchlistItem(updated.rows[0]!),
+        };
+      }
+      const inserted = await client.query<{
+        symbol: string;
+        provider_code: string;
+        company: string;
+        exchange: string;
+        position: number;
+        created_at: string;
+      }>(
+        `INSERT INTO briefing_watchlist_items(
+           principal_id, symbol, provider_code, company, exchange, position
+         ) VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING symbol, provider_code, company, exchange, position, created_at`,
+        [
+          principalId,
+          item.symbol,
+          item.providerCode,
+          item.company,
+          item.exchange,
+          Number(count.rows[0]?.next_position ?? 0),
+        ],
+      );
+      await client.query("COMMIT");
+      return {
+        kind: "added",
+        item: briefingWatchlistItem(inserted.rows[0]!),
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw new AccountStoreUnavailableError("BRIEFING_WATCHLIST_ADD_FAILED", {
+        cause: error,
+      });
+    } finally {
+      client.release();
+    }
+  }
+
+  async removeBriefingWatchlistItem(
+    principalId: string,
+    symbol: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE briefing_watchlist_items
+         SET active = false, updated_at = now()
+         WHERE principal_id = $1 AND symbol = $2 AND active = true`,
+        [principalId, symbol],
+      );
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "BRIEFING_WATCHLIST_REMOVE_FAILED",
+        { cause: error },
+      );
+    }
+  }
+
+  async listBriefingAudience(): Promise<readonly BriefingAudience[]> {
+    try {
+      const result = await this.pool.query<{
+        principal_id: string;
+        preferred_locale: string | null;
+        symbol: string;
+        provider_code: string;
+        company: string;
+        exchange: string;
+        position: number;
+        created_at: string;
+      }>(
+        `SELECT w.principal_id, u.preferred_locale, w.symbol, w.provider_code,
+                w.company, w.exchange, w.position, w.created_at
+         FROM briefing_watchlist_items w
+         JOIN app_users u ON u.principal_id = w.principal_id
+         JOIN entitlements e ON e.principal_id = w.principal_id
+         WHERE w.active = true
+           AND e.plan_code IN ('pro', 'ultra')
+           AND e.status IN ('active', 'trialing')
+         ORDER BY w.symbol, w.principal_id`,
+      );
+      return Object.freeze(
+        result.rows.map((row): BriefingAudience => {
+          const locale: Locale = row.preferred_locale === "ko" ? "ko" : "en";
+          return {
+            principalId: row.principal_id,
+            locale,
+            item: briefingWatchlistItem(row),
+          };
+        }),
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_AUDIENCE_READ_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async listBriefingEditionKeys(
+    marketDate: string,
+  ): Promise<ReadonlySet<string>> {
+    try {
+      const result = await this.pool.query<{ symbol: string; locale: string }>(
+        `SELECT symbol, locale
+         FROM briefing_editions
+         WHERE market_date = $1::date`,
+        [marketDate],
+      );
+      return new Set(result.rows.map((row) => `${row.symbol}:${row.locale}`));
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "BRIEFING_EDITION_KEYS_READ_FAILED",
+        { cause: error },
+      );
+    }
+  }
+
+  async saveBriefingSourceSnapshot(
+    snapshot: BriefingSourceSnapshot,
+  ): Promise<string> {
+    try {
+      const payload = JSON.stringify(snapshot);
+      const snapshotId = randomUUID();
+      const result = await this.pool.query<{ snapshot_id: string }>(
+        `INSERT INTO briefing_source_snapshots(
+           snapshot_id, symbol, market_date, cutoff_at, coverage_start,
+           content_hash, payload
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+         ON CONFLICT (symbol, market_date) DO UPDATE SET
+           cutoff_at = EXCLUDED.cutoff_at,
+           coverage_start = EXCLUDED.coverage_start,
+           content_hash = EXCLUDED.content_hash,
+           payload = EXCLUDED.payload
+         RETURNING snapshot_id`,
+        [
+          snapshotId,
+          snapshot.symbol,
+          snapshot.marketDate,
+          snapshot.cutoffAt,
+          snapshot.coverageStart,
+          createHash("sha256").update(payload).digest("hex"),
+          payload,
+        ],
+      );
+      return result.rows[0]?.snapshot_id ?? snapshotId;
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_SNAPSHOT_SAVE_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async findPreviousBriefingEdition(
+    symbol: string,
+    locale: Locale,
+    beforeMarketDate: string,
+  ): Promise<BriefingEditionPayload | undefined> {
+    try {
+      const result = await this.pool.query<{ payload: BriefingEditionPayload }>(
+        `SELECT payload
+         FROM briefing_editions
+         WHERE symbol = $1 AND locale = $2 AND market_date < $3::date
+         ORDER BY market_date DESC
+         LIMIT 1`,
+        [symbol, locale, beforeMarketDate],
+      );
+      return result.rows[0]?.payload;
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_PREVIOUS_READ_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async saveBriefingEdition(
+    edition: SaveBriefingEdition,
+    recipients: readonly string[],
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query<{ briefing_id: string }>(
+        `INSERT INTO briefing_editions(
+           briefing_id, symbol, company, market_date, locale, scheduled_for,
+           snapshot_id, status, payload, generated_at
+         ) VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8, $9::jsonb, $10)
+         ON CONFLICT (symbol, market_date, locale) DO UPDATE SET
+           company = EXCLUDED.company,
+           scheduled_for = EXCLUDED.scheduled_for,
+           snapshot_id = EXCLUDED.snapshot_id,
+           status = EXCLUDED.status,
+           payload = EXCLUDED.payload,
+           generated_at = EXCLUDED.generated_at,
+           updated_at = now()
+         RETURNING briefing_id`,
+        [
+          edition.briefingId,
+          edition.symbol,
+          edition.company,
+          edition.marketDate,
+          edition.locale,
+          edition.scheduledFor,
+          edition.snapshotId,
+          edition.payload.status,
+          JSON.stringify(edition.payload),
+          edition.payload.generatedAt,
+        ],
+      );
+      const briefingId = result.rows[0]?.briefing_id ?? edition.briefingId;
+      if (recipients.length > 0)
+        await client.query(
+          `INSERT INTO briefing_deliveries(principal_id, briefing_id)
+           SELECT recipient, $2::uuid
+           FROM unnest($1::char(64)[]) AS recipient
+           ON CONFLICT (principal_id, briefing_id) DO NOTHING`,
+          [recipients, briefingId],
+        );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw new AccountStoreUnavailableError("BRIEFING_EDITION_SAVE_FAILED", {
+        cause: error,
+      });
+    } finally {
+      client.release();
+    }
+  }
+
+  async listBriefings(
+    principalId: string,
+    locale: Locale,
+    limit: number,
+  ): Promise<readonly BriefingListItem[]> {
+    try {
+      const result = await this.pool.query<{
+        briefing_id: string;
+        symbol: string;
+        company: string;
+        market_date: string;
+        generated_at: string;
+        payload: BriefingEditionPayload;
+        read_at: string | null;
+      }>(
+        `SELECT e.briefing_id, e.symbol, e.company, e.market_date,
+                e.generated_at, e.payload, d.read_at
+         FROM briefing_deliveries d
+         JOIN briefing_editions e ON e.briefing_id = d.briefing_id
+         WHERE d.principal_id = $1 AND e.locale = $2
+         ORDER BY e.market_date DESC, e.generated_at DESC
+         LIMIT $3`,
+        [principalId, locale, Math.max(1, Math.min(90, limit))],
+      );
+      return Object.freeze(
+        result.rows.map((row) => ({
+          briefingId: row.briefing_id,
+          symbol: row.symbol,
+          company: row.company,
+          locale,
+          marketDate: new Date(row.market_date).toISOString().slice(0, 10),
+          generatedAt: new Date(row.generated_at).toISOString(),
+          status: row.payload.status,
+          attention: row.payload.attention,
+          headline: row.payload.headline,
+          summary: row.payload.summary,
+          price: row.payload.price,
+          unread: row.read_at === null,
+        })),
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_LIST_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async briefingDetail(
+    principalId: string,
+    briefingId: string,
+  ): Promise<BriefingEditionPayload | undefined> {
+    try {
+      const result = await this.pool.query<{ payload: BriefingEditionPayload }>(
+        `SELECT e.payload
+         FROM briefing_deliveries d
+         JOIN briefing_editions e ON e.briefing_id = d.briefing_id
+         WHERE d.principal_id = $1 AND d.briefing_id = $2`,
+        [principalId, briefingId],
+      );
+      return result.rows[0]?.payload;
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_DETAIL_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async markBriefingRead(
+    principalId: string,
+    briefingId: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.pool.query(
+        `UPDATE briefing_deliveries
+         SET read_at = COALESCE(read_at, now())
+         WHERE principal_id = $1 AND briefing_id = $2`,
+        [principalId, briefingId],
+      );
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      throw new AccountStoreUnavailableError("BRIEFING_READ_UPDATE_FAILED", {
+        cause: error,
+      });
+    }
   }
 
   async handleWhopWebhook(

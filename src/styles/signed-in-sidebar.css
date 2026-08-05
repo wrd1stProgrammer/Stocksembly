@@ -307,6 +307,19 @@
   font-size: 0.62rem;
 }
 
+.signed-in-sidebar__nav-badge {
+  min-width: 19px;
+  margin-left: auto;
+  padding: 2px 5px;
+  color: #dbe5ff;
+  border-radius: 999px;
+  background: #2f5fd7;
+  font-size: 0.61rem;
+  font-weight: 750;
+  line-height: 1.2;
+  text-align: center;
+}
+
 .signed-in-sidebar__label {
   margin: 24px 10px 4px;
   color: var(--color-text-subtle);

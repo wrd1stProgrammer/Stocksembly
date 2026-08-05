@@ -1,5 +1,14 @@
 import type { Locale } from "../../lib/i18n";
 import type {
+  BriefingAccess,
+  BriefingAudience,
+  BriefingEditionPayload,
+  BriefingListItem,
+  BriefingSourceSnapshot,
+  BriefingWatchlistItem,
+  SaveBriefingEdition,
+} from "../../briefing/domain/contracts";
+import type {
   BillingCreditActivity,
   BillingCreditNotice,
   BillingCredits,
@@ -92,5 +101,51 @@ export type AccountStore = {
     principalId: string,
     locale: Locale,
   ) => Promise<void>;
+  readonly briefingAccess?: (principalId: string) => Promise<BriefingAccess>;
+  readonly listBriefingWatchlist?: (
+    principalId: string,
+  ) => Promise<readonly BriefingWatchlistItem[]>;
+  readonly addBriefingWatchlistItem?: (
+    principalId: string,
+    item: Omit<BriefingWatchlistItem, "position" | "createdAt">,
+  ) => Promise<
+    | { readonly kind: "added"; readonly item: BriefingWatchlistItem }
+    | { readonly kind: "exists"; readonly item: BriefingWatchlistItem }
+    | { readonly kind: "limit"; readonly limit: number }
+    | { readonly kind: "forbidden" }
+  >;
+  readonly removeBriefingWatchlistItem?: (
+    principalId: string,
+    symbol: string,
+  ) => Promise<boolean>;
+  readonly listBriefingAudience?: () => Promise<readonly BriefingAudience[]>;
+  readonly listBriefingEditionKeys?: (
+    marketDate: string,
+  ) => Promise<ReadonlySet<string>>;
+  readonly saveBriefingSourceSnapshot?: (
+    snapshot: BriefingSourceSnapshot,
+  ) => Promise<string>;
+  readonly findPreviousBriefingEdition?: (
+    symbol: string,
+    locale: Locale,
+    beforeMarketDate: string,
+  ) => Promise<BriefingEditionPayload | undefined>;
+  readonly saveBriefingEdition?: (
+    edition: SaveBriefingEdition,
+    recipients: readonly string[],
+  ) => Promise<void>;
+  readonly listBriefings?: (
+    principalId: string,
+    locale: Locale,
+    limit: number,
+  ) => Promise<readonly BriefingListItem[]>;
+  readonly briefingDetail?: (
+    principalId: string,
+    briefingId: string,
+  ) => Promise<BriefingEditionPayload | undefined>;
+  readonly markBriefingRead?: (
+    principalId: string,
+    briefingId: string,
+  ) => Promise<boolean>;
   readonly close: () => Promise<void>;
 };

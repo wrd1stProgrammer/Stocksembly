@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": ".stocksembly-verification/briefing-worker",
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "plugins": []
+  },
+  "include": ["src/briefing/worker/briefingWorker.ts"],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}

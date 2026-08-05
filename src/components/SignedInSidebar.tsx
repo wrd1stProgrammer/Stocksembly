@@ -7,6 +7,7 @@ import {
   signOut,
 } from "aws-amplify/auth";
 import {
+  BellRing,
   Check,
   ChevronRight,
   CircleHelp,
@@ -42,7 +43,7 @@ type SignedInSidebarProps = {
   readonly onSignedOut: () => void;
   readonly onOpenSubscription?: () => void;
   readonly subscriptionTier?: "unknown" | "free" | "paid";
-  readonly activeItem?: "dashboard" | "research-room";
+  readonly activeItem?: "dashboard" | "research-room" | "briefing-room";
 };
 
 export const SIGNED_IN_SIDEBAR_STORAGE_KEY =
@@ -91,6 +92,7 @@ export function SignedInSidebar({
   activeItem = "dashboard",
 }: SignedInSidebarProps) {
   const [runs, setRuns] = useState<readonly PublicRun[]>([]);
+  const [briefingUnread, setBriefingUnread] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [profileOpen, setProfileOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -107,6 +109,16 @@ export function SignedInSidebar({
       try {
         await client.bootstrapSession();
         setRuns((await client.listRuns?.(12)) ?? []);
+        const briefingResponse = await fetch(
+          `/api/briefings?locale=${locale}`,
+          { credentials: "same-origin", cache: "no-store" },
+        ).catch(() => undefined);
+        if (briefingResponse?.ok) {
+          const value = (await briefingResponse.json()) as {
+            readonly unreadCount?: number;
+          };
+          setBriefingUnread(Math.max(0, value.unreadCount ?? 0));
+        }
         setLoadState("ready");
         return;
       } catch (error) {
@@ -116,7 +128,7 @@ export function SignedInSidebar({
     if (process.env.NODE_ENV !== "production")
       console.error("SIDEBAR_RECENT_RESEARCH_LOAD_FAILED", lastError);
     setLoadState("failed");
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     void loadRuns();
@@ -298,6 +310,18 @@ export function SignedInSidebar({
           >
             <LibraryBig size={18} />
             <span>{locale === "ko" ? "리서치룸" : "Research room"}</span>
+          </Link>
+          <Link
+            className={activeItem === "briefing-room" ? "is-active" : undefined}
+            href={`/briefing-room?lang=${locale}`}
+          >
+            <BellRing size={18} />
+            <span>{locale === "ko" ? "브리핑룸" : "Briefing room"}</span>
+            {briefingUnread > 0 ? (
+              <small className="signed-in-sidebar__nav-badge">
+                {Math.min(99, briefingUnread)}
+              </small>
+            ) : null}
           </Link>
         </nav>
 

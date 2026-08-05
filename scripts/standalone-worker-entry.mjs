@@ -14,7 +14,16 @@ try {
   if (!bindingStatus.isFile()) throw new Error("native binding is not a file");
   nativeBindingValidated = true;
   const worker = await import("./leaseWorker.js");
-  await worker.runLeaseWorkerProcess(process.argv.slice(2));
+  const argumentsValue = process.argv.slice(2);
+  if (argumentsValue[0] === "serve") {
+    const briefing = await import("../briefing-worker/briefingWorker.js");
+    await Promise.all([
+      worker.runLeaseWorkerProcess(argumentsValue),
+      briefing.runBriefingWorkerProcess(argumentsValue),
+    ]);
+  } else {
+    await worker.runLeaseWorkerProcess(argumentsValue);
+  }
 } catch (error) {
   const reportedCode =
     error instanceof Error && "code" in error ? error.code : undefined;

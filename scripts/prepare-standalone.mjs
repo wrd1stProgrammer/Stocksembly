@@ -51,6 +51,7 @@ if (existsSync(".next/standalone/server.js")) {
 const migrationsSource = "src/research/server/persistence/sqlite/migrations";
 await Promise.all([
   rm(".next/standalone/research-worker", { recursive: true, force: true }),
+  rm(".next/standalone/briefing-worker", { recursive: true, force: true }),
   ...(existsSync(migrationsSource)
     ? [rm(".next/standalone/migrations", { recursive: true, force: true })]
     : []),
@@ -67,6 +68,18 @@ const optionalCopies = [
   [
     "scripts/standalone-worker-entry.mjs",
     ".next/standalone/research-worker/worker.mjs",
+  ],
+  [
+    ".stocksembly-verification/briefing-worker/briefingWorker.js",
+    ".next/standalone/briefing-worker/briefingWorker.js",
+  ],
+  [
+    ".stocksembly-verification/briefing-worker/assets",
+    ".next/standalone/briefing-worker/assets",
+  ],
+  [
+    "scripts/standalone-briefing-worker-entry.mjs",
+    ".next/standalone/briefing-worker/worker.mjs",
   ],
   [migrationsSource, ".next/standalone/migrations"],
 ].flatMap(([source, destination]) =>

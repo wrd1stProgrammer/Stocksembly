@@ -230,6 +230,82 @@ const migrations = [
       WHERE plan_code = 'free';
     `,
   },
+  {
+    version: 8,
+    name: "008_watchlists_and_daily_briefings",
+    sql: `
+      CREATE TABLE briefing_watchlist_items (
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        symbol TEXT NOT NULL,
+        provider_code TEXT NOT NULL,
+        company TEXT NOT NULL,
+        exchange TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (principal_id, symbol),
+        CHECK (symbol ~ '^[A-Z][A-Z0-9.-]{0,11}$'),
+        CHECK (exchange IN ('NASDAQ', 'NYSE', 'NYSE_AMERICAN')),
+        CHECK (position >= 0)
+      );
+
+      CREATE INDEX briefing_watchlist_active_symbol_idx
+        ON briefing_watchlist_items(symbol, principal_id)
+        WHERE active = true;
+
+      CREATE TABLE briefing_source_snapshots (
+        snapshot_id UUID PRIMARY KEY,
+        symbol TEXT NOT NULL,
+        market_date DATE NOT NULL,
+        cutoff_at TIMESTAMPTZ NOT NULL,
+        coverage_start TIMESTAMPTZ NOT NULL,
+        content_hash CHAR(64) NOT NULL,
+        payload JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (symbol, market_date),
+        CHECK (symbol ~ '^[A-Z][A-Z0-9.-]{0,11}$'),
+        CHECK (content_hash ~ '^[0-9a-f]{64}$')
+      );
+
+      CREATE TABLE briefing_editions (
+        briefing_id UUID PRIMARY KEY,
+        symbol TEXT NOT NULL,
+        company TEXT NOT NULL,
+        market_date DATE NOT NULL,
+        locale TEXT NOT NULL,
+        scheduled_for TIMESTAMPTZ NOT NULL,
+        snapshot_id UUID NOT NULL
+          REFERENCES briefing_source_snapshots(snapshot_id) ON DELETE RESTRICT,
+        status TEXT NOT NULL,
+        payload JSONB NOT NULL,
+        generated_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (symbol, market_date, locale),
+        CHECK (symbol ~ '^[A-Z][A-Z0-9.-]{0,11}$'),
+        CHECK (locale IN ('en', 'ko')),
+        CHECK (status IN ('ready', 'partial'))
+      );
+
+      CREATE INDEX briefing_editions_symbol_history_idx
+        ON briefing_editions(symbol, locale, market_date DESC);
+
+      CREATE TABLE briefing_deliveries (
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        briefing_id UUID NOT NULL
+          REFERENCES briefing_editions(briefing_id) ON DELETE CASCADE,
+        delivered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        read_at TIMESTAMPTZ,
+        PRIMARY KEY (principal_id, briefing_id)
+      );
+
+      CREATE INDEX briefing_deliveries_user_unread_idx
+        ON briefing_deliveries(principal_id, delivered_at DESC)
+        WHERE read_at IS NULL;
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

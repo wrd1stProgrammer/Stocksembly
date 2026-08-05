@@ -7,6 +7,12 @@ import {
 } from "../../../accounts/server/accountStore";
 import type { Locale } from "../../../lib/i18n";
 import type {
+  BriefingEditionPayload,
+  BriefingRoomState,
+  BriefingWatchlistItem,
+} from "../../../briefing/domain/contracts";
+import { nextUsPremarketBriefingAt } from "../../../briefing/domain/marketCalendar";
+import type {
   BillingPlanKey,
   WhopBillingStatus,
 } from "../../../lib/whop/contracts";
@@ -90,6 +96,34 @@ export interface ResearchApi {
     request: Request,
     locale: Locale,
   ) => Promise<{ readonly authenticated: boolean; readonly stored: boolean }>;
+  readonly briefingRoom: (
+    request: Request,
+    locale: Locale,
+  ) => Promise<BriefingRoomState>;
+  readonly addBriefingWatchlistItem: (
+    request: Request,
+    item: Omit<BriefingWatchlistItem, "position" | "createdAt">,
+  ) => Promise<
+    | { readonly authenticated: false }
+    | { readonly authenticated: true; readonly result: "added" | "exists"; readonly item: BriefingWatchlistItem }
+    | { readonly authenticated: true; readonly result: "limit"; readonly limit: number }
+    | { readonly authenticated: true; readonly result: "forbidden" }
+  >;
+  readonly removeBriefingWatchlistItem: (
+    request: Request,
+    symbol: string,
+  ) => Promise<{ readonly authenticated: boolean; readonly removed: boolean }>;
+  readonly briefingDetail: (
+    request: Request,
+    briefingId: string,
+  ) => Promise<{
+    readonly authenticated: boolean;
+    readonly briefing?: BriefingEditionPayload;
+  }>;
+  readonly markBriefingRead: (
+    request: Request,
+    briefingId: string,
+  ) => Promise<{ readonly authenticated: boolean; readonly marked: boolean }>;
   readonly handle: (request: Request) => Promise<Response>;
   readonly close: () => Promise<void>;
 }
@@ -182,6 +216,33 @@ async function proxyAuthenticatedGet(
     method: "GET",
     headers,
     cache: "no-store",
+  });
+}
+
+async function proxyAuthenticatedRequest(
+  request: Request,
+  pathname: string,
+  init: { readonly method: "GET" | "POST" | "DELETE"; readonly body?: unknown },
+): Promise<Response | undefined> {
+  const origin = localAccountOrigin(request);
+  if (origin === undefined) return undefined;
+  const target = new URL(pathname, origin);
+  const headers = new Headers();
+  for (const name of [
+    "authorization",
+    "cookie",
+    "x-stocksembly-identity-token",
+  ]) {
+    const value = request.headers.get(name);
+    if (value !== null) headers.set(name, value);
+  }
+  headers.set("accept", "application/json");
+  if (init.body !== undefined) headers.set("content-type", "application/json");
+  return await fetch(target, {
+    method: init.method,
+    headers,
+    cache: "no-store",
+    ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
   });
 }
 
@@ -660,6 +721,230 @@ export async function createResearchApi(
       } catch {
         return { authenticated: true, stored: false };
       }
+    },
+    async briefingRoom(request, locale) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return {
+          authenticated: false,
+          tier: "free",
+          enabled: false,
+          watchlistLimit: 0,
+          nextBriefingAt: nextUsPremarketBriefingAt(),
+          marketTimeZone: "America/New_York",
+          watchlist: [],
+          briefings: [],
+          unreadCount: 0,
+        };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          `/api/briefings?locale=${locale}`,
+          { method: "GET" },
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as BriefingRoomState;
+        const billing = await proxyAuthenticatedGet(
+          request,
+          "/api/billing/status",
+        );
+        if (billing?.ok === true) {
+          const status = (await billing.json()) as WhopBillingStatus;
+          const enabled =
+            (status.tier === "pro" || status.tier === "ultra") &&
+            (status.status === "active" || status.status === "trialing");
+          return {
+            authenticated: true,
+            tier: status.tier,
+            enabled,
+            watchlistLimit:
+              enabled && status.tier === "ultra" ? 10 : enabled ? 3 : 0,
+            nextBriefingAt: nextUsPremarketBriefingAt(),
+            marketTimeZone: "America/New_York",
+            watchlist: [],
+            briefings: [],
+            unreadCount: 0,
+          };
+        }
+      }
+      if (
+        options.accountStore?.briefingAccess === undefined ||
+        options.accountStore.listBriefingWatchlist === undefined ||
+        options.accountStore.listBriefings === undefined
+      )
+        return {
+          authenticated: true,
+          tier: "free",
+          enabled: false,
+          watchlistLimit: 0,
+          nextBriefingAt: nextUsPremarketBriefingAt(),
+          marketTimeZone: "America/New_York",
+          watchlist: [],
+          briefings: [],
+          unreadCount: 0,
+        };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        const [access, watchlist, briefings] = await Promise.all([
+          options.accountStore.briefingAccess(authentication.principal.id),
+          options.accountStore.listBriefingWatchlist(
+            authentication.principal.id,
+          ),
+          options.accountStore.listBriefings(
+            authentication.principal.id,
+            locale,
+            45,
+          ),
+        ]);
+        return {
+          ...access,
+          nextBriefingAt: nextUsPremarketBriefingAt(),
+          marketTimeZone: "America/New_York",
+          watchlist,
+          briefings,
+          unreadCount: briefings.filter((briefing) => briefing.unread).length,
+        };
+      } catch {
+        return {
+          authenticated: true,
+          tier: "free",
+          enabled: false,
+          watchlistLimit: 0,
+          nextBriefingAt: nextUsPremarketBriefingAt(),
+          marketTimeZone: "America/New_York",
+          watchlist: [],
+          briefings: [],
+          unreadCount: 0,
+        };
+      }
+    },
+    async addBriefingWatchlistItem(request, item) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return { authenticated: false };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          "/api/briefings/watchlist",
+          { method: "POST", body: item },
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as Awaited<
+            ReturnType<ResearchApi["addBriefingWatchlistItem"]>
+          >;
+      }
+      if (options.accountStore?.addBriefingWatchlistItem === undefined)
+        return { authenticated: true, result: "forbidden" };
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      const result = await options.accountStore.addBriefingWatchlistItem(
+        authentication.principal.id,
+        item,
+      );
+      if (result.kind === "added" || result.kind === "exists")
+        return {
+          authenticated: true,
+          result: result.kind,
+          item: result.item,
+        };
+      return result.kind === "limit"
+        ? { authenticated: true, result: "limit", limit: result.limit }
+        : { authenticated: true, result: "forbidden" };
+    },
+    async removeBriefingWatchlistItem(request, symbol) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return { authenticated: false, removed: false };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          `/api/briefings/watchlist/${encodeURIComponent(symbol)}`,
+          { method: "DELETE" },
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as {
+            readonly authenticated: boolean;
+            readonly removed: boolean;
+          };
+      }
+      if (options.accountStore?.removeBriefingWatchlistItem === undefined)
+        return { authenticated: true, removed: false };
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      return {
+        authenticated: true,
+        removed: await options.accountStore.removeBriefingWatchlistItem(
+          authentication.principal.id,
+          symbol,
+        ),
+      };
+    },
+    async briefingDetail(request, briefingId) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return { authenticated: false };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          `/api/briefings/${encodeURIComponent(briefingId)}`,
+          { method: "GET" },
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as {
+            readonly authenticated: boolean;
+            readonly briefing?: BriefingEditionPayload;
+          };
+      }
+      if (options.accountStore?.briefingDetail === undefined)
+        return { authenticated: true };
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      const briefing = await options.accountStore.briefingDetail(
+        authentication.principal.id,
+        briefingId,
+      );
+      return briefing === undefined
+        ? { authenticated: true }
+        : { authenticated: true, briefing };
+    },
+    async markBriefingRead(request, briefingId) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return { authenticated: false, marked: false };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          `/api/briefings/${encodeURIComponent(briefingId)}/read`,
+          { method: "POST" },
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as {
+            readonly authenticated: boolean;
+            readonly marked: boolean;
+          };
+      }
+      if (options.accountStore?.markBriefingRead === undefined)
+        return { authenticated: true, marked: false };
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      return {
+        authenticated: true,
+        marked: await options.accountStore.markBriefingRead(
+          authentication.principal.id,
+          briefingId,
+        ),
+      };
     },
     async handle(request) {
       const policy = await enforceRequestPolicy(request, {
