@@ -43,6 +43,7 @@ const LAUNCH_PULSE_MILLISECONDS = 3_000;
 
 type SearchConsoleProps = {
   readonly locale: Locale;
+  readonly onOpenPlans?: () => void;
   readonly subscriptionTier?: "unknown" | "free" | "paid";
   readonly creditsRemaining?: number | undefined;
   readonly tickerSearch?: (
@@ -53,6 +54,7 @@ type SearchConsoleProps = {
 
 export function SearchConsole({
   locale,
+  onOpenPlans,
   subscriptionTier = "unknown",
   creditsRemaining,
   tickerSearch = searchUsTickers,
@@ -673,6 +675,7 @@ export function SearchConsole({
         open={membershipGateOpen}
         reason="customize"
         onClose={() => setMembershipGateOpen(false)}
+        onOpenPlans={onOpenPlans}
       />
     </>
   );

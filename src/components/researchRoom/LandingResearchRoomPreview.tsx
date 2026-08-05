@@ -102,8 +102,10 @@ function previewReports(
 
 export function LandingResearchRoomPreview({
   locale,
+  onOpenPlans,
 }: {
   readonly locale: Locale;
+  readonly onOpenPlans?: () => void;
 }) {
   const router = useRouter();
   const [reports, setReports] = useState<readonly ResearchRoomCatalogItem[]>(
@@ -292,6 +294,7 @@ export function LandingResearchRoomPreview({
         open={membershipGateOpen}
         reason="recent-report"
         onClose={() => setMembershipGateOpen(false)}
+        onOpenPlans={onOpenPlans}
       />
     </>
   );

@@ -445,11 +445,15 @@ export function App() {
           </div>
           <SearchConsole
             locale={locale}
+            onOpenPlans={openSubscriptionModal}
             subscriptionTier={subscriptionTier}
             creditsRemaining={billingStatus?.credits.remaining}
           />
           <LandingOfficePreview locale={locale} />
-          <LandingResearchRoomPreview locale={locale} />
+          <LandingResearchRoomPreview
+            locale={locale}
+            onOpenPlans={openSubscriptionModal}
+          />
           <p className="hero__proof">
             <ShieldCheck aria-hidden="true" size={22} />
             {content.hero.proof}

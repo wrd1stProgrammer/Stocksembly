@@ -12,6 +12,7 @@ type Props = {
   readonly open: boolean;
   readonly reason: "customize" | "recent-report";
   readonly onClose?: () => void;
+  readonly onOpenPlans?: (() => void) | undefined;
 };
 
 export function MembershipAccessModal({
@@ -19,6 +20,7 @@ export function MembershipAccessModal({
   open,
   reason,
   onClose,
+  onOpenPlans,
 }: Props) {
   const titleId = useId();
   const [mounted, setMounted] = useState(false);
@@ -48,6 +50,11 @@ export function MembershipAccessModal({
   }, [dismiss, open]);
 
   if (!mounted || !open) return null;
+
+  const openPlans = () => {
+    onClose?.();
+    onOpenPlans?.();
+  };
 
   const isCustomize = reason === "customize";
   const copy =
@@ -119,13 +126,24 @@ export function MembershipAccessModal({
             >
               {locale === "ko" ? "나중에" : "Maybe later"}
             </button>
-            <Link
-              className="membership-access-modal__upgrade"
-              href="/?billing=plans"
-            >
-              {locale === "ko" ? "플랜 확인하기" : "View plans"}
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </Link>
+            {onOpenPlans === undefined ? (
+              <Link
+                className="membership-access-modal__upgrade"
+                href="/?billing=plans"
+              >
+                {locale === "ko" ? "플랜 확인하기" : "View plans"}
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="membership-access-modal__upgrade"
+                onClick={openPlans}
+              >
+                {locale === "ko" ? "플랜 확인하기" : "View plans"}
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </section>
       </BorderBeam>
