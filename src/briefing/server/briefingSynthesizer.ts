@@ -59,8 +59,8 @@ const BriefingDraftSchema = z
     bearCase: z.string().min(10).max(500),
     upcomingEvents: z.array(UpcomingEventSchema).max(3),
     todayChecks: z.array(z.string().min(5).max(220)).min(2).max(4),
-    changedSincePrevious: z.string().min(8).max(450).optional(),
-    stillWatching: z.string().min(8).max(350).optional(),
+    changedSincePrevious: z.string().min(8).max(450).nullable(),
+    stillWatching: z.string().min(8).max(350).nullable(),
   })
   .strict();
 
@@ -239,17 +239,17 @@ function fallbackDraft(
             "Direction versus the prior close after 30 minutes and volume",
             "The next-quarter revenue or margin line changed by new information",
           ],
-    ...(previous === undefined
-      ? {}
-      : {
-          changedSincePrevious: hasChanges
-            ? locale === "ko"
-              ? `전일 브리핑에 없던 새 신호 ${signals.length}건을 반영했습니다.`
-              : `${signals.length} signal${signals.length === 1 ? " is" : "s are"} new versus the prior briefing.`
-            : locale === "ko"
-              ? "전일 이후 결론을 바꿀 새 근거는 확인되지 않았습니다."
-              : "No new evidence since the prior briefing changes the conclusion.",
-        }),
+    changedSincePrevious:
+      previous === undefined
+        ? null
+        : hasChanges
+          ? locale === "ko"
+            ? `전일 브리핑에 없던 새 신호 ${signals.length}건을 반영했습니다.`
+            : `${signals.length} signal${signals.length === 1 ? " is" : "s are"} new versus the prior briefing.`
+          : locale === "ko"
+            ? "전일 이후 결론을 바꿀 새 근거는 확인되지 않았습니다."
+            : "No new evidence since the prior briefing changes the conclusion.",
+    stillWatching: null,
   };
 }
 
@@ -270,6 +270,7 @@ function promptFor(
     "Each agent owns a distinct lens: market=price/volume/relative tape, company=demand/product/competition, financial=estimate/margin/cash-flow implication, risk=downside transmission.",
     "materialChanges must use only the supplied signal IDs. Omit a signal if it repeats the previous briefing without a material change.",
     "upcomingEvents must preserve supplied ISO dates exactly.",
+    "Set changedSincePrevious or stillWatching to null when that field is not applicable. Do not omit schema fields.",
     JSON.stringify(
       {
         snapshot: { ...snapshot, signals },
@@ -412,10 +413,10 @@ export async function synthesizeBriefingEdition(input: {
     bearCase: draft.bearCase,
     upcomingEvents: Object.freeze(draft.upcomingEvents),
     todayChecks: Object.freeze(draft.todayChecks),
-    ...(draft.changedSincePrevious === undefined
+    ...(draft.changedSincePrevious === null
       ? {}
       : { changedSincePrevious: draft.changedSincePrevious }),
-    ...(draft.stillWatching === undefined
+    ...(draft.stillWatching === null
       ? {}
       : { stillWatching: draft.stillWatching }),
     sources: input.snapshot.sources,
