@@ -8,6 +8,8 @@ import type {
   WhopBillingStatus,
   WhopPricingPlan,
 } from "../../lib/whop/contracts";
+import { CharSpringMorph } from "../ui/char-spring-morph";
+import { DotsRing } from "../ui/dots-ring";
 import {
   PricingPlansGrid,
   type SubscriptionPlanCard,
@@ -47,7 +49,17 @@ function CreditMeter({
       <div className="subscription-credit-meter__header">
         <h3 id={titleId}>
           <strong>
-            {usageAvailable ? usage.remaining.toLocaleString() : "—"}
+            {usageAvailable ? (
+              <CharSpringMorph
+                value={usage.remaining.toLocaleString(
+                  locale === "ko" ? "ko-KR" : "en-US",
+                )}
+                className="subscription-credit-meter__value"
+                animateOnMount
+              />
+            ) : (
+              "—"
+            )}
           </strong>
           <span>
             {usageAvailable
@@ -188,7 +200,13 @@ function SubscriptionOverview({
             {locale === "ko" ? "결제 금액" : "Payment"}
           </span>
           <div className="subscription-overview__price-value">
-            <strong>{amount}</strong>
+            <strong>
+              <CharSpringMorph
+                value={amount}
+                className="subscription-overview__price-morph"
+                animateOnMount
+              />
+            </strong>
             <span>{cycle}</span>
           </div>
         </div>
@@ -214,7 +232,15 @@ function SubscriptionOverview({
         <div>
           <dt>{locale === "ko" ? "월 제공 크레딧" : "Monthly credits"}</dt>
           <dd>
-            {billingStatus?.credits.allowance.toLocaleString() ?? "—"}
+            <CharSpringMorph
+              value={
+                billingStatus?.credits.allowance.toLocaleString(
+                  locale === "ko" ? "ko-KR" : "en-US",
+                ) ?? "—"
+              }
+              className="subscription-overview__number-morph"
+              animateOnMount
+            />
             <small>{locale === "ko" ? "크레딧" : "credits"}</small>
           </dd>
         </div>
@@ -328,9 +354,16 @@ function CreditActivity({
         <span>{locale === "ko" ? "최근 10건" : "Last 10"}</span>
       </header>
       {loading ? (
-        <p className="subscription-credit-activity__empty" aria-live="polite">
-          {locale === "ko" ? "내역 불러오는 중..." : "Loading activity..."}
-        </p>
+        <div
+          className="subscription-credit-activity__loading"
+          role="status"
+          aria-live="polite"
+        >
+          <DotsRing />
+          <span className="sr-only">
+            {locale === "ko" ? "내역 불러오는 중" : "Loading activity"}
+          </span>
+        </div>
       ) : activities.length === 0 ? (
         <p className="subscription-credit-activity__empty">
           {locale === "ko"
@@ -562,65 +595,75 @@ export function SubscriptionModal({
           </button>
         </header>
 
-        <CreditMeter locale={locale} billingStatus={billingStatus} />
-        {error && !isSubscribed && !billingStateUnknown ? (
-          <p className="subscription-modal__notice is-error" role="alert">
-            {locale === "ko"
-              ? "가격 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
-              : "Pricing is unavailable. Please try again in a moment."}
-          </p>
-        ) : null}
-
-        {isSubscribed ? (
-          <CreditActivity
-            activities={billingStatus?.recentActivity ?? []}
-            loading={loading}
-            locale={locale}
-            title={locale === "ko" ? "크레딧 사용 내역" : "Credit activity"}
-          />
-        ) : null}
-
-        {billingStateUnknown ? (
-          <p
-            className="subscription-modal__notice"
-            role={loading ? "status" : "alert"}
+        {billingStateUnknown && loading ? (
+          <div
+            className="subscription-modal__loading"
+            role="status"
+            aria-live="polite"
           >
-            {loading
-              ? locale === "ko"
-                ? "구독 상태 확인 중..."
-                : "Checking subscription status..."
-              : locale === "ko"
-                ? "구독 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
-                : "We could not confirm your subscription. Please try again."}
-          </p>
-        ) : isSubscribed ? (
-          <SubscriptionOverview
-            locale={locale}
-            plans={plans}
-            billingStatus={billingStatus}
-          />
+            <DotsRing />
+            <span className="sr-only">
+              {locale === "ko"
+                ? "구독 상태 확인 중"
+                : "Checking subscription status"}
+            </span>
+          </div>
         ) : (
-          <PricingPlansGrid
-            plans={planCardsForLocale}
-            locale={locale}
-            initialCycle="annual"
-            onFreeSelect={onClose}
-          />
+          <>
+            <CreditMeter locale={locale} billingStatus={billingStatus} />
+            {error && !isSubscribed && !billingStateUnknown ? (
+              <p className="subscription-modal__notice is-error" role="alert">
+                {locale === "ko"
+                  ? "가격 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+                  : "Pricing is unavailable. Please try again in a moment."}
+              </p>
+            ) : null}
+
+            {isSubscribed ? (
+              <CreditActivity
+                activities={billingStatus?.recentActivity ?? []}
+                loading={loading}
+                locale={locale}
+                title={locale === "ko" ? "크레딧 사용 내역" : "Credit activity"}
+              />
+            ) : null}
+
+            {billingStateUnknown ? (
+              <p className="subscription-modal__notice" role="alert">
+                {locale === "ko"
+                  ? "구독 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
+                  : "We could not confirm your subscription. Please try again."}
+              </p>
+            ) : isSubscribed ? (
+              <SubscriptionOverview
+                locale={locale}
+                plans={plans}
+                billingStatus={billingStatus}
+              />
+            ) : (
+              <PricingPlansGrid
+                plans={planCardsForLocale}
+                locale={locale}
+                initialCycle="annual"
+                onFreeSelect={onClose}
+              />
+            )}
+            {!isSubscribed && !billingStateUnknown ? (
+              <CreditActivity
+                activities={billingStatus?.recentActivity ?? []}
+                loading={loading}
+                locale={locale}
+              />
+            ) : null}
+            {!isSubscribed && !billingStateUnknown ? (
+              <p className="subscription-modal__footnote">
+                {locale === "ko"
+                  ? "결제는 Whop의 보안 결제 페이지에서 진행됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
+                  : "Checkout is handled securely by Whop. Annual plans are charged as one yearly total."}
+              </p>
+            ) : null}
+          </>
         )}
-        {!isSubscribed && !billingStateUnknown ? (
-          <CreditActivity
-            activities={billingStatus?.recentActivity ?? []}
-            loading={loading}
-            locale={locale}
-          />
-        ) : null}
-        {!isSubscribed && !billingStateUnknown ? (
-          <p className="subscription-modal__footnote">
-            {locale === "ko"
-              ? "결제는 Whop의 보안 결제 페이지에서 진행됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
-              : "Checkout is handled securely by Whop. Annual plans are charged as one yearly total."}
-          </p>
-        ) : null}
       </div>
     </dialog>
   );

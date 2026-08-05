@@ -2511,3 +2511,44 @@ body.subscription-modal-is-open {
     margin-left: 20px;
   }
 }
+
+/* Spring-morphed values keep the same visual hierarchy as their static
+   counterparts while allowing only the changed glyphs to move. */
+.subscription-plan-card__price-value,
+.subscription-plan-card__credit-value,
+.subscription-credit-meter__value,
+.subscription-overview__price-morph,
+.subscription-overview__number-morph {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.subscription-plan-card__credit-value {
+  color: var(--color-text);
+  font-size: clamp(1.8rem, 2.8vw, 2.25rem);
+  font-weight: 650;
+  letter-spacing: -0.075em;
+  line-height: 0.9;
+}
+
+.subscription-plan-card__price-value {
+  min-width: 3.5ch;
+}
+
+.subscription-plan-card__price-value > span {
+  grid-area: auto;
+  white-space: nowrap;
+}
+
+.subscription-modal__loading,
+.subscription-credit-activity__loading {
+  display: grid;
+  min-height: 92px;
+  place-items: center;
+  padding: 16px 0;
+}
+
+.subscription-modal__loading .relative > div,
+.subscription-credit-activity__loading .relative > div {
+  background: #fff;
+}

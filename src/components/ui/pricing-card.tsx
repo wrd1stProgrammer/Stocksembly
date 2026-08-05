@@ -2,8 +2,8 @@
 
 import { BorderBeam } from "border-beam";
 import { ArrowUpRight, Check, Sparkles } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import type { Locale } from "../../lib/i18n";
+import { CharSpringMorph } from "./char-spring-morph";
 
 export type PricingCardPlan = {
   readonly id: "free" | "pro" | "ultra";
@@ -41,31 +41,15 @@ function formatCurrency(value: number): string {
   }).format(value)}`;
 }
 
-function PriceRoll({
-  amount,
-  planId,
-  cycle,
-}: {
-  readonly amount: number | null;
-  readonly planId: PricingCardPlan["id"];
-  readonly cycle: "monthly" | "annual";
-}) {
+function PriceRoll({ amount }: { readonly amount: number | null }) {
   const formatted = amount === null ? "—" : formatCurrency(amount);
 
   return (
-    <span className="subscription-plan-card__price-value" aria-live="polite">
-      <AnimatePresence initial={false} mode="wait">
-        <motion.span
-          key={`${planId}-${cycle}-${formatted}`}
-          initial={{ opacity: 0, y: 8, filter: "blur(5px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          exit={{ opacity: 0, y: -8, filter: "blur(5px)" }}
-          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        >
-          {formatted}
-        </motion.span>
-      </AnimatePresence>
-    </span>
+    <CharSpringMorph
+      value={formatted}
+      className="subscription-plan-card__price-value"
+      animateOnMount
+    />
   );
 }
 
@@ -146,7 +130,7 @@ export function PricingCard({
                   </strong>
                 ) : (
                   <strong>
-                    <PriceRoll amount={amount} planId={plan.id} cycle={cycle} />
+                    <PriceRoll amount={amount} />
                     {isAnnual && plan.originalMonthlyAmount ? (
                       <span className="subscription-plan-card__original-price">
                         {formatCurrency(plan.originalMonthlyAmount)}
@@ -168,7 +152,13 @@ export function PricingCard({
                         ? "매월"
                         : "Monthly"}
                   </span>
-                  <strong>{plan.creditAllowance}</strong>
+                  <CharSpringMorph
+                    value={plan.creditAllowance.toLocaleString(
+                      locale === "ko" ? "ko-KR" : "en-US",
+                    )}
+                    className="subscription-plan-card__credit-value"
+                    animateOnMount
+                  />
                   <span>{locale === "ko" ? "크레딧" : "credits"}</span>
                 </div>
               ) : null}
