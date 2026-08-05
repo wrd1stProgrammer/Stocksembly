@@ -57,7 +57,6 @@ export function SearchConsole({
   const [isSearching, setIsSearching] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
   const [creditShortageOpen, setCreditShortageOpen] = useState(false);
-  const [optionsLocked, setOptionsLocked] = useState(false);
   const [targetOverride, setTargetOverride] = useState<ResearchTarget>();
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -83,9 +82,7 @@ export function SearchConsole({
     () => recommendResearchTarget(researchQuestion),
     [researchQuestion],
   );
-  const researchTarget = optionsLocked
-    ? COMMITTEE_RESEARCH_TARGET
-    : (targetOverride ?? recommendation.target);
+  const researchTarget = targetOverride ?? recommendation.target;
   const targetCopy =
     researchTarget.kind === "committee"
       ? locale === "ko"
@@ -213,36 +210,6 @@ export function SearchConsole({
       controller.abort();
     };
   }, [localMatches, normalizedQuery, tickerSearch]);
-
-  useEffect(() => {
-    let active = true;
-    void fetch("/api/billing/status", {
-      credentials: "same-origin",
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        if (!response.ok) return;
-        return (await response.json()) as {
-          readonly authenticated?: unknown;
-          readonly tier?: unknown;
-        };
-      })
-      .then((status) => {
-        if (!active || status === undefined) return;
-        const locked = status.authenticated === true && status.tier === "free";
-        setOptionsLocked(locked);
-        if (locked) {
-          setTargetOverride(undefined);
-          setTargetPickerOpen(false);
-          setProfileOpen(false);
-          setResearchProfile(DEFAULT_RESEARCH_PROFILE);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
 
   function selectTicker(ticker: Ticker) {
     setSelectedTicker(ticker);
@@ -432,7 +399,6 @@ export function SearchConsole({
                   note={profileCopy.horizonNote}
                   value={researchProfile.investmentHorizon}
                   options={profileCopy.horizonOptions}
-                  disabled={optionsLocked}
                   onChange={(value) =>
                     updateProfile("investmentHorizon", value)
                   }
@@ -442,7 +408,6 @@ export function SearchConsole({
                   note={profileCopy.counterNote}
                   value={researchProfile.counterargumentIntensity}
                   options={profileCopy.counterOptions}
-                  disabled={optionsLocked}
                   onChange={(value) =>
                     updateProfile("counterargumentIntensity", value)
                   }
@@ -452,7 +417,6 @@ export function SearchConsole({
                   note={profileCopy.depthNote}
                   value={researchProfile.analysisDepth}
                   options={profileCopy.depthOptions}
-                  disabled={optionsLocked}
                   onChange={(value) => updateProfile("analysisDepth", value)}
                 />
                 <ProfileChoice
@@ -460,7 +424,6 @@ export function SearchConsole({
                   note={profileCopy.purposeNote}
                   value={researchProfile.decisionPurpose}
                   options={profileCopy.purposeOptions}
-                  disabled={optionsLocked}
                   onChange={(value) => updateProfile("decisionPurpose", value)}
                 />
                 <div className="research-profile__peers">
@@ -472,7 +435,6 @@ export function SearchConsole({
                     <input
                       value={comparisonDraft}
                       maxLength={5}
-                      disabled={optionsLocked}
                       placeholder={profileCopy.peerPlaceholder}
                       onChange={(event) =>
                         setComparisonDraft(
@@ -488,10 +450,7 @@ export function SearchConsole({
                     <button
                       type="button"
                       aria-label="Add comparison"
-                      disabled={
-                        optionsLocked ||
-                        researchProfile.comparisonSymbols.length >= 5
-                      }
+                      disabled={researchProfile.comparisonSymbols.length >= 5}
                       onClick={addComparisonSymbol}
                     >
                       <Plus aria-hidden="true" size={15} />
@@ -505,7 +464,6 @@ export function SearchConsole({
                         <button
                           key={symbol}
                           type="button"
-                          disabled={optionsLocked}
                           onClick={() =>
                             updateProfile(
                               "comparisonSymbols",
@@ -530,7 +488,6 @@ export function SearchConsole({
             <button
               className="research-profile-trigger"
               type="button"
-              disabled={optionsLocked}
               aria-expanded={profileOpen}
               aria-controls="research-profile-panel"
               aria-label={profileCopy.customize}
@@ -549,7 +506,6 @@ export function SearchConsole({
               <button
                 className="research-target__trigger"
                 type="button"
-                disabled={optionsLocked}
                 aria-expanded={targetPickerOpen}
                 aria-haspopup="menu"
                 title={recommendation.reason[locale]}
@@ -607,7 +563,6 @@ export function SearchConsole({
                         }
                         type="button"
                         role="menuitemradio"
-                        disabled={optionsLocked}
                         aria-checked={selected}
                         onClick={() => {
                           setTargetOverride(option.target);
@@ -624,7 +579,6 @@ export function SearchConsole({
                       className="research-target__auto"
                       type="button"
                       role="menuitem"
-                      disabled={optionsLocked}
                       onClick={() => {
                         setTargetOverride(undefined);
                         setTargetPickerOpen(false);

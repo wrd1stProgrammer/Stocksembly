@@ -47,11 +47,12 @@ describe("SearchConsole durable research launch", () => {
   it("uses a compact research-mode picker without ticker shortcuts", () => {
     render(<SearchConsole locale="ko" />);
 
-    expect(
-      screen.getByRole("button", {
-        name: "전체 에이전트 위원회",
-      }),
-    ).toHaveAttribute("aria-haspopup", "menu");
+    const researchMode = screen.getByRole("button", {
+      name: "전체 에이전트 위원회",
+    });
+    expect(researchMode).toHaveAttribute("aria-haspopup", "menu");
+    expect(researchMode).toBeEnabled();
+    expect(screen.getByRole("button", { name: "맞춤 설정" })).toBeEnabled();
     expect(
       screen.queryByRole("button", { name: "NVDA" }),
     ).not.toBeInTheDocument();
