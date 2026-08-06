@@ -35,6 +35,7 @@ import {
   FREE_DAILY_CREDIT_ALLOWANCE,
   FREE_MONTHLY_CREDIT_CAP,
   FREE_SIGNUP_CREDIT_ALLOWANCE,
+  getWhopEnvironment,
   MONTHLY_CREDIT_ALLOWANCE,
 } from "../../lib/whop/server";
 import type {
@@ -97,6 +98,31 @@ function billingPlanKey(value: string | undefined): BillingPlanKey | undefined {
     value === "ultra-annual"
     ? value
     : undefined;
+}
+
+function manageUrlForCurrentWhopEnvironment(
+  value: string | null | undefined,
+): string | undefined {
+  if (value === null || value === undefined) return undefined;
+
+  try {
+    const url = new URL(value);
+    const allowedHosts =
+      getWhopEnvironment() === "sandbox"
+        ? new Set(["sandbox.whop.com"])
+        : new Set(["whop.com", "www.whop.com"]);
+    if (
+      url.protocol !== "https:" ||
+      url.username !== "" ||
+      url.password !== "" ||
+      !allowedHosts.has(url.hostname)
+    ) {
+      return undefined;
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
 
 function periodBounds(now: Date): {
@@ -1101,6 +1127,9 @@ export class PostgresAccountStore implements AccountStore {
         const planKey = billingPlanKeyForWhopPlanId(
           entitlement?.whop_plan_id ?? undefined,
         );
+        const manageUrl = manageUrlForCurrentWhopEnvironment(
+          entitlement?.manage_url,
+        );
         const tier = context.tier;
         return {
           tier,
@@ -1140,10 +1169,7 @@ export class PostgresAccountStore implements AccountStore {
           ...(entitlement?.cancel_at_period_end
             ? { cancelAtPeriodEnd: true }
             : {}),
-          ...(entitlement?.manage_url === null ||
-          entitlement?.manage_url === undefined
-            ? {}
-            : { manageUrl: entitlement.manage_url }),
+          ...(manageUrl === undefined ? {} : { manageUrl }),
         };
       } catch (error) {
         await client.query("ROLLBACK");
