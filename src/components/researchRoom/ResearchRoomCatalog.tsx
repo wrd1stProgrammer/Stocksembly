@@ -34,6 +34,7 @@ import type {
 } from "../../research/server/researchRoom/researchRoomCatalog";
 import { Brand } from "../Brand";
 import { MembershipAccessModal } from "../billing/MembershipAccessModal";
+import { MobileBottomNav } from "../MobileBottomNav";
 import { CompanyLogo } from "../research/ResearchSidebar";
 import { SignedInSidebar } from "../SignedInSidebar";
 
@@ -255,6 +256,7 @@ export function ResearchRoomCatalog({
             router.replace(`/research-room?lang=${nextLocale}`)
           }
           onSignedOut={() => window.location.assign(`/?lang=${locale}`)}
+          subscriptionTier={access.tier}
         />
       ) : null}
 
@@ -528,6 +530,7 @@ export function ResearchRoomCatalog({
           </section>
         </main>
       </div>
+      <MobileBottomNav activeItem="research-room" locale={locale} />
       <MembershipAccessModal
         locale={locale}
         open={membershipGateOpen}

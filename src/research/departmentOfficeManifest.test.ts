@@ -10,21 +10,22 @@ function contractManifest(): typeof OFFICE_SCENE_MANIFEST {
 }
 
 const expectedSeats = {
-  market: [{ x: 7, y: 6 }, { x: 7, y: 7 }, "down"],
-  market_news: [{ x: 9, y: 11 }, { x: 9, y: 10 }, "up"],
-  company: [{ x: 35, y: 6 }, { x: 35, y: 7 }, "down"],
+  market: [{ x: 8, y: 7 }, { x: 8, y: 8 }, "down"],
+  market_news: [{ x: 7, y: 11 }, { x: 7, y: 10 }, "up"],
+  benchmark: [{ x: 9, y: 11 }, { x: 9, y: 10 }, "up"],
+  company: [{ x: 35, y: 7 }, { x: 35, y: 8 }, "down"],
   company_product: [{ x: 34, y: 11 }, { x: 34, y: 10 }, "up"],
   company_competition: [{ x: 37, y: 11 }, { x: 37, y: 10 }, "up"],
-  financial: [{ x: 7, y: 23 }, { x: 7, y: 24 }, "down"],
-  valuation: [{ x: 11, y: 23 }, { x: 11, y: 24 }, "down"],
+  financial: [{ x: 7, y: 24 }, { x: 7, y: 25 }, "down"],
+  valuation: [{ x: 11, y: 24 }, { x: 11, y: 25 }, "down"],
   financial_quality: [{ x: 9, y: 28 }, { x: 9, y: 27 }, "up"],
-  risk: [{ x: 31, y: 23 }, { x: 31, y: 24 }, "down"],
+  risk: [{ x: 31, y: 24 }, { x: 31, y: 25 }, "down"],
   risk_policy: [{ x: 34, y: 28 }, { x: 34, y: 27 }, "up"],
   chair: [{ x: 22, y: 11 }, { x: 22, y: 10 }, "up"],
 } as const;
 
 describe("department office manifest", () => {
-  it("locks the approved 2/3/3/2 roster and representatives", () => {
+  it("locks the approved 3/3/3/2 roster and representatives", () => {
     // Given
     const manifest = contractManifest();
     // When
@@ -38,8 +39,8 @@ describe("department office manifest", () => {
       (department) => department.representativeId,
     );
     // Then
-    expect(counts).toEqual({ market: 2, company: 3, financial: 3, risk: 2 });
-    expect(new Set(AGENT_IDS).size).toBe(11);
+    expect(counts).toEqual({ market: 3, company: 3, financial: 3, risk: 2 });
+    expect(new Set(AGENT_IDS).size).toBe(12);
     expect(manifest.roster.map((member) => member.id)).toEqual(AGENT_IDS);
     expect(representatives).toEqual(["market", "company", "financial", "risk"]);
   });
@@ -124,7 +125,7 @@ describe("department office manifest", () => {
     );
     // Then
     expect(footprints).toEqual({
-      "market-table": { min: { x: 5, y: 8 }, max: { x: 10, y: 10 } },
+      "market-table": { min: { x: 5, y: 8 }, max: { x: 11, y: 10 } },
       "chair-desk": { min: { x: 20, y: 8 }, max: { x: 25, y: 10 } },
       "company-table": { min: { x: 32, y: 8 }, max: { x: 38, y: 10 } },
       "financial-table": { min: { x: 6, y: 25 }, max: { x: 12, y: 27 } },
@@ -156,6 +157,7 @@ describe("department office manifest", () => {
       market: [
         [{ x: 14, y: 10 }, "left"],
         [{ x: 12, y: 10 }, "right"],
+        [{ x: 11, y: 12 }, "up"],
       ],
       company: [
         [{ x: 31, y: 10 }, "right"],
@@ -180,7 +182,7 @@ describe("department office manifest", () => {
     });
   });
 
-  it("locks inward-facing forum anchors and the five-forum six-home split", () => {
+  it("locks inward-facing forum anchors and the five-forum seven-home split", () => {
     // Given
     const manifest = contractManifest();
     // When
@@ -199,11 +201,11 @@ describe("department office manifest", () => {
     // Then
     expect(manifest.forum.target).toEqual({ x: 22, y: 14 });
     expect(forum).toEqual({
-      market: [{ x: 20, y: 12 }, "down", { x: 22, y: 14 }],
-      company: [{ x: 24, y: 12 }, "down", { x: 22, y: 14 }],
+      market: [{ x: 19, y: 13 }, "right", { x: 22, y: 14 }],
+      company: [{ x: 25, y: 13 }, "left", { x: 22, y: 14 }],
       financial: [{ x: 20, y: 15 }, "up", { x: 22, y: 14 }],
       risk: [{ x: 24, y: 15 }, "up", { x: 22, y: 14 }],
-      chair: [{ x: 22, y: 14 }, "down", { x: 22, y: 15 }],
+      chair: [{ x: 22, y: 12 }, "down", { x: 22, y: 14 }],
     });
     expect(forumMembers.map((member) => member.id)).toEqual([
       "market",
@@ -214,6 +216,7 @@ describe("department office manifest", () => {
     ]);
     expect(departmentMembers.map((member) => member.id)).toEqual([
       "market_news",
+      "benchmark",
       "company_product",
       "company_competition",
       "valuation",
@@ -285,7 +288,7 @@ describe("department office manifest", () => {
     // When
     const errors = validateOfficeSceneManifest(manifest);
     // Then
-    expect(errors).toContain("market_news:seat does not face input 9,10");
+    expect(errors).toContain("market_news:seat does not face input 7,10");
   });
 
   it("reports a precise missing-locale error", () => {

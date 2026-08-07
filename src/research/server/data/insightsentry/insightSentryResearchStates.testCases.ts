@@ -228,7 +228,9 @@ export function registerInsightSentryFamilyStateCases(): void {
           calendar: {
             total_count: 1,
             range: "13",
-            last_update: Date.parse("2026-07-24T10:00:00.000Z") / 1_000,
+            // Live calendar responses may use milliseconds even though event
+            // timestamps use seconds.
+            last_update: Date.parse("2026-07-24T10:00:00.000Z"),
             data: [
               {
                 code: "NASDAQ:NVDA",
@@ -236,6 +238,12 @@ export function registerInsightSentryFamilyStateCases(): void {
                 earnings_release_date:
                   Date.parse("2026-05-20T12:00:00.000Z") / 1_000,
                 earnings_release_next_date: reportAt,
+                earnings_per_share_fq: 1.92,
+                earnings_per_share_forecast_fq: 1.88,
+                earnings_per_share_forecast_next_fq: 2.08,
+                eps_surprise_percent_fq: 2.13,
+                revenue_fq: 46_740_000_000,
+                revenue_forecast_next_fq: 52_100_000_000,
               },
             ],
           },
@@ -261,6 +269,14 @@ export function registerInsightSentryFamilyStateCases(): void {
     expect(result.data.events.map((event) => event.reportAt)).toContain(
       "2026-08-01T12:00:00.000Z",
     );
+    expect(result.data.earnings).toMatchObject({
+      epsActual: 1.92,
+      epsForecast: 1.88,
+      nextEpsForecast: 2.08,
+      epsSurprisePercent: 2.13,
+      revenueActual: 46_740_000_000,
+      nextRevenueForecast: 52_100_000_000,
+    });
     expect(result.data.pitSafe).toBe(false);
   });
 }

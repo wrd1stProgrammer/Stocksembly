@@ -240,11 +240,12 @@ export async function createOfficialAttemptHandler(
               ? error.message.replaceAll(/\s+/g, " ").slice(0, 500)
               : "unknown";
           return {
-            kind: "permanent",
-            code:
-              error instanceof Error
-                ? `collection_failed:${error.name}:${detail}`
-                : "collection_failed",
+            kind: "transient",
+            code: `collection_runtime_error:${detail}`,
+            retryAt: new Date(
+              Date.parse(overrides.now?.() ?? new Date().toISOString()) +
+                10_000,
+            ).toISOString(),
           };
         }
       }

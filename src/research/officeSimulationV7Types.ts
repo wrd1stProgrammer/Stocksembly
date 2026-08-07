@@ -74,6 +74,7 @@ export type OfficeActorSnapshot = {
   readonly revision: number;
   readonly waitTicks: number;
   readonly failedReplans: number;
+  readonly motion: OfficeSimulationActor["motion"];
 };
 
 export type OfficeOccupancy = {

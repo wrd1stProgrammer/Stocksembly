@@ -77,6 +77,15 @@ function previousEventKeys(
   ];
 }
 
+function previousBriefingAt(
+  editions: readonly (BriefingEditionPayload | undefined)[],
+): string | undefined {
+  return editions
+    .flatMap((edition) => (edition === undefined ? [] : [edition.cutoffAt]))
+    .filter((value) => Number.isFinite(Date.parse(value)))
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0];
+}
+
 export async function runBriefingCycle(input: {
   readonly store: BriefingWorkerStore;
   readonly collector: BriefingDataCollector;
@@ -84,6 +93,7 @@ export async function runBriefingCycle(input: {
   readonly scheduledFor: string;
   readonly now?: () => string;
   readonly synthesize?: typeof synthesizeBriefingEdition;
+  readonly forceSymbols?: readonly string[];
 }): Promise<BriefingCycleResult> {
   const now = input.now ?? (() => new Date().toISOString());
   const synthesize = input.synthesize ?? synthesizeBriefingEdition;
@@ -98,8 +108,9 @@ export async function runBriefingCycle(input: {
     const firstMember = members[0];
     if (firstMember === undefined) continue;
     const recipientsByLocale = languageRecipients(members);
+    const force = input.forceSymbols?.includes(symbol) ?? false;
     const missingLocales = [...recipientsByLocale.keys()].filter(
-      (locale) => !existing.has(`${symbol}:${locale}`),
+      (locale) => force || !existing.has(`${symbol}:${locale}`),
     );
     skipped += recipientsByLocale.size - missingLocales.length;
     if (missingLocales.length === 0) continue;
@@ -114,11 +125,15 @@ export async function runBriefingCycle(input: {
             ),
         ),
       );
+      const priorBriefingAt = previousBriefingAt(previous);
       const snapshot = await input.collector.collect({
         item: firstMember.item,
         marketDate: input.marketDate,
         cutoffAt: now(),
         previousEventKeys: previousEventKeys(previous),
+        ...(priorBriefingAt === undefined
+          ? {}
+          : { previousBriefingAt: priorBriefingAt }),
       });
       const snapshotId = await input.store.saveBriefingSourceSnapshot(snapshot);
       const localized = await Promise.all(
@@ -207,6 +222,7 @@ export function createBriefingScheduler(input: {
     async runForMarketDate(
       marketDate: string,
       scheduledFor = now().toISOString(),
+      forceSymbols: readonly string[] = [],
     ): Promise<BriefingCycleResult> {
       return await runBriefingCycle({
         store,
@@ -214,6 +230,7 @@ export function createBriefingScheduler(input: {
         marketDate,
         scheduledFor,
         now: () => now().toISOString(),
+        forceSymbols,
       });
     },
     async runUntilStopped(signal: AbortSignal): Promise<void> {

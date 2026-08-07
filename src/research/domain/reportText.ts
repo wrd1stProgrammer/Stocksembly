@@ -10,9 +10,9 @@ export type PublicationStatus = z.infer<typeof PublicationStatusSchema>;
 
 const forbiddenStandaloneMarketLabel = /\b(?:BUY|SELL|HOLD|OHLCV)\b/;
 const forbiddenMarketContent =
-  /(?:target|entry|stop|implied)\s+price|consensus\s+(?:target|recommendation)|(?:price|quote|entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d/i;
+  /(?:target|entry|stop|implied)\s+price|consensus\s+(?:target|recommendation)|(?:entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d/i;
 const replaceableMarketContent =
-  /(?:target|entry|stop|implied)\s+price(?:\s*[$€£₩]?\d+(?:[,.]\d+)*)?|consensus\s+(?:target|recommendation)|(?:price|quote|entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d+(?:[,.]\d+)*(?:\s*%)?/gi;
+  /(?:target|entry|stop|implied)\s+price(?:\s*[$€£₩]?\d+(?:[,.]\d+)*)?|consensus\s+(?:target|recommendation)|(?:entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d+(?:[,.]\d+)*(?:\s*%)?/gi;
 export const ReportNarrativeTextSchema = z
   .string()
   .trim()

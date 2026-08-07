@@ -70,7 +70,9 @@ function trend(input: {
   return "mixed";
 }
 
-function analyze(set: InsightSentryBarSet): InsightSentryTimeframeAnalysis {
+export function deriveInsightSentryTimeframeAnalysis(
+  set: InsightSentryBarSet,
+): InsightSentryTimeframeAnalysis {
   const snapshot = deriveTechnicalSnapshot(
     set.bars.map((bar) => ({
       t: bar.timestamp,
@@ -124,9 +126,9 @@ export function deriveInsightSentryTechnicalAnalysis(input: {
     InsightSentryBarSet,
   ];
 }): InsightSentryTechnicalAnalysis {
-  const hourly = analyze(input.bars[0]);
-  const fourHourly = analyze(input.bars[1]);
-  const daily = analyze(input.bars[2]);
+  const hourly = deriveInsightSentryTimeframeAnalysis(input.bars[0]);
+  const fourHourly = deriveInsightSentryTimeframeAnalysis(input.bars[1]);
+  const daily = deriveInsightSentryTimeframeAnalysis(input.bars[2]);
   const timeframeAgreement =
     hourly.trend === "bullish" &&
     fourHourly.trend === "bullish" &&

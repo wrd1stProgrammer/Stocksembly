@@ -63,7 +63,7 @@ describe("live office animation", () => {
     expect(next.simulation.tick).toBe(520);
   });
 
-  it("bounds a large published-event catch-up to one display update", () => {
+  it("animates a large published-event gap instead of snapping", () => {
     // Given
     const initial = createLiveOfficeFrame(220);
 
@@ -75,6 +75,9 @@ describe("live office animation", () => {
     );
 
     // Then
-    expect(next.simulation.tick).toBe(OFFICE_CLOCK_CONTRACT.completeTick);
+    expect(next.simulation.tick).toBe(221);
+    expect(next.simulation.tick).toBeLessThan(
+      OFFICE_CLOCK_CONTRACT.completeTick,
+    );
   });
 });

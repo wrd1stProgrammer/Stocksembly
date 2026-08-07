@@ -8,6 +8,7 @@ import {
 } from "pixi.js";
 import type { Locale } from "../lib/i18n";
 import { ACTOR_ATLAS } from "./officeActorAtlas";
+import { officeAgentAssetPath } from "./officeAgentAssets";
 import { type AnimationKey, animationKey } from "./officeGameAnimations";
 import {
   bubbleDimensions,
@@ -18,12 +19,11 @@ import {
 import { buildActorClips, type TextureClips } from "./officeGameTextures";
 import type { OfficeRenderActor } from "./officeRenderer";
 import type { OfficeActorUiLayout } from "./officeRendererUiLayout";
-import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
+import type { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 
-// Keep the foot cadence deliberately slower than the fixed navigation clock.
-// The simulation can reserve a cell every 50ms, but the four authored frames
-// need a relaxed cadence or a short traverse looks like frantic foot-scuffing.
-const WALK_ANIMATION_SPEED = 0.1;
+// Match the two-step authored gait to the 100ms cell traversal. The neutral
+// contact frame between opposite strides keeps the cadence readable.
+const WALK_ANIMATION_SPEED = 0.15;
 
 export type MutableAgentDisplayRuntime = {
   readonly id: OfficeRenderActor["id"];
@@ -80,9 +80,7 @@ export async function createAgentRuntime(
   member: (typeof OFFICE_SCENE_MANIFEST.roster)[number],
   locale: Locale,
 ): Promise<MutableAgentDisplayRuntime> {
-  const sheet = await Assets.load<Texture>(
-    `${OFFICE_SCENE_MANIFEST.assets.actorsRoot}/${member.id}.png`,
-  );
+  const sheet = await Assets.load<Texture>(officeAgentAssetPath(member.id));
   const clips = buildActorClips(sheet);
   const initialAnimation: AnimationKey = `idle_${member.seat.facing}`;
   const sprite = new AnimatedSprite([...clips[initialAnimation]]);

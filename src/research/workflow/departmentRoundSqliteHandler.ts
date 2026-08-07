@@ -152,7 +152,11 @@ export function createDepartmentRoundAttemptHandler(
             code: "department_consolidation_commit_rejected",
             retryAt: now(),
           }
-        : { kind: "incomplete", code: "department_consolidation_missing" };
+        : {
+            kind: "repair",
+            code: "department_consolidation_missing",
+            retryAt: now(),
+          };
     },
   };
 }

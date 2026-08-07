@@ -72,7 +72,9 @@ function persistRetry(database: Database.Database, input: CommitInput): void {
   )
     return;
   const retryAt =
-    input.outcome.kind === "attention" ? input.now : input.outcome.retryAt;
+    input.outcome.kind === "attention"
+      ? (input.outcome.retryAt ?? input.now)
+      : input.outcome.retryAt;
   const failureCount =
     input.claim.transientFailures + (input.outcome.kind === "repair" ? 0 : 1);
   const classification =
@@ -94,7 +96,9 @@ function persistRetry(database: Database.Database, input: CommitInput): void {
       inputHash: input.claim.inputHash,
       retryAt,
       failureCount,
-      circuitOpen: input.outcome.kind === "attention" ? "true" : "false",
+      // Attention is a longer durable cool-down, not a permanent circuit.
+      // A restarted worker can resume automatically after retryAt.
+      circuitOpen: "false",
       classification,
       code: input.outcome.code ?? "transient_failure",
       now: input.now,
@@ -127,29 +131,14 @@ function exhaustedRunSummary(code: string): {
   readonly en: string;
   readonly ko: string;
 } {
-  if (code === "specialist_citation_invalid_after_retry")
-    return {
-      en: "Research stopped because one specialist cited unavailable evidence again after a corrective retry.",
-      ko: "한 전문 에이전트가 교정 재시도 후에도 제공되지 않은 근거를 다시 인용해 리서치를 중단했습니다.",
-    };
-  if (code === "specialist_memo_missing")
-    return {
-      en: "Research stopped because a required specialist memo could not be completed after its retry.",
-      ko: "필수 전문 에이전트 메모가 재시도 후에도 완료되지 않아 리서치를 중단했습니다.",
-    };
-  if (code === "chair_synthesis_output_invalid_after_retry")
-    return {
-      en: "The final chair synthesis did not pass its output validation after two attempts.",
-      ko: "최종 의장 종합 결과가 두 번의 시도 후에도 출력 검증을 통과하지 못했습니다.",
-    };
   if (code === "sec_primary_filing_missing" || code === "sec_10k_missing")
     return {
       en: "Research stopped because no usable SEC company filing was available for this security.",
       ko: "이 종목에서 분석에 사용할 수 있는 SEC 기업 공시를 찾지 못해 리서치를 중단했습니다.",
     };
   return {
-    en: "Research stopped after the available attempt was exhausted.",
-    ko: "허용된 실행 재시도를 소진해 리서치를 중단했습니다.",
+    en: "Research could not be completed. Finished stages were preserved and no research credit was charged.",
+    ko: "리서치를 완성하지 못했습니다. 완료된 단계는 보존되며 리서치 크레딧은 차감되지 않습니다.",
   };
 }
 

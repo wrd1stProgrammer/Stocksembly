@@ -27,6 +27,8 @@ type Props = {
   readonly conversation?: readonly ResearchConversationEntry[];
   readonly panelOpen?: boolean;
   readonly onPanelToggle?: () => void;
+  readonly onRetry?: () => Promise<void>;
+  readonly onCancel?: () => Promise<void>;
 };
 
 export type ResearchConversationEntry = {
@@ -87,15 +89,20 @@ function TypedNarrative({
   );
 }
 
-function scrollFeedToEnd(feed: HTMLDivElement, smooth: boolean): void {
+function scrollFeedToEnd(
+  feed: HTMLDivElement,
+  smooth: boolean,
+  mobileStack = false,
+): void {
+  const top = mobileStack ? 0 : feed.scrollHeight;
   if (typeof feed.scrollTo === "function") {
     feed.scrollTo({
-      top: feed.scrollHeight,
+      top,
       behavior: smooth ? "smooth" : "auto",
     });
     return;
   }
-  feed.scrollTop = feed.scrollHeight;
+  feed.scrollTop = top;
 }
 
 type ActivityGroup =
@@ -244,37 +251,51 @@ export function MeetingMinutes({
   conversation = [],
   panelOpen = true,
   onPanelToggle,
+  onRetry,
+  onCancel,
 }: Props) {
   const [mode, setMode] = useState<"minutes" | "questions">("minutes");
   const [newEventIds, setNewEventIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
   const [pendingCount, setPendingCount] = useState(0);
+  const [commandPending, setCommandPending] = useState<"retry" | "cancel">();
+  const [commandError, setCommandError] = useState<"retry" | "cancel">();
   const canAsk =
     isComplete && chatEnabled && questionsEnabled && reportId !== undefined;
   const hasConversation =
     (originalQuestion?.trim().length ?? 0) > 0 || conversation.length > 0;
   const canChat = canAsk || hasConversation;
-  const chair = agents.find((profile) => profile.id === "chair");
   const pendingAgentIdSet = useMemo(
     () => new Set(pendingAgentIds),
     [pendingAgentIds],
   );
-  const showAuditThinking =
-    !isComplete &&
-    terminalState === undefined &&
-    activityGroup(current) === "audit" &&
-    chair !== undefined;
   const pendingAgents =
     isComplete || terminalState !== undefined
       ? []
-      : agents.filter(
-          (agent) => agent.id !== "chair" && pendingAgentIdSet.has(agent.id),
-        );
+      : agents.filter((agent) => pendingAgentIdSet.has(agent.id));
   const knownIds = useRef(new Set(events.map((event) => event.id)));
   const feedRef = useRef<HTMLDivElement | null>(null);
   const followTail = useRef(true);
+  const mobileStackRef = useRef(false);
+  const [mobileStack, setMobileStack] = useState(false);
+  const displayedEvents = useMemo(
+    () => (mobileStack ? [...events].reverse() : events),
+    [events, mobileStack],
+  );
   const mounted = useRef(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => {
+      mobileStackRef.current = media.matches;
+      setMobileStack(media.matches);
+    };
+    update();
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, []);
   useEffect(() => {
     const added = events
       .filter((event) => !knownIds.current.has(event.id))
@@ -295,9 +316,17 @@ export function MeetingMinutes({
     }
     const feed = feedRef.current;
     if (!feed || !followTail.current) return;
-    scrollFeedToEnd(feed, true);
+    scrollFeedToEnd(feed, true, mobileStackRef.current);
     setPendingCount(0);
   }, [events]);
+
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    followTail.current = true;
+    setPendingCount(0);
+    scrollFeedToEnd(feed, false, mobileStack);
+  }, [mobileStack]);
 
   useEffect(() => {
     if (!canChat && mode !== "minutes") setMode("minutes");
@@ -308,8 +337,48 @@ export function MeetingMinutes({
     if (!feed) return;
     followTail.current = true;
     setPendingCount(0);
-    scrollFeedToEnd(feed, true);
+    scrollFeedToEnd(feed, true, mobileStackRef.current);
   }
+
+  const pendingAgentEntries = pendingAgents.map((agent) => (
+    <div
+      className="meeting-minutes__entry meeting-minutes__pending-entry"
+      data-agent-thinking={agent.id}
+      key={`pending-${agent.id}`}
+    >
+      <article data-group={activityGroup(current)} data-pending="true">
+        <Image src={agent.image} alt="" width={24} height={58} />
+        <div>
+          <header>
+            <strong>{agent.name[locale]}</strong>
+            <span>{agent.role[locale]}</span>
+          </header>
+          <p
+            className="meeting-minutes__thinking"
+            role="status"
+            aria-live="polite"
+            aria-label={
+              locale === "ko"
+                ? `${agent.name.ko} 에이전트가 데이터와 AI 응답을 검토하고 있습니다`
+                : `${agent.name.en} is reviewing data and the pending AI response`
+            }
+          >
+            <span className="meeting-minutes__thinking-orb" aria-hidden="true">
+              <ThinkingOrb
+                state="solving"
+                size={20}
+                speed={0.85}
+                theme="auto"
+              />
+            </span>
+            <TextShimmerWave
+              label={locale === "ko" ? "분석 중..." : "Thinking..."}
+            />
+          </p>
+        </div>
+      </article>
+    </div>
+  ));
 
   return (
     <aside
@@ -352,6 +421,28 @@ export function MeetingMinutes({
           </button>
         </fieldset>
         <div className="meeting-minutes__controls">
+          {!isComplete && terminalState === undefined && onCancel ? (
+            <button
+              type="button"
+              className="meeting-minutes__cancel"
+              disabled={commandPending !== undefined}
+              onClick={() => {
+                setCommandError(undefined);
+                setCommandPending("cancel");
+                void onCancel()
+                  .catch(() => setCommandError("cancel"))
+                  .finally(() => setCommandPending(undefined));
+              }}
+            >
+              {commandPending === "cancel"
+                ? locale === "ko"
+                  ? "취소 중"
+                  : "Cancelling"
+                : locale === "ko"
+                  ? "분석 취소"
+                  : "Cancel"}
+            </button>
+          ) : null}
           {onPanelToggle === undefined ? null : (
             <button
               type="button"
@@ -380,21 +471,31 @@ export function MeetingMinutes({
             </button>
           )}
         </div>
+        {commandError === "cancel" ? (
+          <p className="meeting-minutes__command-error" role="alert">
+            {locale === "ko"
+              ? "취소 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."
+              : "The cancellation request could not be processed. Try again shortly."}
+          </p>
+        ) : null}
       </header>
       <div
         id="research-meeting-minutes-content"
         ref={feedRef}
         className="activity-feed meeting-minutes__feed"
+        data-mobile-stack={mobileStack ? "true" : "false"}
         hidden={!panelOpen || (mode === "questions" && isComplete)}
         onScroll={(event) => {
           const element = event.currentTarget;
-          followTail.current =
-            element.scrollHeight - element.scrollTop - element.clientHeight <
-            80;
+          followTail.current = mobileStackRef.current
+            ? element.scrollTop < 80
+            : element.scrollHeight - element.scrollTop - element.clientHeight <
+              80;
           if (followTail.current) setPendingCount(0);
         }}
       >
-        {events.map((event, index) => {
+        {mobileStack ? pendingAgentEntries : null}
+        {displayedEvents.map((event, index) => {
           const agent = agents.find((profile) => profile.id === event.agent);
           if (!agent) return null;
           const copy = activityCopy(event.summary[locale], locale);
@@ -408,7 +509,7 @@ export function MeetingMinutes({
           const collaborative =
             participants.length > 1 &&
             (group === "team" || group === "debate" || group === "committee");
-          const previous = events[index - 1];
+          const previous = displayedEvents[index - 1];
           const startsGroup =
             previous === undefined || activityGroup(previous) !== group;
           return (
@@ -461,86 +562,56 @@ export function MeetingMinutes({
             </div>
           );
         })}
-        {pendingAgents.map((agent) => (
-          <div
-            className="meeting-minutes__entry meeting-minutes__pending-entry"
-            data-agent-thinking={agent.id}
-            key={`pending-${agent.id}`}
+        {mobileStack ? null : pendingAgentEntries}
+        {terminalState !== undefined ? (
+          <section
+            className="meeting-minutes__terminal"
+            data-state={terminalState}
+            role="status"
           >
-            <article data-group={activityGroup(current)} data-pending="true">
-              <Image src={agent.image} alt="" width={24} height={58} />
-              <div>
-                <header>
-                  <strong>{agent.name[locale]}</strong>
-                  <span>{agent.role[locale]}</span>
-                </header>
-                <p
-                  className="meeting-minutes__thinking"
-                  role="status"
-                  aria-live="polite"
-                  aria-label={
-                    locale === "ko"
-                      ? `${agent.name.ko} 에이전트가 데이터와 AI 응답을 검토하고 있습니다`
-                      : `${agent.name.en} is reviewing data and the pending AI response`
-                  }
-                >
-                  <span
-                    className="meeting-minutes__thinking-orb"
-                    aria-hidden="true"
-                  >
-                    <ThinkingOrb
-                      state="solving"
-                      size={20}
-                      speed={0.85}
-                      theme="auto"
-                    />
-                  </span>
-                  <TextShimmerWave
-                    label={locale === "ko" ? "분석 중..." : "Thinking..."}
-                  />
-                </p>
-              </div>
-            </article>
-          </div>
-        ))}
-        {showAuditThinking && chair !== undefined ? (
-          <div
-            className="meeting-minutes__entry meeting-minutes__pending-entry"
-            data-audit-thinking="true"
-          >
-            <article data-group="audit" data-pending="true">
-              <Image src={chair.image} alt="" width={24} height={58} />
-              <div>
-                <header>
-                  <strong>{chair.name[locale]}</strong>
-                  <span>{chair.role[locale]}</span>
-                </header>
-                <p
-                  className="meeting-minutes__thinking"
-                  role="status"
-                  aria-live="polite"
-                  aria-label={
-                    locale === "ko"
-                      ? "박 의장이 감사 결과를 검토하고 있습니다"
-                      : "Dr. Park is reviewing the audit findings"
-                  }
-                >
-                  <span
-                    className="meeting-minutes__thinking-orb"
-                    aria-hidden="true"
-                  >
-                    <ThinkingOrb
-                      state="solving"
-                      size={20}
-                      speed={0.85}
-                      theme="auto"
-                    />
-                  </span>
-                  <TextShimmerWave label="Thinking..." />
-                </p>
-              </div>
-            </article>
-          </div>
+            <span>
+              {terminalState === "cancelled"
+                ? locale === "ko"
+                  ? "분석 취소됨"
+                  : "Research cancelled"
+                : locale === "ko"
+                  ? "리서치를 완성하지 못했습니다"
+                  : "Research could not be completed"}
+            </span>
+            <p>
+              {locale === "ko"
+                ? "완료된 단계는 보존되며 리서치 크레딧은 차감되지 않습니다. 같은 데이터 기준으로 실패한 단계부터 다시 진행할 수 있습니다."
+                : "Finished stages were preserved and no research credit was charged. You can resume from the affected stage using the same evidence snapshot."}
+            </p>
+            {terminalState !== "cancelled" && onRetry ? (
+              <button
+                type="button"
+                disabled={commandPending !== undefined}
+                onClick={() => {
+                  setCommandError(undefined);
+                  setCommandPending("retry");
+                  void onRetry()
+                    .catch(() => setCommandError("retry"))
+                    .finally(() => setCommandPending(undefined));
+                }}
+              >
+                {commandPending === "retry"
+                  ? locale === "ko"
+                    ? "복구 실행 생성 중"
+                    : "Preparing recovery"
+                  : locale === "ko"
+                    ? "실패 단계부터 다시 진행"
+                    : "Resume failed stage"}
+              </button>
+            ) : null}
+            {commandError === "retry" ? (
+              <p className="meeting-minutes__command-error" role="alert">
+                {locale === "ko"
+                  ? "복구 실행을 시작하지 못했습니다. 크레딧과 연결 상태를 확인해 주세요."
+                  : "Recovery could not start. Check your credits and connection."}
+              </p>
+            ) : null}
+          </section>
         ) : null}
       </div>
       {pendingCount > 0 && mode === "minutes" ? (

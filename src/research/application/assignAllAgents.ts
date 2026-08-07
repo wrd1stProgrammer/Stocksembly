@@ -3,7 +3,6 @@ import {
   isSha256,
   timestampMillis,
 } from "../domain/contractHelpers";
-import { DEFAULT_RESEARCH_PROFILE } from "../domain/researchProfile";
 import { evaluateModelTransfer } from "../domain/rights";
 import {
   WORKFLOW_V1_ROSTER_FINGERPRINT,
@@ -117,11 +116,9 @@ function assignmentFor(
     input.mandate.materialCruxes.includes(policy.primaryCrux);
   const allowedDatasets = [
     ...policy.allowedDatasets,
-    ...((input.mandate.researchProfile ?? DEFAULT_RESEARCH_PROFILE)
-      .decisionPurpose === "earnings" &&
-    ["financial", "valuation", "financial_quality"].includes(policy.roleId)
-      ? (["insightsentry_calendar"] as const)
-      : []),
+    ...(policy.allowedDatasets.includes("insightsentry_calendar")
+      ? []
+      : (["insightsentry_calendar"] as const)),
     "insightsentry_request_ledger" as const,
   ];
   const artifacts = structuredClone(

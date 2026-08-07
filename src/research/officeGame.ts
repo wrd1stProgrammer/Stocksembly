@@ -13,6 +13,7 @@ import {
   type OfficeRenderSnapshot,
   renderOfficeSnapshot,
 } from "./officeRenderer";
+import { createOfficeSceneEntities } from "./officeRendererPixiEntities";
 import { createOfficeFurnitureRuntime } from "./officeRendererPixiFurniture";
 import { applyOfficeProjection } from "./officeRendererPixiProjection";
 import { createOfficeRoomPlaques } from "./officeRendererPixiRoomPlaques";
@@ -130,6 +131,8 @@ export async function createOfficeSnapshotRenderer(
     const background = new Sprite(backgroundTexture);
     background.zIndex = -1;
     world.addChild(background);
+    const sceneEntities = await createOfficeSceneEntities(world);
+    host.setAttribute("data-office-entity-count", String(sceneEntities.length));
     const roomPlaques = await createOfficeRoomPlaques(world, locale);
     host.setAttribute("data-room-plaque-count", String(roomPlaques.length));
     host.setAttribute("data-room-plaque-locale", locale);
@@ -139,7 +142,10 @@ export async function createOfficeSnapshotRenderer(
       createOfficeSimulation({ reducedMotion }),
     );
     let furnitureStates = furnitureStatesForSnapshot(initialSnapshot);
-    const furniture = createOfficeFurnitureRuntime(world, furnitureStates);
+    const furniture = await createOfficeFurnitureRuntime(
+      world,
+      furnitureStates,
+    );
     signal.throwIfAborted();
     const loadedActors = await Promise.all(
       OFFICE_SCENE_MANIFEST.roster.map((member) =>
@@ -274,6 +280,7 @@ export async function createOfficeSnapshotRenderer(
         host.removeAttribute("data-room-plaque-count");
         host.removeAttribute("data-room-plaque-locale");
         host.removeAttribute("data-actor-ui");
+        host.removeAttribute("data-office-entity-count");
         app.destroy({ removeView: true }, { children: true });
       },
     });

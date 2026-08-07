@@ -121,10 +121,10 @@ describe("office fixed-tick simulation", () => {
 
   it("executes both visit/return waves and leaves exactly five at forum", () => {
     // Given
-    const visitA = runTo(560);
-    const returnASummary = runTo(687);
+    const visitA = runTo(530);
+    const returnASummary = runTo(680);
     const returnA = runTo(719);
-    const visitB = runTo(920);
+    const visitB = runTo(890);
     const returnBSummary = runTo(1055);
     const returnB = runTo(1079);
     const departmentTalk = runTo(340);
@@ -173,8 +173,8 @@ describe("office fixed-tick simulation", () => {
         "risk",
       ] as const) {
         expect(actor(state, participant)).toMatchObject({
-          cell: manifestActor(participant).seat.cell,
-          action: "seated-work",
+          cell: representativeCell(participant),
+          action: "summarize",
         });
       }
     }

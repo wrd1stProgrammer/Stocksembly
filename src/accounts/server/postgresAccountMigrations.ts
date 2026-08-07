@@ -306,6 +306,62 @@ const migrations = [
         WHERE read_at IS NULL;
     `,
   },
+  {
+    version: 9,
+    name: "009_append_only_briefing_history",
+    sql: `
+      ALTER TABLE briefing_source_snapshots
+        DROP CONSTRAINT IF EXISTS briefing_source_snapshots_symbol_market_date_key;
+
+      ALTER TABLE briefing_editions
+        DROP CONSTRAINT IF EXISTS briefing_editions_symbol_market_date_locale_key;
+
+      CREATE INDEX briefing_source_snapshots_symbol_history_idx
+        ON briefing_source_snapshots(symbol, market_date DESC, cutoff_at DESC);
+
+      CREATE INDEX briefing_editions_latest_idx
+        ON briefing_editions(symbol, locale, generated_at DESC);
+    `,
+  },
+  {
+    version: 10,
+    name: "010_monthly_briefing_watchlist_changes",
+    sql: `
+      CREATE TABLE briefing_watchlist_monthly_changes (
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        month_key DATE NOT NULL,
+        change_count INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (principal_id, month_key),
+        CHECK (change_count >= 0 AND change_count <= 10),
+        CHECK (month_key = date_trunc('month', month_key)::date)
+      );
+
+      CREATE INDEX briefing_watchlist_changes_user_history_idx
+        ON briefing_watchlist_monthly_changes(principal_id, month_key DESC);
+    `,
+  },
+  {
+    version: 11,
+    name: "011_research_credit_reservations",
+    sql: `
+      CREATE TABLE research_credit_reservations (
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        run_id UUID NOT NULL,
+        period_key DATE NOT NULL,
+        credits INTEGER NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (principal_id, run_id),
+        CHECK (credits > 0)
+      );
+
+      CREATE INDEX research_credit_reservations_active_idx
+        ON research_credit_reservations(principal_id, period_key, expires_at);
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

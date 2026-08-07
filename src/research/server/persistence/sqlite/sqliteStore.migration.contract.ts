@@ -116,6 +116,43 @@ describe("SQLite ordered migrations", () => {
     expect(reopened.schemaVersions()).toEqual(expectedVersions);
   });
 
+  it("reopens a database after the applied recovery migration without a checksum error", () => {
+    // Given: migration 22 was already applied by the local database before
+    // the current source tree was loaded.
+    const path = databasePath();
+    const appliedRecoveryMigrationChecksum =
+      "061bd9c629a0d2356b4ae18e5fb5c675dcd8c47393edb8eb70219e1110fec4e5";
+    const prior = new Database(path);
+    prior.exec(`CREATE TABLE schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      checksum TEXT NOT NULL,
+      applied_at TEXT NOT NULL
+    ) STRICT`);
+    const insert = prior.prepare(
+      `INSERT INTO schema_migrations(version, name, checksum, applied_at)
+       VALUES (?, ?, ?, ?)`,
+    );
+    for (const migration of loadOrderedMigrations().slice(0, 21)) {
+      insert.run(migration.version, migration.name, migration.checksum, at(0));
+    }
+    insert.run(
+      22,
+      "022_research_recovery.sql",
+      appliedRecoveryMigrationChecksum,
+      at(0),
+    );
+    prior.close();
+
+    // When
+    const reopened = open(path);
+
+    // Then
+    expect(reopened.schemaVersions()).toEqual(
+      loadOrderedMigrations().map((migration) => migration.version),
+    );
+  });
+
   it("upgrades a populated version-three schema without losing its attempt", () => {
     // Given
     const path = databasePath();

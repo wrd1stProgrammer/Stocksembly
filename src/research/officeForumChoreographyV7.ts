@@ -1,6 +1,10 @@
 import type { OfficeActorDirective } from "./officeChoreographyV7Contract";
 import { facingToward } from "./officeFacingV7";
 import {
+  OFFICE_MEETING_TIMELINE,
+  officeMeetingPhaseAt,
+} from "./officeMeetingChoreography";
+import {
   OFFICE_SCENE_MANIFEST,
   type OfficeManifestAgentId,
 } from "./officeSceneManifest";
@@ -28,8 +32,20 @@ export function buildForumDirectives(
   const representatives = Object.values(OFFICE_SCENE_MANIFEST.departments).map(
     (department) => department.representativeId,
   );
-  const speakerIndex = Math.min(Math.floor((input.tick - 1300) / 60), 4);
-  const speakerId = representatives[speakerIndex];
+  const phase = officeMeetingPhaseAt(input.tick);
+  const speakerIndex = Math.min(
+    Math.floor(
+      (input.tick - OFFICE_MEETING_TIMELINE.reportsTick) /
+        OFFICE_MEETING_TIMELINE.presentationTicks,
+    ),
+    representatives.length - 1,
+  );
+  const speakerId =
+    phase === "challenge-round"
+      ? OFFICE_SCENE_MANIFEST.departments.risk.representativeId
+      : phase === "department-reports"
+        ? representatives[speakerIndex]
+        : undefined;
   for (const representativeId of representatives) {
     const anchor = forumAnchorFor(representativeId);
     directives.set(representativeId, {
@@ -38,7 +54,7 @@ export function buildForumDirectives(
       facing: anchor.facing,
       terminalAction: representativeId === speakerId ? "present" : "listen",
       travelAction: "walk",
-      revisionKey: `forum-${speakerIndex}-${representativeId}`,
+      revisionKey: `forum-${phase}-${speakerIndex}-${representativeId}`,
     });
   }
   const chairAnchor = forumAnchorFor(input.chairId);
@@ -49,9 +65,12 @@ export function buildForumDirectives(
     facing: speakerAnchor
       ? facingToward(chairAnchor.cell, speakerAnchor.cell)
       : chairAnchor.facing,
-    terminalAction: speakerId ? "listen" : "chair-synthesis",
+    terminalAction:
+      phase === "chair-synthesis" || phase === "complete"
+        ? "chair-synthesis"
+        : "listen",
     travelAction: "walk",
-    revisionKey: `forum-${speakerIndex}-chair`,
+    revisionKey: `forum-${phase}-${speakerIndex}-chair`,
   });
   return OFFICE_SCENE_MANIFEST.roster.map((member) => {
     const directive = directives.get(member.id);

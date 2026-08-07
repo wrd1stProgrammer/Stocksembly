@@ -10,6 +10,11 @@ import {
 } from "../../domain/ids";
 import { checkRunAdmission } from "../../domain/limits";
 import { ResearchProfileSchema } from "../../domain/researchProfile";
+import {
+  WORKFLOW_V1_CHAIR_ID,
+  type WorkflowActorId,
+  WorkflowActorIdSchema,
+} from "../../domain/roleRegistry";
 import { applyOrderedMigrations } from "../persistence/sqlite/migrations";
 import {
   parseSafeJson,
@@ -84,6 +89,24 @@ function publicRunJson(run: PublicRun) {
     createdAt: run.createdAt,
     ...(run.reportId === undefined ? {} : { reportId: run.reportId }),
   };
+}
+
+const ActiveResearchJobRowSchema = z.object({ logical_key: z.string() });
+
+function activeJobActor(logicalKey: string): WorkflowActorId | undefined {
+  if (
+    logicalKey === "collection:initial" ||
+    logicalKey === "semantic_audit:system" ||
+    logicalKey === "structural_audit:system" ||
+    logicalKey === "chair_synthesis:chair"
+  )
+    return WORKFLOW_V1_CHAIR_ID;
+  const separator = logicalKey.indexOf(":");
+  if (separator < 0) return undefined;
+  const parsed = WorkflowActorIdSchema.safeParse(
+    logicalKey.slice(separator + 1),
+  );
+  return parsed.success ? parsed.data : undefined;
 }
 
 export class ResearchApiRepository {
@@ -269,7 +292,22 @@ export class ResearchApiRepository {
       const run = findPublicRun(this.#database, principalId, runId);
       if (run === undefined) return undefined;
       const events = listPublicEvents(this.#database, principalId, runId);
-      return events === undefined ? undefined : { run, events };
+      if (events === undefined) return undefined;
+      const activeAgentIds = [
+        ...new Set(
+          this.#database
+            .prepare(`SELECT logical_key FROM jobs
+              WHERE run_id = ? AND kind = 'research'
+                AND status IN ('leased', 'spawn-reserved', 'running', 'cancel-requested')
+              ORDER BY created_at, job_id`)
+            .all(runId)
+            .map((row) =>
+              activeJobActor(ActiveResearchJobRowSchema.parse(row).logical_key),
+            )
+            .filter((id): id is WorkflowActorId => id !== undefined),
+        ),
+      ];
+      return { run, events, activeAgentIds };
     })();
   }
 

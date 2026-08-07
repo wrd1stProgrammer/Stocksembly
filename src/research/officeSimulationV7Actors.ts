@@ -63,6 +63,7 @@ export function createInitialOfficeActors(): readonly OfficeSimulationActor[] {
         failedReplans: 0,
         mode: "arrived" as const,
         ready: true,
+        motion: null,
         action: directive.terminalAction,
         facing: directive.facing,
         targetAction: directive.terminalAction,
@@ -138,8 +139,9 @@ function reconcileDirective(
       failure: null,
     };
   }
+  const routeOrigin = actor.motion?.to ?? actor.cell;
   const route = findOfficeRoute(input.grid, {
-    from: actor.cell,
+    from: routeOrigin,
     to: directive.destination,
     blockedCells: [],
   });
@@ -153,6 +155,7 @@ function reconcileDirective(
         routeIndex: 0,
         mode: "failed",
         ready: true,
+        motion: null,
         action: "idle",
         targetAction: directive.terminalAction,
         targetFacing: directive.facing,
@@ -164,7 +167,10 @@ function reconcileDirective(
       failure: routeFailure(actor.id, input.tick),
     };
   }
-  const moves = route.path.length > 1;
+  const routePath = actor.motion
+    ? Object.freeze([actor.cell, ...route.path])
+    : route.path;
+  const moves = routePath.length > 1;
   const cell =
     input.reducedMotion && moves ? directive.destination : actor.cell;
   return {
@@ -173,13 +179,13 @@ function reconcileDirective(
       cell,
       destination: directive.destination,
       originalDestination: null,
-      route:
-        input.reducedMotion && moves ? [directive.destination] : route.path,
+      route: input.reducedMotion && moves ? [directive.destination] : routePath,
       routeIndex: 0,
       waitTicks: 0,
       failedReplans: 0,
       mode: input.reducedMotion || !moves ? "arrived" : "moving",
       ready: input.reducedMotion || !moves,
+      motion: input.reducedMotion ? null : actor.motion,
       action: moves && !input.reducedMotion ? "stand" : "orient",
       targetAction: directive.terminalAction,
       targetFacing: directive.facing,

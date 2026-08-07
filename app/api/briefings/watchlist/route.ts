@@ -39,7 +39,7 @@ export async function POST(request: Request): Promise<Response> {
     ? 401
     : result.result === "forbidden"
       ? 403
-      : result.result === "limit"
+      : result.result === "limit" || result.result === "change_limit"
         ? 409
         : 200;
   return NextResponse.json(result, {

@@ -3,7 +3,7 @@ import type { SnapshotEvidence } from "../application/buildSnapshot";
 import type { CapabilityDisclosure } from "../domain/capabilities";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type { ResearchProfile } from "../domain/researchProfile";
-import type { ValueRegistry } from "../domain/valueRegistry";
+import { registerValue, type ValueRegistry } from "../domain/valueRegistry";
 import type { ArtifactCasPort, ArtifactDescriptor } from "../ports/artifacts";
 import { BLS_SOURCE_URL, createBlsAdapter } from "../server/data/macro/bls";
 import type {
@@ -771,11 +771,14 @@ export async function collectInitialEvidence(
     })),
     ...provider.sources,
   ];
+  let valueRegistry = financials.registry;
+  for (const draft of provider.valueDrafts)
+    valueRegistry = registerValue(valueRegistry, draft).registry;
   return {
     identity,
     evidence,
     sources,
-    valueRegistry: financials.registry,
+    valueRegistry,
     retrievedAt:
       [
         retrievedAt,

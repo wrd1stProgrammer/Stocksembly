@@ -4,6 +4,7 @@ import type { SnapshotEvidence } from "../application/buildSnapshot";
 import type { CapabilityDisclosure } from "../domain/capabilities";
 import type { EvidenceDataset, SourceLocator } from "../domain/evidenceSchemas";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import type { ValueDraft } from "../domain/valueRegistry";
 import type { ArtifactCasPort, ArtifactDescriptor } from "../ports/artifacts";
 import { createInsightSentryClient } from "../server/data/insightsentry/insightSentryClient";
 import type { InsightSentryConfigResult } from "../server/data/insightsentry/insightSentryConfig";
@@ -23,8 +24,10 @@ import { createInsightSentryPeerScreen } from "../server/data/insightsentry/insi
 import type {
   CalendarDataset,
   DocumentsDataset,
+  EarningsSnapshot,
   FamilyResult,
   FundamentalsDataset,
+  FundamentalValue,
   InsightSentryResearchFamily,
   NewsClassifier,
   NewsDataset,
@@ -32,6 +35,7 @@ import type {
   PeersDataset,
 } from "../server/data/insightsentry/insightSentryResearchContracts";
 import { createInsightSentryResearchDataAdapter } from "../server/data/insightsentry/insightSentryResearchData";
+import { createSemanticNewsClassifier } from "../server/data/insightsentry/insightSentrySemanticNewsClassifier";
 import { deriveInsightSentryTechnicalAnalysis } from "../server/data/insightsentry/insightSentryTechnical";
 import type { InsightSentryWireAdapter } from "../server/data/insightsentry/insightSentryTransport";
 import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
@@ -70,6 +74,7 @@ export type InsightSentryInitialCollection = {
   readonly evidence: readonly SnapshotEvidence[];
   readonly sources: readonly SpecialistSourceArtifact[];
   readonly capabilities: readonly CapabilityDisclosure[];
+  readonly valueDrafts: readonly ValueDraft[];
   readonly familyStates: Readonly<
     Record<
       InsightSentryResearchFamily | "technical" | "quote",
@@ -176,6 +181,251 @@ function performanceFromDailyBars(daily: InsightSentryBarSet): {
     ...(performance3Month === undefined ? {} : { performance3Month }),
     ...(performance1Year === undefined ? {} : { performance1Year }),
   });
+}
+
+function mergeEarningsSnapshot(
+  primary: EarningsSnapshot | undefined,
+  fallback: EarningsSnapshot | undefined,
+): EarningsSnapshot | undefined {
+  if (primary === undefined && fallback === undefined) return undefined;
+  const merged = Object.fromEntries(
+    Object.entries({ ...(fallback ?? {}), ...(primary ?? {}) }).filter(
+      ([, value]) => value !== undefined,
+    ),
+  ) as EarningsSnapshot;
+  return Object.keys(merged).length === 0 ? undefined : Object.freeze(merged);
+}
+
+function mergeCalendarWithCompanyInfo(input: {
+  readonly result: FamilyResult<CalendarDataset>;
+  readonly company: InsightSentryCompanyInfo | undefined;
+  readonly symbol: string;
+  readonly companyName: string;
+  readonly asOf: string;
+}): FamilyResult<CalendarDataset> {
+  const earnings = mergeEarningsSnapshot(
+    input.result.status === "available"
+      ? input.result.data.earnings
+      : undefined,
+    input.company?.earnings,
+  );
+  if (earnings === undefined) return input.result;
+  const center = Date.parse(input.asOf);
+  const windowStart = new Date(center - 90 * 24 * 60 * 60_000)
+    .toISOString()
+    .slice(0, 10);
+  const windowEnd = new Date(center + 90 * 24 * 60 * 60_000)
+    .toISOString()
+    .slice(0, 10);
+  const baseEvents =
+    input.result.status === "available" ? input.result.data.events : [];
+  const supplementalEvents = [
+    earnings.latestReportAt,
+    earnings.nextReportAt,
+  ].flatMap((reportAt) => {
+    if (reportAt === undefined) return [];
+    const timestamp = Date.parse(reportAt);
+    if (
+      !Number.isFinite(timestamp) ||
+      timestamp < Date.parse(`${windowStart}T00:00:00.000Z`) ||
+      timestamp > Date.parse(`${windowEnd}T23:59:59.999Z`)
+    )
+      return [];
+    return [
+      Object.freeze({
+        symbol: input.symbol,
+        name: input.companyName,
+        reportAt,
+      }),
+    ];
+  });
+  const events = [...baseEvents, ...supplementalEvents]
+    .sort((left, right) => left.reportAt.localeCompare(right.reportAt))
+    .filter(
+      (event, index, all) =>
+        index === 0 ||
+        all[index - 1]?.reportAt !== event.reportAt ||
+        all[index - 1]?.symbol !== event.symbol,
+    );
+  const existing =
+    input.result.status === "available" ? input.result.data : undefined;
+  return Object.freeze({
+    status: "available",
+    data: Object.freeze({
+      symbol: input.symbol,
+      providerUpdatedAt: existing?.providerUpdatedAt ?? input.asOf,
+      retrievedAt: existing?.retrievedAt ?? input.asOf,
+      pitSafe: false,
+      limitations: ["provider_dataset_not_point_in_time_safe"] as const,
+      windowStart: existing?.windowStart ?? windowStart,
+      windowEnd: existing?.windowEnd ?? windowEnd,
+      events: Object.freeze(events),
+      earnings,
+    }),
+  });
+}
+
+function providerPeriod(value: string | undefined, fallback: string): string {
+  const period = value?.trim();
+  return period === undefined || period.length === 0 || period.length > 80
+    ? fallback.slice(0, 10)
+    : period;
+}
+
+function numericLeaves(
+  value: FundamentalValue,
+  prefix = "value",
+): readonly { readonly path: string; readonly value: number }[] {
+  if (typeof value === "number" && Number.isFinite(value))
+    return [{ path: prefix, value }];
+  if (value === null || typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([key, nested]) =>
+    numericLeaves(nested, `${prefix}.${key}`),
+  );
+}
+
+function providerUnit(metric: string): string {
+  if (/surprise_percent|growth|margin|return|change_percent/iu.test(metric))
+    return "percent";
+  if (/price_earnings|enterprise_value_ebitda|ev_revenue/iu.test(metric))
+    return "multiple";
+  if (/eps|earnings_per_share/iu.test(metric)) return "USD per share";
+  if (
+    /revenue|income|cash|debt|asset|capex|market_cap|last_price|price_target|inventory|receivable/iu.test(
+      metric,
+    )
+  )
+    return "USD";
+  if (/shares|recommendation|estimates_num/iu.test(metric)) return "count";
+  return "provider native unit";
+}
+
+function providerValueDrafts(input: {
+  readonly runId: string;
+  readonly snapshotId: string;
+  readonly asOf: string;
+  readonly technical: FamilyResult<{
+    readonly company: InsightSentryCompanyInfo;
+    readonly quote: InsightSentryQuote;
+    readonly bars: readonly [
+      InsightSentryBarSet,
+      InsightSentryBarSet,
+      InsightSentryBarSet,
+    ];
+    readonly analysis: ReturnType<typeof deriveInsightSentryTechnicalAnalysis>;
+  }>;
+  readonly fundamentals: FamilyResult<FundamentalsDataset>;
+  readonly calendar: FamilyResult<CalendarDataset>;
+}): readonly ValueDraft[] {
+  const drafts: ValueDraft[] = [];
+  const add = (
+    metric: string,
+    value: number | undefined,
+    period: string | undefined,
+  ): void => {
+    if (value === undefined || !Number.isFinite(value)) return;
+    const ordinal = drafts.length + 1;
+    drafts.push({
+      valueId: `insightsentry:${metric}:${ordinal}`.slice(0, 240),
+      runId: input.runId,
+      snapshotId: input.snapshotId,
+      metric,
+      value: String(value),
+      unit: providerUnit(metric),
+      source: "insightsentry_rapidapi",
+      period: providerPeriod(period, input.asOf),
+    });
+  };
+  if (input.technical.status === "available") {
+    add(
+      "provider_quote.last_price",
+      input.technical.data.quote.lastPrice,
+      input.technical.data.quote.observedAt,
+    );
+    add(
+      "provider_quote.change_percent",
+      input.technical.data.quote.changePercent,
+      input.technical.data.quote.observedAt,
+    );
+  }
+  if (input.fundamentals.status === "available") {
+    let indicatorCount = 0;
+    for (const indicator of input.fundamentals.data.indicators) {
+      for (const leaf of numericLeaves(indicator.value).slice(0, 3)) {
+        if (indicatorCount >= 90) break;
+        add(
+          `provider_fundamental.${indicator.id}.${leaf.path}`,
+          leaf.value,
+          indicator.period,
+        );
+        indicatorCount += 1;
+      }
+      if (indicatorCount >= 90) break;
+    }
+    for (const series of input.fundamentals.data.series) {
+      const latest = series.points.at(-1);
+      if (latest === undefined) continue;
+      // biome-ignore lint/complexity/useLiteralKeys: provider series uses an index signature.
+      const time = latest["time"];
+      const period =
+        time === undefined
+          ? input.asOf
+          : new Date(
+              time >= 100_000_000_000 ? time : time * 1_000,
+            ).toISOString();
+      for (const [key, value] of Object.entries(latest)) {
+        if (key === "time") continue;
+        add(`provider_fundamental.${series.id}.${key}`, value, period);
+      }
+    }
+  }
+  const earnings =
+    input.calendar.status === "available"
+      ? input.calendar.data.earnings
+      : undefined;
+  if (earnings !== undefined) {
+    const latestPeriod = earnings.latestReportAt ?? input.asOf;
+    const nextPeriod = earnings.nextReportAt ?? input.asOf;
+    add("provider_earnings.eps_actual", earnings.epsActual, latestPeriod);
+    add("provider_earnings.eps_forecast", earnings.epsForecast, latestPeriod);
+    add("provider_earnings.eps_surprise", earnings.epsSurprise, latestPeriod);
+    add(
+      "provider_earnings.eps_surprise_percent",
+      earnings.epsSurprisePercent,
+      latestPeriod,
+    );
+    add(
+      "provider_earnings.next_eps_forecast",
+      earnings.nextEpsForecast,
+      nextPeriod,
+    );
+    add(
+      "provider_earnings.revenue_actual",
+      earnings.revenueActual,
+      latestPeriod,
+    );
+    add(
+      "provider_earnings.revenue_forecast",
+      earnings.revenueForecast,
+      latestPeriod,
+    );
+    add(
+      "provider_earnings.revenue_surprise",
+      earnings.revenueSurprise,
+      latestPeriod,
+    );
+    add(
+      "provider_earnings.revenue_surprise_percent",
+      earnings.revenueSurprisePercent,
+      latestPeriod,
+    );
+    add(
+      "provider_earnings.next_revenue_forecast",
+      earnings.nextRevenueForecast,
+      nextPeriod,
+    );
+  }
+  return Object.freeze(drafts);
 }
 
 async function enrichPeersWithCachedHistory(input: {
@@ -383,7 +633,10 @@ export async function collectInsightSentryInitialEvidence(input: {
   const research = createInsightSentryResearchDataAdapter({
     client,
     rollout,
-    classifyNews: deterministicClassifier(),
+    classifyNews:
+      input.adapter === undefined
+        ? createSemanticNewsClassifier()
+        : deterministicClassifier(),
     screenPeers:
       input.peerProfile === undefined
         ? async () => {
@@ -463,15 +716,29 @@ export async function collectInsightSentryInitialEvidence(input: {
           entitled: false,
           needed: false,
         });
-  const [fundamentals, news, documents, calendar, collectedPeers, options] =
-    await Promise.all([
-      fundamentalsPromise,
-      newsPromise,
-      documentsPromise,
-      calendarPromise,
-      peersPromise,
-      optionsPromise,
-    ]);
+  const [
+    fundamentals,
+    news,
+    documents,
+    collectedCalendar,
+    collectedPeers,
+    options,
+  ] = await Promise.all([
+    fundamentalsPromise,
+    newsPromise,
+    documentsPromise,
+    calendarPromise,
+    peersPromise,
+    optionsPromise,
+  ]);
+  const calendar = mergeCalendarWithCompanyInfo({
+    result: collectedCalendar,
+    company:
+      technical.status === "available" ? technical.data.company : undefined,
+    symbol: code ?? input.identity.ticker,
+    companyName: input.identity.legalName,
+    asOf: input.asOf,
+  });
   const subjectDaily =
     technical.status === "available"
       ? technical.data.bars.find((candidate) => candidate.timeframe === "1d")
@@ -615,8 +882,8 @@ export async function collectInsightSentryInitialEvidence(input: {
       "insightsentry:calendar",
       "insightsentry_calendar",
       calendar.data,
-      ["calendar"],
-      "events",
+      ["calendar", "/v3/symbols/{symbol}/info"],
+      "earnings events, actuals, and estimates",
     );
   if (peers.status === "available")
     await commit(
@@ -704,6 +971,37 @@ export async function collectInsightSentryInitialEvidence(input: {
     });
     if (disclosure !== undefined) capabilities.push(disclosure);
   }
+  const fundamentalsHaveConsensus =
+    fundamentals.status === "available" &&
+    fundamentals.data.indicators.some((indicator) =>
+      /forecast|estimate|price_target|recommendation|consensus/iu.test(
+        indicator.id,
+      ),
+    );
+  const calendarHasConsensus =
+    calendar.status === "available" &&
+    calendar.data.earnings !== undefined &&
+    [
+      calendar.data.earnings.epsForecast,
+      calendar.data.earnings.nextEpsForecast,
+      calendar.data.earnings.revenueForecast,
+      calendar.data.earnings.nextRevenueForecast,
+    ].some((value) => value !== undefined);
+  const consensusEvidence = fundamentalsHaveConsensus
+    ? committed.get("insightsentry:fundamentals")
+    : calendarHasConsensus
+      ? committed.get("insightsentry:calendar")
+      : undefined;
+  if (consensusEvidence !== undefined) {
+    const disclosure = await attestLicensedProviderCapability({
+      cas: input.cas,
+      identity,
+      key: "consensus",
+      evidence: consensusEvidence,
+      now: input.asOf,
+    });
+    if (disclosure !== undefined) capabilities.push(disclosure);
+  }
   const retrievedAt =
     captured
       .map((response) => response.retrievedAt)
@@ -724,6 +1022,14 @@ export async function collectInsightSentryInitialEvidence(input: {
     evidence: Object.freeze(evidence),
     sources: Object.freeze(sources),
     capabilities: Object.freeze(capabilities),
+    valueDrafts: providerValueDrafts({
+      runId: input.runId,
+      snapshotId: input.snapshotId,
+      asOf: input.asOf,
+      technical,
+      fundamentals,
+      calendar,
+    }),
     familyStates,
     requestLedger: Object.freeze({
       uniqueUpstreamCalls: entries.length,

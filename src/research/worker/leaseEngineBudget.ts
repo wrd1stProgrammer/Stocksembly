@@ -109,7 +109,9 @@ export function reserveWithinRunBudget(
     input.claim.priorAttemptId !== undefined &&
     input.claim.retryClassification !== "transient"
   ) {
-    if (row.logical_attempts >= 2)
+    if (
+      row.logical_attempts >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
+    )
       return terminalize(
         database,
         input,

@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { createLiveAccountStore } from "../../accounts/server/postgresAccountStore";
@@ -12,6 +12,11 @@ const ArgumentsSchema = z.union([
   z.tuple([z.literal("serve")]),
   z.tuple([z.literal("health")]),
   z.tuple([z.literal("run"), z.string().regex(/^\d{4}-\d{2}-\d{2}$/u)]),
+  z.tuple([
+    z.literal("refresh"),
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    z.string().regex(/^[A-Z][A-Z0-9.-]{0,11}(?:,[A-Z][A-Z0-9.-]{0,11})*$/u),
+  ]),
 ]);
 
 function write(value: Readonly<Record<string, unknown>>) {
@@ -32,7 +37,7 @@ export async function runBriefingWorkerProcess(
     values[0] === "--" ? values.slice(1) : values,
   );
   if (!parsed.success) throw new TypeError("Invalid briefing worker arguments");
-  const [command, marketDate] = parsed.data;
+  const [command, marketDate, symbolList] = parsed.data;
   const paths = await prepareArtifactPaths(resolveStocksemblyDataDirectory());
   const store = await createLiveAccountStore();
   if (store === undefined) {
@@ -58,8 +63,13 @@ export async function runBriefingWorkerProcess(
       write({ kind: "briefing_worker_health", status: "ready" });
       return;
     }
-    if (command === "run") {
-      const result = await scheduler.runForMarketDate(marketDate);
+    if (command === "run" || command === "refresh") {
+      const forceSymbols = command === "refresh" ? symbolList.split(",") : [];
+      const result = await scheduler.runForMarketDate(
+        marketDate,
+        new Date().toISOString(),
+        forceSymbols,
+      );
       write({ kind: "briefing_manual_cycle", ...result });
       return;
     }
@@ -93,8 +103,5 @@ async function main() {
   }
 }
 
-if (
-  import.meta.url ===
-  pathToFileURL(join(process.cwd(), process.argv[1] ?? "")).href
-)
+if (import.meta.url === pathToFileURL(resolve(process.argv[1] ?? "")).href)
   await main();

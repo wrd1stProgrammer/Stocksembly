@@ -62,7 +62,7 @@ function FixtureResearchRoom({
 }: FixtureProps) {
   const [locale, setLocale] = useState(initialLocale);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [transcriptOpen, setTranscriptOpen] = useState(initialComplete);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const reportVersion = 1;
   const playback = useResearchPlayback(payload, initialComplete);
   const { data } = payload;
@@ -71,7 +71,12 @@ function FixtureResearchRoom({
   }, [locale]);
 
   useEffect(() => {
-    if (playback.isComplete) setTranscriptOpen(true);
+    if (typeof window.matchMedia !== "function") return;
+    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    setTranscriptOpen(!playback.isComplete);
   }, [playback.isComplete]);
 
   useEffect(() => {
@@ -90,6 +95,20 @@ function FixtureResearchRoom({
       }
     };
   }, [data.artifacts, data.events, payload, playback.skip]);
+
+  const handleSidebarCollapsedChange = (collapsed: boolean): void => {
+    const nextOpen = !collapsed;
+    setSidebarOpen(nextOpen);
+    if (nextOpen && playback.isComplete) setTranscriptOpen(false);
+  };
+
+  const handleTranscriptToggle = (): void => {
+    setTranscriptOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) setSidebarOpen(false);
+      return nextOpen;
+    });
+  };
 
   return (
     <div
@@ -115,8 +134,17 @@ function FixtureResearchRoom({
             })),
           }))}
           locale={locale}
+          compactTitle={
+            playback.isComplete
+              ? locale === "ko"
+                ? "최종 리서치 리포트"
+                : "FINAL RESEARCH REPORT"
+              : locale === "ko"
+                ? "실시간 리서치 룸"
+                : "LIVE RESEARCH ROOM"
+          }
           collapsed={!sidebarOpen}
-          onCollapsedChange={(collapsed) => setSidebarOpen(!collapsed)}
+          onCollapsedChange={handleSidebarCollapsedChange}
           onLocaleChange={setLocale}
         />
         <OfficeStage
@@ -143,7 +171,7 @@ function FixtureResearchRoom({
           reportVersion={reportVersion}
           questionsEnabled={false}
           panelOpen={playback.isComplete ? transcriptOpen : true}
-          onPanelToggle={() => setTranscriptOpen((open) => !open)}
+          onPanelToggle={handleTranscriptToggle}
         />
       </div>
       <span

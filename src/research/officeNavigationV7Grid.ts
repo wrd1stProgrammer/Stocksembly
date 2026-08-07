@@ -34,16 +34,20 @@ function contains(rect: CellRect, cell: Cell): boolean {
   );
 }
 
+function inset(rect: CellRect): CellRect {
+  return {
+    min: { x: rect.min.x + 1, y: rect.min.y + 1 },
+    max: { x: rect.max.x - 1, y: rect.max.y - 1 },
+  };
+}
+
 export function buildOfficeNavigationGrid(
   createGrid: GridFactory,
 ): NavigationGrid {
   const rooms = Object.values(OFFICE_SCENE_MANIFEST.rooms);
-  const areas = [
-    ...rooms.map(({ bounds }) => bounds),
-    ...OFFICE_SCENE_MANIFEST.world.corridorBands,
-  ];
-  const blocked = new Set(
-    OFFICE_SCENE_MANIFEST.furniture.flatMap(({ footprint }) => {
+  const blocked = new Set([
+    ...OFFICE_SCENE_MANIFEST.world.blockedCells.map(key),
+    ...OFFICE_SCENE_MANIFEST.furniture.flatMap(({ footprint }) => {
       const cells: string[] = [];
       for (let y = footprint.min.y; y <= footprint.max.y; y += 1) {
         for (let x = footprint.min.x; x <= footprint.max.x; x += 1) {
@@ -52,15 +56,20 @@ export function buildOfficeNavigationGrid(
       }
       return cells;
     }),
-  );
+  ]);
   const walkableCells: Cell[] = [];
   for (let y = 0; y < OFFICE_SCENE_MANIFEST.world.rows; y += 1) {
     for (let x = 0; x < OFFICE_SCENE_MANIFEST.world.columns; x += 1) {
       const current = { x, y };
-      if (
-        areas.some((area) => contains(area, current)) &&
-        !blocked.has(key(current))
-      )
+      const insideRoom = rooms.some(
+        ({ bounds, doors }) =>
+          contains(inset(bounds), current) ||
+          doors.some((door) => key(door) === key(current)),
+      );
+      const insideCorridor = OFFICE_SCENE_MANIFEST.world.corridorBands.some(
+        (area) => contains(area, current),
+      );
+      if ((insideRoom || insideCorridor) && !blocked.has(key(current)))
         walkableCells.push(current);
     }
   }

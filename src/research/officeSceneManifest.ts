@@ -1,3 +1,5 @@
+import { OFFICE_ENTITY_GEOMETRY } from "./officeEntityGeometry";
+
 export type OfficeFacing = "down" | "left" | "right" | "up";
 
 export type Cell = {
@@ -31,7 +33,12 @@ export type OfficeSceneManifestContract = {
     readonly corridorBands: readonly CellRect[];
     readonly blockedCells: readonly Cell[];
   };
-  readonly assets: { readonly base: string; readonly actorsRoot: string };
+  readonly assets: {
+    readonly base: string;
+    readonly actorsRoot: string;
+    readonly v9ActorsRoot: string;
+    readonly entitiesRoot: string;
+  };
   readonly rooms: Readonly<
     Record<
       "chair" | "company" | "financial" | "market" | "risk",
@@ -104,7 +111,7 @@ export type OfficeSceneManifestContract = {
 
 // allow: SIZE_OK — the immutable roster and geometry table is the world source of truth.
 export const OFFICE_SCENE_MANIFEST = {
-  version: 8,
+  version: 9,
   world: {
     width: 1374,
     height: 1145,
@@ -117,6 +124,8 @@ export const OFFICE_SCENE_MANIFEST = {
   assets: {
     base: "/research/office-v8/base.png",
     actorsRoot: "/research/office-v7/agents",
+    v9ActorsRoot: "/research/office-v9/agents",
+    entitiesRoot: "/research/office-v9/entities",
   },
   rooms: {
     market: {
@@ -212,8 +221,8 @@ export const OFFICE_SCENE_MANIFEST = {
       seat: {
         // Keep the lead directly above the tabletop.  The input rests on the
         // table's north edge while the actor remains on the chair anchor.
-        cell: { x: 7, y: 7 },
-        inputCell: { x: 7, y: 8 },
+        cell: { x: 8, y: 7 },
+        inputCell: { x: 8, y: 8 },
         facing: "down",
       },
       finalLocation: "forum",
@@ -231,8 +240,8 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "추세·모멘텀·변동성·거래량",
       },
       seat: {
-        cell: { x: 9, y: 11 },
-        inputCell: { x: 9, y: 10 },
+        cell: { x: 7, y: 11 },
+        inputCell: { x: 7, y: 10 },
         facing: "up",
       },
       finalLocation: "department",
@@ -253,8 +262,8 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "지수·섹터 ETF·동종사·금리·베타",
       },
       seat: {
-        cell: { x: 11, y: 11 },
-        inputCell: { x: 11, y: 10 },
+        cell: { x: 9, y: 11 },
+        inputCell: { x: 9, y: 10 },
         facing: "up",
       },
       finalLocation: "department",
@@ -533,38 +542,7 @@ export const OFFICE_SCENE_MANIFEST = {
   forum: {
     room: { min: { x: 18, y: 10 }, max: { x: 27, y: 16 } },
     target: { x: 22, y: 14 },
-    anchors: {
-      market: {
-        agentId: "market",
-        cell: { x: 20, y: 12 },
-        facing: "down",
-        target: { x: 22, y: 14 },
-      },
-      company: {
-        agentId: "company",
-        cell: { x: 24, y: 12 },
-        facing: "down",
-        target: { x: 22, y: 14 },
-      },
-      financial: {
-        agentId: "financial",
-        cell: { x: 20, y: 15 },
-        facing: "up",
-        target: { x: 22, y: 14 },
-      },
-      risk: {
-        agentId: "risk",
-        cell: { x: 24, y: 15 },
-        facing: "up",
-        target: { x: 22, y: 14 },
-      },
-      chair: {
-        agentId: "chair",
-        cell: { x: 22, y: 14 },
-        facing: "down",
-        target: { x: 22, y: 15 },
-      },
-    },
+    anchors: OFFICE_ENTITY_GEOMETRY.evidenceForum.anchors,
   },
 } as const satisfies OfficeSceneManifestContract;
 

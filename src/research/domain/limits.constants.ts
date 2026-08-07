@@ -61,9 +61,9 @@ export const LIMITS = {
   research: {
     mandatoryCalls: 26,
     maxFollowUps: 3,
-    maxReplacements: 5,
-    maxReplacementsPerArtifact: 1,
-    maxPhysicalLaunches: 34,
+    maxReplacements: 12,
+    maxReplacementsPerArtifact: 3,
+    maxPhysicalLaunches: 41,
   },
   rights: { maxDisplayedExcerptChars: 500 },
 } as const;

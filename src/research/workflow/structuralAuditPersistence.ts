@@ -1,6 +1,9 @@
 import Database from "better-sqlite3";
 import { z } from "zod";
-import { auditStructuralClaims } from "../application/structuralAudit";
+import {
+  auditStructuralClaims,
+  retainStructurallyValidClaims,
+} from "../application/structuralAudit";
 import { StructuralAuditInputSchema } from "../application/structuralAuditContracts";
 import {
   type PersistStructuralAuditResult,
@@ -199,7 +202,7 @@ export async function persistStructuralAudit(
       parsed.data,
     );
     if (evidenceFailure !== undefined) return evidenceFailure;
-    const trustedInput = StructuralAuditInputSchema.parse({
+    let trustedInput = StructuralAuditInputSchema.parse({
       ...parsed.data,
       acceptedMemos: workflow.memos,
       sourceDissentClaimIds: retainedDissentClaimIds,
@@ -208,9 +211,24 @@ export async function persistStructuralAudit(
       ),
       sourceOpenQuestions: retention.openQuestions,
     });
-    const result = StructuralAuditResultSchema.parse(
+    let result = StructuralAuditResultSchema.parse(
       auditStructuralClaims(trustedInput),
     );
+    if (!result.publishable) {
+      const repairedInput = retainStructurallyValidClaims(trustedInput);
+      if (
+        repairedInput !== undefined &&
+        repairedInput.claims.length < trustedInput.claims.length
+      ) {
+        const repairedResult = StructuralAuditResultSchema.parse(
+          auditStructuralClaims(repairedInput),
+        );
+        if (repairedResult.publishable) {
+          trustedInput = repairedInput;
+          result = repairedResult;
+        }
+      }
+    }
     const envelope = StructuralAuditArtifactEnvelopeSchema.parse({
       kind: "structural_audit",
       schemaVersion: "workflow-v1",

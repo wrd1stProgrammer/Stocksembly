@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chairAssetPathForFacing,
   chairLayerOrderForFacing,
   chairRootOffsetYForFacing,
   chairVisualForFacing,
@@ -7,6 +8,13 @@ import {
 } from "./officeRendererPixiFurniture";
 
 describe("office chair rendering", () => {
+  it("loads a direction-specific chair instead of reusing the front view", () => {
+    expect(chairAssetPathForFacing("up")).toMatch(/analyst-chair-up\.png$/u);
+    expect(chairAssetPathForFacing("down")).toMatch(
+      /analyst-chair-down\.png$/u,
+    );
+  });
+
   it("places the backrest away from the tabletop for top and bottom seats", () => {
     const lookingUp = chairVisualForFacing("up");
     const lookingDown = chairVisualForFacing("down");
@@ -29,15 +37,13 @@ describe("office chair rendering", () => {
     expect(lookingDown.rotation).toBe(0);
   });
 
-  it("places only the lower up-facing backrest in front of a seated actor", () => {
+  it("puts the real chair back in front only for an away-facing analyst", () => {
     // Given
     const lookingUp = chairLayerOrderForFacing("up");
     const lookingDown = chairLayerOrderForFacing("down");
     // When / Then
-    expect(lookingUp.front).toBeGreaterThan(lookingUp.actor);
-    expect(lookingUp.rear).toBeLessThan(lookingUp.actor);
-    expect(lookingDown.front).toBeLessThan(lookingDown.actor);
-    expect(lookingDown.rear).toBeLessThan(lookingDown.actor);
+    expect(lookingUp.chair).toBeGreaterThan(lookingUp.actor);
+    expect(lookingDown.chair).toBeLessThan(lookingDown.actor);
   });
 
   it("keeps the top chair cushion under the seated actor instead of the table", () => {
@@ -45,6 +51,6 @@ describe("office chair rendering", () => {
     const aboveTable = chairRootOffsetYForFacing("down");
 
     expect(aboveTable).toBeLessThan(belowTable);
-    expect(aboveTable).toBe(-20);
+    expect(aboveTable).toBe(-16);
   });
 });

@@ -1,4 +1,5 @@
 import { OFFICE_CLOCK_CONTRACT } from "./officeChoreographyV7Contract";
+import { OFFICE_MEETING_TIMELINE } from "./officeMeetingChoreography";
 import {
   OFFICE_SCENE_MANIFEST,
   type OfficeManifestAgentId,
@@ -143,7 +144,9 @@ export const OFFICE_PUBLIC_EVENTS: readonly OfficeChoreographyEvent[] =
     ...representatives.map((representativeId, index) =>
       event({
         id: `present-${representativeId}`,
-        tick: 1300 + index * 60,
+        tick:
+          OFFICE_MEETING_TIMELINE.reportsTick +
+          index * OFFICE_MEETING_TIMELINE.presentationTicks,
         kind: "presentation",
         participantIds: [representativeId, chair.id],
       }),

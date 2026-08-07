@@ -19,6 +19,16 @@ export function unixMillisecondsToIso(value: number): string {
   return new Date(value).toISOString();
 }
 
+/** InsightSentry uses seconds for most epoch fields, but some calendar
+ * responses expose `last_update` in milliseconds. Normalize both without
+ * allowing the unit mismatch to create dates tens of thousands of years out.
+ */
+export function providerEpochToIso(value: number): string {
+  return value >= 100_000_000_000
+    ? unixMillisecondsToIso(value)
+    : unixSecondsToIso(value);
+}
+
 export function pitUnsafeTimestamps(
   providerUpdatedAt: string,
   retrievedAt: string,

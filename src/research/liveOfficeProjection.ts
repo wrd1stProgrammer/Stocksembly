@@ -195,10 +195,17 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
           snapshot.run.researchTarget.departmentId
         ].leadId
       : "chair";
-  const visibleEvents = snapshot.events.filter(
-    (event, index) =>
-      event.kind !== "runtime_status" || index === snapshot.events.length - 1,
-  );
+  const collectionStartedSeen = new Set<string>();
+  const visibleEvents = snapshot.events.filter((event, index) => {
+    if (event.kind === "runtime_status")
+      return index === snapshot.events.length - 1;
+    if (event.kind !== "collection_started") return true;
+    const summary = summaryFor(event);
+    const fingerprint = `${event.actorId ?? "chair"}|${summary.en}|${summary.ko}`;
+    if (collectionStartedSeen.has(fingerprint)) return false;
+    collectionStartedSeen.add(fingerprint);
+    return true;
+  });
   const projected = visibleEvents.map((event) => {
     const summary = summaryFor(event);
     const tick = progressTick(event, visibleEvents);

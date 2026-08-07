@@ -66,6 +66,7 @@ const SecretSchema = z.object({
 });
 
 const FREE_CREDIT_INTERVAL_MS = 24 * 60 * 60 * 1_000;
+const BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT = 10;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -363,6 +364,25 @@ async function usedCredits(
   return Math.max(0, Number(result.rows[0]?.used ?? 0));
 }
 
+async function reservedResearchCredits(
+  client: PoolClient,
+  principalId: string,
+  context: CreditPeriodContext,
+  now: Date,
+  excludedRunId?: string,
+): Promise<number> {
+  const result = await client.query<{ reserved: number }>(
+    `SELECT COALESCE(SUM(credits), 0)::int AS reserved
+     FROM research_credit_reservations
+     WHERE principal_id = $1
+       AND period_key = $2
+       AND expires_at > $3::timestamptz
+       AND ($4::uuid IS NULL OR run_id <> $4::uuid)`,
+    [principalId, context.bounds.key, now.toISOString(), excludedRunId ?? null],
+  );
+  return Math.max(0, Number(result.rows[0]?.reserved ?? 0));
+}
+
 async function grantedCredits(
   client: PoolClient,
   principalId: string,
@@ -489,6 +509,58 @@ function briefingWatchlistItem(row: {
     position: Number(row.position),
     createdAt: new Date(row.created_at).toISOString(),
   });
+}
+
+function nextEarningsFor(
+  payload: BriefingEditionPayload,
+): BriefingListItem["nextEarnings"] {
+  const confirmedEvent = payload.upcomingEvents.find(
+    (event) =>
+      event.certainty === "confirmed" &&
+      /earnings|results|실적/iu.test(event.name),
+  );
+  if (confirmedEvent !== undefined) return confirmedEvent;
+  if (
+    payload.earnings?.nextReportAt !== undefined &&
+    payload.earnings.nextReportCertainty === "confirmed"
+  )
+    return {
+      name: "Earnings",
+      scheduledAt: payload.earnings.nextReportAt,
+      whyItMatters: "Next scheduled earnings release",
+      certainty: "confirmed",
+    };
+  return undefined;
+}
+
+async function briefingWatchlistChangeCount(
+  client: PoolClient,
+  principalId: string,
+): Promise<number> {
+  const result = await client.query<{ change_count: number }>(
+    `SELECT change_count
+     FROM briefing_watchlist_monthly_changes
+     WHERE principal_id = $1
+       AND month_key = date_trunc('month', now())::date
+     FOR UPDATE`,
+    [principalId],
+  );
+  return Number(result.rows[0]?.change_count ?? 0);
+}
+
+async function recordBriefingWatchlistChange(
+  client: PoolClient,
+  principalId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO briefing_watchlist_monthly_changes(
+       principal_id, month_key, change_count
+     ) VALUES ($1, date_trunc('month', now())::date, 1)
+     ON CONFLICT (principal_id, month_key) DO UPDATE SET
+       change_count = briefing_watchlist_monthly_changes.change_count + 1,
+       updated_at = now()`,
+    [principalId],
+  );
 }
 
 function isoTimestamp(value: string | undefined, fallback: Date): string {
@@ -715,6 +787,17 @@ export class PostgresAccountStore implements AccountStore {
           ],
         );
       }
+      if (
+        isSuccessfulResearchStatus(run.status) ||
+        run.status === "cancelled" ||
+        run.status === "failed" ||
+        run.status === "incomplete"
+      )
+        await client.query(
+          `DELETE FROM research_credit_reservations
+           WHERE principal_id = $1 AND run_id = $2`,
+          [principalId, run.runId],
+        );
       await client.query("COMMIT");
       this.#recordedRuns.set(run.runId, run.status);
     } catch (error) {
@@ -724,6 +807,88 @@ export class PostgresAccountStore implements AccountStore {
       });
     } finally {
       client.release();
+    }
+  }
+
+  async reserveResearchCredits(
+    principalId: string,
+    runId: string,
+    required: number,
+  ): Promise<CreditAvailability> {
+    const normalizedRequired = Math.max(0, Math.trunc(required));
+    const now = new Date();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `SELECT principal_id FROM entitlements
+         WHERE principal_id = $1 FOR UPDATE`,
+        [principalId],
+      );
+      await client.query(
+        `DELETE FROM research_credit_reservations
+         WHERE principal_id = $1 AND expires_at <= $2::timestamptz`,
+        [principalId, now.toISOString()],
+      );
+      const context = await creditPeriodContext(client, principalId, now);
+      await ensureCreditGrant(client, principalId, context, now);
+      const used = await usedCredits(client, principalId, context);
+      const granted = await grantedCredits(client, principalId, context);
+      const reserved = await reservedResearchCredits(
+        client,
+        principalId,
+        context,
+        now,
+        runId,
+      );
+      const remaining = Math.max(0, granted - used - reserved);
+      if (remaining < normalizedRequired) {
+        await client.query("COMMIT");
+        return availability(remaining, normalizedRequired);
+      }
+      if (normalizedRequired > 0)
+        await client.query(
+          `INSERT INTO research_credit_reservations(
+            principal_id, run_id, period_key, credits, expires_at, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+          ON CONFLICT (principal_id, run_id) DO NOTHING`,
+          [
+            principalId,
+            runId,
+            context.bounds.key,
+            normalizedRequired,
+            new Date(now.getTime() + 24 * 60 * 60 * 1_000).toISOString(),
+            now.toISOString(),
+          ],
+        );
+      await client.query("COMMIT");
+      return availability(remaining, normalizedRequired);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_RESEARCH_CREDIT_RESERVATION_FAILED",
+        { cause: error },
+      );
+    } finally {
+      client.release();
+    }
+  }
+
+  async releaseResearchCredits(
+    principalId: string,
+    runId: string,
+  ): Promise<void> {
+    try {
+      await this.pool.query(
+        `DELETE FROM research_credit_reservations
+         WHERE principal_id = $1 AND run_id = $2`,
+        [principalId, runId],
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_RESEARCH_CREDIT_RELEASE_FAILED",
+        { cause: error },
+      );
     }
   }
 
@@ -747,8 +912,14 @@ export class PostgresAccountStore implements AccountStore {
       await ensureCreditGrant(client, principalId, context, now);
       const used = await usedCredits(client, principalId, context);
       const granted = await grantedCredits(client, principalId, context);
+      const reserved = await reservedResearchCredits(
+        client,
+        principalId,
+        context,
+        now,
+      );
       const result = availability(
-        Math.max(0, granted - used),
+        Math.max(0, granted - used - reserved),
         normalizedRequired,
       );
       await client.query("COMMIT");
@@ -798,7 +969,16 @@ export class PostgresAccountStore implements AccountStore {
           : 1;
       const used = await usedCredits(client, principalId, context);
       const granted = await grantedCredits(client, principalId, context);
-      const result = availability(Math.max(0, granted - used), required);
+      const reserved = await reservedResearchCredits(
+        client,
+        principalId,
+        context,
+        now,
+      );
+      const result = availability(
+        Math.max(0, granted - used - reserved),
+        required,
+      );
       await client.query("COMMIT");
       return result;
     } catch (error) {
@@ -832,7 +1012,13 @@ export class PostgresAccountStore implements AccountStore {
       await ensureCreditGrant(client, principalId, context, now);
       const used = await usedCredits(client, principalId, context);
       const granted = await grantedCredits(client, principalId, context);
-      const remaining = Math.max(0, granted - used);
+      const reserved = await reservedResearchCredits(
+        client,
+        principalId,
+        context,
+        now,
+      );
+      const remaining = Math.max(0, granted - used - reserved);
       const required = CREDIT_COSTS.researchRoomView;
       const alreadyViewed = await client.query(
         `SELECT 1
@@ -1072,7 +1258,13 @@ export class PostgresAccountStore implements AccountStore {
         await ensureCreditGrant(client, principalId, context, now);
         const used = await usedCredits(client, principalId, context);
         const allowance = await grantedCredits(client, principalId, context);
-        const remaining = Math.max(0, allowance - used);
+        const reserved = await reservedResearchCredits(
+          client,
+          principalId,
+          context,
+          now,
+        );
+        const remaining = Math.max(0, allowance - used - reserved);
         const creditAllowance = context.isFree
           ? FREE_MONTHLY_CREDIT_CAP
           : allowance;
@@ -1187,10 +1379,7 @@ export class PostgresAccountStore implements AccountStore {
 
   async researchRoomAccess(principalId: string): Promise<"free" | "paid"> {
     const status = await this.billingStatus(principalId);
-    return status.tier === "free" ||
-      !["active", "trialing"].includes(status.status)
-      ? "free"
-      : "paid";
+    return status.tier === "free" ? "free" : "paid";
   }
 
   async briefingAccess(principalId: string): Promise<BriefingAccess> {
@@ -1198,10 +1387,14 @@ export class PostgresAccountStore implements AccountStore {
       const result = await this.pool.query<{
         plan_code: string;
         status: string;
+        change_count: number;
       }>(
-        `SELECT plan_code, status
-         FROM entitlements
-         WHERE principal_id = $1`,
+        `SELECT e.plan_code, e.status, COALESCE(c.change_count, 0)::int AS change_count
+         FROM entitlements e
+         LEFT JOIN briefing_watchlist_monthly_changes c
+           ON c.principal_id = e.principal_id
+          AND c.month_key = date_trunc('month', now())::date
+         WHERE e.principal_id = $1`,
         [principalId],
       );
       const row = result.rows[0];
@@ -1212,6 +1405,11 @@ export class PostgresAccountStore implements AccountStore {
         tier,
         enabled: limit > 0,
         watchlistLimit: limit,
+        watchlistChangesRemaining: Math.max(
+          0,
+          BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT -
+            Number(row?.change_count ?? 0),
+        ),
       };
     } catch (error) {
       throw new AccountStoreUnavailableError("BRIEFING_ACCESS_READ_FAILED", {
@@ -1253,6 +1451,7 @@ export class PostgresAccountStore implements AccountStore {
     | { readonly kind: "added"; readonly item: BriefingWatchlistItem }
     | { readonly kind: "exists"; readonly item: BriefingWatchlistItem }
     | { readonly kind: "limit"; readonly limit: number }
+    | { readonly kind: "change_limit"; readonly remaining: 0 }
     | { readonly kind: "forbidden" }
   > {
     const client = await this.pool.connect();
@@ -1314,6 +1513,14 @@ export class PostgresAccountStore implements AccountStore {
         await client.query("ROLLBACK");
         return { kind: "limit", limit };
       }
+      const changeCount = await briefingWatchlistChangeCount(
+        client,
+        principalId,
+      );
+      if (changeCount >= BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT) {
+        await client.query("ROLLBACK");
+        return { kind: "change_limit", remaining: 0 };
+      }
       if (existingItem !== undefined) {
         const updated = await client.query<{
           symbol: string;
@@ -1325,7 +1532,7 @@ export class PostgresAccountStore implements AccountStore {
         }>(
           `UPDATE briefing_watchlist_items
            SET active = true, provider_code = $3, company = $4, exchange = $5,
-               position = $6, updated_at = now()
+               position = $6, created_at = now(), updated_at = now()
            WHERE principal_id = $1 AND symbol = $2
            RETURNING symbol, provider_code, company, exchange, position, created_at`,
           [
@@ -1337,6 +1544,7 @@ export class PostgresAccountStore implements AccountStore {
             Number(count.rows[0]?.next_position ?? 0),
           ],
         );
+        await recordBriefingWatchlistChange(client, principalId);
         await client.query("COMMIT");
         return {
           kind: "exists",
@@ -1364,6 +1572,7 @@ export class PostgresAccountStore implements AccountStore {
           Number(count.rows[0]?.next_position ?? 0),
         ],
       );
+      await recordBriefingWatchlistChange(client, principalId);
       await client.query("COMMIT");
       return {
         kind: "added",
@@ -1382,20 +1591,73 @@ export class PostgresAccountStore implements AccountStore {
   async removeBriefingWatchlistItem(
     principalId: string,
     symbol: string,
-  ): Promise<boolean> {
+  ): Promise<{
+    readonly removed: boolean;
+    readonly changesRemaining: number;
+    readonly limitReached?: boolean;
+  }> {
+    const client = await this.pool.connect();
     try {
-      const result = await this.pool.query(
+      await client.query("BEGIN");
+      const entitlement = await client.query<{
+        plan_code: string;
+        status: string;
+      }>(
+        `SELECT plan_code, status
+         FROM entitlements
+         WHERE principal_id = $1
+         FOR UPDATE`,
+        [principalId],
+      );
+      const access = entitlement.rows[0];
+      if (
+        watchlistLimit(tierForPlanCode(access?.plan_code), access?.status) === 0
+      ) {
+        await client.query("ROLLBACK");
+        return {
+          removed: false,
+          changesRemaining: 0,
+          limitReached: true,
+        };
+      }
+      const changeCount = await briefingWatchlistChangeCount(
+        client,
+        principalId,
+      );
+      if (changeCount >= BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT) {
+        await client.query("ROLLBACK");
+        return {
+          removed: false,
+          changesRemaining: 0,
+          limitReached: true,
+        };
+      }
+      const result = await client.query(
         `UPDATE briefing_watchlist_items
          SET active = false, updated_at = now()
          WHERE principal_id = $1 AND symbol = $2 AND active = true`,
         [principalId, symbol],
       );
-      return (result.rowCount ?? 0) > 0;
+      const removed = (result.rowCount ?? 0) > 0;
+      if (removed) await recordBriefingWatchlistChange(client, principalId);
+      await client.query("COMMIT");
+      return {
+        removed,
+        changesRemaining: Math.max(
+          0,
+          BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT -
+            changeCount -
+            (removed ? 1 : 0),
+        ),
+      };
     } catch (error) {
+      await client.query("ROLLBACK");
       throw new AccountStoreUnavailableError(
         "BRIEFING_WATCHLIST_REMOVE_FAILED",
         { cause: error },
       );
+    } finally {
+      client.release();
     }
   }
 
@@ -1463,17 +1725,11 @@ export class PostgresAccountStore implements AccountStore {
     try {
       const payload = JSON.stringify(snapshot);
       const snapshotId = randomUUID();
-      const result = await this.pool.query<{ snapshot_id: string }>(
+      await this.pool.query(
         `INSERT INTO briefing_source_snapshots(
            snapshot_id, symbol, market_date, cutoff_at, coverage_start,
            content_hash, payload
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
-         ON CONFLICT (symbol, market_date) DO UPDATE SET
-           cutoff_at = EXCLUDED.cutoff_at,
-           coverage_start = EXCLUDED.coverage_start,
-           content_hash = EXCLUDED.content_hash,
-           payload = EXCLUDED.payload
-         RETURNING snapshot_id`,
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
         [
           snapshotId,
           snapshot.symbol,
@@ -1484,7 +1740,7 @@ export class PostgresAccountStore implements AccountStore {
           payload,
         ],
       );
-      return result.rows[0]?.snapshot_id ?? snapshotId;
+      return snapshotId;
     } catch (error) {
       throw new AccountStoreUnavailableError("BRIEFING_SNAPSHOT_SAVE_FAILED", {
         cause: error,
@@ -1501,8 +1757,8 @@ export class PostgresAccountStore implements AccountStore {
       const result = await this.pool.query<{ payload: BriefingEditionPayload }>(
         `SELECT payload
          FROM briefing_editions
-         WHERE symbol = $1 AND locale = $2 AND market_date < $3::date
-         ORDER BY market_date DESC
+         WHERE symbol = $1 AND locale = $2 AND market_date <= $3::date
+         ORDER BY generated_at DESC
          LIMIT 1`,
         [symbol, locale, beforeMarketDate],
       );
@@ -1521,20 +1777,12 @@ export class PostgresAccountStore implements AccountStore {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      const result = await client.query<{ briefing_id: string }>(
+      await client.query(
         `INSERT INTO briefing_editions(
            briefing_id, symbol, company, market_date, locale, scheduled_for,
            snapshot_id, status, payload, generated_at
          ) VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8, $9::jsonb, $10)
-         ON CONFLICT (symbol, market_date, locale) DO UPDATE SET
-           company = EXCLUDED.company,
-           scheduled_for = EXCLUDED.scheduled_for,
-           snapshot_id = EXCLUDED.snapshot_id,
-           status = EXCLUDED.status,
-           payload = EXCLUDED.payload,
-           generated_at = EXCLUDED.generated_at,
-           updated_at = now()
-         RETURNING briefing_id`,
+        `,
         [
           edition.briefingId,
           edition.symbol,
@@ -1548,14 +1796,13 @@ export class PostgresAccountStore implements AccountStore {
           edition.payload.generatedAt,
         ],
       );
-      const briefingId = result.rows[0]?.briefing_id ?? edition.briefingId;
       if (recipients.length > 0)
         await client.query(
           `INSERT INTO briefing_deliveries(principal_id, briefing_id)
            SELECT recipient, $2::uuid
            FROM unnest($1::char(64)[]) AS recipient
            ON CONFLICT (principal_id, briefing_id) DO NOTHING`,
-          [recipients, briefingId],
+          [recipients, edition.briefingId],
         );
       await client.query("COMMIT");
     } catch (error) {
@@ -1587,26 +1834,35 @@ export class PostgresAccountStore implements AccountStore {
                 e.generated_at, e.payload, d.read_at
          FROM briefing_deliveries d
          JOIN briefing_editions e ON e.briefing_id = d.briefing_id
+         JOIN briefing_watchlist_items w
+           ON w.principal_id = d.principal_id
+          AND w.symbol = e.symbol
+          AND w.active = true
+          AND e.generated_at >= w.created_at
          WHERE d.principal_id = $1 AND e.locale = $2
          ORDER BY e.market_date DESC, e.generated_at DESC
          LIMIT $3`,
         [principalId, locale, Math.max(1, Math.min(90, limit))],
       );
       return Object.freeze(
-        result.rows.map((row) => ({
-          briefingId: row.briefing_id,
-          symbol: row.symbol,
-          company: row.company,
-          locale,
-          marketDate: new Date(row.market_date).toISOString().slice(0, 10),
-          generatedAt: new Date(row.generated_at).toISOString(),
-          status: row.payload.status,
-          attention: row.payload.attention,
-          headline: row.payload.headline,
-          summary: row.payload.summary,
-          price: row.payload.price,
-          unread: row.read_at === null,
-        })),
+        result.rows.map((row) => {
+          const nextEarnings = nextEarningsFor(row.payload);
+          return {
+            briefingId: row.briefing_id,
+            symbol: row.symbol,
+            company: row.company,
+            locale,
+            marketDate: new Date(row.market_date).toISOString().slice(0, 10),
+            generatedAt: new Date(row.generated_at).toISOString(),
+            status: row.payload.status,
+            attention: row.payload.attention,
+            headline: row.payload.headline,
+            summary: row.payload.summary,
+            price: row.payload.price,
+            ...(nextEarnings === undefined ? {} : { nextEarnings }),
+            unread: row.read_at === null,
+          };
+        }),
       );
     } catch (error) {
       throw new AccountStoreUnavailableError("BRIEFING_LIST_FAILED", {
@@ -1624,6 +1880,11 @@ export class PostgresAccountStore implements AccountStore {
         `SELECT e.payload
          FROM briefing_deliveries d
          JOIN briefing_editions e ON e.briefing_id = d.briefing_id
+         JOIN briefing_watchlist_items w
+           ON w.principal_id = d.principal_id
+          AND w.symbol = e.symbol
+          AND w.active = true
+          AND e.generated_at >= w.created_at
          WHERE d.principal_id = $1 AND d.briefing_id = $2`,
         [principalId, briefingId],
       );

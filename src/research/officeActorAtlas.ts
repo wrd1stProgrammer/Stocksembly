@@ -24,9 +24,9 @@ const walkRows: Readonly<Record<Direction, number>> = {
   up: 3,
 };
 
-// The sprite sheet contains dedicated left and right profile rows.  Their
-// authored stride already travels toward the named direction; reversing the
-// left row makes the lead foot move backward and reads as a moonwalk.
+// Image output consistently authors the right-facing profile on row 1 and
+// the left-facing profile on row 2. Keep the runtime map tied to the visible
+// nose/toe direction, not to prompt wording or row order.
 const walkColumns: Readonly<Record<Direction, readonly number[]>> = {
   down: Object.freeze([0, 1, 2, 1]),
   left: Object.freeze([0, 1, 2, 1]),

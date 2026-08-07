@@ -20,9 +20,16 @@ export function mergeOfficeTrafficActor(
   input: OfficeTrafficMergeInput,
 ): OfficeSimulationActor {
   const { actor, trafficActor, reservation, tick } = input;
-  const moved = reservation !== undefined;
+  const motionKey = (motion: OfficeTrafficActor["motion"]): string | null =>
+    motion === null
+      ? null
+      : `${officeCellKey(motion.from)}>${officeCellKey(motion.to)}`;
+  const motionChanged =
+    motionKey(actor.motion) !== motionKey(trafficActor.motion);
+  const finishedMotion = actor.motion !== null && trafficActor.motion === null;
+  const moving = trafficActor.motion !== null;
   const navigationChanged =
-    moved ||
+    motionChanged ||
     actor.waitTicks !== trafficActor.waitTicks ||
     actor.failedReplans !== trafficActor.failedReplans ||
     actor.mode !== trafficActor.mode ||
@@ -31,17 +38,17 @@ export function mergeOfficeTrafficActor(
   const reached =
     officeCellKey(trafficActor.cell) ===
     officeCellKey(trafficActor.destination);
-  const action = moved
-    ? reached && trafficActor.originalDestination === null
+  const action = moving
+    ? actor.travelAction
+    : finishedMotion && reached && trafficActor.originalDestination === null
       ? "orient"
-      : actor.travelAction
-    : actor.action === "stand"
-      ? "stand"
-      : trafficActor.mode === "failed"
-        ? "idle"
-        : trafficActor.mode === "waiting" || trafficActor.waitTicks > 0
-          ? "stand"
-          : actor.action;
+      : actor.action === "stand"
+        ? "stand"
+        : trafficActor.mode === "failed"
+          ? "idle"
+          : trafficActor.mode === "waiting" || trafficActor.waitTicks > 0
+            ? "stand"
+            : actor.action;
   return {
     ...actor,
     ...trafficActor,
@@ -49,8 +56,10 @@ export function mergeOfficeTrafficActor(
     action,
     facing: reservation
       ? directionBetween(reservation.from, reservation.to)
-      : actor.facing,
+      : actor.motion
+        ? directionBetween(actor.motion.from, actor.motion.to)
+        : actor.facing,
     revision: navigationChanged ? actor.revision + 1 : actor.revision,
-    arrivedTick: moved && reached ? tick : actor.arrivedTick,
+    arrivedTick: finishedMotion && reached ? tick : actor.arrivedTick,
   };
 }

@@ -46,10 +46,14 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
   const accountStore = await createLiveAccountStore();
   const researchQueue = createLiveResearchQueue();
   const artifactArchive = createLiveS3ArtifactArchive();
+  const loopback = new Set(["localhost", "127.0.0.1", "[::1]"]).has(
+    publicOrigin.hostname,
+  );
+  const billingRequired = accountStore !== undefined || !loopback;
   return await createResearchApi({
     dataRoot: paths.root,
     databasePath: runtime.databasePath,
-    billingRequired: true,
+    billingRequired,
     allowedHost: publicOrigin.host,
     allowedOrigin: publicOrigin.origin,
     readiness: async () => {

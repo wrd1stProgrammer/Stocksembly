@@ -198,7 +198,7 @@ export function rejectMalformedAgentOutput(
       if (
         replacementBudget === 0 ||
         replacements >= CALL_BUDGET_POLICY.maxRequiredReplacements ||
-        logicalAttempts >= 2 ||
+        logicalAttempts >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact ||
         nextOrdinal > CALL_BUDGET_POLICY.maxPhysicalLaunches
       ) {
         database

@@ -10,6 +10,7 @@ import { SubscriptionModal } from "./components/billing/SubscriptionModal";
 import { Header } from "./components/Header";
 import { LandingOfficePreview } from "./components/LandingOfficePreview";
 import { LandingFooter, LandingSections } from "./components/LandingSections";
+import { MobileBottomNav } from "./components/MobileBottomNav";
 import { PrismRevealText } from "./components/PrismRevealText";
 import { LandingResearchRoomPreview } from "./components/researchRoom/LandingResearchRoomPreview";
 import { SearchConsole } from "./components/SearchConsole";
@@ -235,9 +236,11 @@ export function App() {
           ? storedLocale
           : undefined;
     if (initialLocale !== undefined) setLocale(initialLocale);
-    setSidebarCollapsed(
-      window.localStorage.getItem(SIGNED_IN_SIDEBAR_STORAGE_KEY) === "true",
+    const storedSidebarState = window.localStorage.getItem(
+      SIGNED_IN_SIDEBAR_STORAGE_KEY,
     );
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    setSidebarCollapsed(isMobile ? true : storedSidebarState === "true");
   }, []);
 
   useEffect(() => {
@@ -462,6 +465,7 @@ export function App() {
         <LandingSections locale={locale} />
       </main>
       <LandingFooter locale={locale} />
+      <MobileBottomNav activeItem="home" locale={locale} />
       <SubscriptionModal
         open={subscriptionModalOpen}
         locale={locale}

@@ -8,12 +8,14 @@ import {
 import type { Cell } from "./officeSceneManifest";
 import {
   compareTrafficActors,
+  type OfficeMotionSegment,
   type OfficeReservation,
   type OfficeTrafficActor,
   type OfficeTrafficState,
 } from "./officeTrafficV7State";
 
 export type {
+  OfficeMotionSegment,
   OfficeReservation,
   OfficeTrafficActor,
   OfficeTrafficActorInput,
@@ -24,6 +26,7 @@ export { createOfficeTraffic } from "./officeTrafficV7State";
 
 const WAIT_BEFORE_REPLAN_TICKS = 12;
 const FAILED_REPLANS_BEFORE_YIELD = 3;
+export const OFFICE_TRAFFIC_STEP_TICKS = 2;
 
 type OfficeReplanContext = {
   readonly grid: NavigationGrid;
@@ -38,7 +41,11 @@ function otherCells(
 ): readonly Cell[] {
   return actors
     .filter((candidate) => candidate.id !== actorId)
-    .map((candidate) => candidate.cell);
+    .flatMap((candidate) =>
+      candidate.motion
+        ? [candidate.cell, candidate.motion.to]
+        : [candidate.cell],
+    );
 }
 
 function resumeFromYield(
@@ -48,6 +55,7 @@ function resumeFromYield(
 ): OfficeTrafficActor {
   if (
     actor.mode !== "yielding" ||
+    actor.motion !== null ||
     actor.originalDestination === null ||
     officeCellKey(actor.cell) !== officeCellKey(actor.destination)
   ) {
@@ -92,12 +100,48 @@ function nextCell(
   grid: NavigationGrid,
   actor: OfficeTrafficActor,
 ): Cell | null {
-  if (!actor.ready || actor.mode === "arrived" || actor.mode === "failed") {
+  if (
+    actor.motion !== null ||
+    !actor.ready ||
+    actor.mode === "arrived" ||
+    actor.mode === "failed"
+  ) {
     return null;
   }
   const next = actor.route[actor.routeIndex + 1] ?? null;
   if (next === null || !canTraverse(grid, actor.cell, next)) return null;
   return next;
+}
+
+function reservationForMotion(
+  actorId: string,
+  motion: OfficeMotionSegment,
+): OfficeReservation {
+  return Object.freeze({ actorId, from: motion.from, to: motion.to });
+}
+
+function advanceMotion(actor: OfficeTrafficActor): OfficeTrafficActor {
+  if (actor.motion === null) return actor;
+  const elapsedTicks = actor.motion.elapsedTicks + 1;
+  if (elapsedTicks < actor.motion.durationTicks) {
+    return {
+      ...actor,
+      motion: { ...actor.motion, elapsedTicks },
+      ready: false,
+    };
+  }
+  const cell = actor.motion.to;
+  const routeIndex = actor.routeIndex + 1;
+  const arrived = officeCellKey(cell) === officeCellKey(actor.destination);
+  return {
+    ...actor,
+    cell,
+    routeIndex,
+    motion: null,
+    mode:
+      arrived && actor.originalDestination === null ? "arrived" : actor.mode,
+    ready: true,
+  };
 }
 
 function replanBlockedActor(context: OfficeReplanContext): OfficeTrafficActor {
@@ -172,16 +216,23 @@ export function stepOfficeTraffic(
   grid: NavigationGrid,
   state: OfficeTrafficState,
 ): OfficeTrafficState {
-  const resumed = state.actors
-    .map((actor) => resumeFromYield(grid, state.actors, actor))
+  const advanced = state.actors.map(advanceMotion);
+  const resumed = advanced
+    .map((actor) => resumeFromYield(grid, advanced, actor))
     .sort(compareTrafficActors);
   const occupancy = new Map(
     resumed.map((actor) => [officeCellKey(actor.cell), actor.id] as const),
   );
-  const reservations: OfficeReservation[] = [];
+  const reservations: OfficeReservation[] = resumed.flatMap((actor) =>
+    actor.motion ? [reservationForMotion(actor.id, actor.motion)] : [],
+  );
   const moved = new Map<string, OfficeTrafficActor>();
   const blockers = new Map<string, string | null>();
   for (const actor of resumed) {
+    if (actor.motion !== null) {
+      moved.set(actor.id, actor);
+      continue;
+    }
     const plannedDestination = actor.route[actor.routeIndex + 1] ?? null;
     const destination = nextCell(grid, actor);
     // Routes are authored by the grid, but keep the traffic layer as the
@@ -210,31 +261,40 @@ export function stepOfficeTraffic(
       continue;
     }
     const occupiedBy = occupancy.get(officeCellKey(destination));
+    const reservedBy = reservations.find(
+      (reservation) =>
+        officeCellKey(reservation.to) === officeCellKey(destination),
+    )?.actorId;
     const reversedBy = reservations.find(
       (reservation) =>
         officeCellKey(reservation.from) === officeCellKey(destination) &&
         officeCellKey(reservation.to) === officeCellKey(actor.cell),
     )?.actorId;
-    if (occupiedBy || reversedBy) {
-      blockers.set(actor.id, occupiedBy ?? reversedBy ?? null);
+    if (occupiedBy || reservedBy || reversedBy) {
+      blockers.set(actor.id, occupiedBy ?? reservedBy ?? reversedBy ?? null);
       moved.set(actor.id, actor);
       continue;
     }
-    occupancy.delete(officeCellKey(actor.cell));
-    occupancy.set(officeCellKey(destination), actor.id);
-    reservations.push({ actorId: actor.id, from: actor.cell, to: destination });
-    const routeIndex = actor.routeIndex + 1;
-    const arrived =
-      officeCellKey(destination) === officeCellKey(actor.destination);
+    reservations.push(
+      reservationForMotion(actor.id, {
+        from: actor.cell,
+        to: destination,
+        elapsedTicks: 0,
+        durationTicks: OFFICE_TRAFFIC_STEP_TICKS,
+      }),
+    );
     moved.set(actor.id, {
       ...actor,
-      cell: destination,
-      routeIndex,
+      motion: {
+        from: actor.cell,
+        to: destination,
+        elapsedTicks: 0,
+        durationTicks: OFFICE_TRAFFIC_STEP_TICKS,
+      },
       waitTicks: 0,
       failedReplans: 0,
-      mode:
-        arrived && actor.originalDestination === null ? "arrived" : actor.mode,
-      ready: true,
+      mode: actor.mode === "waiting" ? "moving" : actor.mode,
+      ready: false,
     });
   }
   const actors = resumed.map((actor) => {

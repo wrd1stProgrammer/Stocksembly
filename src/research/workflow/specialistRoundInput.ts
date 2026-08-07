@@ -231,13 +231,27 @@ function registeredValuesFor(
   assignment: SpecialistAssignmentV1,
   values: readonly ValueRecord[],
 ): readonly ValueRecord[] {
+  const allowedDatasets = new Set<string>(assignment.allowedDatasets);
   const counts = new Map<string, number>();
   const selected: ValueRecord[] = [];
   for (const value of [...values].reverse()) {
+    const providerDataset = value.metric.startsWith("provider_earnings.")
+      ? "insightsentry_calendar"
+      : value.metric.startsWith("provider_fundamental.")
+        ? "insightsentry_fundamentals"
+        : value.metric.startsWith("provider_quote.")
+          ? "insightsentry_quote"
+          : undefined;
     if (
       !assignment.allowedRightsSources.some(
         (source) => source === value.source,
       ) ||
+      (providerDataset !== undefined &&
+        !allowedDatasets.has(providerDataset) &&
+        !(
+          providerDataset === "insightsentry_quote" &&
+          allowedDatasets.has("market_bars")
+        )) ||
       (counts.get(value.metric) ?? 0) >= 6
     )
       continue;

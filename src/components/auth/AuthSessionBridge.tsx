@@ -15,7 +15,11 @@ export function AuthSessionBridge() {
     void getCurrentUser()
       .then(async () => {
         const changed = await syncResearchSession();
-        if (active && changed && pathname.startsWith("/research/")) {
+        const needsServerSession =
+          pathname.startsWith("/research/") ||
+          pathname === "/research-room" ||
+          pathname.startsWith("/research-room/");
+        if (active && changed && needsServerSession) {
           window.location.reload();
         }
       })

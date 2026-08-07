@@ -7,8 +7,9 @@ export const CALL_BUDGET_POLICY = {
   initialCollectionAttempts: 1,
   mandatoryFirstAttempts: 25,
   maxOptionalFollowups: 3,
-  maxRequiredReplacements: 5,
-  maxPhysicalLaunches: 34,
+  maxRequiredReplacements: 12,
+  maxPhysicalLaunches: 41,
+  maxAttemptsPerLogicalArtifact: 4,
 } as const;
 
 export const LaunchOutcomeSchema = z.enum([

@@ -75,7 +75,7 @@ export function nextWorkflowV1Action(
         event.type === "launch_finished" && event.logicalArtifactId === failed,
     ).length;
     if (
-      failureCount > 1 ||
+      failureCount >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact ||
       state.requiredReplacementCount >=
         CALL_BUDGET_POLICY.maxRequiredReplacements ||
       state.physicalLaunchCount >= CALL_BUDGET_POLICY.maxPhysicalLaunches

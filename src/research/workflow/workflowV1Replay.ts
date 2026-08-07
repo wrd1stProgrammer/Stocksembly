@@ -164,7 +164,8 @@ export function replayWorkflowV1(
       if (pending.get(event.ordinal) !== event.logicalArtifactId)
         return invalid("launch_outcome_mismatch", event.sequence);
       const count = (failed.get(event.logicalArtifactId) ?? 0) + 1;
-      if (count > 2) return invalid("replacement_repeated", event.sequence);
+      if (count > CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact)
+        return invalid("replacement_repeated", event.sequence);
       failed.set(event.logicalArtifactId, count);
       pending.delete(event.ordinal);
       launches = launches.map((launch) =>

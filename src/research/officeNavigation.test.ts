@@ -121,6 +121,39 @@ describe("office navigation", () => {
     ).toBe(true);
   });
 
+  it("keeps room wall cells blocked while preserving every doorway", () => {
+    for (const room of Object.values(OFFICE_SCENE_MANIFEST.rooms)) {
+      const doors = new Set(room.doors.map(officeCellKey));
+      const minX: number = room.bounds.min.x;
+      const maxX: number = room.bounds.max.x;
+      const minY: number = room.bounds.min.y;
+      const maxY: number = room.bounds.max.y;
+      for (let y = minY; y <= maxY; y += 1) {
+        for (let x = minX; x <= maxX; x += 1) {
+          const current = cell(x, y);
+          const boundary = x === minX || x === maxX || y === minY || y === maxY;
+          if (!boundary) continue;
+          const corridor = OFFICE_SCENE_MANIFEST.world.corridorBands.some(
+            (band) =>
+              x >= band.min.x &&
+              x <= band.max.x &&
+              y >= band.min.y &&
+              y <= band.max.y,
+          );
+          if (doors.has(officeCellKey(current)) || corridor) continue;
+          expect(isOfficeCellWalkable(OFFICE_NAVIGATION_GRID, current)).toBe(
+            false,
+          );
+        }
+      }
+      expect(
+        room.doors.every((door) =>
+          isOfficeCellWalkable(OFFICE_NAVIGATION_GRID, door),
+        ),
+      ).toBe(true);
+    }
+  });
+
   it("gives a contested next cell to stable lower roster index", () => {
     // Given
     const grid = createNavigationGrid({
@@ -233,8 +266,8 @@ describe("office navigation", () => {
     }
 
     // Then
-    expect(failedReplanTicks).toEqual([13, 25]);
-    expect(firstYieldTick).toBe(37);
+    expect(failedReplanTicks).toEqual([15, 27]);
+    expect(firstYieldTick).toBe(39);
     expect(observedSwap).toBe(false);
     expect(
       traffic.actors.map(({ id, cell: current }) => [id, current]),

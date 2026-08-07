@@ -27,7 +27,7 @@ describe("official workflow coordinator", () => {
     ).toBe("stage");
   });
 
-  it("terminalizes an accepted semantic audit with publication blockers", () => {
+  it("advances an accepted semantic audit after contradicted claims are removed", () => {
     expect(
       semanticAuditCoordinatorAction({
         artifactIds: ["audit-artifact"],
@@ -35,7 +35,7 @@ describe("official workflow coordinator", () => {
         incompleteReason: null,
         publishable: false,
       }),
-    ).toBe("terminalize");
+    ).toBe("advance");
   });
 
   it("preserves a stable editorial terminal code without generic retry exhaustion", () => {

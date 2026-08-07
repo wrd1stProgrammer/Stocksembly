@@ -35,14 +35,6 @@ export function routeRunnerFailure(
       return { kind: "incomplete", code: "cancelled" };
     case "output_invalid":
     case "tool_event":
-      if (context.retryClassification === "repair")
-        return {
-          kind: "incomplete",
-          code:
-            error.code === "tool_event"
-              ? "forbidden_tool_event_repair_exhausted"
-              : "invalid_model_output_repair_exhausted",
-        };
       return {
         kind: "repair",
         code:
@@ -56,10 +48,14 @@ export function routeRunnerFailure(
     case "inactivity_timeout":
     case "network_unavailable":
     case "rate_limited":
-      if (context.failures >= 1)
+      if (context.failures >= 2)
         return {
           kind: "attention",
-          code: "external_dependency_circuit_open",
+          code: "external_dependency_cooling_down",
+          retryAt: after(
+            context.now,
+            retryDelayMs(context.failures, context.random),
+          ),
           ...runner,
           ...(error.process === undefined
             ? {}

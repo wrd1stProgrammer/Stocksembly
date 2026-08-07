@@ -182,7 +182,11 @@ export function createSemanticAuditAttemptHandler(
             code: "semantic_audit_commit_rejected",
             retryAt: now(),
           }
-        : { kind: "incomplete", code: "semantic_audit_missing" };
+        : {
+            kind: "repair",
+            code: "semantic_audit_missing",
+            retryAt: now(),
+          };
     },
   };
 }

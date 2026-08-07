@@ -17,6 +17,10 @@ import type {
   WhopBillingStatus,
 } from "../../../lib/whop/contracts";
 import {
+  CREDIT_COSTS,
+  researchCreditCost,
+} from "../../../lib/whop/creditPolicy";
+import {
   createWhopCheckout,
   type WhopWebhookEvent,
 } from "../../../lib/whop/server";
@@ -31,7 +35,10 @@ import { enforceRequestPolicy } from "../http/requestPolicy";
 import { createResearchAuth, type ResearchAuth } from "../http/researchAuth";
 import { questionInputHash } from "../qa/questionAnswerContracts";
 import { collectQuestionMarketEvidence } from "../qa/questionMarketEvidence";
-import type { PublicReportLoader } from "./researchApiContracts";
+import {
+  type PublicReportLoader,
+  PublicRunSchema,
+} from "./researchApiContracts";
 import { createRun } from "./researchApiCreation";
 import { decodeRunCursor, encodeRunCursor } from "./researchApiCursor";
 import { ResearchApiRepository } from "./researchApiRepository";
@@ -41,6 +48,9 @@ import { ResearchCommandRepository } from "./researchCommandRepository";
 import { RunEventsSse } from "./runEventsSse";
 
 const UuidSchema = z.string().uuid();
+const RemoteRunListSchema = z.object({
+  runs: z.array(PublicRunSchema).readonly(),
+});
 
 export type CreateResearchApiOptions = {
   readonly dataRoot: string;
@@ -115,12 +125,22 @@ export interface ResearchApi {
         readonly result: "limit";
         readonly limit: number;
       }
+    | {
+        readonly authenticated: true;
+        readonly result: "change_limit";
+        readonly remaining: 0;
+      }
     | { readonly authenticated: true; readonly result: "forbidden" }
   >;
   readonly removeBriefingWatchlistItem: (
     request: Request,
     symbol: string,
-  ) => Promise<{ readonly authenticated: boolean; readonly removed: boolean }>;
+  ) => Promise<{
+    readonly authenticated: boolean;
+    readonly removed: boolean;
+    readonly changesRemaining?: number;
+    readonly limitReached?: boolean;
+  }>;
   readonly briefingDetail: (
     request: Request,
     briefingId: string,
@@ -268,21 +288,25 @@ async function listRuns(
   const cursor = decodeRunCursor(cursorRaw);
   if (cursorRaw !== null && cursor === undefined)
     return apiError(400, "CURSOR_INVALID");
+  let remoteValues: readonly z.infer<typeof PublicRunSchema>[] = [];
   if (context.options.accountStore === undefined) {
     const remote = await proxyAuthenticatedGet(
       request,
       `${url.pathname}${url.search}`,
     );
-    if (remote?.ok) return remote;
+    if (remote?.ok) {
+      const parsed = RemoteRunListSchema.safeParse(
+        await remote.json().catch(() => undefined),
+      );
+      if (parsed.success) remoteValues = parsed.data.runs;
+    }
   }
   const localValues = context.repository.listRuns(principal, limit + 1, cursor);
   const storedValues =
-    (await context.options.accountStore?.listResearchRuns?.(
-      principal,
-      limit + 1,
-      cursor,
-    )) ?? [];
-  const values = [...localValues, ...storedValues]
+    (await context.options.accountStore
+      ?.listResearchRuns?.(principal, limit + 1, cursor)
+      .catch(() => [])) ?? [];
+  const values = [...localValues, ...storedValues, ...remoteValues]
     .filter(
       (run, index, all) =>
         all.findIndex((candidate) => candidate.runId === run.runId) === index,
@@ -296,7 +320,9 @@ async function listRuns(
   const runs = values.slice(0, limit);
   await Promise.all(
     runs.map(async (run) => {
-      await context.options.accountStore?.recordResearchRun(principal, run);
+      await context.options.accountStore
+        ?.recordResearchRun(principal, run)
+        .catch(() => undefined);
     }),
   );
   const last = runs.at(-1);
@@ -413,6 +439,42 @@ async function dispatch(
     repository: context.commands,
     now: context.options.now ?? (() => new Date().toISOString()),
     createId: context.options.createId ?? randomUUID,
+    beforeRetry: async (parentRunId, childRunId) => {
+      const parent = context.repository.findRun(principal, parentRunId);
+      if (parent === undefined) return true;
+      const required = researchCreditCost(parent.researchTarget);
+      if (
+        context.options.billingRequired === true &&
+        context.options.accountStore?.reserveResearchCredits === undefined &&
+        context.options.accountStore?.checkCredits === undefined
+      )
+        throw new AccountStoreUnavailableError(
+          "ACCOUNT_STORE_REQUIRED_FOR_RETRY",
+        );
+      const available =
+        context.options.accountStore?.reserveResearchCredits === undefined
+          ? await context.options.accountStore?.checkCredits?.(
+              principal,
+              required,
+            )
+          : await context.options.accountStore.reserveResearchCredits(
+              principal,
+              childRunId,
+              required,
+            );
+      return available?.allowed ?? true;
+    },
+    releaseRetry: async (childRunId) => {
+      await context.options.accountStore?.releaseResearchCredits?.(
+        principal,
+        childRunId,
+      );
+    },
+    onRetry: async (childRunId) => {
+      const run = context.repository.findRun(principal, childRunId);
+      if (run !== undefined)
+        await context.options.accountStore?.recordResearchRun(principal, run);
+    },
     beforeQuestion: async () => {
       if (
         context.options.billingRequired === true &&
@@ -549,8 +611,20 @@ export async function createResearchApi(
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return { authenticated: false, tier: "free" };
-      if (options.accountStore === undefined)
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedGet(
+          request,
+          "/api/billing/status",
+        );
+        if (remote?.ok === true) {
+          const status = (await remote.json()) as WhopBillingStatus;
+          return {
+            authenticated: true,
+            tier: status.tier === "free" ? "free" : "paid",
+          };
+        }
         return { authenticated: true, tier: "free" };
+      }
       try {
         await options.accountStore.syncUser(
           authentication.principal,
@@ -576,6 +650,37 @@ export async function createResearchApi(
           remaining: 0,
           required: 0,
         };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          `/api/research-room/${encodeURIComponent(reportId)}/credit`,
+          { method: "POST" },
+        );
+        if (remote?.ok === true) {
+          const value = (await remote.json()) as CreditAvailability & {
+            readonly authenticated: boolean;
+          };
+          return value;
+        }
+        // Keep mixed-version split deployments usable while the dedicated
+        // consume endpoint rolls out. The account service remains the source
+        // of truth for the current balance; the idempotent debit endpoint is
+        // used as soon as it is available.
+        const billing = await proxyAuthenticatedGet(
+          request,
+          "/api/billing/status",
+        );
+        if (billing?.ok === true) {
+          const status = (await billing.json()) as WhopBillingStatus;
+          const required = CREDIT_COSTS.researchRoomView;
+          return {
+            authenticated: true,
+            allowed: status.credits.remaining >= required,
+            remaining: status.credits.remaining,
+            required,
+          };
+        }
+      }
       if (options.accountStore?.consumeResearchRoomCredit === undefined)
         return {
           authenticated: true,
@@ -839,7 +944,7 @@ export async function createResearchApi(
           "/api/briefings/watchlist",
           { method: "POST", body: item },
         );
-        if (remote?.ok === true)
+        if (remote !== undefined)
           return (await remote.json()) as Awaited<
             ReturnType<ResearchApi["addBriefingWatchlistItem"]>
           >;
@@ -860,9 +965,15 @@ export async function createResearchApi(
           result: result.kind,
           item: result.item,
         };
-      return result.kind === "limit"
-        ? { authenticated: true, result: "limit", limit: result.limit }
-        : { authenticated: true, result: "forbidden" };
+      if (result.kind === "limit")
+        return { authenticated: true, result: "limit", limit: result.limit };
+      if (result.kind === "change_limit")
+        return {
+          authenticated: true,
+          result: "change_limit",
+          remaining: result.remaining,
+        };
+      return { authenticated: true, result: "forbidden" };
     },
     async removeBriefingWatchlistItem(request, symbol) {
       const authentication = await context.auth.authenticate(request);
@@ -874,11 +985,10 @@ export async function createResearchApi(
           `/api/briefings/watchlist/${encodeURIComponent(symbol)}`,
           { method: "DELETE" },
         );
-        if (remote?.ok === true)
-          return (await remote.json()) as {
-            readonly authenticated: boolean;
-            readonly removed: boolean;
-          };
+        if (remote !== undefined)
+          return (await remote.json()) as Awaited<
+            ReturnType<ResearchApi["removeBriefingWatchlistItem"]>
+          >;
       }
       if (options.accountStore?.removeBriefingWatchlistItem === undefined)
         return { authenticated: true, removed: false };
@@ -888,10 +998,10 @@ export async function createResearchApi(
       );
       return {
         authenticated: true,
-        removed: await options.accountStore.removeBriefingWatchlistItem(
+        ...(await options.accountStore.removeBriefingWatchlistItem(
           authentication.principal.id,
           symbol,
-        ),
+        )),
       };
     },
     async briefingDetail(request, briefingId) {

@@ -357,7 +357,7 @@ describe("InsightSentry market adapter", () => {
     expect(fixture.requests).toHaveLength(3);
   });
 
-  it("caches company info for 30 days, actions for 7 days, and reports quote market state", async () => {
+  it("caches company info for one day, actions for 7 days, and reports quote market state", async () => {
     // Given
     const info = {
       code: "NASDAQ:NVDA",
@@ -366,6 +366,10 @@ describe("InsightSentry market adapter", () => {
       exchange: "NASDAQ",
       currency_code: "USD",
       status: "CLOSED",
+      earnings_release_date: 1_779_308_400,
+      earnings_release_next_date: 1_787_774_400,
+      earnings_per_share_fq: 1.87,
+      earnings_per_share_forecast_next_fq: 2.08,
       splits: [{ time: 1_717_977_600, factor: 10 }],
     };
     const fixture = fixtureClient([
@@ -395,6 +399,12 @@ describe("InsightSentry market adapter", () => {
     expect(company).toMatchObject({
       providerCode: "NASDAQ:NVDA",
       company: "NVIDIA Corporation",
+      earnings: {
+        epsActual: 1.87,
+        nextEpsForecast: 2.08,
+        latestReportAt: "2026-05-20T20:20:00.000Z",
+        nextReportAt: "2026-08-26T20:00:00.000Z",
+      },
     });
     expect(actions).toEqual([
       { occurredAt: "2024-06-10T00:00:00.000Z", splitFactor: 10 },
@@ -406,7 +416,7 @@ describe("InsightSentry market adapter", () => {
     });
     expect(
       fixture.requests.map(({ cacheTtlMilliseconds }) => cacheTtlMilliseconds),
-    ).toEqual([30 * 24 * 60 * 60 * 1_000, 7 * 24 * 60 * 60 * 1_000, 15_000]);
+    ).toEqual([24 * 60 * 60 * 1_000, 7 * 24 * 60 * 60 * 1_000, 15_000]);
     expect(fixture.requests[2]?.adjustmentFlags).toEqual({
       split: true,
       dadj: false,

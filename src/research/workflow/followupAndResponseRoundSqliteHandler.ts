@@ -54,9 +54,7 @@ export function createFollowupAndResponseAttemptHandler(
     attempt: WorkerAttempt,
     signal: AbortSignal,
     activity: () => void,
-  ): Promise<
-    "accepted" | "degraded" | "incomplete" | "repair"
-  > => {
+  ): Promise<"accepted" | "degraded" | "incomplete" | "repair"> => {
     const logicalArtifactId =
       context.workflowAuthority.logicalArtifactForAttempt(attempt.attemptId);
     const job =
@@ -140,8 +138,7 @@ export function createFollowupAndResponseAttemptHandler(
       runnerEvidence,
     );
     if (!recorded) return "incomplete";
-    if (candidate === undefined && job.stage === "follow_up")
-      return "degraded";
+    if (candidate === undefined && job.stage === "follow_up") return "degraded";
     const ids = generatedIds();
     const occurredAt = now();
     const committed = await retryRejectedCommit(
@@ -189,7 +186,11 @@ export function createFollowupAndResponseAttemptHandler(
             code: "owner_response_invalid_after_retry",
             retryAt: now(),
           }
-        : { kind: "incomplete", code: "followup_or_owner_response_missing" };
+        : {
+            kind: "repair",
+            code: "followup_or_owner_response_missing",
+            retryAt: now(),
+          };
     },
   };
 }

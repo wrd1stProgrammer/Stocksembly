@@ -10,6 +10,10 @@ import {
   forumAnchorFor,
 } from "./officeForumChoreographyV7";
 import {
+  OFFICE_MEETING_RELEASE_TICKS,
+  officeMeetingPhaseAt,
+} from "./officeMeetingChoreography";
+import {
   OFFICE_SCENE_MANIFEST,
   type OfficeDepartmentId,
   type OfficeManifestAgentId,
@@ -145,25 +149,24 @@ function visit(
   return ordered(directives);
 }
 
-function returning(
-  pairs: readonly VisitPair[],
+function representativesReady(
   revisionKey: string,
-  summarize: boolean,
 ): readonly OfficeActorDirective[] {
   const directives = seatedDirectives(revisionKey);
-  if (!summarize) return ordered(directives);
-  for (const pair of pairs) {
-    const department =
-      OFFICE_SCENE_MANIFEST.departments[pair.visitorDepartment];
-    const visitorId = department.representativeId;
-    const anchor = representativeAnchor(pair.visitorDepartment);
-    directives.set(visitorId, {
-      actorId: visitorId,
+  for (const department of Object.values(OFFICE_SCENE_MANIFEST.departments)) {
+    const representativeId = department.representativeId;
+    const anchor = department.talkAnchors.find(
+      (candidate) => candidate.agentId === representativeId,
+    );
+    if (!anchor)
+      throw new RangeError(`${representativeId} has no ready anchor`);
+    directives.set(representativeId, {
+      actorId: representativeId,
       destination: anchor.cell,
       facing: anchor.facing,
       terminalAction: "summarize",
       travelAction: "return",
-      revisionKey: `${revisionKey}-summary`,
+      revisionKey,
     });
   }
   return ordered(directives);
@@ -181,6 +184,36 @@ function gathering(revisionKey: string): readonly OfficeActorDirective[] {
       terminalAction: "idle",
       travelAction: "walk",
       revisionKey,
+    });
+  }
+  return ordered(directives);
+}
+
+function stagedGathering(tick: number): readonly OfficeActorDirective[] {
+  const directives = new Map(
+    representativesReady("representative-gathering-ready").map((directive) => [
+      directive.actorId,
+      directive,
+    ]),
+  );
+  const meetingPhase = officeMeetingPhaseAt(tick);
+  for (const member of OFFICE_SCENE_MANIFEST.roster) {
+    if (member.finalLocation !== "forum") continue;
+    const releaseTick = OFFICE_MEETING_RELEASE_TICKS[member.id];
+    if (releaseTick === undefined || tick < releaseTick) continue;
+    const anchor = forumAnchorFor(member.id);
+    directives.set(member.id, {
+      actorId: member.id,
+      destination: anchor.cell,
+      facing: anchor.facing,
+      terminalAction:
+        meetingPhase === "opening"
+          ? member.id === chair.id
+            ? "talk"
+            : "listen"
+          : "idle",
+      travelAction: "walk",
+      revisionKey: `representative-gathering-${member.id}-${meetingPhase}`,
     });
   }
   return ordered(directives);
@@ -206,23 +239,19 @@ export function officeDirectivesAt(
     case "department-talk":
       return departmentTalk();
     case "visit-wave-a":
-      return visit(VISIT_WAVE_A, `visit-a-${tick < 500 ? 0 : 1}`, tick >= 500);
+      return tick >= 540
+        ? representativesReady("return-a-approach")
+        : visit(VISIT_WAVE_A, `visit-a-${tick < 500 ? 0 : 1}`, tick >= 500);
     case "return-a":
-      return returning(
-        VISIT_WAVE_A,
-        `return-a-${tick < 688 ? 0 : 1}`,
-        tick < 688,
-      );
+      return representativesReady("return-a-summary");
     case "visit-wave-b":
-      return visit(VISIT_WAVE_B, `visit-b-${tick < 860 ? 0 : 1}`, tick >= 860);
+      return tick >= 900
+        ? representativesReady("return-b-approach")
+        : visit(VISIT_WAVE_B, `visit-b-${tick < 860 ? 0 : 1}`, tick >= 860);
     case "return-b":
-      return returning(
-        VISIT_WAVE_B,
-        `return-b-${tick < 1056 ? 0 : 1}`,
-        tick < 1056,
-      );
+      return representativesReady("return-b-summary");
     case "representative-gathering":
-      return gathering("representative-gathering");
+      return stagedGathering(tick);
     case "forum":
       return buildForumDirectives({
         baseDirectives: gathering("forum-base"),

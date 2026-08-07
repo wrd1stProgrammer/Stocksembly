@@ -22,7 +22,7 @@ export async function DELETE(
     parsed.data,
   );
   return NextResponse.json(result, {
-    status: result.authenticated ? 200 : 401,
+    status: !result.authenticated ? 401 : result.limitReached ? 409 : 200,
     headers: { "Cache-Control": "private, no-store" },
   });
 }

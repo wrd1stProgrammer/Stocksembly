@@ -460,23 +460,49 @@ export function deterministicMetadataRewrite(
   const rewritten = structuredClone(original) as {
     -readonly [K in keyof PrePublicationEditorialCandidate]: PrePublicationEditorialCandidate[K];
   };
+  const permittedNumbers = new Set(
+    request.permittedNumbers.map((value) => value.replaceAll(",", "")),
+  );
+  const repairText = (value: string): string =>
+    value
+      .replace(/(?<![\p{L}\p{N}])-?\d+(?:[.,]\d+)*(?:%|배)?/gu, (token) =>
+        permittedNumbers.has(token.replaceAll(",", "")) ? token : "",
+      )
+      .replace(/\$(?=\s|[,.!?]|$)/gu, "")
+      .replace(/\b(?:buy|sell)\s+now\b/giu, "review the position")
+      .replace(/guaranteed return/giu, "defined return assumption")
+      .replace(/(?:지금|즉시)\s*(?:매수|매도)/gu, "포지션 재검토")
+      .replace(/수익\s*보장/gu, "수익 가정")
+      .replace(/\s+([,.!?])/gu, "$1")
+      .replace(/\s+/gu, " ")
+      .trim();
+  rewritten.position = {
+    en: repairText(rewritten.position.en),
+    ko: repairText(rewritten.position.ko),
+  };
+  rewritten.rationale = {
+    en: repairText(rewritten.rationale.en),
+    ko: repairText(rewritten.rationale.ko),
+  };
   // This fallback is deliberately metadata-only. Prose quality must be
   // repaired by the evidence-owning model stage; appending labels or generic
   // sentences here created reader-visible AI slop without improving meaning.
   const sectionClaimOwners = new Set<string>();
-  rewritten.sections = rewritten.sections.map((section, index) => ({
+  rewritten.sections = rewritten.sections.map((section) => ({
     ...section,
+    text: {
+      en: repairText(section.text.en),
+      ko: repairText(section.text.ko),
+    },
     claimIds: section.claimIds.filter((claimId) => {
-      if (!request.fieldPaths.includes(`sections[${index}].claimIds`)) {
-        sectionClaimOwners.add(claimId);
-        return true;
-      }
+      if (!request.permittedClaimIds.includes(claimId)) return false;
       if (sectionClaimOwners.has(claimId)) return false;
       sectionClaimOwners.add(claimId);
       return true;
     }),
   }));
   const decisionKeys = new Set<string>();
+  const primaryClaimCounts = new Map<string, number>();
   rewritten.anticipatedQuestions = rewritten.anticipatedQuestions.map(
     (question, index) => {
       const path = `anticipatedQuestions[${index}].decisionKey`;
@@ -486,9 +512,30 @@ export function deterministicMetadataRewrite(
           ? `${question.decisionKey}:${question.questionId}`
           : question.decisionKey;
       decisionKeys.add(decisionKey);
-      return decisionKey === question.decisionKey
-        ? question
-        : { ...question, decisionKey };
+      const primaryClaimIds = question.primaryClaimIds.filter((claimId) => {
+        if (!request.permittedClaimIds.includes(claimId)) return false;
+        const count = primaryClaimCounts.get(claimId) ?? 0;
+        if (count >= ANTICIPATED_QUESTIONS_POLICY.maximumPerPrimaryClaim)
+          return false;
+        primaryClaimCounts.set(claimId, count + 1);
+        return true;
+      });
+      return {
+        ...question,
+        decisionKey,
+        question: {
+          en: repairText(question.question.en),
+          ko: repairText(question.question.ko),
+        },
+        answer: {
+          en: repairText(question.answer.en),
+          ko: repairText(question.answer.ko),
+        },
+        primaryClaimIds,
+        evidenceArtifactIds: question.evidenceArtifactIds.filter((id) =>
+          request.permittedEvidenceArtifactIds.includes(id),
+        ),
+      };
     },
   );
   return rewritten;

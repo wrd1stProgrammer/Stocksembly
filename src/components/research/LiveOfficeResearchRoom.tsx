@@ -337,6 +337,11 @@ export function LiveOfficeResearchRoom({
   }, [locale]);
 
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
     const symbol = projection.snapshot.run.symbol;
     if (findTicker(symbol) !== undefined) return;
     const controller = new AbortController();
@@ -417,8 +422,12 @@ export function LiveOfficeResearchRoom({
   }, [client]);
 
   useEffect(() => {
-    if (completed) setTranscriptOpen(true);
-  }, [completed]);
+    if (projection.state === "published") {
+      setTranscriptOpen(false);
+    } else {
+      setTranscriptOpen(true);
+    }
+  }, [projection.state]);
 
   const connectionIssue =
     projection.state === "connection-interrupted" ||
@@ -426,6 +435,20 @@ export function LiveOfficeResearchRoom({
     projection.state === "reauthenticating";
   const showReportNotice =
     projection.state === "published" && reportLoadState !== "idle";
+
+  const handleSidebarCollapsedChange = (collapsed: boolean): void => {
+    const nextOpen = !collapsed;
+    setSidebarOpen(nextOpen);
+    if (nextOpen && (completed || terminal)) setTranscriptOpen(false);
+  };
+
+  const handleTranscriptToggle = (): void => {
+    setTranscriptOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) setSidebarOpen(false);
+      return nextOpen;
+    });
+  };
 
   return (
     <div
@@ -479,8 +502,17 @@ export function LiveOfficeResearchRoom({
           defaultAgentIds={visibleAgents.map((agent) => agent.id)}
           history={history}
           locale={locale}
+          compactTitle={
+            completed
+              ? locale === "ko"
+                ? "최종 리서치 리포트"
+                : "FINAL RESEARCH REPORT"
+              : locale === "ko"
+                ? "실시간 리서치 룸"
+                : "LIVE RESEARCH ROOM"
+          }
           collapsed={!sidebarOpen}
-          onCollapsedChange={(collapsed) => setSidebarOpen(!collapsed)}
+          onCollapsedChange={handleSidebarCollapsedChange}
           onRunSelect={(runId, symbol) =>
             router.push(`/research/${symbol}?run=${runId}&lang=${locale}`)
           }
@@ -515,9 +547,22 @@ export function LiveOfficeResearchRoom({
             ? {}
             : { reportId: projection.snapshot.run.reportId })}
           reportVersion={report?.version ?? 1}
-          pendingAgentIds={activity.active}
+          pendingAgentIds={projection.snapshot.activeAgentIds ?? []}
           panelOpen={transcriptOpen}
-          onPanelToggle={() => setTranscriptOpen((open) => !open)}
+          onPanelToggle={handleTranscriptToggle}
+          onRetry={async () => {
+            const child = await projection.retry();
+            router.push(
+              `/research/${projection.snapshot.run.symbol}?run=${child.runId}&lang=${locale}`,
+            );
+          }}
+          {...(terminal
+            ? {}
+            : {
+                onCancel: async () => {
+                  await projection.cancel();
+                },
+              })}
         />
       </div>
       <span className="sr-only" data-testid="public-ledger">

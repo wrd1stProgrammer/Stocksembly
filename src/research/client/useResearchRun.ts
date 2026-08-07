@@ -147,7 +147,9 @@ export function useResearchRun(
           setState("reauthenticating");
           try {
             await optionsRef.current.client.bootstrapSession();
-            (optionsRef.current.reauthenticate ?? reloadAfterReauthentication)();
+            (
+              optionsRef.current.reauthenticate ?? reloadAfterReauthentication
+            )();
           } catch (bootstrapError) {
             if (bootstrapError instanceof Error) {
               setState("degraded");
@@ -187,12 +189,25 @@ export function useResearchRun(
 
   useEffect(() => {
     if (stateForRun(snapshot.run.status) !== "live") return;
-    const timer = window.setInterval(
-      () => void refreshSnapshot(false),
-      5_000,
-    );
+    const timer = window.setInterval(() => void refreshSnapshot(false), 5_000);
     return () => window.clearInterval(timer);
   }, [refreshSnapshot, snapshot.run.status]);
+
+  useEffect(() => {
+    const resyncWhenActive = () => {
+      if (document.visibilityState === "hidden") return;
+      if (stateForRun(snapshotRef.current.run.status) !== "live") return;
+      void refreshSnapshot(true);
+    };
+    window.addEventListener("online", resyncWhenActive);
+    window.addEventListener("pageshow", resyncWhenActive);
+    document.addEventListener("visibilitychange", resyncWhenActive);
+    return () => {
+      window.removeEventListener("online", resyncWhenActive);
+      window.removeEventListener("pageshow", resyncWhenActive);
+      document.removeEventListener("visibilitychange", resyncWhenActive);
+    };
+  }, [refreshSnapshot]);
 
   const createId = useCallback(
     () => (optionsRef.current.createId ?? crypto.randomUUID)(),
@@ -200,11 +215,16 @@ export function useResearchRun(
   );
   const cancel = useCallback(async () => {
     setState("cancelling");
-    await optionsRef.current.client.cancelRun(
-      snapshotRef.current.run.runId,
-      createId(),
-    );
-    await resync();
+    try {
+      await optionsRef.current.client.cancelRun(
+        snapshotRef.current.run.runId,
+        createId(),
+      );
+      await resync();
+    } catch (error) {
+      setState(stateForRun(snapshotRef.current.run.status));
+      throw error;
+    }
   }, [createId, resync]);
   const retry = useCallback(
     async () =>

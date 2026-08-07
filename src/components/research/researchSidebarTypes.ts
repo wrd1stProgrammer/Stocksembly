@@ -12,6 +12,7 @@ export type ResearchSidebarProps = {
   readonly defaultAgentIds: readonly AgentId[];
   readonly history: readonly ResearchHistoryGroup[];
   readonly locale: Locale;
+  readonly compactTitle?: string;
   readonly collapsed: boolean;
   readonly onCollapsedChange: (collapsed: boolean) => void;
   readonly onRunSelect?: (runId: string, symbol: string) => void;

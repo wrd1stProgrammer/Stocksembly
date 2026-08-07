@@ -38,8 +38,11 @@ type OfficeCameraInput = {
   readonly viewport: OfficeRendererViewport;
 };
 
-const CAMERA_PADDING = 64;
-const MAX_FOCUS_SCALE = 2;
+// Keep enough of the room visible that a change of speaker reads as a camera
+// reframe rather than a teleport.  The previous 2× crop magnified ordinary
+// one-cell motion and made department hand-offs feel frantic.
+const CAMERA_PADDING = 96;
+const MAX_FOCUS_SCALE = 1.45;
 const ACTOR_UI_TOP = ACTOR_ATLAS.footPivot.y + 20;
 const ACTOR_BOTTOM = ACTOR_ATLAS.frame.height - ACTOR_ATLAS.footPivot.y;
 

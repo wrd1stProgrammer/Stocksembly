@@ -20,10 +20,7 @@ import {
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
 import { publishDepartmentReportForRun } from "../server/persistence/sqlite/publishDepartmentReportForRun";
-import {
-  appendRunEvent,
-  transitionRun,
-} from "../server/persistence/sqlite/runRepository";
+import { transitionRun } from "../server/persistence/sqlite/runRepository";
 import { chairResumeReceiptExceptionAvailable } from "../workflow/chairResumePermit";
 import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
 import { createSqliteChallengeRound } from "../workflow/challengeRound";
@@ -32,6 +29,12 @@ import { createSqliteFollowupAndResponseRound } from "../workflow/followupAndRes
 import { createSqliteSemanticAudit } from "../workflow/semanticAudit";
 import { persistStructuralAudit } from "../workflow/structuralAuditPersistence";
 import { buildOfficialStructuralAuditInput } from "./officialStructuralAuditInput";
+import {
+  clearStageRecovery,
+  isRecoverableWorkflowFailure,
+  scheduleStageRecovery,
+  stageRecoveryState,
+} from "./workflowStageRecovery";
 
 type CoordinatorOptions = {
   readonly databasePath: string;
@@ -49,59 +52,6 @@ function reportBlocked(stage: string, reason: string): void {
   process.stderr.write(
     `${JSON.stringify({ kind: "workflow_stage_blocked", stage, reason })}\n`,
   );
-}
-
-function recordBlockedStage(
-  databasePath: string,
-  runId: string,
-  stage: string,
-  reason: string,
-  occurredAt: string,
-): void {
-  const database = new Database(databasePath);
-  try {
-    const code = `${stage}:${reason}`;
-    const run = z
-      .object({
-        status: z.string(),
-        lastCode: z.string().nullable(),
-      })
-      .safeParse(
-        database
-          .prepare(`SELECT runs.status,
-            json_extract(run_events.payload_json, '$.code') AS lastCode
-          FROM runs LEFT JOIN run_events
-            ON run_events.run_id = runs.run_id
-           AND run_events.sequence = runs.last_event_seq
-          WHERE runs.run_id = ?`)
-          .get(runId),
-      );
-    if (
-      !run.success ||
-      run.data.status !== "running" ||
-      run.data.lastCode === code
-    )
-      return;
-    reportBlocked(stage, reason);
-    appendRunEvent(database, {
-      runId: RunIdSchema.parse(runId),
-      event: {
-        eventId: EventIdSchema.parse(randomUUID()),
-        type: "runtime_status",
-        stateId: "retrying",
-        occurredAt,
-        payload: {
-          code,
-          summary: {
-            en: `The research team is automatically rechecking ${stage} inputs (${reason}).`,
-            ko: `${stage} 입력을 연구팀이 자동으로 다시 확인하고 있습니다 (${reason}).`,
-          },
-        },
-      },
-    });
-  } finally {
-    database.close();
-  }
 }
 
 function terminalizeLegacyPublication(
@@ -167,6 +117,7 @@ function terminalizeWorkflowFailure(
           .get(runId),
       );
     if (!row.success || row.data.status !== "running") return false;
+    const publicationOnlyFailure = stage === "report_publication";
     transitionRun(database, {
       runId: RunIdSchema.parse(runId),
       fromStatus: "running",
@@ -180,10 +131,15 @@ function terminalizeWorkflowFailure(
         occurredAt,
         payload: {
           code: workflowFailureCode(stage, reason),
-          summary: {
-            en: `Research stopped because ${stage} could not pass deterministic validation (${reason}).`,
-            ko: `${stage} 단계가 확정적 검증을 통과하지 못해 리서치를 종료했습니다 (${reason}).`,
-          },
+          summary: publicationOnlyFailure
+            ? {
+                en: "The analysis was completed, but the report could not be published. Finished analysis was preserved and no research credit was charged.",
+                ko: "분석은 완료됐지만 보고서를 발행하지 못했습니다. 완료된 분석은 보존되며 리서치 크레딧은 차감되지 않습니다.",
+              }
+            : {
+                en: "Research could not be completed. Finished stages were preserved and no research credit was charged.",
+                ko: "리서치를 완성하지 못했습니다. 완료된 단계는 보존되며 리서치 크레딧은 차감되지 않습니다.",
+              },
         },
       },
     });
@@ -191,6 +147,34 @@ function terminalizeWorkflowFailure(
   } finally {
     database.close();
   }
+}
+
+function recoverOrTerminalize(
+  databasePath: string,
+  runId: string,
+  stage: string,
+  reason: string,
+  occurredAt: string,
+): void {
+  if (!isRecoverableWorkflowFailure(reason)) {
+    terminalizeWorkflowFailure(databasePath, runId, stage, reason, occurredAt);
+    return;
+  }
+  const recovery = scheduleStageRecovery({
+    databasePath,
+    runId,
+    stage,
+    reason,
+    now: occurredAt,
+  });
+  if (recovery === "exhausted")
+    terminalizeWorkflowFailure(
+      databasePath,
+      runId,
+      stage,
+      "automatic_recovery_exhausted",
+      occurredAt,
+    );
 }
 
 export function workflowFailureCode(stage: string, reason: string): string {
@@ -213,12 +197,10 @@ export function semanticAuditCoordinatorAction(
   replay: SemanticAuditCoordinatorInput,
 ): "advance" | "stage" | "terminalize" {
   if (replay.publishable) return "advance";
-  if (
-    replay.artifactIds.length > 0 ||
-    replay.blockers.length > 0 ||
-    replay.incompleteReason === "replacement_exhausted"
-  )
-    return "terminalize";
+  // A material contradiction removes or downgrades the affected claim in the
+  // chair prompt; it must not discard the otherwise valid audit artifact.
+  if (replay.artifactIds.length > 0) return "advance";
+  if (replay.incompleteReason === "replacement_exhausted") return "terminalize";
   return "stage";
 }
 
@@ -243,12 +225,20 @@ function acceptedStructuralAudit(
   try {
     const row = StructuralAuditRowSchema.safeParse(
       database
-        .prepare(`SELECT artifact_id AS artifactId
-          FROM artifacts
-          WHERE run_id = ? AND logical_key = 'structural_audit:system'
-          ORDER BY created_at DESC
+        .prepare(`SELECT artifacts.artifact_id AS artifactId
+          FROM idempotency_records
+          JOIN artifacts ON artifacts.artifact_id = json_extract(
+            idempotency_records.result_json,
+            '$.structuralAuditArtifactId'
+          )
+          WHERE idempotency_records.scope = 'structural-audit'
+            AND idempotency_records.idempotency_key = ?
+            AND json_extract(idempotency_records.result_json,
+              '$.publishable') = 1
+            AND artifacts.run_id = ?
+            AND artifacts.logical_key = 'structural_audit:system'
           LIMIT 1`)
-        .get(runId),
+        .get(runId, runId),
     );
     return row.success ? row.data.artifactId : undefined;
   } finally {
@@ -355,34 +345,54 @@ export function createOfficialWorkflowCoordinator(
           }
           return;
         }
-        const published = await publishDepartmentReportForRun(
-          {
-            databasePath: options.databasePath,
-            cas: options.cas,
-            ...(options.now === undefined ? {} : { now: options.now }),
-          },
-          runId,
-        );
+        const departmentPublicationNow =
+          options.now?.() ?? new Date().toISOString();
+        if (
+          stageRecoveryState(
+            options.databasePath,
+            runId,
+            "department_report_publication",
+            departmentPublicationNow,
+          ) !== "ready"
+        )
+          return;
+        let published:
+          | { readonly kind: "published" }
+          | { readonly kind: "incomplete"; readonly reason: string };
+        try {
+          published = await publishDepartmentReportForRun(
+            {
+              databasePath: options.databasePath,
+              cas: options.cas,
+              ...(options.now === undefined ? {} : { now: options.now }),
+            },
+            runId,
+          );
+        } catch (error) {
+          reportBlocked(
+            "department_report_publication",
+            error instanceof Error ? error.message : "runtime_error",
+          );
+          published = {
+            kind: "incomplete",
+            reason: "publication_runtime_error",
+          };
+        }
         if (published.kind !== "published") {
-          const occurredAt = options.now?.() ?? new Date().toISOString();
-          if (
-            terminalizeWorkflowFailure(
-              options.databasePath,
-              runId,
-              "department_report_publication",
-              published.reason,
-              occurredAt,
-            )
-          )
-            return;
-          recordBlockedStage(
+          recoverOrTerminalize(
             options.databasePath,
             runId,
             "department_report_publication",
             published.reason,
-            occurredAt,
+            departmentPublicationNow,
           );
+          return;
         }
+        clearStageRecovery(
+          options.databasePath,
+          runId,
+          "department_report_publication",
+        );
         return;
       } finally {
         await departments.close();
@@ -457,6 +467,16 @@ export function createOfficialWorkflowCoordinator(
         runId,
       );
       if (structuralAuditArtifactId === undefined) {
+        const structuralNow = options.now?.() ?? new Date().toISOString();
+        if (
+          stageRecoveryState(
+            options.databasePath,
+            runId,
+            "structural_audit",
+            structuralNow,
+          ) !== "ready"
+        )
+          return;
         const structural = await persistStructuralAudit(
           {
             databasePath: options.databasePath,
@@ -469,25 +489,26 @@ export function createOfficialWorkflowCoordinator(
           structuralInput,
         );
         if (structural.kind !== "persisted") {
-          terminalizeWorkflowFailure(
+          recoverOrTerminalize(
             options.databasePath,
             runId,
             "structural_audit",
             structural.reason,
-            options.now?.() ?? new Date().toISOString(),
+            structuralNow,
           );
           return;
         }
         if (!structural.publishable) {
-          terminalizeWorkflowFailure(
+          recoverOrTerminalize(
             options.databasePath,
             runId,
             "structural_audit",
             "publication_blocked",
-            options.now?.() ?? new Date().toISOString(),
+            structuralNow,
           );
           return;
         }
+        clearStageRecovery(options.databasePath, runId, "structural_audit");
         structuralAuditArtifactId = ArtifactIdSchema.parse(
           structural.structuralAuditArtifactId,
         );
@@ -511,6 +532,16 @@ export function createOfficialWorkflowCoordinator(
         return;
       }
       if (semanticAction === "stage") {
+        const semanticNow = options.now?.() ?? new Date().toISOString();
+        if (
+          stageRecoveryState(
+            options.databasePath,
+            runId,
+            "semantic_audit",
+            semanticNow,
+          ) !== "ready"
+        )
+          return;
         const staged = await semantic.stage({
           runId,
           structuralAuditArtifactId: trustedStructuralAuditArtifactId,
@@ -519,15 +550,16 @@ export function createOfficialWorkflowCoordinator(
           ),
         });
         if (staged.kind === "blocked") {
-          terminalizeWorkflowFailure(
+          recoverOrTerminalize(
             options.databasePath,
             runId,
             "semantic_audit",
             staged.reason,
-            options.now?.() ?? new Date().toISOString(),
+            semanticNow,
           );
           return;
         }
+        clearStageRecovery(options.databasePath, runId, "semantic_audit");
         return;
       }
 
@@ -542,7 +574,7 @@ export function createOfficialWorkflowCoordinator(
           chairReplay.artifactIds.length > 0 ||
           chairReplay.incompleteReason === "replacement_exhausted"
         ) {
-          terminalizeWorkflowFailure(
+          recoverOrTerminalize(
             options.databasePath,
             runId,
             "chair_synthesis",
@@ -551,19 +583,40 @@ export function createOfficialWorkflowCoordinator(
           );
           return;
         }
+        const chairNow = options.now?.() ?? new Date().toISOString();
+        if (
+          stageRecoveryState(
+            options.databasePath,
+            runId,
+            "chair_synthesis",
+            chairNow,
+          ) !== "ready"
+        )
+          return;
         const staged = await chair.stage({ runId });
         if (staged.kind === "blocked") {
-          terminalizeWorkflowFailure(
+          recoverOrTerminalize(
             options.databasePath,
             runId,
             "chair_synthesis",
             staged.reason,
-            options.now?.() ?? new Date().toISOString(),
+            chairNow,
           );
           return;
         }
+        clearStageRecovery(options.databasePath, runId, "chair_synthesis");
         return;
       }
+      const reportPublicationNow = options.now?.() ?? new Date().toISOString();
+      if (
+        stageRecoveryState(
+          options.databasePath,
+          runId,
+          "report_publication",
+          reportPublicationNow,
+        ) !== "ready"
+      )
+        return;
       const accepted = acceptedChair(options.databasePath, runId);
       let published:
         | { readonly kind: "published" }
@@ -586,34 +639,37 @@ export function createOfficialWorkflowCoordinator(
           error.message.startsWith("editorial_quality_failed:")
         )
           published = { kind: "incomplete", reason: error.message };
-        else throw error;
+        else {
+          reportBlocked(
+            "report_publication",
+            error instanceof Error ? error.message : "runtime_error",
+          );
+          published = {
+            kind: "incomplete",
+            reason: "publication_runtime_error",
+          };
+        }
       }
       if (published.kind !== "published") {
-        const occurredAt = options.now?.() ?? new Date().toISOString();
         const reason = published.reason ?? "publication_incomplete";
         if (
           terminalizeLegacyPublication(
             options.databasePath,
             runId,
-            occurredAt,
-          ) ||
-          terminalizeWorkflowFailure(
-            options.databasePath,
-            runId,
-            "report_publication",
-            reason,
-            occurredAt,
+            reportPublicationNow,
           )
         )
           return;
-        recordBlockedStage(
+        recoverOrTerminalize(
           options.databasePath,
           runId,
           "report_publication",
           reason,
-          occurredAt,
+          reportPublicationNow,
         );
+        return;
       }
+      clearStageRecovery(options.databasePath, runId, "report_publication");
     } finally {
       await chair.close();
       await semantic.close();

@@ -25,8 +25,8 @@ import {
 } from "./insightSentryResearchSupport";
 
 const NEWS_TTL = 15 * 60 * 1_000;
-const MAX_RAW_ITEMS = 200;
-const MAX_WINDOW_ITEMS = 100;
+const MAX_RAW_ITEMS = 20;
+const MAX_WINDOW_ITEMS = 20;
 const MAX_EVENTS = 20;
 const MAX_EXCERPTS = 8;
 
@@ -46,10 +46,14 @@ export async function collectInsightSentryNews(input: {
   readonly companyName: string;
   readonly asOf: string;
   readonly existingEventKeys: readonly string[];
+  readonly recentDays?: number;
+  readonly allowArchiveFallback?: boolean;
 }): Promise<FamilyResult<NewsDataset>> {
   const disabled = withheldWhenDisabled<NewsDataset>(input.rollout, "news");
   if (disabled !== undefined) return disabled;
   try {
+    const recentDays = Math.min(7, Math.max(1, input.recentDays ?? 7));
+    const allowArchiveFallback = input.allowArchiveFallback ?? true;
     const requestWindow = async (startDaysAgo: number, endDaysAgo: number) => {
       const window = windowDates(input.asOf, startDaysAgo, endDaysAgo);
       return await input.client.get({
@@ -57,7 +61,6 @@ export async function collectInsightSentryNews(input: {
         pathSegments: ["newsfeed"],
         parameters: {
           related_symbols: input.symbol,
-          keywords: input.companyName,
           limit: MAX_WINDOW_ITEMS,
           page: 1,
           archive: startDaysAgo > 7,
@@ -69,7 +72,7 @@ export async function collectInsightSentryNews(input: {
         cacheTtlMilliseconds: NEWS_TTL,
       });
     };
-    const recent = await requestWindow(7, 0);
+    const recent = await requestWindow(recentDays, 0);
     let rawItems = recent.data.data.slice(0, MAX_WINDOW_ITEMS);
     let candidates = clusterNewsCandidates(deduplicateNewsItems(rawItems));
     let classifications = await classifyNewsCandidates(
@@ -95,10 +98,10 @@ export async function collectInsightSentryNews(input: {
     let calls: 1 | 2 = 1;
     let providerUpdatedAt = recent.data.last_update;
     let retrievedAt = recent.retrievedAt;
-    if (!hasUniqueMaterial) {
-      const older = await requestWindow(30, 8);
+    if (!hasUniqueMaterial && allowArchiveFallback) {
+      const older = await requestWindow(30, recentDays + 1);
       calls = 2;
-      rawItems = [...rawItems, ...older.data.data].slice(0, MAX_RAW_ITEMS);
+      rawItems = older.data.data.slice(0, MAX_RAW_ITEMS);
       candidates = clusterNewsCandidates(deduplicateNewsItems(rawItems));
       classifications = await classifyNewsCandidates(
         input.classifyNews,

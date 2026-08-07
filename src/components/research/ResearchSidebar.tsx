@@ -41,6 +41,7 @@ export function ResearchSidebar({
   company,
   history,
   locale,
+  compactTitle,
   collapsed,
   onCollapsedChange,
   onRunSelect,
@@ -83,6 +84,13 @@ export function ResearchSidebar({
     >
       <header className="research-sidebar__header">
         <Brand locale={locale} />
+        {compactTitle === undefined ? null : (
+          <span
+            className="research-sidebar__mobile-title"
+            data-title={compactTitle}
+            aria-hidden="true"
+          />
+        )}
         <button
           type="button"
           className="research-sidebar__panel-toggle"
@@ -110,9 +118,13 @@ export function ResearchSidebar({
       <div
         id="research-sidebar-content"
         data-scrolling={scrolling ? "true" : "false"}
-        hidden={collapsed}
+        aria-hidden={collapsed}
+        inert={collapsed ? true : undefined}
         onScroll={markScrolling}
       >
+        <div className="research-sidebar__drawer-brand">
+          <Brand locale={locale} />
+        </div>
         <section className="company-brief" aria-label={company.company}>
           <div>
             <span>{company.symbol}</span>

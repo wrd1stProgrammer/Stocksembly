@@ -12,7 +12,9 @@ import {
 
 export const DAY = 24 * 60 * 60 * 1_000;
 export const INSIGHTSENTRY_MARKET_CACHE_TTL = Object.freeze({
-  companyInfo: 30 * DAY,
+  // The same response carries the next earnings date and latest surprise.
+  // A month-long cache made that decision-relevant portion stale.
+  companyInfo: DAY,
   corporateActions: 7 * DAY,
   liveQuote: 15_000,
   subjectTechnicalSeries: 5 * 60 * 1_000,

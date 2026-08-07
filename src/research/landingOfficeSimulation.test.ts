@@ -19,7 +19,7 @@ describe("landing office simulation", () => {
     const moving = new Set<string>();
     const reseated = new Set<string>();
 
-    for (let tick = 0; tick < 240; tick += 1) {
+    for (let tick = 0; tick < 480; tick += 1) {
       state = stepLandingOfficeState(state);
       const snapshot = landingOfficeSnapshot(state);
       for (const actor of snapshot.actors) {

@@ -33,7 +33,7 @@ export function normalizeOfficeTraceFrame(frame: OfficeTraceFrame): string {
     .sort((left, right) => left.priority - right.priority)
     .map(
       (actor) =>
-        `${actor.id}:${actor.department}@${officeCellKey(actor.cell)}>${officeCellKey(actor.destination)}:${actor.action}:${actor.facing}:${actor.routeIndex}:${actor.revision}`,
+        `${actor.id}:${actor.department}@${officeCellKey(actor.cell)}>${officeCellKey(actor.destination)}:${actor.action}:${actor.facing}:${actor.routeIndex}:${actor.revision}:${actor.motion === null ? "still" : `${officeCellKey(actor.motion.from)}>${officeCellKey(actor.motion.to)}@${actor.motion.elapsedTicks}/${actor.motion.durationTicks}`}`,
     )
     .join("|");
   const reservations = [...frame.reservations]

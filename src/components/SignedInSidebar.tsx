@@ -38,6 +38,10 @@ import { CompanyLogo } from "./research/ResearchSidebar";
 type SignedInSidebarProps = {
   readonly locale: Locale;
   readonly collapsed: boolean;
+  readonly mobileContext?: {
+    readonly eyebrow: string;
+    readonly title: string;
+  };
   readonly onCollapsedChange: (collapsed: boolean) => void;
   readonly onLocaleChange: (locale: Locale) => void;
   readonly onSignedOut: () => void;
@@ -49,6 +53,7 @@ type SignedInSidebarProps = {
 export const SIGNED_IN_SIDEBAR_STORAGE_KEY =
   "stocksembly:signed-in-sidebar-collapsed";
 export const PREFERRED_LOCALE_STORAGE_KEY = "stocksembly:preferred-locale";
+const BRIEFINGS_READ_EVENT = "stocksembly:briefings-read";
 
 type LoadState = "loading" | "ready" | "failed";
 
@@ -84,6 +89,7 @@ function dateLabel(value: string, locale: Locale): string {
 export function SignedInSidebar({
   locale,
   collapsed,
+  mobileContext,
   onCollapsedChange,
   onLocaleChange,
   onSignedOut,
@@ -117,7 +123,11 @@ export function SignedInSidebar({
           const value = (await briefingResponse.json()) as {
             readonly unreadCount?: number;
           };
-          setBriefingUnread(Math.max(0, value.unreadCount ?? 0));
+          setBriefingUnread(
+            activeItem === "briefing-room"
+              ? 0
+              : Math.max(0, value.unreadCount ?? 0),
+          );
         }
         setLoadState("ready");
         return;
@@ -128,7 +138,7 @@ export function SignedInSidebar({
     if (process.env.NODE_ENV !== "production")
       console.error("SIDEBAR_RECENT_RESEARCH_LOAD_FAILED", lastError);
     setLoadState("failed");
-  }, [locale]);
+  }, [activeItem, locale]);
 
   useEffect(() => {
     void loadRuns();
@@ -153,6 +163,12 @@ export function SignedInSidebar({
       })
       .catch(() => undefined);
   }, [loadRuns]);
+
+  useEffect(() => {
+    const clearUnread = () => setBriefingUnread(0);
+    window.addEventListener(BRIEFINGS_READ_EVENT, clearUnread);
+    return () => window.removeEventListener(BRIEFINGS_READ_EVENT, clearUnread);
+  }, []);
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -224,6 +240,11 @@ export function SignedInSidebar({
     }).catch(() => undefined);
   }
 
+  function handleCollapsedChange(next: boolean) {
+    window.localStorage.setItem(SIGNED_IN_SIDEBAR_STORAGE_KEY, String(next));
+    onCollapsedChange(next);
+  }
+
   const profileAvatar = (
     <span className="signed-in-sidebar__profile-avatar">
       {profileImageUrl ? (
@@ -246,12 +267,19 @@ export function SignedInSidebar({
     <aside
       className="signed-in-sidebar"
       data-collapsed={collapsed ? "true" : "false"}
+      data-mobile-context={mobileContext === undefined ? undefined : "true"}
       aria-label={
         locale === "ko" ? "워크스페이스 사이드바" : "Workspace sidebar"
       }
     >
       <div className="signed-in-sidebar__top">
         <Brand locale={locale} />
+        {mobileContext === undefined ? null : (
+          <div className="signed-in-sidebar__mobile-context">
+            <span>{mobileContext.eyebrow}</span>
+            <strong>{mobileContext.title}</strong>
+          </div>
+        )}
         <button
           type="button"
           aria-expanded={!collapsed}
@@ -265,14 +293,7 @@ export function SignedInSidebar({
                 ? "Expand left sidebar"
                 : "Collapse left sidebar"
           }
-          onClick={() => {
-            const next = !collapsed;
-            window.localStorage.setItem(
-              SIGNED_IN_SIDEBAR_STORAGE_KEY,
-              String(next),
-            );
-            onCollapsedChange(next);
-          }}
+          onClick={() => handleCollapsedChange(!collapsed)}
         >
           <span className="signed-in-sidebar__toggle-brand" aria-hidden="true">
             <Image
@@ -288,306 +309,323 @@ export function SignedInSidebar({
         </button>
       </div>
 
-      <div
-        className="signed-in-sidebar__content"
-        id="signed-in-sidebar-content"
+      <button
+        type="button"
+        className="signed-in-sidebar__backdrop"
+        aria-label={locale === "ko" ? "사이드바 닫기" : "Close sidebar"}
         aria-hidden={collapsed}
-      >
-        <nav
-          className="signed-in-sidebar__nav"
-          aria-label={locale === "ko" ? "워크스페이스" : "Workspace"}
-        >
-          <Link
-            className={activeItem === "dashboard" ? "is-active" : undefined}
-            href={`/?lang=${locale}#product`}
-          >
-            <LayoutDashboard size={18} />
-            <span>{locale === "ko" ? "대시보드" : "Dashboard"}</span>
-          </Link>
-          <Link
-            className={activeItem === "research-room" ? "is-active" : undefined}
-            href={`/research-room?lang=${locale}`}
-          >
-            <LibraryBig size={18} />
-            <span>{locale === "ko" ? "리서치룸" : "Research room"}</span>
-          </Link>
-          <Link
-            className={activeItem === "briefing-room" ? "is-active" : undefined}
-            href={`/briefing-room?lang=${locale}`}
-          >
-            <BellRing size={18} />
-            <span>{locale === "ko" ? "브리핑룸" : "Briefing room"}</span>
-            {briefingUnread > 0 ? (
-              <small className="signed-in-sidebar__nav-badge">
-                {Math.min(99, briefingUnread)}
-              </small>
-            ) : null}
-          </Link>
-        </nav>
+        tabIndex={collapsed ? -1 : 0}
+        onClick={() => handleCollapsedChange(true)}
+      />
 
-        <section
-          className="signed-in-sidebar__history"
-          aria-labelledby="signed-in-history-title"
+      <div className="signed-in-sidebar__drawer">
+        <div
+          className="signed-in-sidebar__content"
+          id="signed-in-sidebar-content"
+          aria-hidden={collapsed}
         >
-          <header>
-            <span id="signed-in-history-title">
-              {locale === "ko" ? "최근 항목" : "Recent research"}
-            </span>
-            <Clock3 size={14} aria-hidden="true" />
-          </header>
-          {loadState === "loading" ? (
-            <div className="signed-in-sidebar__history-loading" role="status">
-              <i />
-              <i />
-              <span className="sr-only">
-                {locale === "ko"
-                  ? "최근 리서치 불러오는 중"
-                  : "Loading recent research"}
-              </span>
-            </div>
-          ) : loadState === "failed" ? (
-            <button type="button" onClick={() => void loadRuns()}>
-              {locale === "ko" ? "다시 시도" : "Try again"}
-            </button>
-          ) : historyGroups.length === 0 ? (
-            <p>
-              {locale === "ko"
-                ? "아직 리서치 기록이 없습니다."
-                : "No recent research"}
-            </p>
-          ) : (
-            <div className="signed-in-sidebar__history-groups">
-              {historyGroups.map((group) => (
-                <details key={group.symbol}>
-                  <summary>
-                    <CompanyLogo symbol={group.symbol} />
-                    <span>
-                      <strong>{group.symbol}</strong>
-                      <small>
-                        {group.runs.length}{" "}
-                        {locale === "ko" ? "개 분석" : "analyses"}
-                      </small>
-                    </span>
-                    <ChevronRight size={15} aria-hidden="true" />
-                  </summary>
-                  <ol>
-                    {group.runs.map((run) => (
-                      <li key={run.runId}>
-                        <Link
-                          href={`/research/${run.symbol}?run=${run.runId}&lang=${locale}`}
-                        >
-                          <Clock3 size={14} aria-hidden="true" />
-                          <span>
-                            <strong>{statusLabel(run.status, locale)}</strong>
-                            <time dateTime={run.createdAt}>
-                              {dateLabel(run.createdAt, locale)}
-                            </time>
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                </details>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      <footer className="signed-in-sidebar__footer">
-        <div className="signed-in-sidebar__profile-wrap" ref={profileWrapRef}>
-          <div className="signed-in-sidebar__profile-row">
-            <button
-              type="button"
-              className="signed-in-sidebar__profile-trigger"
-              aria-expanded={profileOpen}
-              aria-haspopup="menu"
-              aria-label={
-                locale === "ko" ? "계정 메뉴 열기" : "Open account menu"
-              }
-              onClick={() => setProfileOpen((open) => !open)}
+          <nav
+            className="signed-in-sidebar__nav"
+            aria-label={locale === "ko" ? "워크스페이스" : "Workspace"}
+          >
+            <Link
+              className={activeItem === "dashboard" ? "is-active" : undefined}
+              href={`/?lang=${locale}#product`}
             >
-              {profileAvatar}
-            </button>
-            {subscriptionTier === "free" ? (
-              onOpenSubscription ? (
-                <button
-                  type="button"
-                  className="signed-in-sidebar__upgrade-link"
-                  onClick={handleOpenSubscription}
-                >
-                  <CreditCard size={14} aria-hidden="true" />
-                  <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
-                </button>
-              ) : (
-                <Link
-                  className="signed-in-sidebar__upgrade-link"
-                  href={`/pricing?lang=${locale}`}
-                >
-                  <CreditCard size={14} aria-hidden="true" />
-                  <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
-                </Link>
-              )
-            ) : null}
-          </div>
-          {profileOpen ? (
-            <div className="signed-in-sidebar__profile-menu" role="menu">
-              <header>
+              <LayoutDashboard size={18} />
+              <span>{locale === "ko" ? "대시보드" : "Dashboard"}</span>
+            </Link>
+            <Link
+              className={
+                activeItem === "research-room" ? "is-active" : undefined
+              }
+              href={`/research-room?lang=${locale}`}
+            >
+              <LibraryBig size={18} />
+              <span>{locale === "ko" ? "리서치룸" : "Research room"}</span>
+            </Link>
+            <Link
+              className={
+                activeItem === "briefing-room" ? "is-active" : undefined
+              }
+              href={`/briefing-room?lang=${locale}`}
+            >
+              <BellRing size={18} />
+              <span>{locale === "ko" ? "브리핑룸" : "Briefing room"}</span>
+              {briefingUnread > 0 ? (
+                <small className="signed-in-sidebar__nav-badge">
+                  {Math.min(99, briefingUnread)}
+                </small>
+              ) : null}
+            </Link>
+          </nav>
+
+          <section
+            className="signed-in-sidebar__history"
+            aria-labelledby="signed-in-history-title"
+          >
+            <header>
+              <span id="signed-in-history-title">
+                {locale === "ko" ? "최근 항목" : "Recent research"}
+              </span>
+              <Clock3 size={14} aria-hidden="true" />
+            </header>
+            {loadState === "loading" ? (
+              <div className="signed-in-sidebar__history-loading" role="status">
+                <i />
+                <i />
+                <span className="sr-only">
+                  {locale === "ko"
+                    ? "최근 리서치 불러오는 중"
+                    : "Loading recent research"}
+                </span>
+              </div>
+            ) : loadState === "failed" ? (
+              <button type="button" onClick={() => void loadRuns()}>
+                {locale === "ko" ? "다시 시도" : "Try again"}
+              </button>
+            ) : historyGroups.length === 0 ? (
+              <p>
+                {locale === "ko"
+                  ? "아직 리서치 기록이 없습니다."
+                  : "No recent research"}
+              </p>
+            ) : (
+              <div className="signed-in-sidebar__history-groups">
+                {historyGroups.map((group) => (
+                  <details key={group.symbol}>
+                    <summary>
+                      <CompanyLogo symbol={group.symbol} />
+                      <span>
+                        <strong>{group.symbol}</strong>
+                        <small>
+                          {group.runs.length}{" "}
+                          {locale === "ko" ? "개 분석" : "analyses"}
+                        </small>
+                      </span>
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </summary>
+                    <ol>
+                      {group.runs.map((run) => (
+                        <li key={run.runId}>
+                          <Link
+                            href={`/research/${run.symbol}?run=${run.runId}&lang=${locale}`}
+                          >
+                            <Clock3 size={14} aria-hidden="true" />
+                            <span>
+                              <strong>{statusLabel(run.status, locale)}</strong>
+                              <time dateTime={run.createdAt}>
+                                {dateLabel(run.createdAt, locale)}
+                              </time>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <footer className="signed-in-sidebar__footer">
+          <div className="signed-in-sidebar__profile-wrap" ref={profileWrapRef}>
+            <div className="signed-in-sidebar__profile-row">
+              <button
+                type="button"
+                className="signed-in-sidebar__profile-trigger"
+                aria-expanded={profileOpen}
+                aria-haspopup="menu"
+                aria-label={
+                  locale === "ko" ? "계정 메뉴 열기" : "Open account menu"
+                }
+                onClick={() => setProfileOpen((open) => !open)}
+              >
                 {profileAvatar}
-                <strong>
-                  {identity ||
-                    (locale === "ko" ? "로그인 사용자" : "Signed-in user")}
-                </strong>
-              </header>
-              <div className="signed-in-sidebar__profile-menu-group">
-                {onOpenSubscription ? (
+              </button>
+              {subscriptionTier === "free" ? (
+                onOpenSubscription ? (
                   <button
                     type="button"
-                    className="signed-in-sidebar__subscription-action"
-                    role="menuitem"
+                    className="signed-in-sidebar__upgrade-link"
                     onClick={handleOpenSubscription}
                   >
-                    <CreditCard size={18} />
-                    <span>
-                      {subscriptionTier === "free"
-                        ? locale === "ko"
-                          ? "업그레이드"
-                          : "Upgrade"
-                        : subscriptionTier === "paid"
-                          ? locale === "ko"
-                            ? "구독 관리"
-                            : "Manage subscription"
-                          : locale === "ko"
-                            ? "멤버십 보기"
-                            : "View membership"}
-                    </span>
-                    <ChevronRight size={16} />
+                    <CreditCard size={14} aria-hidden="true" />
+                    <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
                   </button>
                 ) : (
-                  <Link href={`/pricing?lang=${locale}`} role="menuitem">
-                    <CreditCard size={18} />
-                    <span>
-                      {subscriptionTier === "free"
-                        ? locale === "ko"
-                          ? "업그레이드"
-                          : "Upgrade"
-                        : subscriptionTier === "paid"
+                  <Link
+                    className="signed-in-sidebar__upgrade-link"
+                    href={`/pricing?lang=${locale}`}
+                  >
+                    <CreditCard size={14} aria-hidden="true" />
+                    <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
+                  </Link>
+                )
+              ) : null}
+            </div>
+            {profileOpen ? (
+              <div className="signed-in-sidebar__profile-menu" role="menu">
+                <header>
+                  {profileAvatar}
+                  <strong>
+                    {identity ||
+                      (locale === "ko" ? "로그인 사용자" : "Signed-in user")}
+                  </strong>
+                </header>
+                <div className="signed-in-sidebar__profile-menu-group">
+                  {onOpenSubscription ? (
+                    <button
+                      type="button"
+                      className="signed-in-sidebar__subscription-action"
+                      role="menuitem"
+                      onClick={handleOpenSubscription}
+                    >
+                      <CreditCard size={18} />
+                      <span>
+                        {subscriptionTier === "free"
                           ? locale === "ko"
-                            ? "구독 관리"
-                            : "Manage subscription"
-                          : locale === "ko"
-                            ? "멤버십 보기"
-                            : "View membership"}
+                            ? "업그레이드"
+                            : "Upgrade"
+                          : subscriptionTier === "paid"
+                            ? locale === "ko"
+                              ? "구독 관리"
+                              : "Manage subscription"
+                            : locale === "ko"
+                              ? "멤버십 보기"
+                              : "View membership"}
+                      </span>
+                      <ChevronRight size={16} />
+                    </button>
+                  ) : (
+                    <Link href={`/pricing?lang=${locale}`} role="menuitem">
+                      <CreditCard size={18} />
+                      <span>
+                        {subscriptionTier === "free"
+                          ? locale === "ko"
+                            ? "업그레이드"
+                            : "Upgrade"
+                          : subscriptionTier === "paid"
+                            ? locale === "ko"
+                              ? "구독 관리"
+                              : "Manage subscription"
+                            : locale === "ko"
+                              ? "멤버십 보기"
+                              : "View membership"}
+                      </span>
+                      <ChevronRight size={16} />
+                    </Link>
+                  )}
+                  <Link href={`/?lang=${locale}#research`} role="menuitem">
+                    <UserRound size={18} />
+                    <span>{locale === "ko" ? "내 리서치" : "My research"}</span>
+                  </Link>
+                  <Link href={`/research-room?lang=${locale}`} role="menuitem">
+                    <LibraryBig size={18} />
+                    <span>
+                      {locale === "ko" ? "리서치룸" : "Research room"}
                     </span>
+                  </Link>
+                  <div className="signed-in-sidebar__language-entry">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      aria-haspopup="menu"
+                      aria-expanded={languageOpen}
+                      onClick={() => setLanguageOpen((open) => !open)}
+                    >
+                      <Languages size={18} />
+                      <span>{locale === "ko" ? "언어" : "Language"}</span>
+                      <small>{locale === "ko" ? "한국어" : "English"}</small>
+                      <ChevronRight size={16} />
+                    </button>
+                    {languageOpen ? (
+                      <div
+                        className="signed-in-sidebar__language-menu"
+                        role="menu"
+                        aria-label={
+                          locale === "ko" ? "언어 선택" : "Choose language"
+                        }
+                      >
+                        <p>
+                          {locale === "ko" ? "표시 언어" : "Display language"}
+                        </p>
+                        <button
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={locale === "ko"}
+                          onClick={() => void handleLocaleSelection("ko")}
+                        >
+                          <span>
+                            <strong>한국어</strong>
+                            <small>KO</small>
+                          </span>
+                          {locale === "ko" ? <Check size={15} /> : null}
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={locale === "en"}
+                          onClick={() => void handleLocaleSelection("en")}
+                        >
+                          <span>
+                            <strong>English</strong>
+                            <small>EN</small>
+                          </span>
+                          {locale === "en" ? <Check size={15} /> : null}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="signed-in-sidebar__profile-menu-group">
+                  <a href="mailto:kicoa24@gmail.com" role="menuitem">
+                    <CircleHelp size={18} />
+                    <span>{locale === "ko" ? "고객 지원" : "Support"}</span>
+                    <ChevronRight size={16} />
+                  </a>
+                  <Link href="/terms" role="menuitem">
+                    <FileText size={18} />
+                    <span>{copy[locale].footer.terms}</span>
                     <ChevronRight size={16} />
                   </Link>
-                )}
-                <Link href={`/?lang=${locale}#research`} role="menuitem">
-                  <UserRound size={18} />
-                  <span>{locale === "ko" ? "내 리서치" : "My research"}</span>
-                </Link>
-                <Link href={`/research-room?lang=${locale}`} role="menuitem">
-                  <LibraryBig size={18} />
-                  <span>{locale === "ko" ? "리서치룸" : "Research room"}</span>
-                </Link>
-                <div className="signed-in-sidebar__language-entry">
+                  <Link href="/privacy" role="menuitem">
+                    <ShieldCheck size={18} />
+                    <span>{copy[locale].footer.privacy}</span>
+                    <ChevronRight size={16} />
+                  </Link>
+                  <Link href="/disclaimer" role="menuitem">
+                    <Scale size={18} />
+                    <span>{copy[locale].footer.disclaimerLabel}</span>
+                    <ChevronRight size={16} />
+                  </Link>
+                  <Link href="/risk-disclosure" role="menuitem">
+                    <ShieldAlert size={18} />
+                    <span>{copy[locale].footer.risk}</span>
+                    <ChevronRight size={16} />
+                  </Link>
+                  <Link href={`/?lang=${locale}`} role="menuitem">
+                    <Home size={18} />
+                    <span>{locale === "ko" ? "홈" : "Home"}</span>
+                  </Link>
+                </div>
+                <div className="signed-in-sidebar__profile-menu-group">
                   <button
                     type="button"
+                    className="signed-in-sidebar__profile-logout"
                     role="menuitem"
-                    aria-haspopup="menu"
-                    aria-expanded={languageOpen}
-                    onClick={() => setLanguageOpen((open) => !open)}
+                    onClick={() => void handleSignOut()}
                   >
-                    <Languages size={18} />
-                    <span>{locale === "ko" ? "언어" : "Language"}</span>
-                    <small>{locale === "ko" ? "한국어" : "English"}</small>
-                    <ChevronRight size={16} />
+                    <LogOut size={18} />
+                    <span>{locale === "ko" ? "로그아웃" : "Sign out"}</span>
                   </button>
-                  {languageOpen ? (
-                    <div
-                      className="signed-in-sidebar__language-menu"
-                      role="menu"
-                      aria-label={
-                        locale === "ko" ? "언어 선택" : "Choose language"
-                      }
-                    >
-                      <p>
-                        {locale === "ko" ? "표시 언어" : "Display language"}
-                      </p>
-                      <button
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={locale === "ko"}
-                        onClick={() => void handleLocaleSelection("ko")}
-                      >
-                        <span>
-                          <strong>한국어</strong>
-                          <small>KO</small>
-                        </span>
-                        {locale === "ko" ? <Check size={15} /> : null}
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={locale === "en"}
-                        onClick={() => void handleLocaleSelection("en")}
-                      >
-                        <span>
-                          <strong>English</strong>
-                          <small>EN</small>
-                        </span>
-                        {locale === "en" ? <Check size={15} /> : null}
-                      </button>
-                    </div>
-                  ) : null}
                 </div>
               </div>
-              <div className="signed-in-sidebar__profile-menu-group">
-                <a href="mailto:kicoa24@gmail.com" role="menuitem">
-                  <CircleHelp size={18} />
-                  <span>{locale === "ko" ? "고객 지원" : "Support"}</span>
-                  <ChevronRight size={16} />
-                </a>
-                <Link href="/terms" role="menuitem">
-                  <FileText size={18} />
-                  <span>{copy[locale].footer.terms}</span>
-                  <ChevronRight size={16} />
-                </Link>
-                <Link href="/privacy" role="menuitem">
-                  <ShieldCheck size={18} />
-                  <span>{copy[locale].footer.privacy}</span>
-                  <ChevronRight size={16} />
-                </Link>
-                <Link href="/disclaimer" role="menuitem">
-                  <Scale size={18} />
-                  <span>{copy[locale].footer.disclaimerLabel}</span>
-                  <ChevronRight size={16} />
-                </Link>
-                <Link href="/risk-disclosure" role="menuitem">
-                  <ShieldAlert size={18} />
-                  <span>{copy[locale].footer.risk}</span>
-                  <ChevronRight size={16} />
-                </Link>
-                <Link href={`/?lang=${locale}`} role="menuitem">
-                  <Home size={18} />
-                  <span>{locale === "ko" ? "홈" : "Home"}</span>
-                </Link>
-              </div>
-              <div className="signed-in-sidebar__profile-menu-group">
-                <button
-                  type="button"
-                  className="signed-in-sidebar__profile-logout"
-                  role="menuitem"
-                  onClick={() => void handleSignOut()}
-                >
-                  <LogOut size={18} />
-                  <span>{locale === "ko" ? "로그아웃" : "Sign out"}</span>
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </footer>
+            ) : null}
+          </div>
+        </footer>
+      </div>
     </aside>
   );
 }

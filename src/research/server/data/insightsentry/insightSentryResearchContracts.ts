@@ -80,7 +80,7 @@ export type FundamentalsDataset = PitUnsafeDataset & {
   readonly unavailableSeriesIds: readonly string[];
 };
 
-export const NEWS_CLASSIFIER_MODEL = "gpt-5.6-terra" as const;
+export const NEWS_CLASSIFIER_MODEL = "gpt-5.6-luna" as const;
 export const NEWS_CLASSIFIER_REASONING = "low" as const;
 
 export type NewsClassifierCandidate = {
@@ -160,11 +160,28 @@ export type CalendarEvent = {
   readonly reportAt: string;
 };
 
+export type EarningsSnapshot = {
+  readonly latestReportAt?: string;
+  readonly nextReportAt?: string;
+  readonly currency?: string;
+  readonly epsActual?: number;
+  readonly epsForecast?: number;
+  readonly epsSurprise?: number;
+  readonly epsSurprisePercent?: number;
+  readonly nextEpsForecast?: number;
+  readonly revenueActual?: number;
+  readonly revenueForecast?: number;
+  readonly revenueSurprise?: number;
+  readonly revenueSurprisePercent?: number;
+  readonly nextRevenueForecast?: number;
+};
+
 export type CalendarDataset = PitUnsafeDataset & {
   readonly symbol: string;
   readonly windowStart: string;
   readonly windowEnd: string;
   readonly events: readonly CalendarEvent[];
+  readonly earnings?: EarningsSnapshot;
 };
 
 export type PeerRecord = {
@@ -240,6 +257,8 @@ export type InsightSentryResearchDataAdapter = {
     readonly companyName: string;
     readonly asOf: string;
     readonly existingEventKeys: readonly string[];
+    readonly recentDays?: number;
+    readonly allowArchiveFallback?: boolean;
   }) => Promise<FamilyResult<NewsDataset>>;
   readonly documents: (input: {
     readonly symbol: string;

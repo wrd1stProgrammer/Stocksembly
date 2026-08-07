@@ -907,6 +907,75 @@
   cursor: pointer;
 }
 
+.meeting-minutes__cancel {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--research-line);
+  border-radius: var(--research-radius-control);
+  color: var(--research-text-muted);
+  background: transparent;
+  font-size: var(--research-type-label);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.meeting-minutes__cancel:hover:not(:disabled) {
+  color: var(--research-text);
+  border-color: var(--research-line-strong);
+  background: var(--research-surface-raised);
+}
+
+.meeting-minutes__cancel:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.meeting-minutes__terminal {
+  margin: 20px 0 4px;
+  padding: 18px;
+  border: 1px solid var(--research-line-strong);
+  border-radius: var(--research-radius-md);
+  background: var(--research-surface-raised);
+}
+
+.meeting-minutes__terminal > span {
+  color: var(--research-text);
+  font-size: var(--research-type-body);
+  font-weight: 760;
+}
+
+.meeting-minutes__terminal > p {
+  margin: 8px 0 0;
+  color: var(--research-text-muted);
+  font-size: var(--research-type-label);
+  line-height: 1.65;
+}
+
+.meeting-minutes__terminal > button {
+  min-height: 34px;
+  margin-top: 14px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--research-radius-control);
+  color: var(--research-bg-deep);
+  background: var(--research-text);
+  font-size: var(--research-type-label);
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.meeting-minutes__terminal > button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.meeting-minutes__command-error {
+  margin: 8px 0 0;
+  color: #d99595;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .meeting-minutes__cursor {
   display: inline-block;
   width: 0.45em;

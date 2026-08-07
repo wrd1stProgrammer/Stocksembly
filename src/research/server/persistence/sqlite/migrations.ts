@@ -26,6 +26,8 @@ const migrationFiles = [
   "019_research_targets.sql",
   "020_research_profiles.sql",
   "021_research_room_views.sql",
+  "022_research_recovery.sql",
+  "023_research_call_budget_42.sql",
 ] as const;
 
 export type OrderedMigration = {

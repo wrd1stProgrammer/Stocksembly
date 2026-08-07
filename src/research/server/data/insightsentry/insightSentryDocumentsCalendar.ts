@@ -1,4 +1,4 @@
-import { ZodError } from "zod";
+import { ZodError, type z } from "zod";
 import {
   type InsightSentryClient,
   InsightSentryClientError,
@@ -6,6 +6,7 @@ import {
 import type {
   CalendarDataset,
   DocumentsDataset,
+  EarningsSnapshot,
   FamilyResult,
   InsightSentryResearchRollout,
 } from "./insightSentryResearchContracts";
@@ -18,6 +19,7 @@ import {
   familyFailure,
   isoDate,
   pitUnsafeTimestamps,
+  providerEpochToIso,
   unixSecondsToIso,
   withheldWhenDisabled,
 } from "./insightSentryResearchSupport";
@@ -28,6 +30,48 @@ const CALENDAR_TTL = 6 * 60 * 60 * 1_000;
 const MAX_DOCUMENTS = 3;
 const MAX_DOCUMENT_CHARACTERS = 12_000;
 const CALENDAR_WINDOW_DAYS = 90;
+
+function earningsSnapshot(
+  event: z.infer<typeof EarningsCalendarSchema>["data"][number],
+): EarningsSnapshot {
+  return Object.freeze({
+    latestReportAt: unixSecondsToIso(event.earnings_release_date),
+    nextReportAt: unixSecondsToIso(event.earnings_release_next_date),
+    ...(event.currency_code === undefined
+      ? {}
+      : { currency: event.currency_code }),
+    ...(event.earnings_per_share_fq === undefined
+      ? {}
+      : { epsActual: event.earnings_per_share_fq }),
+    ...(event.earnings_per_share_forecast_fq === undefined
+      ? {}
+      : { epsForecast: event.earnings_per_share_forecast_fq }),
+    ...(event.eps_surprise_fq === undefined
+      ? {}
+      : { epsSurprise: event.eps_surprise_fq }),
+    ...(event.eps_surprise_percent_fq === undefined
+      ? {}
+      : { epsSurprisePercent: event.eps_surprise_percent_fq }),
+    ...(event.earnings_per_share_forecast_next_fq === undefined
+      ? {}
+      : { nextEpsForecast: event.earnings_per_share_forecast_next_fq }),
+    ...(event.revenue_fq === undefined
+      ? {}
+      : { revenueActual: event.revenue_fq }),
+    ...(event.revenue_forecast_fq === undefined
+      ? {}
+      : { revenueForecast: event.revenue_forecast_fq }),
+    ...(event.revenue_surprise_fq === undefined
+      ? {}
+      : { revenueSurprise: event.revenue_surprise_fq }),
+    ...(event.revenue_surprise_percent_fq === undefined
+      ? {}
+      : { revenueSurprisePercent: event.revenue_surprise_percent_fq }),
+    ...(event.revenue_forecast_next_fq === undefined
+      ? {}
+      : { nextRevenueForecast: event.revenue_forecast_next_fq }),
+  });
+}
 
 export async function collectInsightSentryDocuments(input: {
   readonly client: InsightSentryClient;
@@ -131,8 +175,10 @@ export async function collectInsightSentryCalendar(input: {
     end.setUTCDate(end.getUTCDate() + CALENDAR_WINDOW_DAYS);
     const startSeconds = start.getTime() / 1_000;
     const endSeconds = end.getTime() / 1_000;
-    const events = response.data.data
-      .filter((event) => event.code === input.symbol)
+    const matching = response.data.data.filter(
+      (event) => event.code === input.symbol,
+    );
+    const events = matching
       .flatMap((event) =>
         [event.earnings_release_date, event.earnings_release_next_date].map(
           (reportAt) => ({
@@ -165,17 +211,20 @@ export async function collectInsightSentryCalendar(input: {
           reportAt: unixSecondsToIso(event.reportAt),
         }),
       );
+    const earnings =
+      matching[0] === undefined ? undefined : earningsSnapshot(matching[0]);
     return Object.freeze({
       status: "available",
       data: Object.freeze({
         symbol: input.symbol,
         ...pitUnsafeTimestamps(
-          unixSecondsToIso(response.data.last_update),
+          providerEpochToIso(response.data.last_update),
           response.retrievedAt,
         ),
         windowStart: isoDate(start),
         windowEnd: isoDate(end),
         events,
+        ...(earnings === undefined ? {} : { earnings }),
       }),
     });
   } catch (error) {

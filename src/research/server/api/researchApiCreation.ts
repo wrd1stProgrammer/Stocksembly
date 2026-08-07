@@ -24,7 +24,10 @@ type CreationContext = {
     >;
     readonly accountStore?: Pick<
       AccountStore,
-      "recordResearchRun" | "checkCredits"
+      | "recordResearchRun"
+      | "checkCredits"
+      | "reserveResearchCredits"
+      | "releaseResearchCredits"
     >;
     readonly researchQueue?: Pick<ResearchDispatchQueue, "enqueue">;
   };
@@ -93,7 +96,8 @@ export async function createRun(
   if (parsed.kind !== "accepted") return inputError(parsed.kind);
   if (
     context.options.billingRequired === true &&
-    context.options.accountStore?.checkCredits === undefined
+    context.options.accountStore?.checkCredits === undefined &&
+    context.options.accountStore?.reserveResearchCredits === undefined
   )
     return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
   const previous = context.repository.lookupIdempotency(
@@ -135,25 +139,43 @@ export async function createRun(
   ) {
     return apiError(507, "DISK_LOW");
   }
-  const creditCheck = await context.options.accountStore?.checkCredits?.(
-    principal,
-    researchCreditCost(parsed.request.researchTarget),
-  );
+  const createId = context.options.createId ?? randomUUID;
+  const ids = {
+    runId: createId(),
+    snapshotId: createId(),
+    jobId: createId(),
+    eventId: createId(),
+  };
+  const requiredCredits = researchCreditCost(parsed.request.researchTarget);
+  const creditCheck =
+    context.options.accountStore?.reserveResearchCredits === undefined
+      ? await context.options.accountStore?.checkCredits?.(
+          principal,
+          requiredCredits,
+        )
+      : await context.options.accountStore.reserveResearchCredits(
+          principal,
+          ids.runId,
+          requiredCredits,
+        );
   if (creditCheck !== undefined && !creditCheck.allowed)
     return apiError(402, "CREDITS_INSUFFICIENT");
-  const createId = context.options.createId ?? randomUUID;
-  const result = context.repository.create({
-    principalId: principal,
-    idempotencyKey: key,
-    request: parsed.request,
-    ids: {
-      runId: createId(),
-      snapshotId: createId(),
-      jobId: createId(),
-      eventId: createId(),
-    },
-    now: (context.options.now ?? (() => new Date().toISOString()))(),
-  });
+  let result: ReturnType<ResearchApiRepository["create"]>;
+  try {
+    result = context.repository.create({
+      principalId: principal,
+      idempotencyKey: key,
+      request: parsed.request,
+      ids,
+      now: (context.options.now ?? (() => new Date().toISOString()))(),
+    });
+  } catch (error) {
+    await context.options.accountStore?.releaseResearchCredits?.(
+      principal,
+      ids.runId,
+    );
+    throw error;
+  }
   switch (result.kind) {
     case "created":
     case "replayed":
@@ -165,8 +187,16 @@ export async function createRun(
         return apiError(503, "RESEARCH_QUEUE_UNAVAILABLE");
       return apiJson({ run: result.run }, 202);
     case "idempotency_conflict":
+      await context.options.accountStore?.releaseResearchCredits?.(
+        principal,
+        ids.runId,
+      );
       return apiError(409, "IDEMPOTENCY_CONFLICT");
     case "queue_full":
+      await context.options.accountStore?.releaseResearchCredits?.(
+        principal,
+        ids.runId,
+      );
       return apiError(503, "QUEUE_FULL");
   }
 }

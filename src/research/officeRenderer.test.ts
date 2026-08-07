@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ACTOR_ATLAS } from "./officeActorAtlas";
+import { officeAgentAssetPath } from "./officeAgentAssets";
 import type { OfficeActorAction } from "./officeChoreography";
 import {
   type OfficeRenderSnapshot,
@@ -254,7 +255,7 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(ethan?.zIndex).toBeGreaterThan(maya?.zIndex ?? Number.MAX_VALUE);
   });
 
-  it("fits desktop overview and focused active bounds with 64px padding inside the world", () => {
+  it("fits desktop overview and focused active bounds with calm room context inside the world", () => {
     // Given
     const overviewSnapshot = snapshotAt(40);
     const focusBase = snapshotAt(360);
@@ -300,8 +301,8 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(focus.activeBounds).toEqual({
       left: 0,
       top: 0,
-      right: 264,
-      bottom: 164,
+      right: 296,
+      bottom: 196,
     });
     expect(focus.visibleWorldBounds.left).toBeGreaterThanOrEqual(0);
     expect(focus.visibleWorldBounds.top).toBeGreaterThanOrEqual(0);
@@ -328,7 +329,7 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(focus.visibleWorldBounds.right).toBeGreaterThanOrEqual(280);
   });
 
-  it("derives all eleven actors and v7 paths without ticker-owned behavior", () => {
+  it("derives all twelve actors and v8 paths without ticker-owned behavior", () => {
     // Given
     const source = readFileSync(
       resolve(process.cwd(), "src/research/officeGame.ts"),
@@ -342,8 +343,7 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(rendered.actors).toHaveLength(OFFICE_SCENE_MANIFEST.roster.length);
     expect(
       rendered.actors.every(
-        (actor) =>
-          actor.assetPath === `/research/office-v7/agents/${actor.id}.png`,
+        (actor) => actor.assetPath === officeAgentAssetPath(actor.id),
       ),
     ).toBe(true);
     expect(source).not.toMatch(/app\.ticker\.add|moveAgent\(|elapsedMs\s*\+=/);
@@ -441,8 +441,8 @@ describe("manifest-derived office snapshot renderer", () => {
     }
   });
 
-  it("renders concurrent transcript bubbles without overlap and orients a conversation pair", () => {
-    const snapshot = snapshotAt(360);
+  it("renders remote transcript bubbles without making seated actors stand or face through walls", () => {
+    const snapshot = snapshotAt(40);
     const viewport = { width: 1376, height: 774 };
 
     const projection = renderOfficeSnapshot({
@@ -467,20 +467,63 @@ describe("manifest-derived office snapshot renderer", () => {
       (layout) => layout.bubble.visible,
     );
 
-    expect(market).toMatchObject({ action: "talk", bubble: { visible: true } });
-    expect(company).toMatchObject({
-      action: "listen",
+    expect(market).toMatchObject({
+      action: "seated-work",
+      visualPose: "seated-talk",
+      animation: "sit",
       bubble: { visible: true },
     });
-    expect(market?.facing).not.toBe(company?.facing);
+    expect(company).toMatchObject({
+      action: "seated-work",
+      visualPose: "seated-listen",
+      animation: "sit",
+      bubble: { visible: true },
+    });
+    expect(market?.facing).toBe("down");
+    expect(company?.facing).toBe("down");
     expect(layouts).toHaveLength(2);
     const [firstBubble, secondBubble] = layouts;
     if (firstBubble === undefined || secondBubble === undefined) {
       throw new TypeError("Expected two visible live bubbles");
     }
+    for (const layout of [firstBubble, secondBubble]) {
+      const centerX =
+        (layout.bubble.bounds.left + layout.bubble.bounds.right) / 2;
+      expect(Math.abs(centerX - layout.screenPosition.x)).toBeLessThanOrEqual(
+        40,
+      );
+      expect(layout.bubble.bounds.bottom).toBe(layout.bodyBounds.top - 1);
+    }
     expect(
       overlaps(firstBubble.bubble.bounds, secondBubble.bubble.bounds),
     ).toBe(false);
+  });
+
+  it("suppresses a live transcript while its actor is still travelling", () => {
+    const base = snapshotAt(40);
+    const travelling = updateActor(base, "market", (actor) => ({
+      ...actor,
+      action: "walk",
+      destination: Object.freeze({ x: actor.cell.x + 1, y: actor.cell.y }),
+      motion: Object.freeze({
+        from: actor.cell,
+        to: Object.freeze({ x: actor.cell.x + 1, y: actor.cell.y }),
+        elapsedTicks: 1,
+        durationTicks: 2,
+      }),
+    }));
+
+    const maya = renderOfficeSnapshot({
+      snapshot: travelling,
+      interpolation: 0.9,
+      reducedMotion: false,
+      cameraMode: "overview",
+      viewport: { width: 1376, height: 774 },
+      locale: "ko",
+      liveBubbles: [{ actorId: "market", message: "이동 중 대사" }],
+    }).actors.find((actor) => actor.id === "market");
+
+    expect(maya?.bubble).toEqual({ visible: false, message: "" });
   });
 
   it("keeps mobile active UI readable and fully frames active return actors", () => {

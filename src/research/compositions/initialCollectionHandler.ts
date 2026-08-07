@@ -23,6 +23,10 @@ import {
   WORKFLOW_V1_SPECIALIST_IDS,
 } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
+import {
+  SEC_IDENTITY_ERROR_CODES,
+  SecIdentityConfigError,
+} from "../server/data/sec/secIdentityConfig";
 import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
@@ -83,6 +87,32 @@ function after(value: string, milliseconds: number): string {
   return new Date(Date.parse(value) + milliseconds).toISOString();
 }
 
+const NON_RECOVERABLE_COLLECTION_CODES = new Set([
+  "sec_primary_filing_missing",
+  "sec_10k_missing",
+  "symbol_unsupported",
+  "identity_missing",
+]);
+
+function collectionFailure(
+  error: unknown,
+  now: string,
+):
+  | { readonly kind: "permanent"; readonly code: string }
+  | {
+      readonly kind: "transient";
+      readonly code: string;
+      readonly retryAt: string;
+    } {
+  const code = error instanceof Error ? error.message : "collection_failed";
+  const secIdentityFailure =
+    error instanceof SecIdentityConfigError ||
+    SEC_IDENTITY_ERROR_CODES.some((candidate) => code.startsWith(candidate));
+  return NON_RECOVERABLE_COLLECTION_CODES.has(code) || secIdentityFailure
+    ? { kind: "permanent", code }
+    : { kind: "transient", code, retryAt: after(now, 10_000) };
+}
+
 export function normalizeResearchQuestion(
   question: string,
 ): string | undefined {
@@ -140,7 +170,12 @@ function capabilities(
           licensed.find((item) => item.key === "current_market_data")?.state ??
           unavailable,
       },
-      { key: "consensus", state: unavailable },
+      {
+        key: "consensus",
+        state:
+          licensed.find((item) => item.key === "consensus")?.state ??
+          unavailable,
+      },
       {
         key: "professional_news",
         state:
@@ -195,18 +230,24 @@ export function createInitialCollectionHandler(
       );
       const collectionStartedAt =
         clock() < request.requested_at ? request.requested_at : clock();
-      store.transitionRun({
-        runId,
-        fromStatus: "running",
-        toStatus: "running",
-        nextJobs: [],
-        event: event(
-          "collection_started",
-          collectionStartedAt,
-          "Official SEC and macro evidence collection started.",
-          "SEC 및 공식 거시경제 근거 수집을 시작했습니다.",
-        ),
-      });
+      const collectionAlreadyStarted =
+        database
+          .prepare(`SELECT 1 FROM run_events
+            WHERE run_id = ? AND event_type = 'collection_started' LIMIT 1`)
+          .get(runId) !== undefined;
+      if (!collectionAlreadyStarted)
+        store.transitionRun({
+          runId,
+          fromStatus: "running",
+          toStatus: "running",
+          nextJobs: [],
+          event: event(
+            "collection_started",
+            collectionStartedAt,
+            "Official SEC and macro evidence collection started.",
+            "SEC 및 공식 거시경제 근거 수집을 시작했습니다.",
+          ),
+        });
       let collected: Awaited<ReturnType<typeof collectInitialEvidence>>;
       try {
         collected = await collectInitialEvidence({
@@ -218,17 +259,8 @@ export function createInitialCollectionHandler(
           researchProfile,
         });
       } catch (error) {
-        const code =
-          error instanceof Error ? error.message : "collection_failed";
-        return { kind: "permanent", code };
+        return collectionFailure(error, clock());
       }
-      if (!collected.treasuryAvailable || !collected.blsAvailable)
-        return {
-          kind: "permanent",
-          code: !collected.treasuryAvailable
-            ? "required_treasury_collection_failed"
-            : "required_bls_collection_failed",
-        };
       const acquisitionClosedAt =
         clock() > collected.retrievedAt ? clock() : collected.retrievedAt;
       const evidenceCutoffAt = after(acquisitionClosedAt, 1);
@@ -417,7 +449,11 @@ export function createInitialCollectionHandler(
             ? evidence.normalized
             : evidence?.raw;
         if (artifact === undefined)
-          return { kind: "permanent", code: "source_artifact_missing" };
+          return {
+            kind: "repair",
+            code: "source_artifact_missing",
+            retryAt: clock(),
+          };
         const existing = store.findArtifactByContentHash(
           artifact.digest,
           attempt.snapshotId,

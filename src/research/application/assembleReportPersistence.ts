@@ -9,6 +9,7 @@ import {
   WorkflowV2ResearchReportSchema,
 } from "../domain/report";
 import { singleLocaleReportForStorage } from "../domain/reportStorage";
+import { normalizeReportNarrativeText } from "../domain/reportText";
 import {
   type ArtifactCasPort,
   type ArtifactDescriptor,
@@ -133,18 +134,64 @@ export async function persistAuthoritativeReport(
           ? section
           : {
               ...section,
-              body: gatedSection.text[locale],
+              body: normalizeReportNarrativeText(
+                gatedSection.text[locale],
+                section.body,
+              ),
               claimIds: gatedSection.claimIds,
             };
       });
+  const publicationQuestions = gated.candidate.anticipatedQuestions.map(
+    (question) => ({
+      ...question,
+      question: {
+        en: normalizeReportNarrativeText(
+          question.question.en,
+          "Which evidence would change the current assessment?",
+        ),
+        ko: normalizeReportNarrativeText(
+          question.question.ko,
+          "현재 판단을 바꿀 근거는 무엇입니까?",
+        ),
+      },
+      answer: {
+        en: normalizeReportNarrativeText(
+          question.answer.en,
+          "The assessment changes when the cited evidence no longer supports its primary claim.",
+        ),
+        ko: normalizeReportNarrativeText(
+          question.answer.ko,
+          "인용된 근거가 핵심 주장을 더 이상 지지하지 않으면 현재 판단을 다시 검토합니다.",
+        ),
+      },
+    }),
+  );
   const publicationReport = WorkflowV2ResearchReportSchema.parse({
     ...assembled.report,
     teamViews: assembled.report.teamViews.map((teamView, index) =>
       index === 0
         ? {
             ...teamView,
-            position: gated.candidate.position,
-            rationale: gated.candidate.rationale,
+            position: {
+              en: normalizeReportNarrativeText(
+                gated.candidate.position.en,
+                teamView.position.en,
+              ),
+              ko: normalizeReportNarrativeText(
+                gated.candidate.position.ko,
+                teamView.position.ko,
+              ),
+            },
+            rationale: {
+              en: normalizeReportNarrativeText(
+                gated.candidate.rationale.en,
+                teamView.rationale.en,
+              ),
+              ko: normalizeReportNarrativeText(
+                gated.candidate.rationale.ko,
+                teamView.rationale.ko,
+              ),
+            },
           }
         : teamView,
     ),
@@ -158,7 +205,7 @@ export async function persistAuthoritativeReport(
         sections: localizedSections("ko"),
       },
     },
-    anticipatedQuestions: gated.candidate.anticipatedQuestions,
+    anticipatedQuestions: publicationQuestions,
   });
   const reportArtifactId = ArtifactIdSchema.safeParse(input.reportArtifactId);
   const reportId = ReportIdSchema.safeParse(input.reportId);

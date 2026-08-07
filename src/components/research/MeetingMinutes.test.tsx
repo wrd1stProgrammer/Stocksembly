@@ -110,7 +110,7 @@ describe("MeetingMinutes", () => {
     );
   });
 
-  it("shows Dr. Park thinking after evidence audit until the next stage arrives", () => {
+  it("shows Dr. Park thinking only while the backend marks the chair job active", () => {
     const audit: ResearchEvent = {
       ...event(1),
       phase: "auditing",
@@ -125,13 +125,14 @@ describe("MeetingMinutes", () => {
         events={[audit]}
         locale="ko"
         isComplete={false}
+        pendingAgentIds={["chair"]}
         reportVersion={1}
       />,
     );
 
     expect(
       screen.getByRole("status", {
-        name: "박 의장이 감사 결과를 검토하고 있습니다",
+        name: "박 의장 에이전트가 데이터와 AI 응답을 검토하고 있습니다",
       }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("thinking-orb")).toHaveAttribute(
@@ -140,7 +141,7 @@ describe("MeetingMinutes", () => {
     );
     expect(
       document.querySelectorAll(".text-shimmer-wave__character"),
-    ).toHaveLength("Thinking...".length);
+    ).toHaveLength("분석 중...".length);
 
     rerender(
       <MeetingMinutes
@@ -148,14 +149,15 @@ describe("MeetingMinutes", () => {
         agents={agents}
         events={[audit]}
         locale="ko"
-        isComplete
+        isComplete={false}
+        pendingAgentIds={[]}
         reportVersion={1}
       />,
     );
 
     expect(
       screen.queryByRole("status", {
-        name: "박 의장이 감사 결과를 검토하고 있습니다",
+        name: "박 의장 에이전트가 데이터와 AI 응답을 검토하고 있습니다",
       }),
     ).not.toBeInTheDocument();
   });

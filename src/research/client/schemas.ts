@@ -2,6 +2,7 @@ import { z } from "zod";
 import { GroundedAnswerSchema } from "../domain/question";
 import { ResearchProfileSchema } from "../domain/researchProfile";
 import { ResearchTargetSchema } from "../domain/researchTarget";
+import { WorkflowActorIdSchema } from "../domain/roleRegistry";
 import { RUN_STATUS } from "../domain/runStateContracts";
 import { WORKFLOW_PUBLIC_EVENT_KINDS } from "../workflow/publicEventsContracts";
 
@@ -60,6 +61,7 @@ export const PublicRunDetailSchema = z
   .strictObject({
     run: PublicRunSchema,
     events: z.array(PublicResearchEventSchema).readonly(),
+    activeAgentIds: z.array(WorkflowActorIdSchema).readonly().optional(),
   })
   .readonly();
 

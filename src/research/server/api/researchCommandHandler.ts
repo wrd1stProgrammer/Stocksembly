@@ -29,6 +29,12 @@ type HandlerContext = {
   ) => Promise<QuestionGrounding | undefined>;
   readonly beforeQuestion?: () => Promise<boolean>;
   readonly onQuestion?: (question: PublicQuestion) => Promise<void>;
+  readonly beforeRetry?: (
+    parentRunId: string,
+    childRunId: string,
+  ) => Promise<boolean>;
+  readonly releaseRetry?: (childRunId: string) => Promise<void>;
+  readonly onRetry?: (childRunId: string) => Promise<void>;
 };
 
 async function commandBody(request: Request): Promise<unknown | Response> {
@@ -90,21 +96,54 @@ async function handleMutation(
   const body = await commandBody(context.request);
   if (body instanceof Response) return body;
   const command = commandContext(context, key);
-  if (target.kind === "cancel" || target.kind === "retry") {
+  if (target.kind === "cancel") {
     const parsed = parseEmptyCommand(body);
     if (!parsed.success) return apiError(400, "REQUEST_INVALID");
-    const result =
-      target.kind === "cancel"
-        ? context.repository.cancel(target.id, command)
-        : context.repository.retry(target.id, command);
+    const result = context.repository.cancel(target.id, command);
     if (result.kind !== "created" && result.kind !== "replayed")
       return commandFailure(result.kind);
     return apiJson(
       { run: result.value },
-      target.kind === "cancel" && result.value.status === "cancelled"
-        ? 200
-        : 202,
+      result.value.status === "cancelled" ? 200 : 202,
     );
+  }
+  if (target.kind === "retry") {
+    const parsed = parseEmptyCommand(body);
+    if (!parsed.success) return apiError(400, "REQUEST_INVALID");
+    const replay = context.repository.replayRetry(
+      target.id,
+      context.principalId,
+      key,
+    );
+    if (replay.kind === "conflict") return commandFailure("conflict");
+    if (replay.kind === "replayed") {
+      await context.onRetry?.(replay.value.runId);
+      return apiJson({ run: replay.value }, 202);
+    }
+    if (
+      context.beforeRetry !== undefined &&
+      !(await context.beforeRetry(target.id, command.ids.runId))
+    ) {
+      const lateReplay = context.repository.replayRetry(
+        target.id,
+        context.principalId,
+        key,
+      );
+      if (lateReplay.kind === "replayed") {
+        await context.onRetry?.(lateReplay.value.runId);
+        return apiJson({ run: lateReplay.value }, 202);
+      }
+      return apiError(402, "CREDITS_INSUFFICIENT");
+    }
+    const result = context.repository.retry(target.id, command);
+    if (result.kind !== "created" && result.kind !== "replayed") {
+      await context.releaseRetry?.(command.ids.runId);
+      return commandFailure(result.kind);
+    }
+    if (result.value.runId !== command.ids.runId)
+      await context.releaseRetry?.(command.ids.runId);
+    await context.onRetry?.(result.value.runId);
+    return apiJson({ run: result.value }, 202);
   }
   if (target.kind === "follow_up") {
     const parsed = parseFollowUpCommand(body);

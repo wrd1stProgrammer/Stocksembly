@@ -17,7 +17,10 @@ import {
   listPublicQuestions,
   replayResearchQuestion,
 } from "./researchQuestionCommands";
-import { retryResearchRun } from "./researchRunCommands";
+import {
+  replayResearchRunRetry,
+  retryResearchRun,
+} from "./researchRunCommands";
 
 export type ResearchCommandRepositoryOptions = {
   readonly databasePath: string;
@@ -48,6 +51,15 @@ export class ResearchCommandRepository {
 
   retry(runId: string, context: BaseContext): CommandResult<ChildRun> {
     return retryResearchRun(this.#database, runId, context);
+  }
+
+  replayRetry(runId: string, principalId: string, idempotencyKey: string) {
+    return replayResearchRunRetry(
+      this.#database,
+      runId,
+      principalId,
+      idempotencyKey,
+    );
   }
 
   followUp(

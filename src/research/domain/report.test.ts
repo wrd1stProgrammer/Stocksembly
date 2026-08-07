@@ -363,6 +363,26 @@ describe("ResearchReportSchema", () => {
     expect(ResearchReportSchema.safeParse(valid).success).toBe(true);
   });
 
+  it("allows cited current prices inside an evidence-bound narrative", () => {
+    const report = validReport();
+    const valid = {
+      ...report,
+      locales: {
+        ...report.locales,
+        en: {
+          ...report.locales.en,
+          sections: [
+            {
+              ...report.locales.en.sections[0],
+              body: "The current price is $311.29, below both cited four-hour moving averages.",
+            },
+          ],
+        },
+      },
+    };
+    expect(ResearchReportSchema.safeParse(valid).success).toBe(true);
+  });
+
   it("rejects invalid status and cross-lineage delta", () => {
     expect(
       ResearchReportSchema.safeParse({ ...validReport(), status: "completed" })

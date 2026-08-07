@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import { SemanticAuditOutputSchema } from "../domain/agentOutputs";
+import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, JobIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type { ArtifactCasPort } from "../ports/artifacts";
@@ -240,7 +241,7 @@ export class SemanticAuditSqliteAuthority {
     );
     const incompleteReason =
       payload === undefined
-        ? receipts.length >= 2
+        ? receipts.length >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
           ? "replacement_exhausted"
           : "semantic_artifact_missing"
         : null;

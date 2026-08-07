@@ -6,7 +6,10 @@ import {
   createOfficeSnapshotRenderer,
   type OfficeGameController,
 } from "../../research/officeGame";
-import { bubbleStateForSnapshot } from "../../research/officeGameBubbleState";
+import {
+  bubbleStateForSnapshot,
+  isActorReadyForSpeech,
+} from "../../research/officeGameBubbleState";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import {
@@ -162,13 +165,51 @@ export function PixelOfficeGame({
     () => concurrentSpeechEvents(currentEvent, events),
     [currentEvent, events],
   );
+  const conversationParticipantIds = useMemo(
+    () =>
+      currentEvent === undefined
+        ? []
+        : [
+            ...new Set([
+              currentEvent.agent,
+              ...(currentEvent.participantIds ?? []),
+            ]),
+          ],
+    [currentEvent],
+  );
+  const conversationReady = useMemo(
+    () =>
+      currentEvent !== undefined &&
+      snapshot !== undefined &&
+      conversationParticipantIds.every((actorId) => {
+        const actor = snapshot.actors.find(
+          (candidate) => candidate.id === actorId,
+        );
+        return actor !== undefined && isActorReadyForSpeech(actor);
+      }),
+    [conversationParticipantIds, currentEvent, snapshot],
+  );
+  const readySpeechEvents = useMemo(
+    () => (conversationReady ? speechEvents : []),
+    [conversationReady, speechEvents],
+  );
+  const conversation = useMemo(
+    () =>
+      currentEvent === undefined || !conversationReady
+        ? undefined
+        : {
+            speakerId: currentEvent.agent,
+            participantIds: conversationParticipantIds,
+          },
+    [conversationParticipantIds, conversationReady, currentEvent],
+  );
   const pendingRenderRef = useRef<PendingRender>({
     snapshot,
     previousSnapshot: renderPreviousSnapshot,
     interpolation: renderInterpolationAlpha,
     cameraMode,
     isPaused,
-    liveBubbles: speechEvents.map((event) => ({
+    liveBubbles: readySpeechEvents.map((event) => ({
       actorId: event.agent,
       message:
         event.id === currentEvent?.id
@@ -176,19 +217,7 @@ export function PixelOfficeGame({
             activityCopy(event.summary[locale], locale).headline)
           : activityCopy(event.summary[locale], locale).headline,
     })),
-    ...(currentEvent === undefined
-      ? {}
-      : {
-          conversation: {
-            speakerId: currentEvent.agent,
-            participantIds: [
-              ...new Set([
-                currentEvent.agent,
-                ...(currentEvent.participantIds ?? []),
-              ]),
-            ],
-          },
-        }),
+    ...(conversation === undefined ? {} : { conversation }),
   });
   const [rendererFailed, setRendererFailed] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -225,7 +254,7 @@ export function PixelOfficeGame({
     0;
   const liveBubbleStates = useMemo(
     () =>
-      speechEvents.map((event) => ({
+      readySpeechEvents.map((event) => ({
         actorId: event.agent,
         message:
           event.id === currentEvent?.id &&
@@ -239,33 +268,18 @@ export function PixelOfficeGame({
       currentEvent?.id,
       liveBubbleSegments,
       locale,
-      speechEvents,
+      readySpeechEvents,
     ],
   );
   const visibleBubbleCount =
-    liveBubbleStates.length > 0
+    currentEvent !== undefined
       ? liveBubbleStates.length
       : (snapshot?.actors.filter(
           (actor) => bubbleStateForSnapshot(actor, snapshot, locale).visible,
         ).length ?? 0);
-  const conversation = useMemo(
-    () =>
-      currentEvent === undefined
-        ? undefined
-        : {
-            speakerId: currentEvent.agent,
-            participantIds: [
-              ...new Set([
-                currentEvent.agent,
-                ...(currentEvent.participantIds ?? []),
-              ]),
-            ],
-          },
-    [currentEvent],
-  );
-
   useEffect(() => {
-    if (bubbleSegmentIndex >= liveBubbleSegments.length) return;
+    if (!conversationReady || bubbleSegmentIndex >= liveBubbleSegments.length)
+      return;
     const timer = window.setTimeout(
       () =>
         setBubblePlayback((current) => ({
@@ -278,7 +292,12 @@ export function PixelOfficeGame({
       2_800,
     );
     return () => window.clearTimeout(timer);
-  }, [bubbleSegmentIndex, bubbleSequenceKey, liveBubbleSegments]);
+  }, [
+    bubbleSegmentIndex,
+    bubbleSequenceKey,
+    conversationReady,
+    liveBubbleSegments,
+  ]);
 
   useEffect(() => {
     pendingRenderRef.current = {

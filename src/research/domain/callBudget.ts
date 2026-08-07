@@ -184,13 +184,19 @@ export function reserveResearchLaunch(
   const related = ledger.launches.filter(
     (launch) => launch.logicalArtifactId === request.logicalArtifactId,
   );
-  if (related.some((launch) => launch.purpose === "required_replacement"))
+  if (
+    related.filter((launch) => launch.purpose === "required_replacement")
+      .length >=
+    CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact - 1
+  )
     return incomplete(ledger, "replacement_already_used");
   const first = related.find((launch) => launch.purpose === "mandatory_first");
+  const latest = related.at(-1);
   if (
     first === undefined ||
-    first.outcome === "reserved" ||
-    first.outcome === "accepted"
+    latest === undefined ||
+    latest.outcome === "reserved" ||
+    latest.outcome === "accepted"
   )
     return incomplete(ledger, "replacement_not_needed");
   return appendLaunch(ledger, request);
@@ -220,7 +226,13 @@ export function recordResearchLaunchOutcome(
   };
   if (
     launch.purpose === "required_replacement" &&
-    request.outcome !== "accepted"
+    request.outcome !== "accepted" &&
+    ledger.launches.filter(
+      (candidate) =>
+        candidate.logicalArtifactId === launch.logicalArtifactId &&
+        candidate.purpose === "required_replacement",
+    ).length >=
+      CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact - 1
   )
     return incomplete(recorded, "second_failed_required_launch");
   if (

@@ -36,6 +36,25 @@ type CommandContext = {
   readonly ids: CommandIds;
 };
 
+export function replayResearchRunRetry(
+  database: Database.Database,
+  parentRunId: string,
+  principalId: string,
+  idempotencyKey: string,
+):
+  | { readonly kind: "missing" | "conflict" }
+  | { readonly kind: "replayed"; readonly value: ChildRun } {
+  const replay = replayCommand(
+    database,
+    `research-retry:${principalId}:${parentRunId}`,
+    idempotencyKey,
+    commandDigest({ parentRunId }),
+  );
+  return replay.kind === "replayed"
+    ? { kind: "replayed", value: ChildRunSchema.parse(replay.value) }
+    : replay;
+}
+
 function parentRow(
   database: Database.Database,
   principalId: string,

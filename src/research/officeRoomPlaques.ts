@@ -1,4 +1,5 @@
 import type { Locale } from "../lib/i18n";
+import { OFFICE_ENTITY_GEOMETRY } from "./officeEntityGeometry";
 import type { LocalizedPublicText, WorldPoint } from "./officeSceneManifest";
 
 export type OfficeRoomPlaqueSpec = {
@@ -17,32 +18,32 @@ export const OFFICE_ROOM_PLAQUES: readonly OfficeRoomPlaqueSpec[] =
   Object.freeze([
     {
       id: "market",
-      position: { x: 50, y: 476 },
-      size: { width: 238, height: 61 },
+      position: OFFICE_ENTITY_GEOMETRY.roomSigns.market,
+      size: OFFICE_ENTITY_GEOMETRY.roomSigns.market,
       accent: 0x5b82a5,
       name: { en: "MARKET", ko: "시장 분석" },
       scope: { en: "Market · News · Macro", ko: "시장 · 뉴스 · 거시경제" },
     },
     {
       id: "chair",
-      position: { x: 572, y: 188 },
-      size: { width: 244, height: 61 },
+      position: OFFICE_ENTITY_GEOMETRY.roomSigns.chair,
+      size: OFFICE_ENTITY_GEOMETRY.roomSigns.chair,
       accent: 0xc58a43,
       name: { en: "RESEARCH CHAIR", ko: "리서치 의장" },
       scope: { en: "Evidence audit · Synthesis", ko: "증거 감사 · 최종 종합" },
     },
     {
       id: "company",
-      position: { x: 1160, y: 482 },
-      size: { width: 174, height: 61 },
+      position: OFFICE_ENTITY_GEOMETRY.roomSigns.company,
+      size: OFFICE_ENTITY_GEOMETRY.roomSigns.company,
       accent: 0x4e9b91,
       name: { en: "COMPANY", ko: "기업 분석" },
       scope: { en: "Product · Moat", ko: "제품 · 경쟁력" },
     },
     {
       id: "financial",
-      position: { x: 50, y: 1018 },
-      size: { width: 250, height: 61 },
+      position: OFFICE_ENTITY_GEOMETRY.roomSigns.financial,
+      size: OFFICE_ENTITY_GEOMETRY.roomSigns.financial,
       accent: 0xb68c5a,
       name: { en: "FINANCIAL", ko: "재무 분석" },
       scope: {
@@ -52,8 +53,8 @@ export const OFFICE_ROOM_PLAQUES: readonly OfficeRoomPlaqueSpec[] =
     },
     {
       id: "risk",
-      position: { x: 760, y: 1018 },
-      size: { width: 244, height: 61 },
+      position: OFFICE_ENTITY_GEOMETRY.roomSigns.risk,
+      size: OFFICE_ENTITY_GEOMETRY.roomSigns.risk,
       accent: 0x8b6f93,
       name: { en: "RISK", ko: "리스크 분석" },
       scope: {

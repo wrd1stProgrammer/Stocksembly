@@ -14,6 +14,7 @@ import {
   COMMITTEE_RESEARCH_TARGET,
   ResearchTargetSchema,
 } from "../../domain/researchTarget";
+import type { WorkflowActorId } from "../../domain/roleRegistry";
 import { RunStatusSchema } from "../../domain/runStateContracts";
 
 export const NormalizedResearchRequestSchema = z
@@ -98,6 +99,7 @@ export type PublicResearchEvent = {
 export type PublicRunDetail = {
   readonly run: PublicRun;
   readonly events: readonly PublicResearchEvent[];
+  readonly activeAgentIds?: readonly WorkflowActorId[];
 };
 
 export type PublicReport = {

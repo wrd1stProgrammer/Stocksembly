@@ -1,9 +1,10 @@
-import { Container, Graphics } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type {
   OfficeFurnitureRenderState,
   OfficeSeatRenderState,
 } from "./officeGameFurniture";
 import type { OfficeFacing } from "./officeSceneManifest";
+import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import type { AgentId } from "./types";
 
 type SeatRuntime = {
@@ -14,6 +15,13 @@ type SeatRuntime = {
 export type OfficeFurnitureRuntime = {
   readonly apply: (states: readonly OfficeFurnitureRenderState[]) => void;
 };
+
+export function chairAssetPathForFacing(facing: OfficeFacing): string {
+  if (facing !== "up" && facing !== "down") {
+    throw new RangeError(`Work chairs only support vertical facing: ${facing}`);
+  }
+  return `${OFFICE_SCENE_MANIFEST.assets.entitiesRoot}/analyst-chair-${facing}.png`;
+}
 
 export function chairVisualForFacing(facing: OfficeFacing): {
   readonly backrestY: number;
@@ -30,28 +38,24 @@ export function chairVisualForFacing(facing: OfficeFacing): {
 }
 
 export function chairLayerOrderForFacing(facing: OfficeFacing): {
-  readonly rear: number;
+  readonly chair: number;
   readonly actor: number;
-  readonly front: number;
 } {
   if (facing !== "up" && facing !== "down") {
     throw new RangeError(`Work chairs only support vertical facing: ${facing}`);
   }
   return Object.freeze({
-    rear: -300,
+    // At a south-side seat the analyst faces away from the viewer, so the
+    // complete physical chair back belongs in front of the lower torso. A
+    // north-side chair remains behind the front-facing analyst.
+    chair: facing === "up" ? 300 : -300,
     actor: 0,
-    front: facing === "up" ? 300 : -200,
   });
 }
 
 export function chairRootOffsetYForFacing(facing: OfficeFacing): number {
-  if (facing === "up") return -13;
-  // The down-facing seated frame keeps its feet at the world pivot, but its
-  // hips sit roughly one cushion-height above it.  Keep the cushion under the
-  // hips and the backrest behind the torso; placing it at the foot pivot
-  // leaves the cushion under the tabletop and makes the actor look perched on
-  // the backrest.
-  if (facing === "down") return -20;
+  if (facing === "up") return -12;
+  if (facing === "down") return -16;
   throw new RangeError(`Work chairs only support vertical facing: ${facing}`);
 }
 
@@ -115,36 +119,34 @@ function tableFor(state: OfficeFurnitureRenderState): Container {
   return root;
 }
 
-function chairFor(seat: OfficeSeatRenderState): readonly Container[] {
+function chairFor(
+  seat: OfficeSeatRenderState,
+  textures: Readonly<Record<"up" | "down", Texture>>,
+): readonly Container[] {
   const rear = new Container();
-  const front = new Container();
-  const visual = chairVisualForFacing(seat.facing);
   const layers = chairLayerOrderForFacing(seat.facing);
-  const back = new Graphics()
-    .roundRect(-22, visual.backrestY, 44, 15, 7)
-    .fill({ color: 0x223446 })
-    .stroke({ color: 0x8295a8, width: 1.5 });
-  const cushion = new Graphics()
-    .roundRect(-19, visual.cushionY, 38, 27, 8)
-    .fill({ color: 0x3e5770 })
-    .stroke({ color: 0x1b2731, width: 1.5 });
-  const base = new Graphics()
-    .moveTo(-15, visual.baseY)
-    .lineTo(15, visual.baseY)
-    .moveTo(0, visual.baseY - 3)
-    .lineTo(0, visual.baseY + 10)
-    .moveTo(-12, visual.baseY + 10)
-    .lineTo(12, visual.baseY + 10)
-    .stroke({ color: 0x1b2731, width: 2 });
-  rear.addChild(base, cushion);
-  front.addChild(back);
+  if (seat.facing !== "up" && seat.facing !== "down") {
+    throw new RangeError(
+      `Work chairs only support vertical facing: ${seat.facing}`,
+    );
+  }
+  const chairTexture = textures[seat.facing];
+  const makeChairSprite = (): Sprite => {
+    const sprite = new Sprite(chairTexture);
+    // V9 entity preparation centers the visible chair, so the seat coordinate
+    // can use the texture center for both directions without lateral drift.
+    sprite.anchor.set(0.5);
+    sprite.width = 64;
+    sprite.height = 64;
+    sprite.roundPixels = true;
+    return sprite;
+  };
+  rear.addChild(makeChairSprite());
   const actorDepth = Math.round(seat.position.y * 1000);
   const rootOffsetY = chairRootOffsetYForFacing(seat.facing);
   rear.position.set(seat.position.x, seat.position.y + rootOffsetY);
-  rear.zIndex = actorDepth + layers.rear;
-  front.position.set(seat.position.x, seat.position.y + rootOffsetY);
-  front.zIndex = actorDepth + layers.front;
-  return Object.freeze([rear, front]);
+  rear.zIndex = actorDepth + layers.chair;
+  return Object.freeze([rear]);
 }
 
 function laptopFor(seat: OfficeSeatRenderState): Container {
@@ -179,16 +181,26 @@ function laptopFor(seat: OfficeSeatRenderState): Container {
   return root;
 }
 
-export function createOfficeFurnitureRuntime(
+export async function createOfficeFurnitureRuntime(
   world: Container,
   states: readonly OfficeFurnitureRenderState[],
-): OfficeFurnitureRuntime {
+): Promise<OfficeFurnitureRuntime> {
+  const [chairUpTexture, chairDownTexture] = await Promise.all([
+    Assets.load<Texture>(chairAssetPathForFacing("up")),
+    Assets.load<Texture>(chairAssetPathForFacing("down")),
+  ]);
+  chairUpTexture.source.scaleMode = "linear";
+  chairDownTexture.source.scaleMode = "linear";
+  const chairTextures = Object.freeze({
+    up: chairUpTexture,
+    down: chairDownTexture,
+  });
   const entries = states.map((state) => {
     const table = tableFor(state);
     world.addChild(table);
     const seats = new Map<AgentId, SeatRuntime>();
     for (const seat of state.seats) {
-      const chairParts = chairFor(seat);
+      const chairParts = chairFor(seat, chairTextures);
       const laptop = laptopFor(seat);
       laptop.zIndex = state.zIndex + 100;
       world.addChild(...chairParts, laptop);

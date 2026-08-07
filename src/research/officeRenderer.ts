@@ -1,9 +1,18 @@
 import type { Locale } from "../lib/i18n";
 import { ACTOR_ATLAS, actorFrame, actorWalkColumns } from "./officeActorAtlas";
+import { officeAgentAssetPath } from "./officeAgentAssets";
+import type { OfficeAgentVisualPose } from "./officeAgentVisualContract";
+import {
+  conversationRoleFor,
+  officeVisualPoseFor,
+  sharesPhysicalConversationSpace,
+} from "./officeAgentVisualState";
 import type { OfficeActorAction, OfficeBeatId } from "./officeChoreography";
-import { assertNeverOffice } from "./officeChoreographyV7Contract";
 import { facingToward } from "./officeFacingV7";
-import { bubbleStateForSnapshot } from "./officeGameBubbleState";
+import {
+  bubbleStateForSnapshot,
+  isActorReadyForSpeech,
+} from "./officeGameBubbleState";
 import {
   type OfficeCameraTransform,
   type OfficeRendererCameraMode,
@@ -34,6 +43,7 @@ export type OfficeRenderActor = {
   readonly revision: number;
   readonly world: WorldPoint;
   readonly facing: OfficeFacing;
+  readonly visualPose: OfficeAgentVisualPose;
   readonly animation: "idle" | "sit" | "walk";
   readonly frame: { readonly row: number; readonly columns: readonly number[] };
   readonly pivot: WorldPoint;
@@ -86,25 +96,12 @@ const seatedActorLayer = {
   right: 3,
 } as const satisfies Readonly<Record<OfficeFacing, number>>;
 
-function animationFor(action: OfficeActorAction): "idle" | "sit" | "walk" {
-  switch (action) {
-    case "seated-work":
-      return "sit";
-    case "return":
-    case "walk":
-      return "walk";
-    case "chair-synthesis":
-    case "idle":
-    case "listen":
-    case "orient":
-    case "present":
-    case "stand":
-    case "summarize":
-    case "talk":
-      return "idle";
-    default:
-      return assertNeverOffice(action);
-  }
+function legacyAnimationFor(
+  pose: OfficeAgentVisualPose,
+): "idle" | "sit" | "walk" {
+  if (pose === "walk") return "walk";
+  if (pose.startsWith("seated-") || pose === "sit-down") return "sit";
+  return "idle";
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -202,18 +199,19 @@ export function renderOfficeSnapshot(
               return leftDistance - rightDistance;
             })[0]
         : undefined;
-      const moving = actor.action === "walk" || actor.action === "return";
-      const action =
-        counterpart === undefined || moving
-          ? actor.action
-          : actor.id === input.conversation?.speakerId
-            ? "talk"
-            : "listen";
+      const conversationRole = conversationRoleFor(
+        actor.id,
+        input.conversation,
+      );
       const atWorkSeat =
         actor.cell.x === member.seat.cell.x &&
-        actor.cell.y === member.seat.cell.y &&
-        (action === "idle" || action === "seated-work");
-      const animation = atWorkSeat ? "sit" : animationFor(action);
+        actor.cell.y === member.seat.cell.y;
+      const visualPose = officeVisualPoseFor({
+        action: actor.action,
+        atWorkSeat,
+        conversationRole,
+      });
+      const animation = legacyAnimationFor(visualPose);
       const enteringSeat =
         animation === "sit" &&
         previous !== undefined &&
@@ -228,10 +226,16 @@ export function renderOfficeSnapshot(
       const world = enteringSeat
         ? Object.freeze({ ...actor.world })
         : interpolatedWorld;
+      const physicalCounterpart =
+        counterpart !== undefined &&
+        !atWorkSeat &&
+        sharesPhysicalConversationSpace(actor.cell, counterpart.cell)
+          ? counterpart
+          : undefined;
       const facing =
-        counterpart === undefined
+        physicalCounterpart === undefined
           ? actor.facing
-          : facingToward(actor.cell, counterpart.cell);
+          : facingToward(actor.cell, physicalCounterpart.cell);
       // A directive's final facing is a semantic state, not necessarily the
       // direction of the current step.  Prefer the authoritative adjacent
       // cell transition while a walk is being rendered so the sprite never
@@ -245,14 +249,18 @@ export function renderOfficeSnapshot(
       const renderFacing = animation === "walk" ? movementFacing : facing;
       const frame = actorFrame(animation, renderFacing, 0);
       const layer = animation === "sit" ? seatedActorLayer[facing] : 2;
+      const liveBubbleMessage = liveBubbles.get(actor.id);
+      const liveBubbleVisible =
+        liveBubbleMessage !== undefined && isActorReadyForSpeech(actor);
       return Object.freeze({
         id: actor.id,
         active: focusedIds?.has(actor.id) ?? true,
-        action,
+        action: actor.action,
         destination: Object.freeze({ ...actor.destination }),
         revision: actor.revision,
         world,
         facing: renderFacing,
+        visualPose,
         animation,
         frame: Object.freeze({
           row: frame.row,
@@ -264,12 +272,12 @@ export function renderOfficeSnapshot(
         pivot: Object.freeze({ ...ACTOR_ATLAS.footPivot }),
         scale: 1,
         zIndex: Math.round(world.y * 1000) + layer * 100 + index,
-        assetPath: `${OFFICE_SCENE_MANIFEST.assets.actorsRoot}/${actor.id}.png`,
+        assetPath: officeAgentAssetPath(actor.id),
         label: member.name[input.locale],
         bubble: Object.freeze(
           input.liveBubbles !== undefined
-            ? liveBubbles.has(actor.id)
-              ? { visible: true, message: liveBubbles.get(actor.id) ?? "" }
+            ? liveBubbleVisible
+              ? { visible: true, message: liveBubbleMessage }
               : { visible: false, message: "" }
             : input.liveBubble === undefined
               ? bubbleStateForSnapshot(actor, input.snapshot, input.locale)

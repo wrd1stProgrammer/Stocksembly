@@ -28,6 +28,7 @@ import "@/src/styles/auth.css";
 import "@/src/styles/signed-in-sidebar.css";
 import "@/src/styles/research-room.css";
 import "@/src/styles/billing.css";
+import "@/src/styles/mobile-bottom-nav.css";
 
 const inter = localFont({
   src: "./fonts/inter-latin-variable.woff2",
@@ -74,6 +75,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={inter.variable}>
       <head>
+        <meta
+          name="naver-site-verification"
+          content="d0550c1445439dad95faf56141ffab5fa14761b3"
+        />
         {process.env.NODE_ENV === "development" && (
           <>
             <Script

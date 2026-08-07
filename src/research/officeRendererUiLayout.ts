@@ -109,23 +109,25 @@ function bubbleCandidates(
   height: number,
   viewport: OfficeRendererViewport,
 ): readonly OfficeScreenRect[] {
+  const maximumHorizontalTether = Math.min(40, width * 0.2);
   return Object.freeze(
-    [0, -0.28, 0.28].flatMap((horizontalOffset) => [
-      screenRect(
-        context.x + width * horizontalOffset,
-        context.bodyBounds.top - ELEMENT_GAP - height,
-        width,
-        height,
-        viewport,
-      ),
-      screenRect(
-        context.x + width * horizontalOffset,
-        context.bodyBounds.bottom + ELEMENT_GAP,
-        width,
-        height,
-        viewport,
-      ),
-    ]),
+    [0, -0.16, 0.16]
+      .map((horizontalOffset) =>
+        screenRect(
+          context.x + width * horizontalOffset,
+          context.bodyBounds.top - ELEMENT_GAP - height,
+          width,
+          height,
+          viewport,
+        ),
+      )
+      .filter((candidate) => {
+        const centerX = (candidate.left + candidate.right) / 2;
+        return (
+          candidate.bottom + ELEMENT_GAP <= context.bodyBounds.top &&
+          Math.abs(centerX - context.x) <= maximumHorizontalTether
+        );
+      }),
   );
 }
 
@@ -203,24 +205,9 @@ export function layoutOfficeUi(
   const contexts = input.projection.actors.map((actor) =>
     contextFor(actor, input.projection, input.viewport),
   );
-  const labels = new Map<OfficeManifestAgentId, OfficeScreenRect>();
-  const occupiedLabels: OfficeScreenRect[] = [];
-  for (const context of contexts) {
-    if (!context.uiVisible) continue;
-    const bounds = firstFree(
-      labelCandidates(
-        context,
-        estimatedLabelWidth(context.actor.label),
-        LABEL_HEIGHT,
-        input.viewport,
-      ),
-      occupiedLabels,
-    );
-    if (!bounds) continue;
-    labels.set(context.actor.id, bounds);
-    occupiedLabels.push(bounds);
-  }
-
+  // Dialogue is the primary research signal. Place active speech first, then
+  // let name tags move sideways around it; otherwise a dense forum can hide
+  // the current speaker behind labels that carry less information.
   const bubbles = new Map<OfficeManifestAgentId, OfficeScreenRect>();
   const occupiedBubbles: OfficeScreenRect[] = [];
   for (const context of contexts) {
@@ -233,11 +220,36 @@ export function layoutOfficeUi(
         dimensions.height,
         input.viewport,
       ),
-      [...occupiedLabels, ...occupiedBubbles],
+      [
+        ...occupiedBubbles,
+        ...contexts
+          .filter(
+            (other) => other.actor.id !== context.actor.id && other.bodyVisible,
+          )
+          .map((other) => other.bodyBounds),
+      ],
     );
     if (!bounds) continue;
     bubbles.set(context.actor.id, bounds);
     occupiedBubbles.push(bounds);
+  }
+
+  const labels = new Map<OfficeManifestAgentId, OfficeScreenRect>();
+  const occupiedLabels: OfficeScreenRect[] = [];
+  for (const context of contexts) {
+    if (!context.uiVisible) continue;
+    const bounds = firstFree(
+      labelCandidates(
+        context,
+        estimatedLabelWidth(context.actor.label),
+        LABEL_HEIGHT,
+        input.viewport,
+      ),
+      [...occupiedLabels, ...occupiedBubbles],
+    );
+    if (!bounds) continue;
+    labels.set(context.actor.id, bounds);
+    occupiedLabels.push(bounds);
   }
 
   return Object.freeze(

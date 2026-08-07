@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bubbleDimensions } from "./officeGameBubble";
-import { bubbleStateFor } from "./officeGameBubbleState";
+import { bubbleStateFor, isActorReadyForSpeech } from "./officeGameBubbleState";
 
 describe("office progress bubbles", () => {
   it("fits the bubble surface to its message instead of reserving a fixed box", () => {
@@ -15,6 +15,31 @@ describe("office progress bubbles", () => {
     expect(short.height).toBeLessThanOrEqual(long.height);
     expect(long.width).toBeLessThanOrEqual(212);
     expect(long.height).toBeLessThanOrEqual(82);
+  });
+
+  it("waits until an actor has arrived and finished orienting before speech", () => {
+    const destination = { x: 4, y: 5 };
+    const ready = {
+      action: "talk" as const,
+      cell: destination,
+      destination,
+      motion: null,
+    };
+
+    expect(isActorReadyForSpeech(ready)).toBe(true);
+    expect(isActorReadyForSpeech({ ...ready, action: "orient" })).toBe(false);
+    expect(
+      isActorReadyForSpeech({
+        ...ready,
+        cell: { x: 3, y: 5 },
+        motion: {
+          from: { x: 3, y: 5 },
+          to: destination,
+          elapsedTicks: 1,
+          durationTicks: 2,
+        },
+      }),
+    ).toBe(false);
   });
 
   it("rotates public research updates across the five specialists", () => {

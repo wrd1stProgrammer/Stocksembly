@@ -162,7 +162,7 @@ export function OfficeCalibration() {
   return (
     <main className="office-calibration">
       <header className="office-calibration__header">
-        <p>OFFICE V7 SNAPSHOT CALIBRATION</p>
+        <p>OFFICE V9 SNAPSHOT CALIBRATION</p>
         <h1>Immutable renderer inspection</h1>
         <span>
           {OFFICE_SCENE_MANIFEST.roster.length} manifest actors · fixed atlas

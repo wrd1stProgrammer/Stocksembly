@@ -141,7 +141,11 @@ export function createChallengeRoundAttemptHandler(
             code: "blind_challenge_commit_rejected",
             retryAt: now(),
           }
-        : { kind: "incomplete", code: "blind_challenge_missing" };
+        : {
+            kind: "repair",
+            code: "blind_challenge_missing",
+            retryAt: now(),
+          };
     },
   };
 }

@@ -26,6 +26,18 @@ const GATES = [
   "scenario_safety",
 ] as const;
 type Gate = (typeof GATES)[number];
+const CLAIM_GATES = [
+  "claim_lineage",
+  "exact_span",
+  "rights_surface",
+  "cutoff_amendment",
+  "atomicity",
+  "numeric_reproducibility",
+  "freshness",
+  "opposing_evidence",
+  "bilingual_parity",
+  "capability_exclusion",
+] as const satisfies readonly Gate[];
 const SAFE_SCENARIO_FIELDS = new Set([
   "revenue",
   "operating_margin",
@@ -206,6 +218,20 @@ function claimGate(
         SAFE_SCENARIO_FIELDS.has(scenario.field),
       );
   }
+}
+
+export function retainStructurallyValidClaims(
+  raw: unknown,
+): StructuralAuditInput | undefined {
+  const parsed = StructuralAuditInputSchema.parse(raw);
+  const seenClaimIds = new Set<string>();
+  const claims = parsed.claims.filter((candidate, index) => {
+    if (seenClaimIds.has(candidate.claim.claimId)) return false;
+    seenClaimIds.add(candidate.claim.claimId);
+    return CLAIM_GATES.every((gate) => claimGate(parsed, index, gate));
+  });
+  if (claims.length === 0) return undefined;
+  return StructuralAuditInputSchema.parse({ ...parsed, claims });
 }
 
 export function auditStructuralClaims(raw: unknown) {

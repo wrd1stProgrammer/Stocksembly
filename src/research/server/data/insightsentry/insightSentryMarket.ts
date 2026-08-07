@@ -15,6 +15,8 @@ import {
   SEARCH_TTL,
   SERIES_TTL,
 } from "./insightSentryMarketSupport";
+import type { EarningsSnapshot } from "./insightSentryResearchContracts";
+import { providerEpochToIso } from "./insightSentryResearchSupport";
 import type { InsightSentryClient } from "./insightSentryTypes";
 
 export type InsightSentrySymbol = {
@@ -63,6 +65,7 @@ export type InsightSentryCompanyInfo = {
   readonly securityType?: string;
   readonly exchange?: string;
   readonly currency?: string;
+  readonly earnings?: EarningsSnapshot;
 };
 
 export type InsightSentryCorporateAction = {
@@ -89,6 +92,7 @@ export interface InsightSentryMarket {
   ) => Promise<
     readonly [InsightSentryBarSet, InsightSentryBarSet, InsightSentryBarSet]
   >;
+  readonly fourHourBars: (providerCode: string) => Promise<InsightSentryBarSet>;
   readonly comparisonDailyBars: (
     providerCode: string,
   ) => Promise<InsightSentryBarSet>;
@@ -182,6 +186,13 @@ export function createInsightSentryMarket(
       ]);
       return Object.freeze([hourly, fourHourly, daily]);
     },
+    fourHourBars: async (providerCode) =>
+      series(providerCode, {
+        barType: "hour",
+        interval: 4,
+        timeframe: "4h",
+        pointCount: 390,
+      }),
     comparisonDailyBars: async (providerCode) =>
       series(
         providerCode,
@@ -198,20 +209,77 @@ export function createInsightSentryMarket(
       const result = await client.get(
         infoRequest(providerCode, INFO_TTL, bucket(INFO_TTL)),
       );
+      const data = result.data;
+      const hasEarnings =
+        data.earnings_release_date !== undefined ||
+        data.earnings_release_next_date !== undefined ||
+        data.earnings_per_share_fq !== undefined ||
+        data.earnings_per_share_forecast_next_fq !== undefined;
       return Object.freeze({
-        providerCode: result.data.code,
-        ...(result.data.name === undefined
+        providerCode: data.code,
+        ...(data.name === undefined ? {} : { company: data.name }),
+        ...(data.type === undefined ? {} : { securityType: data.type }),
+        ...(data.exchange === undefined ? {} : { exchange: data.exchange }),
+        ...(data.currency_code === undefined
           ? {}
-          : { company: result.data.name }),
-        ...(result.data.type === undefined
-          ? {}
-          : { securityType: result.data.type }),
-        ...(result.data.exchange === undefined
-          ? {}
-          : { exchange: result.data.exchange }),
-        ...(result.data.currency_code === undefined
-          ? {}
-          : { currency: result.data.currency_code }),
+          : { currency: data.currency_code }),
+        ...(hasEarnings
+          ? {
+              earnings: Object.freeze({
+                ...(data.earnings_release_date === undefined
+                  ? {}
+                  : {
+                      latestReportAt: providerEpochToIso(
+                        data.earnings_release_date,
+                      ),
+                    }),
+                ...(data.earnings_release_next_date === undefined
+                  ? {}
+                  : {
+                      nextReportAt: providerEpochToIso(
+                        data.earnings_release_next_date,
+                      ),
+                    }),
+                ...(data.currency_code === undefined
+                  ? {}
+                  : { currency: data.currency_code }),
+                ...(data.earnings_per_share_fq === undefined
+                  ? {}
+                  : { epsActual: data.earnings_per_share_fq }),
+                ...(data.earnings_per_share_forecast_fq === undefined
+                  ? {}
+                  : { epsForecast: data.earnings_per_share_forecast_fq }),
+                ...(data.earnings_per_share_forecast_next_fq === undefined
+                  ? {}
+                  : {
+                      nextEpsForecast: data.earnings_per_share_forecast_next_fq,
+                    }),
+                ...(data.eps_surprise_fq === undefined
+                  ? {}
+                  : { epsSurprise: data.eps_surprise_fq }),
+                ...(data.eps_surprise_percent_fq === undefined
+                  ? {}
+                  : { epsSurprisePercent: data.eps_surprise_percent_fq }),
+                ...(data.revenue_fq === undefined
+                  ? {}
+                  : { revenueActual: data.revenue_fq }),
+                ...(data.revenue_forecast_fq === undefined
+                  ? {}
+                  : { revenueForecast: data.revenue_forecast_fq }),
+                ...(data.revenue_forecast_next_fq === undefined
+                  ? {}
+                  : { nextRevenueForecast: data.revenue_forecast_next_fq }),
+                ...(data.revenue_surprise_fq === undefined
+                  ? {}
+                  : { revenueSurprise: data.revenue_surprise_fq }),
+                ...(data.revenue_surprise_percent_fq === undefined
+                  ? {}
+                  : {
+                      revenueSurprisePercent: data.revenue_surprise_percent_fq,
+                    }),
+              }),
+            }
+          : {}),
       });
     },
     corporateActions: async (providerCode) => {

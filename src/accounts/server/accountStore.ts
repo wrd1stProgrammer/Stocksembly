@@ -62,6 +62,15 @@ export type AccountStore = {
     principalId: string,
     required: number,
   ) => Promise<CreditAvailability>;
+  readonly reserveResearchCredits?: (
+    principalId: string,
+    runId: string,
+    required: number,
+  ) => Promise<CreditAvailability>;
+  readonly releaseResearchCredits?: (
+    principalId: string,
+    runId: string,
+  ) => Promise<void>;
   readonly listResearchRuns?: (
     principalId: string,
     limit: number,
@@ -112,12 +121,17 @@ export type AccountStore = {
     | { readonly kind: "added"; readonly item: BriefingWatchlistItem }
     | { readonly kind: "exists"; readonly item: BriefingWatchlistItem }
     | { readonly kind: "limit"; readonly limit: number }
+    | { readonly kind: "change_limit"; readonly remaining: 0 }
     | { readonly kind: "forbidden" }
   >;
   readonly removeBriefingWatchlistItem?: (
     principalId: string,
     symbol: string,
-  ) => Promise<boolean>;
+  ) => Promise<{
+    readonly removed: boolean;
+    readonly changesRemaining: number;
+    readonly limitReached?: boolean;
+  }>;
   readonly listBriefingAudience?: () => Promise<readonly BriefingAudience[]>;
   readonly listBriefingEditionKeys?: (
     marketDate: string,

@@ -51,6 +51,7 @@ export type AttemptOutcome =
   | {
       readonly kind: "attention";
       readonly code: string;
+      readonly retryAt?: string;
       readonly diagnostics?: SafeProcessDiagnostics;
       readonly readiness?: SafeReadinessDiagnostics;
       readonly runner?: { readonly phase: SafeCodexRunnerPhase };

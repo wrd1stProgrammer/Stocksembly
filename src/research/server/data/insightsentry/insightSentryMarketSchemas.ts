@@ -24,6 +24,18 @@ export const InfoResponseSchema = z.looseObject({
   exchange: z.string().trim().min(1).max(128).optional(),
   currency_code: z.string().trim().length(3).optional(),
   status: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]).optional(),
+  earnings_release_date: z.number().finite().nonnegative().optional(),
+  earnings_release_next_date: z.number().finite().nonnegative().optional(),
+  earnings_per_share_fq: z.number().finite().optional(),
+  earnings_per_share_forecast_fq: z.number().finite().optional(),
+  earnings_per_share_forecast_next_fq: z.number().finite().optional(),
+  eps_surprise_fq: z.number().finite().optional(),
+  eps_surprise_percent_fq: z.number().finite().optional(),
+  revenue_fq: z.number().finite().optional(),
+  revenue_forecast_fq: z.number().finite().optional(),
+  revenue_forecast_next_fq: z.number().finite().optional(),
+  revenue_surprise_fq: z.number().finite().optional(),
+  revenue_surprise_percent_fq: z.number().finite().optional(),
   splits: z
     .array(
       z.strictObject({

@@ -17,6 +17,7 @@ import type {
   OfficeSimulationSnapshot,
 } from "./officeSimulation";
 import {
+  type OfficeMotionSegment,
   type OfficeReservation,
   type OfficeTrafficMode,
   stepOfficeTraffic,
@@ -32,6 +33,7 @@ type AmbientActor = {
   readonly failedReplans: number;
   readonly holdTicks: number;
   readonly mode: OfficeTrafficMode;
+  readonly motion: OfficeMotionSegment | null;
   readonly originalDestination: Cell | null;
   readonly phase: AmbientPhase;
   readonly priority: number;
@@ -161,6 +163,7 @@ export function createLandingOfficeState(
           failedReplans: 0,
           holdTicks: 2 + (index % 7),
           mode: "arrived" as const,
+          motion: null,
           originalDestination: null,
           phase: "seated" as const,
           priority: index,
@@ -254,7 +257,11 @@ export function stepLandingOfficeState(
     const moved = trafficById.get(actor.id);
     if (!moved) throw new RangeError(`Traffic lost ambient actor ${actor.id}`);
     const member = memberFor(actor.id);
-    const facing = facingBetween(actor.cell, moved.cell, actor.facing);
+    const facing = facingBetween(
+      actor.cell,
+      moved.motion?.to ?? moved.cell,
+      actor.facing,
+    );
     const next: AmbientActor = { ...actor, ...moved, id: actor.id, facing };
     if (moved.mode !== "arrived") return Object.freeze(next);
     if (actor.phase === "returning") {
@@ -300,6 +307,21 @@ function worldPoint(cell: Cell) {
   });
 }
 
+function ambientWorld(actor: AmbientActor) {
+  if (actor.motion === null) return worldPoint(actor.cell);
+  const from = worldPoint(actor.motion.from);
+  const to = worldPoint(actor.motion.to);
+  const progress = Math.min(
+    1,
+    Math.max(0, actor.motion.elapsedTicks / actor.motion.durationTicks),
+  );
+  const eased = progress * progress * (3 - 2 * progress);
+  return Object.freeze({
+    x: from.x + (to.x - from.x) * eased,
+    y: from.y + (to.y - from.y) * eased,
+  });
+}
+
 export function landingOfficeSnapshot(
   state: LandingOfficeState,
 ): OfficeSimulationSnapshot {
@@ -310,7 +332,7 @@ export function landingOfficeSnapshot(
         id: actor.id,
         department: member.departmentId,
         cell: Object.freeze({ ...actor.cell }),
-        world: worldPoint(actor.cell),
+        world: ambientWorld(actor),
         action: actorAction(actor),
         facing: actor.facing,
         destination: Object.freeze({ ...actor.destination }),
@@ -319,6 +341,14 @@ export function landingOfficeSnapshot(
         revision: actor.revision,
         waitTicks: actor.waitTicks,
         failedReplans: actor.failedReplans,
+        motion:
+          actor.motion === null
+            ? null
+            : Object.freeze({
+                ...actor.motion,
+                from: Object.freeze({ ...actor.motion.from }),
+                to: Object.freeze({ ...actor.motion.to }),
+              }),
       });
     }),
   );

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
+import {
+  loadLocalBriefingOverlay,
+  mergeLocalBriefingOverlay,
+} from "@/src/briefing/server/localBriefingPreviewStore";
 import { BriefingRoom } from "@/src/components/briefing/BriefingRoom";
 import type { Locale } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
@@ -33,9 +37,18 @@ async function requestFromPage(locale: Locale) {
 export default async function BriefingRoomPage({ searchParams }: Props) {
   const query = await searchParams;
   const locale: Locale = query.lang === "en" ? "en" : "ko";
-  const state = await (await getLiveResearchApi()).briefingRoom(
-    await requestFromPage(locale),
-    locale,
+  const [state, overlay] = await Promise.all([
+    (await getLiveResearchApi()).briefingRoom(
+      await requestFromPage(locale),
+      locale,
+    ),
+    loadLocalBriefingOverlay(locale),
+  ]);
+  return (
+    <BriefingRoom
+      initialState={mergeLocalBriefingOverlay(state, overlay)}
+      initialDetails={overlay.details}
+      locale={locale}
+    />
   );
-  return <BriefingRoom initialState={state} locale={locale} />;
 }

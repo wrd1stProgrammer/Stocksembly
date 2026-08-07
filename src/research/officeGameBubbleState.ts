@@ -11,6 +11,23 @@ export type BubbleState = {
   readonly message: string;
 };
 
+export function isActorReadyForSpeech(
+  actor: Pick<
+    OfficeActorSnapshot,
+    "action" | "cell" | "destination" | "motion"
+  >,
+): boolean {
+  const atDestination =
+    actor.cell.x === actor.destination.x &&
+    actor.cell.y === actor.destination.y;
+  const travelling =
+    actor.action === "walk" ||
+    actor.action === "return" ||
+    actor.action === "stand" ||
+    actor.action === "orient";
+  return atDestination && actor.motion === null && !travelling;
+}
+
 export function bubbleStateForSnapshot(
   actor: OfficeActorSnapshot,
   snapshot: OfficeSimulationSnapshot,

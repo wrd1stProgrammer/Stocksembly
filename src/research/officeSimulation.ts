@@ -8,6 +8,7 @@ import {
 } from "./officeChoreography";
 import { assertNeverOffice } from "./officeChoreographyV7Contract";
 import { OFFICE_NAVIGATION_GRID } from "./officeNavigation";
+import type { WorldPoint } from "./officeSceneManifest";
 import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import {
   createInitialOfficeActors,
@@ -16,6 +17,7 @@ import {
 import type {
   OfficeActorSnapshot,
   OfficeFrame,
+  OfficeSimulationActor,
   OfficeSimulationOptions,
   OfficeSimulationSnapshot,
   OfficeSimulationState,
@@ -168,6 +170,21 @@ function worldPoint(cell: { readonly x: number; readonly y: number }) {
   });
 }
 
+function actorWorld(actor: OfficeSimulationActor): WorldPoint {
+  if (actor.motion === null) return worldPoint(actor.cell);
+  const from = worldPoint(actor.motion.from);
+  const to = worldPoint(actor.motion.to);
+  const progress = Math.min(
+    1,
+    Math.max(0, actor.motion.elapsedTicks / actor.motion.durationTicks),
+  );
+  const eased = progress * progress * (3 - 2 * progress);
+  return Object.freeze({
+    x: from.x + (to.x - from.x) * eased,
+    y: from.y + (to.y - from.y) * eased,
+  });
+}
+
 export function officeSimulationSnapshot(
   state: OfficeSimulationState,
 ): OfficeSimulationSnapshot {
@@ -177,7 +194,7 @@ export function officeSimulationSnapshot(
         id: actor.id,
         department: actor.department,
         cell: Object.freeze({ ...actor.cell }),
-        world: worldPoint(actor.cell),
+        world: actorWorld(actor),
         action: actor.action,
         facing: actor.facing,
         destination: Object.freeze({ ...actor.destination }),
@@ -186,6 +203,14 @@ export function officeSimulationSnapshot(
         revision: actor.revision,
         waitTicks: actor.waitTicks,
         failedReplans: actor.failedReplans,
+        motion:
+          actor.motion === null
+            ? null
+            : Object.freeze({
+                ...actor.motion,
+                from: Object.freeze({ ...actor.motion.from }),
+                to: Object.freeze({ ...actor.motion.to }),
+              }),
       }),
     ),
   );

@@ -27,6 +27,14 @@ export type OfficeTrafficActor = {
   readonly failedReplans: number;
   readonly mode: OfficeTrafficMode;
   readonly ready: boolean;
+  readonly motion: OfficeMotionSegment | null;
+};
+
+export type OfficeMotionSegment = {
+  readonly from: Cell;
+  readonly to: Cell;
+  readonly elapsedTicks: number;
+  readonly durationTicks: number;
 };
 
 export type OfficeReservation = {
@@ -70,6 +78,7 @@ function plannedActor(
       failedReplans: 0,
       mode: "failed",
       ready: true,
+      motion: null,
     };
   }
   return {
@@ -84,6 +93,7 @@ function plannedActor(
     failedReplans: 0,
     mode: route.path.length === 1 ? "arrived" : "moving",
     ready: true,
+    motion: null,
   };
 }
 

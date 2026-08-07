@@ -167,3 +167,27 @@
     grid-column: auto;
   }
 }
+
+@media (max-width: 900px) {
+  .search-console__actions {
+    min-width: 0;
+  }
+
+  .research-target {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .research-target__trigger {
+    width: auto;
+    max-width: min(260px, calc(100vw - 104px));
+    min-width: 0;
+  }
+
+  .research-target__options {
+    right: 0;
+    left: auto;
+    width: min(340px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+  }
+}

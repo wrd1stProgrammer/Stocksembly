@@ -327,7 +327,7 @@ export function createChairSynthesisAttemptHandler(
             code: "chair_synthesis_commit_rejected",
             retryAt: now(),
           }
-        : { kind: "incomplete", code };
+        : { kind: "repair", code, retryAt: now() };
     },
   };
 }

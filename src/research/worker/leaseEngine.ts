@@ -235,8 +235,9 @@ export class LeaseEngine {
       }
       const failureName = error instanceof Error ? error.name : "Unknown";
       return await this.commitOutcome(claim, attempt, {
-        kind: "permanent",
+        kind: "transient",
         code: `unexpected_worker_failure:${failureName}`,
+        retryAt: after(this.#clock.now(), 10_000),
       });
     } finally {
       this.#active.delete(attempt.attemptId);

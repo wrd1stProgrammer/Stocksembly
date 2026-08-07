@@ -32,9 +32,11 @@ export function updateProgressBubble(
   const { width, height } = bubbleDimensions(message);
   bubble.surface
     .clear()
+    .roundRect(-width / 2 + 3, -height - 4, width, height, 10)
+    .fill({ color: 0x0b151d, alpha: 0.22 })
     .roundRect(-width / 2, -height - 8, width, height, 10)
     .fill({ color: 0xffffff, alpha: 0.97 })
-    .stroke({ color: 0xcbd1d6, alpha: 1, width: 1 });
+    .stroke({ color: 0xaebdc4, alpha: 1, width: 1 });
   bubble.text.style.wordWrapWidth = width - 22;
   bubble.text.position.set(0, -height / 2 - 8);
   bubble.text.text = message;

@@ -382,11 +382,12 @@ export function createSpecialistRoundAttemptHandler(
       )
         return { kind: "repair", code: outcome, retryAt: now() };
       return {
-        kind: "incomplete",
+        kind: "repair",
         code:
           outcome === "citation_invalid_after_retry"
             ? "specialist_citation_invalid_after_retry"
             : "specialist_memo_missing",
+        retryAt: now(),
       };
     },
   };
