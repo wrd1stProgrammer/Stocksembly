@@ -22,7 +22,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { copy, type Locale } from "../../lib/i18n";
 import { RESEARCH_DEPARTMENT_COPY } from "../../research/domain/researchTarget";
 import type {
@@ -166,7 +166,6 @@ export function ResearchRoomCatalog({
   const [now, setNow] = useState<number | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
-  const firstRequest = useRef(true);
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -184,10 +183,6 @@ export function ResearchRoomCatalog({
   }, [access.authenticated]);
 
   useEffect(() => {
-    if (firstRequest.current) {
-      firstRequest.current = false;
-      return;
-    }
     const controller = new AbortController();
     const timer = window.setTimeout(
       () => {
@@ -483,6 +478,7 @@ export function ResearchRoomCatalog({
                     <Link
                       className="research-room-catalog__card"
                       href={`/research-room/${report.reportId}?lang=${locale}`}
+                      prefetch={false}
                       aria-label={`${report.symbol} ${report.question}`}
                     >
                       {card}

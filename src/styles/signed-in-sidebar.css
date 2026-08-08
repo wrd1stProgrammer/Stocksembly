@@ -90,6 +90,10 @@
   font-size: 1rem;
 }
 
+.signed-in-sidebar__mobile-context {
+  display: none;
+}
+
 .signed-in-sidebar__top button,
 .signed-in-sidebar__footer button {
   display: grid;
