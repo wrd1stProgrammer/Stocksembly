@@ -18,9 +18,19 @@ import { loadPublicResearchReport } from "../api/researchApiReportReader";
 import { publicQuestionFromRow } from "../api/researchQuestionCommands";
 import { createLiveS3ArtifactArchive } from "../artifacts/s3ArtifactArchive";
 import { parseSafeJson } from "../persistence/sqlite/safeJson";
+import {
+  isResearchRoomIndexable,
+  isResearchRoomPublicationMature,
+} from "./researchRoomIndexability";
 
-const ROOM_DELAY_MS = 7 * 24 * 60 * 60 * 1_000;
 export const RESEARCH_ROOM_PAGE_SIZE = 32;
+
+export { isResearchRoomIndexable };
+
+const ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE = `report_versions.version = (
+  SELECT MAX(latest.version) FROM report_versions AS latest
+  WHERE latest.report_id = reports.report_id
+)`;
 
 export type ResearchRoomScope =
   | "all"
@@ -64,6 +74,11 @@ const CatalogRowSchema = z.object({
   run_status: z.enum(["completed", "complete-with-limitations"]),
 });
 
+const SitemapEntryRowSchema = z.object({
+  report_id: z.string().uuid(),
+  published_at: z.string(),
+});
+
 const QuestionRowSchema = z.object({
   question_id: z.string().uuid(),
   retry_of_question_id: z.string().uuid().nullable(),
@@ -104,6 +119,11 @@ export type ResearchRoomReportPage = {
   readonly companies: readonly ResearchRoomCompanyFacet[];
 };
 
+export type ResearchRoomSitemapEntry = {
+  readonly reportId: string;
+  readonly publishedAt: string;
+};
+
 export type ResearchRoomConversation = {
   readonly question: string;
   readonly answer: string;
@@ -128,8 +148,7 @@ function targetFor(row: z.infer<typeof CatalogRowSchema>): ResearchTarget {
 
 function locked(publishedAt: string, access: ResearchRoomAccess, now: Date) {
   return (
-    access.tier !== "paid" &&
-    now.getTime() - new Date(publishedAt).getTime() < ROOM_DELAY_MS
+    access.tier !== "paid" && !isResearchRoomPublicationMature(publishedAt, now)
   );
 }
 
@@ -190,11 +209,21 @@ function selectSql(where = "") {
     WHERE reports.state = 'published'
       AND report_versions.status IN ('complete', 'complete_with_limitations')
       AND runs.status IN ('completed', 'complete-with-limitations')
-      AND report_versions.version = (
-        SELECT MAX(latest.version) FROM report_versions AS latest
-        WHERE latest.report_id = reports.report_id
-      )
+      AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
       ${where}`;
+}
+
+function sitemapSelectSql() {
+  return `SELECT reports.report_id, report_versions.published_at
+    FROM reports
+    JOIN report_versions USING(report_id)
+    JOIN artifacts USING(artifact_id)
+    JOIN runs USING(run_id)
+    WHERE reports.state = 'published'
+      AND report_versions.status IN ('complete', 'complete_with_limitations')
+      AND runs.status IN ('completed', 'complete-with-limitations')
+      AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
+    ORDER BY report_versions.published_at DESC, reports.report_id DESC`;
 }
 
 type CatalogFilter = {
@@ -293,6 +322,30 @@ export async function listResearchRoomReports(
   return page.reports;
 }
 
+export async function listResearchRoomSitemapEntries(
+  now = new Date(),
+): Promise<readonly ResearchRoomSitemapEntry[]> {
+  return await withDatabase((database) =>
+    database
+      .prepare(sitemapSelectSql())
+      .all()
+      .flatMap((value): readonly ResearchRoomSitemapEntry[] => {
+        const row = SitemapEntryRowSchema.safeParse(value);
+        if (
+          !row.success ||
+          !isResearchRoomIndexable("complete", row.data.published_at, now)
+        )
+          return [];
+        return [
+          {
+            reportId: row.data.report_id,
+            publishedAt: row.data.published_at,
+          },
+        ];
+      }),
+  );
+}
+
 export async function listResearchRoomReportPage(
   access: ResearchRoomAccess,
   options: ResearchRoomListOptions = {},
@@ -329,10 +382,7 @@ export async function listResearchRoomReportPage(
          WHERE reports.state = 'published'
            AND report_versions.status IN ('complete', 'complete_with_limitations')
            AND runs.status IN ('completed', 'complete-with-limitations')
-           AND report_versions.version = (
-             SELECT MAX(latest.version) FROM report_versions AS latest
-             WHERE latest.report_id = reports.report_id
-           )
+           AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
          GROUP BY research_requests.symbol
          ORDER BY count DESC, symbol ASC`,
       )

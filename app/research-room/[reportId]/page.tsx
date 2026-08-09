@@ -36,10 +36,17 @@ async function pageRequest(reportId: string) {
   });
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { reportId } = await params;
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Props): Promise<Metadata> {
+  const [{ reportId }, query] = await Promise.all([params, searchParams]);
   if (!z.string().uuid().safeParse(reportId).success)
-    return { title: "Research Room" };
+    return {
+      title: "Research Room",
+      robots: { index: false, follow: false },
+    };
+  const locale: Locale = query.lang === "en" ? "en" : "ko";
   const access = { authenticated: false, tier: "free" as const };
   const report = await loadResearchRoomReport(reportId, access).catch(
     () => undefined,
@@ -48,11 +55,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Research Room", robots: { index: false, follow: false } };
   return {
     title: `${report.item.symbol} · ${report.item.question}`,
-    description: report.file.thesis.ko,
+    description: report.file.thesis[locale],
+    robots: { index: true, follow: true },
     alternates: { canonical: `/research-room/${reportId}` },
     openGraph: {
-      title: `${report.item.symbol} 리서치 · Stocksembly`,
-      description: report.file.thesis.ko,
+      title:
+        locale === "ko"
+          ? `${report.item.symbol} 리서치 · Stocksembly`
+          : `${report.item.symbol} Research · Stocksembly`,
+      description: report.file.thesis[locale],
+      locale: locale === "ko" ? "ko_KR" : "en_US",
       url: `/research-room/${reportId}`,
       type: "article",
       publishedTime: report.item.publishedAt,
