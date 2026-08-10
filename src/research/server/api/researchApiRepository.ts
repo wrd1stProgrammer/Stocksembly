@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import Database from "better-sqlite3";
 import { z } from "zod";
+import type {
+  ActiveResearchActivity,
+  ActiveResearchActivityKind,
+} from "../../domain/activeResearchActivity";
 import { CALL_BUDGET_POLICY } from "../../domain/callBudgetContracts";
 import {
   EventIdSchema,
@@ -107,6 +111,33 @@ function activeJobActor(logicalKey: string): WorkflowActorId | undefined {
     logicalKey.slice(separator + 1),
   );
   return parsed.success ? parsed.data : undefined;
+}
+
+function activeJobActivity(logicalKey: string): ActiveResearchActivityKind {
+  const direct: Readonly<Record<string, ActiveResearchActivityKind>> = {
+    "collection:initial": "data_collection",
+    "memo:market": "macro_analysis",
+    "memo:market_news": "news_analysis",
+    "memo:benchmark": "market_comparison",
+    "memo:company": "business_analysis",
+    "memo:company_product": "product_analysis",
+    "memo:company_competition": "competition_analysis",
+    "memo:financial": "financial_analysis",
+    "memo:valuation": "valuation_analysis",
+    "memo:financial_quality": "earnings_quality_analysis",
+    "memo:risk": "downside_analysis",
+    "memo:risk_policy": "policy_scenario_analysis",
+    "structural_audit:system": "evidence_audit",
+    "semantic_audit:system": "semantic_audit",
+    "chair_synthesis:chair": "chair_synthesis",
+  };
+  const exact = direct[logicalKey];
+  if (exact !== undefined) return exact;
+  if (logicalKey.startsWith("consolidation:")) return "team_synthesis";
+  if (logicalKey.startsWith("challenge:")) return "challenge_review";
+  if (logicalKey.startsWith("followup:")) return "followup_research";
+  if (logicalKey.startsWith("response_ballot:")) return "response_review";
+  return "data_collection";
 }
 
 export class ResearchApiRepository {
@@ -293,21 +324,32 @@ export class ResearchApiRepository {
       if (run === undefined) return undefined;
       const events = listPublicEvents(this.#database, principalId, runId);
       if (events === undefined) return undefined;
-      const activeAgentIds = [
-        ...new Set(
-          this.#database
-            .prepare(`SELECT logical_key FROM jobs
+      const activeRows = this.#database
+        .prepare(`SELECT logical_key FROM jobs
               WHERE run_id = ? AND kind = 'research'
                 AND status IN ('leased', 'spawn-reserved', 'running', 'cancel-requested')
               ORDER BY created_at, job_id`)
-            .all(runId)
-            .map((row) =>
-              activeJobActor(ActiveResearchJobRowSchema.parse(row).logical_key),
-            )
-            .filter((id): id is WorkflowActorId => id !== undefined),
-        ),
+        .all(runId)
+        .map((row) => ActiveResearchJobRowSchema.parse(row).logical_key);
+      const activeActivities = [
+        ...new Map(
+          activeRows.flatMap((logicalKey) => {
+            const actorId = activeJobActor(logicalKey);
+            if (actorId === undefined) return [];
+            const activity = Object.freeze({
+              actorId,
+              activity: activeJobActivity(logicalKey),
+            }) satisfies ActiveResearchActivity;
+            return [
+              [`${activity.actorId}:${activity.activity}`, activity] as const,
+            ];
+          }),
+        ).values(),
       ];
-      return { run, events, activeAgentIds };
+      const activeAgentIds = [
+        ...new Set(activeActivities.map((activity) => activity.actorId)),
+      ];
+      return { run, events, activeAgentIds, activeActivities };
     })();
   }
 

@@ -79,9 +79,13 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "invalidation_levels",
       "timeframe_agreement",
     ],
-    allowedDatasets: [...MARKET_DATASETS, "sec_filing"],
+    allowedDatasets: [
+      ...MARKET_DATASETS,
+      "insightsentry_news_market",
+      "sec_filing",
+    ],
     allowedRightsSources: [...MARKET_SOURCES, ...PROVIDER_SOURCES, ...SEC_TEXT],
-    capabilityKeys: ["current_market_data"],
+    capabilityKeys: ["current_market_data", "professional_news"],
     requiredOutputs: [
       "atomic_timing_claim",
       "moving_averages_rsi_macd_atr_volume",
@@ -114,6 +118,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "insightsentry_quote",
       "insightsentry_peers",
       "insightsentry_fundamentals",
+      "insightsentry_news_market",
     ],
     allowedRightsSources: [
       ...MACRO_SOURCES,
@@ -124,6 +129,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "treasury_yield",
       "current_market_data",
       "sec_company_facts",
+      "professional_news",
     ],
     requiredOutputs: [
       "atomic_relative_performance_claim",
@@ -189,10 +195,11 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "sec_filing",
       "insightsentry_documents",
       "insightsentry_peers",
+      "insightsentry_news_company",
       "sec_institutional_holdings",
     ],
     allowedRightsSources: [...SEC_TEXT, ...PROVIDER_SOURCES],
-    capabilityKeys: ["sec_filings"],
+    capabilityKeys: ["sec_filings", "professional_news"],
     requiredOutputs: [
       "atomic_moat_claim",
       "atomic_competitive_erosion_claim",
@@ -208,13 +215,17 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     agentName: "Noah",
     primaryCrux: "financial_trends",
     focusAreas: ["financial_statements", "financial_trends"],
-    allowedDatasets: [...SEC_DATASETS, "insightsentry_fundamentals"],
+    allowedDatasets: [
+      ...SEC_DATASETS,
+      "insightsentry_fundamentals",
+      "insightsentry_news_financial",
+    ],
     allowedRightsSources: [
       "sec_primary_filing",
       "sec_company_facts",
       ...PROVIDER_SOURCES,
     ],
-    capabilityKeys: ["sec_filings", "sec_company_facts"],
+    capabilityKeys: ["sec_filings", "sec_company_facts", "professional_news"],
     requiredOutputs: [
       "atomic_margin_claim",
       "atomic_reinvestment_claim",
@@ -237,13 +248,19 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "insightsentry_fundamentals",
       "insightsentry_quote",
       "insightsentry_peers",
+      "insightsentry_news_financial",
     ],
     allowedRightsSources: [
       "sec_primary_filing",
       "sec_company_facts",
       ...PROVIDER_SOURCES,
     ],
-    capabilityKeys: ["sec_filings", "sec_company_facts", "current_market_data"],
+    capabilityKeys: [
+      "sec_filings",
+      "sec_company_facts",
+      "current_market_data",
+      "professional_news",
+    ],
     requiredOutputs: [
       "atomic_embedded_expectations_claim",
       "valuation_multiples",
@@ -275,13 +292,14 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       ...SEC_DATASETS,
       "insightsentry_fundamentals",
       "insightsentry_documents",
+      "insightsentry_news_financial",
     ],
     allowedRightsSources: [
       "sec_primary_filing",
       "sec_company_facts",
       ...PROVIDER_SOURCES,
     ],
-    capabilityKeys: ["sec_filings", "sec_company_facts"],
+    capabilityKeys: ["sec_filings", "sec_company_facts", "professional_news"],
     requiredOutputs: [
       "atomic_cash_conversion_claim",
       "provider_official_disagreements",

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ACTIVE_RESEARCH_ACTIVITY_KINDS } from "../domain/activeResearchActivity";
 import { GroundedAnswerSchema } from "../domain/question";
 import { ResearchProfileSchema } from "../domain/researchProfile";
 import { ResearchTargetSchema } from "../domain/researchTarget";
@@ -62,6 +63,17 @@ export const PublicRunDetailSchema = z
     run: PublicRunSchema,
     events: z.array(PublicResearchEventSchema).readonly(),
     activeAgentIds: z.array(WorkflowActorIdSchema).readonly().optional(),
+    activeActivities: z
+      .array(
+        z
+          .strictObject({
+            actorId: WorkflowActorIdSchema,
+            activity: z.enum(ACTIVE_RESEARCH_ACTIVITY_KINDS),
+          })
+          .readonly(),
+      )
+      .readonly()
+      .optional(),
   })
   .readonly();
 

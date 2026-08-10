@@ -1,5 +1,22 @@
-type Claim = { readonly claimId: string };
+type Claim = {
+  readonly claimId: string;
+  readonly text?: { readonly en: string; readonly ko: string };
+};
 type Revision = { readonly adjudicatedClaimId: string };
+
+export function isComparatorAbsenceThesis(text: {
+  readonly en: string;
+  readonly ko: string;
+}): boolean {
+  return (
+    /(?:peer|comparator|benchmark|sector comparison|relative strength).{0,80}(?:unavailable|missing|absent|insufficient|cannot be (?:verified|confirmed|assessed))/iu.test(
+      text.en,
+    ) ||
+    /(?:동종기업|피어|벤치마크|섹터 비교|상대 강도).{0,80}(?:없|부재|부족|불가|확인할 수 없|검증되지 않)/u.test(
+      text.ko,
+    )
+  );
+}
 
 export function selectChairClaims<
   ClaimValue extends Claim,
@@ -10,14 +27,28 @@ export function selectChairClaims<
   readonly positionClaimIds: readonly string[];
   readonly revisions: readonly RevisionValue[];
   readonly retainedDissentClaimIds: readonly string[];
+  readonly excludeComparatorAbsenceClaims?: boolean;
 }) {
-  const adjudicatedClaimIds = new Set(input.positionClaimIds);
+  const excludedClaimIds = new Set(
+    input.excludeComparatorAbsenceClaims === true
+      ? input.structuralClaims
+          .filter(
+            (claim) =>
+              claim.text !== undefined && isComparatorAbsenceThesis(claim.text),
+          )
+          .map((claim) => claim.claimId)
+      : [],
+  );
+  const adjudicatedClaimIds = new Set(
+    input.positionClaimIds.filter((claimId) => !excludedClaimIds.has(claimId)),
+  );
   const retainedDissentClaimIds = new Set(input.retainedDissentClaimIds);
   const audited = [
     ...new Map(
       input.structuralClaims
         .filter(
           (claim) =>
+            !excludedClaimIds.has(claim.claimId) &&
             input.semanticallyAcceptedClaimIds.has(claim.claimId) &&
             (adjudicatedClaimIds.has(claim.claimId) ||
               retainedDissentClaimIds.has(claim.claimId)),
@@ -29,18 +60,24 @@ export function selectChairClaims<
     adjudicatedClaimIds.has(revision.adjudicatedClaimId),
   );
   const auditedClaimIds = [
-    ...audited.map((claim) => claim.claimId),
-    ...authenticatedRevisions.map((revision) => revision.adjudicatedClaimId),
+    ...new Set([
+      ...audited.map((claim) => claim.claimId),
+      ...authenticatedRevisions.map((revision) => revision.adjudicatedClaimId),
+    ]),
   ].sort();
   const auditedClaimIdSet = new Set(auditedClaimIds);
   return {
     audited,
     authenticatedRevisions,
     auditedClaimIds,
-    retainedDissentClaimIds: input.retainedDissentClaimIds.filter(
-      (claimId) =>
-        input.semanticallyAcceptedClaimIds.has(claimId) &&
-        auditedClaimIdSet.has(claimId),
-    ),
+    retainedDissentClaimIds: [
+      ...new Set(
+        input.retainedDissentClaimIds.filter(
+          (claimId) =>
+            input.semanticallyAcceptedClaimIds.has(claimId) &&
+            auditedClaimIdSet.has(claimId),
+        ),
+      ),
+    ],
   };
 }

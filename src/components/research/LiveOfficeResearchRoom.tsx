@@ -423,7 +423,7 @@ export function LiveOfficeResearchRoom({
 
   useEffect(() => {
     if (projection.state === "published") {
-      setTranscriptOpen(false);
+      setTranscriptOpen(true);
     } else {
       setTranscriptOpen(true);
     }
@@ -439,13 +439,23 @@ export function LiveOfficeResearchRoom({
   const handleSidebarCollapsedChange = (collapsed: boolean): void => {
     const nextOpen = !collapsed;
     setSidebarOpen(nextOpen);
-    if (nextOpen && (completed || terminal)) setTranscriptOpen(false);
+    if (
+      nextOpen &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+    )
+      setTranscriptOpen(false);
   };
 
   const handleTranscriptToggle = (): void => {
     setTranscriptOpen((open) => {
       const nextOpen = !open;
-      if (nextOpen) setSidebarOpen(false);
+      if (
+        nextOpen &&
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 767px)").matches
+      )
+        setSidebarOpen(false);
       return nextOpen;
     });
   };
@@ -548,6 +558,7 @@ export function LiveOfficeResearchRoom({
             : { reportId: projection.snapshot.run.reportId })}
           reportVersion={report?.version ?? 1}
           pendingAgentIds={projection.snapshot.activeAgentIds ?? []}
+          pendingActivities={projection.snapshot.activeActivities ?? []}
           panelOpen={transcriptOpen}
           onPanelToggle={handleTranscriptToggle}
           onRetry={async () => {

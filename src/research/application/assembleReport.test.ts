@@ -101,6 +101,31 @@ describe("persistAuthoritativeReport", () => {
     });
   });
 
+  it("publishes audited retained dissent when the chair did not tag a separate dissent sentence", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const valid = makeAuthoritativeReportInput();
+    const input = {
+      ...valid,
+      chairSentences: valid.chairSentences.map((sentence) =>
+        sentence.kind === "dissent"
+          ? { ...sentence, kind: "claim" as const }
+          : sentence,
+      ),
+    };
+    await seedAuthoritativeParents(cas, input);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      input,
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.locales.en.dissent[0]?.text).not.toBe("");
+    expect(result.report.locales.ko.dissent[0]?.text).not.toBe("");
+  });
+
   it("retains qualified user-selected comparators in the published report", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -309,6 +334,31 @@ describe("persistAuthoritativeReport", () => {
     });
   });
 
+  it("publishes when neither the audit nor the chair defines a legacy operating scenario", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const valid = makeAuthoritativeReportInput();
+    const input = {
+      ...valid,
+      structuralAudit: {
+        ...valid.structuralAudit,
+        result: { ...valid.structuralAudit.result, scenarios: [] },
+      },
+      chairScenarioIds: [],
+    };
+    await seedAuthoritativeParents(cas, valid);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      input,
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.locales.en.scenarios).toEqual([]);
+    expect(result.report.locales.ko.scenarios).toEqual([]);
+  });
+
   it("removes a contradicted retained-dissent claim from the report register", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -339,7 +389,7 @@ describe("persistAuthoritativeReport", () => {
     expect(persistence.saved).toHaveLength(0);
   });
 
-  it("writes no CAS blob or version when bilingual chair parity is invalid", async () => {
+  it("publishes from the audited retention ledger when chair retention metadata drifts", async () => {
     // Given
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -348,6 +398,7 @@ describe("persistAuthoritativeReport", () => {
       ...valid,
       chair: { ...valid.chair, unknowns: [] },
     };
+    await seedAuthoritativeParents(cas, input);
 
     // When
     const result = await persistAuthoritativeReport(
@@ -356,9 +407,9 @@ describe("persistAuthoritativeReport", () => {
     );
 
     // Then
-    expect(result).toEqual({ kind: "blocked", reason: "retention_mismatch" });
-    expect(persistence.saved).toHaveLength(0);
-    expect(cas.putCount).toBe(0);
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    expect(persistence.saved).toHaveLength(1);
+    expect(cas.putCount).toBeGreaterThan(0);
   });
 
   it("writes no CAS blob or version when a quality gate fails", async () => {

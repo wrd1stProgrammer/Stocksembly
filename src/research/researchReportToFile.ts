@@ -325,6 +325,20 @@ function workflowV2ReportToFile(
             : claim,
         ),
       comparators: report.comparators,
+      sectionNarratives: report.locales.en.sections.map((section) => {
+        const korean = koreanSectionsById.get(section.id) ?? section;
+        return {
+          id: section.id,
+          title: localized(
+            sanitizePublicEditorialText(section.title),
+            sanitizePublicEditorialText(korean.title),
+          ),
+          body: localized(
+            sanitizePublicEditorialText(section.body),
+            sanitizePublicEditorialText(korean.body),
+          ),
+        };
+      }),
       conflicts: publicEditorialClaims.flatMap((claim) =>
         claim.counterevidenceArtifactIds.length === 0
           ? []

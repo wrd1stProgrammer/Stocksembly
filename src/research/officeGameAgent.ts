@@ -128,10 +128,12 @@ export function applyAgentRenderState(
   runtime.label.position.set(uiLayout.label.x, uiLayout.label.y);
   runtime.label.visible = uiLayout.label.visible;
   runtime.bubble.container.position.set(uiLayout.bubble.x, uiLayout.bubble.y);
+  runtime.bubble.container.scale.set(uiLayout.bubble.scale);
   const bubbleSize = bubbleDimensions(state.bubble.message);
+  const tailTargetX = -uiLayout.bubble.x / uiLayout.bubble.scale;
   runtime.bubble.tail.position.x = Math.max(
     -bubbleSize.width / 2 + 14,
-    Math.min(bubbleSize.width / 2 - 14, -uiLayout.bubble.x),
+    Math.min(bubbleSize.width / 2 - 14, tailTargetX),
   );
   runtime.bubble.container.visible = uiLayout.bubble.visible;
   updateProgressBubble(runtime.bubble, state.bubble.message);

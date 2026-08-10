@@ -137,12 +137,14 @@ describe("immutable all-agent assignments", () => {
       (item) => item.roleId === "market_news",
     );
     expect(june?.allowedDatasets).toContain("market_bars");
+    expect(june?.allowedDatasets).toContain("insightsentry_news_market");
     expect(june?.allowedDatasets).not.toContain("insightsentry_fundamentals");
     expect(june?.allowedDatasets).not.toContain("insightsentry_news");
     expect(june?.forbiddenOutputs).toEqual(
       expect.arrayContaining(["valuation_analysis", "news_summary"]),
     );
     expect(sofia?.allowedDatasets).toContain("insightsentry_fundamentals");
+    expect(sofia?.allowedDatasets).toContain("insightsentry_news_financial");
     expect(sofia?.allowedDatasets).not.toContain("market_bars");
     const market = firstResult.assignments.find(
       (item) => item.roleId === "market",
@@ -162,17 +164,15 @@ describe("immutable all-agent assignments", () => {
     expect(company?.allowedDatasets).toContain("sec_institutional_holdings");
     expect(financial?.allowedDatasets).toContain("sec_insider_transactions");
     expect(financial?.allowedDatasets).toContain("sec_institutional_holdings");
+    expect(financial?.allowedDatasets).toContain(
+      "insightsentry_news_financial",
+    );
     expect(risk?.allowedDatasets).toContain("insightsentry_news_risk");
     expect(risk?.allowedDatasets).toContain("bls_macro");
     expect(risk?.allowedDatasets).toContain("sec_insider_transactions");
     expect(risk?.allowedDatasets).toContain("sec_institutional_holdings");
-    expect(june?.allowedDatasets).not.toEqual(
-      expect.arrayContaining([
-        "insightsentry_news_company",
-        "insightsentry_news_market",
-        "insightsentry_news_risk",
-      ]),
-    );
+    expect(june?.allowedDatasets).not.toContain("insightsentry_news_company");
+    expect(june?.allowedDatasets).not.toContain("insightsentry_news_risk");
     const firstArtifact = sofia?.evidenceSlice.artifacts[0];
     const firstCapability = sofia?.evidenceSlice.capabilities[0];
     const firstLimitation = sofia?.limitations[0];

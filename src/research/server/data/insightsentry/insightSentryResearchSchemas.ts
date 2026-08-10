@@ -62,20 +62,22 @@ export const NewsResponseSchema = z.strictObject({
     .max(500),
 });
 
+export const NewsClassificationSchema = z.strictObject({
+  candidateId: z.string().min(1),
+  eventKey: z.string().min(1).max(160),
+  category: z.enum(["company", "market", "risk"]),
+  relevance: z.number().min(0).max(1),
+  materiality: z.enum(["material", "immaterial"]),
+  novelty: z.enum(["unique", "duplicate"]),
+  direction: z.enum(["positive", "negative", "mixed", "neutral"]),
+  horizon: z.enum(["immediate", "near_term", "long_term"]),
+  verificationNeed: z.enum(["required", "recommended", "none"]),
+});
+
+export type NewsClassification = z.infer<typeof NewsClassificationSchema>;
+
 export const NewsClassifierResponseSchema = z.strictObject({
-  classifications: z.array(
-    z.strictObject({
-      candidateId: z.string().min(1),
-      eventKey: z.string().min(1).max(160),
-      category: z.enum(["company", "market", "risk"]),
-      relevance: z.number().min(0).max(1),
-      materiality: z.enum(["material", "immaterial"]),
-      novelty: z.enum(["unique", "duplicate"]),
-      direction: z.enum(["positive", "negative", "mixed", "neutral"]),
-      horizon: z.enum(["immediate", "near_term", "long_term"]),
-      verificationNeed: z.enum(["required", "recommended", "none"]),
-    }),
-  ),
+  classifications: z.array(NewsClassificationSchema),
 });
 
 export const DocumentIndexSchema = z.array(

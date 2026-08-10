@@ -32,6 +32,11 @@ export type ResearchFileData = {
     readonly claims: WorkflowV2ResearchReport["editorialClaims"];
     readonly claimRegister: WorkflowV2ResearchReport["claims"];
     readonly comparators: WorkflowV2ResearchReport["comparators"];
+    readonly sectionNarratives?: readonly {
+      readonly id: string;
+      readonly title: LocalizedText;
+      readonly body: LocalizedText;
+    }[];
     readonly conflicts: readonly {
       readonly claimId: string;
       readonly counterevidenceArtifactIds: readonly string[];

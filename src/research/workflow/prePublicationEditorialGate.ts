@@ -502,6 +502,7 @@ export function deterministicMetadataRewrite(
     }),
   }));
   const decisionKeys = new Set<string>();
+  const evidenceKeys = new Set<string>();
   const primaryClaimCounts = new Map<string, number>();
   rewritten.anticipatedQuestions = rewritten.anticipatedQuestions.map(
     (question, index) => {
@@ -511,7 +512,19 @@ export function deterministicMetadataRewrite(
         duplicate && request.fieldPaths.includes(path)
           ? `${question.decisionKey}:${question.questionId}`
           : question.decisionKey;
-      decisionKeys.add(decisionKey);
+      const evidenceArtifactIds = question.evidenceArtifactIds.filter((id) =>
+        request.permittedEvidenceArtifactIds.includes(id),
+      );
+      let repairedDecisionKey = decisionKey;
+      const evidenceKey = `${repairedDecisionKey}|${[...evidenceArtifactIds]
+        .sort()
+        .join(",")}`;
+      if (evidenceKeys.has(evidenceKey))
+        repairedDecisionKey = `${repairedDecisionKey}:${question.questionId}`;
+      decisionKeys.add(repairedDecisionKey);
+      evidenceKeys.add(
+        `${repairedDecisionKey}|${[...evidenceArtifactIds].sort().join(",")}`,
+      );
       const primaryClaimIds = question.primaryClaimIds.filter((claimId) => {
         if (!request.permittedClaimIds.includes(claimId)) return false;
         const count = primaryClaimCounts.get(claimId) ?? 0;
@@ -522,7 +535,7 @@ export function deterministicMetadataRewrite(
       });
       return {
         ...question,
-        decisionKey,
+        decisionKey: repairedDecisionKey,
         question: {
           en: repairText(question.question.en),
           ko: repairText(question.question.ko),
@@ -532,9 +545,7 @@ export function deterministicMetadataRewrite(
           ko: repairText(question.answer.ko),
         },
         primaryClaimIds,
-        evidenceArtifactIds: question.evidenceArtifactIds.filter((id) =>
-          request.permittedEvidenceArtifactIds.includes(id),
-        ),
+        evidenceArtifactIds,
       };
     },
   );
@@ -583,7 +594,7 @@ export async function gateWithOneTargetedRewrite(
       ]),
     ),
   ].sort();
-  const rewritten = await rewrite({
+  const rewriteRequest: TargetedRewriteRequest = {
     attempt: 1,
     fieldPaths: paths,
     violations: first.violations,
@@ -592,19 +603,14 @@ export async function gateWithOneTargetedRewrite(
       sanitizedOriginal.permittedEvidenceArtifactIds,
     permittedNumbers: sanitizedOriginal.supportedNumbers,
     untrustedCandidateJson: `<untrusted_editorial_candidate>${JSON.stringify(sanitizedOriginal)}</untrusted_editorial_candidate>`,
-  });
-  if (rewritten.confidence !== sanitizedOriginal.confidence)
-    return {
-      kind: "rejected",
-      reason: "editorial_quality_failed:confidence_changed",
-      violations: [],
-    };
-  const normalizedRewrite = sanitizePrePublicationCandidate(rewritten);
-  const changedPaths = changedLeafPaths(
+  };
+  const rewritten = await rewrite(rewriteRequest);
+  const modelRewrite = sanitizePrePublicationCandidate(rewritten);
+  const modelChangedPaths = changedLeafPaths(
     sanitizedOriginal,
-    normalizedRewrite,
+    modelRewrite,
   ).sort();
-  const unpermittedChange = changedPaths.find(
+  const unpermittedChange = modelChangedPaths.find(
     (path) =>
       !paths.some(
         (permitted) =>
@@ -613,19 +619,64 @@ export async function gateWithOneTargetedRewrite(
           path.startsWith(`${permitted}[`),
       ),
   );
-  if (unpermittedChange !== undefined)
-    return {
-      kind: "rejected",
-      reason: `editorial_quality_failed:rewrite_scope:${unpermittedChange}`,
-      violations: [],
-    };
+  const normalizedRewrite =
+    rewritten.confidence === sanitizedOriginal.confidence &&
+    unpermittedChange === undefined
+      ? modelRewrite
+      : sanitizePrePublicationCandidate(
+          deterministicMetadataRewrite(sanitizedOriginal, rewriteRequest),
+        );
+  const changedPaths = changedLeafPaths(
+    sanitizedOriginal,
+    normalizedRewrite,
+  ).sort();
   const second = evaluatePrePublicationEditorialGate(normalizedRewrite);
-  if (!second.publishable)
+  if (!second.publishable) {
+    const recoveryPaths = [
+      ...new Set(
+        second.hardViolations.flatMap((entry) => [
+          entry.path,
+          ...(entry.relatedPath === undefined ? [] : [entry.relatedPath]),
+        ]),
+      ),
+    ].sort();
+    const recovered = sanitizePrePublicationCandidate(
+      deterministicMetadataRewrite(normalizedRewrite, {
+        attempt: 1,
+        fieldPaths: recoveryPaths,
+        violations: second.hardViolations,
+        permittedClaimIds: sanitizedOriginal.permittedClaimIds,
+        permittedEvidenceArtifactIds:
+          sanitizedOriginal.permittedEvidenceArtifactIds,
+        permittedNumbers: sanitizedOriginal.supportedNumbers,
+        untrustedCandidateJson: `<untrusted_editorial_candidate>${JSON.stringify(normalizedRewrite)}</untrusted_editorial_candidate>`,
+      }),
+    );
+    const recoveryEvaluation = evaluatePrePublicationEditorialGate(recovered);
+    if (!recoveryEvaluation.publishable)
+      return {
+        kind: "rejected",
+        reason: stableEditorialFailureReason(recoveryEvaluation.hardViolations),
+        violations: recoveryEvaluation.hardViolations,
+      };
+    const recoveryChangedPaths = changedLeafPaths(
+      sanitizedOriginal,
+      recovered,
+    ).sort();
     return {
-      kind: "rejected",
-      reason: stableEditorialFailureReason(second.hardViolations),
-      violations: second.hardViolations,
+      kind: "accepted",
+      candidate: recovered,
+      rewritten: recoveryChangedPaths.length > 0,
+      fieldLineage: Object.fromEntries([
+        ...candidateFieldPaths(recovered).map(
+          (path) => [path, "synthesis"] as const,
+        ),
+        ...recoveryChangedPaths.map(
+          (path) => [path, "targeted_rewrite"] as const,
+        ),
+      ]),
     };
+  }
   return {
     kind: "accepted",
     candidate: normalizedRewrite,

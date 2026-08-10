@@ -291,7 +291,7 @@ describe("InsightSentry initial workflow collection", () => {
     });
 
     // Then
-    expect(cold.requestLedger.uniqueUpstreamCalls).toBe(15);
+    expect(cold.requestLedger.uniqueUpstreamCalls).toBe(16);
     expect(warm.requestLedger.uniqueUpstreamCalls).toBeGreaterThanOrEqual(5);
     expect(warm.requestLedger.uniqueUpstreamCalls).toBeLessThanOrEqual(8);
     expect(

@@ -155,11 +155,12 @@ export async function collectInsightSentryPeers(input: {
       }),
     });
   } catch (error) {
-    if (
-      error instanceof InsightSentryClientError ||
-      error instanceof ZodError ||
-      error instanceof RangeError
-    )
+    if (error instanceof RangeError)
+      return Object.freeze({
+        status: "unavailable",
+        limitation: "provider_unavailable",
+      });
+    if (error instanceof InsightSentryClientError || error instanceof ZodError)
       return familyFailure(error);
     throw error;
   }

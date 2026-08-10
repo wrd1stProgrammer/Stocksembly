@@ -92,6 +92,7 @@ export const TEAM_CORE_DATA = {
       "insightsentry_fundamentals",
       "insightsentry_calendar",
       "insightsentry_quote",
+      "insightsentry_news_financial",
       "insightsentry_peers",
       "insightsentry_documents",
       "sec_insider_transactions",

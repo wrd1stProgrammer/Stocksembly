@@ -19,6 +19,10 @@ const contributionLabels = {
   opposes: { en: "Challenges the view", ko: "현재 판단에 반대" },
   uncertain: { en: "Context for the view", ko: "판단의 맥락" },
 } as const;
+const driverEvidenceLabels = {
+  primary: { en: "Primary evidence", ko: "핵심 근거" },
+  supporting: { en: "Supporting evidence", ko: "보강 근거" },
+} as const;
 
 function dateFromText(value: string): string | undefined {
   return value.match(/\b\d{4}-\d{2}-\d{2}\b/u)?.[0];
@@ -30,6 +34,120 @@ function normalized(value: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+}
+
+function editorialTokens(value: string): ReadonlySet<string> {
+  return new Set(
+    normalized(value)
+      .split(" ")
+      .filter((token) => token.length > 1),
+  );
+}
+
+function editoriallyOverlaps(first: string, second: string): boolean {
+  const firstTokens = editorialTokens(first);
+  const secondTokens = editorialTokens(second);
+  const smaller = Math.min(firstTokens.size, secondTokens.size);
+  if (smaller < 6) return normalized(first) === normalized(second);
+  let shared = 0;
+  for (const token of firstTokens) {
+    if (secondTokens.has(token)) shared += 1;
+  }
+  return shared / smaller >= 0.72;
+}
+
+function decisionDriverTheme(dimension: string): string {
+  if (
+    [
+      "relative_performance",
+      "growth_engine",
+      "moat",
+      "adoption",
+      "competitive_erosion",
+    ].includes(dimension)
+  )
+    return "business";
+  if (dimension === "embedded_expectations") return "valuation";
+  if (["downside_path", "leading_indicator", "mitigant"].includes(dimension))
+    return "risk";
+  if (["margin", "cash_conversion", "reinvestment"].includes(dimension))
+    return "financial";
+  if (["regime", "timing", "catalyst"].includes(dimension)) return "market";
+  return dimension;
+}
+
+const driverThemePriority: Readonly<Record<string, number>> = {
+  business: 0,
+  valuation: 1,
+  risk: 2,
+  financial: 3,
+  market: 4,
+};
+
+const COMPARATOR_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  NVDA: ["NVDA", "NVIDIA", "엔비디아", "앤비디아", "앤디비아"],
+  AMD: ["AMD", "Advanced Micro Devices", "암드"],
+  AAPL: ["AAPL", "Apple", "애플"],
+  MSFT: ["MSFT", "Microsoft", "마이크로소프트"],
+  AMZN: ["AMZN", "Amazon", "아마존"],
+  TSLA: ["TSLA", "Tesla", "테슬라"],
+  GOOGL: ["GOOGL", "Alphabet", "Google", "알파벳", "구글"],
+  META: ["META", "Meta", "메타"],
+  AVGO: ["AVGO", "Broadcom", "브로드컴"],
+  INTC: ["INTC", "Intel", "인텔"],
+  QCOM: ["QCOM", "Qualcomm", "퀄컴"],
+};
+
+function escapedPattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function selectedComparatorLabel(
+  question: string,
+  decisiveReason: string,
+  comparatorIds: readonly string[],
+  locale: Locale,
+): string | undefined {
+  if (!asksForRelativeComparison(question) || comparatorIds.length === 0)
+    return undefined;
+  for (const comparatorId of comparatorIds) {
+    const symbol = comparatorId.split(":").at(-1)?.toUpperCase();
+    if (symbol === undefined) continue;
+    const aliases = COMPARATOR_ALIASES[symbol] ?? [symbol];
+    const selected = aliases.some((alias) => {
+      const escaped = escapedPattern(alias);
+      return locale === "ko"
+        ? new RegExp(
+            `(?:보다|대신).{0,24}${escaped}(?:가|이)?\\s*(?:더\\s*)?(?:적합|유리|우위)|(?:선택|우선).{0,12}${escaped}|${escaped}(?:가|이)?\\s*(?:더\\s*)?(?:적합|유리|우위)`,
+            "iu",
+          ).test(decisiveReason)
+        : new RegExp(
+            `(?:prefer|choose)\\s+${escaped}|${escaped}.{0,20}(?:stronger fit|preferred|more attractive)`,
+            "iu",
+          ).test(decisiveReason);
+    });
+    if (selected)
+      return locale === "ko" ? `${symbol} 우선` : `Prefer ${symbol}`;
+  }
+  return locale === "ko" ? "상대 우위 판단" : "Relative preference";
+}
+
+function asksForRelativeComparison(question: string): boolean {
+  return /(?:동종|업계|섹터|벤치마크|상대|경쟁사.{0,12}비교|살\s*바에|사는\s*게|보다.{0,12}(?:낫|좋|유리)|대신.{0,12}(?:사|투자)|peer|comparator|benchmark|relative|versus|\bvs\.?\b)/iu.test(
+    question,
+  );
+}
+
+function isComparatorAbsenceClaim(value: {
+  readonly en: string;
+  readonly ko: string;
+}): boolean {
+  const text = `${value.en} ${value.ko}`;
+  const subject =
+    /(?:peer|comparator|benchmark|relative comparison|동종기업|피어|벤치마크|상대 비교)/iu;
+  const absence =
+    /(?:missing|absent|unavailable|not available|cannot verify|없|부재|확인할 수 없|사용할 수 없)/iu;
+  return subject.test(text) && absence.test(text);
 }
 
 export function buildCommitteeDecisionModel(
@@ -95,6 +213,11 @@ export function buildCommitteeDecisionModel(
     return { claim, registered, departmentId, team, ownerName: role.name };
   };
   const activeClaims = claims.flatMap((claim) => {
+    if (
+      !asksForRelativeComparison(model.question) &&
+      isComparatorAbsenceClaim(claim.publicThesis)
+    )
+      return [];
     const authenticated = authenticate(claim);
     return authenticated === undefined ? [] : [authenticated];
   });
@@ -121,18 +244,39 @@ export function buildCommitteeDecisionModel(
       : model.evidenceReliability >= 50
         ? confidenceLabels.medium[locale]
         : confidenceLabels.low[locale];
-  const seenDriverTexts = new Set<string>();
+  const seenDriverTexts: string[] = [];
+  const openingTexts = [model.directAnswer, ...model.investmentView].filter(
+    (value) => value.trim().length > 0,
+  );
   const driverCandidates = [
-    ...primaryClaims,
-    ...activeClaims.filter(
-      ({ claim }) =>
-        !primaryIds.has(claim.claimId) &&
-        claim.materiality === "material" &&
-        claim.decisionDimension !== "catalyst",
-    ),
-  ];
+    ...primaryClaims.map((candidate, order) => ({ candidate, order })),
+    ...activeClaims
+      .filter(
+        ({ claim }) =>
+          !primaryIds.has(claim.claimId) &&
+          claim.materiality === "material" &&
+          claim.decisionDimension !== "catalyst",
+      )
+      .map((candidate, index) => ({
+        candidate,
+        order: primaryClaims.length + index,
+      })),
+  ].sort((first, second) => {
+    const firstTheme = decisionDriverTheme(
+      first.candidate.claim.decisionDimension,
+    );
+    const secondTheme = decisionDriverTheme(
+      second.candidate.claim.decisionDimension,
+    );
+    return (
+      (driverThemePriority[firstTheme] ?? 99) -
+        (driverThemePriority[secondTheme] ?? 99) || first.order - second.order
+    );
+  });
+  const seenDriverThemes = new Set<string>();
   const drivers = driverCandidates
-    .flatMap(({ claim, registered, departmentId, team, ownerName }) => {
+    .flatMap(({ candidate }) => {
+      const { claim, registered, departmentId, team, ownerName } = candidate;
       if (
         claim.materiality !== "material" ||
         claim.decisionDimension === "catalyst"
@@ -142,14 +286,18 @@ export function buildCommitteeDecisionModel(
       const falsifier = claim.falsifier[locale];
       const why = team.evidence;
       const normalizedThesis = normalized(thesis);
+      const theme = decisionDriverTheme(claim.decisionDimension);
       if (
         normalizedThesis.length === 0 ||
-        seenDriverTexts.has(normalizedThesis) ||
+        seenDriverThemes.has(theme) ||
+        openingTexts.some((opening) => editoriallyOverlaps(opening, thesis)) ||
+        seenDriverTexts.some((seen) => editoriallyOverlaps(seen, thesis)) ||
         normalized(why) === normalizedThesis ||
         normalized(why) === normalized(falsifier)
       )
         return [];
-      seenDriverTexts.add(normalizedThesis);
+      seenDriverTexts.push(thesis);
+      seenDriverThemes.add(theme);
       return [
         {
           id: claim.claimId,
@@ -161,7 +309,9 @@ export function buildCommitteeDecisionModel(
           thesis,
           why,
           falsifier,
-          contribution: contributionLabels[claim.stanceContribution][locale],
+          contribution: primaryIds.has(claim.claimId)
+            ? driverEvidenceLabels.primary[locale]
+            : driverEvidenceLabels.supporting[locale],
           sourceLineage: {
             departmentId,
             disposition: registered.disposition,
@@ -176,7 +326,13 @@ export function buildCommitteeDecisionModel(
     .map((driver, index) => ({ ...driver, rank: index + 1 }));
   return {
     stance: decision.stance,
-    stanceLabel: stanceLabels[decision.stance][locale],
+    stanceLabel:
+      selectedComparatorLabel(
+        model.question,
+        decision.decisiveReason[locale],
+        model.qualifiedComparators?.map((item) => item.comparatorId) ?? [],
+        locale,
+      ) ?? stanceLabels[decision.stance][locale],
     confidence: decision.confidence,
     confidenceLabel: confidenceLabels[decision.confidence][locale],
     reliability,
@@ -209,10 +365,9 @@ export function buildCommitteeDecisionModel(
             date: nextEventDate,
           },
     adjudicationRows: model.teamRows.map((team) => {
-      const ownedClaims = claims.filter(
-        (claim) =>
-          workflowRoleById(claim.roleOwner)?.departmentId === team.departmentId,
-      );
+      const ownedClaims = activeClaims
+        .filter(({ departmentId }) => departmentId === team.departmentId)
+        .map(({ claim }) => claim);
       const accepted = ownedClaims.some((claim) =>
         primaryIds.has(claim.claimId),
       );
@@ -221,6 +376,11 @@ export function buildCommitteeDecisionModel(
       );
       return {
         ...team,
+        investorCheckpoint:
+          ownedClaims.find((claim) => claim.materiality === "material")
+            ?.falsifier[locale] ??
+          ownedClaims[0]?.falsifier[locale] ??
+          model.nextVerificationEvent,
         adjudication: accepted
           ? locale === "ko"
             ? "핵심 동인 채택"

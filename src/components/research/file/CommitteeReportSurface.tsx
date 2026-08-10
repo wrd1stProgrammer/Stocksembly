@@ -16,6 +16,7 @@ export function CommitteeReportSurface(props: ResearchReportSurfaceProps) {
         />
       )}
       <CommitteeDecisionCockpit
+        company={props.company}
         file={props.report}
         model={props.model}
         locale={props.locale}

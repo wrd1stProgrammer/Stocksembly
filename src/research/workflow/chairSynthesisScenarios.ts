@@ -1,5 +1,33 @@
 import { z } from "zod";
 
+function compactRevenue(value: string): {
+  readonly en: string;
+  readonly ko: string;
+} {
+  const amount = Number(value.replaceAll(",", "").trim());
+  if (!Number.isFinite(amount) || Math.abs(amount) < 1_000_000)
+    return { en: value, ko: value };
+  const fractionDigits = Math.abs(amount) >= 10_000_000_000 ? 1 : 2;
+  return {
+    en: `$${(amount / 1_000_000_000).toFixed(fractionDigits)}B`,
+    ko: `US$${(amount / 100_000_000).toFixed(fractionDigits)}억`,
+  };
+}
+
+function compactDecimal(value: string, unit: "percent" | "USD_per_share") {
+  const numeric = Number(value.replaceAll(",", "").trim());
+  if (!Number.isFinite(numeric)) return { en: value, ko: value };
+  const formatted = numeric.toLocaleString("en-US", {
+    maximumFractionDigits: 2,
+  });
+  const suffix = unit === "percent" ? "%" : "";
+  const prefix = unit === "USD_per_share" ? "$" : "";
+  return {
+    en: `${prefix}${formatted}${suffix}`,
+    ko: `${prefix}${formatted}${suffix}`,
+  };
+}
+
 export function chairScenarioSentences(
   inputs: readonly { readonly field: string; readonly value: string }[],
 ):
@@ -19,12 +47,18 @@ export function chairScenarioSentences(
       .safeParse(scenario.field);
     if (!field.success) return [];
     const label = labels[field.data];
+    const value =
+      field.data === "revenue"
+        ? compactRevenue(scenario.value)
+        : field.data === "operating_margin"
+          ? compactDecimal(scenario.value, "percent")
+          : compactDecimal(scenario.value, "USD_per_share");
     return [
       {
         id: `scenario:${index + 1}:${scenario.field}`,
         text: {
-          en: `${label.en}: ${scenario.value}`,
-          ko: `${label.ko}: ${scenario.value}`,
+          en: `${label.en}: ${value.en}`,
+          ko: `${label.ko}: ${value.ko}`,
         },
       },
     ];

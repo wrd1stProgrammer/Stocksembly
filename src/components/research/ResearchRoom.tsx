@@ -62,7 +62,7 @@ function FixtureResearchRoom({
 }: FixtureProps) {
   const [locale, setLocale] = useState(initialLocale);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(true);
   const reportVersion = 1;
   const playback = useResearchPlayback(payload, initialComplete);
   const { data } = payload;
@@ -74,10 +74,6 @@ function FixtureResearchRoom({
     if (typeof window.matchMedia !== "function") return;
     if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
   }, []);
-
-  useEffect(() => {
-    setTranscriptOpen(!playback.isComplete);
-  }, [playback.isComplete]);
 
   useEffect(() => {
     if (payload.mode !== "fixture") return;
@@ -99,13 +95,23 @@ function FixtureResearchRoom({
   const handleSidebarCollapsedChange = (collapsed: boolean): void => {
     const nextOpen = !collapsed;
     setSidebarOpen(nextOpen);
-    if (nextOpen && playback.isComplete) setTranscriptOpen(false);
+    if (
+      nextOpen &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches
+    )
+      setTranscriptOpen(false);
   };
 
   const handleTranscriptToggle = (): void => {
     setTranscriptOpen((open) => {
       const nextOpen = !open;
-      if (nextOpen) setSidebarOpen(false);
+      if (
+        nextOpen &&
+        typeof window !== "undefined" &&
+        window.matchMedia("(max-width: 767px)").matches
+      )
+        setSidebarOpen(false);
       return nextOpen;
     });
   };

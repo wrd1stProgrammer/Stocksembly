@@ -182,4 +182,94 @@ describe("createInsightSentryPeerScreen", () => {
       }),
     ).toBe(true);
   });
+
+  it("keeps filing-named cross-sector competitors and rejects preferred shares", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-peers-"));
+    roots.push(dataRoot);
+    const target = row("NASDAQ:SPCX", "Space Exploration Technologies Corp", {
+      marketCap: 4_000,
+      growth: 50,
+      grossMargin: 54,
+      operatingMargin: -2,
+    });
+    const rocketLab = {
+      ...row("NASDAQ:RKLB", "Rocket Lab USA, Inc.", {
+        marketCap: 120,
+        growth: 40,
+        grossMargin: 48,
+        operatingMargin: -8,
+      }),
+      sector: "Industrials",
+    };
+    const operating = [
+      row("NASDAQ:SAT1", "Satellite One Inc.", {
+        marketCap: 1_000,
+        growth: 45,
+        grossMargin: 50,
+        operatingMargin: 2,
+      }),
+      row("NASDAQ:SAT2", "Satellite Two Inc.", {
+        marketCap: 800,
+        growth: 38,
+        grossMargin: 47,
+        operatingMargin: 4,
+      }),
+      row("NASDAQ:SAT3", "Satellite Three Inc.", {
+        marketCap: 600,
+        growth: 35,
+        grossMargin: 45,
+        operatingMargin: 5,
+      }),
+      row("NASDAQ:SAT4", "Satellite Four Inc.", {
+        marketCap: 500,
+        growth: 30,
+        grossMargin: 42,
+        operatingMargin: 6,
+      }),
+    ];
+    const preferred = row(
+      "NYSE:SAT/PA",
+      "Satellite One Depositary Shares 5% Perpetual Preferred Stock",
+      {
+        marketCap: 1_000,
+        growth: 45,
+        grossMargin: 50,
+        operatingMargin: 2,
+      },
+    );
+    const payload = {
+      hasNext: false,
+      current_page: 1,
+      total_page: 1,
+      current_items: 7,
+      data: [target, rocketLab, ...operating, preferred],
+    };
+    const client: InsightSentryClient = {
+      get: async <T>(
+        request: InsightSentryRequest<T>,
+      ): Promise<InsightSentryResult<T>> => ({
+        data: request.schema.parse(payload),
+        cacheKey: "fixture",
+        cacheStatus: "miss",
+        retrievedAt: "2026-08-09T00:00:00.000Z",
+        responseBytes: 100,
+      }),
+    };
+    const screen = createInsightSentryPeerScreen({
+      client,
+      dataRoot,
+      asOf: "2026-08-09T00:00:00.000Z",
+      annualAccessionNumber: "0000000000-26-000002",
+      annualText:
+        "We compete directly with Rocket Lab USA in launch and space infrastructure.",
+    });
+
+    const result = (await screen({ symbol: "NASDAQ:SPCX", limit: 8 })) as {
+      readonly peers: readonly { readonly symbol: string }[];
+    };
+    expect(result.peers.map((peer) => peer.symbol)).toContain("NASDAQ:RKLB");
+    expect(result.peers.map((peer) => peer.symbol)).not.toContain(
+      "NYSE:SAT/PA",
+    );
+  });
 });

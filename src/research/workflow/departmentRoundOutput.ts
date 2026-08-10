@@ -11,6 +11,82 @@ type DepartmentCandidate = ReturnType<
   typeof DepartmentConsolidationOutputSchema.parse
 >;
 
+export function deterministicDepartmentCandidate(
+  job: PersistedDepartmentJob,
+): DepartmentCandidate {
+  const request = DepartmentJobPromptSchema.parse(JSON.parse(job.prompt));
+  const positions = request.memberArtifacts.flatMap(
+    (member) => member.memo.positions,
+  );
+  const claims = [...new Set(positions.map((position) => position.claimId))];
+  const leadPosition =
+    request.memberArtifacts
+      .find((member) => member.ownership.roleId === request.department.leadId)
+      ?.memo.positions.find(
+        (position) => position.materiality === "material",
+      ) ??
+    request.memberArtifacts.find(
+      (member) => member.ownership.roleId === request.department.leadId,
+    )?.memo.positions[0] ??
+    positions[0];
+  if (leadPosition === undefined || claims.length === 0)
+    throw new TypeError("department fallback requires member positions");
+  const dissentByClaim = new Map(
+    request.memberArtifacts
+      .flatMap((member) => member.memo.dissent)
+      .map((item) => [item.claimId, item] as const),
+  );
+  for (const position of positions)
+    if (position.stance === "opposes" && !dissentByClaim.has(position.claimId))
+      dissentByClaim.set(position.claimId, {
+        claimId: position.claimId,
+        publicSummary: position.publicSummary,
+      });
+  const openQuestions = [
+    ...new Map(
+      request.memberArtifacts
+        .flatMap((member) => member.memo.unknowns)
+        .map((item) => [`${item.en}\u0000${item.ko}`, item] as const),
+    ).values(),
+  ].slice(0, 2);
+  const evidencePriorityArtifactIds = [
+    ...new Set(positions.flatMap((position) => position.evidenceArtifactIds)),
+  ].slice(0, 64);
+  return DepartmentConsolidationOutputSchema.parse({
+    kind: "department_consolidation",
+    sourceArtifactIds: request.memberArtifacts.map(
+      (member) => member.artifactId,
+    ),
+    agreementClaimIds: positions
+      .filter((position) => position.stance === "supports")
+      .map((position) => position.claimId),
+    disagreementClaimIds: positions
+      .filter((position) => position.stance !== "supports")
+      .map((position) => position.claimId),
+    acceptedClaimIds: claims,
+    strongestClaimIds: [leadPosition.claimId],
+    weakestClaimIds: [
+      positions.find((position) => position.claimId !== leadPosition.claimId)
+        ?.claimId ?? leadPosition.claimId,
+    ],
+    revisedClaimIds: [],
+    removedClaimIds: [],
+    dispositions: claims.map((claimId) => ({
+      claimId,
+      disposition: "accept" as const,
+      reason: {
+        en: "Retained from an authenticated specialist memo with its evidence path intact.",
+        ko: "인증된 전문 메모와 근거 경로를 그대로 보존했습니다.",
+      },
+    })),
+    revisions: [],
+    publicSummary: leadPosition.publicSummary,
+    dissent: [...dissentByClaim.values()],
+    openQuestions,
+    evidencePriorityArtifactIds,
+  });
+}
+
 function publicTexts(candidate: DepartmentCandidate): readonly string[] {
   return [
     candidate.publicSummary.en,

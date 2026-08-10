@@ -14,7 +14,7 @@ const PRIMARY_KIND_ORDER: Readonly<
 > = {
   ten_second_brief: ["claim", "position", "dissent", "change_condition"],
   supported_analysis: ["position", "ballot", "dissent", "claim"],
-  valuation_comparison: ["claim", "position"],
+  valuation_comparison: ["claim", "position", "scenario"],
   operational_scenarios: ["scenario", "change_condition", "claim"],
   dissent_unknowns: ["unknown", "dissent", "ballot"],
   change_conditions: ["unknown", "change_condition"],
@@ -173,6 +173,50 @@ function groundedNumbers(text: string): readonly string[] {
   ];
 }
 
+function sectionEditorialRole(sectionKey: ChairSectionKey): string {
+  switch (sectionKey) {
+    case "ten_second_brief":
+      return "Answer mandate.question directly in the first sentence. State the directional conclusion for the selected horizon and decision purpose, then identify the one fact or event that makes the answer actionable. Do not lead with a data limitation unless the question itself is a relative-comparison question.";
+    case "supported_analysis":
+      return "Act as a claim audit, not a second executive summary. Separate what is established, what remains disputed across teams, and the investor checkpoint that resolves the dispute. Do not repeat the ten-second conclusion.";
+    case "valuation_comparison":
+      return "Translate price, estimates, and qualified comparisons into an explicit earnings or operating hurdle. Label provider aggregates as market estimates, not verified outcomes. When no qualified peer exists, use absolute valuation evidence without making peer absence the paragraph's thesis.";
+    case "operational_scenarios":
+      return "Describe distinct operating paths and connect each path to a measurable investor consequence over the selected horizon. Do not recap the valuation section or the committee stance.";
+    case "dissent_unknowns":
+      return "Preserve only the strongest decision-changing dissent and the unresolved fact that matters. Explain why resolving it would change the investment interpretation.";
+    case "change_conditions":
+      return "Write observable decision rules: the result that strengthens the case, the result that weakens it, and the next event where those results can be checked. Avoid generic calls for more data.";
+  }
+}
+
+function sectionPublicSummaryConstruction(
+  sectionKey: ChairSectionKey,
+  depth: ChairSynthesisPrompt["mandate"]["researchProfile"]["analysisDepth"],
+): string {
+  const length =
+    depth === "core"
+      ? "Use 2-3 concise sentences."
+      : depth === "deep"
+        ? "Use 4-6 substantive sentences."
+        : "Use 3-5 substantive sentences.";
+  const contract: Record<ChairSectionKey, string> = {
+    ten_second_brief:
+      "Lead with the direct answer, then explain the decisive mechanism and what it means for the selected horizon and decision purpose. Do not append the countercase, a data caveat, or a generic wait-for-more-proof sentence; those belong to later sections.",
+    supported_analysis:
+      "Organize the owned evidence into three distinct jobs: what is established, what the teams genuinely dispute, and the single checkpoint that resolves the dispute. Do not restate the verdict or recycle the same metric bundle from the opening.",
+    valuation_comparison:
+      "State the observed valuation or market expectation, the operating result required to justify it, and the consequence if delivery is above or below that hurdle. For comparative mandates, name both companies and explain the price-versus-quality trade-off.",
+    operational_scenarios:
+      "Describe distinct base, upside, and downside operating paths only when owned evidence supports them. Each path must have a different mechanism and investor consequence; do not recap valuation or committee language.",
+    dissent_unknowns:
+      "Present only the strongest decision-changing opposing case and explain precisely why it could overturn the current interpretation. Do not create symmetrical caution or list generic uncertainties.",
+    change_conditions:
+      "Write observable rules for strengthening, weakening, and rechecking the decision. Use a dated event or measurable filing result when present, and do not repeat the current verdict.",
+  };
+  return `${sectionEditorialRole(sectionKey)} ${contract[sectionKey]} ${length} Omit unsupported detail instead of filling space with a limitation. Never reuse another section's conclusion sentence, metric bundle, caveat, or closing sentence.`;
+}
+
 export function chairSynthesisModelPrompt(
   prompt: ChairSynthesisPrompt,
 ): string {
@@ -218,6 +262,7 @@ export function chairSynthesisModelPrompt(
       limitations: prompt.mandate.limitations,
       researchProfile: prompt.mandate.researchProfile,
     },
+    investmentModel: prompt.investmentModel,
     evidenceBoundary: "BEGIN_UNTRUSTED_EVIDENCE_CATALOG",
     ballots: prompt.ballots.map(({ departmentId, vote }) => ({
       departmentId,
@@ -354,13 +399,10 @@ export function chairSynthesisModelPrompt(
         sectionKey === "ten_second_brief"
           ? Math.min(2, targetEvidenceCount)
           : targetEvidenceCount,
-      publicSummaryConstruction: `Write one cohesive editorial paragraph from the owned sentenceIds. The paragraph must contain a directional judgment, the evidence mechanism, the strongest relevant counterpoint, and the investor implication or observable change condition. ${
-        prompt.mandate.researchProfile.analysisDepth === "core"
-          ? "Use 2-3 concise sentences and keep only the decisive signal."
-          : prompt.mandate.researchProfile.analysisDepth === "deep"
-            ? "Use 4-6 substantive sentences and connect at least three distinct evidence signals when available."
-            : "Use 3-5 substantive sentences and connect at least two distinct evidence signals when available."
-      } Omit a component only when that section's allowed evidence kinds cannot support it. Never disguise weak prose with a fixed label, prefix, suffix, synonym swap, or generic data-availability caveat. Interpret every number cluster through a comparison, mechanism, or decision consequence. Do not repeat the same conclusion, metric bundle, or caveat used by another section.`,
+      publicSummaryConstruction: sectionPublicSummaryConstruction(
+        sectionKey,
+        prompt.mandate.researchProfile.analysisDepth,
+      ),
       ...(sectionKey === "supported_analysis"
         ? {
             requiresConflictAdjudication: teamConflictDetected
@@ -377,6 +419,7 @@ export function chairSynthesisModelPrompt(
         prompt.mandate.researchProfile.counterargumentIntensity,
       comparisonSymbols: prompt.mandate.researchProfile.comparisonSymbols,
       requirements: [
+        "The report must answer mandate.question rather than merely describe the company. Reuse the question's subject, not its wording, and make the relevance explicit in the ten-second brief and one supporting section only.",
         "Convert evidence into a decision, not a meeting recap.",
         "For short horizon, prioritize the next catalyst, price/estimate direction, and a near-term invalidation signal; do not let long-run optionality dominate the conclusion.",
         "For medium horizon, prioritize the next two-to-four reporting periods, estimate revisions, operating execution, and the valuation path required over that window.",
@@ -386,6 +429,16 @@ export function chairSynthesisModelPrompt(
         "For position_sizing, state which asymmetry or concentration condition argues for adding, maintaining, or reducing exposure without issuing a personalized trade command.",
         "For earnings, distinguish what is known before the release, the decisive reported metric, and the post-release interpretation using the calendar, estimates, and filing evidence supplied to specialists.",
         "When counterargumentIntensity is strong, make the countercase concrete and material; the final stance must still favor the better-supported side.",
+        ...(prompt.investmentModel === undefined
+          ? []
+          : [
+              "Use investmentModel only as a transparent sensitivity framework. In valuation_comparison, distinguish its modeled range from the separate consensus target, name the selected method, and state the operating or multiple assumption that creates the widest downside. Do not present the range as a guaranteed fair value.",
+            ]),
+        ...(prompt.mandate.researchProfile.comparisonSymbols.length > 0
+          ? [
+              `This is a direct comparison against ${prompt.mandate.researchProfile.comparisonSymbols.join(", ")}. The ten-second brief must name the subject and comparator and choose the stronger fit for the selected horizon and decision purpose. supported_analysis must explain the operating or competitive reason for that choice; valuation_comparison must separately explain the price-and-expectations trade-off. Do not answer with a broad peer-data caveat when qualified evidence for the named comparator is present.`,
+            ]
+          : []),
       ],
     },
     instructions: `${prompt.instructions} Set every section primarySentenceId exactly from sectionPrimaryAssignments and do not substitute or clone an assignment; the attached primaryClaimIds are exclusively owned by that section. Follow publicSummaryContract and each section's publicSummaryConstruction exactly. Each sentenceId may be owned by at most one section and must appear only in a section listed by ownershipContract. Follow directionalBriefContract exactly: use requiredStance, requiredConfidence, requiredPrimarySentenceIds, and requiredPrimaryClaimIds, but write the three public decision texts as grounded synthesis rather than copies. Follow teamConflictContract exactly: when detected, supported_analysis.conflictAdjudication is non-null and all of its IDs must come from the allowed ledgers and be owned by supported_analysis; every section named in nullSectionKeys must return conflictAdjudication null.`,
@@ -483,13 +536,7 @@ export function chairSectionRewritePrompt(input: {
       comparisonSymbols: input.prompt.mandate.researchProfile.comparisonSymbols,
     },
     instructions: proseOnly
-      ? `Rewrite only publicSummary and preserve primarySentenceId, sentenceIds, and conflictAdjudication exactly. Do not patch the old wording with a label, prefix, suffix, synonym swap, or generic caveat; rebuild the thought from the preserved evidence. ${
-          input.prompt.mandate.researchProfile.analysisDepth === "core"
-            ? "Use 2-3 concise sentences: directional judgment, decisive evidence, and investor implication or change condition."
-            : input.prompt.mandate.researchProfile.analysisDepth === "deep"
-              ? "Use 4-6 substantive sentences: directional judgment, at least three distinct evidence signals when available, mechanism, strongest counterpoint, and investor implication or observable change condition."
-              : "Use 3-5 substantive sentences: directional judgment, at least two distinct evidence signals when available, strongest counterpoint, and investor implication or observable change condition."
-        } A number cluster must be followed by comparison or interpretation. Never write a generic statement that data is unavailable; if a missing metric is decision-material, name the metric, explain how its absence changes confidence, and state the event that resolves it. English must use Latin-language grounding from the selected English evidence; Korean must use Hangul-language grounding from the selected Korean evidence. The two leaves must not be normalized copies or transliterations. Do not add IDs or numbers outside the preserved evidence. Return only chair_section_rewrite JSON.`
-      : "Rewrite exactly the named section as one cohesive editorial paragraph. Lead with a directional judgment, explain the evidence mechanism, confront the strongest material counterpoint, then state the investor implication or observable change condition for the supplied horizon and decision purpose. Synthesize the evidence instead of copying the primary sentence verbatim. Avoid repeating a conclusion, metric bundle, or caveat already used elsewhere. Return only chair_section_rewrite JSON. Do not add IDs or numbers outside the permitted catalog.",
+      ? `Rewrite only publicSummary and preserve primarySentenceId, sentenceIds, and conflictAdjudication exactly. Do not patch the old wording with a label, prefix, suffix, synonym swap, or generic caveat; rebuild the thought from the preserved evidence. ${sectionPublicSummaryConstruction(input.sectionKey, input.prompt.mandate.researchProfile.analysisDepth)} A number cluster must be followed by comparison or interpretation. English must use Latin-language grounding from the selected English evidence; Korean must use Hangul-language grounding from the selected Korean evidence. The two leaves must not be normalized copies or transliterations. Do not add IDs or numbers outside the preserved evidence. Return only chair_section_rewrite JSON.`
+      : `${sectionPublicSummaryConstruction(input.sectionKey, input.prompt.mandate.researchProfile.analysisDepth)} Synthesize the evidence instead of copying the primary sentence verbatim. Return only chair_section_rewrite JSON. Do not add IDs or numbers outside the permitted catalog.`,
   });
 }

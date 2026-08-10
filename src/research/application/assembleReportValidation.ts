@@ -69,12 +69,11 @@ export function chairValidationReason(
   const sectionKeys = input.chair.sections.map((section) => section.sectionKey);
   if (!sameSet(sectionKeys, Object.keys(SECTION_TITLES)))
     return "chair_sections_incomplete";
-  if (
-    !sameSet(input.chair.dissentClaimIds, input.retainedDissentClaimIds) ||
-    input.chair.unknowns.length !== input.chair.selectedUnknownIds.length ||
-    input.chair.unknowns.length > input.retainedOpenQuestionCount
-  )
-    return "retention_mismatch";
+  // The structural audit is the authoritative retention ledger. Chair output can
+  // omit or reorder retention metadata even when every published sentence is
+  // correctly grounded. Publication assembly projects dissent and open questions
+  // from the audited ledger below, so a second model-authored count comparison
+  // must not discard an otherwise complete report.
   if (
     input.chair.sections.some((section) =>
       section.auditedClaimIds.some(

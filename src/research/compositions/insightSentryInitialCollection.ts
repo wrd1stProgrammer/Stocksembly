@@ -578,6 +578,9 @@ export async function collectInsightSentryInitialEvidence(input: {
     readonly annualText: string;
   };
   readonly requestedComparisonSymbols?: readonly string[];
+  readonly question?: string;
+  readonly investmentHorizon?: "short" | "medium" | "long";
+  readonly analysisDepth?: "core" | "standard" | "deep";
   readonly decisionPurpose?:
     | "new_entry"
     | "holding_review"
@@ -626,13 +629,16 @@ export async function collectInsightSentryInitialEvidence(input: {
     news: true,
     documents: true,
     calendar: true,
-    peers:
-      input.peerProfile !== undefined && requestedComparisonSymbols.length > 0,
+    // A peer set is useful even when the user does not manually name a
+    // comparator. The selector uses the latest annual filing, keeps its own
+    // 30-day selection cache, and merges explicit user choices when present.
+    peers: input.peerProfile !== undefined,
     options: false,
   } as const;
   const research = createInsightSentryResearchDataAdapter({
     client,
     rollout,
+    dataRoot: input.dataRoot,
     classifyNews:
       input.adapter === undefined
         ? createSemanticNewsClassifier()
@@ -661,10 +667,10 @@ export async function collectInsightSentryInitialEvidence(input: {
     ];
     readonly analysis: ReturnType<typeof deriveInsightSentryTechnicalAnalysis>;
   }>();
-  const technical =
+  const technicalPromise =
     code === undefined
-      ? unavailableTechnical
-      : await marketFamily(async () => {
+      ? Promise.resolve(unavailableTechnical)
+      : marketFamily(async () => {
           const [company, quote, bars] = await Promise.all([
             market.companyInfo(code),
             market.quote(code),
@@ -694,6 +700,15 @@ export async function collectInsightSentryInitialEvidence(input: {
           companyName: input.identity.legalName,
           asOf: input.asOf,
           existingEventKeys: [],
+          collectionMode: "research",
+          researchContext: {
+            question:
+              input.question ??
+              `Evaluate the investment case for ${input.identity.ticker}.`,
+            investmentHorizon: input.investmentHorizon ?? "medium",
+            analysisDepth: input.analysisDepth ?? "standard",
+            decisionPurpose: input.decisionPurpose ?? "new_entry",
+          },
         });
   const documentsPromise: Promise<FamilyResult<DocumentsDataset>> =
     code === undefined
@@ -717,6 +732,7 @@ export async function collectInsightSentryInitialEvidence(input: {
           needed: false,
         });
   const [
+    technical,
     fundamentals,
     news,
     documents,
@@ -724,6 +740,7 @@ export async function collectInsightSentryInitialEvidence(input: {
     collectedPeers,
     options,
   ] = await Promise.all([
+    technicalPromise,
     fundamentalsPromise,
     newsPromise,
     documentsPromise,
@@ -848,9 +865,14 @@ export async function collectInsightSentryInitialEvidence(input: {
       "normalized indicators",
     );
   if (news.status === "available") {
-    for (const category of ["company", "market", "risk"] as const) {
-      const events = news.data.events.filter(
-        (event) => event.category === category,
+    for (const category of [
+      "company",
+      "market",
+      "financial",
+      "risk",
+    ] as const) {
+      const events = news.data.events.filter((event) =>
+        event.teamRelevance.includes(category),
       );
       if (events.length === 0) continue;
       const keys = new Set(events.map((event) => event.eventKey));
@@ -960,6 +982,7 @@ export async function collectInsightSentryInitialEvidence(input: {
   const newsEvidence =
     committed.get("insightsentry:news:company") ??
     committed.get("insightsentry:news:market") ??
+    committed.get("insightsentry:news:financial") ??
     committed.get("insightsentry:news:risk");
   if (newsEvidence !== undefined) {
     const disclosure = await attestLicensedProviderCapability({

@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, it } from "vitest";
 import {
   NEWS_CLASSIFIER_MODEL,
@@ -330,5 +333,113 @@ export function registerInsightSentryBoundedDataCases(): void {
     expect(result.data.rawItemCount).toBeLessThanOrEqual(200);
     expect(result.data.events).toEqual([]);
     expect(result.data.providerEvidence).toEqual([]);
+  });
+
+  it("screens the broad news pool once, details at most twenty, and reuses classified history", async () => {
+    const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-news-ledger-"));
+    try {
+      const requests: CapturedRequest[] = [];
+      const classifierCalls: NewsClassifierRequest[] = [];
+      const cutoff = Date.parse(AS_OF) / 1_000;
+      const payload = (data: readonly object[]) => ({
+        last_update: cutoff,
+        total_items: data.length,
+        current_items: data.length,
+        page: 1,
+        has_next: false,
+        data,
+      });
+      const recent = Array.from({ length: 45 }, (_, index) => ({
+        title: `Earnings recentcode${index}`,
+        source: `RecentWire${index}`,
+        link: `https://example.com/recent/${index}`,
+        content: `Recent issuer event ${index}`,
+        published_at: cutoff - index * 60,
+        related_symbols: ["NASDAQ:NVDA"],
+      }));
+      const archive = Array.from({ length: 6 }, (_, index) => ({
+        title: `Archive earnings archivecode${index}`,
+        source: `ArchiveWire${index}`,
+        link: `https://example.com/archive/${index}`,
+        content: `Historical structural event ${index}`,
+        published_at: cutoff - (10 + index) * 24 * 60 * 60,
+        related_symbols: ["NASDAQ:NVDA"],
+      }));
+      const adapter = createInsightSentryResearchDataAdapter({
+        client: fixtureClient(
+          {
+            "news:2026-07-17:": payload(recent),
+            "news:2026-06-24:": payload(archive),
+          },
+          requests,
+        ),
+        rollout: ROLLOUT,
+        dataRoot,
+        classifyNews: async (request) => {
+          classifierCalls.push(request);
+          return {
+            classifications: request.candidates.map((candidate) => ({
+              candidateId: candidate.candidateId,
+              eventKey: candidate.clusterId,
+              category: "company",
+              relevance: candidate.title.startsWith("Archive") ? 1 : 0.7,
+              materiality: "material",
+              novelty: "unique",
+              direction: "neutral",
+              horizon: "near_term",
+              verificationNeed: "recommended",
+            })),
+          };
+        },
+        screenPeers: async () => ({ retrievedAt: AS_OF, peers: [] }),
+      });
+      const input = {
+        symbol: "NASDAQ:NVDA",
+        companyName: "NVIDIA",
+        asOf: AS_OF,
+        existingEventKeys: [],
+        collectionMode: "research" as const,
+        researchContext: {
+          question: "How do earnings events change the medium-term thesis?",
+          investmentHorizon: "medium" as const,
+          analysisDepth: "standard" as const,
+          decisionPurpose: "holding_review" as const,
+        },
+      };
+
+      const cold = await adapter.news(input);
+      const coldClassifierCalls = classifierCalls.length;
+      const warm = await adapter.news(input);
+
+      expect(cold.status).toBe("available");
+      expect(warm.status).toBe("available");
+      if (cold.status !== "available" || warm.status !== "available") return;
+      expect(cold.data.providerCalls).toBe(2);
+      expect(warm.data.providerCalls).toBe(1);
+      expect(
+        requests
+          .filter((request) => request.endpoint === "news")
+          .every(
+            // biome-ignore lint/complexity/useLiteralKeys: the parameter bag is an index signature.
+            (request) => request.parameters["limit"] === 100,
+          ),
+      ).toBe(true);
+      expect(coldClassifierCalls).toBe(2);
+      expect(classifierCalls[0]).toMatchObject({ phase: "shortlist" });
+      expect(classifierCalls[0]?.candidates.length).toBeGreaterThan(20);
+      expect(classifierCalls[1]).toMatchObject({ phase: "detail" });
+      expect(classifierCalls[1]?.candidates.length).toBeLessThanOrEqual(20);
+      expect(classifierCalls).toHaveLength(coldClassifierCalls);
+      expect(
+        warm.data.events.some((event) =>
+          event.teamRelevance.includes("financial"),
+        ),
+      ).toBe(true);
+      expect(
+        warm.data.events.some((event) => event.title.startsWith("Archive")),
+      ).toBe(true);
+    } finally {
+      await rm(dataRoot, { recursive: true, force: true });
+    }
   });
 }

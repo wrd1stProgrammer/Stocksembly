@@ -545,7 +545,10 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(
       visitLayouts
         .filter((layout) => layout.bubble.visible)
-        .every((layout) => layout.bubble.screenFontSize >= 8),
+        .every(
+          (layout) =>
+            layout.bubble.screenFontSize >= 11 && layout.bubble.scale > 1,
+        ),
     ).toBe(true);
     expect(
       visitLayouts
@@ -575,5 +578,32 @@ describe("manifest-derived office snapshot renderer", () => {
             contained(layout.bodyBounds, viewport.width, viewport.height),
         ),
     ).toBe(true);
+  });
+
+  it("lets a mobile focus camera override overview with the active speaker", () => {
+    const viewport = { width: 354, height: 360 };
+    const projection = renderOfficeSnapshot({
+      snapshot: snapshotAt(80),
+      cameraMode: "focus",
+      cameraActorIds: ["company"],
+      viewport,
+      locale: "ko",
+    });
+    const layouts = layoutOfficeUi({ projection, viewport });
+    const company = projection.actors.find((actor) => actor.id === "company");
+    const companyLayout = layouts.find(
+      (layout) => layout.actorId === "company",
+    );
+
+    expect(projection.camera.mode).toBe("focus");
+    expect(projection.camera.scale).toBeGreaterThan(1);
+    expect(company?.active).toBe(true);
+    expect(projection.actors.filter((actor) => actor.active)).toHaveLength(1);
+    expect(companyLayout?.bodyVisible).toBe(true);
+    expect(companyLayout).toBeDefined();
+    if (companyLayout !== undefined)
+      expect(
+        contained(companyLayout.bodyBounds, viewport.width, viewport.height),
+      ).toBe(true);
   });
 });

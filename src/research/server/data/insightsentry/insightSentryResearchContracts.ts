@@ -106,6 +106,7 @@ export type NewsClassifierCandidate = {
 export type NewsClassifierRequest = {
   readonly model: typeof NEWS_CLASSIFIER_MODEL;
   readonly reasoning: typeof NEWS_CLASSIFIER_REASONING;
+  readonly phase: "shortlist" | "detail";
   readonly candidates: readonly NewsClassifierCandidate[];
 };
 
@@ -116,6 +117,12 @@ export type NewsClassifier = (
 export type NewsEventCard = {
   readonly eventKey: string;
   readonly category: "company" | "market" | "risk";
+  readonly teamRelevance: readonly (
+    | "market"
+    | "company"
+    | "financial"
+    | "risk"
+  )[];
   readonly relevance: number;
   readonly direction: "positive" | "negative" | "mixed" | "neutral";
   readonly horizon: "immediate" | "near_term" | "long_term";
@@ -133,7 +140,7 @@ export type NewsExcerpt = {
 
 export type NewsDataset = PitUnsafeDataset & {
   readonly symbol: string;
-  readonly providerCalls: 1 | 2;
+  readonly providerCalls: number;
   readonly rawItemCount: number;
   readonly events: readonly NewsEventCard[];
   readonly excerpts: readonly NewsExcerpt[];
@@ -259,6 +266,17 @@ export type InsightSentryResearchDataAdapter = {
     readonly existingEventKeys: readonly string[];
     readonly recentDays?: number;
     readonly allowArchiveFallback?: boolean;
+    readonly collectionMode?: "briefing" | "research";
+    readonly researchContext?: {
+      readonly question: string;
+      readonly investmentHorizon: "short" | "medium" | "long";
+      readonly analysisDepth: "core" | "standard" | "deep";
+      readonly decisionPurpose:
+        | "new_entry"
+        | "holding_review"
+        | "position_sizing"
+        | "earnings";
+    };
   }) => Promise<FamilyResult<NewsDataset>>;
   readonly documents: (input: {
     readonly symbol: string;
@@ -284,4 +302,5 @@ export type InsightSentryResearchDataOptions = {
   readonly rollout: InsightSentryResearchRollout;
   readonly classifyNews: NewsClassifier;
   readonly screenPeers: PeerScreen;
+  readonly dataRoot?: string;
 };

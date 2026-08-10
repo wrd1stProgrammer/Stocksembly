@@ -255,6 +255,7 @@ export function createInitialCollectionHandler(
           runId,
           snapshotId,
           symbol: request.symbol,
+          question: request.question,
           cas: options.cas,
           researchProfile,
         });

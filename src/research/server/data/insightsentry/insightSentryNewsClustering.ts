@@ -61,6 +61,21 @@ function normalize(value: string): string {
     .trim();
 }
 
+function stableClusterId(input: {
+  readonly features: ClusterFeatures;
+  readonly publishedAt: string;
+}): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        entities: input.features.entities,
+        day: input.publishedAt.slice(0, 10),
+        topics: input.features.topics,
+      }),
+    )
+    .digest("hex");
+}
+
 function features(candidate: RawNewsCandidate): ClusterFeatures {
   const normalized = normalize(candidate.title).split(" ").filter(Boolean);
   const stance = normalized.some((token) => POSITIVE_CUES.has(token))
@@ -149,14 +164,10 @@ export function clusterNewsCandidates(
     const representative = cluster.members[0];
     return Object.freeze({
       candidateId: representative.candidateId,
-      clusterId: createHash("sha256")
-        .update(
-          cluster.members
-            .map((member) => member.candidateId)
-            .sort()
-            .join("|"),
-        )
-        .digest("hex"),
+      clusterId: stableClusterId({
+        features: cluster.features,
+        publishedAt: representative.publishedAt,
+      }),
       bundleSize: cluster.members.length,
       title: representative.title,
       alternateTitles: cluster.members.slice(1).map((member) => member.title),

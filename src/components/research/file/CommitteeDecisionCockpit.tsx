@@ -6,6 +6,7 @@ import type {
   EditorialVisualMetric,
   ResearchFileEditorialModel,
 } from "../../../research/researchFileEditorialModel";
+import type { ResearchCompany } from "../../../research/types";
 import { buildCommitteeDecisionModel } from "./committeeDecisionModel";
 import { EvidenceStrength } from "./ResearchFilePrimitives";
 import { ResearchDecisionPathBoard } from "./ResearchFileVisuals";
@@ -31,6 +32,11 @@ const dimensionLabels: Readonly<Record<string, { en: string; ko: string }>> = {
   margin: { en: "Margin", ko: "수익성" },
   regime: { en: "Market regime", ko: "시장 국면" },
   competition: { en: "Competition", ko: "경쟁 구도" },
+  competitive_erosion: { en: "Competitive erosion", ko: "경쟁력 약화" },
+  reinvestment: { en: "Reinvestment", ko: "재투자 효율" },
+  timing: { en: "Timing", ko: "진입 시점" },
+  mitigant: { en: "Risk buffer", ko: "위험 완충력" },
+  embedded_expectations: { en: "Priced-in expectations", ko: "주가 반영 기대" },
 };
 
 function dimensionLabel(value: string, locale: Locale): string {
@@ -80,8 +86,8 @@ const metricDescriptions = {
     ko: "리포트 기준 시각에 확인된 가장 최근 거래 가격입니다.",
   },
   price_target_median: {
-    en: "Median analyst target supplied by the data provider; it is not a guaranteed value.",
-    ko: "데이터 제공사가 집계한 애널리스트 목표주가 중앙값이며 보장된 가격은 아닙니다.",
+    en: "Median analyst target in Stocksembly's market dataset; it is not a guaranteed value.",
+    ko: "Stocksembly 시장 데이터에 집계된 애널리스트 목표주가 중앙값이며 보장된 가격은 아닙니다.",
   },
   consensus_upside: {
     en: "Percentage gap between the consensus target and the current price.",
@@ -141,10 +147,12 @@ function metricDescription(id: string, locale: Locale): string | undefined {
 }
 
 export function CommitteeDecisionCockpit({
+  company,
   file,
   model,
   locale,
 }: {
+  readonly company: ResearchCompany;
   readonly file: ResearchFileData;
   readonly model: ResearchFileEditorialModel;
   readonly locale: Locale;
@@ -153,6 +161,7 @@ export function CommitteeDecisionCockpit({
   if (view === undefined) return null;
   const ko = locale === "ko";
   const hasValuationData =
+    model.valuationFramework !== undefined ||
     model.metricGroups.expectations.length > 0 ||
     model.metricGroups.financial.length > 0 ||
     view.valuationRows.length > 0 ||
@@ -241,6 +250,27 @@ export function CommitteeDecisionCockpit({
   const uniqueOwnedAnalysis = view.ownedAnalysis.filter(
     (item) => !coreAnalysisKeys.has(editorialTextKey(item.thesis)),
   );
+  const driverThesisKeys = new Set(
+    view.drivers.map((driver) => editorialTextKey(driver.thesis)),
+  );
+  const claimLedgerRows = model.analysisRows
+    .filter((item) => !driverThesisKeys.has(editorialTextKey(item.agentView)))
+    .slice(0, 4);
+  const primaryDecisionVariable =
+    view.drivers[0] === undefined
+      ? ko
+        ? "핵심 논지"
+        : "Core thesis"
+      : dimensionLabel(view.drivers[0].decisionDimension, locale);
+  const nextDecisionCheck =
+    view.nextEvent?.date ??
+    (model.nextVerificationEvent.trim().length > 0
+      ? ko
+        ? "다음 공시"
+        : "Next filing"
+      : ko
+        ? "일정 미확정"
+        : "Date pending");
   const metricPool = Object.values(model.metricGroups)
     .flat()
     .filter(
@@ -338,17 +368,19 @@ export function CommitteeDecisionCockpit({
             </h2>
           </div>
           <dl>
-            <div data-cockpit-confidence>
-              <dt>{ko ? "판단 확신도" : "Decision confidence"}</dt>
-              <dd data-confidence={view.confidence}>{view.confidenceLabel}</dd>
+            <div>
+              <dt>{ko ? "핵심 판단 변수" : "Decisive variable"}</dt>
+              <dd>{primaryDecisionVariable}</dd>
             </div>
-            <div className="committee-cockpit__reliability">
-              <dt>{ko ? "근거 신뢰도" : "Evidence reliability"}</dt>
-              <dd>{view.reliability}</dd>
+            <div>
+              <dt>{ko ? "다음 확인 시점" : "Next decision check"}</dt>
+              <dd>{nextDecisionCheck}</dd>
             </div>
             {view.price === undefined ? null : (
               <div data-cockpit-price>
-                <dt>{ko ? "현재가" : "Current price"}</dt>
+                <dt>
+                  {company.symbol} {ko ? "현재가" : "current price"}
+                </dt>
                 <dd>
                   {view.price.value}
                   {view.price.change === undefined ? null : (
@@ -365,9 +397,11 @@ export function CommitteeDecisionCockpit({
               <i aria-hidden="true" />
               <span>{ko ? "투자 의견" : "Investment view"}</span>
             </header>
-            <p className="committee-cockpit__opinion-lead">
-              {view.decisiveReason}
-            </p>
+            <div className="committee-cockpit__opinion-lead">
+              {model.investmentView.map((paragraph) => (
+                <p key={editorialTextKey(paragraph)}>{paragraph}</p>
+              ))}
+            </div>
             <div className="committee-cockpit__countercase">
               <strong>{ko ? "가장 강한 반론" : "Strongest countercase"}</strong>
               <p>{view.countercase}</p>
@@ -415,7 +449,9 @@ export function CommitteeDecisionCockpit({
           <aside className="committee-cockpit__snapshot">
             {keyMetrics.length === 0 ? null : (
               <section className="committee-cockpit__key-metrics">
-                <header>{ko ? "주요 지표" : "Key metrics"}</header>
+                <header>
+                  {company.symbol} {ko ? "주요 지표" : "key metrics"}
+                </header>
                 <dl>
                   {keyMetrics.map((metric) => (
                     <div key={metric.id}>
@@ -453,16 +489,16 @@ export function CommitteeDecisionCockpit({
         <header>
           <span>02</span>
           <div>
-            <h2>{ko ? "투자 논지 검증" : "Investment case checks"}</h2>
+            <h2>{ko ? "핵심 주장 검증" : "Core claim audit"}</h2>
             <p>
               {ko
-                ? "주장 → 관찰 근거 → 반론 → 다음 확인 순서로 논지의 강도와 빈틈을 검증합니다."
-                : "Audit each claim through observed evidence, the strongest counterpoint, and the next proof required."}
+                ? "위원회 결론을 반복하지 않고, 아직 확인해야 할 주장만 사실·빈틈·투자자 체크포인트로 분리합니다."
+                : "Skip the committee recap and isolate unresolved claims into facts, gaps, and investor checkpoints."}
             </p>
           </div>
         </header>
         <div className="committee-claim-ledger">
-          {model.analysisRows.length === 0 ? (
+          {claimLedgerRows.length === 0 ? (
             <div className="committee-section-empty">
               <strong>
                 {ko
@@ -476,7 +512,7 @@ export function CommitteeDecisionCockpit({
               </p>
             </div>
           ) : (
-            model.analysisRows.slice(0, 4).map((item, index) => {
+            claimLedgerRows.map((item, index) => {
               const structuredClaim = file.structuredEditorial?.claims.find(
                 (claim) => claim.claimId === item.id,
               );
@@ -609,20 +645,24 @@ export function CommitteeDecisionCockpit({
                     </div>
                   </header>
                   <div className="committee-claim-ledger__verdict">
-                    <small>{ko ? "위원회 해석" : "Committee read"}</small>
+                    <small>{ko ? "검증할 주장" : "Claim under review"}</small>
                     <strong>{item.agentView}</strong>
                   </div>
                   <dl>
                     <div>
-                      <dt>{ko ? "확인된 근거" : "Observed evidence"}</dt>
+                      <dt>{ko ? "확인한 사실" : "Observed fact"}</dt>
                       <dd>{observedEvidence}</dd>
                     </div>
                     <div>
-                      <dt>{ko ? "반론·한계" : "Counterpoint / limit"}</dt>
+                      <dt>
+                        {ko ? "남아 있는 빈틈" : "What remains unresolved"}
+                      </dt>
                       <dd>{counterpoint}</dd>
                     </div>
                     <div>
-                      <dt>{ko ? "다음 확인" : "Next check"}</dt>
+                      <dt>
+                        {ko ? "투자자 체크포인트" : "Investor checkpoint"}
+                      </dt>
                       <dd>{item.checkpoint}</dd>
                     </div>
                   </dl>
@@ -656,12 +696,12 @@ export function CommitteeDecisionCockpit({
           className="committee-conflict-matrix__table"
           aria-label={ko ? "팀별 판단과 판정" : "Team views and adjudication"}
         >
-          <thead className="sr-only">
+          <thead>
             <tr>
               <th>{ko ? "팀" : "Team"}</th>
               <th>{ko ? "독립 판단" : "Independent view"}</th>
-              <th>{ko ? "근거" : "Evidence"}</th>
-              <th>{ko ? "판정" : "Adjudication"}</th>
+              <th>{ko ? "왜 중요한가" : "Why it matters"}</th>
+              <th>{ko ? "투자자 체크포인트" : "Investor checkpoint"}</th>
             </tr>
           </thead>
           <tbody>
@@ -687,7 +727,7 @@ export function CommitteeDecisionCockpit({
                 <td>{row.strongestClaim}</td>
                 <td>{row.evidence}</td>
                 <td>
-                  <strong>{row.adjudication}</strong>
+                  <strong>{row.investorCheckpoint}</strong>
                 </td>
               </tr>
             ))}
@@ -706,8 +746,8 @@ export function CommitteeDecisionCockpit({
             <h2>
               {hasValuationData
                 ? ko
-                  ? "현재 가격이 성립하려면"
-                  : "What must be true at this price"
+                  ? "시장 기대와 실적 허들"
+                  : "Market expectations and earnings hurdle"
                 : ko
                   ? "실적 경로와 확인 조건"
                   : "Operating paths and checkpoints"}
@@ -715,8 +755,8 @@ export function CommitteeDecisionCockpit({
             <p>
               {hasValuationData
                 ? ko
-                  ? "시장 기대, 회사가 증명해야 할 실적, 다음 공시의 확인 항목을 분리해 읽습니다."
-                  : "Separate market expectations, the operating proof required, and what the next filing must confirm."
+                  ? "주가에 반영된 시장 추정치와 회사가 실제 실적으로 넘어야 할 기준을 구분합니다."
+                  : "Separate market estimates embedded in the price from the operating proof the company still has to deliver."
                 : ko
                   ? "현재 근거가 허용하는 운영 경로와 확인 조건만 표시합니다."
                   : "Only operating paths supported by the current evidence are shown."}
@@ -739,7 +779,15 @@ export function CommitteeDecisionCockpit({
             {consensusForecastMetrics.length === 0 ? null : (
               <div className="committee-expectations__forecast-band">
                 <header>
-                  <span>{ko ? "컨센서스 전망" : "Consensus outlook"}</span>
+                  <button className="committee-inline-help" type="button">
+                    {ko ? "컨센서스 전망" : "Consensus outlook"}
+                    <i aria-hidden="true">?</i>
+                    <small role="tooltip">
+                      {ko
+                        ? "Stocksembly가 수집한 선행 매출·EPS·목표주가 등 시장 추정치입니다. 표본과 갱신 시점이 지표마다 다를 수 있어 실제 실적과 함께 해석해야 합니다."
+                        : "Market estimates collected by Stocksembly, including forward revenue, EPS, and price targets. Sample size and update timing can differ by metric, so read them alongside reported results."}
+                    </small>
+                  </button>
                   <small>
                     {ko ? "현재 시장 기대치" : "Current market estimates"}
                   </small>
@@ -757,7 +805,17 @@ export function CommitteeDecisionCockpit({
             {recommendationTotal === 0 ? null : (
               <div className="committee-expectations__ratings">
                 <header>
-                  <span>{ko ? "애널리스트 의견" : "Analyst ratings"}</span>
+                  <button className="committee-inline-help" type="button">
+                    {ko
+                      ? "데이터 제공사 의견 집계"
+                      : "Provider rating aggregate"}
+                    <i aria-hidden="true">?</i>
+                    <small role="tooltip">
+                      {ko
+                        ? "Stocksembly가 수집한 매수·중립·매도 의견 집계입니다. 개별 증권사 목록과 산출 방법은 이 리포트에서 확인되지 않으므로 보조 심리 지표로만 사용합니다."
+                        : "An aggregate of buy, hold, and sell counts collected by Stocksembly. This report does not expose the contributing firms or methodology, so treat it only as a secondary sentiment indicator."}
+                    </small>
+                  </button>
                   <strong>
                     {ko
                       ? `매수 ${buyRecommendationPercent}%`
@@ -792,19 +850,65 @@ export function CommitteeDecisionCockpit({
                 </dl>
                 <small>
                   {ko
-                    ? `총 ${recommendationTotal}개 의견 기준`
-                    : `${recommendationTotal} ratings in total`}
+                    ? `Stocksembly 수집 · 총 ${recommendationTotal}개 의견`
+                    : `Stocksembly dataset · ${recommendationTotal} ratings`}
                 </small>
               </div>
             )}
           </section>
         )}
+        {model.valuationFramework === undefined ? null : (
+          <section
+            className="committee-valuation-framework"
+            data-valuation-framework={model.valuationFramework.method}
+          >
+            <header>
+              <div>
+                <span>
+                  {ko ? "Stocksembly 가치평가" : "Stocksembly valuation"}
+                </span>
+                <h3>{model.valuationFramework.method}</h3>
+              </div>
+              <strong>{model.valuationFramework.archetype}</strong>
+            </header>
+            <p>{model.valuationFramework.note}</p>
+            <div className="committee-valuation-framework__capabilities">
+              {model.valuationFramework.capabilities.map((item) => (
+                <span key={item.key} data-status={item.status}>
+                  <i aria-hidden="true" />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+            <div className="committee-valuation-framework__scenarios">
+              {model.valuationFramework.scenarios.map((scenario) => (
+                <article key={scenario.id} data-case={scenario.id}>
+                  <header>
+                    <span>{scenario.label}</span>
+                    {scenario.impliedPrice === undefined ? null : (
+                      <strong>{scenario.impliedPrice}</strong>
+                    )}
+                    {scenario.returnPercent === undefined ? null : (
+                      <em>{scenario.returnPercent}</em>
+                    )}
+                  </header>
+                  <dl>
+                    <div>
+                      <dt>{scenario.requiredMetric}</dt>
+                      <dd>{scenario.requiredValue ?? "—"}</dd>
+                    </div>
+                  </dl>
+                  <p>{scenario.assumptions.join(" · ")}</p>
+                </article>
+              ))}
+            </div>
+            <footer>{model.valuationFramework.summary}</footer>
+          </section>
+        )}
         {view.valuationConclusion.length === 0 ? null : (
           <section className="committee-expectation-brief">
             <header>
-              <span>
-                {ko ? "가격 방어의 핵심 조건" : "Core price requirement"}
-              </span>
+              <span>{ko ? "핵심 실적 허들" : "Core earnings hurdle"}</span>
               <h3>{view.valuationConclusion}</h3>
             </header>
             <dl>
@@ -831,7 +935,8 @@ export function CommitteeDecisionCockpit({
             ))}
           </div>
         )}
-        {view.scenarios.length === 0 ? null : (
+        {view.scenarios.length === 0 ||
+        model.valuationFramework !== undefined ? null : (
           <div
             className="committee-operating-scenarios"
             data-operating-scenarios

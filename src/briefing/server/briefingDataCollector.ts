@@ -348,6 +348,7 @@ export function createBriefingDataCollector(input: {
   const market = createInsightSentryMarket(client);
   const research = createInsightSentryResearchDataAdapter({
     client,
+    dataRoot: input.dataRoot,
     rollout: {
       fundamentals: true,
       news: true,
@@ -402,6 +403,7 @@ export function createBriefingDataCollector(input: {
           existingEventKeys: previousEventKeys,
           recentDays: newsRecentDays,
           allowArchiveFallback: false,
+          collectionMode: "briefing",
         }),
         research.documents({ symbol: item.providerCode, asOf: cutoffAt }),
         research.calendar({ symbol: item.providerCode, asOf: cutoffAt }),

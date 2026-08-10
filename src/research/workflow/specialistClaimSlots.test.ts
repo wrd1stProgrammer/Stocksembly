@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MemoOutputSchema } from "../domain/agentOutputs";
+import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import { codexInputHash } from "../server/codex/codexRunner";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import {
@@ -13,7 +14,10 @@ import {
 } from "./specialistRoundInput";
 import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
 import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
-import { prepareSpecialistJobs } from "./specialistRoundSqliteStage";
+import {
+  prepareSpecialistJobs,
+  specialistInlineEvidenceBudget,
+} from "./specialistRoundSqliteStage";
 
 const expectedDimensions = {
   market: ["regime", "regime", "catalyst"],
@@ -30,6 +34,16 @@ const expectedDimensions = {
 } as const;
 
 describe("specialist claim slots", () => {
+  it("reserves runner headroom before inlining evidence", () => {
+    const basePromptBytes = 190 * 1_024;
+    const inlineBudget = specialistInlineEvidenceBudget(basePromptBytes);
+
+    expect(basePromptBytes + inlineBudget).toBeLessThan(
+      CODEX_RUNTIME_POLICY.maxPromptBytes,
+    );
+    expect(inlineBudget).toBeGreaterThan(0);
+  });
+
   it("drops invented metric references without discarding the claim", () => {
     const candidate = {
       kind: "memo",

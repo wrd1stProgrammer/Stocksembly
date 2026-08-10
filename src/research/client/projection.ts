@@ -101,5 +101,11 @@ export function appendPublicEvent(
         : {}),
     },
     events: [...snapshot.events, event],
+    ...(snapshot.activeAgentIds === undefined
+      ? {}
+      : { activeAgentIds: snapshot.activeAgentIds }),
+    ...(snapshot.activeActivities === undefined
+      ? {}
+      : { activeActivities: snapshot.activeActivities }),
   };
 }

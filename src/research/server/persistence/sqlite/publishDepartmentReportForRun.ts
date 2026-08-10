@@ -662,6 +662,7 @@ async function buildReport(
     quote?: unknown;
     fundamentals?: unknown;
     peers?: unknown;
+    calendar?: unknown;
   } = {};
   const metricArtifacts = await Promise.all(
     (
@@ -669,6 +670,7 @@ async function buildReport(
         ["evidence:insightsentry:quote", "quote"],
         ["evidence:insightsentry:fundamentals", "fundamentals"],
         ["evidence:insightsentry:peers", "peers"],
+        ["evidence:insightsentry:calendar", "calendar"],
       ] as const
     ).map(async ([logicalKey, field]) => {
       const row = rows.find(

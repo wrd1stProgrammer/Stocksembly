@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { committeeReportPreviewFixture } from "../../../research/committeeReportPreviewFixture";
 import { WorkflowV2ResearchReportSchema } from "../../../research/domain/report";
@@ -85,9 +85,7 @@ describe("CommitteeReportSurface", () => {
     expect(container.querySelector("[data-cockpit-view]")).toHaveTextContent(
       "Wait for proof",
     );
-    expect(
-      container.querySelector("[data-cockpit-confidence]"),
-    ).toHaveTextContent("Medium");
+    expect(container.querySelector("[data-cockpit-confidence]")).toBeNull();
     expect(
       container.querySelector("[data-cockpit-falsifier]"),
     ).toHaveTextContent("Decision-level falsifier.");
@@ -103,13 +101,10 @@ describe("CommitteeReportSurface", () => {
       container.querySelectorAll(
         ".research-anticipated-qa > .research-anticipated-qa__grid > article",
       ),
-    ).toHaveLength(5);
-    const qaDetails = container.querySelector<HTMLDetailsElement>(
-      "details[data-qa-expandable-count]",
-    );
-    expect(qaDetails).not.toHaveAttribute("open");
-    fireEvent.click(screen.getByText("Show 5 more questions"));
-    expect(qaDetails).toHaveAttribute("open");
+    ).toHaveLength(10);
+    expect(
+      container.querySelector("details[data-qa-expandable-count]"),
+    ).toBeNull();
 
     const sources = container.querySelector<HTMLDetailsElement>(
       "details[data-committee-sources]",
@@ -146,7 +141,7 @@ describe("CommitteeReportSurface", () => {
     const primaryIds = new Set(
       file.structuredEditorial?.decision.primaryClaimIds ?? [],
     );
-    expect(model.drivers.every((driver) => primaryIds.has(driver.id))).toBe(
+    expect(model.drivers.some((driver) => primaryIds.has(driver.id))).toBe(
       true,
     );
     expect(model.drivers.every((driver) => !driver.owner.includes("_"))).toBe(

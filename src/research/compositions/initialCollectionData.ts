@@ -75,6 +75,7 @@ export type InitialCollectionInput = {
   readonly runId: string;
   readonly snapshotId: string;
   readonly symbol: string;
+  readonly question?: string;
   readonly cas: ArtifactCasPort;
   readonly researchProfile?: ResearchProfile;
 };
@@ -544,9 +545,14 @@ export async function collectInitialEvidence(
       annualText: textFromHtml(primaryFilingResult.result.bytes),
     },
     requestedComparisonSymbols: input.researchProfile?.comparisonSymbols ?? [],
+    ...(input.question === undefined ? {} : { question: input.question }),
     ...(input.researchProfile === undefined
       ? {}
-      : { decisionPurpose: input.researchProfile.decisionPurpose }),
+      : {
+          decisionPurpose: input.researchProfile.decisionPurpose,
+          investmentHorizon: input.researchProfile.investmentHorizon,
+          analysisDepth: input.researchProfile.analysisDepth,
+        }),
   });
   const identityBytes = packageBytes(input, identity);
   const packagedFilings = filingResults.map(({ filing, result }) => ({

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ActiveResearchActivity } from "../../domain/activeResearchActivity";
 import {
   ReportIdSchema,
   RunIdSchema,
@@ -100,6 +101,7 @@ export type PublicRunDetail = {
   readonly run: PublicRun;
   readonly events: readonly PublicResearchEvent[];
   readonly activeAgentIds?: readonly WorkflowActorId[];
+  readonly activeActivities?: readonly ActiveResearchActivity[];
 };
 
 export type PublicReport = {

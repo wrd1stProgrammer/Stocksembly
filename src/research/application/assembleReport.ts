@@ -216,8 +216,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   });
   if (
     input.chairScenarioIds.length !== audit.scenarios.length ||
-    scenarios.length !== audit.scenarios.length ||
-    scenarios.length === 0
+    scenarios.length !== audit.scenarios.length
   )
     return { kind: "blocked", reason: "scenario_invalid" };
   const sections = chair.data.sections.map((section) => ({
@@ -232,14 +231,21 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       (sentence) =>
         sentence.kind === "dissent" && sentence.claimIds.includes(claimId),
     );
+    const auditedFallback = claims.find((claim) => claim.claimId === claimId);
+    const sentenceSources = [
+      ...new Set(sentences.flatMap((sentence) => sentence.sourceArtifactIds)),
+    ];
+    const english = sentences.map((sentence) => sentence.text.en).join(" ");
+    const korean = sentences.map((sentence) => sentence.text.ko).join(" ");
     return {
       claimId,
-      sourceIds: [
-        ...new Set(sentences.flatMap((sentence) => sentence.sourceArtifactIds)),
-      ],
+      sourceIds:
+        sentenceSources.length > 0
+          ? sentenceSources
+          : (auditedFallback?.sourceIds ?? []),
       text: selectedText({
-        en: sentences.map((sentence) => sentence.text.en).join(" "),
-        ko: sentences.map((sentence) => sentence.text.ko).join(" "),
+        en: english || auditedFallback?.text?.en || "",
+        ko: korean || auditedFallback?.text?.ko || "",
       }),
     };
   });

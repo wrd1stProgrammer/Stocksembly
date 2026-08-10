@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import { type Locale, researchCopy } from "../../lib/i18n";
 import type { ResearchFileData } from "../../research/compositions/types";
+import type { OfficeCameraControlMode } from "../../research/officeGame";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import type { AgentId, ResearchEvent } from "../../research/types";
 import { CompletedResearchFile } from "./CompletedResearchFile";
@@ -39,6 +43,17 @@ export function OfficeStage({
   onReplay,
 }: Props) {
   const labels = researchCopy[locale];
+  const [cameraControlMode, setCameraControlMode] =
+    useState<OfficeCameraControlMode>("automatic");
+  const cameraModes: readonly {
+    readonly id: OfficeCameraControlMode;
+    readonly ko: string;
+    readonly en: string;
+  }[] = [
+    { id: "automatic", ko: "자동", en: "AUTO" },
+    { id: "free", ko: "자유", en: "FREE" },
+    { id: "overview", ko: "전체", en: "FULL" },
+  ];
   return (
     <main className={`office-workbench${isComplete ? " is-complete" : ""}`}>
       <div className="office-heading">
@@ -54,13 +69,37 @@ export function OfficeStage({
               ? "실시간 리서치 룸"
               : "LIVE RESEARCH ROOM"}
         </span>
+        {isComplete ? null : (
+          <fieldset className="office-camera-modes">
+            <legend className="sr-only">
+              {locale === "ko" ? "카메라 무빙 모드" : "Camera movement mode"}
+            </legend>
+            {cameraModes.map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                aria-pressed={cameraControlMode === mode.id}
+                title={
+                  mode.id === "free"
+                    ? locale === "ko"
+                      ? "드래그로 이동하고 핀치로 확대·축소"
+                      : "Drag to move and pinch to zoom"
+                    : undefined
+                }
+                onClick={() => setCameraControlMode(mode.id)}
+              >
+                {mode[locale]}
+              </button>
+            ))}
+          </fieldset>
+        )}
       </div>
       {isComplete ? null : (
         <section
           className={`office-stage phase-${current.phase}${isPaused ? " is-paused" : ""}`}
           data-office-tick={snapshot?.tick}
           data-office-beat={snapshot?.beatId}
-          data-camera-mode="overview"
+          data-camera-mode={cameraControlMode}
           aria-labelledby="office-stage-title"
         >
           <PixelOfficeGame
@@ -76,6 +115,7 @@ export function OfficeStage({
             isPaused={isPaused}
             activeAgentIds={activeAgentIds}
             cameraMode="overview"
+            cameraControlMode={cameraControlMode}
           />
           <p
             className="sr-only"
@@ -101,6 +141,14 @@ export function OfficeStage({
             <span data-room="risk">{locale === "ko" ? "리스크" : "RISK"}</span>
           </div>
         </section>
+      )}
+      {isComplete ? null : (
+        <p className="research-continuity-note">
+          <i aria-hidden="true" />
+          {locale === "ko"
+            ? "화면을 나가도 리서치는 계속됩니다."
+            : "Research continues even when you leave this screen."}
+        </p>
       )}
       {isComplete ? (
         <CompletedResearchFile

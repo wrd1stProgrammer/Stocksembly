@@ -8,10 +8,11 @@ import type { PeerScreen } from "./insightSentryResearchContracts";
 const DAY = 24 * 60 * 60 * 1_000;
 const SCREENER_TTL = DAY;
 const SELECTION_TTL = 30 * DAY;
-const SELECTOR_VERSION = "peer-selector-v3";
+const SELECTOR_VERSION = "peer-selector-v4";
 const MAX_SCREENER_PAGES = 20;
 const MIN_PEERS = 4;
 const DEFAULT_PEERS = 8;
+const MIN_AUTOMATIC_SELECTION_SCORE = 0.22;
 
 const ScreenerRowSchema = z
   .object({
@@ -175,6 +176,12 @@ function dedupeUniverse(rows: readonly ScreenerRow[]): readonly ScreenerRow[] {
   return [...selected.values()];
 }
 
+function unsupportedSecurity(row: ScreenerRow): boolean {
+  return /\b(?:preferred|preference|depositary shares?|warrants?|rights?|units?|etf|fund)\b/iu.test(
+    row.name,
+  );
+}
+
 function clamp(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -308,7 +315,7 @@ function scoredCandidate(
       : mention.score > 0
         ? ["issuer filing references the company"]
         : []),
-    "same provider sector",
+    ...(candidate.sector === target.sector ? ["same provider sector"] : []),
     ...(financial >= 0.62 ? ["similar growth and margin profile"] : []),
     ...(size >= 0.55 ? ["comparable market-cap scale"] : []),
   ].slice(0, 4);
@@ -326,11 +333,17 @@ function selectPeers(input: {
       (candidate) =>
         candidate.symbol_code !== input.target.symbol_code &&
         candidate.sector != null &&
-        candidate.sector === input.target.sector &&
-        candidate.market_cap != null,
+        candidate.market_cap != null &&
+        !unsupportedSecurity(candidate),
     )
     .map((candidate) =>
       scoredCandidate(input.target, candidate, input.normalizedAnnualText),
+    )
+    .filter(
+      (item) =>
+        item.classification === "direct_competitor" ||
+        (item.candidate.sector === input.target.sector &&
+          item.score >= MIN_AUTOMATIC_SELECTION_SCORE),
     )
     .sort(
       (left, right) =>
@@ -392,7 +405,7 @@ function toPeerRecord(
     selectionReasons:
       scored.reasons.length > 0
         ? scored.reasons
-        : ["same provider sector", "available relative-value metrics"],
+        : ["available relative-value metrics"],
     ...(row.market_cap == null ? {} : { marketCap: row.market_cap }),
     ...(row.price_earnings_ttm == null
       ? {}

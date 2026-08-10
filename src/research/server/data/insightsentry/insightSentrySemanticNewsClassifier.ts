@@ -48,13 +48,23 @@ function heuristic(candidate: NewsClassifierCandidate) {
   } as const;
 }
 
-function prompt(candidates: readonly NewsClassifierCandidate[]): string {
+function prompt(
+  candidates: readonly NewsClassifierCandidate[],
+  phase: Parameters<NewsClassifier>[0]["phase"],
+): string {
+  const shortlist = phase === "shortlist";
   return [
-    "Classify a bounded set of licensed US-equity news candidates.",
+    shortlist
+      ? "Shortlist a broad, already-clustered set of licensed US-equity news candidates."
+      : "Classify the final bounded set of licensed US-equity news candidates in detail.",
     "Do not browse. Use only the supplied JSON. Return exactly one classification for every candidateId.",
     "Material means the event can reasonably change issuer revenue, demand, pricing, margin, cash flow, capital allocation, management, regulation, production, product timing, or competitive position.",
     "A market roundup, stock list, generic index move, analyst recap, or passing company mention is immaterial unless it contains a concrete issuer-specific development.",
     "Mark semantic repeats inside the batch as duplicate even when wording differs. Keep the newest or best-sourced representative unique.",
+    "eventKey must be a stable lowercase canonical key for the real-world event, not a headline hash. Build it from the issuer or entity, UTC event date, event type, and central object so later coverage of the same event keeps the same key.",
+    shortlist
+      ? "This is a compressed screening pass. Prioritize concrete issuer events and official or primary-source developments. Use the short excerpt only; do not expand or speculate."
+      : "This is the detailed pass. Distinguish issuer impact, time horizon, direction, and verification need precisely.",
     "Use relevance below 0.5 for tangential mentions. Do not infer facts absent from the title, excerpt, related-symbol entities, and source metadata.",
     JSON.stringify(
       candidates.map((candidate) => ({
@@ -62,10 +72,10 @@ function prompt(candidates: readonly NewsClassifierCandidate[]): string {
         clusterId: candidate.clusterId,
         bundleSize: candidate.bundleSize,
         title: candidate.title,
-        alternateTitles: candidate.alternateTitles.slice(0, 3),
+        alternateTitles: candidate.alternateTitles.slice(0, shortlist ? 1 : 3),
         sources: candidate.sources,
         publishedAt: candidate.publishedAt,
-        excerpt: candidate.excerpt?.slice(0, 1_200),
+        excerpt: candidate.excerpt?.slice(0, shortlist ? 280 : 1_200),
         features: candidate.clusterFeatures,
       })),
       null,
@@ -85,7 +95,7 @@ async function classifyWithLuna(
   };
   const fence = { ownerId: `news-classifier:${process.pid}`, token: 1 };
   const claim: LaunchReservationClaim = { key, fence };
-  const classifierPrompt = prompt(request.candidates);
+  const classifierPrompt = prompt(request.candidates, request.phase);
   const inputHash = codexInputHash({
     stage: "memo",
     prompt: classifierPrompt,
@@ -140,11 +150,13 @@ export function createSemanticNewsClassifier(): NewsClassifier {
         parsed.classifications.map((item) => [item.candidateId, item]),
       );
       return {
-        classifications: request.candidates.map((candidate, index) => ({
-          ...(known.get(candidate.candidateId) ?? fallback[index]!),
-          candidateId: candidate.candidateId,
-          eventKey: candidate.clusterId.slice(0, 160),
-        })),
+        classifications: request.candidates.map((candidate, index) => {
+          const classification =
+            known.get(candidate.candidateId) ?? fallback[index];
+          if (classification === undefined)
+            throw new TypeError("news_classifier_candidate_unmapped");
+          return { ...classification, candidateId: candidate.candidateId };
+        }),
       };
     } catch (error) {
       if (process.env["NODE_ENV"] !== "production")

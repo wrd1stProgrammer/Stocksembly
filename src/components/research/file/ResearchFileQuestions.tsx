@@ -18,13 +18,7 @@ export function ResearchFileQuestions({
   const rankedQuestions = [...questions].sort(
     (first, second) => (first.rank ?? 100) - (second.rank ?? 100),
   );
-  const visibleCount = 5;
-  const visibleQuestions =
-    compact || persisted
-      ? rankedQuestions.slice(0, visibleCount)
-      : rankedQuestions;
-  const expandableQuestions =
-    compact || persisted ? rankedQuestions.slice(visibleCount) : [];
+  const visibleQuestions = rankedQuestions.slice(0, 10);
   const ko = locale === "ko";
   return (
     <section
@@ -64,37 +58,6 @@ export function ResearchFileQuestions({
           </article>
         ))}
       </div>
-      {expandableQuestions.length === 0 ? null : (
-        <details data-qa-expandable-count={expandableQuestions.length}>
-          <summary>
-            {ko
-              ? `나머지 ${expandableQuestions.length}개 질문 보기`
-              : `Show ${expandableQuestions.length} more questions`}
-          </summary>
-          <div
-            className={
-              compact
-                ? "research-team-qa-list"
-                : "research-anticipated-qa__grid"
-            }
-          >
-            {expandableQuestions.map((item, index) => (
-              <article key={item.id}>
-                <header>
-                  <span>
-                    Q{String(index + visibleCount + 1).padStart(2, "0")}
-                  </span>
-                  {item.lens === undefined ? null : (
-                    <small>{item.lens[locale]}</small>
-                  )}
-                </header>
-                <h3>{item.question[locale]}</h3>
-                <p>{item.answer[locale]}</p>
-              </article>
-            ))}
-          </div>
-        </details>
-      )}
     </section>
   );
 }

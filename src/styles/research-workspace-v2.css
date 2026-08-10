@@ -1163,6 +1163,11 @@
   letter-spacing: 0.14em;
 }
 
+.office-camera-modes,
+.research-continuity-note {
+  display: none;
+}
+
 .office-heading__transcript-toggle {
   width: 36px;
   min-height: 36px;
@@ -1560,13 +1565,13 @@
   .research-layout {
     height: auto;
     min-height: 100dvh;
-    grid-template-columns: 248px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr) 48px;
     grid-template-rows: auto 390px;
     overflow: visible;
   }
 
   .research-shell[data-research-state="published"] .research-layout {
-    grid-template-columns: 248px minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr) 48px;
     grid-template-rows: auto;
   }
 
@@ -1577,18 +1582,19 @@
 
   .research-shell[data-transcript-open="true"] .research-layout {
     height: 100dvh;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    grid-template-columns: 200px minmax(0, 1fr) minmax(300px, 340px);
     grid-template-rows: minmax(0, 1fr);
     overflow: hidden;
   }
 
   .research-shell[data-research-state="published"][data-transcript-open="true"]
     .research-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    grid-template-columns: 200px minmax(0, 1fr) minmax(300px, 340px);
   }
 
   .research-shell[data-transcript-open="true"] .research-sidebar {
-    display: none;
+    display: block;
+    grid-column: 1;
   }
 
   .research-shell[data-transcript-open="true"] .office-workbench,
@@ -1598,12 +1604,12 @@
   }
 
   .research-shell[data-transcript-open="true"] .office-workbench {
-    grid-column: 1;
+    grid-column: 2;
     overflow-y: auto;
   }
 
   .research-shell[data-transcript-open="true"] .meeting-minutes {
-    grid-column: 2;
+    grid-column: 3;
   }
 
   .research-run-notice {
@@ -1639,7 +1645,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 767px) {
   .research-shell[data-research-state="published"] .research-layout {
     display: block;
   }
@@ -1741,10 +1747,90 @@
     overflow: visible;
   }
 
+  .office-heading {
+    gap: 8px;
+    padding-inline: 2px;
+  }
+
+  .office-heading__label {
+    font-size: 0.64rem;
+    letter-spacing: 0.075em;
+    white-space: nowrap;
+  }
+
+  .office-camera-modes {
+    min-width: 0;
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(39px, 1fr);
+    gap: 2px;
+    margin: 0;
+    padding: 3px;
+    border: 1px solid color-mix(in srgb, var(--research-line) 84%, transparent);
+    border-radius: 10px;
+    background: color-mix(
+      in srgb,
+      var(--research-surface-raised) 74%,
+      transparent
+    );
+  }
+
+  .office-camera-modes button {
+    min-width: 39px;
+    height: 28px;
+    padding: 0 7px;
+    border: 0;
+    border-radius: 7px;
+    color: var(--research-text-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 0.67rem;
+    font-weight: 760;
+    cursor: pointer;
+  }
+
+  .office-camera-modes button[aria-pressed="true"] {
+    color: var(--research-text);
+    background: color-mix(
+      in srgb,
+      var(--research-accent) 20%,
+      var(--research-surface-raised)
+    );
+    box-shadow: 0 1px 7px rgb(0 0 0 / 22%);
+  }
+
+  .office-camera-modes button:focus-visible {
+    outline: 2px solid var(--research-accent);
+    outline-offset: 1px;
+  }
+
   .office-stage {
     width: 100%;
-    height: auto;
-    aspect-ratio: 1374 / 1145;
+    height: clamp(320px, 82vw, 520px);
+    aspect-ratio: auto;
+  }
+
+  .research-continuity-note {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 0;
+    color: var(--research-text-muted);
+    font-size: 0.68rem;
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  .research-continuity-note i {
+    width: 5px;
+    height: 5px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--research-positive);
+    box-shadow: 0 0 8px
+      color-mix(in srgb, var(--research-positive) 62%, transparent);
   }
 
   .live-research-desk {
@@ -4466,8 +4552,7 @@
 .research-source-table li {
   display: grid;
   grid-template-columns:
-    76px
-    minmax(120px, 0.7fr)
+    minmax(140px, 0.72fr)
     minmax(220px, 1.55fr)
     104px
     minmax(120px, 0.75fr);
@@ -4503,14 +4588,6 @@
 
 .research-source-table li > * + * {
   border-left: 1px solid var(--editorial-rule);
-}
-
-.research-source-table li > strong {
-  color: var(--editorial-accent);
-  font-size: 0.66rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .research-source-table li > span,

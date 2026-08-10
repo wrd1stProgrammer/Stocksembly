@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { schemaDocument } from "../server/codex/codexArtifacts";
 import { mixedClaimValidationFixture } from "./chairSynthesis.testSupport";
-import { ChairSynthesisModelOutputSchema } from "./chairSynthesisContracts";
+import {
+  ChairSynthesisModelOutputSchema,
+  ChairSynthesisPromptSchema,
+} from "./chairSynthesisContracts";
 import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
 import {
   chairCandidateIssue,
@@ -12,6 +15,19 @@ import {
 } from "./chairSynthesisValidation";
 
 describe("chair synthesis directional contract", () => {
+  it("rejects duplicate sentence identifiers before the chair is called", () => {
+    const { prompt } = mixedClaimValidationFixture();
+    const duplicate = prompt.sentences[0];
+    if (duplicate === undefined) throw new TypeError("fixture is empty");
+
+    expect(
+      ChairSynthesisPromptSchema.safeParse({
+        ...prompt,
+        sentences: [...prompt.sentences, duplicate],
+      }).success,
+    ).toBe(false);
+  });
+
   it("routes thin prose from a real research request back to its owning section", () => {
     const { prompt, candidate } = mixedClaimValidationFixture();
     const requestPrompt = {

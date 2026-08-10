@@ -43,6 +43,7 @@ export const EVIDENCE_DATASETS = [
   "insightsentry_news",
   "insightsentry_news_company",
   "insightsentry_news_market",
+  "insightsentry_news_financial",
   "insightsentry_news_risk",
   "insightsentry_documents",
   "insightsentry_calendar",

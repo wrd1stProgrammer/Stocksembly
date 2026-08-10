@@ -17,6 +17,7 @@ import {
   ResearchProfileSchema,
 } from "../domain/researchProfile";
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
+import { UniversalInvestmentModelSchema } from "../domain/universalInvestmentModel";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
 
@@ -44,7 +45,7 @@ export const CHAIR_PROSE_REWRITE_REASONS = [
 export const CHAIR_SECTION_ALLOWED_KINDS = {
   ten_second_brief: ["claim", "position", "dissent", "change_condition"],
   supported_analysis: ["claim", "position", "ballot", "dissent"],
-  valuation_comparison: ["claim", "position"],
+  valuation_comparison: ["claim", "position", "scenario"],
   operational_scenarios: ["scenario", "claim", "change_condition"],
   dissent_unknowns: ["dissent", "unknown", "ballot"],
   change_conditions: ["change_condition", "unknown"],
@@ -102,6 +103,7 @@ export const ChairSynthesisPromptSchema = z
           .passthrough(),
       )
       .readonly(),
+    investmentModel: UniversalInvestmentModelSchema.optional(),
     auditedClaimIds: z.array(ClaimIdSchema).min(1).readonly(),
     departmentPositions: z
       .array(
@@ -138,6 +140,18 @@ export const ChairSynthesisPromptSchema = z
     instructions: z.literal(NO_TOOL_INSTRUCTIONS).default(NO_TOOL_INSTRUCTIONS),
   })
   .passthrough()
+  .superRefine((prompt, context) => {
+    const seen = new Set<string>();
+    prompt.sentences.forEach((sentence, index) => {
+      if (seen.has(sentence.sentenceId))
+        context.addIssue({
+          code: "custom",
+          message: "sentenceId must be unique within the chair catalog",
+          path: ["sentences", index, "sentenceId"],
+        });
+      seen.add(sentence.sentenceId);
+    });
+  })
   .readonly();
 export type ChairSynthesisPrompt = z.infer<typeof ChairSynthesisPromptSchema>;
 

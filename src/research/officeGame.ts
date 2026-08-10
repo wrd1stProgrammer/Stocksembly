@@ -9,6 +9,7 @@ import {
   type OfficeFurnitureRenderState,
 } from "./officeGameFurniture";
 import {
+  type OfficeCameraTransform,
   type OfficeRendererCameraMode,
   type OfficeRenderSnapshot,
   renderOfficeSnapshot,
@@ -32,10 +33,13 @@ export type OfficeGameInspection = {
   readonly ui: readonly OfficeActorUiLayout[];
 };
 
+export type OfficeCameraControlMode = "automatic" | "free" | "overview";
+
 export type OfficeSnapshotRenderOptions = {
   readonly previousSnapshot?: OfficeSimulationSnapshot;
   readonly interpolation?: number;
   readonly cameraMode?: OfficeRendererCameraMode;
+  readonly cameraActorIds?: readonly AgentId[];
   readonly liveBubble?: {
     readonly actorId: AgentId;
     readonly message: string;
@@ -56,6 +60,7 @@ export type OfficeGameController = {
     options?: OfficeSnapshotRenderOptions,
   ) => OfficeRenderSnapshot;
   readonly setCameraMode: (mode: OfficeRendererCameraMode) => void;
+  readonly setCameraControlMode: (mode: OfficeCameraControlMode) => void;
   readonly inspect: () => OfficeGameInspection;
   readonly setPaused: (isPaused: boolean) => void;
   readonly destroy: () => void;
@@ -79,6 +84,104 @@ function viewportFor(host: HTMLDivElement) {
       host.clientHeight || OFFICE_SCENE_MANIFEST.world.height,
     ),
   });
+}
+
+const MOBILE_CAMERA_MAX_WIDTH = 767;
+const MOBILE_CAMERA_RESPONSE_MS = 150;
+const MAX_FREE_CAMERA_SCALE = 2.4;
+
+type ScreenPoint = { readonly x: number; readonly y: number };
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
+export function constrainFreeCamera(
+  camera: OfficeCameraTransform,
+  viewport: { readonly width: number; readonly height: number },
+): OfficeCameraTransform {
+  const world = OFFICE_SCENE_MANIFEST.world;
+  const minimumScale = Math.min(
+    viewport.width / world.width,
+    viewport.height / world.height,
+  );
+  const scale = clamp(camera.scale, minimumScale, MAX_FREE_CAMERA_SCALE);
+  const scaledWidth = world.width * scale;
+  const scaledHeight = world.height * scale;
+  const x =
+    scaledWidth <= viewport.width
+      ? (viewport.width - scaledWidth) / 2
+      : clamp(camera.x, viewport.width - scaledWidth, 0);
+  const y =
+    scaledHeight <= viewport.height
+      ? (viewport.height - scaledHeight) / 2
+      : clamp(camera.y, viewport.height - scaledHeight, 0);
+  return Object.freeze({
+    ...camera,
+    mode: "focus",
+    x,
+    y,
+    scale,
+    visibleWorldBounds: Object.freeze({
+      left: clamp(-x / scale, 0, world.width),
+      top: clamp(-y / scale, 0, world.height),
+      right: clamp((viewport.width - x) / scale, 0, world.width),
+      bottom: clamp((viewport.height - y) / scale, 0, world.height),
+    }),
+  });
+}
+
+export function zoomFreeCameraAt(
+  camera: OfficeCameraTransform,
+  viewport: { readonly width: number; readonly height: number },
+  anchor: ScreenPoint,
+  scaleFactor: number,
+): OfficeCameraTransform {
+  const nextScale = camera.scale * scaleFactor;
+  const worldX = (anchor.x - camera.x) / camera.scale;
+  const worldY = (anchor.y - camera.y) / camera.scale;
+  return constrainFreeCamera(
+    {
+      ...camera,
+      x: anchor.x - worldX * nextScale,
+      y: anchor.y - worldY * nextScale,
+      scale: nextScale,
+    },
+    viewport,
+  );
+}
+
+function cameraClose(
+  current: OfficeCameraTransform,
+  target: OfficeCameraTransform,
+): boolean {
+  return (
+    Math.abs(current.x - target.x) < 0.35 &&
+    Math.abs(current.y - target.y) < 0.35 &&
+    Math.abs(current.scale - target.scale) < 0.001
+  );
+}
+
+function cameraStep(
+  current: OfficeCameraTransform,
+  target: OfficeCameraTransform,
+  deltaMs: number,
+): OfficeCameraTransform {
+  const progress =
+    1 - Math.exp(-Math.max(1, deltaMs) / MOBILE_CAMERA_RESPONSE_MS);
+  return Object.freeze({
+    ...target,
+    x: current.x + (target.x - current.x) * progress,
+    y: current.y + (target.y - current.y) * progress,
+    scale: current.scale + (target.scale - current.scale) * progress,
+  });
+}
+
+function projectionAtCamera(
+  projection: OfficeRenderSnapshot,
+  camera: OfficeCameraTransform,
+): OfficeRenderSnapshot {
+  return Object.freeze({ ...projection, camera });
 }
 
 export function officeRendererResolution(devicePixelRatio: number): number {
@@ -147,6 +250,8 @@ export async function createOfficeSnapshotRenderer(
       furnitureStates,
     );
     signal.throwIfAborted();
+    let cameraControlMode: OfficeCameraControlMode = "automatic";
+    let lastCameraGestureAt = 0;
     const loadedActors = await Promise.all(
       OFFICE_SCENE_MANIFEST.roster.map((member) =>
         createAgentRuntime(member, locale),
@@ -159,7 +264,10 @@ export async function createOfficeSnapshotRenderer(
       if (onActorSelect !== undefined) {
         runtime.body.eventMode = "static";
         runtime.body.cursor = "pointer";
-        runtime.body.on("pointertap", () => onActorSelect(runtime.id));
+        runtime.body.on("pointertap", () => {
+          if (performance.now() - lastCameraGestureAt > 240)
+            onActorSelect(runtime.id);
+        });
       }
       world.addChild(runtime.body);
       uiLayer.addChild(runtime.ui);
@@ -167,6 +275,7 @@ export async function createOfficeSnapshotRenderer(
 
     let cameraMode: OfficeRendererCameraMode = "snapshot";
     let lastSnapshot = initialSnapshot;
+    let lastCameraActorIds: OfficeSnapshotRenderOptions["cameraActorIds"];
     let lastLiveBubble: OfficeSnapshotRenderOptions["liveBubble"];
     let lastLiveBubbles: OfficeSnapshotRenderOptions["liveBubbles"];
     let lastConversation: OfficeSnapshotRenderOptions["conversation"];
@@ -180,9 +289,22 @@ export async function createOfficeSnapshotRenderer(
     let lastUiLayout: readonly OfficeActorUiLayout[] = Object.freeze([]);
     let destroyed = false;
     let renderFrameCount = 0;
-    const applyProjection = (projection: OfficeRenderSnapshot): void => {
+    let latestProjection = lastRender;
+    let displayedCamera = lastRender.camera;
+    let targetCamera = lastRender.camera;
+    let freeCamera: OfficeCameraTransform | undefined;
+    let cameraAnimationFrame: number | undefined;
+    let previousCameraTimestamp: number | undefined;
+    const activePointers = new Map<number, ScreenPoint>();
+    let previousGesture:
+      | { readonly center: ScreenPoint; readonly distance?: number }
+      | undefined;
+
+    const renderDisplayedProjection = (
+      projection: OfficeRenderSnapshot,
+    ): void => {
       lastUiLayout = applyOfficeProjection({
-        projection,
+        projection: projectionAtCamera(projection, displayedCamera),
         viewport: viewportFor(host),
         actors,
         furniture,
@@ -191,6 +313,61 @@ export async function createOfficeSnapshotRenderer(
         host,
         showActorBubbles,
       });
+    };
+    const animateMobileCamera = (timestamp: number): void => {
+      cameraAnimationFrame = undefined;
+      if (destroyed || cameraControlMode === "free") return;
+      const deltaMs =
+        previousCameraTimestamp === undefined
+          ? 16
+          : Math.min(64, timestamp - previousCameraTimestamp);
+      previousCameraTimestamp = timestamp;
+      displayedCamera = cameraStep(displayedCamera, targetCamera, deltaMs);
+      if (cameraClose(displayedCamera, targetCamera)) {
+        displayedCamera = targetCamera;
+        previousCameraTimestamp = undefined;
+      }
+      renderDisplayedProjection(latestProjection);
+      if (!cameraClose(displayedCamera, targetCamera))
+        cameraAnimationFrame =
+          window.requestAnimationFrame(animateMobileCamera);
+    };
+    const applyProjection = (projection: OfficeRenderSnapshot): void => {
+      latestProjection = projection;
+      if (cameraControlMode === "free") {
+        if (cameraAnimationFrame !== undefined)
+          window.cancelAnimationFrame(cameraAnimationFrame);
+        cameraAnimationFrame = undefined;
+        previousCameraTimestamp = undefined;
+        freeCamera = constrainFreeCamera(
+          freeCamera ?? displayedCamera,
+          viewportFor(host),
+        );
+        displayedCamera = freeCamera;
+        targetCamera = freeCamera;
+      } else {
+        targetCamera = projection.camera;
+      }
+      const mobileFocus =
+        cameraControlMode !== "free" &&
+        viewportFor(host).width <= MOBILE_CAMERA_MAX_WIDTH &&
+        targetCamera.mode === "focus" &&
+        !reducedMotion;
+      if (!mobileFocus) {
+        if (cameraAnimationFrame !== undefined)
+          window.cancelAnimationFrame(cameraAnimationFrame);
+        cameraAnimationFrame = undefined;
+        previousCameraTimestamp = undefined;
+        displayedCamera = targetCamera;
+      }
+      renderDisplayedProjection(projection);
+      if (
+        mobileFocus &&
+        !cameraClose(displayedCamera, targetCamera) &&
+        cameraAnimationFrame === undefined
+      )
+        cameraAnimationFrame =
+          window.requestAnimationFrame(animateMobileCamera);
       renderFrameCount += 1;
       host.setAttribute("data-render-frame-count", String(renderFrameCount));
     };
@@ -199,6 +376,7 @@ export async function createOfficeSnapshotRenderer(
       renderOptions: OfficeSnapshotRenderOptions = {},
     ): OfficeRenderSnapshot => {
       cameraMode = renderOptions.cameraMode ?? cameraMode;
+      lastCameraActorIds = renderOptions.cameraActorIds;
       furnitureStates = furnitureStatesForSnapshot(snapshot);
       const projection = renderOfficeSnapshot({
         snapshot,
@@ -206,6 +384,9 @@ export async function createOfficeSnapshotRenderer(
         interpolation: renderOptions.interpolation ?? 1,
         reducedMotion,
         cameraMode,
+        ...(renderOptions.cameraActorIds === undefined
+          ? {}
+          : { cameraActorIds: renderOptions.cameraActorIds }),
         viewport: viewportFor(host),
         locale,
         ...(renderOptions.liveBubble === undefined
@@ -228,12 +409,115 @@ export async function createOfficeSnapshotRenderer(
     };
     applyProjection(lastRender);
 
+    const gestureForPointers = () => {
+      const points = [...activePointers.values()].slice(0, 2);
+      const first = points[0];
+      if (first === undefined) return undefined;
+      const second = points[1];
+      if (second === undefined) return { center: first };
+      return {
+        center: {
+          x: (first.x + second.x) / 2,
+          y: (first.y + second.y) / 2,
+        },
+        distance: Math.hypot(second.x - first.x, second.y - first.y),
+      };
+    };
+    const applyFreeCamera = (camera: OfficeCameraTransform): void => {
+      freeCamera = constrainFreeCamera(camera, viewportFor(host));
+      displayedCamera = freeCamera;
+      targetCamera = freeCamera;
+      renderDisplayedProjection(latestProjection);
+    };
+    const onPointerDown = (event: PointerEvent): void => {
+      if (cameraControlMode !== "free") return;
+      event.preventDefault();
+      app.canvas.setPointerCapture(event.pointerId);
+      activePointers.set(event.pointerId, {
+        x: event.offsetX,
+        y: event.offsetY,
+      });
+      previousGesture = gestureForPointers();
+    };
+    const onPointerMove = (event: PointerEvent): void => {
+      if (
+        cameraControlMode !== "free" ||
+        !activePointers.has(event.pointerId) ||
+        freeCamera === undefined
+      )
+        return;
+      event.preventDefault();
+      activePointers.set(event.pointerId, {
+        x: event.offsetX,
+        y: event.offsetY,
+      });
+      const currentGesture = gestureForPointers();
+      const previous = previousGesture;
+      previousGesture = currentGesture;
+      if (currentGesture === undefined || previous === undefined) return;
+      const deltaX = currentGesture.center.x - previous.center.x;
+      const deltaY = currentGesture.center.y - previous.center.y;
+      let nextCamera = constrainFreeCamera(
+        {
+          ...freeCamera,
+          x: freeCamera.x + deltaX,
+          y: freeCamera.y + deltaY,
+        },
+        viewportFor(host),
+      );
+      if (
+        currentGesture.distance !== undefined &&
+        previous.distance !== undefined &&
+        previous.distance > 0
+      )
+        nextCamera = zoomFreeCameraAt(
+          nextCamera,
+          viewportFor(host),
+          currentGesture.center,
+          currentGesture.distance / previous.distance,
+        );
+      if (
+        Math.abs(deltaX) > 1 ||
+        Math.abs(deltaY) > 1 ||
+        currentGesture.distance !== previous.distance
+      )
+        lastCameraGestureAt = performance.now();
+      applyFreeCamera(nextCamera);
+    };
+    const releasePointer = (event: PointerEvent): void => {
+      activePointers.delete(event.pointerId);
+      previousGesture = gestureForPointers();
+      if (app.canvas.hasPointerCapture(event.pointerId))
+        app.canvas.releasePointerCapture(event.pointerId);
+    };
+    const onWheel = (event: WheelEvent): void => {
+      if (cameraControlMode !== "free" || freeCamera === undefined) return;
+      event.preventDefault();
+      lastCameraGestureAt = performance.now();
+      applyFreeCamera(
+        zoomFreeCameraAt(
+          freeCamera,
+          viewportFor(host),
+          { x: event.offsetX, y: event.offsetY },
+          Math.exp(-event.deltaY * 0.002),
+        ),
+      );
+    };
+    app.canvas.addEventListener("pointerdown", onPointerDown);
+    app.canvas.addEventListener("pointermove", onPointerMove);
+    app.canvas.addEventListener("pointerup", releasePointer);
+    app.canvas.addEventListener("pointercancel", releasePointer);
+    app.canvas.addEventListener("wheel", onWheel, { passive: false });
+
     const resizeObserver = new ResizeObserver(() => {
       const nextViewport = viewportFor(host);
       app.renderer.resize(nextViewport.width, nextViewport.height);
       renderSnapshot(lastSnapshot, {
         previousSnapshot: lastSnapshot,
         cameraMode,
+        ...(lastCameraActorIds === undefined
+          ? {}
+          : { cameraActorIds: lastCameraActorIds }),
         ...(lastLiveBubble === undefined ? {} : { liveBubble: lastLiveBubble }),
         ...(lastLiveBubbles === undefined
           ? {}
@@ -251,6 +535,9 @@ export async function createOfficeSnapshotRenderer(
         renderSnapshot(lastSnapshot, {
           previousSnapshot: lastSnapshot,
           cameraMode: mode,
+          ...(lastCameraActorIds === undefined
+            ? {}
+            : { cameraActorIds: lastCameraActorIds }),
           ...(lastLiveBubble === undefined
             ? {}
             : { liveBubble: lastLiveBubble }),
@@ -261,6 +548,22 @@ export async function createOfficeSnapshotRenderer(
             ? {}
             : { conversation: lastConversation }),
         });
+      },
+      setCameraControlMode(mode: OfficeCameraControlMode) {
+        cameraControlMode = mode;
+        activePointers.clear();
+        previousGesture = undefined;
+        host.setAttribute("data-camera-control-mode", mode);
+        app.canvas.style.touchAction = mode === "free" ? "none" : "pan-y";
+        if (mode === "free") {
+          if (cameraAnimationFrame !== undefined)
+            window.cancelAnimationFrame(cameraAnimationFrame);
+          cameraAnimationFrame = undefined;
+          previousCameraTimestamp = undefined;
+          applyFreeCamera(displayedCamera);
+        } else {
+          freeCamera = undefined;
+        }
       },
       inspect() {
         return Object.freeze({
@@ -276,6 +579,13 @@ export async function createOfficeSnapshotRenderer(
       destroy() {
         if (destroyed) return;
         destroyed = true;
+        if (cameraAnimationFrame !== undefined)
+          window.cancelAnimationFrame(cameraAnimationFrame);
+        app.canvas.removeEventListener("pointerdown", onPointerDown);
+        app.canvas.removeEventListener("pointermove", onPointerMove);
+        app.canvas.removeEventListener("pointerup", releasePointer);
+        app.canvas.removeEventListener("pointercancel", releasePointer);
+        app.canvas.removeEventListener("wheel", onWheel);
         resizeObserver.disconnect();
         host.removeAttribute("data-room-plaque-count");
         host.removeAttribute("data-room-plaque-locale");

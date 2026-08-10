@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../../lib/i18n";
 import {
   createOfficeSnapshotRenderer,
+  type OfficeCameraControlMode,
   type OfficeGameController,
 } from "../../research/officeGame";
 import {
@@ -34,6 +35,7 @@ type Props = {
   readonly renderPreviousSnapshot?: OfficeSimulationSnapshot;
   readonly renderInterpolationAlpha?: number;
   readonly cameraMode?: "overview" | "focus";
+  readonly cameraControlMode?: OfficeCameraControlMode;
 };
 
 type SceneMode =
@@ -49,6 +51,8 @@ type PendingRender = {
   readonly previousSnapshot: OfficeSimulationSnapshot | undefined;
   readonly interpolation: number;
   readonly cameraMode: "overview" | "focus";
+  readonly cameraControlMode: OfficeCameraControlMode;
+  readonly cameraActorIds?: readonly AgentId[];
   readonly isPaused: boolean;
   readonly liveBubbles?: readonly {
     readonly actorId: AgentId;
@@ -61,6 +65,7 @@ type PendingRender = {
 };
 
 const EMPTY_RESEARCH_EVENTS: readonly ResearchEvent[] = [];
+const MOBILE_CAMERA_QUERY = "(max-width: 767px)";
 
 export function concurrentSpeechEvents(
   currentEvent: ResearchEvent | undefined,
@@ -151,6 +156,7 @@ export function PixelOfficeGame({
   renderPreviousSnapshot,
   renderInterpolationAlpha = 1,
   cameraMode = "overview",
+  cameraControlMode = "automatic",
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<OfficeGameController | null>(null);
@@ -208,6 +214,7 @@ export function PixelOfficeGame({
     previousSnapshot: renderPreviousSnapshot,
     interpolation: renderInterpolationAlpha,
     cameraMode,
+    cameraControlMode,
     isPaused,
     liveBubbles: readySpeechEvents.map((event) => ({
       actorId: event.agent,
@@ -221,14 +228,11 @@ export function PixelOfficeGame({
   });
   const [rendererFailed, setRendererFailed] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [mobileCameraActive, setMobileCameraActive] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
   const selectedAgent = OFFICE_SCENE_MANIFEST.roster.find(
     (member) => member.id === selectedAgentId,
   );
-  const selectedAgentEvent =
-    selectedAgentId === null
-      ? undefined
-      : [...events].reverse().find((event) => event.agent === selectedAgentId);
   const bubbleSequenceKey = `${currentEvent?.id ?? "idle"}:${locale}`;
   const [bubblePlayback, setBubblePlayback] = useState({
     key: bubbleSequenceKey,
@@ -237,6 +241,40 @@ export function PixelOfficeGame({
   const bubbleSegmentIndex =
     bubblePlayback.key === bubbleSequenceKey ? bubblePlayback.index : 0;
   const mode = sceneMode(snapshot, phase);
+  const effectiveCameraMode = mobileCameraActive
+    ? cameraControlMode === "overview"
+      ? "overview"
+      : "focus"
+    : cameraMode;
+  const mobileCameraActorIds = useMemo(() => {
+    if (!mobileCameraActive || cameraControlMode !== "automatic")
+      return undefined;
+    const available = new Set(snapshot?.actors.map((actor) => actor.id) ?? []);
+    const preferred =
+      currentEvent === undefined
+        ? activeAgentIds
+        : [
+            currentEvent.agent,
+            ...(conversationReady ? conversationParticipantIds : []),
+          ];
+    const actorIds = [...new Set(preferred)].filter((actorId) =>
+      available.has(actorId),
+    );
+    if (actorIds.length > 0) return actorIds;
+    if (snapshot?.cameraTarget.kind === "actors")
+      return snapshot.cameraTarget.actorIds;
+    return snapshot?.actors[0] === undefined
+      ? undefined
+      : [snapshot.actors[0].id];
+  }, [
+    activeAgentIds,
+    conversationParticipantIds,
+    conversationReady,
+    cameraControlMode,
+    currentEvent,
+    mobileCameraActive,
+    snapshot,
+  ]);
   const forumNames = useMemo(
     () =>
       OFFICE_SCENE_MANIFEST.roster
@@ -300,22 +338,36 @@ export function PixelOfficeGame({
   ]);
 
   useEffect(() => {
+    const media = window.matchMedia(MOBILE_CAMERA_QUERY);
+    const update = () => setMobileCameraActive(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
     pendingRenderRef.current = {
       snapshot,
       previousSnapshot: renderPreviousSnapshot,
       interpolation: renderInterpolationAlpha,
-      cameraMode,
+      cameraMode: effectiveCameraMode,
+      cameraControlMode,
+      ...(mobileCameraActorIds === undefined
+        ? {}
+        : { cameraActorIds: mobileCameraActorIds }),
       isPaused,
       liveBubbles: liveBubbleStates,
       ...(conversation === undefined ? {} : { conversation }),
     };
   }, [
-    cameraMode,
+    effectiveCameraMode,
+    cameraControlMode,
     isPaused,
     renderInterpolationAlpha,
     renderPreviousSnapshot,
     snapshot,
     liveBubbleStates,
+    mobileCameraActorIds,
     conversation,
   ]);
 
@@ -344,6 +396,7 @@ export function PixelOfficeGame({
         }
         controllerRef.current = controller;
         const pending = pendingRenderRef.current;
+        controller.setCameraControlMode(pending.cameraControlMode);
         if (pending.snapshot) {
           controller.renderSnapshot(pending.snapshot, {
             ...(pending.previousSnapshot
@@ -351,6 +404,9 @@ export function PixelOfficeGame({
               : {}),
             interpolation: pending.interpolation,
             cameraMode: pending.cameraMode,
+            ...(pending.cameraActorIds === undefined
+              ? {}
+              : { cameraActorIds: pending.cameraActorIds }),
             ...(pending.liveBubbles === undefined
               ? {}
               : { liveBubbles: pending.liveBubbles }),
@@ -377,25 +433,31 @@ export function PixelOfficeGame({
   useEffect(() => {
     const controller = controllerRef.current;
     if (!controller) return;
+    controller.setCameraControlMode(cameraControlMode);
     if (snapshot) {
       controller.renderSnapshot(snapshot, {
         ...(renderPreviousSnapshot
           ? { previousSnapshot: renderPreviousSnapshot }
           : {}),
         interpolation: renderInterpolationAlpha,
-        cameraMode,
+        cameraMode: effectiveCameraMode,
+        ...(mobileCameraActorIds === undefined
+          ? {}
+          : { cameraActorIds: mobileCameraActorIds }),
         liveBubbles: liveBubbleStates,
         ...(conversation === undefined ? {} : { conversation }),
       });
     }
     controller.setPaused(isPaused);
   }, [
-    cameraMode,
+    effectiveCameraMode,
+    cameraControlMode,
     isPaused,
     renderInterpolationAlpha,
     renderPreviousSnapshot,
     snapshot,
     liveBubbleStates,
+    mobileCameraActorIds,
     conversation,
   ]);
 
@@ -403,7 +465,9 @@ export function PixelOfficeGame({
     <div
       ref={hostRef}
       className={`office-game office-game--world${isPaused ? " is-paused" : ""}`}
-      data-camera-mode={cameraMode}
+      data-camera-mode={effectiveCameraMode}
+      data-camera-control-mode={cameraControlMode}
+      data-mobile-camera={mobileCameraActive ? "active" : "inactive"}
       data-scene-phase={snapshot?.beatId ?? "briefing"}
       data-snapshot-tick={snapshot?.tick}
       data-scene-mode={mode}
@@ -429,9 +493,6 @@ export function PixelOfficeGame({
         <OfficeAgentInfoPanel
           member={selectedAgent}
           locale={locale}
-          {...(selectedAgentEvent === undefined
-            ? {}
-            : { latestEvent: selectedAgentEvent })}
           onClose={() => setSelectedAgentId(null)}
         />
       )}

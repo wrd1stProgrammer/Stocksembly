@@ -16,7 +16,10 @@ import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
 import type { SqliteDepartmentRoundOptions } from "./departmentRoundContracts";
-import { inspectDepartmentCandidate } from "./departmentRoundOutput";
+import {
+  deterministicDepartmentCandidate,
+  inspectDepartmentCandidate,
+} from "./departmentRoundOutput";
 import type { DepartmentRoundSqliteAuthority } from "./departmentRoundSqliteAuthority";
 import { retryRejectedCommit } from "./specialistCommitRetry";
 import type { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
@@ -86,7 +89,9 @@ export function createDepartmentRoundAttemptHandler(
         signal,
         onActivity: activity,
       });
-      candidate = inspectDepartmentCandidate(job, result.candidate) ?? {};
+      candidate =
+        inspectDepartmentCandidate(job, result.candidate) ??
+        deterministicDepartmentCandidate(job);
       runnerEvidence = result.evidence;
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;

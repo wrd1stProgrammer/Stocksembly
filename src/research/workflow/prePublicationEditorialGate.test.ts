@@ -221,7 +221,7 @@ describe("pre-publication editorial quality gate", () => {
     ).resolves.toMatchObject({ kind: "accepted", rewritten: false });
   });
 
-  it("fails closed after the sole rewrite adds an unsupported metric", async () => {
+  it("recovers from a rewrite that adds an unsupported metric", async () => {
     const repaired = cleanCandidate();
     const invalid: PrePublicationEditorialCandidate = {
       ...repaired,
@@ -245,13 +245,12 @@ describe("pre-publication editorial quality gate", () => {
           : section,
       ),
     }));
-    expect(result).toMatchObject({
-      kind: "rejected",
-      reason: "editorial_quality_failed:unsupported_number",
-    });
+    expect(result).toMatchObject({ kind: "accepted", rewritten: true });
+    if (result.kind === "accepted")
+      expect(result.candidate.sections[1]?.text.en).not.toContain("99%");
   });
 
-  it("rejects an otherwise valid repair that mutates an unnamed sibling leaf", async () => {
+  it("ignores an out-of-scope sibling mutation and applies deterministic recovery", async () => {
     const original = cleanCandidate();
     const invalid: PrePublicationEditorialCandidate = {
       ...original,
@@ -281,10 +280,11 @@ describe("pre-publication editorial quality gate", () => {
       ),
     }));
 
-    expect(result).toMatchObject({
-      kind: "rejected",
-      reason: "editorial_quality_failed:rewrite_scope:sections[0].sectionKey",
-    });
+    expect(result).toMatchObject({ kind: "accepted", rewritten: true });
+    if (result.kind === "accepted")
+      expect(result.candidate.sections[0]?.sectionKey).toBe(
+        original.sections[0]?.sectionKey,
+      );
   });
 
   it.each([

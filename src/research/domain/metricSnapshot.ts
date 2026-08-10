@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { ComparatorQualificationResultSchema } from "./comparatorQualification";
 import { qualifyInsightSentryPeers } from "./qualifyInsightSentryPeers";
+import {
+  buildUniversalInvestmentModel,
+  UniversalInvestmentModelSchema,
+} from "./universalInvestmentModel";
 
 const LocalizedSchema = z
   .object({ en: z.string().min(1), ko: z.string().min(1) })
@@ -37,7 +41,15 @@ export const ResearchMetricSnapshotSchema = z
   .object({
     asOf: z.string().datetime(),
     metrics: z.array(ResearchMetricPointSchema).max(64),
+    earningsCalendar: z
+      .object({
+        latestReportAt: z.string().datetime().optional(),
+        nextReportAt: z.string().datetime().optional(),
+      })
+      .strict()
+      .optional(),
     comparatorQualification: ComparatorQualificationResultSchema.optional(),
+    investmentModel: UniversalInvestmentModelSchema.optional(),
   })
   .strict();
 
@@ -99,6 +111,44 @@ const DEFINITIONS: readonly MetricDefinition[] = [
     signal: "higher_better",
   },
   {
+    id: "operating_cash_flow",
+    providerIds: [
+      "cash_f_operating_activities_ttm",
+      "cash_f_operating_activities_fq",
+    ],
+    label: { en: "Operating cash flow", ko: "영업현금흐름" },
+    category: "financial",
+    unit: "USD",
+    signal: "higher_better",
+  },
+  {
+    id: "net_income",
+    providerIds: ["net_income_ttm", "net_income_fq", "net_income_fy"],
+    label: { en: "Net income", ko: "순이익" },
+    category: "financial",
+    unit: "USD",
+    signal: "higher_better",
+  },
+  {
+    id: "eps_ttm",
+    providerIds: [
+      "earnings_per_share_diluted_ttm",
+      "earnings_per_share_diluted_fq",
+    ],
+    label: { en: "Diluted EPS", ko: "희석 EPS" },
+    category: "financial",
+    unit: "USD_per_share",
+    signal: "higher_better",
+  },
+  {
+    id: "net_margin",
+    providerIds: ["net_margin_ttm", "net_margin_fq", "net_margin_fy"],
+    label: { en: "Net margin", ko: "순이익률" },
+    category: "financial",
+    unit: "percent",
+    signal: "higher_better",
+  },
+  {
     id: "capital_expenditures",
     providerIds: ["capital_expenditures_ttm", "capital_expenditures_fq"],
     label: { en: "Capital expenditure", ko: "설비투자" },
@@ -112,6 +162,30 @@ const DEFINITIONS: readonly MetricDefinition[] = [
     label: { en: "Net debt", ko: "순부채" },
     category: "risk",
     unit: "USD",
+    signal: "lower_better",
+  },
+  {
+    id: "total_assets",
+    providerIds: ["total_assets_fq", "total_assets_fy"],
+    label: { en: "Total assets", ko: "총자산" },
+    category: "financial",
+    unit: "USD",
+    signal: "contextual",
+  },
+  {
+    id: "total_equity",
+    providerIds: ["total_equity_fq", "total_equity_fy"],
+    label: { en: "Total equity", ko: "자기자본" },
+    category: "financial",
+    unit: "USD",
+    signal: "higher_better",
+  },
+  {
+    id: "debt_to_equity",
+    providerIds: ["debt_to_equity_fq", "debt_to_equity_fy"],
+    label: { en: "Debt to equity", ko: "부채비율" },
+    category: "risk",
+    unit: "multiple",
     signal: "lower_better",
   },
   {
@@ -167,6 +241,30 @@ const DEFINITIONS: readonly MetricDefinition[] = [
     label: { en: "Market capitalization", ko: "시가총액" },
     category: "market",
     unit: "USD",
+    signal: "contextual",
+  },
+  {
+    id: "price_to_book",
+    providerIds: ["price_book_fq", "price_book_fy", "price_to_book"],
+    label: { en: "Price to book", ko: "PBR" },
+    category: "market",
+    unit: "multiple",
+    signal: "contextual",
+  },
+  {
+    id: "book_value_per_share",
+    providerIds: ["book_value_per_share_fq", "book_value_per_share_fy"],
+    label: { en: "Book value per share", ko: "주당순자산" },
+    category: "financial",
+    unit: "USD_per_share",
+    signal: "higher_better",
+  },
+  {
+    id: "dividend_yield",
+    providerIds: ["dividends_yield_current", "dividend_yield_fq"],
+    label: { en: "Dividend yield", ko: "배당수익률" },
+    category: "financial",
+    unit: "percent",
     signal: "contextual",
   },
   {
@@ -226,6 +324,30 @@ const DEFINITIONS: readonly MetricDefinition[] = [
     signal: "higher_better",
   },
   {
+    id: "price_target_high",
+    providerIds: ["price_target_high"],
+    label: { en: "High price target", ko: "목표주가 상단" },
+    category: "expectations",
+    unit: "USD_per_share",
+    signal: "contextual",
+  },
+  {
+    id: "price_target_low",
+    providerIds: ["price_target_low"],
+    label: { en: "Low price target", ko: "목표주가 하단" },
+    category: "expectations",
+    unit: "USD_per_share",
+    signal: "contextual",
+  },
+  {
+    id: "price_target_count",
+    providerIds: ["price_target_estimates_num"],
+    label: { en: "Price-target sample", ko: "목표주가 표본 수" },
+    category: "expectations",
+    unit: "count",
+    signal: "contextual",
+  },
+  {
     id: "recommendation_buy",
     providerIds: ["recommendation_buy"],
     label: { en: "Buy recommendations", ko: "매수 의견 수" },
@@ -277,6 +399,7 @@ const QuoteSchema = z
 const PeersSchema = z
   .object({
     providerUpdatedAt: z.string().datetime(),
+    sector: z.string().optional(),
     subject: z
       .object({
         performance3Month: z.number().finite().optional(),
@@ -291,6 +414,27 @@ const PeersSchema = z
         })
         .passthrough(),
     ),
+  })
+  .passthrough();
+
+const CalendarSchema = z
+  .object({
+    providerUpdatedAt: z.string().datetime(),
+    earnings: z
+      .object({
+        latestReportAt: z.string().datetime().optional(),
+        nextReportAt: z.string().datetime().optional(),
+        epsActual: z.number().finite().optional(),
+        epsForecast: z.number().finite().optional(),
+        epsSurprisePercent: z.number().finite().optional(),
+        nextEpsForecast: z.number().finite().optional(),
+        revenueActual: z.number().finite().optional(),
+        revenueForecast: z.number().finite().optional(),
+        revenueSurprisePercent: z.number().finite().optional(),
+        nextRevenueForecast: z.number().finite().optional(),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough();
 
@@ -363,6 +507,7 @@ export function buildResearchMetricSnapshot(input: {
   readonly quote?: unknown;
   readonly fundamentals?: unknown;
   readonly peers?: unknown;
+  readonly calendar?: unknown;
   readonly peerEvidenceArtifactId?: string;
 }): ResearchMetricSnapshot | undefined {
   const points: ResearchMetricPoint[] = [];
@@ -477,6 +622,96 @@ export function buildResearchMetricSnapshot(input: {
     }
   }
 
+  const calendar = CalendarSchema.safeParse(input.calendar);
+  const earningsCalendar =
+    calendar.success && calendar.data.earnings !== undefined
+      ? {
+          ...(calendar.data.earnings.latestReportAt === undefined
+            ? {}
+            : { latestReportAt: calendar.data.earnings.latestReportAt }),
+          ...(calendar.data.earnings.nextReportAt === undefined
+            ? {}
+            : { nextReportAt: calendar.data.earnings.nextReportAt }),
+        }
+      : undefined;
+  if (calendar.success && calendar.data.earnings !== undefined) {
+    const addEarningsMetric = (
+      id: string,
+      label: ResearchMetricPoint["label"],
+      value: number | undefined,
+      unit: ResearchMetricPoint["unit"],
+      signal: ResearchMetricPoint["signal"],
+    ) => {
+      if (value === undefined) return;
+      points.push({
+        id,
+        label,
+        category: "expectations",
+        value,
+        unit,
+        observedAt: calendar.data.providerUpdatedAt,
+        source: "insightsentry",
+        signal,
+      });
+    };
+    addEarningsMetric(
+      "latest_eps_actual",
+      { en: "Latest EPS actual", ko: "최근 EPS 실제치" },
+      calendar.data.earnings.epsActual,
+      "USD_per_share",
+      "higher_better",
+    );
+    addEarningsMetric(
+      "latest_eps_forecast",
+      { en: "Latest EPS estimate", ko: "최근 EPS 예상치" },
+      calendar.data.earnings.epsForecast,
+      "USD_per_share",
+      "contextual",
+    );
+    addEarningsMetric(
+      "latest_eps_surprise",
+      { en: "EPS surprise", ko: "EPS 서프라이즈" },
+      calendar.data.earnings.epsSurprisePercent,
+      "percent",
+      "higher_better",
+    );
+    addEarningsMetric(
+      "next_eps_forecast",
+      { en: "Next EPS estimate", ko: "다음 EPS 예상치" },
+      calendar.data.earnings.nextEpsForecast,
+      "USD_per_share",
+      "contextual",
+    );
+    addEarningsMetric(
+      "latest_revenue_actual",
+      { en: "Latest revenue actual", ko: "최근 매출 실제치" },
+      calendar.data.earnings.revenueActual,
+      "USD",
+      "higher_better",
+    );
+    addEarningsMetric(
+      "latest_revenue_forecast",
+      { en: "Latest revenue estimate", ko: "최근 매출 예상치" },
+      calendar.data.earnings.revenueForecast,
+      "USD",
+      "contextual",
+    );
+    addEarningsMetric(
+      "latest_revenue_surprise",
+      { en: "Revenue surprise", ko: "매출 서프라이즈" },
+      calendar.data.earnings.revenueSurprisePercent,
+      "percent",
+      "higher_better",
+    );
+    addEarningsMetric(
+      "next_revenue_forecast",
+      { en: "Next revenue estimate", ko: "다음 매출 예상치" },
+      calendar.data.earnings.nextRevenueForecast,
+      "USD",
+      "contextual",
+    );
+  }
+
   const comparatorQualification =
     input.peers === undefined || input.peerEvidenceArtifactId === undefined
       ? undefined
@@ -489,9 +724,20 @@ export function buildResearchMetricSnapshot(input: {
   const unique = [
     ...new Map(points.map((point) => [point.id, point] as const)).values(),
   ].slice(0, 64);
+  const investmentModel = buildUniversalInvestmentModel({
+    metrics: unique,
+    ...(peers.success && peers.data.sector !== undefined
+      ? { sector: peers.data.sector }
+      : {}),
+  });
   return ResearchMetricSnapshotSchema.parse({
     asOf: input.asOf,
     metrics: unique,
+    ...(earningsCalendar === undefined ||
+    Object.keys(earningsCalendar).length === 0
+      ? {}
+      : { earningsCalendar }),
+    investmentModel,
     ...(comparatorQualification === undefined
       ? {}
       : { comparatorQualification }),

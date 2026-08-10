@@ -11,7 +11,7 @@ export function TextShimmerWave({ label }: Props) {
           key={label.slice(0, index + 1)}
           style={{ animationDelay: `${index * 90}ms` }}
         >
-          {character}
+          {character === " " ? "\u00A0" : character}
         </span>
       ))}
     </span>

@@ -172,6 +172,19 @@ export function sanitizePublicEditorialText(value: string): string {
       /공식 근거가 다음 주장을 더 이상 지지하지 않으면 재검토합니다:\s*/gu,
       "",
     )
+    .replace(
+      /\bsealed snapshot\b/giu,
+      "official evidence available at the report cutoff",
+    )
+    .replace(/봉인된 스냅샷/gu, "분석 기준 시점의 공식 자료")
+    .replace(
+      /(?:적격 )?(?:피어|동종기업) 데이터가 (?:훼손됐|손상됐|잘못됐|사용 불가능하)고?/gu,
+      "동종기업 비교는 현재 판단의 핵심 근거로 사용하지 않았고",
+    )
+    .replace(
+      /(?:qualified )?(?:peer|comparator) data (?:is|was) (?:malformed|corrupt|damaged|unusable)/giu,
+      "peer comparison was not used as a decisive input",
+    )
     .replace(/\s+/gu, " ")
     .trim();
 }

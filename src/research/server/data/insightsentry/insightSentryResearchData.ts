@@ -28,6 +28,9 @@ export function createInsightSentryResearchDataAdapter(
         client: options.client,
         rollout: options.rollout,
         classifyNews: options.classifyNews,
+        ...(options.dataRoot === undefined
+          ? {}
+          : { dataRoot: options.dataRoot }),
         ...input,
       }),
     documents: async (input) =>

@@ -1,6 +1,7 @@
 import { DownloadSimple } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import type { Locale } from "../../../lib/i18n";
+import { publicEvidenceLabel } from "../../../research/publicPresentation";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 
 function sourceClassLabel(sourceClass: string, locale: Locale): string {
@@ -111,37 +112,51 @@ export function ResearchFileSources({
               </header>
               <div className="research-source-table">
                 <div className="research-source-table__head" aria-hidden="true">
-                  <span>ID</span>
                   <span>{ko ? "발행처" : "Publisher"}</span>
                   <span>{ko ? "자료·연결" : "Source & link"}</span>
                   <span>{ko ? "기준일" : "Observed"}</span>
                   <span>{ko ? "유형·상태" : "Class & status"}</span>
                 </div>
                 <ol>
-                  {group.sources.map((source) => (
-                    <li key={`${group.number}-${source.id}`}>
-                      <strong title={source.id}>{source.id.slice(0, 8)}</strong>
-                      <span>{source.publisher}</span>
-                      <p>
-                        {source.url === undefined ? (
-                          source.title
-                        ) : (
-                          <a href={source.url} target="_blank" rel="noreferrer">
-                            {source.title}
-                          </a>
-                        )}
-                      </p>
-                      <time dateTime={source.observedAt}>
-                        {sourceDate(source.observedAt, locale)}
-                      </time>
-                      <em>
-                        {sourceClassLabel(source.sourceClass, locale)}
-                        <small>
-                          {freshnessLabel(source.freshness, locale)}
-                        </small>
-                      </em>
-                    </li>
-                  ))}
+                  {group.sources.map((source) => {
+                    const label = publicEvidenceLabel(
+                      source.publisher,
+                      source.title,
+                      locale,
+                    );
+                    const publicUrl = /insightsentry|rapidapi/iu.test(
+                      `${source.publisher} ${source.title} ${source.url ?? ""}`,
+                    )
+                      ? undefined
+                      : source.url;
+                    return (
+                      <li key={`${group.number}-${source.id}`}>
+                        <span>{label.publisher}</span>
+                        <p>
+                          {publicUrl === undefined ? (
+                            label.title
+                          ) : (
+                            <a
+                              href={publicUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {label.title}
+                            </a>
+                          )}
+                        </p>
+                        <time dateTime={source.observedAt}>
+                          {sourceDate(source.observedAt, locale)}
+                        </time>
+                        <em>
+                          {sourceClassLabel(source.sourceClass, locale)}
+                          <small>
+                            {freshnessLabel(source.freshness, locale)}
+                          </small>
+                        </em>
+                      </li>
+                    );
+                  })}
                 </ol>
               </div>
             </section>

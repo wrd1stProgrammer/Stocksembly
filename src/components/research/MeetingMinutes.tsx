@@ -5,6 +5,10 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import type { Locale } from "../../lib/i18n";
+import type {
+  ActiveResearchActivity,
+  ActiveResearchActivityKind,
+} from "../../research/domain/activeResearchActivity";
 import { activityCopy } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
 import { TeamQuestionPanel } from "./TeamQuestionPanel";
@@ -20,6 +24,7 @@ type Props = {
   readonly reportId?: string;
   readonly reportVersion: number;
   readonly pendingAgentIds?: readonly AgentProfile["id"][];
+  readonly pendingActivities?: readonly ActiveResearchActivity[];
   readonly questionsEnabled?: boolean;
   readonly chatEnabled?: boolean;
   readonly loadChatHistory?: boolean;
@@ -179,6 +184,109 @@ function conversationLabel(group: ActivityGroup, locale: Locale): string {
   return labels[group][locale];
 }
 
+const ACTIVITY_STATUS_COPY: Readonly<
+  Record<ActiveResearchActivityKind, Readonly<Record<Locale, string>>>
+> = {
+  data_collection: {
+    ko: "데이터 수집 중",
+    en: "Collecting data",
+  },
+  macro_analysis: {
+    ko: "시장 환경 분석 중",
+    en: "Analyzing market conditions",
+  },
+  news_analysis: {
+    ko: "뉴스 분석 중",
+    en: "Analyzing news",
+  },
+  market_comparison: {
+    ko: "동종기업 비교 중",
+    en: "Comparing peers",
+  },
+  business_analysis: {
+    ko: "사업 분석 중",
+    en: "Analyzing the business",
+  },
+  product_analysis: {
+    ko: "제품 분석 중",
+    en: "Analyzing products",
+  },
+  competition_analysis: {
+    ko: "경쟁력 분석 중",
+    en: "Analyzing competition",
+  },
+  financial_analysis: {
+    ko: "재무 분석 중",
+    en: "Analyzing financials",
+  },
+  valuation_analysis: {
+    ko: "가치평가 중",
+    en: "Analyzing valuation",
+  },
+  earnings_quality_analysis: {
+    ko: "이익의 질 검증 중",
+    en: "Testing earnings quality",
+  },
+  downside_analysis: {
+    ko: "하방 위험 분석 중",
+    en: "Analyzing downside risk",
+  },
+  policy_scenario_analysis: {
+    ko: "정책 시나리오 분석 중",
+    en: "Analyzing policy scenarios",
+  },
+  team_synthesis: {
+    ko: "팀 의견 종합 중",
+    en: "Synthesizing team views",
+  },
+  challenge_review: {
+    ko: "반대 논리 검토 중",
+    en: "Testing the countercase",
+  },
+  followup_research: {
+    ko: "추가 근거 조사 중",
+    en: "Researching follow-ups",
+  },
+  response_review: {
+    ko: "반론 답변 검토 중",
+    en: "Reviewing rebuttals",
+  },
+  evidence_audit: {
+    ko: "근거 감사 중",
+    en: "Auditing evidence",
+  },
+  semantic_audit: {
+    ko: "주장 검증 중",
+    en: "Validating claims",
+  },
+  chair_synthesis: {
+    ko: "최종 판단 중",
+    en: "Finalizing the decision",
+  },
+};
+
+function inferredActivity(
+  agentId: AgentProfile["id"],
+): ActiveResearchActivityKind {
+  const byAgent: Partial<
+    Record<AgentProfile["id"], ActiveResearchActivityKind>
+  > = {
+    market: "macro_analysis",
+    market_news: "news_analysis",
+    benchmark: "market_comparison",
+    company: "business_analysis",
+    company_product: "product_analysis",
+    company_competition: "competition_analysis",
+    financial: "financial_analysis",
+    valuation: "valuation_analysis",
+    financial_quality: "earnings_quality_analysis",
+    risk: "downside_analysis",
+    risk_policy: "policy_scenario_analysis",
+    chair: "chair_synthesis",
+  };
+  return byAgent[agentId] ?? "data_collection";
+}
+
 function ConversationHistory({
   agents,
   conversation,
@@ -244,6 +352,7 @@ export function MeetingMinutes({
   reportId,
   reportVersion,
   pendingAgentIds = [],
+  pendingActivities = [],
   questionsEnabled = true,
   chatEnabled = true,
   loadChatHistory = true,
@@ -266,14 +375,22 @@ export function MeetingMinutes({
   const hasConversation =
     (originalQuestion?.trim().length ?? 0) > 0 || conversation.length > 0;
   const canChat = canAsk || hasConversation;
-  const pendingAgentIdSet = useMemo(
-    () => new Set(pendingAgentIds),
-    [pendingAgentIds],
-  );
-  const pendingAgents =
-    isComplete || terminalState !== undefined
-      ? []
-      : agents.filter((agent) => pendingAgentIdSet.has(agent.id));
+  const pendingWork = useMemo(() => {
+    if (isComplete || terminalState !== undefined) return [];
+    if (pendingActivities.length > 0)
+      return pendingActivities.flatMap((activity) => {
+        const agent = agents.find(
+          (candidate) => candidate.id === activity.actorId,
+        );
+        return agent === undefined
+          ? []
+          : [{ agent, activity: activity.activity }];
+      });
+    const pendingAgentIdSet = new Set(pendingAgentIds);
+    return agents
+      .filter((agent) => pendingAgentIdSet.has(agent.id))
+      .map((agent) => ({ agent, activity: inferredActivity(agent.id) }));
+  }, [agents, isComplete, pendingActivities, pendingAgentIds, terminalState]);
   const knownIds = useRef(new Set(events.map((event) => event.id)));
   const feedRef = useRef<HTMLDivElement | null>(null);
   const followTail = useRef(true);
@@ -340,11 +457,11 @@ export function MeetingMinutes({
     scrollFeedToEnd(feed, true, mobileStackRef.current);
   }
 
-  const pendingAgentEntries = pendingAgents.map((agent) => (
+  const pendingAgentEntries = pendingWork.map(({ agent, activity }) => (
     <div
       className="meeting-minutes__entry meeting-minutes__pending-entry"
       data-agent-thinking={agent.id}
-      key={`pending-${agent.id}`}
+      key={`pending-${agent.id}-${activity}`}
     >
       <article data-group={activityGroup(current)} data-pending="true">
         <Image src={agent.image} alt="" width={24} height={58} />
@@ -359,8 +476,8 @@ export function MeetingMinutes({
             aria-live="polite"
             aria-label={
               locale === "ko"
-                ? `${agent.name.ko} 에이전트가 데이터와 AI 응답을 검토하고 있습니다`
-                : `${agent.name.en} is reviewing data and the pending AI response`
+                ? `${agent.name.ko}: ${ACTIVITY_STATUS_COPY[activity].ko}`
+                : `${agent.name.en}: ${ACTIVITY_STATUS_COPY[activity].en}`
             }
           >
             <span className="meeting-minutes__thinking-orb" aria-hidden="true">
@@ -371,9 +488,7 @@ export function MeetingMinutes({
                 theme="auto"
               />
             </span>
-            <TextShimmerWave
-              label={locale === "ko" ? "분석 중..." : "Thinking..."}
-            />
+            <TextShimmerWave label={ACTIVITY_STATUS_COPY[activity][locale]} />
           </p>
         </div>
       </article>

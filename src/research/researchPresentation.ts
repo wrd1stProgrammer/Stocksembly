@@ -238,7 +238,9 @@ export function readerSourceLabel(source: {
     }
     if (
       source.dataset === "insightsentry_news_company" ||
-      source.dataset === "insightsentry_news_market"
+      source.dataset === "insightsentry_news_market" ||
+      source.dataset === "insightsentry_news_financial" ||
+      source.dataset === "insightsentry_news_risk"
     ) {
       const publishers = [
         ...new Set(
@@ -253,7 +255,11 @@ export function readerSourceLabel(source: {
         title:
           source.dataset === "insightsentry_news_company"
             ? `${symbol} company-news collection`
-            : `${symbol} market-news collection`,
+            : source.dataset === "insightsentry_news_market"
+              ? `${symbol} market-news collection`
+              : source.dataset === "insightsentry_news_financial"
+                ? `${symbol} financial-news collection`
+                : `${symbol} risk-news collection`,
       };
     }
     return {

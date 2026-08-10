@@ -143,6 +143,7 @@ export type ResearchFileEditorialModel = {
   >["comparators"];
   readonly question: string;
   readonly directAnswer: string;
+  readonly investmentView: readonly string[];
   readonly posture: string;
   readonly conclusionIndex: number;
   readonly conclusionLabel: string;
@@ -184,6 +185,26 @@ export type ResearchFileEditorialModel = {
   >;
   readonly evidenceBalance: EditorialEvidenceBalance;
   readonly decisionPaths: readonly EditorialDecisionPath[];
+  readonly valuationFramework?: {
+    readonly archetype: string;
+    readonly method: string;
+    readonly note: string;
+    readonly summary: string;
+    readonly capabilities: readonly {
+      readonly key: string;
+      readonly label: string;
+      readonly status: "measured" | "derived" | "context_only" | "unavailable";
+    }[];
+    readonly scenarios: readonly {
+      readonly id: "downside" | "base" | "upside";
+      readonly label: string;
+      readonly impliedPrice?: string;
+      readonly returnPercent?: string;
+      readonly requiredMetric: string;
+      readonly requiredValue?: string;
+      readonly assumptions: readonly string[];
+    }[];
+  };
 };
 
 function localized(value: LocalizedText, locale: Locale): string {
@@ -199,6 +220,11 @@ function present(value: string, locale: Locale): string {
       )
       .replace(/기본 시나리오는/gu, "현재 증거가 가리키는 전망은")
       .replace(/기본 시나리오/gu, "현재 전망")
+      .replace(/봉인된 스냅샷/gu, "분석 기준 시점의 공식 자료")
+      .replace(
+        /(?:적격 )?(?:피어|동종기업) 데이터가 (?:훼손됐|손상됐|잘못됐|사용 불가능하)고?/gu,
+        "동종기업 비교는 현재 판단의 핵심 근거로 사용하지 않았고",
+      )
       .replace(/거시 스냅샷/gu, "거시 지표")
       .replace(/(?:근거|데이터) 스냅샷/gu, "확인된 근거")
       .replace(/스냅샷/gu, "근거 묶음")
@@ -210,6 +236,14 @@ function present(value: string, locale: Locale): string {
     )
     .replace(/the base case is/giu, "Current evidence points to")
     .replace(/base case/giu, "current outlook")
+    .replace(
+      /sealed snapshot/giu,
+      "official evidence available at the report cutoff",
+    )
+    .replace(
+      /(?:qualified )?(?:peer|comparator) data (?:is|was) (?:malformed|corrupt|damaged|unusable)/giu,
+      "peer comparison was not used as a decisive input",
+    )
     .replace(/macro snapshot/giu, "macro indicators")
     .replace(/(?:evidence|data) snapshot/giu, "verified evidence")
     .replace(/snapshot/giu, "evidence set")
@@ -365,6 +399,66 @@ function editorialMetricValue(
     return `$${metric.value.toLocaleString(numberLocale, { maximumFractionDigits: 2 })}`;
   if (metric.unit === "USD") return compactUsd(metric.value, locale);
   return editorialStandardFormatters[locale].format(metric.value);
+}
+
+function investmentModelValue(
+  value: number,
+  unit: "USD_per_share" | "percent" | "multiple",
+  locale: Locale,
+): string {
+  if (unit === "USD_per_share")
+    return `$${value.toLocaleString(locale === "ko" ? "ko-KR" : "en-US", { maximumFractionDigits: 2 })}`;
+  if (unit === "percent") return `${value.toFixed(1).replace(/\.0$/u, "")}%`;
+  return `${value.toFixed(1).replace(/\.0$/u, "")}${locale === "ko" ? "배" : "x"}`;
+}
+
+function valuationFrameworkFor(
+  investmentModel: NonNullable<
+    NonNullable<ResearchFileData["metricSnapshot"]>["investmentModel"]
+  >,
+  locale: Locale,
+): NonNullable<ResearchFileEditorialModel["valuationFramework"]> {
+  const ko = locale === "ko";
+  return {
+    archetype: investmentModel.archetypeLabel[locale],
+    method: investmentModel.methodLabel[locale],
+    note: investmentModel.methodNote[locale],
+    summary: investmentModel.summary[locale],
+    capabilities: investmentModel.capabilities.map((item) => ({
+      key: item.key,
+      label: item.label[locale],
+      status: item.status,
+    })),
+    scenarios: investmentModel.scenarios.map((scenario) => ({
+      id: scenario.id,
+      label: scenario.label[locale],
+      ...(scenario.impliedPrice === undefined
+        ? {}
+        : {
+            impliedPrice: `$${scenario.impliedPrice.toLocaleString(
+              ko ? "ko-KR" : "en-US",
+              { maximumFractionDigits: 2 },
+            )}`,
+          }),
+      ...(scenario.returnPercent === undefined
+        ? {}
+        : {
+            returnPercent: `${scenario.returnPercent >= 0 ? "+" : ""}${scenario.returnPercent.toFixed(1)}%`,
+          }),
+      requiredMetric: scenario.requiredMetric[locale],
+      ...(scenario.requiredValue === undefined ||
+      scenario.requiredUnit === undefined
+        ? {}
+        : {
+            requiredValue: investmentModelValue(
+              scenario.requiredValue,
+              scenario.requiredUnit,
+              locale,
+            ),
+          }),
+      assumptions: scenario.assumptions.map((item) => item[locale]),
+    })),
+  };
 }
 
 function metricProof(
@@ -723,6 +817,10 @@ const METRIC_PRIORITY = {
     "gross_margin",
     "operating_margin",
     "free_cash_flow",
+    "operating_cash_flow",
+    "net_income",
+    "eps_ttm",
+    "net_margin",
     "capital_expenditures",
     "roe",
     "roic",
@@ -732,6 +830,9 @@ const METRIC_PRIORITY = {
   risk: [
     "net_debt",
     "cash",
+    "total_assets",
+    "total_equity",
+    "debt_to_equity",
     "inventory",
     "diluted_shares",
     "region_share",
@@ -742,6 +843,15 @@ const METRIC_PRIORITY = {
     "forward_eps",
     "forward_pe",
     "price_target_median",
+    "price_target_high",
+    "price_target_low",
+    "price_target_count",
+    "latest_eps_actual",
+    "latest_eps_surprise",
+    "next_eps_forecast",
+    "latest_revenue_actual",
+    "latest_revenue_surprise",
+    "next_revenue_forecast",
     "recommendation_buy",
     "recommendation_hold",
     "recommendation_sell",
@@ -1055,6 +1165,10 @@ function buildWorkflowV2EditorialModel(
     item === undefined
       ? ""
       : dedupeEditorialTexts([text(item.summary), text(item.detail)]).join(" ");
+  const narrativeById = (id: string) =>
+    structured.sectionNarratives?.find((section) => section.id === id)?.body[
+      locale
+    ] ?? "";
   const sectionFullCopy = (
     item: ResearchFileData["analysis"][number] | undefined,
   ) =>
@@ -1368,6 +1482,12 @@ function buildWorkflowV2EditorialModel(
         : 25;
   const evidenceReliability = reliability(file);
   const directAnswer = text(structured.decision.decisiveReason);
+  const tenSecondBrief = narrativeById("ten_second_brief").trim();
+  // The decision reason and the ten-second brief are generated from the same
+  // primary claim. Showing both made the opening read like a duplicated AI
+  // summary. Prefer the fuller chair-owned brief and keep the decision reason
+  // for the compact verdict metadata.
+  const investmentView = [tenSecondBrief || directAnswer];
   const primaryClaim = structured.decision.primaryClaimIds.flatMap(
     (claimId) => {
       const claim = structured.claims.find(
@@ -1379,12 +1499,17 @@ function buildWorkflowV2EditorialModel(
   const primaryFalsifier =
     primaryClaim === undefined ? "" : text(primaryClaim.falsifier);
   const countercase = text(structured.decision.strongestCountercase);
+  const valuationFramework =
+    file.metricSnapshot?.investmentModel === undefined
+      ? undefined
+      : valuationFrameworkFor(file.metricSnapshot.investmentModel, locale);
   return {
     structuredDecision: structured.decision,
     structuredClaims: structured.claims,
     qualifiedComparators: structured.comparators,
     question: file.researchDirection ?? "",
     directAnswer,
+    investmentView,
     posture: "",
     conclusionIndex,
     conclusionLabel: structured.decision.stance,
@@ -1468,6 +1593,7 @@ function buildWorkflowV2EditorialModel(
             },
           ]),
     ],
+    ...(valuationFramework === undefined ? {} : { valuationFramework }),
   };
 }
 
@@ -1921,43 +2047,81 @@ export function buildResearchFileEditorialModel(
         (scenario.thesis.length >= 40 &&
           scenario.thesis.trim() !== scenario.label.trim()),
     );
+  const investmentModel = file.metricSnapshot?.investmentModel;
+  const modeledScenarios =
+    investmentModel?.scenarios.map((scenario) => {
+      const returnText =
+        scenario.returnPercent === undefined
+          ? undefined
+          : `${scenario.returnPercent >= 0 ? "+" : ""}${scenario.returnPercent.toFixed(1)}%`;
+      const impliedPrice =
+        scenario.impliedPrice === undefined
+          ? undefined
+          : `$${scenario.impliedPrice.toLocaleString(ko ? "ko-KR" : "en-US", { maximumFractionDigits: 2 })}`;
+      const requiredValue =
+        scenario.requiredValue === undefined ||
+        scenario.requiredUnit === undefined
+          ? undefined
+          : investmentModelValue(
+              scenario.requiredValue,
+              scenario.requiredUnit,
+              locale,
+            );
+      return {
+        id: `investment-model:${scenario.id}`,
+        label: scenario.label[locale],
+        thesis:
+          impliedPrice === undefined
+            ? scenario.requiredMetric[locale]
+            : `${impliedPrice}${returnText === undefined ? "" : ` · ${returnText}`}`,
+        assumptions: [
+          requiredValue === undefined
+            ? scenario.requiredMetric[locale]
+            : `${scenario.requiredMetric[locale]} ${requiredValue}`,
+          ...scenario.assumptions.map((assumption) => assumption[locale]),
+        ].filter((value, index, values) => values.indexOf(value) === index),
+      };
+    }) ?? [];
   const scenarios =
-    sourceScenarios.length > 0
-      ? sourceScenarios
-      : [
-          {
-            id: "recovery-path",
-            label: ko ? "반등 확인 조건" : "Rebound confirmation",
-            thesis:
-              companyTeam?.strongestClaim ??
-              positives[0] ??
-              presentLocalized(file.nextEvent, locale),
-            assumptions: [
-              positives[0],
-              presentLocalized(file.nextEvent, locale),
-            ].filter((value): value is string => value !== undefined),
-          },
-          {
-            id: "current-view",
-            label: ko ? "현재 판단 유지" : "Current view holds",
-            thesis: directAnswer,
-            assumptions: [marketTeam?.evidence, financialTeam?.evidence].filter(
-              (value): value is string => value !== undefined,
-            ),
-          },
-          {
-            id: "downside-path",
-            label: ko ? "하방 확대 조건" : "Downside expansion",
-            thesis:
-              riskTeam?.strongestClaim ??
-              concerns[0] ??
-              presentLocalized(file.changeCondition, locale),
-            assumptions: [
-              concerns[0],
-              presentLocalized(file.changeCondition, locale),
-            ].filter((value): value is string => value !== undefined),
-          },
-        ];
+    modeledScenarios.length > 0
+      ? modeledScenarios
+      : sourceScenarios.length > 0
+        ? sourceScenarios
+        : [
+            {
+              id: "recovery-path",
+              label: ko ? "반등 확인 조건" : "Rebound confirmation",
+              thesis:
+                companyTeam?.strongestClaim ??
+                positives[0] ??
+                presentLocalized(file.nextEvent, locale),
+              assumptions: [
+                positives[0],
+                presentLocalized(file.nextEvent, locale),
+              ].filter((value): value is string => value !== undefined),
+            },
+            {
+              id: "current-view",
+              label: ko ? "현재 판단 유지" : "Current view holds",
+              thesis: directAnswer,
+              assumptions: [
+                marketTeam?.evidence,
+                financialTeam?.evidence,
+              ].filter((value): value is string => value !== undefined),
+            },
+            {
+              id: "downside-path",
+              label: ko ? "하방 확대 조건" : "Downside expansion",
+              thesis:
+                riskTeam?.strongestClaim ??
+                concerns[0] ??
+                presentLocalized(file.changeCondition, locale),
+              assumptions: [
+                concerns[0],
+                presentLocalized(file.changeCondition, locale),
+              ].filter((value): value is string => value !== undefined),
+            },
+          ];
   const teamRows: readonly EditorialTeamRow[] = teamViews;
   const resultIndex = conclusionIndex(file);
   const evidenceReliability = reliability(file);
@@ -2020,9 +2184,14 @@ export function buildResearchFileEditorialModel(
       detail: presentLocalized(file.changeCondition, locale),
     },
   ];
+  const valuationFramework =
+    investmentModel === undefined
+      ? undefined
+      : valuationFrameworkFor(investmentModel, locale);
   return {
     question,
     directAnswer,
+    investmentView: [directAnswer],
     posture,
     conclusionIndex: resultIndex,
     conclusionLabel:
@@ -2168,5 +2337,6 @@ export function buildResearchFileEditorialModel(
     metricGroups: groupedMetrics,
     evidenceBalance: claimBalance,
     decisionPaths,
+    ...(valuationFramework === undefined ? {} : { valuationFramework }),
   };
 }

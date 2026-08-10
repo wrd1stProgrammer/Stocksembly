@@ -103,6 +103,7 @@ const DATASET_RIGHTS_SOURCES = {
   insightsentry_news: ["insightsentry_rapidapi"],
   insightsentry_news_company: ["insightsentry_rapidapi"],
   insightsentry_news_market: ["insightsentry_rapidapi"],
+  insightsentry_news_financial: ["insightsentry_rapidapi"],
   insightsentry_news_risk: ["insightsentry_rapidapi"],
   insightsentry_documents: ["insightsentry_rapidapi"],
   insightsentry_calendar: ["insightsentry_rapidapi"],

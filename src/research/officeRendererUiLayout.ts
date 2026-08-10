@@ -32,6 +32,7 @@ export type OfficeActorUiLayout = {
     readonly x: number;
     readonly y: number;
     readonly screenFontSize: number;
+    readonly scale: number;
     readonly bounds: OfficeScreenRect;
   };
 };
@@ -47,6 +48,7 @@ const ELEMENT_GAP = 1;
 const LABEL_FONT_SIZE = 14;
 const LABEL_HEIGHT = 18;
 const BUBBLE_FONT_SIZE = 10.5;
+const MOBILE_VIEWPORT_MAX_WIDTH = 767;
 
 type ActorScreenContext = {
   readonly actor: OfficeRenderActor;
@@ -167,6 +169,18 @@ function estimatedLabelWidth(label: string): number {
   return clamp(glyphWidth, 30, 112);
 }
 
+function bubbleScreenScale(
+  projection: OfficeRenderSnapshot,
+  viewport: OfficeRendererViewport,
+): number {
+  if (viewport.width > MOBILE_VIEWPORT_MAX_WIDTH) return 1;
+  return clamp(
+    1.08 + Math.max(0, projection.camera.scale - 1) * 0.12,
+    1.08,
+    1.16,
+  );
+}
+
 function contextFor(
   actor: OfficeRenderActor,
   projection: OfficeRenderSnapshot,
@@ -205,6 +219,7 @@ export function layoutOfficeUi(
   const contexts = input.projection.actors.map((actor) =>
     contextFor(actor, input.projection, input.viewport),
   );
+  const bubbleScale = bubbleScreenScale(input.projection, input.viewport);
   // Dialogue is the primary research signal. Place active speech first, then
   // let name tags move sideways around it; otherwise a dense forum can hide
   // the current speaker behind labels that carry less information.
@@ -216,8 +231,8 @@ export function layoutOfficeUi(
     const bounds = firstFree(
       bubbleCandidates(
         context,
-        dimensions.width,
-        dimensions.height,
+        dimensions.width * bubbleScale,
+        dimensions.height * bubbleScale,
         input.viewport,
       ),
       [
@@ -283,7 +298,8 @@ export function layoutOfficeUi(
             ? (bubbleBounds.left + bubbleBounds.right) / 2 - context.x
             : 0,
           y: bubbleBounds ? bubbleBounds.bottom - context.y : 0,
-          screenFontSize: BUBBLE_FONT_SIZE,
+          screenFontSize: BUBBLE_FONT_SIZE * bubbleScale,
+          scale: bubbleScale,
           bounds: bubbleBounds ?? emptyBounds,
         }),
       });

@@ -170,6 +170,7 @@ export async function buildOfficialStructuralAuditInput(options: {
     let providerEvidenceAvailable = false;
     let providerFundamentals: unknown;
     let providerPeers: unknown;
+    let providerCalendar: unknown;
     let providerQuote: unknown;
     let marketSnapshot: z.infer<typeof ProviderQuoteSchema> | undefined;
     for (const row of evidenceRows) {
@@ -208,6 +209,11 @@ export async function buildOfficialStructuralAuditInput(options: {
         locator.dataset === "insightsentry_peers"
       ) {
         providerPeers = decodedContent;
+      } else if (
+        locator.kind === "licensed_provider" &&
+        locator.dataset === "insightsentry_calendar"
+      ) {
+        providerCalendar = decodedContent;
       }
       if (locator.kind === "licensed_provider") {
         if (locator.dataset === "insightsentry_request_ledger") {
@@ -329,7 +335,26 @@ export async function buildOfficialStructuralAuditInput(options: {
       quote: providerQuote,
       fundamentals: providerFundamentals,
       peers: providerPeers,
+      calendar: providerCalendar,
     });
+    const scenario = (() => {
+      if (annualRevenue !== undefined)
+        return { field: "revenue", value: annualRevenue } as const;
+      const revenue = metricSnapshot?.metrics.find(
+        (metric) => metric.id === "revenue_ttm",
+      );
+      if (revenue !== undefined)
+        return { field: "revenue", value: String(revenue.value) } as const;
+      const operatingMargin = metricSnapshot?.metrics.find(
+        (metric) => metric.id === "operating_margin",
+      );
+      if (operatingMargin !== undefined)
+        return {
+          field: "operating_margin",
+          value: String(operatingMargin.value),
+        } as const;
+      return undefined;
+    })();
     return StructuralAuditInputSchema.parse({
       runId,
       snapshotId: snapshot.snapshot_id,
@@ -365,14 +390,7 @@ export async function buildOfficialStructuralAuditInput(options: {
           availability: providerEvidenceAvailable ? "available" : "unavailable",
         },
       ],
-      scenarios: [
-        {
-          field: "revenue",
-          value:
-            annualRevenue ??
-            "Annual SEC revenue was not available in the sealed snapshot; retain a qualitative scenario and disclose the limitation.",
-        },
-      ],
+      scenarios: scenario === undefined ? [] : [scenario],
     });
   } finally {
     database.close();

@@ -5,6 +5,7 @@ import {
   DEFAULT_RESEARCH_PROFILE,
   normalizeResearchProfile,
   ResearchProfileSchema,
+  withQuestionComparisonSymbols,
 } from "../../domain/researchProfile";
 import {
   COMMITTEE_RESEARCH_TARGET,
@@ -35,6 +36,10 @@ export function parseResearchInput(input: unknown): ResearchInputResult {
   const symbol = TickerSymbolSchema.safeParse(parsed.data.symbol);
   if (!symbol.success) return { kind: "symbol_invalid" };
   const question = normalizeResearchDirection(parsed.data.question) ?? "";
+  const normalizedProfile = normalizeResearchProfile(
+    parsed.data.researchProfile ?? DEFAULT_RESEARCH_PROFILE,
+    symbol.data,
+  );
   return {
     kind: "accepted",
     request: NormalizedResearchRequestSchema.parse({
@@ -42,8 +47,9 @@ export function parseResearchInput(input: unknown): ResearchInputResult {
       question,
       locale: parsed.data.locale,
       researchTarget: parsed.data.researchTarget ?? COMMITTEE_RESEARCH_TARGET,
-      researchProfile: normalizeResearchProfile(
-        parsed.data.researchProfile ?? DEFAULT_RESEARCH_PROFILE,
+      researchProfile: withQuestionComparisonSymbols(
+        normalizedProfile,
+        question,
         symbol.data,
       ),
     }),

@@ -110,7 +110,7 @@ describe("MeetingMinutes", () => {
     );
   });
 
-  it("shows Dr. Park thinking only while the backend marks the chair job active", () => {
+  it("shows the chair's real active stage instead of a generic thinking label", () => {
     const audit: ResearchEvent = {
       ...event(1),
       phase: "auditing",
@@ -125,14 +125,14 @@ describe("MeetingMinutes", () => {
         events={[audit]}
         locale="ko"
         isComplete={false}
-        pendingAgentIds={["chair"]}
+        pendingActivities={[{ actorId: "chair", activity: "evidence_audit" }]}
         reportVersion={1}
       />,
     );
 
     expect(
       screen.getByRole("status", {
-        name: "박 의장 에이전트가 데이터와 AI 응답을 검토하고 있습니다",
+        name: "박 의장: 근거 감사 중",
       }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("thinking-orb")).toHaveAttribute(
@@ -141,7 +141,7 @@ describe("MeetingMinutes", () => {
     );
     expect(
       document.querySelectorAll(".text-shimmer-wave__character"),
-    ).toHaveLength("분석 중...".length);
+    ).toHaveLength("근거 감사 중".length);
 
     rerender(
       <MeetingMinutes
@@ -150,14 +150,14 @@ describe("MeetingMinutes", () => {
         events={[audit]}
         locale="ko"
         isComplete={false}
-        pendingAgentIds={[]}
+        pendingActivities={[]}
         reportVersion={1}
       />,
     );
 
     expect(
       screen.queryByRole("status", {
-        name: "박 의장 에이전트가 데이터와 AI 응답을 검토하고 있습니다",
+        name: "박 의장: 근거 감사 중",
       }),
     ).not.toBeInTheDocument();
   });
@@ -174,14 +174,14 @@ describe("MeetingMinutes", () => {
         events={[active]}
         locale="ko"
         isComplete={false}
-        pendingAgentIds={[agent.id]}
+        pendingActivities={[{ actorId: agent.id, activity: "news_analysis" }]}
         reportVersion={1}
       />,
     );
 
     expect(
       screen.getByRole("status", {
-        name: `${agent.name.ko} 에이전트가 데이터와 AI 응답을 검토하고 있습니다`,
+        name: `${agent.name.ko}: 뉴스 분석 중`,
       }),
     ).toBeInTheDocument();
     expect(document.querySelector("[data-agent-thinking]")).toHaveAttribute(

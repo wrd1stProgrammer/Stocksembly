@@ -67,6 +67,7 @@ export type OfficeRendererInput = {
   readonly interpolation?: number;
   readonly reducedMotion?: boolean;
   readonly cameraMode?: OfficeRendererCameraMode;
+  readonly cameraActorIds?: readonly OfficeManifestAgentId[];
   readonly viewport: OfficeRendererViewport;
   readonly locale: Locale;
   readonly liveBubble?: {
@@ -153,10 +154,16 @@ export function renderOfficeSnapshot(
   input: OfficeRendererInput,
 ): OfficeRenderSnapshot {
   const requestedMode = input.cameraMode ?? "snapshot";
+  const effectiveCameraTarget =
+    input.cameraActorIds !== undefined && input.cameraActorIds.length > 0
+      ? {
+          kind: "actors" as const,
+          actorIds: Object.freeze([...new Set(input.cameraActorIds)]),
+        }
+      : input.snapshot.cameraTarget;
   const focusedIds =
-    requestedMode !== "overview" &&
-    input.snapshot.cameraTarget.kind === "actors"
-      ? new Set(input.snapshot.cameraTarget.actorIds)
+    requestedMode !== "overview" && effectiveCameraTarget.kind === "actors"
+      ? new Set(effectiveCameraTarget.actorIds)
       : undefined;
   const previousById = new Map(
     input.previousSnapshot?.actors.map((actor) => [actor.id, actor]) ?? [],
@@ -290,7 +297,7 @@ export function renderOfficeSnapshot(
   );
   const camera = officeCameraTransform({
     mode: requestedMode,
-    snapshotTarget: input.snapshot.cameraTarget,
+    snapshotTarget: effectiveCameraTarget,
     actors,
     viewport: input.viewport,
   });

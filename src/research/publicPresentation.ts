@@ -31,7 +31,8 @@ export function publicEvidenceLabel(
       title.toLowerCase().includes(candidate),
     ) as keyof typeof labels | undefined;
     return {
-      publisher: locale === "ko" ? "시장 근거" : "Market evidence",
+      publisher:
+        locale === "ko" ? "Stocksembly 시장 데이터" : "Stocksembly market data",
       title:
         key === undefined
           ? locale === "ko"
@@ -46,8 +47,8 @@ export function publicEvidenceLabel(
 export function publicMetricSource(source: string, locale: Locale): string {
   return /insightsentry|rapidapi/iu.test(source)
     ? locale === "ko"
-      ? "시장 근거"
-      : "Market evidence"
+      ? "Stocksembly 시장 데이터"
+      : "Stocksembly market data"
     : source;
 }
 
@@ -86,7 +87,8 @@ export function publicPdfEvidenceSource(
   if (privateProvider) {
     const label = publicEvidenceLabel(source.publisher, source.title, locale);
     return {
-      publisher: locale === "ko" ? "시장 근거" : "Market evidence",
+      publisher:
+        locale === "ko" ? "Stocksembly 시장 데이터" : "Stocksembly market data",
       title:
         label.publisher === source.publisher
           ? locale === "ko"

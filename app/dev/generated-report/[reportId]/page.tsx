@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FullReportPreview } from "@/src/components/research/FullReportPreview";
 import { TeamReportPreview } from "@/src/components/research/TeamReportPreview";
 import { findTicker } from "@/src/lib/tickers";
 import { makeResearchCompany } from "@/src/research/mockResearch";
@@ -25,12 +26,7 @@ export default async function GeneratedReportPreviewPage({
     const publication = repository.report(auth.principal.id, reportId);
     if (publication === undefined) notFound();
     const run = repository.findRun(auth.principal.id, publication.runId);
-    if (
-      run === undefined ||
-      run.researchTarget.kind !== "department" ||
-      run.reportId !== reportId
-    )
-      notFound();
+    if (run === undefined || run.reportId !== reportId) notFound();
     const report = await loadPublicResearchReport(
       { dataRoot: runtime.dataRoot },
       publication,
@@ -43,11 +39,19 @@ export default async function GeneratedReportPreviewPage({
       ticker?.exchange ?? "US",
       ticker?.sector ?? "US listed company",
     );
-    return (
+    const file = researchReportToFile(report, run.createdAt);
+    return run.researchTarget.kind === "department" ? (
       <TeamReportPreview
         company={company}
         departmentId={run.researchTarget.departmentId}
-        report={researchReportToFile(report, run.createdAt)}
+        report={file}
+      />
+    ) : (
+      <FullReportPreview
+        company={company}
+        report={file}
+        reportId={reportId}
+        locale={run.locale}
       />
     );
   } finally {
