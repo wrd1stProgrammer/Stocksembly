@@ -22,7 +22,12 @@ import {
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const destination = searchParams.get("next") ?? "/";
+  const requestedDestination = searchParams.get("next");
+  const destination =
+    requestedDestination?.startsWith("/") === true &&
+    !requestedDestination.startsWith("//")
+      ? requestedDestination
+      : "/";
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -30,7 +35,9 @@ export function SignInForm() {
 
   useEffect(() => {
     if (!configureAmplifyAuth()) {
-      window.location.replace(destination);
+      setError(
+        "Authentication is temporarily unavailable. Please try again shortly.",
+      );
       return;
     }
     let active = true;

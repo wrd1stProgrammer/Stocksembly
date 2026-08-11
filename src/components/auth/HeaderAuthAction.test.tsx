@@ -54,6 +54,19 @@ describe("HeaderAuthAction", () => {
     });
   });
 
+  it("does not expose the sign-in link while the existing session is loading", () => {
+    vi.mocked(getCurrentUser).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    render(<HeaderAuthAction label="Get started" locale="ko" />);
+
+    expect(screen.getByRole("button", { name: "Get started" })).toBeDisabled();
+    expect(
+      screen.queryByRole("link", { name: "Get started" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens the signed-in user's recent research and links to the stored run", async () => {
     render(<HeaderAuthAction label="Get started" locale="ko" />);
 

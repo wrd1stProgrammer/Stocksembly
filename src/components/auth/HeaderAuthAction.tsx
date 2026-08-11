@@ -15,24 +15,42 @@ export function HeaderAuthAction({
   readonly label: string;
   readonly locale: Locale;
 }) {
-  const [signedIn, setSignedIn] = useState(false);
+  const [authState, setAuthState] = useState<
+    "checking" | "signed-in" | "signed-out"
+  >("checking");
 
   useEffect(() => {
-    if (!configureAmplifyAuth()) return;
+    if (!configureAmplifyAuth()) {
+      setAuthState("signed-out");
+      return;
+    }
     let active = true;
     void getCurrentUser()
       .then(() => {
-        if (active) setSignedIn(true);
+        if (active) setAuthState("signed-in");
       })
       .catch(() => {
-        if (active) setSignedIn(false);
+        if (active) setAuthState("signed-out");
       });
     return () => {
       active = false;
     };
   }, []);
 
-  if (!signedIn) {
+  if (authState === "checking") {
+    return (
+      <button
+        aria-busy="true"
+        className="sign-in sign-in--button sign-in--checking"
+        disabled
+        type="button"
+      >
+        {label}
+      </button>
+    );
+  }
+
+  if (authState === "signed-out") {
     return (
       <Link className="sign-in" href="/login">
         {label}
@@ -49,7 +67,7 @@ export function HeaderAuthAction({
           void clearResearchSession()
             .catch(() => undefined)
             .finally(() => signOut())
-            .finally(() => setSignedIn(false));
+            .finally(() => setAuthState("signed-out"));
         }}
         type="button"
       >

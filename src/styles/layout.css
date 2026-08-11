@@ -449,6 +449,10 @@
 .sign-in--button {
   font-family: inherit;
 }
+.sign-in--checking {
+  cursor: default;
+  opacity: 0.72;
+}
 .sign-in:hover {
   border-color: var(--color-border-bright);
   background: color-mix(in srgb, var(--color-panel-raised) 72%, transparent);
