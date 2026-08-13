@@ -1,0 +1,23 @@
+@media (max-width: 800px) {
+  .stock-hub-report-list {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-hub-closing {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 620px) {
+  .stock-hub-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-hub-identity {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    font-size: 2rem;
+  }
+}

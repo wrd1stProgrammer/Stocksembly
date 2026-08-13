@@ -1,7 +1,15 @@
 import type { MetadataRoute } from "next";
 import { listResearchRoomSitemapEntries } from "@/src/research/server/researchRoom/researchRoomCatalog";
+import {
+  listStockResearchHubSitemapEntries,
+  type StockResearchHubSitemapEntry,
+} from "@/src/research/server/researchRoom/stockResearchHubCatalog";
 
 const BASE_URL = "https://stocksembly.com";
+const SEARCH_LANDING_PAGES = [
+  { path: "ko/us-stock-analysis", priority: 0.8 },
+  { path: "en/us-stock-analysis", priority: 0.8 },
+] as const;
 const PUBLIC_INFORMATION_PAGES = [
   { path: "about", priority: 0.6 },
   { path: "methodology", priority: 0.7 },
@@ -23,6 +31,11 @@ function staticSitemapEntries(): MetadataRoute.Sitemap {
       changeFrequency: "daily",
       priority: 0.9,
     },
+    ...SEARCH_LANDING_PAGES.map((page) => ({
+      url: `${BASE_URL}/${page.path}`,
+      changeFrequency: "weekly" as const,
+      priority: page.priority,
+    })),
     ...PUBLIC_INFORMATION_PAGES.map((page) => ({
       url: `${BASE_URL}/${page.path}`,
       changeFrequency: "monthly" as const,
@@ -40,6 +53,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries = staticSitemapEntries();
   try {
     const reportEntries = await listResearchRoomSitemapEntries();
+    let hubEntries: readonly StockResearchHubSitemapEntry[] = [];
+    try {
+      hubEntries = await listStockResearchHubSitemapEntries();
+    } catch (error) {
+      // no-excuse-ok: catch
+      console.error(
+        "[sitemap] failed to load stock research hub entries",
+        error,
+      );
+    }
     return [
       ...staticEntries,
       ...reportEntries.map((entry) => ({
@@ -48,6 +71,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "weekly" as const,
         priority: 0.8,
       })),
+      ...hubEntries.flatMap(({ symbol, lastModified }) =>
+        (["ko", "en"] as const).map((locale) => ({
+          url: `${BASE_URL}/${locale}/stocks/${symbol.toLowerCase()}`,
+          lastModified,
+          changeFrequency: "weekly" as const,
+          priority: 0.8,
+        })),
+      ),
     ];
   } catch (error) {
     // no-excuse-ok: catch

@@ -27,7 +27,9 @@ const ResearchTargetQueryValueSchema = z.enum([
   ...WORKFLOW_V1_DEPARTMENT_IDS,
 ]);
 
-export function researchTargetQueryValue(target: ResearchTarget): string {
+export function researchTargetQueryValue(
+  target: ResearchTarget,
+): "committee" | WorkflowDepartmentId {
   return target.kind === "committee" ? "committee" : target.departmentId;
 }
 

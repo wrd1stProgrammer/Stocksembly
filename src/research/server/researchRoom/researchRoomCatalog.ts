@@ -22,15 +22,11 @@ import {
   isResearchRoomIndexable,
   isResearchRoomPublicationMature,
 } from "./researchRoomIndexability";
+import { ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE } from "./researchRoomPublicCatalog";
 
 export const RESEARCH_ROOM_PAGE_SIZE = 32;
 
 export { isResearchRoomIndexable };
-
-const ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE = `report_versions.version = (
-  SELECT MAX(latest.version) FROM report_versions AS latest
-  WHERE latest.report_id = reports.report_id
-)`;
 
 export type ResearchRoomScope =
   | "all"

@@ -1,0 +1,264 @@
+.seo-analysis-page {
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 75% 6%, rgb(47 114 171 / 18%), transparent 30rem),
+    radial-gradient(circle at 12% 38%, rgb(61 77 113 / 12%), transparent 34rem),
+    #070708;
+  color: var(--color-text);
+}
+
+.seo-analysis-page > .site-header,
+.seo-analysis-page > main,
+.seo-analysis-page > .site-footer {
+  width: min(var(--landing-width), calc(100% - clamp(32px, 6.25vw, 104px)));
+  margin-inline: auto;
+}
+
+.seo-analysis-page > .site-header {
+  position: relative;
+  z-index: 5;
+}
+
+.seo-analysis-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.42fr);
+  align-items: end;
+  gap: clamp(var(--space-10), 8vw, var(--space-20));
+  min-height: 680px;
+  padding: clamp(var(--space-20), 10vw, 9rem) 0 var(--space-20);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.seo-analysis-eyebrow {
+  margin: 0 0 var(--space-4);
+  color: var(--color-accent-bright);
+  font-size: var(--type-ticker);
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.seo-analysis-hero h1 {
+  max-width: 14ch;
+  margin: 0;
+  font-size: clamp(3rem, 7vw, 6.75rem);
+  line-height: 0.94;
+  letter-spacing: -0.06em;
+}
+
+.seo-analysis-hero__description {
+  max-width: 66ch;
+  margin: var(--space-7) 0 0;
+  color: var(--color-text-muted);
+  font-size: clamp(1rem, 1.7vw, 1.25rem);
+  line-height: 1.75;
+}
+
+.seo-analysis-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+}
+
+.seo-analysis-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--type-label);
+  font-weight: 700;
+  transition:
+    border-color var(--motion-micro),
+    background var(--motion-micro),
+    color var(--motion-micro);
+}
+
+.seo-analysis-action.is-primary {
+  border-color: var(--color-accent-bright);
+  background: var(--color-accent-bright);
+  color: #071019;
+}
+
+.seo-analysis-action.is-secondary {
+  background: rgb(255 255 255 / 3%);
+  color: var(--color-text-muted);
+}
+
+.seo-analysis-action:hover {
+  border-color: var(--color-text);
+}
+
+.seo-analysis-hero__proof {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: rgb(255 255 255 / 2.5%);
+  list-style: none;
+}
+
+.seo-analysis-hero__proof li,
+.seo-analysis-standards li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--type-label);
+  line-height: 1.55;
+}
+
+.seo-analysis-hero__proof svg,
+.seo-analysis-standards svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--color-accent-bright);
+}
+
+.seo-analysis-section {
+  padding: clamp(var(--space-16), 10vw, 8rem) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.seo-analysis-section__header {
+  max-width: 800px;
+  margin-bottom: var(--space-12);
+}
+
+.seo-analysis-section h2,
+.seo-analysis-closing h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4.5vw, 4rem);
+  line-height: 1.03;
+  letter-spacing: -0.045em;
+}
+
+.seo-analysis-section__description,
+.seo-analysis-standards__description,
+.seo-analysis-closing__description {
+  max-width: 68ch;
+  margin: var(--space-5) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--type-body);
+  line-height: 1.75;
+}
+
+.seo-analysis-grid,
+.seo-analysis-team-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.seo-analysis-grid article,
+.seo-analysis-team-grid article,
+.seo-analysis-questions article {
+  padding: var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: rgb(255 255 255 / 2%);
+}
+
+.seo-analysis-section h3 {
+  margin: 0;
+  font-size: var(--type-title);
+  letter-spacing: -0.02em;
+}
+
+.seo-analysis-card__description,
+.seo-analysis-process__description {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--type-label);
+  line-height: 1.7;
+}
+
+.seo-analysis-team-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.seo-analysis-team-grid article {
+  min-height: 190px;
+}
+
+.seo-analysis-process {
+  display: grid;
+  margin: 0 0 var(--space-8);
+  padding: 0;
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+}
+
+.seo-analysis-process li {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--space-5);
+  padding: var(--space-7) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.seo-analysis-process li > span {
+  color: var(--color-accent-bright);
+  font-size: var(--type-ticker);
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.seo-analysis-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-accent-bright);
+  font-size: var(--type-label);
+  font-weight: 700;
+}
+
+.seo-analysis-standards {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 0.75fr);
+  gap: clamp(var(--space-10), 8vw, var(--space-20));
+}
+
+.seo-analysis-standards ul {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+  padding: var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: rgb(255 255 255 / 2%);
+  list-style: none;
+}
+
+.seo-analysis-standards .seo-analysis-text-link {
+  margin-top: var(--space-7);
+}
+
+.seo-analysis-questions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.seo-analysis-closing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-10);
+  padding: clamp(var(--space-16), 9vw, 7rem) 0;
+}
+
+.seo-analysis-closing h2 {
+  max-width: 18ch;
+}
+
+.seo-analysis-closing .seo-analysis-action {
+  flex: 0 0 auto;
+}

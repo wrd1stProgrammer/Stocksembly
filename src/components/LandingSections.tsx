@@ -39,6 +39,15 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
           aria-label={content.productHeading}
         >
           <strong>{content.productHeading}</strong>
+          <Link
+            href={
+              locale === "ko"
+                ? "/ko/us-stock-analysis"
+                : "/en/us-stock-analysis"
+            }
+          >
+            {content.stockAnalysis}
+          </Link>
           <a href="#product">{content.howItWorks}</a>
           <a href="#product">{content.research}</a>
         </nav>

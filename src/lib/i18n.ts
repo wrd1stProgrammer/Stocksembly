@@ -151,6 +151,7 @@ type Copy = {
     readonly productHeading: string;
     readonly howItWorks: string;
     readonly research: string;
+    readonly stockAnalysis: string;
     readonly standardsHeading: string;
     readonly about: string;
     readonly methodology: string;
@@ -227,6 +228,7 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       productHeading: "Product",
       howItWorks: "How it works",
       research: "Start research",
+      stockAnalysis: "US stock analysis",
       standardsHeading: "About & standards",
       about: "About Stocksembly",
       methodology: "Research methodology",
@@ -301,6 +303,7 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       productHeading: "제품",
       howItWorks: "작동 방식",
       research: "리서치 시작",
+      stockAnalysis: "미국주식 분석",
       standardsHeading: "소개 및 원칙",
       about: "Stocksembly 소개",
       methodology: "리서치 방법론",

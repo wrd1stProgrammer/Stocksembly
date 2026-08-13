@@ -3,10 +3,16 @@ import sitemap, { dynamic } from "./sitemap";
 
 const sitemapState = vi.hoisted(() => ({
   listResearchRoomSitemapEntries: vi.fn(),
+  listStockResearchHubSitemapEntries: vi.fn(),
 }));
 
 vi.mock("@/src/research/server/researchRoom/researchRoomCatalog", () => ({
   listResearchRoomSitemapEntries: sitemapState.listResearchRoomSitemapEntries,
+}));
+
+vi.mock("@/src/research/server/researchRoom/stockResearchHubCatalog", () => ({
+  listStockResearchHubSitemapEntries:
+    sitemapState.listStockResearchHubSitemapEntries,
 }));
 
 function sitemapEntries(count: number) {
@@ -19,6 +25,8 @@ function sitemapEntries(count: number) {
 beforeEach(() => {
   sitemapState.listResearchRoomSitemapEntries.mockReset();
   sitemapState.listResearchRoomSitemapEntries.mockResolvedValue([]);
+  sitemapState.listStockResearchHubSitemapEntries.mockReset();
+  sitemapState.listStockResearchHubSitemapEntries.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -38,6 +46,8 @@ describe("sitemap", () => {
     const staticUrls = [
       "https://stocksembly.com",
       "https://stocksembly.com/research-room",
+      "https://stocksembly.com/ko/us-stock-analysis",
+      "https://stocksembly.com/en/us-stock-analysis",
       "https://stocksembly.com/about",
       "https://stocksembly.com/methodology",
       "https://stocksembly.com/editorial-policy",
@@ -66,18 +76,36 @@ describe("sitemap", () => {
         priority: 0.9,
       }),
       ...[
-        ["about", 0.6],
-        ["methodology", 0.7],
-        ["editorial-policy", 0.6],
-        ["corrections", 0.5],
-        ["terms", 0.3],
-        ["privacy", 0.3],
-        ["disclaimer", 0.3],
-        ["risk-disclosure", 0.3],
-      ].map(([path, priority]) =>
+        {
+          path: "ko/us-stock-analysis",
+          priority: 0.8,
+          changeFrequency: "weekly",
+        },
+        {
+          path: "en/us-stock-analysis",
+          priority: 0.8,
+          changeFrequency: "weekly",
+        },
+        { path: "about", priority: 0.6, changeFrequency: "monthly" },
+        { path: "methodology", priority: 0.7, changeFrequency: "monthly" },
+        {
+          path: "editorial-policy",
+          priority: 0.6,
+          changeFrequency: "monthly",
+        },
+        { path: "corrections", priority: 0.5, changeFrequency: "monthly" },
+        { path: "terms", priority: 0.3, changeFrequency: "monthly" },
+        { path: "privacy", priority: 0.3, changeFrequency: "monthly" },
+        { path: "disclaimer", priority: 0.3, changeFrequency: "monthly" },
+        {
+          path: "risk-disclosure",
+          priority: 0.3,
+          changeFrequency: "monthly",
+        },
+      ].map(({ path, priority, changeFrequency }) =>
         expect.objectContaining({
           url: `https://stocksembly.com/${path}`,
-          changeFrequency: "monthly",
+          changeFrequency,
           priority,
         }),
       ),
@@ -107,7 +135,9 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries.slice(10)).toEqual([
+    expect(
+      entries.filter((entry) => entry.url.includes("/research-room/")),
+    ).toEqual([
       {
         url: "https://stocksembly.com/research-room/00000000-0000-4000-8000-000000000001",
         lastModified: "2026-06-01T12:00:00.000Z",
@@ -134,8 +164,11 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries.slice(10)).toHaveLength(81);
-    expect(entries.slice(10).map((entry) => entry.url)).toEqual(
+    const reportEntries = entries.filter((entry) =>
+      entry.url.includes("/research-room/"),
+    );
+    expect(reportEntries).toHaveLength(81);
+    expect(reportEntries.map((entry) => entry.url)).toEqual(
       catalogEntries.map(
         (entry) => `https://stocksembly.com/research-room/${entry.reportId}`,
       ),
@@ -163,10 +196,18 @@ describe("sitemap", () => {
     const secondEntries = await sitemap();
 
     // Then
-    expect(firstEntries.slice(10).map((entry) => entry.url)).toEqual([
+    expect(
+      firstEntries
+        .filter((entry) => entry.url.includes("/research-room/"))
+        .map((entry) => entry.url),
+    ).toEqual([
       "https://stocksembly.com/research-room/00000000-0000-4000-8000-000000000001",
     ]);
-    expect(secondEntries.slice(10).map((entry) => entry.url)).toEqual([
+    expect(
+      secondEntries
+        .filter((entry) => entry.url.includes("/research-room/"))
+        .map((entry) => entry.url),
+    ).toEqual([
       "https://stocksembly.com/research-room/00000000-0000-4000-8000-000000000002",
     ]);
   });
@@ -183,10 +224,12 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries).toHaveLength(10);
+    expect(entries).toHaveLength(12);
     expect(entries.map((entry) => entry.url)).toEqual([
       "https://stocksembly.com",
       "https://stocksembly.com/research-room",
+      "https://stocksembly.com/ko/us-stock-analysis",
+      "https://stocksembly.com/en/us-stock-analysis",
       "https://stocksembly.com/about",
       "https://stocksembly.com/methodology",
       "https://stocksembly.com/editorial-policy",

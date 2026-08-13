@@ -10,6 +10,19 @@ const informationPaths = [
 ] as const;
 
 describe("landing footer public information links", () => {
+  it("links the footer to the matching localized stock-analysis landing page", () => {
+    const english = render(<LandingFooter locale="en" />);
+    expect(
+      english.container.querySelector('a[href="/en/us-stock-analysis"]'),
+    ).not.toBeNull();
+    english.unmount();
+
+    const korean = render(<LandingFooter locale="ko" />);
+    expect(
+      korean.container.querySelector('a[href="/ko/us-stock-analysis"]'),
+    ).not.toBeNull();
+  });
+
   it("links the English footer to the English public information pages", () => {
     const { container } = render(<LandingFooter locale="en" />);
 
