@@ -4,6 +4,7 @@ import type { SnapshotEvidence } from "../application/buildSnapshot";
 import type { CapabilityDisclosure } from "../domain/capabilities";
 import type { EvidenceDataset, SourceLocator } from "../domain/evidenceSchemas";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { routeNewsForTeam } from "../domain/teamNewsRouting";
 import type { ValueDraft } from "../domain/valueRegistry";
 import type { ArtifactCasPort, ArtifactDescriptor } from "../ports/artifacts";
 import { createInsightSentryClient } from "../server/data/insightsentry/insightSentryClient";
@@ -493,10 +494,12 @@ async function enrichPeersWithCachedHistory(input: {
 
 async function marketFamily<T>(
   operation: () => Promise<T>,
+  required = false,
 ): Promise<FamilyResult<T>> {
   try {
     return { status: "available", data: await operation() };
   } catch (error) {
+    if (required && error instanceof Error) throw error;
     if (error instanceof Error) return unavailable();
     throw error;
   }
@@ -592,6 +595,10 @@ export async function collectInsightSentryInitialEvidence(input: {
   const requests = new Map<string, InsightSentryRequestLedgerEntry>();
   const responses = new Map<string, CapturedResponse>();
   const configuration = input.configuration ?? loadInsightSentryConfig();
+  if (configuration.status === "not_configured")
+    throw new TypeError(
+      `required_market_data_not_configured:${configuration.reason}`,
+    );
   const client = createInsightSentryClient({
     configuration,
     dataRoot: input.dataRoot,
@@ -682,7 +689,7 @@ export async function collectInsightSentryInitialEvidence(input: {
             bars,
             analysis: deriveInsightSentryTechnicalAnalysis({ quote, bars }),
           };
-        });
+        }, true);
   const fundamentalsPromise: Promise<FamilyResult<FundamentalsDataset>> =
     code === undefined
       ? Promise.resolve(unavailable())
@@ -871,21 +878,12 @@ export async function collectInsightSentryInitialEvidence(input: {
       "financial",
       "risk",
     ] as const) {
-      const events = news.data.events.filter((event) =>
-        event.teamRelevance.includes(category),
-      );
-      if (events.length === 0) continue;
-      const keys = new Set(events.map((event) => event.eventKey));
+      const routed = routeNewsForTeam({ dataset: news.data, team: category });
+      if (routed.events.length === 0) continue;
       await commit(
         `insightsentry:news:${category}`,
         `insightsentry_news_${category}`,
-        {
-          ...news.data,
-          events,
-          excerpts: news.data.excerpts.filter((excerpt) =>
-            keys.has(excerpt.eventKey),
-          ),
-        },
+        routed,
         ["news"],
         "event cards",
       );

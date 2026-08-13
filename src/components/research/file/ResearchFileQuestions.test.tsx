@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { fixtureData } from "../../../research/compositions/fixture";
 import { ResearchFileQuestions } from "./ResearchFileQuestions";
@@ -19,7 +19,7 @@ function persistedQuestions(count: number) {
 }
 
 describe("ResearchFileQuestions persisted workflow-v2 presentation", () => {
-  it("shows five ranked answers and exposes the remaining persisted count", () => {
+  it("shows all ten ranked investor questions without a disclosure control", () => {
     // Given
     const file = {
       ...fixtureData.report,
@@ -34,16 +34,12 @@ describe("ResearchFileQuestions persisted workflow-v2 presentation", () => {
 
     // Then
     expect(screen.getByText("Persisted question 1")).toBeVisible();
-    expect(screen.queryByText("Persisted question 6")).not.toBeVisible();
+    expect(screen.getByText("Persisted question 6")).toBeVisible();
+    expect(screen.getByText("Persisted question 10")).toBeVisible();
     expect(
       container.querySelectorAll(":scope > section > div > article"),
-    ).toHaveLength(5);
-    expect(container.querySelector("details")).toHaveAttribute(
-      "data-qa-expandable-count",
-      "5",
-    );
-    fireEvent.click(screen.getByText("Show 5 more questions"));
-    expect(screen.getByText("Persisted question 6")).toBeVisible();
+    ).toHaveLength(10);
+    expect(container.querySelector("details")).toBeNull();
   });
 
   it("omits the module when fewer than five persisted answers are supported", () => {

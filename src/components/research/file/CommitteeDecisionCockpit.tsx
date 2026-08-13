@@ -183,6 +183,16 @@ export function CommitteeDecisionCockpit({
         view.drivers[0]?.falsifier ??
         view.falsifier)
       : view.falsifier;
+  const countercaseCheckpoint =
+    view.drivers[1]?.falsifier ??
+    file.structuredEditorial?.claims.find((claim) =>
+      ["downside_path", "leading_indicator"].includes(claim.decisionDimension),
+    )?.falsifier[locale] ??
+    model.analysisRows.find(
+      (row) =>
+        row.counterpoint.trim().length > 0 && row.checkpoint.trim().length > 0,
+    )?.checkpoint ??
+    model.nextVerificationEvent.trim();
   const committeeDecisionPaths: readonly EditorialDecisionPath[] = [
     {
       id: "hold",
@@ -196,11 +206,10 @@ export function CommitteeDecisionCockpit({
       headline: view.countercase,
       detail:
         view.nextEvent === undefined
-          ? (view.drivers[1]?.falsifier ??
-            (model.nextVerificationEvent.trim() ||
-              (ko
-                ? "다음 확인 조건을 설정하지 못했습니다."
-                : "No next check is set.")))
+          ? countercaseCheckpoint ||
+            (ko
+              ? "다음 확인 조건을 설정하지 못했습니다."
+              : "No next check is set.")
           : `${view.nextEvent.date ?? ""} ${view.nextEvent.label}`.trim(),
     },
     {
@@ -347,9 +356,28 @@ export function CommitteeDecisionCockpit({
     metricWithId(metricPool, "roic"),
     metricWithId(metricPool, "free_cash_flow"),
   ];
-  const keyMetrics = keyMetricCandidates.filter(
-    (metric): metric is EditorialVisualMetric => metric !== undefined,
-  );
+  const currentPriceFallback: EditorialVisualMetric | undefined =
+    metricWithId(metricPool, "current_price") === undefined &&
+    view.price !== undefined
+      ? {
+          id: "current_price:fallback",
+          label: ko ? "현재가" : "Current price",
+          value: view.price.value,
+          category: "market",
+          signal: "contextual",
+        }
+      : undefined;
+  const keyMetrics = [
+    currentPriceFallback,
+    ...keyMetricCandidates,
+    ...metricPool.filter((metric) => !metric.id.startsWith("recommendation_")),
+  ]
+    .filter((metric): metric is EditorialVisualMetric => metric !== undefined)
+    .filter(
+      (metric, index, metrics) =>
+        metrics.findIndex((candidate) => candidate.id === metric.id) === index,
+    )
+    .slice(0, 10);
   return (
     <>
       <section
@@ -447,11 +475,17 @@ export function CommitteeDecisionCockpit({
           </article>
 
           <aside className="committee-cockpit__snapshot">
-            {keyMetrics.length === 0 ? null : (
-              <section className="committee-cockpit__key-metrics">
-                <header>
-                  {company.symbol} {ko ? "주요 지표" : "key metrics"}
-                </header>
+            <section className="committee-cockpit__key-metrics">
+              <header>
+                {company.symbol} {ko ? "주요 지표" : "key metrics"}
+              </header>
+              {keyMetrics.length === 0 ? (
+                <p className="committee-cockpit__metrics-empty">
+                  {ko
+                    ? "현재 확인된 주요 수치가 없습니다."
+                    : "No key figures are currently available."}
+                </p>
+              ) : (
                 <dl>
                   {keyMetrics.map((metric) => (
                     <div key={metric.id}>
@@ -471,8 +505,8 @@ export function CommitteeDecisionCockpit({
                     </div>
                   ))}
                 </dl>
-              </section>
-            )}
+              )}
+            </section>
           </aside>
         </div>
         <ResearchDecisionPathBoard
@@ -492,8 +526,8 @@ export function CommitteeDecisionCockpit({
             <h2>{ko ? "핵심 주장 검증" : "Core claim audit"}</h2>
             <p>
               {ko
-                ? "위원회 결론을 반복하지 않고, 아직 확인해야 할 주장만 사실·빈틈·투자자 체크포인트로 분리합니다."
-                : "Skip the committee recap and isolate unresolved claims into facts, gaps, and investor checkpoints."}
+                ? "핵심 주장마다 확인된 사실, 남은 반론, 다음 확인 지점을 연결합니다."
+                : "Each core claim connects the verified fact, unresolved countercase, and next checkpoint."}
             </p>
           </div>
         </header>
@@ -1010,8 +1044,8 @@ export function CommitteeDecisionCockpit({
               <h2>{ko ? "전문가별 추가 판단" : "Specialist findings"}</h2>
               <p>
                 {ko
-                  ? "앞선 논지 원장과 겹치지 않는 전문 분석만 남겼습니다."
-                  : "Only specialist findings not already covered in the claim ledger remain here."}
+                  ? "시장·사업·재무·리스크 담당자가 최종 판단에 추가한 독립 근거입니다."
+                  : "Independent evidence added by the market, company, financial, and risk specialists."}
               </p>
             </div>
           </header>

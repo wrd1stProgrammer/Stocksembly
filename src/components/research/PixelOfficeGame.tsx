@@ -241,15 +241,23 @@ export function PixelOfficeGame({
   const bubbleSegmentIndex =
     bubblePlayback.key === bubbleSequenceKey ? bubblePlayback.index : 0;
   const mode = sceneMode(snapshot, phase);
-  const effectiveCameraMode = mobileCameraActive
-    ? cameraControlMode === "overview"
+  const effectiveCameraMode =
+    cameraControlMode === "overview"
       ? "overview"
-      : "focus"
-    : cameraMode;
-  const mobileCameraActorIds = useMemo(() => {
-    if (!mobileCameraActive || cameraControlMode !== "automatic")
-      return undefined;
+      : mobileCameraActive || cameraMode === "focus"
+        ? "focus"
+        : cameraMode;
+  const cameraActorIds = useMemo(() => {
+    if (cameraControlMode !== "automatic") return undefined;
+    if (!mobileCameraActive && cameraMode !== "focus") return undefined;
     const available = new Set(snapshot?.actors.map((actor) => actor.id) ?? []);
+    if (!mobileCameraActive && cameraMode === "focus") {
+      const focusedTeamIds =
+        snapshot?.cameraTarget.kind === "actors"
+          ? snapshot.cameraTarget.actorIds
+          : (snapshot?.actors.map((actor) => actor.id) ?? []);
+      return focusedTeamIds.filter((actorId) => available.has(actorId));
+    }
     const preferred =
       currentEvent === undefined
         ? activeAgentIds
@@ -268,6 +276,7 @@ export function PixelOfficeGame({
       : [snapshot.actors[0].id];
   }, [
     activeAgentIds,
+    cameraMode,
     conversationParticipantIds,
     conversationReady,
     cameraControlMode,
@@ -352,9 +361,7 @@ export function PixelOfficeGame({
       interpolation: renderInterpolationAlpha,
       cameraMode: effectiveCameraMode,
       cameraControlMode,
-      ...(mobileCameraActorIds === undefined
-        ? {}
-        : { cameraActorIds: mobileCameraActorIds }),
+      ...(cameraActorIds === undefined ? {} : { cameraActorIds }),
       isPaused,
       liveBubbles: liveBubbleStates,
       ...(conversation === undefined ? {} : { conversation }),
@@ -367,7 +374,7 @@ export function PixelOfficeGame({
     renderPreviousSnapshot,
     snapshot,
     liveBubbleStates,
-    mobileCameraActorIds,
+    cameraActorIds,
     conversation,
   ]);
 
@@ -441,9 +448,7 @@ export function PixelOfficeGame({
           : {}),
         interpolation: renderInterpolationAlpha,
         cameraMode: effectiveCameraMode,
-        ...(mobileCameraActorIds === undefined
-          ? {}
-          : { cameraActorIds: mobileCameraActorIds }),
+        ...(cameraActorIds === undefined ? {} : { cameraActorIds }),
         liveBubbles: liveBubbleStates,
         ...(conversation === undefined ? {} : { conversation }),
       });
@@ -457,7 +462,7 @@ export function PixelOfficeGame({
     renderPreviousSnapshot,
     snapshot,
     liveBubbleStates,
-    mobileCameraActorIds,
+    cameraActorIds,
     conversation,
   ]);
 

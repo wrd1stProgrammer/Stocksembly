@@ -164,7 +164,7 @@
 }
 .site-footer__primary {
   display: grid;
-  grid-template-columns: minmax(280px, 1.35fr) repeat(3, minmax(150px, 0.65fr));
+  grid-template-columns: minmax(260px, 1.25fr) repeat(4, minmax(130px, 0.6fr));
   align-items: start;
   gap: clamp(var(--space-8), 5vw, var(--space-16));
 }

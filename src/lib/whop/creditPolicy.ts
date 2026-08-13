@@ -1,4 +1,11 @@
 import type { ResearchTarget } from "../../research/domain/researchTarget";
+import type { BillingTier } from "./contracts";
+
+export const MONTHLY_CREDIT_ALLOWANCE: Readonly<Record<BillingTier, number>> = {
+  free: 0,
+  pro: 100,
+  ultra: 500,
+};
 
 export const CREDIT_COSTS = {
   committeeResearch: 10,
@@ -7,6 +14,13 @@ export const CREDIT_COSTS = {
   chatBundleSize: 100,
   researchRoomView: 3,
 } as const;
+
+export function paidCreditGrantDelta(
+  grantedThisPeriod: number,
+  targetAllowance: number,
+): number {
+  return Math.max(0, targetAllowance - grantedThisPeriod);
+}
 
 export type CreditUsageCode =
   | "full_research"

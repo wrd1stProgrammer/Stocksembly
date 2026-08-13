@@ -73,8 +73,10 @@ jobs:
             --tag "$image" .
           docker push "$image"
           echo "image=$image" >> "$GITHUB_ENV"
-      - name: Sync Whop provider environment
+      - name: Sync provider environment
         env:
+          INSIGHTSENTRY_RAPIDAPI_HOST: ${{ secrets.INSIGHTSENTRY_RAPIDAPI_HOST }}
+          INSIGHTSENTRY_RAPIDAPI_KEY: ${{ secrets.INSIGHTSENTRY_RAPIDAPI_KEY }}
           WHOP_API_BASE: ${{ secrets.WHOP_API_BASE }}
           WHOP_API_KEY: ${{ secrets.WHOP_API_KEY }}
           WHOP_COMPANY_ID: ${{ secrets.WHOP_COMPANY_ID }}
@@ -87,6 +89,8 @@ jobs:
           WHOP_WEBHOOK_SECRET: ${{ secrets.WHOP_WEBHOOK_SECRET }}
         run: |
           provider_env="$(printf '%s\n' \
+            "INSIGHTSENTRY_RAPIDAPI_HOST=$INSIGHTSENTRY_RAPIDAPI_HOST" \
+            "INSIGHTSENTRY_RAPIDAPI_KEY=$INSIGHTSENTRY_RAPIDAPI_KEY" \
             "WHOP_API_BASE=$WHOP_API_BASE" \
             "WHOP_API_KEY=$WHOP_API_KEY" \
             "WHOP_COMPANY_ID=$WHOP_COMPANY_ID" \
@@ -99,7 +103,7 @@ jobs:
             "WHOP_WEBHOOK_SECRET=$WHOP_WEBHOOK_SECRET")"
           encoded_provider_env="$(printf '%s' "$provider_env" | base64 -w 0)"
           parameters="$(jq -nc \
-            --arg command "sudo install -d -m 0700 /etc/stocksembly && sudo touch /etc/stocksembly/app.env && sudo chmod 0600 /etc/stocksembly/app.env && sudo sed -i '/^WHOP_/d' /etc/stocksembly/app.env && printf '%s' '${encoded_provider_env}' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" \
+            --arg command "sudo install -d -m 0700 /etc/stocksembly && sudo touch /etc/stocksembly/app.env && sudo chmod 0600 /etc/stocksembly/app.env && sudo sed -i -e '/^WHOP_/d' -e '/^INSIGHTSENTRY_/d' /etc/stocksembly/app.env && printf '%s' '${encoded_provider_env}' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" \
             '{commands:[$command]}')"
           command_id="$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \

@@ -182,11 +182,27 @@ export function rejectMalformedAgentOutput(
         FROM runs WHERE run_id = ?`)
             .get(input.expected.runId),
         ).requested_replacement_calls;
+      // Count only the current malformed-output correction chain. Provider,
+      // timeout and schema-contract retries are separate root attempts and
+      // must not consume the model's targeted rewrite allowance.
       const logicalAttempts = CountSchema.parse(
         database
-          .prepare(`SELECT COUNT(*) AS count FROM attempts
-          WHERE run_id = ? AND logical_artifact_key = ?`)
-          .get(input.expected.runId, input.expected.logicalArtifactId),
+          .prepare(`WITH RECURSIVE correction_chain(
+            attempt_id, replacement_of_attempt_id
+          ) AS (
+            SELECT attempt_id, replacement_of_attempt_id FROM attempts
+            WHERE attempt_id = @attemptId AND run_id = @runId
+              AND logical_artifact_key = @logicalArtifactId
+            UNION ALL
+            SELECT parent.attempt_id, parent.replacement_of_attempt_id
+            FROM attempts parent JOIN correction_chain child
+              ON parent.attempt_id = child.replacement_of_attempt_id
+          ) SELECT COUNT(*) AS count FROM correction_chain`)
+          .get({
+            attemptId: input.attemptId,
+            runId: input.expected.runId,
+            logicalArtifactId: input.expected.logicalArtifactId,
+          }),
       ).count;
       const latestOrdinal = OrdinalSchema.parse(
         database

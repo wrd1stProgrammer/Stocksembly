@@ -29,13 +29,29 @@ type HandlerContext = {
   ) => Promise<QuestionGrounding | undefined>;
   readonly beforeQuestion?: () => Promise<boolean>;
   readonly onQuestion?: (question: PublicQuestion) => Promise<void>;
-  readonly beforeRetry?: (
-    parentRunId: string,
-    childRunId: string,
-  ) => Promise<boolean>;
-  readonly releaseRetry?: (childRunId: string) => Promise<void>;
-  readonly onRetry?: (childRunId: string) => Promise<void>;
+  readonly onRetry?: (runId: string) => Promise<void>;
 };
+
+async function runRetrySideEffect(
+  effect: HandlerContext["onRetry"],
+  runId: string,
+): Promise<void> {
+  if (effect === undefined) return;
+  try {
+    await effect(runId);
+  } catch (error) {
+    // The durable command has already resumed the SQLite-backed job. Account
+    // projection or queue-wakeup failures must not turn that success into an
+    // HTTP 500; the worker also polls SQLite when no wake signal is available.
+    process.stderr.write(
+      `${JSON.stringify({
+        kind: "research_retry_side_effect_failed",
+        runId,
+        errorName: error instanceof Error ? error.name : "Unknown",
+      })}\n`,
+    );
+  }
+}
 
 async function commandBody(request: Request): Promise<unknown | Response> {
   if (request.headers.get("content-type") !== "application/json")
@@ -117,32 +133,15 @@ async function handleMutation(
     );
     if (replay.kind === "conflict") return commandFailure("conflict");
     if (replay.kind === "replayed") {
-      await context.onRetry?.(replay.value.runId);
+      await runRetrySideEffect(context.onRetry, replay.value.runId);
       return apiJson({ run: replay.value }, 202);
     }
-    if (
-      context.beforeRetry !== undefined &&
-      !(await context.beforeRetry(target.id, command.ids.runId))
-    ) {
-      const lateReplay = context.repository.replayRetry(
-        target.id,
-        context.principalId,
-        key,
-      );
-      if (lateReplay.kind === "replayed") {
-        await context.onRetry?.(lateReplay.value.runId);
-        return apiJson({ run: lateReplay.value }, 202);
-      }
-      return apiError(402, "CREDITS_INSUFFICIENT");
-    }
     const result = context.repository.retry(target.id, command);
-    if (result.kind !== "created" && result.kind !== "replayed") {
-      await context.releaseRetry?.(command.ids.runId);
+    if (result.kind === "illegal_state")
+      return apiError(409, "RECOVERY_NOT_AVAILABLE");
+    if (result.kind !== "created" && result.kind !== "replayed")
       return commandFailure(result.kind);
-    }
-    if (result.value.runId !== command.ids.runId)
-      await context.releaseRetry?.(command.ids.runId);
-    await context.onRetry?.(result.value.runId);
+    await runRetrySideEffect(context.onRetry, result.value.runId);
     return apiJson({ run: result.value }, 202);
   }
   if (target.kind === "follow_up") {

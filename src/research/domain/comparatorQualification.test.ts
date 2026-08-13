@@ -109,6 +109,29 @@ describe("comparator qualification", () => {
       { role: "direct_competitor", comparatorIds: ["peer-a", "peer-b"] },
       { role: "valuation_proxy", comparatorIds: ["proxy-c"] },
     ]);
+    expect(result.diagnostics).toEqual({
+      candidateCount: 3,
+      displayEligibleCount: 3,
+      medianEligibleCount: 3,
+      roleCounts: [
+        {
+          role: "direct_competitor",
+          candidateCount: 2,
+          displayEligibleCount: 2,
+        },
+        {
+          role: "operating_comparable",
+          candidateCount: 0,
+          displayEligibleCount: 0,
+        },
+        {
+          role: "valuation_proxy",
+          candidateCount: 1,
+          displayEligibleCount: 1,
+        },
+      ],
+      exclusionCounts: [],
+    });
   });
 
   it("excludes a cross-industry direct comparator without a market rationale", () => {
@@ -132,6 +155,13 @@ describe("comparator qualification", () => {
     expect(result).toMatchObject({
       status: "no_qualified_comparison",
       rawArtifactCount: 1,
+      diagnostics: {
+        candidateCount: 1,
+        displayEligibleCount: 0,
+        medianEligibleCount: 0,
+        primaryExclusionReason: "market_overlap_required",
+        exclusionCounts: [{ reason: "market_overlap_required", count: 1 }],
+      },
       valuation: { status: "not_eligible" },
       rows: [
         expect.objectContaining({

@@ -36,6 +36,7 @@ import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import { formatSignedPercent } from "../../research/publicPresentation";
 import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
+import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
 import { ResearchSidebar } from "./ResearchSidebar";
@@ -236,6 +237,7 @@ export function LiveOfficeResearchRoom({
   const [liveQuote, setLiveQuote] = useState<ResearchQuote>();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [historyRuns, setHistoryRuns] = useState<readonly PublicRun[]>([
     initialSnapshot.run,
   ]);
@@ -243,7 +245,10 @@ export function LiveOfficeResearchRoom({
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const runOptions = useMemo(() => ({ client }), [client]);
   const projection = useResearchRun(initialSnapshot, runOptions);
-  const office = liveOfficeProjection(projection.snapshot);
+  const office = useMemo(
+    () => liveOfficeProjection(projection.snapshot),
+    [projection.snapshot],
+  );
   const animation = useLiveOfficeAnimation(office.tick);
   const snapshot = scopeOfficeSnapshot(
     animation.snapshot,
@@ -262,6 +267,8 @@ export function LiveOfficeResearchRoom({
     );
     return agents.filter((agent) => selected.has(agent.id));
   }, [projection.snapshot.run.researchTarget]);
+  const focusedTeam =
+    projection.snapshot.run.researchTarget?.kind === "department";
   const company = companyFor(
     projection.snapshot.run.symbol,
     catalogTicker,
@@ -320,6 +327,27 @@ export function LiveOfficeResearchRoom({
     projection.state === "failed" ||
     projection.state === "incomplete" ||
     projection.state === "cancelled";
+  const pendingAgentIds = useMemo(() => {
+    const visibleIds = new Set(visibleAgents.map((agent) => agent.id));
+    const activeVisibleIds = (projection.snapshot.activeAgentIds ?? []).filter(
+      (agentId) => visibleIds.has(agentId),
+    );
+    if (
+      focusedTeam &&
+      !completed &&
+      !terminal &&
+      (projection.snapshot.events.length <= 2 || activeVisibleIds.length === 0)
+    )
+      return visibleAgents.map((agent) => agent.id);
+    return activeVisibleIds;
+  }, [
+    completed,
+    focusedTeam,
+    projection.snapshot.activeAgentIds,
+    projection.snapshot.events.length,
+    terminal,
+    visibleAgents,
+  ]);
   const reportFile =
     report === undefined
       ? pendingReport
@@ -526,6 +554,7 @@ export function LiveOfficeResearchRoom({
           onRunSelect={(runId, symbol) =>
             router.push(`/research/${symbol}?run=${runId}&lang=${locale}`)
           }
+          onProfileOpen={() => setProfileOpen(true)}
           onLocaleChange={setLocale}
         />
         <OfficeStage
@@ -544,6 +573,7 @@ export function LiveOfficeResearchRoom({
             ? {}
             : { reportId: projection.snapshot.run.reportId })}
           activeAgentIds={activity.active}
+          focusedTeam={focusedTeam}
           onReplay={() => window.location.reload()}
         />
         <MeetingMinutes
@@ -557,15 +587,14 @@ export function LiveOfficeResearchRoom({
             ? {}
             : { reportId: projection.snapshot.run.reportId })}
           reportVersion={report?.version ?? 1}
-          pendingAgentIds={projection.snapshot.activeAgentIds ?? []}
+          individualizedPendingCopy={focusedTeam}
+          showLaunchStatus={projection.snapshot.events.length <= 2}
+          pendingAgentIds={pendingAgentIds}
           pendingActivities={projection.snapshot.activeActivities ?? []}
           panelOpen={transcriptOpen}
           onPanelToggle={handleTranscriptToggle}
           onRetry={async () => {
-            const child = await projection.retry();
-            router.push(
-              `/research/${projection.snapshot.run.symbol}?run=${child.runId}&lang=${locale}`,
-            );
+            await projection.retry();
           }}
           {...(terminal
             ? {}
@@ -576,6 +605,12 @@ export function LiveOfficeResearchRoom({
               })}
         />
       </div>
+      <SidebarSubscriptionModal
+        open={profileOpen}
+        locale={locale}
+        initialTier="unknown"
+        onClose={() => setProfileOpen(false)}
+      />
       <span className="sr-only" data-testid="public-ledger">
         {office.events.length} durable public events · tick {office.tick}
       </span>

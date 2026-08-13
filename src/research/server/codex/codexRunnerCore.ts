@@ -108,6 +108,30 @@ function assertSignature(
     throw new CodexRunnerError("origin_untrusted");
 }
 
+function failedExecutionClass(
+  stdout: readonly Uint8Array[],
+):
+  | "auth_unavailable"
+  | "network_unavailable"
+  | "process_failed"
+  | "rate_limited"
+  | "schema_invalid" {
+  const text = Buffer.concat(stdout).toString("utf8");
+  if (
+    /invalid_json_schema|invalid schema for response_format|text\.format\.schema/iu.test(
+      text,
+    )
+  )
+    return "schema_invalid";
+  if (/model.+at capacity|rate.?limit|too many requests|\b429\b/iu.test(text))
+    return "rate_limited";
+  if (/authentication|not authenticated|invalid api key|\b401\b/iu.test(text))
+    return "auth_unavailable";
+  if (/network|connection (?:failed|reset|refused)|dns|\b503\b/iu.test(text))
+    return "network_unavailable";
+  return "process_failed";
+}
+
 export async function runCodexWithPlatform<Candidate>(
   input: CodexRunInput<Candidate>,
   platform: CodexRunnerPlatform,
@@ -278,7 +302,7 @@ export async function runCodexWithPlatform<Candidate>(
       platform.runCodex(invocation),
     );
     if (execution.exitCode !== 0)
-      throw new CodexRunnerError("process_failed", {
+      throw new CodexRunnerError(failedExecutionClass(execution.stdout), {
         process: {
           exitCode: execution.exitCode,
           signal: execution.signal ?? null,

@@ -128,6 +128,33 @@ export const ComparatorQualificationResultSchema = z
         }),
       )
       .readonly(),
+    diagnostics: z
+      .object({
+        candidateCount: z.number().int().nonnegative(),
+        displayEligibleCount: z.number().int().nonnegative(),
+        medianEligibleCount: z.number().int().nonnegative(),
+        roleCounts: z
+          .array(
+            z.strictObject({
+              role: RoleSchema,
+              candidateCount: z.number().int().nonnegative(),
+              displayEligibleCount: z.number().int().nonnegative(),
+            }),
+          )
+          .readonly(),
+        exclusionCounts: z
+          .array(
+            z.strictObject({
+              reason: ExclusionReasonSchema,
+              count: z.number().int().positive(),
+            }),
+          )
+          .readonly(),
+        primaryExclusionReason: ExclusionReasonSchema.optional(),
+      })
+      .strict()
+      .readonly()
+      .optional(),
     valuation: ValuationSchema,
   })
   .strict()

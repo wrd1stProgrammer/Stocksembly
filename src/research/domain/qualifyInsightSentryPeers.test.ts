@@ -91,3 +91,65 @@ it("keeps explicitly selected companies as valuation comparators", () => {
     ],
   });
 });
+
+it("qualifies a filing-verified direct competitor with aligned market metrics", () => {
+  const peers = {
+    providerUpdatedAt: "2026-08-10T00:00:00.000Z",
+    sector: "Electronic Technology",
+    subject: {
+      symbol: "NASDAQ:NVDA",
+      name: "NVIDIA",
+      sector: "Electronic Technology",
+      marketCap: 4_000,
+      revenueGrowthTtm: 65,
+      performance3Month: 22,
+      performance1Year: 84,
+    },
+    peers: [
+      {
+        symbol: "NASDAQ:AMD",
+        name: "Advanced Micro Devices",
+        sector: "Electronic Technology",
+        classification: "direct_competitor" as const,
+        selectionReasons: [
+          "issuer filing names the company near competition language",
+        ],
+        marketOverlapVerified: true,
+        marketCap: 500,
+        revenueGrowthTtm: 32,
+        performance3Month: 11,
+        performance1Year: 48,
+      },
+    ],
+  };
+
+  const result = qualifyInsightSentryPeers({
+    rawPeerArtifactId: "peer-artifact",
+    peers,
+  });
+
+  expect(result).toMatchObject({
+    status: "qualified",
+    diagnostics: {
+      candidateCount: 1,
+      displayEligibleCount: 1,
+    },
+    rows: [
+      expect.objectContaining({
+        comparatorId: "NASDAQ:AMD",
+        role: "direct_competitor",
+        displayEligibility: true,
+        comparableMetricKeys: expect.arrayContaining([
+          "market_cap",
+          "revenue_growth_ttm",
+          "performance_3_month",
+          "performance_1_year",
+        ]),
+        exclusionReasons: [],
+        rationale: expect.objectContaining({
+          ko: "회사의 공식 공시에서 경쟁 관계로 확인됨",
+        }),
+      }),
+    ],
+  });
+});

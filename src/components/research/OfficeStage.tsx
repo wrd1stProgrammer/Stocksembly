@@ -23,6 +23,7 @@ type Props = {
   readonly reportVersion: number;
   readonly reportId?: string;
   readonly activeAgentIds: readonly AgentId[];
+  readonly focusedTeam?: boolean;
   readonly onReplay: () => void;
 };
 
@@ -40,11 +41,12 @@ export function OfficeStage({
   reportVersion,
   reportId,
   activeAgentIds,
+  focusedTeam = false,
   onReplay,
 }: Props) {
   const labels = researchCopy[locale];
   const [cameraControlMode, setCameraControlMode] =
-    useState<OfficeCameraControlMode>("automatic");
+    useState<OfficeCameraControlMode>(focusedTeam ? "automatic" : "overview");
   const cameraModes: readonly {
     readonly id: OfficeCameraControlMode;
     readonly ko: string;
@@ -114,7 +116,7 @@ export function OfficeStage({
             locale={locale}
             isPaused={isPaused}
             activeAgentIds={activeAgentIds}
-            cameraMode="overview"
+            cameraMode={focusedTeam ? "focus" : "overview"}
             cameraControlMode={cameraControlMode}
           />
           <p

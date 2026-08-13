@@ -223,6 +223,18 @@ export function qualifyComparators(
     "operating_comparable",
     "valuation_proxy",
   ] as const;
+  const exclusionCountMap = new Map<ExclusionReason, number>();
+  for (const row of rows) {
+    for (const reason of row.exclusionReasons) {
+      exclusionCountMap.set(reason, (exclusionCountMap.get(reason) ?? 0) + 1);
+    }
+  }
+  const exclusionCounts = [...exclusionCountMap.entries()]
+    .map(([reason, count]) => ({ reason, count }))
+    .sort(
+      (left, right) =>
+        right.count - left.count || left.reason.localeCompare(right.reason),
+    );
   return ComparatorQualificationResultSchema.parse({
     status: rows.some((row) => row.displayEligibility)
       ? "qualified"
@@ -236,6 +248,24 @@ export function qualifyComparators(
         .map((row) => row.comparatorId);
       return comparatorIds.length === 0 ? [] : [{ role, comparatorIds }];
     }),
+    diagnostics: {
+      candidateCount: rows.length,
+      displayEligibleCount: rows.filter((row) => row.displayEligibility).length,
+      medianEligibleCount: rows.filter((row) => row.medianEligibility).length,
+      roleCounts: roles.map((role) => {
+        const roleRows = rows.filter((row) => row.role === role);
+        return {
+          role,
+          candidateCount: roleRows.length,
+          displayEligibleCount: roleRows.filter((row) => row.displayEligibility)
+            .length,
+        };
+      }),
+      exclusionCounts,
+      ...(exclusionCounts[0] === undefined
+        ? {}
+        : { primaryExclusionReason: exclusionCounts[0].reason }),
+    },
     valuation,
   });
 }

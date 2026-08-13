@@ -693,7 +693,7 @@ describe("persisted anticipated Q&A selection", () => {
     );
   });
 
-  it("prioritizes earnings and strong countercase questions and adds a grounded price calculation", () => {
+  it("prioritizes earnings and grounded calculations without repeating the decision countercase", () => {
     const dimensions = [
       "embedded_expectations",
       "catalyst",
@@ -782,8 +782,8 @@ describe("persisted anticipated Q&A selection", () => {
       "implied_forward_earnings_multiple",
     );
     expect(
-      selected.questions.slice(0, 4).map((question) => question.decisionKey),
-    ).toContain("strongest_countercase");
+      selected.questions.map((question) => question.decisionKey),
+    ).not.toContain("strongest_countercase");
     expect(
       selected.questions.map((question) => question.decisionKey),
     ).toContain("consensus_price_gap");

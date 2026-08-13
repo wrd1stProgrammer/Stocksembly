@@ -6,24 +6,27 @@
 .sectionHeader,
 .decisionHeader {
   display: grid;
-  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
-  gap: 30px;
-  align-items: end;
-  padding-bottom: 20px;
-  border-bottom: 3px solid var(--editorial-rule-strong);
+  grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1.35fr);
+  gap: 32px;
+  align-items: baseline;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--editorial-rule-strong);
 }
 
-.sectionHeader span,
+.decisionHeader {
+  grid-template-columns: 1fr;
+}
+
 .decisionHeader span,
 .arbitration > span {
   color: var(--editorial-accent);
-  font: 780 0.67rem / 1.2 var(--font-mono, monospace);
-  letter-spacing: 0.08em;
+  font: 760 0.68rem / 1.2 var(--font-sans, sans-serif);
+  letter-spacing: 0.015em;
 }
 
 .sectionHeader h2,
 .decisionHeader h2 {
-  margin-top: 10px;
+  margin: 0;
   font-size: clamp(1.55rem, 3vw, 2.45rem);
   line-height: 1.08;
 }
@@ -37,38 +40,29 @@
 }
 
 .agentGrid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  border-left: 1px solid var(--editorial-rule);
-}
-
-.agentGrid .agentMemo {
-  grid-column: span 6;
-}
-
-.agentGrid[data-agent-count="3"] .agentMemo:first-child {
-  grid-column: 1 / -1;
-}
-
-.agentGrid[data-agent-count="3"] .agentMemo:first-child ol {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: block;
+  border-bottom: 1px solid var(--editorial-rule-strong);
 }
 
 .agentMemo {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.25fr) minmax(0, 1fr);
   min-width: 0;
-  border-right: 1px solid var(--editorial-rule);
   border-bottom: 1px solid var(--editorial-rule);
+}
+
+.agentMemo:last-child {
+  border-bottom: 0;
 }
 
 .agentMemo > header {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr);
   gap: 12px;
+  align-content: start;
   align-items: center;
-  min-height: 76px;
-  padding: 14px 16px;
-  border-top: 1px solid var(--editorial-rule);
+  padding: 22px 20px 22px 0;
+  border-right: 1px solid var(--editorial-rule);
 }
 
 .agentMemo img {
@@ -82,26 +76,24 @@
 }
 
 .agentMemo header strong {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
 }
 
 .agentMemo header span,
 .agentMemo header em {
   color: var(--editorial-muted);
-  font-size: 0.61rem;
+  font-size: 0.68rem;
   font-style: normal;
 }
 
 .agentMemo header em {
-  padding: 5px 8px;
-  border: 1px solid var(--editorial-rule);
-  border-radius: 99px;
+  grid-column: 2;
+  margin-top: 5px;
   white-space: nowrap;
 }
 
 .agentMemo header em[data-contribution="supports"] {
   color: var(--editorial-accent);
-  border-color: var(--editorial-accent);
 }
 
 .agentMemo ol {
@@ -111,9 +103,20 @@
 }
 
 .agentMemo li {
+  display: grid;
+  grid-template-columns: minmax(76px, 0.18fr) minmax(0, 1fr) minmax(
+      190px,
+      0.72fr
+    );
+  gap: 20px;
+  align-items: start;
   min-width: 0;
-  padding: 17px 18px 19px;
-  border-top: 1px solid var(--editorial-rule);
+  padding: 20px 0 20px 24px;
+  border-bottom: 1px solid var(--editorial-rule);
+}
+
+.agentMemo li:last-child {
+  border-bottom: 0;
 }
 
 .agentMemo li > div {
@@ -135,18 +138,18 @@
 
 .agentMemo li > strong {
   display: block;
-  margin-top: 10px;
-  font-size: 0.77rem;
-  line-height: 1.58;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.62;
 }
 
 .agentMemo li > p {
-  margin-top: 12px;
-  padding-top: 10px;
+  margin: 0;
+  padding-left: 18px;
   color: var(--editorial-muted);
-  border-top: 1px dashed var(--editorial-rule);
-  font-size: 0.68rem;
-  line-height: 1.55;
+  border-left: 1px solid var(--editorial-rule-strong);
+  font-size: 0.74rem;
+  line-height: 1.62;
 }
 
 .agentMemo li > p b {
@@ -159,27 +162,29 @@
 
 .arbitration {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(230px, 0.85fr);
-  gap: 16px 30px;
+  grid-template-columns: minmax(140px, 0.24fr) minmax(0, 0.9fr) minmax(
+      220px,
+      0.72fr
+    );
+  gap: 24px;
   align-items: start;
-  padding: 22px 24px 24px;
-  background: var(--editorial-accent-soft);
-  border-bottom: 1px solid var(--editorial-accent);
+  padding: 24px 0;
+  border-bottom: 1px solid var(--editorial-rule-strong);
 }
 
 .arbitration > span {
-  grid-column: 1 / -1;
+  padding-top: 3px;
 }
 
 .arbitration strong {
-  font-size: 0.88rem;
-  line-height: 1.55;
+  font-size: 0.94rem;
+  line-height: 1.6;
 }
 
 .arbitration p {
   color: var(--editorial-muted);
-  font-size: 0.72rem;
-  line-height: 1.55;
+  font-size: 0.78rem;
+  line-height: 1.62;
 }
 
 .decisionHeader h2 {
@@ -187,19 +192,26 @@
 }
 
 .decisionGrid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  border-left: 1px solid var(--editorial-rule);
+  display: block;
+  border-top: 1px solid var(--editorial-rule-strong);
+  border-left: 0;
 }
 
 .decisionGrid article {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 18px;
   min-width: 0;
-  padding: 22px;
-  border-right: 1px solid var(--editorial-rule);
+  padding: 18px 0;
+  border-right: 0;
   border-bottom: 1px solid var(--editorial-rule);
+}
+
+.decisionGrid article > div {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.36fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
 }
 
 .decisionGrid article[data-row="case"] {
@@ -240,7 +252,9 @@
 }
 
 .decisionGrid article[data-row="change"] {
-  background: var(--editorial-accent-soft);
+  padding-left: 16px;
+  border-left: 3px solid var(--editorial-accent);
+  background: color-mix(in srgb, var(--editorial-accent-soft) 54%, transparent);
 }
 
 .decisionGrid article > span {
@@ -254,7 +268,7 @@
 }
 
 .decisionGrid p {
-  margin-top: 10px;
+  margin-top: 0;
   font-size: 0.77rem;
   font-weight: 600;
   line-height: 1.6;
@@ -267,26 +281,41 @@
     gap: 14px;
   }
 
-  .agentGrid[data-agent-count="3"] .agentMemo:first-child ol {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .agentMemo li {
+    grid-template-columns: 68px minmax(0, 1fr);
   }
 
-  .agentGrid[data-agent-count="3"]
-    .agentMemo:first-child
-    li:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
+  .agentMemo li > p {
+    grid-column: 2;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--editorial-rule);
+    border-left: 0;
   }
 }
 
 @container (max-width: 560px) {
-  .agentGrid .agentMemo,
-  .agentGrid[data-agent-count="3"] .agentMemo:first-child {
-    grid-column: 1 / -1;
+  .agentMemo {
+    grid-template-columns: 1fr;
   }
 
-  .agentGrid[data-agent-count="3"] .agentMemo:first-child ol,
+  .agentMemo > header {
+    padding-right: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--editorial-rule);
+  }
+
+  .agentMemo li,
   .arbitration {
     grid-template-columns: 1fr;
+  }
+
+  .agentMemo li {
+    gap: 10px;
+    padding-left: 0;
+  }
+
+  .agentMemo li > p {
+    grid-column: 1;
   }
 
   .decisionGrid {
@@ -295,5 +324,10 @@
 
   .decisionGrid article[data-row] {
     grid-column: 1 / -1;
+  }
+
+  .decisionGrid article > div {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }

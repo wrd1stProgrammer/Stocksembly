@@ -53,11 +53,21 @@ export async function generateMetadata({
   );
   if (report === undefined || report === "locked")
     return { title: "Research Room", robots: { index: false, follow: false } };
+  const reportPath = `/research-room/${reportId}`;
+  const localizedReportPath =
+    locale === "en" ? `${reportPath}?lang=en` : reportPath;
   return {
     title: `${report.item.symbol} · ${report.item.question}`,
     description: report.file.thesis[locale],
     robots: { index: true, follow: true },
-    alternates: { canonical: `/research-room/${reportId}` },
+    alternates: {
+      canonical: localizedReportPath,
+      languages: {
+        ko: reportPath,
+        en: `${reportPath}?lang=en`,
+        "x-default": reportPath,
+      },
+    },
     openGraph: {
       title:
         locale === "ko"
@@ -65,7 +75,8 @@ export async function generateMetadata({
           : `${report.item.symbol} Research · Stocksembly`,
       description: report.file.thesis[locale],
       locale: locale === "ko" ? "ko_KR" : "en_US",
-      url: `/research-room/${reportId}`,
+      alternateLocale: locale === "ko" ? "en_US" : "ko_KR",
+      url: localizedReportPath,
       type: "article",
       publishedTime: report.item.publishedAt,
     },
@@ -147,6 +158,11 @@ export default async function ResearchRoomReportPage({
     about: { "@type": "Corporation", tickerSymbol: report.item.symbol },
     publisher: { "@type": "Organization", name: "Stocksembly" },
     description: report.file.thesis[locale],
+    inLanguage: locale,
+    url:
+      locale === "en"
+        ? `https://stocksembly.com/research-room/${reportId}?lang=en`
+        : `https://stocksembly.com/research-room/${reportId}`,
   };
   return (
     <>

@@ -17,6 +17,7 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  if (process.env.NODE_ENV === "production") notFound();
   const { symbol } = await params;
   const ticker = findTicker(symbol);
   return { title: ticker ? `${ticker.symbol} research room` : "Research room" };
@@ -26,6 +27,7 @@ export default async function FixtureResearchPage({
   params,
   searchParams,
 }: Props) {
+  if (process.env.NODE_ENV === "production") notFound();
   const [{ symbol }, query] = await Promise.all([params, searchParams]);
   const ticker = findTicker(symbol);
   if (!ticker) notFound();

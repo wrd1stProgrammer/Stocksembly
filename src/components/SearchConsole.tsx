@@ -28,7 +28,6 @@ import {
   RESEARCH_DEPARTMENT_COPY,
   type ResearchTarget,
   recommendResearchTarget,
-  researchTargetQueryValue,
 } from "../research/domain/researchTarget";
 import { CreditShortageModal } from "./billing/CreditShortageModal";
 import { MembershipAccessModal } from "./billing/MembershipAccessModal";
@@ -38,8 +37,6 @@ import {
   ResearchQuestionField,
   SearchField,
 } from "./SearchPrimitives";
-
-const LAUNCH_PULSE_MILLISECONDS = 3_000;
 
 type SearchConsoleProps = {
   readonly locale: Locale;
@@ -121,7 +118,7 @@ export function SearchConsole({
           purpose: "의사결정 목적",
           purposeNote: "결론을 실제 행동 조건으로 바꾸는 기준",
           peers: "비교기업",
-          peersNote: "InsightSentry 상대 비교 · 최대 5개",
+          peersNote: "Stocksembly 상대 비교 · 최대 5개",
           peerPlaceholder: "티커 입력 (예: AMD)",
           noPeers: "미포함",
           horizonOptions: {
@@ -149,7 +146,7 @@ export function SearchConsole({
           purpose: "Decision purpose",
           purposeNote: "The action the report should help decide",
           peers: "Comparisons",
-          peersNote: "InsightSentry relative view · up to 5",
+          peersNote: "Stocksembly relative view · up to 5",
           peerPlaceholder: "Add ticker (e.g. AMD)",
           noPeers: "None",
           horizonOptions: {
@@ -269,79 +266,40 @@ export function SearchConsole({
       return;
     }
     const idempotencyKey = crypto.randomUUID();
-    let createdRunId: string | undefined;
-    const launchOutcome = client
-      .startRun({
+    try {
+      const created = await client.startRun({
         symbol: firstMatch.symbol,
         question: researchQuestion,
         locale,
         idempotencyKey,
         researchTarget,
         researchProfile,
-      })
-      .then((created) => {
-        createdRunId = created.run.runId;
-        return "created" as const;
-      })
-      .catch((error: unknown) => {
-        if (error instanceof ResearchRequestError && error.status === 401)
-          return "unauthorized" as const;
-        if (
-          error instanceof ResearchRequestError &&
-          error.code === "CREDITS_INSUFFICIENT"
-        )
-          return "credits-insufficient" as const;
-        return "failed" as const;
       });
-    try {
-      const pulseDelay = new Promise<"pulse-complete">((resolve) => {
-        window.setTimeout(
-          () => resolve("pulse-complete"),
-          LAUNCH_PULSE_MILLISECONDS,
+      notifyBillingChanged();
+      startTransition(() => {
+        router.push(
+          `/research/${firstMatch.symbol}?run=${created.run.runId}&lang=${locale}`,
         );
       });
-      const firstOutcome = await Promise.race([launchOutcome, pulseDelay]);
-      if (firstOutcome === "unauthorized") {
+    } catch (error) {
+      if (error instanceof ResearchRequestError && error.status === 401) {
         router.push(
           `/login?next=${encodeURIComponent(`/?lang=${locale}#research`)}`,
         );
         return;
       }
-      if (firstOutcome === "credits-insufficient") {
+      if (
+        error instanceof ResearchRequestError &&
+        error.code === "CREDITS_INSUFFICIENT"
+      ) {
         setCreditShortageOpen(true);
         return;
       }
-      if (firstOutcome === "failed") throw new Error("Research launch failed");
-      if (createdRunId !== undefined) notifyBillingChanged();
-      if (firstOutcome === "created") await pulseDelay;
-      const launchQuery = new URLSearchParams({
-        lang: locale,
-        launch: idempotencyKey,
-        question: researchQuestion,
-        target: researchTargetQueryValue(researchTarget),
-        horizon: researchProfile.investmentHorizon,
-        counter: researchProfile.counterargumentIntensity,
-        depth: researchProfile.analysisDepth,
-        purpose: researchProfile.decisionPurpose,
-        peers: researchProfile.comparisonSymbols.join(","),
-      });
-      startTransition(() => {
-        router.push(
-          createdRunId === undefined
-            ? `/research/${firstMatch.symbol}?${launchQuery.toString()}`
-            : `/research/${firstMatch.symbol}?run=${createdRunId}&lang=${locale}`,
-        );
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        setSubmissionError(
-          locale === "ko"
-            ? "리서치를 시작할 수 없습니다. 다시 시도해 주세요."
-            : "Unable to start research. Please try again.",
-        );
-      } else {
-        throw error;
-      }
+      setSubmissionError(
+        locale === "ko"
+          ? "리서치를 시작할 수 없습니다. 다시 시도해 주세요."
+          : "Unable to start research. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }

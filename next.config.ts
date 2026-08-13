@@ -25,6 +25,16 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["better-sqlite3", "pdfmake"],
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.stocksembly.com" }],
+        destination: "https://stocksembly.com/:path*",
+        statusCode: 301,
+      },
+    ];
+  },
   async rewrites() {
     if (process.env.RESEARCH_MODE !== "fixture") return [];
     return [

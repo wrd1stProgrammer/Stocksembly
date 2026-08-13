@@ -115,6 +115,19 @@ export const ChildRunResponseSchema = z
   })
   .readonly();
 
+export const RecoveredRunResponseSchema = z
+  .strictObject({
+    run: z
+      .strictObject({
+        runId: UuidSchema,
+        snapshotId: UuidSchema,
+        status: z.literal(RUN_STATUS.running),
+        recovery: z.literal("same-run-stage-resume"),
+      })
+      .readonly(),
+  })
+  .readonly();
+
 export const PublicQuestionSchema = z
   .strictObject({
     questionId: UuidSchema,
@@ -156,6 +169,7 @@ export type PublicRun = z.infer<typeof PublicRunSchema>;
 export type PublicResearchEvent = z.infer<typeof PublicResearchEventSchema>;
 export type PublicRunDetail = z.infer<typeof PublicRunDetailSchema>;
 export type ChildRun = z.infer<typeof ChildRunResponseSchema>["run"];
+export type RecoveredRun = z.infer<typeof RecoveredRunResponseSchema>["run"];
 export type PublicQuestion = z.infer<
   typeof PublicQuestionResponseSchema
 >["question"];

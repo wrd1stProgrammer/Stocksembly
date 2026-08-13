@@ -14,6 +14,10 @@ import type {
 } from "../domain/contracts";
 import { createBriefingDataCollector } from "../server/briefingDataCollector";
 import { synthesizeBriefingEdition } from "../server/briefingSynthesizer";
+import {
+  type BriefingPreviewEdition,
+  selectBriefingPreviewHistory,
+} from "./briefingPreviewHistory";
 
 function marketDate(value: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -61,11 +65,7 @@ async function main() {
         ).editions ?? [],
     )
     .catch(() => []);
-  const editions: {
-    readonly briefingId: string;
-    readonly item: BriefingWatchlistItem;
-    readonly payload: BriefingEditionPayload;
-  }[] = [];
+  const editions: BriefingPreviewEdition[] = [];
 
   for (const symbol of symbols) {
     const candidates = await market.searchSymbols(symbol);
@@ -82,21 +82,29 @@ async function main() {
       position: editions.length,
       createdAt: cutoffAt,
     });
-    const previous = previousEditions.find(
-      (edition) =>
-        edition.payload.symbol === symbol &&
-        edition.payload.locale === "ko" &&
-        edition.payload.marketDate < date,
-    )?.payload;
+    const briefingId = randomUUID();
+    const history = selectBriefingPreviewHistory(previousEditions, {
+      symbol,
+      locale: "ko",
+      marketDate: date,
+      excludedBriefingId: briefingId,
+    });
+    const previous = history[0]?.payload;
+    const latestBriefingAt = history[0]?.payload.cutoffAt;
     const snapshot = await collector.collect({
       item,
       marketDate: date,
       cutoffAt,
-      previousEventKeys:
-        previous?.materialChanges.map((signal) => signal.id) ?? [],
-      ...(previous === undefined
+      previousEventKeys: [
+        ...new Set(
+          history.flatMap((edition) =>
+            edition.payload.materialChanges.map((signal) => signal.id),
+          ),
+        ),
+      ],
+      ...(latestBriefingAt === undefined
         ? {}
-        : { previousBriefingAt: previous.cutoffAt }),
+        : { previousBriefingAt: latestBriefingAt }),
     });
     const payload = await synthesizeBriefingEdition({
       locale: "ko",
@@ -104,7 +112,7 @@ async function main() {
       ...(previous === undefined ? {} : { previous }),
       generatedAt: new Date().toISOString(),
     });
-    editions.push({ briefingId: randomUUID(), item, payload });
+    editions.push({ briefingId, item, payload });
     process.stdout.write(
       `${JSON.stringify({
         symbol,

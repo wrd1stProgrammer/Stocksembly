@@ -1,3 +1,6 @@
+import type { ActiveResearchActivityKind } from "../research/domain/activeResearchActivity";
+import type { AgentId } from "../research/types";
+
 const locales = ["en", "ko"] as const;
 
 export type Locale = (typeof locales)[number];
@@ -13,6 +16,8 @@ export type ResearchCopy = {
     readonly stage: string;
     readonly semanticSummary: string;
   };
+  readonly activityStatus: Readonly<Record<ActiveResearchActivityKind, string>>;
+  readonly agentThinking: Readonly<Record<AgentId, string>>;
 };
 
 export const researchCopy: Readonly<Record<Locale, ResearchCopy>> = {
@@ -27,6 +32,41 @@ export const researchCopy: Readonly<Record<Locale, ResearchCopy>> = {
       stage: "AI research team activity",
       semanticSummary: "Current public office activity",
     },
+    activityStatus: {
+      data_collection: "Collecting data",
+      macro_analysis: "Analyzing market conditions",
+      news_analysis: "Analyzing news",
+      market_comparison: "Comparing peers",
+      business_analysis: "Analyzing the business",
+      product_analysis: "Analyzing products",
+      competition_analysis: "Analyzing competition",
+      financial_analysis: "Analyzing financials",
+      valuation_analysis: "Analyzing valuation",
+      earnings_quality_analysis: "Testing earnings quality",
+      downside_analysis: "Analyzing downside risk",
+      policy_scenario_analysis: "Analyzing policy scenarios",
+      team_synthesis: "Synthesizing team views",
+      challenge_review: "Testing the countercase",
+      followup_research: "Researching follow-ups",
+      response_review: "Reviewing rebuttals",
+      evidence_audit: "Auditing evidence",
+      semantic_audit: "Validating claims",
+      chair_synthesis: "Finalizing the decision",
+    },
+    agentThinking: {
+      market: "Interpreting rates, inflation, and the market regime",
+      market_news: "Cross-checking news flow, trend, and volume",
+      benchmark: "Comparing peers and benchmark dispersion",
+      company: "Mapping the business model and growth drivers",
+      company_product: "Testing product adoption evidence",
+      company_competition: "Comparing moat and competitive position",
+      financial: "Reconciling statements and cash conversion",
+      valuation: "Building valuation and expectation scenarios",
+      financial_quality: "Testing earnings quality and durability",
+      risk: "Tracing downside paths and early warnings",
+      risk_policy: "Stress-testing policy and regulatory scenarios",
+      chair: "Coordinating the evidence review",
+    },
   },
   ko: {
     camera: {
@@ -38,6 +78,41 @@ export const researchCopy: Readonly<Record<Locale, ResearchCopy>> = {
     aria: {
       stage: "AI 분석팀 작업 현황",
       semanticSummary: "현재 공개 오피스 활동",
+    },
+    activityStatus: {
+      data_collection: "데이터 수집 중",
+      macro_analysis: "시장 환경 분석 중",
+      news_analysis: "뉴스 분석 중",
+      market_comparison: "동종기업 비교 중",
+      business_analysis: "사업 분석 중",
+      product_analysis: "제품 분석 중",
+      competition_analysis: "경쟁력 분석 중",
+      financial_analysis: "재무 분석 중",
+      valuation_analysis: "가치평가 중",
+      earnings_quality_analysis: "이익의 질 검증 중",
+      downside_analysis: "하방 위험 분석 중",
+      policy_scenario_analysis: "정책 시나리오 분석 중",
+      team_synthesis: "팀 의견 종합 중",
+      challenge_review: "반대 논리 검토 중",
+      followup_research: "추가 근거 조사 중",
+      response_review: "반론 답변 검토 중",
+      evidence_audit: "근거 감사 중",
+      semantic_audit: "주장 검증 중",
+      chair_synthesis: "최종 판단 중",
+    },
+    agentThinking: {
+      market: "금리·물가와 시장 국면 해석 중",
+      market_news: "뉴스 흐름과 추세·거래량 대조 중",
+      benchmark: "동종기업과 벤치마크 편차 비교 중",
+      company: "사업 구조와 성장 동력 분석 중",
+      company_product: "제품 채택 근거 검증 중",
+      company_competition: "경쟁우위와 시장 지위 비교 중",
+      financial: "재무제표와 현금 전환 대조 중",
+      valuation: "가치평가와 기대 시나리오 구성 중",
+      financial_quality: "이익의 질과 지속성 검증 중",
+      risk: "하방 경로와 조기 경보 추적 중",
+      risk_policy: "정책·규제 시나리오 스트레스 테스트 중",
+      chair: "근거 검토 절차 조율 중",
     },
   },
 };
@@ -76,6 +151,11 @@ type Copy = {
     readonly productHeading: string;
     readonly howItWorks: string;
     readonly research: string;
+    readonly standardsHeading: string;
+    readonly about: string;
+    readonly methodology: string;
+    readonly editorialPolicy: string;
+    readonly corrections: string;
     readonly contactHeading: string;
     readonly support: string;
     readonly operator: string;
@@ -147,6 +227,11 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       productHeading: "Product",
       howItWorks: "How it works",
       research: "Start research",
+      standardsHeading: "About & standards",
+      about: "About Stocksembly",
+      methodology: "Research methodology",
+      editorialPolicy: "Editorial policy",
+      corrections: "Corrections policy",
       contactHeading: "Contact",
       support: "Customer support",
       operator: "Operated by SERN · South Korea",
@@ -216,6 +301,11 @@ export const copy: Readonly<Record<Locale, Copy>> = {
       productHeading: "제품",
       howItWorks: "작동 방식",
       research: "리서치 시작",
+      standardsHeading: "소개 및 원칙",
+      about: "Stocksembly 소개",
+      methodology: "리서치 방법론",
+      editorialPolicy: "편집 원칙",
+      corrections: "정정 정책",
       contactHeading: "문의",
       support: "고객 문의",
       operator: "SERN 운영 · 대한민국",

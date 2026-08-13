@@ -419,7 +419,7 @@ describe("InsightSentry initial workflow collection", () => {
     });
 
     // Then
-    await expect(action).rejects.toThrow("required_market_data_unavailable");
+    await expect(action).rejects.toThrow("subscription_required");
     expect(new Set(urls).size).toBeGreaterThan(0);
     await rm(root, { recursive: true, force: true });
   });

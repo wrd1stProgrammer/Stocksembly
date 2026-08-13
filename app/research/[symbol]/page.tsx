@@ -31,6 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ticker = TickerSymbolSchema.safeParse(symbol.toUpperCase());
   return {
     title: ticker.success ? `${ticker.data} research room` : "Research room",
+    robots: { index: false, follow: false },
   };
 }
 

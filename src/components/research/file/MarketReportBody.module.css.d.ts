@@ -9,6 +9,7 @@ declare const styles: {
   readonly timingGrid: string;
   readonly persistence: string;
   readonly clock: string;
+  readonly sectionNote: string;
   readonly identity: string;
 };
 

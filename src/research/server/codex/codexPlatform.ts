@@ -1,10 +1,7 @@
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { CodexRunnerError } from "./codexErrors";
-import {
-  CODEX_RUNTIME_PINS,
-  LINUX_CODEX_RUNTIME_PINS,
-} from "./codexPolicy";
+import { CODEX_RUNTIME_PINS, LINUX_CODEX_RUNTIME_PINS } from "./codexPolicy";
 import { executeSpawn } from "./codexProcess";
 import { type CodeSignature, inspectCodeSignature } from "./codexSignature";
 import type { ProcessExecution, SpawnInvocation } from "./codexTypes";
@@ -69,11 +66,12 @@ export function productionCodexPlatform(): CodexRunnerPlatform {
   if (process.platform !== "darwin" && process.platform !== "linux")
     throw new CodexRunnerError("policy_violation");
   const direct = process.platform === "linux";
+  const linuxOriginDirectory = dirname(LINUX_CODEX_RUNTIME_PINS.originPath);
   return Object.freeze({
     pins: direct ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS,
     executionMode: direct ? "direct" : "sandbox_exec",
     authPath: join(homedir(), ".codex", "auth.json"),
-    tempParent: tmpdir(),
+    tempParent: direct ? linuxOriginDirectory : tmpdir(),
     hostEnvironment: process.env,
     ...(direct ? {} : { inspectSignature: inspectCodeSignature }),
     runVersion: executeSpawn,

@@ -56,6 +56,9 @@ export async function collectInsightSentryPeers(input: {
           classification: peer.classification,
           selectionScore: peer.selectionScore,
           selectionReasons: peer.selectionReasons,
+          ...(peer.marketOverlapVerified === undefined
+            ? {}
+            : { marketOverlapVerified: peer.marketOverlapVerified }),
           ...(peer.marketCap === undefined
             ? {}
             : { marketCap: peer.marketCap }),

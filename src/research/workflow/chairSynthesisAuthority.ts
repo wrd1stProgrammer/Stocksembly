@@ -103,8 +103,59 @@ export class ChairSynthesisSqliteAuthority {
       outputSchema: ChairSynthesisModelOutputSchema,
     });
     const existing = this.loadJob(runId);
-    if (existing !== undefined)
-      return existing.inputHash === inputHash ? true : "chair_input_immutable";
+    if (existing !== undefined) {
+      if (existing.inputHash === inputHash) return true;
+      const sourceManifestHash = hashCanonical(prompt.sourceArtifactIds);
+      if (
+        existing.prompt !== promptJson ||
+        existing.validationPrompt !== validationPrompt ||
+        existing.inputManifestHash !== sourceManifestHash ||
+        hashCanonical(existing.citableArtifactIds) !==
+          hashCanonical(prompt.sourceArtifactIds)
+      )
+        return "chair_input_immutable";
+      return this.#database
+        .transaction(() => {
+          const updatedJob = this.#database
+            .prepare(`UPDATE jobs SET input_hash = @inputHash
+              WHERE job_id = @jobId AND run_id = @runId
+                AND logical_key = 'chair_synthesis:chair'
+                AND status IN ('queued', 'retry-wait')
+                AND lease_owner IS NULL
+                AND NOT EXISTS (SELECT 1 FROM agent_output_commits
+                  WHERE agent_output_commits.attempt_id = jobs.attempt_id)`)
+            .run({ ...existing, inputHash }).changes;
+          if (updatedJob !== 1) return "chair_input_immutable" as const;
+          const refreshed = PersistedChairJobSchema.parse({
+            ...existing,
+            inputHash,
+          });
+          const updatedRecord = this.#database
+            .prepare(`UPDATE idempotency_records SET request_hash = @inputHash,
+              result_json = @resultJson, created_at = @at
+              WHERE scope = 'chair-synthesis-job'
+                AND idempotency_key = @runId`)
+            .run({
+              runId,
+              inputHash,
+              resultJson: JSON.stringify(refreshed),
+              at,
+            }).changes;
+          if (updatedRecord !== 1)
+            throw new TypeError("chair job refresh was incomplete");
+          this.#database
+            .prepare(`UPDATE idempotency_records SET request_hash = @inputHash,
+              result_json = json_set(result_json,
+                '$.retryAt', @at, '$.failureCount', 0,
+                '$.circuitOpen', json('false'),
+                '$.classification', 'transient',
+                '$.code', 'schema_contract_refreshed'), created_at = @at
+              WHERE scope = 'worker-retry' AND idempotency_key = @jobId`)
+            .run({ jobId: existing.jobId, inputHash, at });
+          return true as const;
+        })
+        .immediate();
+    }
     const job = PersistedChairJobSchema.parse({
       runId,
       snapshotId: run.data.snapshot_id,
@@ -179,11 +230,20 @@ export class ChairSynthesisSqliteAuthority {
         return envelope.success ? [envelope.data.payload] : [];
       })
       .at(0);
+    const retryPending =
+      output === undefined &&
+      this.#database
+        .prepare(`SELECT 1 FROM jobs WHERE run_id = ?
+          AND logical_key = 'chair_synthesis:chair'
+          AND status = 'retry-wait' LIMIT 1`)
+        .get(runId) !== undefined;
     const incompleteReason =
       output === undefined
-        ? receipts.length >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
-          ? "replacement_exhausted"
-          : "chair_artifact_missing"
+        ? retryPending
+          ? "retry_pending"
+          : receipts.length >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
+            ? "replacement_exhausted"
+            : "chair_artifact_missing"
         : null;
     return {
       runId,

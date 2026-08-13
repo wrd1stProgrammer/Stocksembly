@@ -1,14 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fixturePayload } from "./compositions/fixture";
 import {
   advanceLiveOfficeFrame,
   advanceLiveOfficeFrameForDisplay,
   createLiveOfficeFrame,
   durablePublicEventTargetTick,
+  useLiveOfficeAnimation,
 } from "./liveOfficeAnimation";
 import { OFFICE_CLOCK_CONTRACT } from "./officeChoreography";
 
 describe("live office animation", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("holds at the latest durable public event", () => {
     // Given
     const committedEvents = fixturePayload.data.playbackEvents.slice(0, 3);
@@ -79,5 +83,35 @@ describe("live office animation", () => {
     expect(next.simulation.tick).toBeLessThan(
       OFFICE_CLOCK_CONTRACT.completeTick,
     );
+  });
+
+  it("stops requesting display frames after reaching the durable target", () => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    let requestId = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      requestId += 1;
+      callbacks.set(requestId, callback);
+      return requestId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => callbacks.delete(id));
+    const runNextFrame = (timestamp: number) => {
+      const next = callbacks.entries().next().value as
+        | [number, FrameRequestCallback]
+        | undefined;
+      if (next === undefined) throw new TypeError("animation frame missing");
+      callbacks.delete(next[0]);
+      act(() => next[1](timestamp));
+    };
+
+    const view = renderHook(({ tick }) => useLiveOfficeAnimation(tick), {
+      initialProps: { tick: 0 },
+    });
+    view.rerender({ tick: 1 });
+    runNextFrame(0);
+    runNextFrame(OFFICE_CLOCK_CONTRACT.tickMs);
+
+    expect(view.result.current.snapshot.tick).toBe(1);
+    expect(callbacks).toHaveLength(0);
+    view.unmount();
   });
 });

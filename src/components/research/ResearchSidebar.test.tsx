@@ -44,6 +44,7 @@ describe("ResearchSidebar history", () => {
         collapsed={false}
         onCollapsedChange={vi.fn()}
         onRunSelect={onRunSelect}
+        onProfileOpen={vi.fn()}
         onLocaleChange={vi.fn()}
       />,
     );
@@ -57,5 +58,26 @@ describe("ResearchSidebar history", () => {
       "00000000-0000-4000-8000-000000000001",
       "NVDA",
     );
+  });
+
+  it("keeps only the profile action in the footer and opens account details", () => {
+    const onProfileOpen = vi.fn();
+    render(
+      <ResearchSidebar
+        company={company}
+        agents={[]}
+        defaultAgentIds={[]}
+        history={[]}
+        locale="ko"
+        collapsed={false}
+        onCollapsedChange={vi.fn()}
+        onProfileOpen={onProfileOpen}
+        onLocaleChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("개선사항 보내기")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "내 정보" }));
+    expect(onProfileOpen).toHaveBeenCalledOnce();
   });
 });

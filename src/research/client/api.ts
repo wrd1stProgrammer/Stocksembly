@@ -15,6 +15,8 @@ import {
   type PublicRunDetail,
   PublicRunDetailSchema,
   PublicRunListResponseSchema,
+  type RecoveredRun,
+  RecoveredRunResponseSchema,
 } from "./schemas";
 
 export class ResearchPayloadError extends Error {
@@ -75,7 +77,7 @@ export type ResearchClient = {
   readonly listRuns?: (limit?: number) => Promise<readonly PublicRun[]>;
   readonly getRun: (runId: string) => Promise<PublicRunDetail>;
   readonly cancelRun: (runId: string, key: string) => Promise<void>;
-  readonly retryRun: (runId: string, key: string) => Promise<ChildRun>;
+  readonly retryRun: (runId: string, key: string) => Promise<RecoveredRun>;
   readonly followUp: (input: FollowUpInput) => Promise<ChildRun>;
   readonly askQuestion: (input: QuestionInput) => Promise<PublicQuestion>;
   readonly getQuestion: (questionId: string) => Promise<PublicQuestion>;
@@ -216,7 +218,7 @@ export function createResearchClient(
             key,
             {},
           ),
-          (value) => ChildRunResponseSchema.parse(value),
+          (value) => RecoveredRunResponseSchema.parse(value),
         )
       ).run,
     followUp: async (input) =>

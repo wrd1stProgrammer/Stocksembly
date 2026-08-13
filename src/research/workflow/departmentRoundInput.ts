@@ -10,6 +10,7 @@ import {
   WORKFLOW_V1_ROLE_REGISTRY,
   WORKFLOW_V1_SPECIALIST_IDS,
 } from "../domain/roleRegistry";
+import { TEAM_CORE_DATA } from "../domain/teamCoreData";
 import { type ArtifactCasPort, ArtifactDigestSchema } from "../ports/artifacts";
 import { codexInputHash } from "../server/codex/codexRunner";
 import type {
@@ -134,6 +135,7 @@ export async function authenticatedMemoPrompts(
   }
   const prompts = WORKFLOW_V1_DEPARTMENT_IDS.flatMap((departmentId) => {
     const department = WORKFLOW_V1_ROLE_REGISTRY.departments[departmentId];
+    const teamData = TEAM_CORE_DATA[departmentId];
     const memberArtifacts = department.memberIds.flatMap((roleId) => {
       const member = members.find(
         (candidate) => candidate.ownership.roleId === roleId,
@@ -187,8 +189,10 @@ export async function authenticatedMemoPrompts(
               "For each revised claim, retain its authenticated originClaimId and exact sourceArtifactIds in revisions, provide revised bilingual publicSummary, a claim-specific falsifier, and reason. Use originClaimId as the adjudicatedClaimId placeholder and a 64-character lowercase hexadecimal revisionHash placeholder; the trusted boundary derives the distinct deterministic adjudicatedClaimId and content hash.",
               "For every revised claim, copy the matching disposition.reason exactly into revision.reason in both languages; the trusted boundary requires byte-for-byte equality between those two reason objects.",
               `Every numeric token anywhere in the output, including summaries, reasons, falsifiers, dissent, and open questions, must come from this complete allowlist derived from member public summaries, dissent summaries, and unknowns: ${JSON.stringify(groundedNumericTokens)}. Do not use any other numeric token, reuse a number that appears only in a member falsifier, or invent a count, duration, threshold, or date.`,
+              "Preserve every metric's original unit. Use $ only for currency, % for rates, margins, growth, yield, and performance, and never format a calendar day as currency. If the member evidence does not establish the unit, omit the number rather than guess it.",
               "Strongest and weakest claims may reference only accepted or revised claims. If no accepted or revised claim survives, return a targeted rewrite instead of a consolidation.",
               "Keep different roles distinct: each accepted claim should contribute a different decision dimension rather than restating the same growth or risk sentence.",
+              `Cover grounded team dimensions (${teamData.decisionDimensions.join(", ")}) without repetition. Deliver, when supported: ${teamData.requiredInvestorOutputs.join("; ")}. End each with an action, monitoring priority, or reversal signal.`,
               "Give every accepted claim its own non-overlapping checkpoint: use a different metric, threshold, disclosure, customer signal, or dated event for each claim. Never copy one change condition into several claims.",
               "Do not reuse publicSummary, the same conclusion sentence, or the same checkpoint language across strongestClaim, weakestClaim, openQuestions, and claim rationales.",
               "Return no more than two openQuestions. Phrase each as an observable metric, threshold, disclosure, or dated event that would resolve uncertainty.",

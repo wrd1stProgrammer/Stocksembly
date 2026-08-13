@@ -150,17 +150,34 @@ export function buildMarketReportProduct(
       ? { levels: priceLevels.sort((a, b) => b.value - a.value), volume }
       : undefined;
   const claims = ownedClaims(file, model, locale);
-  const snapshot = [
+  const preferredSnapshot = [
     "current_price",
     "daily_change_percent",
+    "relative_performance_1m",
     "relative_performance_3m",
+    "relative_performance_6m",
     "relative_performance_1y",
+    "forward_pe",
     "pe",
     "ev_ebitda",
-  ].flatMap((id) => {
-    const point = metric(id);
-    return point === undefined ? [] : [point];
-  });
+    "market_cap",
+    "average_volume_20d",
+    "volume",
+  ]
+    .flatMap((id) => {
+      const point = metric(id);
+      return point === undefined ? [] : [point];
+    })
+    .filter(
+      (point, index, points) =>
+        points.findIndex((candidate) => candidate.id === point.id) === index,
+    );
+  const snapshot = [...preferredSnapshot, ...metrics]
+    .filter(
+      (point, index, points) =>
+        points.findIndex((candidate) => candidate.id === point.id) === index,
+    )
+    .slice(0, 6);
   return {
     claims,
     snapshot,
@@ -182,8 +199,20 @@ export function buildMarketReportProduct(
 }
 
 export function formatMarketMetric(metric: MarketMetric, locale: Locale) {
+  if (metric.unit === "USD") {
+    const absolute = Math.abs(metric.value);
+    const divisor =
+      absolute >= 1_000_000_000_000 ? 1_000_000_000_000 : 1_000_000_000;
+    const suffix = absolute >= 1_000_000_000_000 ? "T" : "B";
+    return `$${new Intl.NumberFormat(locale === "ko" ? "ko-KR" : "en-US", {
+      maximumFractionDigits: 1,
+    }).format(metric.value / divisor)}${suffix}`;
+  }
   const formatted = new Intl.NumberFormat(locale === "ko" ? "ko-KR" : "en-US", {
     maximumFractionDigits: 1,
+    ...(Math.abs(metric.value) >= 1_000_000
+      ? { notation: "compact" as const }
+      : {}),
   }).format(metric.value);
   if (metric.unit === "percent") return `${formatted}%`;
   if (metric.unit === "multiple") return `${formatted}x`;

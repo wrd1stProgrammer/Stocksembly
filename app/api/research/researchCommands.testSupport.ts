@@ -44,6 +44,58 @@ export function setRunStatus(
   }
 }
 
+export function setInitialResearchJobStatus(
+  harness: ApiHarness,
+  runId: string,
+  status: "retry-wait" | "failed" | "succeeded",
+): void {
+  const database = new Database(harness.databasePath);
+  try {
+    database
+      .prepare(`UPDATE jobs SET status = ?
+        WHERE run_id = ? AND kind = 'research'
+          AND logical_key = 'collection:initial'`)
+      .run(status, runId);
+  } finally {
+    database.close();
+  }
+}
+
+export function setInitialResearchJobRetry(
+  harness: ApiHarness,
+  runId: string,
+  input: {
+    readonly retryAt: string;
+    readonly failureCount: number;
+    readonly circuitOpen: boolean;
+  },
+): void {
+  const database = new Database(harness.databasePath);
+  try {
+    database
+      .prepare(`INSERT INTO idempotency_records(scope, idempotency_key,
+        request_hash, result_json, created_at)
+        SELECT 'worker-retry', job_id, input_hash,
+          json_object('retryAt', @retryAt, 'failureCount', @failureCount,
+            'circuitOpen', json(@circuitOpen),
+            'classification', 'transient', 'code', 'codex_process_failed'),
+          @retryAt
+        FROM jobs WHERE run_id = @runId AND kind = 'research'
+          AND logical_key = 'collection:initial'
+        ON CONFLICT(scope, idempotency_key) DO UPDATE SET
+          result_json = excluded.result_json,
+          created_at = excluded.created_at`)
+      .run({
+        runId,
+        retryAt: input.retryAt,
+        failureCount: input.failureCount,
+        circuitOpen: input.circuitOpen ? "true" : "false",
+      });
+  } finally {
+    database.close();
+  }
+}
+
 export function setResearchTarget(
   harness: ApiHarness,
   runId: string,

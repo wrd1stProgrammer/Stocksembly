@@ -88,8 +88,8 @@ export function ResearchFileDebate({
               ? "팀원별 조사 결과에서 무엇을 채택했고 어떤 불확실성을 남겼는지 기록합니다."
               : "The record shows what the team retained from each specialist and which uncertainties remain."
             : ko
-              ? "동일한 결론을 반복하지 않고, 반론이 최종 문장을 어떻게 바꿨는지 기록합니다."
-              : "The record shows how counterarguments changed the final wording instead of repeating one conclusion."
+              ? "각 팀의 독립 판단과 최종 결론에 반영된 핵심 반론을 함께 보여줍니다."
+              : "Independent team views are shown alongside the countercase carried into the final decision."
         }
       />
       <section className="research-team-table">

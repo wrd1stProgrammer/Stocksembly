@@ -15,6 +15,7 @@ import {
   deriveEditorialConfidence,
   extractNumericTokens,
   normalizeEditorialText,
+  textSimilarity,
 } from "../../../domain/editorialQuality";
 import {
   ArtifactIdSchema,
@@ -40,6 +41,10 @@ import {
   WORKFLOW_V1_ROLE_REGISTRY,
   type WorkflowDepartmentId,
 } from "../../../domain/roleRegistry";
+import {
+  departmentEditorialStance,
+  teamEditorialAssessment,
+} from "../../../domain/teamEditorialAssessment";
 import type { ArtifactCasPort } from "../../../ports/artifacts";
 import { ArtifactDigestSchema } from "../../../ports/artifacts";
 import {
@@ -149,7 +154,7 @@ const SOURCE_PUBLISHERS: Readonly<Record<string, string>> = {
   bls: "U.S. Bureau of Labor Statistics",
   treasury: "U.S. Department of the Treasury",
   alpaca: "Alpaca Market Data",
-  insightsentry: "InsightSentry via RapidAPI",
+  insightsentry: "Stocksembly market data",
   captured_web: "Captured web source",
 };
 
@@ -173,8 +178,69 @@ function localizedNarrative(value: {
 }) {
   return {
     en: narrative(value.en, "en"),
-    ko: narrative(value.ko, "ko"),
+    ko: narrative(value.ko.replace(/[\p{Script=Devanagari}]+/gu, ""), "ko"),
   };
+}
+
+function localizedTextDiffers(
+  left: { readonly en: string; readonly ko: string },
+  right: { readonly en: string; readonly ko: string },
+): boolean {
+  return (
+    !textSimilarity(left.en, right.en, "en").duplicate &&
+    !textSimilarity(left.ko, right.ko, "ko").duplicate
+  );
+}
+
+function missingDataNarrative(value: {
+  readonly en: string;
+  readonly ko: string;
+}): boolean {
+  return (
+    /\b(?:no|not|without|unavailable|missing|lacks?)\b.{0,80}\b(?:data|evidence|metric|quantitative|disclosure)/iu.test(
+      value.en,
+    ) ||
+    /(?:제공된|현재|가용).{0,50}(?:자료|데이터|근거|지표).{0,30}(?:없|부족|확인할 수 없|제공되지 않)/u.test(
+      value.ko,
+    )
+  );
+}
+
+function actionablePublicThesis(input: {
+  readonly thesis: { readonly en: string; readonly ko: string };
+  readonly falsifier?: { readonly en: string; readonly ko: string };
+  readonly dimension: string;
+}) {
+  if (!missingDataNarrative(input.thesis) || input.falsifier === undefined)
+    return localizedNarrative(input.thesis);
+  const labels: Readonly<
+    Record<string, { readonly en: string; readonly ko: string }>
+  > = {
+    adoption: { en: "customer adoption", ko: "고객 채택" },
+    competitive_erosion: { en: "competitive erosion", ko: "경쟁 침식" },
+    relative_performance: { en: "relative performance", ko: "상대 성과" },
+    embedded_expectations: { en: "priced-in expectations", ko: "내재 기대" },
+    leading_indicator: { en: "the leading indicator", ko: "선행 지표" },
+  };
+  const label = labels[input.dimension] ?? {
+    en: input.dimension.replaceAll("_", " "),
+    ko: "핵심 판단",
+  };
+  const checkpoint = localizedNarrative(input.falsifier);
+  return {
+    en: `${label.en}: ${checkpoint.en}`,
+    ko: `${label.ko}: ${checkpoint.ko}`,
+  };
+}
+
+function contraryContribution(
+  departmentId: WorkflowDepartmentId,
+  stance: "upside_skewed" | "downside_skewed" | "wait_for_proof",
+): "supports" | "opposes" | undefined {
+  if (stance === "wait_for_proof") return undefined;
+  if (departmentId === "risk")
+    return stance === "downside_skewed" ? "opposes" : "supports";
+  return stance === "upside_skewed" ? "opposes" : "supports";
 }
 
 function sourcePublisher(logicalKey: string, locator: unknown): string {
@@ -805,6 +871,16 @@ async function buildReport(
       normalizeEditorialText(leadRationale.ko)
   )
     return undefined;
+  const unknownCheckpoint = (
+    index: number,
+    locale: "en" | "ko",
+    fallback: { readonly en: string; readonly ko: string },
+  ) => {
+    const position =
+      adjudicatedPositions[index % Math.max(1, adjudicatedPositions.length)] ??
+      publishedLeadPosition;
+    return narrative(position.falsifier?.[locale] ?? fallback[locale], locale);
+  };
   const legacyReport = ResearchReportSchema.parse({
     schemaVersion: "workflow-v1",
     reportId: ReportIdSchema.parse(randomUUID()),
@@ -855,14 +931,8 @@ async function buildReport(
         dissent: dissent.map((item) => ({ ...item, text: item.text.en })),
         unknowns: consolidation.data.openQuestions.map((question, index) => ({
           id: `team-unknown-${index + 1}`,
-          impact: narrative(
-            `The team decision changes if ${question.en}`,
-            "en",
-          ),
-          nextEvidence: narrative(
-            `Next evidence to inspect: ${question.en}`,
-            "en",
-          ),
+          impact: narrative(question.en, "en"),
+          nextEvidence: unknownCheckpoint(index, "en", question),
         })),
       },
       ko: {
@@ -871,14 +941,8 @@ async function buildReport(
         dissent: dissent.map((item) => ({ ...item, text: item.text.ko })),
         unknowns: consolidation.data.openQuestions.map((question, index) => ({
           id: `team-unknown-${index + 1}`,
-          impact: narrative(
-            `팀 판단은 다음 조건에서 바뀝니다: ${question.ko}`,
-            "ko",
-          ),
-          nextEvidence: narrative(
-            `다음 근거에서 확인할 항목: ${question.ko}`,
-            "ko",
-          ),
+          impact: narrative(question.ko, "ko"),
+          nextEvidence: unknownCheckpoint(index, "ko", question),
         })),
       },
     },
@@ -897,7 +961,7 @@ async function buildReport(
     dataCoverage: [
       {
         dataset: `${departmentId}_team_evidence`,
-        provider: "Sealed research snapshot",
+        provider: "Stocksembly research dataset",
         status: "available",
         observationCount: sources.length,
       },
@@ -923,19 +987,20 @@ async function buildReport(
       { id: "focused_team_scope", capability: "cross_team_review" },
     ],
   });
-  const editorialClaims = adjudicatedPositions.map((position) =>
-    AtomicEditorialClaimSchema.parse({
+  const editorialClaims = adjudicatedPositions.map((position) => {
+    const decisionDimension =
+      position.decisionDimension ??
+      (
+        {
+          market: "regime",
+          company: "growth_engine",
+          financial: "margin",
+          risk: "downside_path",
+        } as const
+      )[departmentId];
+    return AtomicEditorialClaimSchema.parse({
       claimId: position.claimId,
-      decisionDimension:
-        position.decisionDimension ??
-        (
-          {
-            market: "regime",
-            company: "growth_engine",
-            financial: "margin",
-            risk: "downside_path",
-          } as const
-        )[departmentId],
+      decisionDimension,
       roleOwner: position.roleOwner,
       stanceContribution:
         position.stance === "supports"
@@ -944,26 +1009,77 @@ async function buildReport(
             ? "opposes"
             : "uncertain",
       materiality: strongest.has(position.claimId) ? "material" : "supporting",
-      publicThesis: position.publicSummary,
+      publicThesis: actionablePublicThesis({
+        thesis: position.publicSummary,
+        ...(position.falsifier === undefined
+          ? {}
+          : { falsifier: position.falsifier }),
+        dimension: decisionDimension,
+      }),
       evidenceArtifactIds: position.evidenceArtifactIds,
       counterevidenceArtifactIds: [],
       decisiveMetricIds: position.decisiveMetricIds ?? [],
-      falsifier: position.falsifier,
-    }),
-  );
+      ...(position.falsifier === undefined
+        ? {}
+        : { falsifier: localizedNarrative(position.falsifier) }),
+    });
+  });
   const leadClaim = editorialClaims.find((claim) =>
     strongest.has(claim.claimId),
   )!;
   const sourceClasses = sources
     .filter((source) => leadClaim.evidenceArtifactIds.includes(source.sourceId))
     .map((source) => source.sourceClass);
+  const materialContributions = [
+    ...new Set(
+      editorialClaims
+        .filter((claim) => claim.materiality === "material")
+        .map((claim) => claim.stanceContribution),
+    ),
+  ];
+  const aggregateContribution =
+    materialContributions.length === 1
+      ? materialContributions[0]!
+      : ("uncertain" as const);
+  const stance = departmentEditorialStance(departmentId, aggregateContribution);
+  const decisiveReason = localizedNarrative(consolidation.data.publicSummary);
+  const preferredCounterContribution = contraryContribution(
+    departmentId,
+    stance,
+  );
+  const contraryClaim = editorialClaims.find(
+    (claim) =>
+      claim.claimId !== leadClaim.claimId &&
+      (preferredCounterContribution === undefined
+        ? claim.stanceContribution !== "uncertain"
+        : claim.stanceContribution === preferredCounterContribution) &&
+      localizedTextDiffers(claim.publicThesis, decisiveReason),
+  );
+  const unresolvedClaim = editorialClaims.find(
+    (claim) =>
+      claim.claimId !== leadClaim.claimId &&
+      claim.stanceContribution === "uncertain" &&
+      localizedTextDiffers(claim.publicThesis, decisiveReason),
+  );
+  const dissentCountercase = consolidation.data.dissent
+    .map((item) => localizedNarrative(item.publicSummary))
+    .find((item) => localizedTextDiffers(item, decisiveReason));
+  const rationaleCountercase = localizedNarrative(leadRationale);
+  const falsifierCountercase = localizedNarrative({
+    en: `The opposing case becomes investable if this observable condition is met: ${leadClaim.falsifier.en}`,
+    ko: `현재 결론에 반대되는 투자 논리는 다음 관찰 조건이 충족될 때 유효해집니다: ${leadClaim.falsifier.ko}`,
+  });
+  const strongestCountercase =
+    stance === "wait_for_proof"
+      ? falsifierCountercase
+      : (contraryClaim?.publicThesis ??
+        unresolvedClaim?.publicThesis ??
+        dissentCountercase ??
+        (localizedTextDiffers(rationaleCountercase, decisiveReason)
+          ? rationaleCountercase
+          : falsifierCountercase));
   const decision = {
-    stance:
-      leadClaim.stanceContribution === "supports"
-        ? ("upside_skewed" as const)
-        : leadClaim.stanceContribution === "opposes"
-          ? ("downside_skewed" as const)
-          : ("wait_for_proof" as const),
+    stance,
     confidence: deriveEditorialConfidence({
       thesisMateriality: leadClaim.materiality,
       semanticVerdict:
@@ -974,12 +1090,11 @@ async function buildReport(
       criticalDataFreshness: "unavailable",
       contradictionSeverity: "none",
     }),
-    decisiveReason: localizedNarrative(consolidation.data.publicSummary),
-    strongestCountercase:
-      consolidation.data.dissent[0]?.publicSummary ??
-      localizedNarrative(leadRationale),
+    decisiveReason,
+    strongestCountercase,
     falsifier: leadClaim.falsifier,
     primaryClaimIds: [leadClaim.claimId],
+    teamAssessment: teamEditorialAssessment(departmentId, stance),
   } as const;
   const anticipated = selectGroundedAnticipatedQuestions({
     runId,
@@ -989,12 +1104,21 @@ async function buildReport(
     ...(metricSnapshot === undefined ? {} : { metricSnapshot }),
     ...(marketSnapshot === undefined ? {} : { marketSnapshot }),
   });
+  const comparators =
+    metricSnapshot?.comparatorQualification?.rows
+      .filter((row) => row.displayEligibility)
+      .map((row) => ({
+        comparatorId: row.comparatorId,
+        role: row.role,
+        rationale: row.rationale,
+        comparableMetricKeys: row.comparableMetricKeys,
+      })) ?? [];
   const report = WorkflowV2ResearchReportSchema.parse({
     ...legacyReport,
     schemaVersion: "workflow-v2",
     editorialClaims,
     editorialDecision: decision,
-    comparators: [],
+    comparators,
     anticipatedQuestions: anticipated.questions,
   });
   const checkpointKeys = new Set<string>();

@@ -88,6 +88,7 @@ function viewportFor(host: HTMLDivElement) {
 
 const MOBILE_CAMERA_MAX_WIDTH = 767;
 const MOBILE_CAMERA_RESPONSE_MS = 150;
+const DESKTOP_CAMERA_RESPONSE_MS = 360;
 const MAX_FREE_CAMERA_SCALE = 2.4;
 
 type ScreenPoint = { readonly x: number; readonly y: number };
@@ -166,9 +167,9 @@ function cameraStep(
   current: OfficeCameraTransform,
   target: OfficeCameraTransform,
   deltaMs: number,
+  responseMs: number,
 ): OfficeCameraTransform {
-  const progress =
-    1 - Math.exp(-Math.max(1, deltaMs) / MOBILE_CAMERA_RESPONSE_MS);
+  const progress = 1 - Math.exp(-Math.max(1, deltaMs) / responseMs);
   return Object.freeze({
     ...target,
     x: current.x + (target.x - current.x) * progress,
@@ -273,7 +274,7 @@ export async function createOfficeSnapshotRenderer(
       uiLayer.addChild(runtime.ui);
     }
 
-    let cameraMode: OfficeRendererCameraMode = "snapshot";
+    let cameraMode: OfficeRendererCameraMode = "overview";
     let lastSnapshot = initialSnapshot;
     let lastCameraActorIds: OfficeSnapshotRenderOptions["cameraActorIds"];
     let lastLiveBubble: OfficeSnapshotRenderOptions["liveBubble"];
@@ -314,7 +315,7 @@ export async function createOfficeSnapshotRenderer(
         showActorBubbles,
       });
     };
-    const animateMobileCamera = (timestamp: number): void => {
+    const animateFocusCamera = (timestamp: number): void => {
       cameraAnimationFrame = undefined;
       if (destroyed || cameraControlMode === "free") return;
       const deltaMs =
@@ -322,15 +323,21 @@ export async function createOfficeSnapshotRenderer(
           ? 16
           : Math.min(64, timestamp - previousCameraTimestamp);
       previousCameraTimestamp = timestamp;
-      displayedCamera = cameraStep(displayedCamera, targetCamera, deltaMs);
+      displayedCamera = cameraStep(
+        displayedCamera,
+        targetCamera,
+        deltaMs,
+        viewportFor(host).width <= MOBILE_CAMERA_MAX_WIDTH
+          ? MOBILE_CAMERA_RESPONSE_MS
+          : DESKTOP_CAMERA_RESPONSE_MS,
+      );
       if (cameraClose(displayedCamera, targetCamera)) {
         displayedCamera = targetCamera;
         previousCameraTimestamp = undefined;
       }
       renderDisplayedProjection(latestProjection);
       if (!cameraClose(displayedCamera, targetCamera))
-        cameraAnimationFrame =
-          window.requestAnimationFrame(animateMobileCamera);
+        cameraAnimationFrame = window.requestAnimationFrame(animateFocusCamera);
     };
     const applyProjection = (projection: OfficeRenderSnapshot): void => {
       latestProjection = projection;
@@ -348,12 +355,11 @@ export async function createOfficeSnapshotRenderer(
       } else {
         targetCamera = projection.camera;
       }
-      const mobileFocus =
+      const animatedFocus =
         cameraControlMode !== "free" &&
-        viewportFor(host).width <= MOBILE_CAMERA_MAX_WIDTH &&
         targetCamera.mode === "focus" &&
         !reducedMotion;
-      if (!mobileFocus) {
+      if (!animatedFocus) {
         if (cameraAnimationFrame !== undefined)
           window.cancelAnimationFrame(cameraAnimationFrame);
         cameraAnimationFrame = undefined;
@@ -362,12 +368,11 @@ export async function createOfficeSnapshotRenderer(
       }
       renderDisplayedProjection(projection);
       if (
-        mobileFocus &&
+        animatedFocus &&
         !cameraClose(displayedCamera, targetCamera) &&
         cameraAnimationFrame === undefined
       )
-        cameraAnimationFrame =
-          window.requestAnimationFrame(animateMobileCamera);
+        cameraAnimationFrame = window.requestAnimationFrame(animateFocusCamera);
       renderFrameCount += 1;
       host.setAttribute("data-render-frame-count", String(renderFrameCount));
     };

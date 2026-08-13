@@ -16,5 +16,6 @@ export type ResearchSidebarProps = {
   readonly collapsed: boolean;
   readonly onCollapsedChange: (collapsed: boolean) => void;
   readonly onRunSelect?: (runId: string, symbol: string) => void;
+  readonly onProfileOpen?: () => void;
   readonly onLocaleChange: (locale: Locale) => void;
 };

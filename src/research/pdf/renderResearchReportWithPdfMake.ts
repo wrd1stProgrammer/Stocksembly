@@ -564,8 +564,8 @@ function documentDefinition({
     page(ko ? "팀 판단·토론" : "Team debate", 5, [
       {
         text: ko
-          ? "11명의 전문가, 같은 결론을 복창하지 않습니다"
-          : "Eleven specialists do not echo a single conclusion",
+          ? "네 팀의 독립 판단과 최종 판정"
+          : "Four independent team views and the final decision",
         style: "title",
       },
       {

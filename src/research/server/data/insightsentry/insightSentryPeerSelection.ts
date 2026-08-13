@@ -8,11 +8,14 @@ import type { PeerScreen } from "./insightSentryResearchContracts";
 const DAY = 24 * 60 * 60 * 1_000;
 const SCREENER_TTL = DAY;
 const SELECTION_TTL = 30 * DAY;
-const SELECTOR_VERSION = "peer-selector-v4";
+const SELECTOR_VERSION = "peer-selector-v5";
 const MAX_SCREENER_PAGES = 20;
 const MIN_PEERS = 4;
 const DEFAULT_PEERS = 8;
 const MIN_AUTOMATIC_SELECTION_SCORE = 0.22;
+const COMPETITION_EVIDENCE_REASON =
+  "issuer filing names the company near competition language";
+const COMPETITION_CONTEXT_CHARACTERS = 140;
 
 const ScreenerRowSchema = z
   .object({
@@ -249,12 +252,9 @@ function mentionScore(
         continue;
       }
       mentioned = true;
-      const priorBoundaries = [
-        normalizedAnnualText.lastIndexOf(".", position),
-        normalizedAnnualText.lastIndexOf("!", position),
-        normalizedAnnualText.lastIndexOf("?", position),
-        normalizedAnnualText.lastIndexOf("\n", position),
-      ];
+      const priorBoundaries = [".", "!", "?", "\n"].map((boundary) =>
+        normalizedAnnualText.lastIndexOf(boundary, position),
+      );
       const nextBoundaries = [".", "!", "?", "\n"]
         .map((boundary) =>
           normalizedAnnualText.indexOf(boundary, position + alias.length),
@@ -265,7 +265,13 @@ function mentionScore(
         nextBoundaries.length === 0
           ? normalizedAnnualText.length
           : Math.min(...nextBoundaries);
-      const window = normalizedAnnualText.slice(sentenceStart, sentenceEnd);
+      const window = normalizedAnnualText.slice(
+        Math.max(sentenceStart, position - COMPETITION_CONTEXT_CHARACTERS),
+        Math.min(
+          sentenceEnd,
+          position + alias.length + COMPETITION_CONTEXT_CHARACTERS,
+        ),
+      );
       if (
         /\b(?:compet|rival|alternative|versus|market share|substitute)\w*/u.test(
           window,
@@ -311,7 +317,7 @@ function scoredCandidate(
     : "operating_comparable";
   const reasons = [
     ...(mention.competitive
-      ? ["issuer filing names the company near competition language"]
+      ? [COMPETITION_EVIDENCE_REASON]
       : mention.score > 0
         ? ["issuer filing references the company"]
         : []),
@@ -319,7 +325,13 @@ function scoredCandidate(
     ...(financial >= 0.62 ? ["similar growth and margin profile"] : []),
     ...(size >= 0.55 ? ["comparable market-cap scale"] : []),
   ].slice(0, 4);
-  return { candidate, classification, reasons, score };
+  return {
+    candidate,
+    classification,
+    reasons,
+    score,
+    marketOverlapVerified: mention.competitive,
+  };
 }
 
 function selectPeers(input: {
@@ -406,6 +418,7 @@ function toPeerRecord(
       scored.reasons.length > 0
         ? scored.reasons
         : ["available relative-value metrics"],
+    ...(scored.marketOverlapVerified ? { marketOverlapVerified: true } : {}),
     ...(row.market_cap == null ? {} : { marketCap: row.market_cap }),
     ...(row.price_earnings_ttm == null
       ? {}

@@ -14,13 +14,13 @@
 
 .research-editorial-document[data-report-surface="committee"]
   .research-editorial-section {
-  padding: clamp(34px, 4.5vw, 56px) clamp(26px, 4vw, 48px);
+  padding: clamp(34px, 4vw, 48px) clamp(26px, 3.7vw, 44px);
 }
 
 .research-editorial-document[data-report-surface="committee"]
   .research-editorial-section
   > :where(section, div, aside) {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .committee-cockpit {
@@ -272,6 +272,14 @@
   letter-spacing: 0.08em;
 }
 
+.committee-cockpit__metrics-empty {
+  margin: 0;
+  padding: 14px 0;
+  color: var(--editorial-muted);
+  font-size: 0.7rem;
+  line-height: 1.6;
+}
+
 .committee-cockpit__key-metrics dl > div {
   padding: 10px 0;
   display: flex;
@@ -459,8 +467,8 @@
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
   gap: 20px;
-  padding-bottom: 24px;
-  border-bottom: 2px solid var(--editorial-rule-strong);
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--editorial-rule);
 }
 
 .committee-conflict-matrix > header h2,

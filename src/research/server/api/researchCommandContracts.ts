@@ -72,3 +72,14 @@ export const ChildRunSchema = z
   .strict()
   .readonly();
 export type ChildRun = z.infer<typeof ChildRunSchema>;
+
+export const RecoveredRunSchema = z
+  .object({
+    runId: z.string().uuid(),
+    snapshotId: z.string().uuid(),
+    status: z.literal("running"),
+    recovery: z.literal("same-run-stage-resume"),
+  })
+  .strict()
+  .readonly();
+export type RecoveredRun = z.infer<typeof RecoveredRunSchema>;

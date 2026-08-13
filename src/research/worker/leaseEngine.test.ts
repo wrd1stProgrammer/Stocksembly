@@ -463,6 +463,7 @@ describe("leased research worker", () => {
         kind: "handled",
         outcome: { kind: "accepted" },
       });
+      expect(fixture.runStatus(seed.runId)).toBe("running");
       expect(fixture.budgets(seed.runId).requestedReplacementCalls).toBe(4);
       expect(fixture.runtimeStates(seed.runId)).toEqual([
         "waiting",
@@ -474,7 +475,7 @@ describe("leased research worker", () => {
     }
   });
 
-  it("opens a recoverable circuit after repeated transient runner failures", async () => {
+  it("keeps repeated transient runner failures in durable automatic retry", async () => {
     // Given
     const fixture = createLeaseEngineFixture();
     let dependencyAvailable = false;
@@ -504,27 +505,34 @@ describe("leased research worker", () => {
       fixture.clock.set("2026-07-22T00:00:05.000Z");
 
       // When
-      const opened = await engine.poll();
+      const secondFailure = await engine.poll();
       fixture.clock.set("2026-07-22T01:00:00.000Z");
-      const held = await engine.poll();
+      const coolingDown = await engine.poll();
       dependencyAvailable = true;
-      engine.recoverCircuit(seed.runId);
+      fixture.clock.set("2026-07-22T01:10:00.000Z");
       const recovered = await engine.poll();
 
       // Then
-      expect(opened).toMatchObject({
+      expect(secondFailure).toMatchObject({
+        kind: "handled",
+        outcome: {
+          kind: "transient",
+          code: "codex_network_unavailable",
+        },
+      });
+      expect(coolingDown).toMatchObject({
         kind: "handled",
         outcome: {
           kind: "attention",
-          code: "external_dependency_circuit_open",
+          code: "external_dependency_cooling_down",
         },
       });
-      expect(held).toEqual({ kind: "idle" });
       expect(recovered).toMatchObject({
         kind: "handled",
         outcome: { kind: "accepted" },
       });
-      expect(fixture.runtimeStates(seed.runId)).toContain(
+      expect(fixture.runtimeStates(seed.runId)).toContain("waiting");
+      expect(fixture.runtimeStates(seed.runId)).not.toContain(
         "blocked-external-dependency",
       );
       const persisted = JSON.stringify(

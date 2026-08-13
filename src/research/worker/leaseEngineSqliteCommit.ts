@@ -115,7 +115,9 @@ function runtimeState(input: CommitInput): string | undefined {
     case "repair":
       return "invalid-model-output";
     case "attention":
-      return "blocked-external-dependency";
+      // Attention outcomes carry a durable retryAt. They are provider cool-downs,
+      // not operator-blocked failures, so keep the public run in waiting state.
+      return "waiting";
     case "permanent":
       return input.outcome.code.includes("auth")
         ? "blocked-external-dependency"

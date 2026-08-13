@@ -6,6 +6,8 @@ import {
   databaseScalar,
   postCommand,
   publishRun,
+  setInitialResearchJobRetry,
+  setInitialResearchJobStatus,
   setResearchTarget,
   setRunStatus,
 } from "./researchCommands.testSupport";
@@ -15,10 +17,16 @@ import { json } from "./researchRoutes.testSupport";
 export function registerResearchRunCommandTests(
   harnessValue: () => ApiHarness,
 ): void {
-  it("creates only a failed parent's immutable same-snapshot retry", async () => {
+  it("resumes the failed stage in place without creating another run", async () => {
     // Given
     const harness = harnessValue();
     const parent = await createRun(harness, "retry-parent");
+    setInitialResearchJobStatus(harness, parent.runId, "retry-wait");
+    setInitialResearchJobRetry(harness, parent.runId, {
+      retryAt: "2099-01-01T00:00:00.000Z",
+      failureCount: 5,
+      circuitOpen: true,
+    });
     setRunStatus(harness, parent.runId, "failed");
 
     // When
@@ -40,9 +48,10 @@ export function registerResearchRunCommandTests(
     expect(replay.body).toEqual(created.body);
     expect(created.body).toMatchObject({
       run: {
+        runId: parent.runId,
         snapshotId: parent.snapshotId,
-        parentRunId: parent.runId,
-        lineage: "same-snapshot-retry",
+        status: "running",
+        recovery: "same-run-stage-resume",
       },
     });
     expect(
@@ -51,13 +60,36 @@ export function registerResearchRunCommandTests(
         "SELECT status FROM runs WHERE run_id = ?",
         parent.runId,
       ),
-    ).toBe("failed");
+    ).toBe("running");
+    expect(databaseScalar(harness, "SELECT COUNT(*) FROM runs")).toBe(1);
+    expect(
+      databaseScalar(
+        harness,
+        `SELECT json_extract(result_json, '$.retryAt')
+         FROM idempotency_records WHERE scope = 'worker-retry'`,
+      ),
+    ).toBe("2026-07-23T06:00:00.000Z");
+    expect(
+      databaseScalar(
+        harness,
+        `SELECT json_extract(result_json, '$.failureCount')
+         FROM idempotency_records WHERE scope = 'worker-retry'`,
+      ),
+    ).toBe(0);
+    expect(
+      databaseScalar(
+        harness,
+        `SELECT json_extract(result_json, '$.circuitOpen')
+         FROM idempotency_records WHERE scope = 'worker-retry'`,
+      ),
+    ).toBe(0);
   });
 
   it("preserves a department target on same-snapshot retry", async () => {
     const harness = harnessValue();
     const parent = await createRun(harness, "retry-department-parent");
     setResearchTarget(harness, parent.runId, "market");
+    setInitialResearchJobStatus(harness, parent.runId, "retry-wait");
     setRunStatus(harness, parent.runId, "failed");
 
     const created = await postCommand(
@@ -65,7 +97,7 @@ export function registerResearchRunCommandTests(
       `/api/research/runs/${parent.runId}/retries`,
       "retry-department-child",
     );
-    const childRunId = z
+    const resumedRunId = z
       .object({ run: z.object({ runId: z.string().uuid() }) })
       .parse(created.body).run.runId;
 
@@ -75,9 +107,10 @@ export function registerResearchRunCommandTests(
         harness,
         `SELECT research_kind || ':' || department_id
          FROM research_requests WHERE run_id = ?`,
-        childRunId,
+        resumedRunId,
       ),
     ).toBe("department:market");
+    expect(resumedRunId).toBe(parent.runId);
   });
 
   it("rejects retry for queued or completed runs", async () => {
@@ -107,6 +140,69 @@ export function registerResearchRunCommandTests(
 
     // Then
     expect(results.map((response) => response.status)).toEqual([409, 409]);
+  });
+
+  it("rejects a terminal job failure instead of leaving the run stuck", async () => {
+    const harness = harnessValue();
+    const run = await createRun(harness, "retry-terminal-failure");
+    setInitialResearchJobStatus(harness, run.runId, "failed");
+    setRunStatus(harness, run.runId, "failed");
+
+    const response = await harness.api.handle(
+      commandRequest(
+        harness,
+        `/api/research/runs/${run.runId}/retries`,
+        "retry-terminal-failure-command",
+      ),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await json(response)).toEqual({
+      error: { code: "RECOVERY_NOT_AVAILABLE" },
+    });
+    expect(
+      databaseScalar(
+        harness,
+        "SELECT status FROM runs WHERE run_id = ?",
+        run.runId,
+      ),
+    ).toBe("failed");
+  });
+
+  it("reopens a failed job when its persisted failure is transient", async () => {
+    const harness = harnessValue();
+    const run = await createRun(harness, "retry-transient-terminal");
+    setInitialResearchJobStatus(harness, run.runId, "failed");
+    setInitialResearchJobRetry(harness, run.runId, {
+      retryAt: "2099-01-01T00:00:00.000Z",
+      failureCount: 3,
+      circuitOpen: true,
+    });
+    setRunStatus(harness, run.runId, "incomplete");
+
+    const response = await harness.api.handle(
+      commandRequest(
+        harness,
+        `/api/research/runs/${run.runId}/retries`,
+        "retry-transient-terminal-command",
+      ),
+    );
+
+    expect(response.status).toBe(202);
+    expect(
+      databaseScalar(
+        harness,
+        "SELECT status FROM jobs WHERE run_id = ? AND kind = 'research'",
+        run.runId,
+      ),
+    ).toBe("retry-wait");
+    expect(
+      databaseScalar(
+        harness,
+        `SELECT json_extract(result_json, '$.circuitOpen')
+         FROM idempotency_records WHERE scope = 'worker-retry'`,
+      ),
+    ).toBe(0);
   });
 
   it("allocates fresh-snapshot follow-up versions atomically while v1 remains current", async () => {

@@ -118,7 +118,16 @@ export class LeaseEngine {
       await this.#handler.reconcile?.();
       return true;
     } catch (error) {
-      if (error instanceof Error) return false;
+      if (error instanceof Error) {
+        console.error(
+          JSON.stringify({
+            kind: "workflow_reconcile_failed",
+            name: error.name,
+            message: error.message,
+          }),
+        );
+        return false;
+      }
       throw error;
     }
   }
@@ -235,9 +244,8 @@ export class LeaseEngine {
       }
       const failureName = error instanceof Error ? error.name : "Unknown";
       return await this.commitOutcome(claim, attempt, {
-        kind: "transient",
+        kind: "permanent",
         code: `unexpected_worker_failure:${failureName}`,
-        retryAt: after(this.#clock.now(), 10_000),
       });
     } finally {
       this.#active.delete(attempt.attemptId);

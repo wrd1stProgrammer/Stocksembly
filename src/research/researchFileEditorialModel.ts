@@ -6,7 +6,10 @@ import type {
 } from "./compositions/types";
 import type { ComparatorQualificationResult } from "./domain/comparatorQualificationContracts";
 import { workflowRoleById } from "./domain/roleRegistry";
-import { publicEvidenceLabel } from "./publicPresentation";
+import {
+  publicDecisionDimensionLabel,
+  publicEvidenceLabel,
+} from "./publicPresentation";
 import {
   buildEditorialInsights,
   type EditorialDebate,
@@ -482,25 +485,9 @@ function metricProof(
 }
 
 function comparisonInterpretation(input: {
-  readonly locale: Locale;
-  readonly lens: "price" | "business" | "earnings";
   readonly teamEvidence: string;
   readonly checkpoint: string;
 }): string {
-  const lensInsights = {
-    price: {
-      ko: "가격 흐름은 성장 서사 자체보다 실적 개선이 현 주가에 얼마나 선반영됐는지를 보여줍니다.",
-      en: "Price action shows how much operating improvement is already discounted, rather than merely confirming the growth narrative.",
-    },
-    business: {
-      ko: "매출 확대가 제품 경쟁력의 증거가 되려면 물량 증가가 마진과 반복 가능한 현금창출로 함께 이어져야 합니다.",
-      en: "Revenue expansion supports the competitive case only when volume growth also converts into margins and repeatable cash generation.",
-    },
-    earnings: {
-      ko: "이익의 질은 회계상 성장률보다 영업현금흐름이 투자 부담과 주식 희석을 흡수하는지로 판별해야 합니다.",
-      en: "Earnings quality depends less on reported growth than on whether operating cash flow absorbs investment needs and shareholder dilution.",
-    },
-  } as const;
   const teamEvidence = compactEditorialText(input.teamEvidence, 1);
   const checkpoint = compactEditorialText(input.checkpoint, 1);
   const dynamicEvidence =
@@ -510,12 +497,8 @@ function comparisonInterpretation(input: {
     )
       ? teamEvidence
       : checkpoint;
-  return dedupeEditorialTexts([
-    lensInsights[input.lens][input.locale],
-    dynamicEvidence,
-    checkpoint,
-  ])
-    .slice(0, 3)
+  return dedupeEditorialTexts([dynamicEvidence, checkpoint])
+    .slice(0, 2)
     .join(" ");
 }
 
@@ -754,6 +737,75 @@ function conclusionIndex(file: ResearchFileData): number {
 }
 
 function reliability(file: ResearchFileData): number {
+  if (file.researchTarget?.kind === "department") {
+    const departmentId = file.researchTarget.departmentId;
+    const claims = file.claimMatrix ?? [];
+    const ownedClaims = claims.filter(
+      (claim) =>
+        claim.roleOwner !== undefined &&
+        workflowRoleById(claim.roleOwner)?.departmentId === departmentId,
+    );
+    const scopedClaims = ownedClaims.length > 0 ? ownedClaims : claims;
+    if (scopedClaims.length > 0) {
+      const strengthScore = {
+        strong: 96,
+        moderate: 84,
+        limited: 66,
+        contested: 56,
+        unverified: 32,
+      } as const;
+      const averageStrength =
+        scopedClaims.reduce(
+          (total, claim) => total + strengthScore[claim.strength],
+          0,
+        ) / scopedClaims.length;
+      const evidenceCoverage =
+        (scopedClaims.filter(
+          (claim) =>
+            claim.sourceRefs.length > 0 ||
+            (claim.evidenceArtifactIds?.length ?? 0) > 0,
+        ).length /
+          scopedClaims.length) *
+        100;
+      const linkedSourceIds = new Set(
+        scopedClaims.flatMap((claim) => [
+          ...claim.sourceRefs,
+          ...(claim.evidenceArtifactIds ?? []),
+        ]),
+      );
+      const linkedSources = file.evidenceIndex.filter((source) =>
+        linkedSourceIds.has(source.id),
+      );
+      const freshnessScore =
+        linkedSources.length === 0
+          ? evidenceCoverage > 0
+            ? 78
+            : 45
+          : linkedSources.reduce(
+              (total, source) =>
+                total +
+                (source.freshness === "current"
+                  ? 100
+                  : source.freshness === "stale"
+                    ? 68
+                    : source.freshness === "unavailable"
+                      ? 40
+                      : 82),
+              0,
+            ) / linkedSources.length;
+      return Math.round(
+        Math.max(
+          0,
+          Math.min(
+            100,
+            averageStrength * 0.45 +
+              evidenceCoverage * 0.35 +
+              freshnessScore * 0.2,
+          ),
+        ),
+      );
+    }
+  }
   if (file.qualityScorecard !== undefined)
     return Math.round(
       (file.qualityScorecard.evidenceCoverage +
@@ -1159,6 +1211,17 @@ function buildWorkflowV2EditorialModel(
     return undefined;
   const ko = locale === "ko";
   const text = (value: LocalizedText) => value[locale];
+  const displayClaims = structured.claims.filter((claim, index, claims) =>
+    claims
+      .slice(0, index)
+      .every(
+        (previous) =>
+          !editoriallySimilar(
+            text(previous.publicThesis),
+            text(claim.publicThesis),
+          ),
+      ),
+  );
   const sectionCopy = (
     item: ResearchFileData["analysis"][number] | undefined,
   ) =>
@@ -1216,15 +1279,15 @@ function buildWorkflowV2EditorialModel(
     evidence: text(team.rationale),
     portraitPath: `/research/office-v7/portraits/${team.departmentId}.png`,
   }));
-  const supportClaims = structured.claims.filter(
+  const supportClaims = displayClaims.filter(
     (claim) => claim.stanceContribution === "supports",
   );
-  const opposingClaims = structured.claims.filter(
+  const opposingClaims = displayClaims.filter(
     (claim) => claim.stanceContribution === "opposes",
   );
   const primaryClaims = structured.decision.primaryClaimIds.flatMap(
     (claimId) => {
-      const claim = structured.claims.find(
+      const claim = displayClaims.find(
         (candidate) => candidate.claimId === claimId,
       );
       return claim === undefined ? [] : [claim];
@@ -1232,7 +1295,7 @@ function buildWorkflowV2EditorialModel(
   );
   const usedClaimEvidence: string[] = [];
   const usedCounterpoints: string[] = [];
-  const claimRows: readonly EditorialAnalysisRow[] = structured.claims.map(
+  const claimRows: readonly EditorialAnalysisRow[] = displayClaims.map(
     (claim, index) => {
       const thesis = text(claim.publicThesis);
       const checkpoint = text(claim.falsifier);
@@ -1279,7 +1342,7 @@ function buildWorkflowV2EditorialModel(
       usedCounterpoints.push(resolvedCounterpoint);
       return {
         id: claim.claimId,
-        title: claim.decisionDimension.replaceAll("_", " "),
+        title: publicDecisionDimensionLabel(claim.decisionDimension, locale),
         agentView: thesis,
         evidence: resolvedEvidence,
         counterpoint: resolvedCounterpoint,
@@ -1311,24 +1374,24 @@ function buildWorkflowV2EditorialModel(
         ? {}
         : { evidenceId: row.evidenceArtifactIds[0] }),
     }));
-  const valuationClaim = structured.claims.find(
+  const valuationClaim = displayClaims.find(
     (claim) => claim.decisionDimension === "embedded_expectations",
   );
-  const growthClaim = structured.claims.find((claim) =>
+  const growthClaim = displayClaims.find((claim) =>
     ["growth_engine", "adoption", "moat"].includes(claim.decisionDimension),
   );
-  const financialClaim = structured.claims.find((claim) =>
+  const financialClaim = displayClaims.find((claim) =>
     ["margin", "margin_durability", "cash_conversion"].includes(
       claim.decisionDimension,
     ),
   );
-  const riskClaim = structured.claims.find((claim) =>
+  const riskClaim = displayClaims.find((claim) =>
     ["downside_path", "leading_indicator"].includes(claim.decisionDimension),
   );
   const sectionComparisonRow = (input: {
     readonly label: string;
     readonly section: ResearchFileData["analysis"][number] | undefined;
-    readonly fallbackClaim: (typeof structured.claims)[number] | undefined;
+    readonly fallbackClaim: (typeof displayClaims)[number] | undefined;
     readonly checkpoint: string;
   }): EditorialComparisonRow | undefined => {
     const companyView = distinctCandidate(
@@ -1391,13 +1454,13 @@ function buildWorkflowV2EditorialModel(
     ...source,
     ...readerEvidenceLabel(source.publisher, source.title, locale),
   }));
-  const catalysts = structured.claims
+  const catalysts = displayClaims
     .filter((claim) => claim.decisionDimension === "catalyst")
     .map((claim) => ({
       headline: text(claim.publicThesis),
       body: text(claim.falsifier),
     }));
-  const risks = structured.claims
+  const risks = displayClaims
     .filter((claim) =>
       ["downside_path", "leading_indicator"].includes(claim.decisionDimension),
     )
@@ -1490,7 +1553,7 @@ function buildWorkflowV2EditorialModel(
   const investmentView = [tenSecondBrief || directAnswer];
   const primaryClaim = structured.decision.primaryClaimIds.flatMap(
     (claimId) => {
-      const claim = structured.claims.find(
+      const claim = displayClaims.find(
         (candidate) => candidate.claimId === claimId,
       );
       return claim === undefined ? [] : [claim];
@@ -1505,7 +1568,7 @@ function buildWorkflowV2EditorialModel(
       : valuationFrameworkFor(file.metricSnapshot.investmentModel, locale);
   return {
     structuredDecision: structured.decision,
-    structuredClaims: structured.claims,
+    structuredClaims: displayClaims,
     qualifiedComparators: structured.comparators,
     question: file.researchDirection ?? "",
     directAnswer,
@@ -1525,14 +1588,17 @@ function buildWorkflowV2EditorialModel(
           ]),
     ],
     lensRows: structured.decision.primaryClaimIds.flatMap((claimId) => {
-      const claim = structured.claims.find(
+      const claim = displayClaims.find(
         (candidate) => candidate.claimId === claimId,
       );
       return claim === undefined
         ? []
         : [
             {
-              label: claim.decisionDimension.replaceAll("_", " "),
+              label: publicDecisionDimensionLabel(
+                claim.decisionDimension,
+                locale,
+              ),
               content: text(claim.publicThesis),
             },
           ];
@@ -1554,7 +1620,7 @@ function buildWorkflowV2EditorialModel(
           )
         : text(valuationClaim.publicThesis),
     nextVerificationEvent:
-      structured.claims.find((claim) => claim.decisionDimension === "catalyst")
+      displayClaims.find((claim) => claim.decisionDimension === "catalyst")
         ?.publicThesis[locale] ?? "",
     comparisonRows,
     ...(qualification === undefined
@@ -1953,8 +2019,6 @@ export function buildResearchFileEditorialModel(
             presentLocalized(file.expectation, locale),
         ),
       interpretation: comparisonInterpretation({
-        locale,
-        lens: "price",
         teamEvidence:
           marketTeam?.evidence ?? presentLocalized(file.condition, locale),
         checkpoint: presentLocalized(file.nextEvent, locale),
@@ -1975,8 +2039,6 @@ export function buildResearchFileEditorialModel(
         companyTeam?.strongestClaim ?? presentLocalized(file.thesis, locale),
       ),
       interpretation: comparisonInterpretation({
-        locale,
-        lens: "business",
         teamEvidence:
           companyTeam?.evidence ??
           presentLocalized(file.changeCondition, locale),
@@ -1998,8 +2060,6 @@ export function buildResearchFileEditorialModel(
           presentLocalized(file.valuation, locale),
       ),
       interpretation: comparisonInterpretation({
-        locale,
-        lens: "earnings",
         teamEvidence:
           financialTeam?.evidence ??
           presentLocalized(file.changeCondition, locale),

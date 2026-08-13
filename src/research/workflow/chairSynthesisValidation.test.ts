@@ -46,6 +46,26 @@ describe("chair synthesis directional contract", () => {
     });
   });
 
+  it("allows a detailed section to carry forward the executive brief conclusion", () => {
+    const { prompt, candidate } = mixedClaimValidationFixture();
+    const brief = candidate.sections.find(
+      (section) => section.sectionKey === "ten_second_brief",
+    );
+    if (brief === undefined) throw new TypeError("missing brief fixture");
+    const consistent = {
+      ...candidate,
+      sections: candidate.sections.map((section) =>
+        section.sectionKey === "supported_analysis"
+          ? { ...section, publicSummary: brief.publicSummary }
+          : section,
+      ),
+    };
+
+    expect(
+      chairCandidateIssue(JSON.stringify(prompt), consistent)?.reason,
+    ).not.toBe("semantic_repetition");
+  });
+
   it("publishes a verifiable disjoint sentence ownership ledger", () => {
     const { prompt, candidate } = mixedClaimValidationFixture();
     const modelPrompt = JSON.parse(chairSynthesisModelPrompt(prompt)) as {
@@ -388,6 +408,9 @@ describe("chair synthesis directional contract", () => {
     expect(document["properties"]["sections"]["items"]["required"]).toContain(
       "conflictAdjudication",
     );
+    expect(
+      document["properties"]["decisionBrief"]["properties"]["teamAssessment"],
+    ).toBeUndefined();
   });
 
   it("preserves authenticated ballot and citation IDs while rejecting grounded-number failure", () => {

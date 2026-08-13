@@ -57,11 +57,13 @@ export type BriefingUpcomingEvent = {
 };
 
 export type BriefingDecisionCheck = {
+  readonly horizon?: "today" | "next_catalyst";
   readonly title: string;
   readonly timing: string;
   readonly metric: string;
   readonly confirmation: string;
   readonly ifConfirmed: string;
+  readonly ifUnclear?: string;
   readonly ifFailed: string;
 };
 
@@ -113,6 +115,61 @@ export type BriefingEarningsSnapshot = {
   readonly nextRevenueForecast?: number;
 };
 
+export type BriefingFinancialDocumentContext = {
+  readonly id: string;
+  readonly category: string;
+  readonly title: string;
+  readonly reportedAt: string;
+  readonly publishedAt: string;
+  readonly excerpt: string;
+};
+
+export type BriefingEpsComparison =
+  | {
+      readonly availability: "available";
+      readonly basis: "same_report";
+      readonly actual: number;
+      readonly forecast: number;
+      readonly surprise?: number;
+      readonly surprisePercent?: number;
+    }
+  | {
+      readonly availability: "unavailable";
+      readonly reason: "missing_actual" | "missing_same_report_forecast";
+    };
+
+export type BriefingPeerFinancialContext = {
+  readonly sector: string;
+  readonly subject: {
+    readonly symbol: string;
+    readonly name: string;
+    readonly marketCap?: number;
+    readonly priceEarningsTtm?: number;
+    readonly enterpriseValueEbitdaTtm?: number;
+    readonly enterpriseValueRevenueTtm?: number;
+    readonly revenueGrowthTtm?: number;
+    readonly grossMarginTtm?: number;
+    readonly operatingMarginTtm?: number;
+  };
+  readonly relativeValuation: readonly {
+    readonly metric:
+      | "price_earnings_ttm"
+      | "enterprise_value_ebitda_ttm"
+      | "enterprise_value_to_revenue_ttm";
+    readonly peerMedian: number;
+    readonly peerCount: number;
+    readonly subjectValue?: number;
+    readonly premiumDiscountPercent?: number;
+  }[];
+};
+
+export type BriefingFinancialContext = {
+  readonly documents: readonly BriefingFinancialDocumentContext[];
+  readonly epsComparison: BriefingEpsComparison;
+  readonly oneOffInterpretation: "unavailable";
+  readonly peers?: BriefingPeerFinancialContext;
+};
+
 export type BriefingEditionPayload = {
   readonly schemaVersion: 1;
   readonly symbol: string;
@@ -123,6 +180,8 @@ export type BriefingEditionPayload = {
   readonly cutoffAt: string;
   readonly coverageStart: string;
   readonly status: "ready" | "partial";
+  readonly evidenceCompleteness?: "complete" | "partial";
+  readonly generationMode?: "model" | "fallback";
   readonly attention: "low" | "medium" | "high";
   readonly headline: string;
   readonly summary: string;
@@ -193,6 +252,7 @@ export type BriefingSourceSnapshot = {
   readonly marketReference?: BriefingMarketReference;
   readonly technicalReference?: BriefingTechnicalReference;
   readonly earnings?: BriefingEarningsSnapshot;
+  readonly backgroundFinancialContext?: BriefingFinancialContext;
   readonly sources: readonly BriefingSource[];
   readonly limitations: readonly string[];
 };

@@ -14,6 +14,38 @@ export function formatSignedPercent(value: number): string {
   return `${normalized > 0 ? "+" : ""}${formatPercent(normalized)}`;
 }
 
+const DECISION_DIMENSION_LABELS = {
+  regime: { en: "Market regime", ko: "시장 국면" },
+  timing: { en: "Entry timing", ko: "진입 시점" },
+  relative_performance: { en: "Relative performance", ko: "상대 성과" },
+  catalyst: { en: "Catalyst", ko: "촉매" },
+  growth_engine: { en: "Growth engine", ko: "성장 엔진" },
+  adoption: { en: "Adoption", ko: "제품 채택" },
+  moat: { en: "Competitive moat", ko: "경쟁우위" },
+  competitive_erosion: { en: "Moat erosion", ko: "경쟁우위 훼손" },
+  margin: { en: "Margin durability", ko: "마진 지속성" },
+  cash_conversion: { en: "Cash conversion", ko: "현금 전환" },
+  reinvestment: { en: "Reinvestment", ko: "재투자" },
+  embedded_expectations: {
+    en: "Priced-in expectations",
+    ko: "주가 내재 기대",
+  },
+  downside_path: { en: "Downside path", ko: "하방 경로" },
+  leading_indicator: { en: "Early warning", ko: "조기 경보" },
+  mitigant: { en: "Risk buffer", ko: "완충 요인" },
+} as const;
+
+export function publicDecisionDimensionLabel(
+  dimension: string,
+  locale: Locale,
+): string {
+  return (
+    DECISION_DIMENSION_LABELS[
+      dimension as keyof typeof DECISION_DIMENSION_LABELS
+    ]?.[locale] ?? dimension.replaceAll("_", " ")
+  );
+}
+
 export function publicEvidenceLabel(
   publisher: string,
   title: string,

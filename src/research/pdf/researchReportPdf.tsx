@@ -573,8 +573,8 @@ export function ResearchPdfDocument({
       >
         <Text style={styles.title}>
           {ko
-            ? "11명의 전문가와 의장은 같은 결론을 복창하지 않습니다"
-            : "Eleven specialists and the chair do not echo one conclusion"}
+            ? "네 팀의 독립 판단과 최종 판정"
+            : "Four independent team views and the final decision"}
         </Text>
         <Text style={styles.lead}>
           {ko

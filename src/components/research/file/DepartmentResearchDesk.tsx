@@ -235,14 +235,11 @@ export function DepartmentResearchDesk({
           data-report-section="team-roundtable"
         >
           <header className={styles["sectionHeader"]}>
-            <div>
-              <span>{ko ? "팀 내부 검토" : "ROLE-OWNED REVIEW"}</span>
-              <h2>{ko ? "전문가 라운드테이블" : "Specialist roundtable"}</h2>
-            </div>
+            <h2>{ko ? "전문가 판단" : "Specialist findings"}</h2>
             <p>
               {ko
-                ? "같은 결론을 반복하지 않고 각 담당자가 자신이 책임지는 판단 근거와 반전 조건을 제시합니다."
-                : "Each specialist owns a distinct decision lens, evidence read, and reversal condition."}
+                ? "담당 영역별 핵심 관찰과 판단을 뒤집을 조건입니다."
+                : "The core observation and reversal condition for each specialist's mandate."}
             </p>
           </header>
           <div
@@ -304,7 +301,7 @@ export function DepartmentResearchDesk({
           </div>
           {team === undefined ? null : (
             <aside className={styles["arbitration"]}>
-              <span>{ko ? "팀 책임자 조정" : "LEAD ARBITRATION"}</span>
+              <span>{ko ? "팀 책임자 판단" : "Team lead view"}</span>
               <strong>{team.position[locale]}</strong>
               <p>{team.rationale[locale]}</p>
             </aside>
@@ -322,11 +319,6 @@ export function DepartmentResearchDesk({
             <span>{ko ? "투자 판단 보드" : "INVESTMENT DECISION BOARD"}</span>
             <h2>{stanceLabel(decision?.stance, locale)}</h2>
           </div>
-          <p>
-            {ko
-              ? "결론보다 조건을 먼저 확인합니다."
-              : "Read the conditions before the conclusion."}
-          </p>
         </header>
         <div className={styles["decisionGrid"]}>
           {decisionRows.map((row, index) => (

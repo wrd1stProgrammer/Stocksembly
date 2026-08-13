@@ -281,6 +281,10 @@ describe("manifest-derived office snapshot renderer", () => {
       width: 390,
       height: 844,
     }).camera;
+    const desktopFocus = project(focusedSnapshot, undefined, "focus", {
+      width: 1280,
+      height: 720,
+    }).camera;
 
     // Then
     expect(overview).toMatchObject({
@@ -327,6 +331,8 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(focus.visibleWorldBounds.left).toBeLessThanOrEqual(0);
     expect(focus.visibleWorldBounds.top).toBeLessThanOrEqual(0);
     expect(focus.visibleWorldBounds.right).toBeGreaterThanOrEqual(280);
+    expect(desktopFocus.scale).toBeLessThanOrEqual(1.2);
+    expect(desktopFocus.scale).toBeGreaterThan(overview.scale);
   });
 
   it("derives all twelve actors and v8 paths without ticker-owned behavior", () => {

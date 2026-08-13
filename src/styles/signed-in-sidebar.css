@@ -194,6 +194,78 @@
   transform: scale(1) translateX(0);
 }
 
+.signed-in-sidebar__compact-nav {
+  display: flex;
+  max-height: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-5px);
+  transition:
+    max-height 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 150ms ease,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 240ms;
+}
+
+.signed-in-sidebar[data-collapsed="true"] .signed-in-sidebar__compact-nav {
+  max-height: 120px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+
+.signed-in-sidebar__compact-nav a {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--color-text-subtle);
+  background: transparent;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.signed-in-sidebar__compact-nav a:hover,
+.signed-in-sidebar__compact-nav a:focus-visible {
+  color: var(--color-text);
+  border-color: rgb(255 255 255 / 9%);
+  background: #17191e;
+  transform: translateY(-1px);
+}
+
+.signed-in-sidebar__compact-nav a.is-active {
+  color: #f4f6fb;
+  border-color: rgb(255 255 255 / 10%);
+  background: #1c1e23;
+  box-shadow: inset 0 1px rgb(255 255 255 / 5%);
+}
+
+.signed-in-sidebar__compact-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6f8cff;
+  box-shadow: 0 0 0 2px #1c1e23;
+}
+
 .signed-in-sidebar__content {
   min-height: 0;
   max-height: calc(100dvh - 106px);
@@ -975,6 +1047,11 @@
       var(--research-bg-deep) 94%,
       var(--research-black)
     );
+  }
+
+  .signed-in-sidebar__compact-nav,
+  .signed-in-sidebar[data-collapsed="true"] .signed-in-sidebar__compact-nav {
+    display: none;
   }
 
   .signed-in-sidebar__top .brand,

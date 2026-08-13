@@ -57,33 +57,30 @@ export function advanceLiveOfficeFrameForDisplay(
 export function useLiveOfficeAnimation(targetTick: number) {
   const [frame, setFrame] = useState(() => createLiveOfficeFrame(targetTick));
   const frameRef = useRef(frame);
-  const targetRef = useRef(targetTick);
 
   useEffect(() => {
-    targetRef.current = targetTick;
-  }, [targetTick]);
-
-  useEffect(() => {
+    if (frameRef.current.simulation.tick >= targetTick) return;
     let animationFrame = 0;
     let previousTimestamp: number | undefined;
     const advance = (timestamp: number): void => {
       if (previousTimestamp !== undefined) {
         const next = advanceLiveOfficeFrameForDisplay(
           frameRef.current,
-          targetRef.current,
+          targetTick,
           timestamp - previousTimestamp,
         );
         if (next !== frameRef.current) {
           frameRef.current = next;
-          setFrame(next);
+          setFrame((current) => (current === next ? current : next));
         }
       }
       previousTimestamp = timestamp;
-      animationFrame = window.requestAnimationFrame(advance);
+      if (frameRef.current.simulation.tick < targetTick)
+        animationFrame = window.requestAnimationFrame(advance);
     };
     animationFrame = window.requestAnimationFrame(advance);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, []);
+  }, [targetTick]);
 
   return useMemo(
     () => ({

@@ -4,6 +4,7 @@ import { sanitizePublicEditorialText } from "./domain/editorialQuality";
 import type { ResearchReport, WorkflowV2ResearchReport } from "./domain/report";
 import type { ResearchComparison } from "./domain/researchComparison";
 import { workflowRoleById } from "./domain/roleRegistry";
+import { publicDecisionDimensionLabel } from "./publicPresentation";
 import {
   compactNarrative,
   evidenceScore,
@@ -479,7 +480,10 @@ function workflowV2ReportToFile(
       editorialAnalysis.length > 0
         ? editorialAnalysis
         : sanitizedPublicEditorialClaims.map((claim) => ({
-            title: localized(claim.decisionDimension, claim.decisionDimension),
+            title: localized(
+              publicDecisionDimensionLabel(claim.decisionDimension, "en"),
+              publicDecisionDimensionLabel(claim.decisionDimension, "ko"),
+            ),
             summary: claim.publicThesis,
             detail: claim.falsifier,
           })),

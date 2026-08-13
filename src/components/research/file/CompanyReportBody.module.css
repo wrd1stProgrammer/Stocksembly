@@ -5,8 +5,10 @@
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);
   gap: 8px 28px;
-  padding-bottom: 22px;
-  border-bottom: 3px solid var(--editorial-rule-strong);
+  padding-top: 15px;
+  padding-bottom: 4px;
+  border-top: 4px solid var(--editorial-accent);
+  border-bottom: 0;
 }
 .chapter > span {
   color: var(--editorial-accent);
@@ -29,8 +31,8 @@
 .operatingTape {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 32px;
-  border-top: 3px solid var(--editorial-rule-strong);
+  margin-top: 24px;
+  border-top: 1px solid var(--editorial-rule-strong);
   border-left: 1px solid var(--editorial-rule);
 }
 .operatingTape article {
@@ -53,31 +55,45 @@
 }
 
 .segmentMix {
-  margin-top: 40px;
-  display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
-  gap: 34px;
+  margin-top: 32px;
+  display: block;
 }
 .segmentMix > header {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 0 13px;
+  border-bottom: 2px solid var(--editorial-rule-strong);
 }
-.segmentMix > header span {
+.segmentMix > header > div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.segmentMix > header > div > :first-child {
   color: var(--editorial-accent);
   font-size: 0.7rem;
   font-weight: 760;
   text-transform: uppercase;
 }
 .segmentMix > header strong {
-  font-size: 2.1rem;
+  font: 760 0.8rem var(--font-mono, monospace);
   color: var(--editorial-accent);
 }
+.segmentMix > header p {
+  color: var(--editorial-muted);
+  font-size: 0.68rem;
+}
 .segmentMix > div {
-  border-top: 3px solid var(--editorial-rule-strong);
+  border-top: 0;
 }
 .segmentMix article {
-  padding: 20px 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.75fr) minmax(0, 1.25fr);
+  gap: 18px 28px;
+  align-items: center;
+  padding: 14px 0;
   border-bottom: 1px solid var(--editorial-rule);
 }
 .segmentMix article > div {
@@ -91,10 +107,14 @@
 .segmentMix i {
   display: block;
   height: 13px;
-  margin-top: 13px;
+  margin-top: 0;
   background: var(--editorial-rule);
   border-radius: 999px;
   overflow: hidden;
+}
+.segmentMix article > small {
+  grid-column: 2;
+  margin-top: -12px;
 }
 .segmentMix i b {
   display: block;
@@ -131,7 +151,7 @@
 }
 
 .engineGrid {
-  margin-top: 36px;
+  margin-top: 30px;
   border-top: 3px solid var(--editorial-rule-strong);
 }
 .engineGrid > header {
@@ -187,7 +207,7 @@
 }
 
 .moat {
-  margin-top: 40px;
+  margin-top: 32px;
 }
 .moat > h3 {
   padding-bottom: 18px;
@@ -195,21 +215,21 @@
 }
 .moat ol {
   list-style: none;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-}
-.moat ol[data-item-count="3"] li:last-child,
-.moat ol[data-item-count="1"] li:last-child {
-  grid-column: 1 / -1;
+  display: block;
+  border-top: 1px solid var(--editorial-rule);
 }
 .moat li {
   min-height: 0;
-  padding: 20px;
-  border-right: 1px solid var(--editorial-rule);
+  padding: 16px 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 18px;
   border-bottom: 1px solid var(--editorial-rule);
 }
-.moat li:first-child {
-  border-left: 1px solid var(--editorial-rule);
+.moat li > div {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.78fr) minmax(0, 1.22fr);
+  gap: 28px;
 }
 .moat li > span {
   color: var(--editorial-accent);
@@ -217,15 +237,15 @@
 }
 .moat li strong {
   display: block;
-  margin-top: 16px;
+  margin-top: 0;
   font-size: 0.86rem;
   line-height: 1.5;
 }
 .moat li p {
-  margin-top: 10px;
+  margin-top: 0;
   color: var(--editorial-muted);
   font-size: 0.72rem;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .peers {
@@ -361,16 +381,24 @@
   .peers > table {
     min-width: 700px;
   }
+  .segmentMix article {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+  .segmentMix article > small {
+    grid-column: 1;
+    margin-top: 0;
+  }
 }
 
 @container (max-width: 500px) {
   .engineGrid > div,
-  .moat ol,
   .ladder ol:first-child {
     grid-template-columns: 1fr;
   }
-  .moat li {
-    min-height: 0;
-    border-left: 1px solid var(--editorial-rule);
+
+  .moat li > div {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }

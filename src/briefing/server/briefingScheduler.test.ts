@@ -56,6 +56,7 @@ describe("daily briefing cycle", () => {
         { principalId: "c", locale: "en" as const, item: nvda },
       ],
       listBriefingEditionKeys: async () => new Set<string>(),
+      listBriefingEventKeys: async () => [],
       saveBriefingSourceSnapshot: async () =>
         "00000000-0000-4000-8000-000000000001",
       findPreviousBriefingEdition: async () => undefined,
@@ -103,5 +104,74 @@ describe("daily briefing cycle", () => {
       ["c"],
     ]);
     expect(result).toMatchObject({ audienceCount: 3, symbols: 1, editions: 2 });
+  });
+
+  it("passes bounded historical event ids to collection, not only the latest edition", async () => {
+    const immediate = {
+      ...payload("ko"),
+      materialChanges: [
+        {
+          id: "immediate-event",
+          kind: "company" as const,
+          direction: "positive" as const,
+          title: "Immediate event",
+          detail: "Immediate event detail",
+          investmentMeaning: "Immediate event meaning",
+          occurredAt: "2026-08-04T12:00:00.000Z",
+        },
+      ],
+    };
+    const listBriefingEventKeys = vi.fn(async () => ["historical-event"]);
+    const snapshot: BriefingSourceSnapshot = {
+      symbol: "NVDA",
+      company: nvda.company,
+      providerCode: nvda.providerCode,
+      marketDate: "2026-08-05",
+      cutoffAt: "2026-08-05T12:30:00.000Z",
+      coverageStart: "2026-08-04T12:30:00.000Z",
+      quote: {},
+      signals: [],
+      upcomingEvents: [],
+      fundamentals: {},
+      sources: [],
+      limitations: [],
+    };
+    const collect = vi.fn(async () => snapshot);
+    const store = {
+      listBriefingAudience: async () => [
+        { principalId: "a", locale: "ko" as const, item: nvda },
+      ],
+      listBriefingEditionKeys: async () => new Set<string>(),
+      listBriefingEventKeys,
+      saveBriefingSourceSnapshot: async () =>
+        "00000000-0000-4000-8000-000000000001",
+      findPreviousBriefingEdition: async () => immediate,
+      saveBriefingEdition: async () => undefined,
+      close: async () => undefined,
+      syncUser: async () => undefined,
+      recordResearchRun: async () => undefined,
+      recordReportOwnership: async () => undefined,
+    };
+
+    await runBriefingCycle({
+      store: store as Parameters<typeof runBriefingCycle>[0]["store"],
+      collector: { collect },
+      marketDate: "2026-08-05",
+      scheduledFor: "2026-08-05T12:30:00.000Z",
+      now: () => "2026-08-05T12:30:00.000Z",
+      synthesize: async () => payload("ko"),
+    });
+
+    expect(listBriefingEventKeys).toHaveBeenCalledWith(
+      "NVDA",
+      "ko",
+      "2026-08-05",
+      90,
+    );
+    expect(collect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previousEventKeys: ["historical-event", "immediate-event"],
+      }),
+    );
   });
 });

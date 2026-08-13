@@ -170,10 +170,20 @@ export const ChairModelSectionSchema = z
   .strict()
   .readonly();
 
+// `teamAssessment` is a department-report discriminator. The committee chair
+// does not populate it, and its discriminated union becomes JSON Schema
+// `oneOf`, which the Codex structured-output endpoint rejects. Keep the richer
+// persisted decision contract while exposing only chair-owned fields to the
+// model.
+const ChairModelDecisionBriefSchema = ChairDecisionBriefSchema.unwrap()
+  .omit({ teamAssessment: true })
+  .strict()
+  .readonly();
+
 export const ChairSynthesisModelOutputSchema = z
   .object({
     kind: z.literal("chair_synthesis"),
-    decisionBrief: ChairDecisionBriefSchema,
+    decisionBrief: ChairModelDecisionBriefSchema,
     selectedUnknownIds: z.array(z.string().uuid()).max(2).readonly(),
     sections: z.array(ChairModelSectionSchema).min(1).max(6).readonly(),
   })
@@ -219,6 +229,7 @@ export type ChairSynthesisReplay = {
   readonly incompleteReason:
     | "chair_artifact_missing"
     | "replacement_exhausted"
+    | "retry_pending"
     | null;
 };
 export type SqliteChairSynthesisOptions = {

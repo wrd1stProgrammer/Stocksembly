@@ -16,7 +16,7 @@ const RETRY_DELAYS_MS = [5_000, 30_000, 120_000, 300_000] as const;
 export type StageRecoveryState = "ready" | "waiting" | "exhausted";
 
 export function isRecoverableWorkflowFailure(reason: string): boolean {
-  return !/(?:auth|rights|policy_violation|origin_untrusted|link_untrusted|symbol_unsupported|identity_missing|sec_(?:primary_filing|10k)_missing|workflow_version_superseded|content_mismatch|lineage_mismatch|fence_mismatch|sections_incomplete|retention_mismatch|claim_invented|scenario_invalid|role_set_incomplete|semantic_chair_or_prompt_invalid|team_view_set_incomplete)/iu.test(
+  return !/(?:auth|rights|policy_violation|origin_untrusted|link_untrusted|symbol_unsupported|identity_missing|sec_(?:primary_filing|10k)_missing|workflow_version_superseded|content_mismatch|lineage_mismatch|fence_mismatch|sections_incomplete|retention_mismatch|claim_invented|scenario_invalid|role_set_incomplete|semantic_chair_or_prompt_invalid|team_view_set_incomplete|replacement_exhausted)/iu.test(
     reason,
   );
 }

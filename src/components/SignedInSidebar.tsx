@@ -33,6 +33,7 @@ import { clearResearchSession } from "../auth/researchSession";
 import { copy, type Locale } from "../lib/i18n";
 import type { PublicRun } from "../research/client/schemas";
 import { Brand } from "./Brand";
+import { SidebarSubscriptionModal } from "./billing/SidebarSubscriptionModal";
 import { CompanyLogo } from "./research/ResearchSidebar";
 
 type SignedInSidebarProps = {
@@ -102,6 +103,7 @@ export function SignedInSidebar({
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [profileOpen, setProfileOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [identity, setIdentity] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState<string>();
   const profileWrapRef = useRef<HTMLDivElement>(null);
@@ -219,7 +221,11 @@ export function SignedInSidebar({
 
   function handleOpenSubscription() {
     setProfileOpen(false);
-    onOpenSubscription?.();
+    if (onOpenSubscription) {
+      onOpenSubscription();
+      return;
+    }
+    setSubscriptionModalOpen(true);
   }
 
   async function handleLocaleSelection(nextLocale: Locale) {
@@ -243,6 +249,10 @@ export function SignedInSidebar({
   function handleCollapsedChange(next: boolean) {
     window.localStorage.setItem(SIGNED_IN_SIDEBAR_STORAGE_KEY, String(next));
     onCollapsedChange(next);
+  }
+
+  function preserveCollapsedNavigation() {
+    window.localStorage.setItem(SIGNED_IN_SIDEBAR_STORAGE_KEY, "true");
   }
 
   const profileAvatar = (
@@ -308,6 +318,49 @@ export function SignedInSidebar({
           </span>
         </button>
       </div>
+
+      <nav
+        className="signed-in-sidebar__compact-nav"
+        aria-label={locale === "ko" ? "빠른 화면 이동" : "Quick navigation"}
+        aria-hidden={!collapsed}
+      >
+        <Link
+          className={activeItem === "dashboard" ? "is-active" : undefined}
+          href={`/?lang=${locale}#product`}
+          aria-label={locale === "ko" ? "대시보드" : "Dashboard"}
+          aria-current={activeItem === "dashboard" ? "page" : undefined}
+          tabIndex={collapsed ? 0 : -1}
+          title={locale === "ko" ? "대시보드" : "Dashboard"}
+          onClick={preserveCollapsedNavigation}
+        >
+          <LayoutDashboard size={18} aria-hidden="true" />
+        </Link>
+        <Link
+          className={activeItem === "research-room" ? "is-active" : undefined}
+          href={`/research-room?lang=${locale}`}
+          aria-label={locale === "ko" ? "리서치룸" : "Research room"}
+          aria-current={activeItem === "research-room" ? "page" : undefined}
+          tabIndex={collapsed ? 0 : -1}
+          title={locale === "ko" ? "리서치룸" : "Research room"}
+          onClick={preserveCollapsedNavigation}
+        >
+          <LibraryBig size={18} aria-hidden="true" />
+        </Link>
+        <Link
+          className={activeItem === "briefing-room" ? "is-active" : undefined}
+          href={`/briefing-room?lang=${locale}`}
+          aria-label={locale === "ko" ? "브리핑룸" : "Briefing room"}
+          aria-current={activeItem === "briefing-room" ? "page" : undefined}
+          tabIndex={collapsed ? 0 : -1}
+          title={locale === "ko" ? "브리핑룸" : "Briefing room"}
+          onClick={preserveCollapsedNavigation}
+        >
+          <BellRing size={18} aria-hidden="true" />
+          {briefingUnread > 0 ? (
+            <span className="signed-in-sidebar__compact-badge" />
+          ) : null}
+        </Link>
+      </nav>
 
       <button
         type="button"
@@ -445,24 +498,14 @@ export function SignedInSidebar({
                 {profileAvatar}
               </button>
               {subscriptionTier === "free" ? (
-                onOpenSubscription ? (
-                  <button
-                    type="button"
-                    className="signed-in-sidebar__upgrade-link"
-                    onClick={handleOpenSubscription}
-                  >
-                    <CreditCard size={14} aria-hidden="true" />
-                    <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
-                  </button>
-                ) : (
-                  <Link
-                    className="signed-in-sidebar__upgrade-link"
-                    href={`/pricing?lang=${locale}`}
-                  >
-                    <CreditCard size={14} aria-hidden="true" />
-                    <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
-                  </Link>
-                )
+                <button
+                  type="button"
+                  className="signed-in-sidebar__upgrade-link"
+                  onClick={handleOpenSubscription}
+                >
+                  <CreditCard size={14} aria-hidden="true" />
+                  <span>{locale === "ko" ? "업그레이드" : "Upgrade"}</span>
+                </button>
               ) : null}
             </div>
             {profileOpen ? (
@@ -475,48 +518,28 @@ export function SignedInSidebar({
                   </strong>
                 </header>
                 <div className="signed-in-sidebar__profile-menu-group">
-                  {onOpenSubscription ? (
-                    <button
-                      type="button"
-                      className="signed-in-sidebar__subscription-action"
-                      role="menuitem"
-                      onClick={handleOpenSubscription}
-                    >
-                      <CreditCard size={18} />
-                      <span>
-                        {subscriptionTier === "free"
+                  <button
+                    type="button"
+                    className="signed-in-sidebar__subscription-action"
+                    role="menuitem"
+                    onClick={handleOpenSubscription}
+                  >
+                    <CreditCard size={18} />
+                    <span>
+                      {subscriptionTier === "free"
+                        ? locale === "ko"
+                          ? "업그레이드"
+                          : "Upgrade"
+                        : subscriptionTier === "paid"
                           ? locale === "ko"
-                            ? "업그레이드"
-                            : "Upgrade"
-                          : subscriptionTier === "paid"
-                            ? locale === "ko"
-                              ? "구독 관리"
-                              : "Manage subscription"
-                            : locale === "ko"
-                              ? "멤버십 보기"
-                              : "View membership"}
-                      </span>
-                      <ChevronRight size={16} />
-                    </button>
-                  ) : (
-                    <Link href={`/pricing?lang=${locale}`} role="menuitem">
-                      <CreditCard size={18} />
-                      <span>
-                        {subscriptionTier === "free"
-                          ? locale === "ko"
-                            ? "업그레이드"
-                            : "Upgrade"
-                          : subscriptionTier === "paid"
-                            ? locale === "ko"
-                              ? "구독 관리"
-                              : "Manage subscription"
-                            : locale === "ko"
-                              ? "멤버십 보기"
-                              : "View membership"}
-                      </span>
-                      <ChevronRight size={16} />
-                    </Link>
-                  )}
+                            ? "구독 관리"
+                            : "Manage subscription"
+                          : locale === "ko"
+                            ? "멤버십 보기"
+                            : "View membership"}
+                    </span>
+                    <ChevronRight size={16} />
+                  </button>
                   <Link href={`/?lang=${locale}#research`} role="menuitem">
                     <UserRound size={18} />
                     <span>{locale === "ko" ? "내 리서치" : "My research"}</span>
@@ -626,6 +649,14 @@ export function SignedInSidebar({
           </div>
         </footer>
       </div>
+      {onOpenSubscription === undefined ? (
+        <SidebarSubscriptionModal
+          open={subscriptionModalOpen}
+          locale={locale}
+          initialTier={subscriptionTier}
+          onClose={() => setSubscriptionModalOpen(false)}
+        />
+      ) : null}
     </aside>
   );
 }

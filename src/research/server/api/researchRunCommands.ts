@@ -1,12 +1,14 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import { CALL_BUDGET_POLICY } from "../../domain/callBudgetContracts";
+import { EventIdSchema, RunIdSchema } from "../../domain/ids";
+import { appendRunEvent } from "../persistence/sqlite/runRepository";
 import { serializeSafeJson } from "../persistence/sqlite/safeJson";
 import {
-  type ChildRun,
-  ChildRunSchema,
   type CommandIds,
   type CommandResult,
+  type RecoveredRun,
+  RecoveredRunSchema,
 } from "./researchCommandContracts";
 import {
   commandDigest,
@@ -29,6 +31,13 @@ const ParentRowSchema = z.object({
   research_profile_json: z.string(),
 });
 
+const RecoveryEligibilitySchema = z.object({
+  resumable_jobs: z.number().int().nonnegative(),
+  total_research_jobs: z.number().int().nonnegative(),
+  succeeded_research_jobs: z.number().int().nonnegative(),
+  retryable_failed_jobs: z.number().int().nonnegative(),
+});
+
 type CommandContext = {
   readonly principalId: string;
   readonly idempotencyKey: string;
@@ -43,7 +52,7 @@ export function replayResearchRunRetry(
   idempotencyKey: string,
 ):
   | { readonly kind: "missing" | "conflict" }
-  | { readonly kind: "replayed"; readonly value: ChildRun } {
+  | { readonly kind: "replayed"; readonly value: RecoveredRun } {
   const replay = replayCommand(
     database,
     `research-retry:${principalId}:${parentRunId}`,
@@ -51,7 +60,7 @@ export function replayResearchRunRetry(
     commandDigest({ parentRunId }),
   );
   return replay.kind === "replayed"
-    ? { kind: "replayed", value: ChildRunSchema.parse(replay.value) }
+    ? { kind: "replayed", value: RecoveredRunSchema.parse(replay.value) }
     : replay;
 }
 
@@ -76,9 +85,9 @@ export function retryResearchRun(
   database: Database.Database,
   parentRunId: string,
   context: CommandContext,
-): CommandResult<ChildRun> {
+): CommandResult<RecoveredRun> {
   return database
-    .transaction((): CommandResult<ChildRun> => {
+    .transaction((): CommandResult<RecoveredRun> => {
       const scope = `research-retry:${context.principalId}:${parentRunId}`;
       const requestHash = commandDigest({ parentRunId });
       const replay = replayCommand(
@@ -89,7 +98,10 @@ export function retryResearchRun(
       );
       if (replay.kind === "conflict") return { kind: "conflict" };
       if (replay.kind === "replayed")
-        return { kind: "replayed", value: ChildRunSchema.parse(replay.value) };
+        return {
+          kind: "replayed",
+          value: RecoveredRunSchema.parse(replay.value),
+        };
       const parent = parentRow(database, context.principalId, parentRunId);
       if (parent === undefined) return { kind: "not_found" };
       if (parent.status !== "failed" && parent.status !== "incomplete")
@@ -99,18 +111,83 @@ export function retryResearchRun(
         WHERE run_id = ? AND code = 'rights_failure'`)
         .get(parentRunId);
       if (rightsFailure !== undefined) return { kind: "illegal_state" };
-      insertChild(database, parent, context, {
-        snapshotId: parent.snapshot_id,
-        lineage: "same-snapshot-retry",
-        priorReportId: null,
-        question: parent.question,
+      const recovery = RecoveryEligibilitySchema.parse(
+        database
+          .prepare(`SELECT
+            COUNT(*) FILTER (WHERE kind = 'research'
+              AND status IN ('queued', 'leased', 'spawn-reserved', 'running',
+                'retry-wait')) AS resumable_jobs,
+            COUNT(*) FILTER (WHERE kind = 'research') AS total_research_jobs,
+            COUNT(*) FILTER (WHERE kind = 'research'
+              AND status = 'succeeded') AS succeeded_research_jobs,
+            COUNT(*) FILTER (WHERE kind = 'research' AND status = 'failed'
+              AND EXISTS (SELECT 1 FROM idempotency_records retry
+                WHERE retry.scope = 'worker-retry'
+                  AND retry.idempotency_key = jobs.job_id
+                  AND json_extract(retry.result_json, '$.classification') =
+                    'transient')) AS retryable_failed_jobs
+          FROM jobs WHERE run_id = ?`)
+          .get(parentRunId),
+      );
+      const publicationOnlyRecovery =
+        recovery.total_research_jobs > 0 &&
+        recovery.succeeded_research_jobs === recovery.total_research_jobs;
+      if (
+        recovery.resumable_jobs === 0 &&
+        recovery.retryable_failed_jobs === 0 &&
+        !publicationOnlyRecovery
+      )
+        return { kind: "illegal_state" };
+      const updated = database
+        .prepare(`UPDATE runs SET status = 'running', version = version + 1
+          WHERE run_id = ? AND status IN ('failed', 'incomplete')
+            AND report_id IS NULL`)
+        .run(parentRunId).changes;
+      if (updated !== 1) return { kind: "illegal_state" };
+      database
+        .prepare(`UPDATE jobs SET status = 'retry-wait', lease_owner = NULL,
+          lease_expires_at = NULL
+          WHERE run_id = @runId AND kind = 'research' AND status = 'failed'
+            AND EXISTS (SELECT 1 FROM idempotency_records retry
+              WHERE retry.scope = 'worker-retry'
+                AND retry.idempotency_key = jobs.job_id
+                AND json_extract(retry.result_json, '$.classification') =
+                  'transient')`)
+        .run({ runId: parentRunId });
+      database
+        .prepare(`UPDATE idempotency_records SET result_json = json_set(
+          result_json, '$.retryAt', @now, '$.failureCount', 0,
+          '$.circuitOpen', json('false'), '$.classification', 'transient'),
+          created_at = @now
+          WHERE scope = 'worker-retry' AND idempotency_key IN (
+            SELECT job_id FROM jobs WHERE run_id = @runId
+              AND status = 'retry-wait'
+          )`)
+        .run({ runId: parentRunId, now: context.now });
+      database
+        .prepare("DELETE FROM run_stage_recoveries WHERE run_id = ?")
+        .run(parentRunId);
+      appendRunEvent(database, {
+        runId: RunIdSchema.parse(parentRunId),
+        event: {
+          eventId: EventIdSchema.parse(context.ids.eventId),
+          type: "runtime_status",
+          stateId: "retrying",
+          occurredAt: context.now,
+          payload: {
+            code: "failed_stage_resumed",
+            summary: {
+              en: "Resuming from the affected research stage.",
+              ko: "문제가 생긴 리서치 단계부터 다시 진행합니다.",
+            },
+          },
+        },
       });
-      const value = ChildRunSchema.parse({
-        runId: context.ids.runId,
+      const value = RecoveredRunSchema.parse({
+        runId: parentRunId,
         snapshotId: parent.snapshot_id,
-        status: "queued",
-        parentRunId,
-        lineage: "same-snapshot-retry",
+        status: "running",
+        recovery: "same-run-stage-resume",
       });
       commitCommand(database, {
         scope,
@@ -120,8 +197,7 @@ export function retryResearchRun(
           runId: value.runId,
           snapshotId: value.snapshotId,
           status: value.status,
-          parentRunId: value.parentRunId,
-          lineage: value.lineage,
+          recovery: value.recovery,
         },
         now: context.now,
       });

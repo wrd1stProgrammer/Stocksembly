@@ -30,7 +30,6 @@ import type {
 } from "./lib/whop/contracts";
 
 const CREDIT_NOTICE_SEEN_STORAGE_KEY = "stocksembly:credit-notice-seen";
-const LOCAL_DEV_SIGNUP_NOTICE_ID = "local-preview-signup-v2";
 
 async function authenticatedFetch(
   input: RequestInfo | URL,
@@ -47,54 +46,6 @@ async function authenticatedFetch(
     credentials: "same-origin",
     headers,
   });
-}
-
-function isLocalBrowser(): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "::1"
-  );
-}
-
-function localFallbackBillingStatus(): WhopBillingStatus {
-  const now = new Date();
-  const periodStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  );
-  const periodEnd = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
-  );
-  return {
-    authenticated: true,
-    tier: "free",
-    status: "none",
-    credits: {
-      remaining: 5,
-      allowance: 30,
-      used: 0,
-      usedPercent: 0,
-      periodStart: periodStart.toISOString(),
-      periodEnd: periodEnd.toISOString(),
-    },
-    recentActivity: [
-      {
-        id: LOCAL_DEV_SIGNUP_NOTICE_ID,
-        kind: "grant",
-        code: "free_signup_grant",
-        amount: 5,
-        occurredAt: now.toISOString(),
-      },
-    ],
-    creditNotice: {
-      id: LOCAL_DEV_SIGNUP_NOTICE_ID,
-      kind: "signup",
-      amount: 5,
-      grantedAt: now.toISOString(),
-      balance: 5,
-    },
-  };
 }
 
 export function App() {
@@ -124,17 +75,6 @@ export function App() {
       if (status.tier === "free") setSubscriptionTier("free");
       if (status.tier === "pro" || status.tier === "ultra")
         setSubscriptionTier("paid");
-      const isLocalPreview = isLocalBrowser();
-      const localPreviewNotice =
-        isLocalPreview && status.tier === "free"
-          ? {
-              id: LOCAL_DEV_SIGNUP_NOTICE_ID,
-              kind: "signup" as const,
-              amount: 5,
-              grantedAt: new Date().toISOString(),
-              balance: Math.max(5, status.credits.remaining),
-            }
-          : undefined;
       const latestGrant = status.recentActivity.find(
         (activity) =>
           activity.kind === "grant" &&
@@ -154,29 +94,9 @@ export function App() {
               grantedAt: latestGrant.occurredAt,
               balance: status.credits.remaining,
             };
-      const notice =
-        status.creditNotice ?? recoveredNotice ?? localPreviewNotice;
+      const notice = status.creditNotice ?? recoveredNotice;
       if (typeof status.credits?.remaining === "number") {
-        setBillingStatus(
-          status.creditNotice !== undefined || localPreviewNotice === undefined
-            ? status
-            : {
-                ...status,
-                credits: {
-                  ...status.credits,
-                  remaining: Math.max(5, status.credits.remaining),
-                  allowance: Math.max(30, status.credits.allowance),
-                  usedPercent: Math.min(
-                    100,
-                    Math.round(
-                      (Math.max(0, status.credits.used) /
-                        Math.max(30, status.credits.allowance)) *
-                        1000,
-                    ) / 10,
-                  ),
-                },
-              },
-        );
+        setBillingStatus(status);
       }
       if (notice === undefined || typeof window === "undefined") return;
       const seenNoticeKey = `${CREDIT_NOTICE_SEEN_STORAGE_KEY}:${creditNoticeOwnerKey}`;
@@ -305,8 +225,6 @@ export function App() {
         if (statusResponse.ok) {
           const status = (await statusResponse.json()) as WhopBillingStatus;
           applyBillingStatus(status);
-        } else if (isLocalBrowser() && statusResponse.status === 503) {
-          applyBillingStatus(localFallbackBillingStatus());
         } else {
           setBillingPlansError(true);
         }
@@ -334,12 +252,19 @@ export function App() {
     const handleBillingChanged = () => {
       void refreshIfActive();
     };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshIfActive();
+    };
     window.addEventListener(BILLING_CHANGED_EVENT, handleBillingChanged);
+    window.addEventListener("focus", handleBillingChanged);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     const interval = window.setInterval(refreshIfActive, 15_000);
     return () => {
       active = false;
       window.clearInterval(interval);
       window.removeEventListener(BILLING_CHANGED_EVENT, handleBillingChanged);
+      window.removeEventListener("focus", handleBillingChanged);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshBillingStatus, signedIn]);
 
@@ -368,6 +293,14 @@ export function App() {
     if (billingReturn !== "plans" && billingReturn !== "success") return;
 
     setSubscriptionModalOpen(true);
+    const refreshTimers =
+      billingReturn === "success"
+        ? [0, 1_500, 4_000, 8_000].map((delay) =>
+            window.setTimeout(() => {
+              void refreshBillingStatus();
+            }, delay),
+          )
+        : [];
     for (const key of [
       "billing",
       "receipt_id",
@@ -379,7 +312,10 @@ export function App() {
       url.searchParams.delete(key);
     }
     window.history.replaceState(window.history.state, "", url);
-  }, [signedIn]);
+    return () => {
+      for (const timer of refreshTimers) window.clearTimeout(timer);
+    };
+  }, [refreshBillingStatus, signedIn]);
 
   useEffect(() => {
     document.documentElement.lang = locale;

@@ -8,6 +8,7 @@ import type {
   CommandResult,
   PublicQuestion,
   QuestionGrounding,
+  RecoveredRun,
 } from "./researchCommandContracts";
 import type { FollowUpCommand, QuestionCommand } from "./researchCommandInput";
 import { createResearchFollowUp } from "./researchFollowUpCommand";
@@ -49,7 +50,7 @@ export class ResearchCommandRepository {
     return cancelResearchRun(this.#database, runId, context);
   }
 
-  retry(runId: string, context: BaseContext): CommandResult<ChildRun> {
+  retry(runId: string, context: BaseContext): CommandResult<RecoveredRun> {
     return retryResearchRun(this.#database, runId, context);
   }
 

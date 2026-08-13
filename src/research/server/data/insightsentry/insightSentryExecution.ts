@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import {
   insightSentryDiagnostics,
   insightSentryRequestUrl,
@@ -24,6 +25,17 @@ import type {
   InsightSentryCacheIdentity,
   InsightSentryClock,
 } from "./insightSentryTypes";
+
+const sharedQuotaGovernors = new Map<string, InsightSentryQuotaGovernor>();
+
+function quotaGovernor(dataRoot: string): InsightSentryQuotaGovernor {
+  const key = resolve(dataRoot);
+  const existing = sharedQuotaGovernors.get(key);
+  if (existing !== undefined) return existing;
+  const created = new InsightSentryQuotaGovernor(key);
+  sharedQuotaGovernors.set(key, created);
+  return created;
+}
 
 export type InsightSentryRawResult = {
   readonly bytes: Uint8Array;
@@ -52,7 +64,7 @@ export function createInsightSentryExecutor(options: {
   readonly host: string;
   readonly headers: Readonly<Record<string, string>>;
 }) => Promise<InsightSentryRawResult> {
-  const governor = new InsightSentryQuotaGovernor(options.dataRoot);
+  const governor = quotaGovernor(options.dataRoot);
 
   async function durableFailure(input: {
     readonly code: "rate_limited" | "server_error" | "network" | "timeout";

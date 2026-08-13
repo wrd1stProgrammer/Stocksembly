@@ -20,6 +20,7 @@ type BriefingWorkerStore = AccountStore &
       | "listBriefingEditionKeys"
       | "saveBriefingSourceSnapshot"
       | "findPreviousBriefingEdition"
+      | "listBriefingEventKeys"
       | "saveBriefingEdition"
     >
   >;
@@ -41,6 +42,7 @@ function isBriefingWorkerStore(
     store.listBriefingEditionKeys !== undefined &&
     store.saveBriefingSourceSnapshot !== undefined &&
     store.findPreviousBriefingEdition !== undefined &&
+    store.listBriefingEventKeys !== undefined &&
     store.saveBriefingEdition !== undefined
   );
 }
@@ -115,22 +117,40 @@ export async function runBriefingCycle(input: {
     skipped += recipientsByLocale.size - missingLocales.length;
     if (missingLocales.length === 0) continue;
     try {
-      const previous = await Promise.all(
-        missingLocales.map(
-          async (locale) =>
-            await input.store.findPreviousBriefingEdition(
-              symbol,
-              locale,
-              input.marketDate,
-            ),
+      const [previous, historicalEventKeys] = await Promise.all([
+        Promise.all(
+          missingLocales.map(
+            async (locale) =>
+              await input.store.findPreviousBriefingEdition(
+                symbol,
+                locale,
+                input.marketDate,
+              ),
+          ),
         ),
-      );
+        Promise.all(
+          missingLocales.map(
+            async (locale) =>
+              await input.store.listBriefingEventKeys(
+                symbol,
+                locale,
+                input.marketDate,
+                90,
+              ),
+          ),
+        ),
+      ]);
       const priorBriefingAt = previousBriefingAt(previous);
       const snapshot = await input.collector.collect({
         item: firstMember.item,
         marketDate: input.marketDate,
         cutoffAt: now(),
-        previousEventKeys: previousEventKeys(previous),
+        previousEventKeys: [
+          ...new Set([
+            ...historicalEventKeys.flat(),
+            ...previousEventKeys(previous),
+          ]),
+        ],
         ...(priorBriefingAt === undefined
           ? {}
           : { previousBriefingAt: priorBriefingAt }),

@@ -4,6 +4,10 @@ export type BillingPlanKey =
   | "ultra-monthly"
   | "ultra-annual";
 
+export function billingCheckoutPath(planKey: BillingPlanKey): string {
+  return `/api/billing/checkout?plan=${encodeURIComponent(planKey)}`;
+}
+
 export type BillingTier = "free" | "pro" | "ultra";
 
 export type BillingStatus =

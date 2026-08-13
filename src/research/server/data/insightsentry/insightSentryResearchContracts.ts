@@ -198,6 +198,7 @@ export type PeerRecord = {
   readonly classification: "direct_competitor" | "operating_comparable";
   readonly selectionScore: number;
   readonly selectionReasons: readonly string[];
+  readonly marketOverlapVerified?: boolean;
   readonly marketCap?: number;
   readonly priceEarningsTtm?: number;
   readonly enterpriseValueEbitdaTtm?: number;
@@ -281,6 +282,7 @@ export type InsightSentryResearchDataAdapter = {
   readonly documents: (input: {
     readonly symbol: string;
     readonly asOf: string;
+    readonly collectionMode?: "briefing" | "research";
   }) => Promise<FamilyResult<DocumentsDataset>>;
   readonly calendar: (input: {
     readonly symbol: string;

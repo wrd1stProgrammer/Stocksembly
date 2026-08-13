@@ -15,6 +15,7 @@ export const metadata: Metadata = {
   description:
     "관심종목의 최근 24시간 변화와 예정 이벤트를 미국 장 시작 한 시간 전에 확인하세요.",
   alternates: { canonical: "/briefing-room" },
+  robots: { index: false, follow: false },
 };
 
 type Props = { readonly searchParams: Promise<{ readonly lang?: string }> };

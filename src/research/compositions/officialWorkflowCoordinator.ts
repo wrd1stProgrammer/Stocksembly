@@ -189,17 +189,19 @@ type SemanticAuditCoordinatorInput = {
   readonly incompleteReason:
     | "semantic_artifact_missing"
     | "replacement_exhausted"
+    | "retry_pending"
     | null;
   readonly publishable: boolean;
 };
 
 export function semanticAuditCoordinatorAction(
   replay: SemanticAuditCoordinatorInput,
-): "advance" | "stage" | "terminalize" {
+): "advance" | "stage" | "terminalize" | "wait" {
   if (replay.publishable) return "advance";
   // A material contradiction removes or downgrades the affected claim in the
   // chair prompt; it must not discard the otherwise valid audit artifact.
   if (replay.artifactIds.length > 0) return "advance";
+  if (replay.incompleteReason === "retry_pending") return "wait";
   if (replay.incompleteReason === "replacement_exhausted") return "terminalize";
   return "stage";
 }
@@ -519,6 +521,7 @@ export function createOfficialWorkflowCoordinator(
 
       const semanticReplay = semantic.replay(runId);
       const semanticAction = semanticAuditCoordinatorAction(semanticReplay);
+      if (semanticAction === "wait") return;
       if (semanticAction === "terminalize") {
         terminalizeWorkflowFailure(
           options.databasePath,
@@ -565,6 +568,12 @@ export function createOfficialWorkflowCoordinator(
 
       const chairReplay = chair.replay(runId);
       if (!chairReplay.publishable) {
+        if (chairReplay.incompleteReason === "retry_pending") {
+          const refreshed = await chair.stage({ runId });
+          if (refreshed.kind === "blocked")
+            reportBlocked("chair_synthesis", refreshed.reason);
+          return;
+        }
         if (
           chairReplay.incompleteReason === "replacement_exhausted" &&
           chairResumeReceiptExceptionAvailable(options.databasePath, runId)

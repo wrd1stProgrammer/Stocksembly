@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AttemptIdSchema, JobIdSchema, RunIdSchema } from "../../../domain/ids";
+import { productionCodexPlatform } from "../../codex/codexPlatform";
 import {
   type CommittedLaunchReservation,
   codexInputHash,
@@ -119,7 +119,10 @@ async function classifyWithLuna(
         : undefined,
   };
   const attemptDir = await mkdtemp(
-    join(await realpath(tmpdir()), "stocksembly-news-"),
+    join(
+      await realpath(productionCodexPlatform().tempParent),
+      "stocksembly-news-",
+    ),
   );
   try {
     const result = await createCodexPort(reservations).run({

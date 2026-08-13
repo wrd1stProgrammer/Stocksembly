@@ -6,12 +6,15 @@ import {
 import type { ComparatorQualificationResult } from "./comparatorQualificationContracts";
 
 const MetricFieldsSchema = z.object({
+  marketCap: z.number().finite().nonnegative().optional(),
   priceEarningsTtm: z.number().finite().optional(),
   enterpriseValueEbitdaTtm: z.number().finite().optional(),
   enterpriseValueRevenueTtm: z.number().finite().optional(),
   revenueGrowthTtm: z.number().finite().optional(),
   grossMarginTtm: z.number().finite().optional(),
   operatingMarginTtm: z.number().finite().optional(),
+  performance3Month: z.number().finite().optional(),
+  performance1Year: z.number().finite().optional(),
 });
 const SubjectSchema = MetricFieldsSchema.extend({
   symbol: z.string().trim().min(1),
@@ -27,6 +30,7 @@ const PeerSchema = SubjectSchema.extend({
     "valuation_proxy",
   ]),
   selectionReasons: z.array(z.string().trim().min(1)).min(1),
+  marketOverlapVerified: z.boolean().optional(),
 }).passthrough();
 const PeerEvidenceSchema = z
   .object({
@@ -38,19 +42,48 @@ const PeerEvidenceSchema = z
   .passthrough();
 
 const METRIC_FIELDS = [
-  ["priceEarningsTtm", "price_earnings_ttm", "multiple"],
-  ["enterpriseValueEbitdaTtm", "enterprise_value_ebitda_ttm", "multiple"],
-  ["enterpriseValueRevenueTtm", "enterprise_value_to_revenue_ttm", "multiple"],
-  ["revenueGrowthTtm", "revenue_growth_ttm", "percent"],
-  ["grossMarginTtm", "gross_margin_ttm", "percent"],
-  ["operatingMarginTtm", "operating_margin_ttm", "percent"],
+  ["marketCap", "market_cap", "currency", "point_in_time"],
+  ["priceEarningsTtm", "price_earnings_ttm", "multiple", "TTM"],
+  [
+    "enterpriseValueEbitdaTtm",
+    "enterprise_value_ebitda_ttm",
+    "multiple",
+    "TTM",
+  ],
+  [
+    "enterpriseValueRevenueTtm",
+    "enterprise_value_to_revenue_ttm",
+    "multiple",
+    "TTM",
+  ],
+  ["revenueGrowthTtm", "revenue_growth_ttm", "percent", "TTM"],
+  ["grossMarginTtm", "gross_margin_ttm", "percent", "TTM"],
+  ["operatingMarginTtm", "operating_margin_ttm", "percent", "TTM"],
+  ["performance3Month", "performance_3_month", "percent", "trailing_3_months"],
+  ["performance1Year", "performance_1_year", "percent", "trailing_1_year"],
 ] as const;
+
+const KOREAN_SELECTION_REASONS: Readonly<Record<string, string>> = {
+  "issuer filing names the company near competition language":
+    "회사의 공식 공시에서 경쟁 관계로 확인됨",
+  "issuer filing references the company": "회사의 공식 공시에서 언급됨",
+  "same provider sector": "동일한 업종 분류",
+  "similar growth and margin profile": "성장률과 마진 구조가 유사함",
+  "comparable market-cap scale": "시가총액 규모가 유사함",
+  "available relative-value metrics": "상대가치 비교 지표를 확보함",
+};
+
+function koreanRationale(reasons: readonly string[]): string {
+  return reasons
+    .map((reason) => KOREAN_SELECTION_REASONS[reason] ?? reason)
+    .join("; ");
+}
 
 function metrics(
   profile: z.infer<typeof SubjectSchema>,
   evidenceArtifactId: string,
 ) {
-  return METRIC_FIELDS.flatMap(([field, key, unit]) => {
+  return METRIC_FIELDS.flatMap(([field, key, unit, period]) => {
     const value = profile[field];
     return value === undefined
       ? []
@@ -58,8 +91,9 @@ function metrics(
           {
             key,
             value,
-            period: "TTM",
+            period,
             unit,
+            ...(unit === "currency" ? { currency: "USD" } : {}),
             evidenceArtifactIds: [evidenceArtifactId],
           },
         ];
@@ -72,6 +106,10 @@ export function qualifyInsightSentryPeers(input: {
 }): ComparatorQualificationResult | undefined {
   const parsed = PeerEvidenceSchema.safeParse(input.peers);
   if (!parsed.success) return undefined;
+  const overlapKey = `issuer-verified-competition:${parsed.data.subject.symbol}`;
+  const hasVerifiedOverlap = parsed.data.peers.some(
+    (peer) => peer.marketOverlapVerified === true,
+  );
   const qualificationInput = ComparatorQualificationInputSchema.safeParse({
     rawPeerArtifactId: input.rawPeerArtifactId,
     subject: {
@@ -79,10 +117,14 @@ export function qualifyInsightSentryPeers(input: {
       name: parsed.data.subject.name,
       primaryProductMarket:
         parsed.data.subject.primaryProductMarket ??
-        `unverified-product:${parsed.data.subject.symbol}`,
+        (hasVerifiedOverlap
+          ? overlapKey
+          : `unverified-product:${parsed.data.subject.symbol}`),
       primaryCustomerMarket:
         parsed.data.subject.primaryCustomerMarket ??
-        `unverified-customer:${parsed.data.subject.symbol}`,
+        (hasVerifiedOverlap
+          ? overlapKey
+          : `unverified-customer:${parsed.data.subject.symbol}`),
       metrics: metrics(parsed.data.subject, input.rawPeerArtifactId),
     },
     comparators: parsed.data.peers.map((peer) => {
@@ -103,12 +145,18 @@ export function qualifyInsightSentryPeers(input: {
             }
           : {
               en: peer.selectionReasons.join("; "),
-              ko: peer.selectionReasons.join("; "),
+              ko: koreanRationale(peer.selectionReasons),
             },
         primaryProductMarket:
-          peer.primaryProductMarket ?? `unverified-product:${peer.symbol}`,
+          peer.primaryProductMarket ??
+          (peer.marketOverlapVerified === true
+            ? overlapKey
+            : `unverified-product:${peer.symbol}`),
         primaryCustomerMarket:
-          peer.primaryCustomerMarket ?? `unverified-customer:${peer.symbol}`,
+          peer.primaryCustomerMarket ??
+          (peer.marketOverlapVerified === true
+            ? overlapKey
+            : `unverified-customer:${peer.symbol}`),
         metrics: metrics(peer, input.rawPeerArtifactId),
       };
     }),

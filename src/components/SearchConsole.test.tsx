@@ -18,11 +18,16 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: testState.push }),
 }));
 
-vi.mock("../research/client/api", () => ({
-  createResearchClient: () => ({
-    startRun: testState.startRun,
-  }),
-}));
+vi.mock("../research/client/api", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../research/client/api")>();
+  return {
+    ...actual,
+    createResearchClient: () => ({
+      startRun: testState.startRun,
+    }),
+  };
+});
 
 vi.mock("../auth/amplifyClient", () => ({
   authIsConfigured: () => testState.authConfigured,
@@ -180,7 +185,7 @@ describe("SearchConsole durable research launch", () => {
     expect(question).toHaveValue("a".repeat(100));
   });
 
-  it("keeps the pulse border visible for three seconds before navigating", async () => {
+  it("enters the research room as soon as the run is created", async () => {
     // Given
     vi.useFakeTimers();
     render(<SearchConsole locale="en" />);
@@ -201,13 +206,7 @@ describe("SearchConsole durable research launch", () => {
     fireEvent.submit(form);
 
     // Then
-    await vi.advanceTimersByTimeAsync(2_999);
-    expect(testState.push).not.toHaveBeenCalled();
-    expect(form.closest("[data-border-beam]")).toHaveAttribute(
-      "data-border-beam",
-      "pulse-outside",
-    );
-    await vi.advanceTimersByTimeAsync(1);
+    await vi.runAllTimersAsync();
     expect(testState.push).toHaveBeenCalledOnce();
     expect(testState.startRun).toHaveBeenCalledWith({
       symbol: "NVDA",
@@ -228,37 +227,6 @@ describe("SearchConsole durable research launch", () => {
     });
     expect(testState.push).toHaveBeenCalledWith(
       `/research/NVDA?run=${RUN_ID}&lang=en`,
-    );
-  });
-
-  it("enters the research room at three seconds while a slow launch finishes", async () => {
-    // Given
-    vi.useFakeTimers();
-    testState.startRun.mockImplementationOnce(
-      async () => await new Promise(() => undefined),
-    );
-    render(<SearchConsole locale="en" />);
-    fireEvent.change(screen.getByRole("searchbox"), {
-      target: { value: "NVDA" },
-    });
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "Investment question" }),
-      {
-        target: { value: "What could change the thesis?" },
-      },
-    );
-
-    // When
-    const form = screen.getByRole("searchbox").closest("form");
-    if (!(form instanceof HTMLFormElement))
-      throw new TypeError("search form missing");
-    fireEvent.submit(form);
-    await vi.advanceTimersByTimeAsync(3_000);
-
-    // Then
-    expect(testState.push).toHaveBeenCalledOnce();
-    expect(testState.push.mock.calls[0]?.[0]).toMatch(
-      /^\/research\/NVDA\?lang=en&launch=.+&question=What\+could\+change\+the\+thesis%3F&target=committee&horizon=medium&counter=standard&depth=standard&purpose=new_entry&peers=$/,
     );
   });
 

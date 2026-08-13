@@ -27,6 +27,17 @@ describe("official workflow coordinator", () => {
     ).toBe("stage");
   });
 
+  it("waits for the durable semantic worker retry instead of spending stage retries", () => {
+    expect(
+      semanticAuditCoordinatorAction({
+        artifactIds: [],
+        blockers: [],
+        incompleteReason: "retry_pending",
+        publishable: false,
+      }),
+    ).toBe("wait");
+  });
+
   it("advances an accepted semantic audit after contradicted claims are removed", () => {
     expect(
       semanticAuditCoordinatorAction({

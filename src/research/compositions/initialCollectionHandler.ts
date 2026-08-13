@@ -92,13 +92,25 @@ const NON_RECOVERABLE_COLLECTION_CODES = new Set([
   "sec_10k_missing",
   "symbol_unsupported",
   "identity_missing",
+  "missing_configuration",
+  "unauthorized",
+  "subscription_required",
+  "non_json",
+  "schema_drift",
+  "oversized",
+  "unexpected_status",
 ]);
+const NON_RECOVERABLE_COLLECTION_PREFIXES = [
+  "required_market_data_not_configured:",
+] as const;
 
 function collectionFailure(
   error: unknown,
   now: string,
+  attemptOrdinal: number,
 ):
   | { readonly kind: "permanent"; readonly code: string }
+  | { readonly kind: "incomplete"; readonly code: string }
   | {
       readonly kind: "transient";
       readonly code: string;
@@ -108,9 +120,20 @@ function collectionFailure(
   const secIdentityFailure =
     error instanceof SecIdentityConfigError ||
     SEC_IDENTITY_ERROR_CODES.some((candidate) => code.startsWith(candidate));
-  return NON_RECOVERABLE_COLLECTION_CODES.has(code) || secIdentityFailure
-    ? { kind: "permanent", code }
-    : { kind: "transient", code, retryAt: after(now, 10_000) };
+  if (
+    NON_RECOVERABLE_COLLECTION_CODES.has(code) ||
+    NON_RECOVERABLE_COLLECTION_PREFIXES.some((prefix) =>
+      code.startsWith(prefix),
+    ) ||
+    secIdentityFailure
+  )
+    return { kind: "permanent", code };
+  if (attemptOrdinal >= 3)
+    return {
+      kind: "incomplete",
+      code: `initial_collection_retry_exhausted:${code}`,
+    };
+  return { kind: "transient", code, retryAt: after(now, 10_000) };
 }
 
 export function normalizeResearchQuestion(
@@ -260,7 +283,7 @@ export function createInitialCollectionHandler(
           researchProfile,
         });
       } catch (error) {
-        return collectionFailure(error, clock());
+        return collectionFailure(error, clock(), attempt.ordinal);
       }
       const acquisitionClosedAt =
         clock() > collected.retrievedAt ? clock() : collected.retrievedAt;

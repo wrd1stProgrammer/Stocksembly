@@ -6,6 +6,7 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { z } from "zod";
+import { selectNextEarnings } from "../../briefing/domain/briefingEarnings";
 import type {
   BriefingAccess,
   BriefingAudience,
@@ -25,9 +26,11 @@ import type {
 import {
   CREDIT_COSTS,
   isSuccessfulResearchStatus,
+  paidCreditGrantDelta,
   researchCreditCost,
   researchUsageCode,
 } from "../../lib/whop/creditPolicy";
+import { resolveBillingPlanKey } from "../../lib/whop/planResolution";
 import {
   billingPlanKeyForPrice,
   billingPlanKeyForWhopPlanId,
@@ -101,17 +104,36 @@ function billingPlanKey(value: string | undefined): BillingPlanKey | undefined {
     : undefined;
 }
 
+function sandboxWebhookPrincipalAllowed(principalId: string): boolean {
+  if (getWhopEnvironment() !== "production") return true;
+  const allowlist = new Set(
+    (process.env["WHOP_SANDBOX_PRINCIPAL_IDS"] ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+  return allowlist.has(principalId);
+}
+
 function manageUrlForCurrentWhopEnvironment(
   value: string | null | undefined,
+  principalId: string,
 ): string | undefined {
   if (value === null || value === undefined) return undefined;
 
   try {
     const url = new URL(value);
-    const allowedHosts =
+    const allowedHosts = new Set(
       getWhopEnvironment() === "sandbox"
-        ? new Set(["sandbox.whop.com"])
-        : new Set(["whop.com", "www.whop.com"]);
+        ? ["sandbox.whop.com"]
+        : [
+            "whop.com",
+            "www.whop.com",
+            ...(sandboxWebhookPrincipalAllowed(principalId)
+              ? ["sandbox.whop.com"]
+              : []),
+          ],
+    );
     if (
       url.protocol !== "https:" ||
       url.username !== "" ||
@@ -210,21 +232,31 @@ async function ensureCreditGrant(
 ): Promise<CreditGrantRow | undefined> {
   if (!context.isFree) {
     if (context.allowance <= 0) return undefined;
+    const existingPaidGrants = await client.query<{ granted: number }>(
+      `SELECT COALESCE(SUM(credits), 0)::int AS granted
+       FROM credit_grants
+       WHERE principal_id = $1
+         AND plan_code IN ('pro', 'ultra')
+         AND period_key = $2::date`,
+      [principalId, context.bounds.key],
+    );
+    const grantDelta = paidCreditGrantDelta(
+      Number(existingPaidGrants.rows[0]?.granted ?? 0),
+      context.allowance,
+    );
+    if (grantDelta <= 0) return undefined;
     await client.query(
       `INSERT INTO credit_grants(
         grant_key, principal_id, period_key, plan_code, credits,
         created_at, updated_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $6)
-      ON CONFLICT (grant_key) DO UPDATE SET
-        credits = GREATEST(credit_grants.credits, EXCLUDED.credits),
-        plan_code = EXCLUDED.plan_code,
-        updated_at = EXCLUDED.updated_at`,
+      ON CONFLICT (grant_key) DO NOTHING`,
       [
-        `credit:${principalId}:${context.bounds.key}`,
+        `credit:${principalId}:${context.bounds.key}:${context.tier}:${context.allowance}`,
         principalId,
         context.bounds.key,
         context.tier,
-        context.allowance,
+        grantDelta,
         now.toISOString(),
       ],
     );
@@ -390,7 +422,7 @@ async function grantedCredits(
 ): Promise<number> {
   const planCodes = context.isFree
     ? ["free_signup", "free_daily"]
-    : [context.tier];
+    : ["pro", "ultra"];
   const result = await client.query<{ granted: number }>(
     `SELECT COALESCE(SUM(credits), 0)::int AS granted
      FROM credit_grants
@@ -514,23 +546,7 @@ function briefingWatchlistItem(row: {
 function nextEarningsFor(
   payload: BriefingEditionPayload,
 ): BriefingListItem["nextEarnings"] {
-  const confirmedEvent = payload.upcomingEvents.find(
-    (event) =>
-      event.certainty === "confirmed" &&
-      /earnings|results|실적/iu.test(event.name),
-  );
-  if (confirmedEvent !== undefined) return confirmedEvent;
-  if (
-    payload.earnings?.nextReportAt !== undefined &&
-    payload.earnings.nextReportCertainty === "confirmed"
-  )
-    return {
-      name: "Earnings",
-      scheduledAt: payload.earnings.nextReportAt,
-      whyItMatters: "Next scheduled earnings release",
-      certainty: "confirmed",
-    };
-  return undefined;
+  return selectNextEarnings(payload);
 }
 
 async function briefingWatchlistChangeCount(
@@ -1316,11 +1332,17 @@ export class PostgresAccountStore implements AccountStore {
           ? await latestFreeGrantNotice(client, principalId, remaining)
           : undefined;
         await client.query("COMMIT");
-        const planKey = billingPlanKeyForWhopPlanId(
-          entitlement?.whop_plan_id ?? undefined,
-        );
+        const planKey = resolveBillingPlanKey({
+          directPlanKey: billingPlanKeyForWhopPlanId(
+            entitlement?.whop_plan_id ?? undefined,
+          ),
+          tier: context.tier,
+          currentPeriodStart: entitlement?.current_period_start ?? undefined,
+          currentPeriodEnd: entitlement?.current_period_end ?? undefined,
+        });
         const manageUrl = manageUrlForCurrentWhopEnvironment(
           entitlement?.manage_url,
+          principalId,
         );
         const tier = context.tier;
         return {
@@ -1770,6 +1792,39 @@ export class PostgresAccountStore implements AccountStore {
     }
   }
 
+  async listBriefingEventKeys(
+    symbol: string,
+    locale: Locale,
+    beforeMarketDate: string,
+    editionLimit: number,
+  ): Promise<readonly string[]> {
+    try {
+      const result = await this.pool.query<{ event_key: string | null }>(
+        `SELECT DISTINCT change ->> 'id' AS event_key
+         FROM (
+           SELECT payload
+           FROM briefing_editions
+           WHERE symbol = $1 AND locale = $2 AND market_date <= $3::date
+           ORDER BY generated_at DESC
+           LIMIT $4
+         ) AS recent_editions
+         CROSS JOIN LATERAL jsonb_array_elements(
+           COALESCE(recent_editions.payload -> 'materialChanges', '[]'::jsonb)
+         ) AS change
+         WHERE change ->> 'id' IS NOT NULL`,
+        [symbol, locale, beforeMarketDate, editionLimit],
+      );
+      return result.rows.flatMap(({ event_key }) =>
+        event_key === null ? [] : [event_key],
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "BRIEFING_EVENT_KEYS_READ_FAILED",
+        { cause: error },
+      );
+    }
+  }
+
   async saveBriefingEdition(
     edition: SaveBriefingEdition,
     recipients: readonly string[],
@@ -1996,6 +2051,13 @@ export class PostgresAccountStore implements AccountStore {
         await client.query("COMMIT");
         return;
       }
+      if (
+        event.sourceEnvironment === "sandbox" &&
+        !sandboxWebhookPrincipalAllowed(principalId)
+      ) {
+        await client.query("COMMIT");
+        return;
+      }
       if (whopUserId !== undefined) {
         await client.query(
           `UPDATE app_users
@@ -2013,9 +2075,11 @@ export class PostgresAccountStore implements AccountStore {
         current_period_end: string | null;
         manage_url: string | null;
         cancel_at_period_end: boolean;
+        whop_membership_id: string | null;
       }>(
         `SELECT plan_code, status, whop_event_at, current_period_start,
-                current_period_end, manage_url, cancel_at_period_end
+                current_period_end, manage_url, cancel_at_period_end,
+                whop_membership_id
          FROM entitlements
          WHERE principal_id = $1
          FOR UPDATE`,
@@ -2030,6 +2094,21 @@ export class PostgresAccountStore implements AccountStore {
       if (
         previousEventAt !== undefined &&
         previousEventAt > Date.parse(occurredAt)
+      ) {
+        await client.query("COMMIT");
+        return;
+      }
+      const targetsPreviousMembership =
+        existing?.whop_membership_id !== null &&
+        existing?.whop_membership_id !== undefined &&
+        membershipId !== undefined &&
+        existing.whop_membership_id !== membershipId;
+      if (
+        targetsPreviousMembership &&
+        (eventType === "membership.deactivated" ||
+          eventType === "membership.cancel_at_period_end_changed" ||
+          eventType === "payment.failed" ||
+          eventType === "payment.pending")
       ) {
         await client.query("COMMIT");
         return;

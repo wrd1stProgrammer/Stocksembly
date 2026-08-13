@@ -173,6 +173,10 @@ export function sanitizePublicEditorialText(value: string): string {
       "",
     )
     .replace(
+      /이 항목은 확인 불가 문구로 끝내지 않고 감시 위험으로 둡니다\.\s*/gu,
+      "이 항목은 다음 관찰 결과로 판별합니다. ",
+    )
+    .replace(
       /\bsealed snapshot\b/giu,
       "official evidence available at the report cutoff",
     )
@@ -184,6 +188,23 @@ export function sanitizePublicEditorialText(value: string): string {
     .replace(
       /(?:qualified )?(?:peer|comparator) data (?:is|was) (?:malformed|corrupt|damaged|unusable)/giu,
       "peer comparison was not used as a decisive input",
+    )
+    .replace(/(\d{1,2})월\s*\$(\d{1,2})(?=\s|일|$)/gu, "$1월 $2일")
+    .replace(
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\$(\d{1,2})(?![\d.])/giu,
+      "$1 $2",
+    )
+    .replace(
+      /((?:10년물|국채 ?금리|기준금리|금리)(?:은|는|이|가)?\s*)\$(\d+(?:\.\d+)?)/gu,
+      "$1$2%",
+    )
+    .replace(
+      /((?:10-year|Treasury|policy) (?:yield|rate)(?: is| was| remains| at)?\s*)\$(\d+(?:\.\d+)?)/giu,
+      "$1$2%",
+    )
+    .replace(
+      /((?:3개월|1년)(?: 기준)?(?: 수익률)?(?:은|는|이|가)?\s*)\$(\d+(?:\.\d+)?)\s*대\s*(?:음의\s*)?\$(\d+(?:\.\d+)?)/gu,
+      "$1$2% 대 -$3%",
     )
     .replace(/\s+/gu, " ")
     .trim();

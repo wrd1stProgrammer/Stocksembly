@@ -1955,8 +1955,8 @@ body.subscription-modal-is-open {
 
 /* Paid members see account management, not the acquisition grid. */
 .subscription-overview {
-  margin: 18px 28px 0;
-  padding: 24px 0 4px;
+  margin: 16px 28px 0;
+  padding: 18px 0 2px;
   border-top: 1px solid
     color-mix(in srgb, var(--billing-card-rim) 82%, transparent);
 }
@@ -1965,27 +1965,28 @@ body.subscription-modal-is-open {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
 }
 
 .subscription-overview__plan-lockup {
   display: flex;
   min-width: 0;
   align-items: baseline;
-  gap: 12px;
+  gap: 8px;
 }
 
 .subscription-overview__plan-lockup h3 {
   margin: 0;
   color: var(--color-text);
-  font-size: clamp(2rem, 4vw, 3rem);
+  font-size: clamp(1.55rem, 1.9vw, 2rem);
   font-weight: 650;
-  letter-spacing: -0.075em;
+  letter-spacing: -0.06em;
+  line-height: 1;
 }
 
 .subscription-overview__period-label {
   color: var(--color-text-muted);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 560;
   letter-spacing: -0.025em;
 }
@@ -1994,13 +1995,13 @@ body.subscription-modal-is-open {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: 1px solid color-mix(in srgb, var(--billing-accent) 42%, transparent);
   border-radius: var(--radius-pill);
-  padding: 7px 11px;
+  padding: 5px 9px;
   color: var(--billing-accent);
   background: color-mix(in srgb, var(--billing-accent) 10%, transparent);
-  font-size: 0.68rem;
+  font-size: 0.875rem;
   font-weight: 720;
 }
 
@@ -2012,25 +2013,23 @@ body.subscription-modal-is-open {
 
 .subscription-overview__divider {
   height: 1px;
-  margin: 20px 0 0;
+  margin: 14px 0 0;
   background: color-mix(in srgb, var(--billing-card-rim) 78%, transparent);
 }
 
 .subscription-overview__payment {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-  gap: 22px;
-  margin-top: 16px;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 16px;
+  margin-top: 12px;
   border: 1px solid color-mix(in srgb, var(--billing-card-rim) 88%, transparent);
-  border-radius: 18px;
-  padding: 18px 20px;
-  background:
-    linear-gradient(
-      120deg,
-      color-mix(in srgb, var(--billing-accent) 8%, transparent),
-      transparent 52%
-    ),
-    color-mix(in srgb, var(--billing-card) 78%, var(--billing-surface));
+  border-radius: 12px;
+  padding: 13px 15px;
+  background: color-mix(
+    in srgb,
+    var(--billing-card) 78%,
+    var(--billing-surface)
+  );
 }
 
 .subscription-overview__price,
@@ -2041,14 +2040,14 @@ body.subscription-modal-is-open {
 .subscription-overview__period {
   border-left: 1px solid
     color-mix(in srgb, var(--billing-card-rim) 74%, transparent);
-  padding-left: 22px;
+  padding-left: 16px;
 }
 
 .subscription-overview__label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   color: var(--color-text-subtle);
-  font-size: 0.68rem;
+  font-size: 0.875rem;
   font-weight: 620;
 }
 
@@ -2056,20 +2055,21 @@ body.subscription-modal-is-open {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 7px;
+  font-variant-numeric: tabular-nums;
 }
 
 .subscription-overview__price-value strong {
   color: var(--color-text);
-  font-size: clamp(2.45rem, 5vw, 3.75rem);
+  font-size: clamp(1.55rem, 2.2vw, 1.9rem);
   font-weight: 650;
-  letter-spacing: -0.085em;
-  line-height: 0.95;
+  letter-spacing: -0.06em;
+  line-height: 1;
 }
 
 .subscription-overview__price-value span {
   color: var(--color-text-muted);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 560;
 }
 
@@ -2077,12 +2077,13 @@ body.subscription-modal-is-open {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   color: var(--color-text);
-  font-size: clamp(1rem, 2vw, 1.28rem);
+  font-size: clamp(0.95rem, 1.3vw, 1.1rem);
   font-weight: 620;
   letter-spacing: -0.04em;
-  line-height: 1.25;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
 .subscription-overview__period > strong span {
@@ -2092,17 +2093,17 @@ body.subscription-modal-is-open {
 
 .subscription-overview__period small {
   display: block;
-  margin-top: 8px;
+  margin-top: 4px;
   color: var(--color-text-muted);
-  font-size: 0.7rem;
+  font-size: 0.875rem;
 }
 
 .subscription-overview__facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
   margin: 0;
-  padding: 20px 0 18px;
+  padding: 14px 0 12px;
   border-bottom: 1px solid
     color-mix(in srgb, var(--billing-card-rim) 78%, transparent);
 }
@@ -2112,9 +2113,9 @@ body.subscription-modal-is-open {
 }
 
 .subscription-overview__facts dt {
-  margin-bottom: 7px;
+  margin-bottom: 5px;
   color: var(--color-text-subtle);
-  font-size: 0.67rem;
+  font-size: 0.875rem;
 }
 
 .subscription-overview__facts dd {
@@ -2123,30 +2124,32 @@ body.subscription-modal-is-open {
   gap: 6px;
   margin: 0;
   color: var(--color-text);
-  font-size: 1.02rem;
+  font-size: 1rem;
   font-weight: 620;
   letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
 }
 
 .subscription-overview__facts dd small {
   color: var(--color-text-muted);
-  font-size: 0.68rem;
+  font-size: 0.875rem;
   font-weight: 500;
   letter-spacing: 0;
 }
 
 .subscription-overview__manage {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 36px;
   align-items: center;
   justify-content: center;
   gap: 8px;
   border: 1px solid var(--billing-card-rim);
   border-radius: var(--radius-pill);
-  padding: 0 18px;
+  margin-top: 12px;
+  padding: 0 14px;
   color: var(--color-text);
   background: transparent;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 720;
   text-decoration: none;
   transition:
@@ -2187,27 +2190,49 @@ body.subscription-modal-is-open {
   }
 
   .subscription-overview__header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
+    align-items: center;
+    gap: 10px;
   }
 
   .subscription-overview__payment {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
   }
 
   .subscription-overview__period {
     border-top: 1px solid
       color-mix(in srgb, var(--billing-card-rim) 74%, transparent);
     border-left: 0;
-    padding-top: 16px;
+    padding-top: 12px;
     padding-left: 0;
   }
 
   .subscription-overview__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .subscription-overview__facts > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .subscription-overview__manage {
+    width: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .subscription-overview__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .subscription-overview__facts {
     grid-template-columns: 1fr;
-    gap: 14px;
+  }
+
+  .subscription-overview__facts > div:last-child {
+    grid-column: auto;
   }
 
   .subscription-overview__manage {
@@ -2512,13 +2537,10 @@ body.subscription-modal-is-open {
   }
 }
 
-/* Spring-morphed values keep the same visual hierarchy as their static
-   counterparts while allowing only the changed glyphs to move. */
+/* Static billing values keep their data geometry stable while billing state loads. */
 .subscription-plan-card__price-value,
 .subscription-plan-card__credit-value,
-.subscription-credit-meter__value,
-.subscription-overview__price-morph,
-.subscription-overview__number-morph {
+.subscription-credit-meter__value {
   display: inline-flex;
   align-items: baseline;
 }

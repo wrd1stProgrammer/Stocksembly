@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { notFound } from "next/navigation";
+import { selectNextEarnings } from "@/src/briefing/domain/briefingEarnings";
 import type {
   BriefingEditionPayload,
   BriefingRoomState,
@@ -18,21 +20,8 @@ type PreviewFile = {
   }[];
 };
 
-function nextEarnings(payload: BriefingEditionPayload) {
-  if (payload.earnings?.nextReportAt !== undefined)
-    return {
-      name: "Earnings",
-      scheduledAt: payload.earnings.nextReportAt,
-      whyItMatters: "Next scheduled earnings release",
-      certainty: "estimated" as const,
-    };
-  return payload.upcomingEvents.find((event) =>
-    /earnings|results|실적/iu.test(event.name),
-  );
-}
-
 export default async function BriefingPreviewPage() {
-  if (process.env.NODE_ENV === "production") return null;
+  if (process.env.NODE_ENV === "production") notFound();
   const raw = await readFile(
     join(process.cwd(), ".artifacts", "briefing-local-preview.json"),
     "utf8",
@@ -55,7 +44,7 @@ export default async function BriefingPreviewPage() {
     marketTimeZone: "America/New_York",
     watchlist,
     briefings: preview.editions.map(({ briefingId, payload }) => {
-      const earnings = nextEarnings(payload);
+      const earnings = selectNextEarnings(payload);
       return {
         briefingId,
         symbol: payload.symbol,

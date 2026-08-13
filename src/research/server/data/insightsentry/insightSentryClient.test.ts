@@ -249,6 +249,51 @@ describe("InsightSentry client", () => {
     expect(maximumActive).toBe(1);
   });
 
+  it("shares the unknown-quota concurrency gate across independent clients", async () => {
+    const root = await dataRoot();
+    let active = 0;
+    let maximumActive = 0;
+    let releaseFirst: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let markStarted: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    let calls = 0;
+    const adapter: InsightSentryWireAdapter = async () => {
+      calls += 1;
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      if (calls === 1) {
+        markStarted();
+        await gate;
+      }
+      active -= 1;
+      return response(
+        200,
+        '{"value":"ok","updatedAt":"2026-07-24T00:00:00.000Z"}',
+      );
+    };
+
+    try {
+      const first = client({ root, adapter }).get(request("A"));
+      await started;
+      const second = client({ root, adapter }).get(request("B"));
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+      const activeBeforeRelease = active;
+      releaseFirst();
+      await Promise.all([first, second]);
+
+      expect(activeBeforeRelease).toBe(1);
+      expect(maximumActive).toBe(1);
+    } finally {
+      releaseFirst();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("allows at most two requests after quota becomes known", async () => {
     // Given
     const root = await dataRoot();

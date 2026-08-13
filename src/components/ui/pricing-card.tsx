@@ -3,7 +3,6 @@
 import { BorderBeam } from "border-beam";
 import { ArrowUpRight, Check, Sparkles } from "lucide-react";
 import type { Locale } from "../../lib/i18n";
-import { CharSpringMorph } from "./char-spring-morph";
 
 export type PricingCardPlan = {
   readonly id: "free" | "pro" | "ultra";
@@ -45,11 +44,7 @@ function PriceRoll({ amount }: { readonly amount: number | null }) {
   const formatted = amount === null ? "—" : formatCurrency(amount);
 
   return (
-    <CharSpringMorph
-      value={formatted}
-      className="subscription-plan-card__price-value"
-      animateOnMount
-    />
+    <span className="subscription-plan-card__price-value">{formatted}</span>
   );
 }
 
@@ -152,13 +147,11 @@ export function PricingCard({
                         ? "매월"
                         : "Monthly"}
                   </span>
-                  <CharSpringMorph
-                    value={plan.creditAllowance.toLocaleString(
+                  <span className="subscription-plan-card__credit-value">
+                    {plan.creditAllowance.toLocaleString(
                       locale === "ko" ? "ko-KR" : "en-US",
                     )}
-                    className="subscription-plan-card__credit-value"
-                    animateOnMount
-                  />
+                  </span>
                   <span>{locale === "ko" ? "크레딧" : "credits"}</span>
                 </div>
               ) : null}

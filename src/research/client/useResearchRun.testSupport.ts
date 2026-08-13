@@ -5,6 +5,7 @@ import type {
   PublicQuestion,
   PublicResearchEvent,
   PublicRunDetail,
+  RecoveredRun,
 } from "./schemas";
 import type { ResearchEventSource } from "./useResearchRun";
 
@@ -92,12 +93,11 @@ export function client(getRun = vi.fn(async () => detail())): ResearchClient {
     getRun,
     cancelRun: vi.fn(async () => undefined),
     retryRun: vi.fn(
-      async (): Promise<ChildRun> => ({
+      async (): Promise<RecoveredRun> => ({
         runId: RUN_ID,
         snapshotId: SNAPSHOT_ID,
-        status: "queued",
-        parentRunId: RUN_ID,
-        lineage: "same-snapshot-retry",
+        status: "running",
+        recovery: "same-run-stage-resume",
       }),
     ),
     followUp: vi.fn(

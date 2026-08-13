@@ -16,12 +16,11 @@ import type {
   BillingPlanKey,
   WhopBillingStatus,
 } from "../../../lib/whop/contracts";
-import {
-  CREDIT_COSTS,
-  researchCreditCost,
-} from "../../../lib/whop/creditPolicy";
+import { CREDIT_COSTS } from "../../../lib/whop/creditPolicy";
 import {
   createWhopCheckout,
+  type SubscriptionCheckoutState,
+  subscriptionCheckoutDecision,
   type WhopWebhookEvent,
 } from "../../../lib/whop/server";
 import {
@@ -50,6 +49,11 @@ import { RunEventsSse } from "./runEventsSse";
 const UuidSchema = z.string().uuid();
 const RemoteRunListSchema = z.object({
   runs: z.array(PublicRunSchema).readonly(),
+});
+const SubscriptionCheckoutStateSchema = z.object({
+  tier: z.enum(["free", "pro", "ultra"]),
+  status: z.enum(["active", "trialing", "past_due", "cancelled", "none"]),
+  manageUrl: z.string().url().optional(),
 });
 
 export type CreateResearchApiOptions = {
@@ -247,6 +251,22 @@ async function proxyAuthenticatedGet(
   });
 }
 
+function billingReturnUrl(request: Request): string {
+  const requestOrigin = new URL(request.url).origin;
+  const configuredOrigin =
+    process.env["STOCKSEMBLY_PUBLIC_ORIGIN"] ?? requestOrigin;
+  const publicOrigin = new URL(configuredOrigin);
+  if (publicOrigin.protocol === "https:")
+    return new URL("/?billing=success", publicOrigin).toString();
+
+  const accountOrigin = localAccountOrigin(request);
+  if (accountOrigin?.protocol !== "https:")
+    throw new Error("STOCKSEMBLY_HTTPS_BILLING_RETURN_REQUIRED");
+  const bridge = new URL("/api/billing/return", accountOrigin);
+  bridge.searchParams.set("target", "local");
+  return bridge.toString();
+}
+
 async function proxyAuthenticatedRequest(
   request: Request,
   pathname: string,
@@ -439,41 +459,28 @@ async function dispatch(
     repository: context.commands,
     now: context.options.now ?? (() => new Date().toISOString()),
     createId: context.options.createId ?? randomUUID,
-    beforeRetry: async (parentRunId, childRunId) => {
-      const parent = context.repository.findRun(principal, parentRunId);
-      if (parent === undefined) return true;
-      const required = researchCreditCost(parent.researchTarget);
-      if (
-        context.options.billingRequired === true &&
-        context.options.accountStore?.reserveResearchCredits === undefined &&
-        context.options.accountStore?.checkCredits === undefined
-      )
-        throw new AccountStoreUnavailableError(
-          "ACCOUNT_STORE_REQUIRED_FOR_RETRY",
+    onRetry: async (runId) => {
+      const run = context.repository.findRun(principal, runId);
+      if (run === undefined) return;
+      const effects: Promise<unknown>[] = [];
+      if (context.options.accountStore !== undefined)
+        effects.push(
+          context.options.accountStore.recordResearchRun(principal, run),
         );
-      const available =
-        context.options.accountStore?.reserveResearchCredits === undefined
-          ? await context.options.accountStore?.checkCredits?.(
-              principal,
-              required,
-            )
-          : await context.options.accountStore.reserveResearchCredits(
-              principal,
-              childRunId,
-              required,
-            );
-      return available?.allowed ?? true;
-    },
-    releaseRetry: async (childRunId) => {
-      await context.options.accountStore?.releaseResearchCredits?.(
-        principal,
-        childRunId,
-      );
-    },
-    onRetry: async (childRunId) => {
-      const run = context.repository.findRun(principal, childRunId);
-      if (run !== undefined)
-        await context.options.accountStore?.recordResearchRun(principal, run);
+      if (context.options.researchQueue !== undefined)
+        effects.push(context.options.researchQueue.enqueue(run));
+      const results = await Promise.allSettled(effects);
+      for (const result of results) {
+        if (result.status === "fulfilled") continue;
+        process.stderr.write(
+          `${JSON.stringify({
+            kind: "research_retry_notification_failed",
+            runId,
+            errorName:
+              result.reason instanceof Error ? result.reason.name : "Unknown",
+          })}\n`,
+        );
+      }
     },
     beforeQuestion: async () => {
       if (
@@ -741,42 +748,78 @@ export async function createResearchApi(
         return status === undefined
           ? emptyBillingStatus(true)
           : { authenticated: true, ...status };
-      } catch {
-        return emptyBillingStatus(true);
+      } catch (error) {
+        if (error instanceof AccountStoreUnavailableError) throw error;
+        throw new AccountStoreUnavailableError(
+          "ACCOUNT_BILLING_STATUS_FAILED",
+          {
+            cause: error,
+          },
+        );
       }
     },
     async billingCheckout(request, planKey) {
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return apiError(401, "AUTHENTICATION_REQUIRED");
+      let currentBillingStatus: SubscriptionCheckoutState | undefined;
       if (options.accountStore === undefined) {
         const remote = await proxyAuthenticatedGet(
           request,
-          `/api/billing/checkout?plan=${encodeURIComponent(planKey)}`,
-          { accept: "application/json" },
+          "/api/billing/status",
         );
         if (remote?.ok === true) {
-          const payload: unknown = await remote.json();
-          if (
-            typeof payload === "object" &&
-            payload !== null &&
-            "purchaseUrl" in payload &&
-            typeof payload.purchaseUrl === "string"
-          )
-            return apiJson({ purchaseUrl: payload.purchaseUrl });
+          const parsed = SubscriptionCheckoutStateSchema.safeParse(
+            await remote.json(),
+          );
+          if (!parsed.success)
+            return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+          currentBillingStatus = parsed.data;
+        } else if (localAccountOrigin(request) !== undefined) {
+          return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
         }
-        return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+      } else {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        const accountBillingStatus = await options.accountStore.billingStatus?.(
+          authentication.principal.id,
+        );
+        if (accountBillingStatus === undefined) {
+          if (options.billingRequired === true)
+            throw new AccountStoreUnavailableError(
+              "ACCOUNT_STORE_REQUIRED_FOR_BILLING",
+            );
+        } else {
+          currentBillingStatus = {
+            tier: accountBillingStatus.tier,
+            status: accountBillingStatus.status,
+            ...(accountBillingStatus.manageUrl === undefined
+              ? {}
+              : { manageUrl: accountBillingStatus.manageUrl }),
+          };
+        }
       }
-      await options.accountStore.syncUser(
-        authentication.principal,
-        options.now?.() ?? new Date().toISOString(),
-      );
-      const configuredOrigin = process.env["STOCKSEMBLY_PUBLIC_ORIGIN"];
-      const origin = configuredOrigin ?? new URL(request.url).origin;
+      if (currentBillingStatus !== undefined) {
+        const decision = subscriptionCheckoutDecision(currentBillingStatus);
+        switch (decision.kind) {
+          case "manage":
+            return request.headers.get("accept")?.includes("application/json")
+              ? apiJson({ purchaseUrl: decision.purchaseUrl })
+              : Response.redirect(decision.purchaseUrl, 303);
+          case "blocked":
+            return apiError(409, "BILLING_MANAGE_URL_REQUIRED");
+          case "checkout":
+            break;
+          default:
+            decision satisfies never;
+        }
+      }
       const checkout = await createWhopCheckout({
         planKey,
         principalId: authentication.principal.id,
-        returnUrl: `${origin.replace(/\/$/u, "")}/?billing=success`,
+        returnUrl: billingReturnUrl(request),
         idempotencyKey: `stocksembly:${authentication.principal.id}:${planKey}:${randomUUID()}`,
       });
       if (request.headers.get("accept")?.includes("application/json"))

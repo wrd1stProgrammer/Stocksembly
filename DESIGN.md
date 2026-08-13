@@ -161,6 +161,17 @@ Base unit: 4px.
 - Motion is a single slow transform-only ledger drift that communicates continuous evidence intake and stops under reduced motion.
 - The public landing page ends after this rail and hands directly to the footer. Detailed debate and Research File explanations live inside the product instead of extending the acquisition page.
 
+### Briefing Card
+
+- Structure: company identity and next-earnings date share the top row; observed price, change, two-line judgment headline, attention, and publication time follow in reading order. The top-right earnings slot is stable: confirmed and estimated dates include their certainty, while missing dates read `Pending` / `미정` instead of disappearing.
+- Current-edition state: every card in the latest briefing group uses the installed `BorderBeam` primitive with `pulse-inner`, `mono`, and `0.97` strength. Historical cards retain the same geometry without the animated beam, so motion communicates freshness rather than decoration.
+- Responsive state: the two-column mobile grid keeps earnings metadata right-aligned and truncates long headlines without clipping the ticker, price, or date.
+
+### Briefing Agent Paths
+
+- Structure: named department leads and their existing office portraits sit directly beside each agent interpretation. Upside and downside paths remain in the same always-visible section below the team views; this content is never hidden behind a disclosure.
+- Surface: open section hierarchy with individual tonal cards only. Diagnostic generation metadata is not rendered as a card grid in the reader-facing detail.
+
 ### Research File
 
 - The completed report is one editorial document with a cover and four numbered subjects: decision brief, evidence analysis, valuation scenarios, and agent debate with final judgment.
@@ -187,8 +198,8 @@ Base unit: 4px.
 
 ### Subscription Management Modal
 
-- Structure: the signed-in sidebar profile action opens one centered, compact dialog over the current workspace. The desktop panel is capped at 1000px wide and 700px tall; non-subscribers see three Free/Pro/Ultra cards and subscribers see the same plan surface as a management entry point.
-- Surface: black backdrop, charcoal `#151515` shell, and glossy `#1b1b1b` cards derived from the supplied pricing-grid reference. The featured Pro card uses one restrained cobalt-blue accent sleeve and a solid light CTA; there is no decorative gradient or extra status panel.
+- Structure: the signed-in sidebar profile action opens one centered, compact dialog over the current workspace. The desktop panel is capped at 1000px wide and 700px tall; non-subscribers see three Free/Pro/Ultra cards and subscribers see a compact membership summary with payment details and a plan-management link.
+- Surface: black backdrop, charcoal `#151515` shell, and glossy `#1b1b1b` cards derived from the supplied pricing-grid reference. The paid-member summary uses a restrained tonal billing strip instead of an oversized sandbox-like panel; the featured Pro card uses one restrained cobalt-blue accent sleeve and a solid light CTA.
 - Card primitive: `PricingCard` keeps one shared billing toggle at grid level and gives each plan a compact nested pricing panel, truthful annual total, annual savings chip, credit allowance row, ruled feature heading, and stable CTA. All three cards use the existing `BorderBeam` wrapper while preserving the same Stocksembly tokens.
 - Header: the modal keeps only the page title and close action, followed immediately by the remaining-credit meter. Promotional eyebrow, duplicate membership copy, sandbox label, and status sentence are intentionally omitted from the visual header.
 - Credit meter: a compact remaining-credit value, used percentage, and single horizontal progress bar sit above the plan controls. The default visual value is replaceable by a billing/usage response when that endpoint exists.

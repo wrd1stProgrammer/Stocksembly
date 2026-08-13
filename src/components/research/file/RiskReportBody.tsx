@@ -2,7 +2,11 @@ import {
   type DepartmentReportBodyProps,
   departmentSectionCopy,
 } from "./DepartmentReportShared";
-import { ResearchFileSectionHeader } from "./ResearchFilePrimitives";
+import {
+  ResearchFileSectionHeader,
+  ResearchInlineHelp,
+  ResearchTermHelp,
+} from "./ResearchFilePrimitives";
 import { rankStructuredRisks } from "./RiskReportModel";
 import styles from "./risk-report.module.css";
 
@@ -19,6 +23,68 @@ function formatRiskMetric(value: number, unit: string, locale: "en" | "ko") {
   }).format(value);
 }
 
+function publicRiskMetricId(metricId: string): string | undefined {
+  const normalized = metricId.toLowerCase();
+  if (normalized.includes("quote.last_price")) return "current_price";
+  if (normalized.includes("enterprise_value_ebitda")) return "ev_ebitda";
+  if (normalized.includes("revenue_estimate_ntm")) return "forward_revenue";
+  if (normalized.includes("free_cash_flow")) return "free_cash_flow";
+  if (normalized.includes("cash_n_short_term")) return "cash";
+  if (normalized.includes("operating_margin")) return "operating_margin";
+  if (normalized.includes("accounts_receivables")) return undefined;
+  return /insightsentry|rapidapi|provider/iu.test(normalized)
+    ? undefined
+    : metricId;
+}
+
+function riskMetricDescription(metricId: string, locale: "en" | "ko") {
+  const id = metricId.toLowerCase();
+  const descriptions = locale === "ko";
+  if (id.includes("price"))
+    return descriptions
+      ? "현재 거래 가격으로, 다른 위험 지표와 밸류에이션 부담을 해석하는 기준점입니다."
+      : "The current trading price used as the reference point for valuation and downside risk.";
+  if (id.includes("debt") || id.includes("leverage"))
+    return descriptions
+      ? "자본 대비 부채 부담으로, 금리와 현금흐름 악화에 대한 재무 민감도를 보여줍니다."
+      : "Debt burden relative to capital, showing sensitivity to rates and weaker cash flow.";
+  if (id.includes("ev_ebitda") || id.includes("enterprise_value_ebitda"))
+    return descriptions
+      ? "기업가치를 EBITDA와 비교한 배수로, 영업현금 창출력 대비 가격 부담을 봅니다."
+      : "Enterprise value relative to EBITDA, used to read valuation pressure against operating cash earnings.";
+  if (id.includes("market_cap"))
+    return descriptions
+      ? "주가와 발행주식 수로 계산한 시장 가치로, 기대가 이미 반영된 규모를 뜻합니다."
+      : "Equity market value derived from price and shares, indicating the scale of expectations already priced in.";
+  if (id.includes("volume"))
+    return descriptions
+      ? "거래된 주식 수로, 가격 움직임에 실제 수급 참여가 동반됐는지 확인합니다."
+      : "Shares traded, used to check whether price moves are supported by participation.";
+  if (id.includes("gross_margin"))
+    return descriptions
+      ? "매출에서 직접 원가를 제외한 비율로, 가격 결정력과 원가 압력을 보여줍니다."
+      : "Revenue left after direct costs, indicating pricing power and cost pressure.";
+  if (id.includes("operating_margin"))
+    return descriptions
+      ? "영업비용까지 제외한 이익률로, 본업의 비용 통제력과 수익성을 보여줍니다."
+      : "Profit after operating costs, indicating core cost control and profitability.";
+  if (id.includes("free_cash_flow"))
+    return descriptions
+      ? "영업현금에서 설비투자를 뺀 현금으로, 부채 상환과 재투자 여력을 보여줍니다."
+      : "Cash left after capital spending, indicating capacity for debt service and reinvestment.";
+  if (id.includes("cash"))
+    return descriptions
+      ? "즉시 활용 가능한 현금성 자산으로, 충격을 흡수할 수 있는 완충력을 뜻합니다."
+      : "Liquid cash resources available to absorb operating or financing shocks.";
+  if (id.includes("revenue"))
+    return descriptions
+      ? "기업의 매출 규모 또는 전망으로, 하방 위험이 실제 수요 약화로 번지는지 확인합니다."
+      : "Reported or expected revenue, used to see whether downside risk is reaching demand.";
+  return descriptions
+    ? "이 지표의 변화는 위험의 크기와 현실화 속도를 판단하는 관찰 근거로 사용됩니다."
+    : "Changes in this metric help assess the size and speed of risk transmission.";
+}
+
 export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
   const ko = locale === "ko";
   const copy = departmentSectionCopy("risk", locale);
@@ -30,6 +96,25 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
   const exposureMetrics = (file.metricSnapshot?.metrics ?? [])
     .filter((metric) => metric.category === "risk")
     .slice(0, 6);
+  const metricsById = new Map(
+    (file.metricSnapshot?.metrics ?? []).map((metric) => [metric.id, metric]),
+  );
+  const publicMetricSummary = (metricIds: readonly string[]) => {
+    const seen = new Set<string>();
+    return metricIds
+      .flatMap((metricId) => {
+        const publicId = publicRiskMetricId(metricId);
+        if (publicId === undefined || seen.has(publicId)) return [];
+        seen.add(publicId);
+        const metric = metricsById.get(publicId);
+        return metric === undefined
+          ? []
+          : [
+              `${metric.label[locale]} ${formatRiskMetric(metric.value, metric.unit, locale)}`,
+            ];
+      })
+      .join(" · ");
+  };
   const impactLabel = (value: "high" | "moderate") =>
     ko ? (value === "high" ? "높음" : "중간") : value;
   const observeLabel = (value: "measurable" | "observable" | "limited") =>
@@ -51,6 +136,7 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
         number="01"
         title={copy.primaryTitle}
         description={copy.primaryDescription}
+        help={{ term: "riskRegister", locale }}
       />
       {exposureMetrics.length === 0 ? null : (
         <section
@@ -62,7 +148,11 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
               key={`${metric.id}:${metric.period ?? metric.observedAt}`}
               data-source-id={metric.source}
             >
-              <span>{metric.label[locale]}</span>
+              <ResearchInlineHelp
+                label={metric.label[locale]}
+                description={riskMetricDescription(metric.id, locale)}
+                locale={locale}
+              />
               <strong>
                 {formatRiskMetric(metric.value, metric.unit, locale)}
               </strong>
@@ -85,9 +175,11 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
       ) : (
         <section className={styles["heatmap"]} data-risk-heatmap="structured">
           <header>
-            <span>
-              {ko ? "영향도 × 관찰 가능성" : "Impact × observability"}
-            </span>
+            <ResearchTermHelp
+              term="impactObservability"
+              label={ko ? "영향도 × 관찰 가능성" : "Impact × observability"}
+              locale={locale}
+            />
             <small>{ko ? "점수 내림차순" : "Descending evidence score"}</small>
           </header>
           <ol>
@@ -99,7 +191,9 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
                 data-risk-observability={risk.observability}
                 data-risk-score={risk.priorityScore}
                 data-evidence-ids={risk.evidenceArtifactIds.join(",")}
-                data-metric-ids={risk.decisiveMetricIds.join(",")}
+                data-metric-ids={risk.decisiveMetricIds
+                  .flatMap((metricId) => publicRiskMetricId(metricId) ?? [])
+                  .join(",")}
               >
                 <div>
                   <strong>P{index + 1}</strong>
@@ -130,13 +224,16 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
           {downside.map((risk) => (
             <article key={risk.claimId} data-risk-claim-id={risk.claimId}>
               <div>
-                <span>{ko ? "재무 전이 지표" : "Financial transmission"}</span>
+                <ResearchTermHelp
+                  term="financialTransmission"
+                  label={ko ? "재무 전이 지표" : "Financial transmission"}
+                  locale={locale}
+                />
                 <p>
-                  {risk.decisiveMetricIds.length === 0
-                    ? ko
+                  {publicMetricSummary(risk.decisiveMetricIds) ||
+                    (ko
                       ? "매출·마진·현금흐름의 동시 변화를 확인"
-                      : "Watch the joint move in revenue, margin, and cash flow"
-                    : risk.decisiveMetricIds.join(" · ").replaceAll("_", " ")}
+                      : "Watch the joint move in revenue, margin, and cash flow")}
                 </p>
               </div>
               <div>
@@ -152,8 +249,15 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
           className={styles["trafficLights"]}
           aria-labelledby="leading-indicators-title"
         >
-          <h3 id="leading-indicators-title">
-            {ko ? "선행지표 신호등" : "Leading-indicator lights"}
+          <h3
+            id="leading-indicators-title"
+            aria-label={ko ? "선행지표 신호등" : "Leading-indicator lights"}
+          >
+            <ResearchTermHelp
+              term="leadingIndicator"
+              label={ko ? "선행지표 신호등" : "Leading-indicator lights"}
+              locale={locale}
+            />
           </h3>
           <div>
             {indicators.map((risk) => (

@@ -1,5 +1,4 @@
-import { realpathSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { LIMITS } from "../domain/limits.constants";
 import type { ArtifactCasPort } from "../ports/artifacts";
@@ -8,6 +7,7 @@ import {
   createLiveS3ArtifactArchive,
   S3MirroredArtifactStore,
 } from "../server/artifacts/s3ArtifactArchive";
+import { productionCodexPlatform } from "../server/codex/codexPlatform";
 import { type CodexPort, createCodexPort } from "../server/codex/codexRunner";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
 import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
@@ -99,10 +99,16 @@ export async function createOfficialAttemptHandler(
           requireCommittedMetadata(metadata),
         ));
   const codex = overrides.codex ?? createCodexPort(authority);
-  const attemptRoot = join(
-    realpathSync(tmpdir()),
+  const attemptParent =
+    codex.kind === "real"
+      ? productionCodexPlatform().tempParent
+      : options.dataDirectory;
+  const attemptRootCandidate = join(
+    attemptParent,
     "stocksembly-research-attempts",
   );
+  mkdirSync(attemptRootCandidate, { recursive: true, mode: 0o700 });
+  const attemptRoot = realpathSync(attemptRootCandidate);
   const questionAuthority = new QuestionAnswerSqliteAuthority(
     options.databasePath,
     cas,
@@ -213,7 +219,6 @@ export async function createOfficialAttemptHandler(
     cas,
     codex,
     ...(overrides.now === undefined ? {} : { now: overrides.now }),
-    publishReport,
     workflowAuthority: authority,
     commitStore,
   });

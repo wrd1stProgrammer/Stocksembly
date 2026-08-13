@@ -144,6 +144,12 @@ export type AccountStore = {
     locale: Locale,
     beforeMarketDate: string,
   ) => Promise<BriefingEditionPayload | undefined>;
+  readonly listBriefingEventKeys?: (
+    symbol: string,
+    locale: Locale,
+    beforeMarketDate: string,
+    editionLimit: number,
+  ) => Promise<readonly string[]>;
   readonly saveBriefingEdition?: (
     edition: SaveBriefingEdition,
     recipients: readonly string[],

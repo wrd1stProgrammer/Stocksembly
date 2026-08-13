@@ -193,6 +193,7 @@ export type SemanticAuditReplay = {
   readonly incompleteReason:
     | "semantic_artifact_missing"
     | "replacement_exhausted"
+    | "retry_pending"
     | null;
 };
 

@@ -110,6 +110,11 @@ const reportPage = {
   ],
 } satisfies ResearchRoomReportPage;
 
+const paginatedReportPage = {
+  ...reportPage,
+  total: 64,
+} satisfies ResearchRoomReportPage;
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal(
@@ -160,6 +165,52 @@ describe("research room archive page", () => {
     expect(pageState.listResearchRoomReportPage).toHaveBeenCalledWith(
       pageState.access,
       { limit: 32, sort: "latest" },
+    );
+  });
+
+  it("server-renders the requested archive page with the matching offset", async () => {
+    // Given
+    pageState.researchRoomAccess.mockResolvedValueOnce(pageState.access);
+    pageState.listResearchRoomReportPage.mockResolvedValueOnce(
+      paginatedReportPage,
+    );
+
+    // When
+    const element = (await ResearchRoomPage({
+      searchParams: Promise.resolve({ lang: "en", page: "2" }),
+    })) as ReactElement<{ readonly children: ReactNode }>;
+    const catalog = Array.isArray(element.props.children)
+      ? element.props.children[0]
+      : element.props.children;
+    if (!isValidElement<ComponentProps<typeof ResearchRoomCatalog>>(catalog))
+      throw new TypeError("Missing catalog");
+
+    // Then
+    expect(pageState.listResearchRoomReportPage).toHaveBeenCalledWith(
+      pageState.access,
+      { limit: 32, offset: 32, sort: "latest" },
+    );
+    expect(catalog.props.initialPage).toBe(2);
+  });
+
+  it("renders the next archive page as a crawlable link", async () => {
+    // Given
+    pageState.researchRoomAccess.mockResolvedValueOnce(pageState.access);
+    pageState.listResearchRoomReportPage.mockResolvedValueOnce(
+      paginatedReportPage,
+    );
+
+    // When
+    render(
+      await ResearchRoomPage({
+        searchParams: Promise.resolve({ lang: "en" }),
+      }),
+    );
+
+    // Then
+    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute(
+      "href",
+      "/research-room?lang=en&page=2",
     );
   });
 

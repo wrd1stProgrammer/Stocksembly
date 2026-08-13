@@ -45,6 +45,15 @@ export function applyOfficeProjection(
   const uiByActor = new Map(
     uiLayouts.map((layout) => [layout.actorId, layout]),
   );
+  const projectedActorIds = new Set(
+    input.projection.actors.map((actor) => actor.id),
+  );
+  for (const runtime of input.actors.values()) {
+    if (projectedActorIds.has(runtime.id)) continue;
+    runtime.body.visible = false;
+    runtime.ui.visible = false;
+    runtime.bubble.container.visible = false;
+  }
   for (const actor of input.projection.actors) {
     const runtime = input.actors.get(actor.id);
     const uiLayout = uiByActor.get(actor.id);

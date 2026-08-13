@@ -37,10 +37,12 @@ import { MembershipAccessModal } from "../billing/MembershipAccessModal";
 import { MobileBottomNav } from "../MobileBottomNav";
 import { CompanyLogo } from "../research/ResearchSidebar";
 import { SignedInSidebar } from "../SignedInSidebar";
+import { researchRoomPageHref } from "./researchRoomUrls";
 
 type Props = {
   readonly access: ResearchRoomAccess;
   readonly initialCompanies: readonly ResearchRoomCompanyFacet[];
+  readonly initialPage: number;
   readonly initialReports: readonly ResearchRoomCatalogItem[];
   readonly initialTotal: number;
   readonly locale: Locale;
@@ -147,6 +149,7 @@ export function formatResearchRoomPublishedAt(
 export function ResearchRoomCatalog({
   access,
   initialCompanies,
+  initialPage,
   initialReports,
   initialTotal,
   locale,
@@ -156,7 +159,7 @@ export function ResearchRoomCatalog({
   const [scope, setScope] = useState<Scope>("all");
   const [company, setCompany] = useState("all");
   const [sort, setSort] = useState<Sort>("latest");
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPage);
   const [reports, setReports] =
     useState<readonly ResearchRoomCatalogItem[]>(initialReports);
   const [total, setTotal] = useState(initialTotal);
@@ -164,7 +167,7 @@ export function ResearchRoomCatalog({
     useState<readonly ResearchRoomCompanyFacet[]>(initialCompanies);
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState<number | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
 
   useEffect(() => {
@@ -229,6 +232,11 @@ export function ResearchRoomCatalog({
 
   const selectedCompany = company === "all" ? undefined : company;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const usesDefaultArchiveView =
+    query.trim().length === 0 &&
+    scope === "all" &&
+    company === "all" &&
+    sort === "latest";
 
   function resetPage(next: () => void) {
     setPage(1);
@@ -500,27 +508,69 @@ export function ResearchRoomCatalog({
                 className="research-room-catalog__pagination"
                 aria-label={locale === "ko" ? "페이지 이동" : "Pagination"}
               >
-                <button
-                  type="button"
-                  disabled={page === 1 || loading}
-                  onClick={() => setPage((value) => Math.max(1, value - 1))}
-                  aria-label={locale === "ko" ? "이전 페이지" : "Previous page"}
-                >
-                  <ChevronLeft size={16} aria-hidden="true" />
-                </button>
+                {usesDefaultArchiveView ? (
+                  page === 1 ? (
+                    <span
+                      className="research-room-catalog__page-link is-disabled"
+                      aria-hidden="true"
+                    >
+                      <ChevronLeft size={16} aria-hidden="true" />
+                    </span>
+                  ) : (
+                    <Link
+                      className="research-room-catalog__page-link"
+                      href={researchRoomPageHref(page - 1, locale)}
+                      aria-label={
+                        locale === "ko" ? "이전 페이지" : "Previous page"
+                      }
+                    >
+                      <ChevronLeft size={16} aria-hidden="true" />
+                    </Link>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    disabled={page === 1 || loading}
+                    onClick={() => setPage((value) => Math.max(1, value - 1))}
+                    aria-label={
+                      locale === "ko" ? "이전 페이지" : "Previous page"
+                    }
+                  >
+                    <ChevronLeft size={16} aria-hidden="true" />
+                  </button>
+                )}
                 <span>
                   {page} / {totalPages}
                 </span>
-                <button
-                  type="button"
-                  disabled={page >= totalPages || loading}
-                  onClick={() =>
-                    setPage((value) => Math.min(totalPages, value + 1))
-                  }
-                  aria-label={locale === "ko" ? "다음 페이지" : "Next page"}
-                >
-                  <ChevronRight size={16} aria-hidden="true" />
-                </button>
+                {usesDefaultArchiveView ? (
+                  page >= totalPages ? (
+                    <span
+                      className="research-room-catalog__page-link is-disabled"
+                      aria-hidden="true"
+                    >
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </span>
+                  ) : (
+                    <Link
+                      className="research-room-catalog__page-link"
+                      href={researchRoomPageHref(page + 1, locale)}
+                      aria-label={locale === "ko" ? "다음 페이지" : "Next page"}
+                    >
+                      <ChevronRight size={16} aria-hidden="true" />
+                    </Link>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    disabled={page >= totalPages || loading}
+                    onClick={() =>
+                      setPage((value) => Math.min(totalPages, value + 1))
+                    }
+                    aria-label={locale === "ko" ? "다음 페이지" : "Next page"}
+                  >
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </button>
+                )}
               </nav>
             ) : null}
           </section>

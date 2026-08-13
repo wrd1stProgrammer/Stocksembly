@@ -1,18 +1,18 @@
 import Whop from "@whop/sdk";
 import { z } from "zod";
-import type { BillingPlanKey, BillingTier, WhopPricingPlan } from "./contracts";
+import type {
+  BillingPlanKey,
+  BillingStatus,
+  BillingTier,
+  WhopPricingPlan,
+} from "./contracts";
 
 export type { BillingPlanKey, WhopPricingPlan } from "./contracts";
+export { MONTHLY_CREDIT_ALLOWANCE } from "./creditPolicy";
 
 export const FREE_DAILY_CREDIT_ALLOWANCE = 3;
 export const FREE_SIGNUP_CREDIT_ALLOWANCE = 5;
 export const FREE_MONTHLY_CREDIT_CAP = 30;
-
-export const MONTHLY_CREDIT_ALLOWANCE: Readonly<Record<BillingTier, number>> = {
-  free: 0,
-  pro: 100,
-  ultra: 300,
-};
 
 const WhopPlanSchema = z.object({
   id: z.string().startsWith("plan_"),
@@ -33,6 +33,7 @@ const planDefinitions = [
   {
     key: "pro-monthly",
     envKey: "WHOP_PLAN_PRO_MONTHLY_ID",
+    sandboxEnvKey: "WHOP_SANDBOX_PLAN_PRO_MONTHLY_ID",
     tier: "Pro",
     amount: 19,
     interval: "month",
@@ -41,6 +42,7 @@ const planDefinitions = [
   {
     key: "pro-annual",
     envKey: "WHOP_PLAN_PRO_ANNUAL_ID",
+    sandboxEnvKey: "WHOP_SANDBOX_PLAN_PRO_ANNUAL_ID",
     tier: "Pro",
     amount: 190,
     interval: "year",
@@ -49,6 +51,7 @@ const planDefinitions = [
   {
     key: "ultra-monthly",
     envKey: "WHOP_PLAN_ULTRA_MONTHLY_ID",
+    sandboxEnvKey: "WHOP_SANDBOX_PLAN_ULTRA_MONTHLY_ID",
     tier: "Ultra",
     amount: 39,
     interval: "month",
@@ -57,6 +60,7 @@ const planDefinitions = [
   {
     key: "ultra-annual",
     envKey: "WHOP_PLAN_ULTRA_ANNUAL_ID",
+    sandboxEnvKey: "WHOP_SANDBOX_PLAN_ULTRA_ANNUAL_ID",
     tier: "Ultra",
     amount: 390,
     interval: "year",
@@ -106,12 +110,41 @@ export function billingTierForPlanKey(
   return key.startsWith("pro-") ? "pro" : "ultra";
 }
 
+export type SubscriptionCheckoutDecision =
+  | { readonly kind: "checkout" }
+  | { readonly kind: "manage"; readonly purchaseUrl: string }
+  | { readonly kind: "blocked" };
+
+export type SubscriptionCheckoutState = {
+  readonly tier: BillingTier;
+  readonly status: BillingStatus;
+  readonly manageUrl?: string | undefined;
+};
+
+export function subscriptionCheckoutDecision(
+  status: SubscriptionCheckoutState,
+): SubscriptionCheckoutDecision {
+  const hasPaidMembership =
+    status.tier !== "free" &&
+    (status.status === "active" ||
+      status.status === "trialing" ||
+      status.status === "past_due");
+  if (!hasPaidMembership) return { kind: "checkout" };
+  return status.manageUrl === undefined
+    ? { kind: "blocked" }
+    : { kind: "manage", purchaseUrl: status.manageUrl };
+}
+
 export function billingPlanKeyForWhopPlanId(
   planId: string | undefined,
 ): BillingPlanKey | undefined {
   if (planId === undefined) return undefined;
   for (const definition of planDefinitions) {
-    if (env(definition.envKey) === planId) return definition.key;
+    if (
+      env(definition.envKey) === planId ||
+      env(definition.sandboxEnvKey) === planId
+    )
+      return definition.key;
   }
   return undefined;
 }
@@ -173,22 +206,42 @@ export type WhopWebhookEvent = {
   readonly type: string;
   readonly timestamp?: string;
   readonly data: unknown;
+  readonly sourceEnvironment?: "sandbox" | "production";
 };
 
 export function unwrapWhopWebhook(
   body: string,
   headers: Record<string, string>,
 ): WhopWebhookEvent {
-  const secret = env("WHOP_WEBHOOK_SECRET");
-  if (secret === undefined) throw new Error("WHOP_WEBHOOK_SECRET_REQUIRED");
+  const primarySecret = env("WHOP_WEBHOOK_SECRET");
+  const sandboxSecret = env("WHOP_SANDBOX_WEBHOOK_SECRET");
+  const secrets = [primarySecret, sandboxSecret].filter(
+    (secret, index, candidates): secret is string =>
+      secret !== undefined && candidates.indexOf(secret) === index,
+  );
+  if (primarySecret === undefined)
+    throw new Error("WHOP_WEBHOOK_SECRET_REQUIRED");
   const configuration = whopConfiguration();
-  const event = whopClient({
+  const client = whopClient({
     ...configuration,
   });
-  const unwrapped = event.webhooks.unwrap(body, {
-    headers,
-    key: Buffer.from(secret, "utf8").toString("base64"),
-  }) as WhopWebhookEvent;
+  let unwrapped: WhopWebhookEvent | undefined;
+  let sourceEnvironment = getWhopEnvironment();
+  let verificationError: unknown;
+  for (const secret of secrets) {
+    try {
+      unwrapped = client.webhooks.unwrap(body, {
+        headers,
+        key: Buffer.from(secret, "utf8").toString("base64"),
+      }) as WhopWebhookEvent;
+      if (secret === sandboxSecret && secret !== primarySecret)
+        sourceEnvironment = "sandbox";
+      break;
+    } catch (error) {
+      verificationError = error;
+    }
+  }
+  if (unwrapped === undefined) throw verificationError;
   if (
     unwrapped === null ||
     typeof unwrapped !== "object" ||
@@ -199,6 +252,7 @@ export function unwrapWhopWebhook(
   }
   return {
     ...unwrapped,
+    sourceEnvironment,
     ...(unwrapped.id === undefined && headers["webhook-id"] !== undefined
       ? { id: headers["webhook-id"] }
       : {}),

@@ -148,6 +148,44 @@ export const EditorialStanceSchema = z.enum([
 ]);
 export const EditorialConfidenceSchema = z.enum(["high", "medium", "low"]);
 
+const InvestmentActionSchema = z.enum([
+  "consider_entry",
+  "hold_or_monitor",
+  "wait_for_confirmation",
+  "reduce_exposure",
+  "avoid_new_entry",
+]);
+
+export const TeamEditorialAssessmentSchema = z.discriminatedUnion(
+  "departmentId",
+  [
+    z.strictObject({
+      departmentId: z.literal("market"),
+      lens: z.literal("market_regime"),
+      signal: z.enum(["favorable_setup", "mixed_setup", "unfavorable_setup"]),
+      investmentAction: InvestmentActionSchema,
+    }),
+    z.strictObject({
+      departmentId: z.literal("company"),
+      lens: z.literal("business_quality"),
+      signal: z.enum(["strengthening", "stable", "weakening"]),
+      investmentAction: InvestmentActionSchema,
+    }),
+    z.strictObject({
+      departmentId: z.literal("financial"),
+      lens: z.literal("financial_quality"),
+      signal: z.enum(["value_creating", "mixed_quality", "value_dilutive"]),
+      investmentAction: InvestmentActionSchema,
+    }),
+    z.strictObject({
+      departmentId: z.literal("risk"),
+      lens: z.literal("risk_exposure"),
+      signal: z.enum(["contained", "elevated", "severe"]),
+      investmentAction: InvestmentActionSchema,
+    }),
+  ],
+);
+
 export const TeamEditorialDecisionSchema = z
   .object({
     stance: EditorialStanceSchema,
@@ -156,6 +194,7 @@ export const TeamEditorialDecisionSchema = z
     strongestCountercase: BilingualPublicTextSchema,
     falsifier: BilingualPublicTextSchema,
     primaryClaimIds: ClaimIdsSchema,
+    teamAssessment: TeamEditorialAssessmentSchema.optional(),
   })
   .strict()
   .readonly();

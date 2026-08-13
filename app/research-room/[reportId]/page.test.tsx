@@ -68,11 +68,19 @@ describe("public research report metadata", () => {
       title: "NVDA · Is the growth durable?",
       description: "한국어 투자 논지",
       robots: { index: true, follow: true },
-      alternates: { canonical: `/research-room/${REPORT_ID}` },
+      alternates: {
+        canonical: `/research-room/${REPORT_ID}`,
+        languages: {
+          ko: `/research-room/${REPORT_ID}`,
+          en: `/research-room/${REPORT_ID}?lang=en`,
+          "x-default": `/research-room/${REPORT_ID}`,
+        },
+      },
       openGraph: {
         title: "NVDA 리서치 · Stocksembly",
         description: "한국어 투자 논지",
         locale: "ko_KR",
+        alternateLocale: "en_US",
         url: `/research-room/${REPORT_ID}`,
         type: "article",
         publishedTime: "2026-08-01T00:00:00.000Z",
@@ -92,12 +100,20 @@ describe("public research report metadata", () => {
       title: "NVDA · Is the growth durable?",
       description: "English investment thesis",
       robots: { index: true, follow: true },
-      alternates: { canonical: `/research-room/${REPORT_ID}` },
+      alternates: {
+        canonical: `/research-room/${REPORT_ID}?lang=en`,
+        languages: {
+          ko: `/research-room/${REPORT_ID}`,
+          en: `/research-room/${REPORT_ID}?lang=en`,
+          "x-default": `/research-room/${REPORT_ID}`,
+        },
+      },
       openGraph: {
         title: "NVDA Research · Stocksembly",
         description: "English investment thesis",
         locale: "en_US",
-        url: `/research-room/${REPORT_ID}`,
+        alternateLocale: "ko_KR",
+        url: `/research-room/${REPORT_ID}?lang=en`,
         type: "article",
         publishedTime: "2026-08-01T00:00:00.000Z",
       },

@@ -17,7 +17,7 @@
 .exposureTape {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 3px solid var(--editorial-rule-strong);
+  border-top: 1px solid var(--editorial-rule-strong);
   border-left: 1px solid var(--editorial-rule);
 }
 .exposureTape article {
@@ -39,7 +39,7 @@
 }
 
 .heatmap {
-  border-top: 6px solid var(--editorial-accent);
+  border-top: 3px solid var(--editorial-accent);
 }
 .heatmap > header {
   display: flex;
@@ -56,53 +56,50 @@
   color: var(--editorial-muted);
 }
 .heatmap ol {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
+  display: block;
   list-style: none;
+  border-top: 1px solid var(--editorial-rule-strong);
 }
 .heatmap li {
-  grid-column: span 4;
   min-width: 0;
-  padding: 20px;
-  border: 1px solid var(--editorial-rule);
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) minmax(150px, 0.42fr);
+  gap: 18px 24px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--editorial-rule);
 }
-.heatmap li:first-child {
-  grid-column: span 7;
-  background: var(--editorial-accent-soft);
-}
-.heatmap li:nth-child(2) {
-  grid-column: span 5;
-}
-.heatmap li:nth-child(n + 3) {
-  grid-column: span 6;
-}
-.heatmap li:last-child:nth-child(odd) {
-  grid-column: span 12;
+.heatmap li[data-risk-impact="high"] {
+  box-shadow: inset 3px 0 var(--editorial-accent);
+  padding-left: 14px;
 }
 .heatmap li > div:first-child {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  gap: 5px;
   color: var(--editorial-accent);
   font-family: var(--font-mono, monospace);
   font-size: 0.72rem;
 }
 .heatmap li > p {
   min-height: 0;
-  margin-top: 18px;
+  margin-top: 0;
   font-size: 0.78rem;
   font-weight: 650;
   line-height: 1.6;
 }
 .heatmap dl {
-  display: flex;
-  gap: 18px;
-  margin-top: 18px;
-  padding-top: 12px;
-  border-top: 1px solid var(--editorial-rule);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 0;
+  padding: 0;
+  border-top: 0;
 }
 .heatmap dl > div {
   display: grid;
-  gap: 3px;
+  gap: 5px;
+  padding-left: 12px;
+  border-left: 1px solid var(--editorial-rule);
 }
 .heatmap dt {
   color: var(--editorial-muted);
@@ -327,21 +324,27 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .heatmap ol {
-    display: grid;
-    grid-template-columns: 1fr;
+    display: block;
   }
-  .heatmap li,
-  .heatmap li:first-child,
-  .heatmap li:nth-child(2) {
-    grid-column: auto;
+  .heatmap li {
+    grid-template-columns: 58px minmax(0, 1fr);
   }
-  .heatmap li > p {
-    min-height: 0;
+  .heatmap dl {
+    grid-column: 2;
   }
   .trafficLights > div,
   .separation,
   .scenarios > header {
     grid-template-columns: 1fr;
+  }
+}
+
+@container (max-width: 430px) {
+  .heatmap li {
+    grid-template-columns: 1fr;
+  }
+  .heatmap dl {
+    grid-column: 1;
   }
 }
 

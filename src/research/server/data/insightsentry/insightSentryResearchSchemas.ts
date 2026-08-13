@@ -168,6 +168,7 @@ export const PeerScreenResponseSchema = z.strictObject({
       classification: z.enum(["direct_competitor", "operating_comparable"]),
       selectionScore: z.number().finite().min(0).max(1),
       selectionReasons: z.array(z.string().min(1)).min(1).max(4),
+      marketOverlapVerified: z.boolean().optional(),
       marketCap: z.number().finite().nonnegative().optional(),
       priceEarningsTtm: z.number().finite().optional(),
       enterpriseValueEbitdaTtm: z.number().finite().optional(),

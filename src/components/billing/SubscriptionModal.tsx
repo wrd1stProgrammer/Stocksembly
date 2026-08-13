@@ -8,7 +8,8 @@ import type {
   WhopBillingStatus,
   WhopPricingPlan,
 } from "../../lib/whop/contracts";
-import { CharSpringMorph } from "../ui/char-spring-morph";
+import { billingCheckoutPath } from "../../lib/whop/contracts";
+import { MONTHLY_CREDIT_ALLOWANCE } from "../../lib/whop/creditPolicy";
 import { DotsRing } from "../ui/dots-ring";
 import {
   PricingPlansGrid,
@@ -50,13 +51,11 @@ function CreditMeter({
         <h3 id={titleId}>
           <strong>
             {usageAvailable ? (
-              <CharSpringMorph
-                value={usage.remaining.toLocaleString(
+              <span className="subscription-credit-meter__value">
+                {usage.remaining.toLocaleString(
                   locale === "ko" ? "ko-KR" : "en-US",
                 )}
-                className="subscription-credit-meter__value"
-                animateOnMount
-              />
+              </span>
             ) : (
               "—"
             )}
@@ -164,9 +163,17 @@ function SubscriptionOverview({
         : locale === "ko"
           ? "활성"
           : "Active";
-  const manageUrl =
-    billingStatus?.manageUrl ?? `/pricing?lang=${encodeURIComponent(locale)}`;
-  const hasProviderManageUrl = billingStatus?.manageUrl !== undefined;
+  const providerManageUrl = billingStatus?.manageUrl;
+  const planChangeUrl =
+    providerManageUrl ?? `/pricing?lang=${encodeURIComponent(locale)}`;
+  const planChangeLabel =
+    billingStatus?.tier === "pro"
+      ? locale === "ko"
+        ? "Ultra로 업그레이드"
+        : "Upgrade to Ultra"
+      : locale === "ko"
+        ? "플랜 관리하기"
+        : "Manage plan";
   const periodCaption = billingStatus?.cancelAtPeriodEnd
     ? locale === "ko"
       ? "플랜 종료 예정"
@@ -174,6 +181,7 @@ function SubscriptionOverview({
     : locale === "ko"
       ? "다음 결제일"
       : "Next payment";
+  const monthlyCreditAllowance = billingStatus?.credits.allowance;
 
   return (
     <section className="subscription-overview" aria-labelledby={titleId}>
@@ -201,11 +209,9 @@ function SubscriptionOverview({
           </span>
           <div className="subscription-overview__price-value">
             <strong>
-              <CharSpringMorph
-                value={amount}
-                className="subscription-overview__price-morph"
-                animateOnMount
-              />
+              <span className="subscription-overview__price-amount">
+                {amount}
+              </span>
             </strong>
             <span>{cycle}</span>
           </div>
@@ -232,15 +238,13 @@ function SubscriptionOverview({
         <div>
           <dt>{locale === "ko" ? "월 제공 크레딧" : "Monthly credits"}</dt>
           <dd>
-            <CharSpringMorph
-              value={
-                billingStatus?.credits.allowance.toLocaleString(
-                  locale === "ko" ? "ko-KR" : "en-US",
-                ) ?? "—"
-              }
-              className="subscription-overview__number-morph"
-              animateOnMount
-            />
+            <span className="subscription-overview__number">
+              {monthlyCreditAllowance === undefined
+                ? "—"
+                : monthlyCreditAllowance.toLocaleString(
+                    locale === "ko" ? "ko-KR" : "en-US",
+                  )}
+            </span>
             <small>{locale === "ko" ? "크레딧" : "credits"}</small>
           </dd>
         </div>
@@ -260,12 +264,12 @@ function SubscriptionOverview({
 
       <a
         className="subscription-overview__manage"
-        href={manageUrl}
-        {...(hasProviderManageUrl
-          ? { target: "_blank", rel: "noreferrer" }
-          : {})}
+        href={planChangeUrl}
+        {...(providerManageUrl === undefined
+          ? {}
+          : { target: "_blank", rel: "noreferrer" })}
       >
-        {locale === "ko" ? "플랜 변경하기" : "Change plan"}
+        {planChangeLabel}
         <ExternalLink size={16} aria-hidden="true" />
       </a>
     </section>
@@ -410,8 +414,7 @@ function planCards(
 ): readonly SubscriptionPlanCard[] {
   const lookup = new Map(plans.map((plan) => [plan.key, plan]));
   const plan = (key: WhopPricingPlan["key"]) => lookup.get(key);
-  const checkoutUrl = (key: WhopPricingPlan["key"]) =>
-    `/api/billing/checkout?plan=${encodeURIComponent(key)}`;
+  const checkoutUrl = (key: WhopPricingPlan["key"]) => billingCheckoutPath(key);
 
   return [
     {
@@ -443,7 +446,7 @@ function planCards(
     {
       id: "pro",
       name: "Pro",
-      creditAllowance: 100,
+      creditAllowance: MONTHLY_CREDIT_ALLOWANCE.pro,
       description:
         locale === "ko"
           ? "더 깊은 검증과 반복 리서치를 위한 전체 리서치룸입니다."
@@ -477,7 +480,7 @@ function planCards(
     {
       id: "ultra",
       name: "Ultra",
-      creditAllowance: 300,
+      creditAllowance: MONTHLY_CREDIT_ALLOWANCE.ultra,
       description:
         locale === "ko"
           ? "가장 넓은 액세스와 신기능 우선 공개를 제공합니다."

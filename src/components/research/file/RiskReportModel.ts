@@ -60,9 +60,9 @@ export function rankStructuredRisks(
         decisiveMetricIds: claim.decisiveMetricIds,
         signal:
           claim.stanceContribution === "supports"
-            ? ("green" as const)
-            : impact === "high" && observability !== "limited"
-              ? ("red" as const)
+            ? ("red" as const)
+            : claim.stanceContribution === "opposes"
+              ? ("green" as const)
               : ("amber" as const),
       };
     })

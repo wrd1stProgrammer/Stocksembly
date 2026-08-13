@@ -10,6 +10,7 @@ export type TeamCoreDataContract = {
     typeof EditorialDecisionDimensionSchema
   >[];
   readonly decisionFrame: string;
+  readonly requiredInvestorOutputs: readonly string[];
 };
 
 export const TEAM_CORE_DATA = {
@@ -47,6 +48,12 @@ export const TEAM_CORE_DATA = {
     ],
     decisionFrame:
       "Separate trend, relative strength, expectations, and macro regime. State which observable change would invalidate the market view.",
+    requiredInvestorOutputs: [
+      "current market regime and its transmission into the stock",
+      "relative strength versus a qualified peer or sector reference",
+      "entry or waiting signal from price, volume, and momentum",
+      "dated catalyst plus confirmation and invalidation conditions",
+    ],
   },
   company: {
     decisionDimensions: [
@@ -78,6 +85,12 @@ export const TEAM_CORE_DATA = {
     ],
     decisionFrame:
       "Prove the business mechanism: product or segment change, competitive response, and the operating KPI that confirms or breaks the moat.",
+    requiredInvestorOutputs: [
+      "named growth engine and the operating evidence behind it",
+      "production adoption or monetization proof",
+      "moat mechanism that protects economics",
+      "credible erosion path and the milestone that reveals it",
+    ],
   },
   financial: {
     decisionDimensions: [
@@ -114,6 +127,12 @@ export const TEAM_CORE_DATA = {
     ],
     decisionFrame:
       "Bridge growth to cash generation and valuation. Distinguish reported results, forward expectations, and the margin of safety implied by the current price.",
+    requiredInvestorOutputs: [
+      "revenue-to-margin bridge",
+      "earnings-to-free-cash-flow conversion",
+      "reinvestment intensity and return quality",
+      "expectations embedded in price and the reset threshold",
+    ],
   },
   risk: {
     decisionDimensions: ["downside_path", "leading_indicator", "mitigant"],
@@ -147,6 +166,12 @@ export const TEAM_CORE_DATA = {
     ],
     decisionFrame:
       "Build a causal downside path with trigger, transmission, financial impact, buffer, and recovery condition. Do not substitute generic uncertainty language.",
+    requiredInvestorOutputs: [
+      "ranked downside path with an explicit trigger",
+      "earliest measurable warning signal",
+      "financial or valuation transmission",
+      "mitigant, remaining exposure, and recovery condition",
+    ],
   },
 } as const satisfies Readonly<
   Record<WorkflowDepartmentId, TeamCoreDataContract>

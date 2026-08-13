@@ -50,6 +50,7 @@ const DECISION_DIMENSION_LABELS: Readonly<
   relative_performance: { en: "relative performance", ko: "상대 성과" },
   downside_path: { en: "downside path", ko: "하방 경로" },
   leading_indicator: { en: "leading risk indicator", ko: "선행 위험 지표" },
+  mitigant: { en: "risk buffer", ko: "완충 요인" },
   execution: { en: "execution quality", ko: "실행력" },
   catalyst: { en: "catalyst timing", ko: "촉매 시점" },
   timing: { en: "entry timing", ko: "진입 시점" },
@@ -284,66 +285,19 @@ function claimAnswer(
   claim: Claim,
   variant: number,
 ): Localized {
-  if (variant % 4 === 0)
+  if (variant % 2 === 0)
     return joinLocalized(
       claim.publicThesis,
       profileImplication(profile, claim.decisionDimension),
     );
-  if (variant % 4 === 1)
-    return joinLocalized(claim.publicThesis, {
-      en: `The view loses decision weight if ${claim.falsifier.en}`,
-      ko: `다만 다음 조건이 나타나면 이 판단의 가중치를 낮춰야 합니다. ${claim.falsifier.ko}`,
-    });
-  if (variant % 4 === 2)
-    return joinLocalized(claim.publicThesis, {
-      en:
-        profile.decisionPurpose === "earnings"
-          ? "The next release must confirm this mechanism in reported results, not merely in guidance language."
-          : "This matters only to the extent that it changes the evidence-to-price trade-off for the stated decision purpose.",
-      ko:
-        profile.decisionPurpose === "earnings"
-          ? "다음 실적에서는 가이던스 문구가 아니라 실제 보고 수치로 이 메커니즘을 확인해야 합니다."
-          : "이 근거가 선택한 의사결정 목적에서 근거 대비 가격 조건을 바꿀 때만 투자 의미가 생깁니다.",
-    });
   return joinLocalized(claim.publicThesis, {
-    en:
-      claim.stanceContribution === "opposes"
-        ? "This is a reason to demand a wider margin of safety until the contrary evidence weakens."
-        : "The claim supports the current direction, but only while its observable falsifier remains absent.",
-    ko:
-      claim.stanceContribution === "opposes"
-        ? "반대 근거가 약해지기 전까지 더 넓은 안전마진을 요구하게 만드는 요인입니다."
-        : "현재 판단 방향을 지지하지만, 관찰 가능한 반증 조건이 나타나지 않을 때만 유효합니다.",
+    en: `Decision checkpoint: ${claim.falsifier.en}`,
+    ko: `판단 변경 조건: ${claim.falsifier.ko}`,
   });
 }
 
-function falsifierAnswer(claim: Claim, variant: number): Localized {
-  const implications: readonly [Localized, ...Localized[]] = [
-    {
-      en: "Treat this as a precommitted decision rule, not as a caveat added after the price moves.",
-      ko: "이는 주가가 움직인 뒤 덧붙이는 단서가 아니라 사전에 정한 판단 규칙으로 사용해야 합니다.",
-    },
-    {
-      en: "The threshold matters because crossing it would contradict the mechanism supporting the claim.",
-      ko: "이 임계치는 주장을 지지하는 메커니즘과 직접 충돌하기 때문에 중요합니다.",
-    },
-    {
-      en: "A reversal should occur when this evidence appears, even if the headline narrative remains popular.",
-      ko: "표면적 성장 서사가 여전히 인기 있더라도 이 근거가 나타나면 판단을 뒤집어야 합니다.",
-    },
-    {
-      en: "Failure to produce the expected result shifts the burden of proof back to the lead thesis.",
-      ko: "예상 결과가 나오지 않으면 핵심 논지가 다시 입증 책임을 져야 합니다.",
-    },
-    {
-      en: "Until this condition is resolved, confidence should not rise merely because the share price does.",
-      ko: "이 조건이 해소되기 전에는 주가 상승만으로 판단 신뢰도를 높여서는 안 됩니다.",
-    },
-  ];
-  return joinLocalized(
-    claim.falsifier,
-    implications[variant % implications.length] ?? implications[0],
-  );
+function falsifierAnswer(claim: Claim): Localized {
+  return claim.falsifier;
 }
 
 function claimsFor(
@@ -403,8 +357,8 @@ function calculationCandidates(input: {
         ko: "현재가 대비 컨센서스 목표주가는 어느 정도의 상승·하락 여지를 뜻하나요?",
       },
       answer: {
-        en: `The median target is ${gapText}% ${direction.en} the current price. That spread is a sentiment reference, not proof of value; ${targetClaim.publicThesis.en}`,
-        ko: `컨센서스 중앙값은 현재가보다 ${gapText}% ${direction.ko} 이 격차는 가치의 증명이 아니라 기대의 기준점입니다. ${targetClaim.publicThesis.ko}`,
+        en: `The median target is ${gapText}% ${direction.en} the current price. Treat the gap as a sentiment hurdle: upside requires estimate upgrades or better operating delivery, while downside signals that the current entry price already exceeds the center of published expectations.`,
+        ko: `컨센서스 중앙값은 현재가보다 ${gapText}% ${direction.ko} 이 격차는 가치의 증명이 아니라 기대의 문턱입니다. 상승 여력을 현실화하려면 추정치 상향이나 운영 성과 개선이 필요하고, 하락 여지라면 현재 진입가가 공개 기대의 중심을 이미 넘어섰다는 뜻입니다.`,
       },
       claims: [targetClaim],
     });
@@ -439,8 +393,8 @@ function calculationCandidates(input: {
         ko: "현재가는 선행 컨센서스 EPS에 몇 배의 이익 배수를 부여하고 있나요?",
       },
       answer: {
-        en: `At $${price} and forward EPS of $${eps}, the price implies about ${multiple}x forward earnings. ${earningsClaim.publicThesis.en} The next release must justify that multiple through estimate revisions or durable margins, not merely an earnings beat.`,
-        ko: `현재가 $${price}와 선행 EPS $${eps}를 적용하면 약 ${multiple}배의 선행 이익 배수가 계산됩니다. ${earningsClaim.publicThesis.ko} 다음 실적은 단순한 어닝 서프라이즈가 아니라 추정치 상향이나 지속 가능한 마진으로 이 배수를 정당화해야 합니다.`,
+        en: `At $${price} and forward EPS of $${eps}, the price implies about ${multiple}x forward earnings. The next release must justify that multiple through durable margins and upward estimate revisions; a one-quarter beat without a higher earnings path does not improve the entry case.`,
+        ko: `현재가 $${price}와 선행 EPS $${eps}를 적용하면 약 ${multiple}배의 선행 이익 배수가 계산됩니다. 다음 실적은 지속 가능한 마진과 추정치 상향으로 이 배수를 정당화해야 하며, 이익 경로가 높아지지 않는 한 한 분기의 어닝 서프라이즈만으로 신규 진입 조건이 좋아지지는 않습니다.`,
       },
       claims: [earningsClaim],
     });
@@ -469,8 +423,8 @@ function calculationCandidates(input: {
         ko: "향후 12개월 컨센서스에는 어느 정도의 매출 성장이 반영돼 있나요?",
       },
       answer: {
-        en: `Forward revenue is ${growthText}% versus trailing revenue. ${revenueClaim.publicThesis.en} The earnings decision should focus on whether guidance lifts this growth path without sacrificing operating quality.`,
-        ko: `선행 매출 전망은 최근 12개월 매출보다 ${growthText}% 높습니다. ${revenueClaim.publicThesis.ko} 실적 판단에서는 가이던스가 운영의 질을 훼손하지 않으면서 이 성장 경로를 높이는지 확인해야 합니다.`,
+        en: `Forward revenue is ${growthText}% versus trailing revenue. This becomes investable only if guidance preserves or lifts that path without weaker margins or cash conversion; revenue growth bought with lower operating quality should not receive the same valuation weight.`,
+        ko: `선행 매출 전망은 최근 12개월 매출보다 ${growthText}% 높습니다. 가이던스가 마진이나 현금 전환을 훼손하지 않으면서 이 경로를 유지하거나 높일 때만 투자 가치가 생기며, 운영의 질을 낮춰 얻은 매출 성장은 같은 밸류에이션 가중치를 받을 수 없습니다.`,
       },
       claims: [revenueClaim],
     });
@@ -498,8 +452,8 @@ function calculationCandidates(input: {
         ko: "매출 중 실제 잉여현금흐름으로 남는 비중은 얼마나 되나요?",
       },
       answer: {
-        en: `Free cash flow equals ${marginText}% of trailing revenue. ${cashClaim.publicThesis.en} The conversion rate is the harder test of earnings quality than reported growth alone.`,
-        ko: `잉여현금흐름은 최근 12개월 매출의 ${marginText}%입니다. ${cashClaim.publicThesis.ko} 보고 성장률보다 이 전환율이 이익의 질을 더 엄격하게 보여줍니다.`,
+        en: `Free cash flow equals ${marginText}% of trailing revenue. Use that conversion rate as the earnings-quality floor: reported growth deserves less valuation weight if cash conversion falls while revenue expands.`,
+        ko: `잉여현금흐름은 최근 12개월 매출의 ${marginText}%입니다. 이 전환율을 이익의 질을 판단하는 하한선으로 사용해야 하며, 매출이 늘어도 현금 전환율이 낮아지면 보고 성장률의 밸류에이션 가중치를 낮춰야 합니다.`,
       },
       claims: [cashClaim],
     });
@@ -527,8 +481,8 @@ function calculationCandidates(input: {
         ko: "현재 성장 엔진은 매출 대비 얼마나 많은 자본을 요구하나요?",
       },
       answer: {
-        en: `Capital expenditure equals ${intensityText}% of trailing revenue. ${reinvestmentClaim.publicThesis.en} The investment case weakens if this burden rises without a matching improvement in growth or cash generation.`,
-        ko: `설비투자는 최근 12개월 매출의 ${intensityText}%입니다. ${reinvestmentClaim.publicThesis.ko} 성장이나 현금 창출 개선 없이 이 부담만 커지면 투자 논지는 약해집니다.`,
+        en: `Capital expenditure equals ${intensityText}% of trailing revenue. The reinvestment is productive only if subsequent growth or free-cash-flow capacity rises with it; a higher ratio without that payoff should reduce the acceptable valuation multiple.`,
+        ko: `설비투자는 최근 12개월 매출의 ${intensityText}%입니다. 이후 성장률이나 잉여현금흐름 창출력이 함께 높아져야 생산적인 재투자이며, 성과 없이 이 비율만 상승하면 허용 가능한 밸류에이션 배수를 낮춰야 합니다.`,
       },
       claims: [reinvestmentClaim],
     });
@@ -550,8 +504,8 @@ function calculationCandidates(input: {
         ko: "검증된 비교기업 대비 현재 주가는 어느 정도 프리미엄·할인을 받고 있나요?",
       },
       answer: {
-        en: `The aligned peer comparison shows ${value.en}. ${relativeClaim.publicThesis.en} A premium is earned only if the operating advantage persists over the selected horizon.`,
-        ko: `기간을 맞춘 비교 결과는 ${value.ko}를 가리킵니다. ${relativeClaim.publicThesis.ko} 프리미엄은 선택한 투자 기간 동안 운영 우위가 지속될 때만 정당화됩니다.`,
+        en: `The aligned peer comparison shows ${value.en}. A premium should be paid only for a measurable operating advantage that survives the selected horizon; otherwise the comparison is a rerating risk rather than proof of quality.`,
+        ko: `기간을 맞춘 비교 결과는 ${value.ko}를 가리킵니다. 프리미엄은 선택한 투자 기간 동안 측정 가능한 운영 우위가 유지될 때만 지불할 수 있으며, 그렇지 않으면 이 비교값은 기업 품질의 증거가 아니라 멀티플 하락 위험입니다.`,
       },
       claims: [relativeClaim],
     });
@@ -587,8 +541,8 @@ function calculationCandidates(input: {
           ko: "긍정적 애널리스트 시각은 얼마나 쏠려 있으며, 이는 서프라이즈 위험에 무엇을 뜻하나요?",
         },
         answer: {
-          en: `${bullishText}% of ${total} tracked recommendations are buys (${buyRecommendations.value} buy, ${holdRecommendations.value} hold, ${sellRecommendations.value} sell). ${consensusClaim.publicThesis.en} A crowded positive view raises the bar for upside surprise and increases sensitivity to even a modest estimate cut.`,
-          ko: `추적된 ${total}개 의견 중 매수는 ${bullishText}%입니다(매수 ${buyRecommendations.value}, 중립 ${holdRecommendations.value}, 매도 ${sellRecommendations.value}). ${consensusClaim.publicThesis.ko} 긍정 의견이 몰릴수록 추가 상승을 위한 서프라이즈 기준은 높아지고 작은 추정치 하향에도 민감해집니다.`,
+          en: `${bullishText}% of ${total} tracked recommendations are buys (${buyRecommendations.value} buy, ${holdRecommendations.value} hold, ${sellRecommendations.value} sell). That crowding raises the upside-surprise hurdle and makes the stock more sensitive to even a modest estimate cut; consensus support is therefore expectation risk, not an independent buy signal.`,
+          ko: `추적된 ${total}개 의견 중 매수는 ${bullishText}%입니다(매수 ${buyRecommendations.value}, 중립 ${holdRecommendations.value}, 매도 ${sellRecommendations.value}). 긍정 의견이 몰릴수록 추가 상승을 위한 서프라이즈 기준은 높아지고 작은 추정치 하향에도 민감해지므로, 컨센서스 지지는 독립적인 매수 신호가 아니라 기대 위험으로 봐야 합니다.`,
         },
         claims: [consensusClaim],
       });
@@ -658,8 +612,8 @@ export function selectGroundedAnticipatedQuestions(
   const decisionClaims =
     primaryClaims.length > 0 ? primaryClaims : preferred.slice(0, 1);
   const decisionAnswer = joinLocalized(input.decision.decisiveReason, {
-    en: `The strongest opposing case is: ${input.decision.strongestCountercase.en}`,
-    ko: `가장 강한 반대 논거는 다음과 같습니다. ${input.decision.strongestCountercase.ko}`,
+    en: `Countercase: ${input.decision.strongestCountercase.en}`,
+    ko: `반대 논거: ${input.decision.strongestCountercase.ko}`,
   });
   const candidates: QuestionCandidate[] = [
     {
@@ -676,10 +630,7 @@ export function selectGroundedAnticipatedQuestions(
         en: "What single observable result would force the current decision to change?",
         ko: "어떤 단 하나의 관찰 결과가 나오면 현재 판단을 바꿔야 하나요?",
       },
-      answer: joinLocalized(input.decision.falsifier, {
-        en: "That result matters because it attacks the decisive premise rather than a secondary data point.",
-        ko: "이 결과는 보조 지표가 아니라 현재 판단의 핵심 전제를 직접 훼손하기 때문에 중요합니다.",
-      }),
+      answer: input.decision.falsifier,
       claims: decisionClaims,
     },
     {
@@ -689,10 +640,7 @@ export function selectGroundedAnticipatedQuestions(
         en: "What is the strongest case against the current conclusion?",
         ko: "현재 결론에 맞서는 가장 강한 반대 논거는 무엇인가요?",
       },
-      answer: joinLocalized(input.decision.strongestCountercase, {
-        en: "The decision should be downgraded if this countercase begins to explain the operating data better than the lead thesis.",
-        ko: "이 반대 논리가 핵심 논지보다 실제 운영 데이터를 더 잘 설명하기 시작하면 현재 판단의 강도를 낮춰야 합니다.",
-      }),
+      answer: input.decision.strongestCountercase,
       claims:
         counterClaims.length > 0 ? counterClaims.slice(0, 2) : decisionClaims,
     },
@@ -725,7 +673,7 @@ export function selectGroundedAnticipatedQuestions(
           decisionKey: `${claim.decisionDimension}_falsifier_${index + 1}`,
           priority: 76,
           question: questionFor(claim, "falsifier", index),
-          answer: falsifierAnswer(claim, index),
+          answer: falsifierAnswer(claim),
           claims: [claim],
         }),
       ),
@@ -738,11 +686,25 @@ export function selectGroundedAnticipatedQuestions(
       candidate.claims.some((claim) => claim.evidenceArtifactIds.length === 0)
     )
       continue;
+    const decisionSummaryCandidate =
+      candidate.decisionKey.startsWith("decision_") ||
+      candidate.decisionKey === "strongest_countercase";
     if (
       candidate.claims.some(
         (claim) =>
           (primaryCounts.get(claim.claimId) ?? 0) >=
           ANTICIPATED_QUESTIONS_POLICY.maximumPerPrimaryClaim,
+      )
+    )
+      continue;
+    if (
+      !decisionSummaryCandidate &&
+      candidate.claims.some(
+        (claim) =>
+          textSimilarity(candidate.answer.en, claim.publicThesis.en, "en")
+            .duplicate ||
+          textSimilarity(candidate.answer.ko, claim.publicThesis.ko, "ko")
+            .duplicate,
       )
     )
       continue;

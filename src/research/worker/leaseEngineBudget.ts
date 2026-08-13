@@ -67,7 +67,10 @@ function terminalize(
   return false;
 }
 
-function budgetColumn(claim: ClaimedJob): string {
+function budgetColumn(claim: ClaimedJob): string | undefined {
+  // A transient provider/process retry burns a physical launch ordinal, but
+  // it is not a model-output rewrite and must not consume rewrite capacity.
+  if (claim.retryClassification === "transient") return undefined;
   if (claim.priorAttemptId !== undefined) return "requested_replacement_calls";
   return claim.logicalKey.startsWith("followup:")
     ? "requested_optional_calls"
@@ -129,6 +132,7 @@ export function reserveWithinRunBudget(
   if (required > CALL_BUDGET_POLICY.maxPhysicalLaunches)
     return terminalize(database, input, row);
   const column = budgetColumn(input.claim);
+  if (column === undefined) return true;
   const changed = database
     .prepare(`UPDATE runs SET ${column} = ${column} - 1
       WHERE run_id = ? AND ${column} > 0`)

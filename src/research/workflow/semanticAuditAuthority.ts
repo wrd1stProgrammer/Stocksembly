@@ -239,11 +239,20 @@ export class SemanticAuditSqliteAuthority {
       payload?.verdicts ?? [],
       questionCoverage,
     );
+    const retryPending =
+      payload === undefined &&
+      this.#database
+        .prepare(`SELECT 1 FROM jobs WHERE run_id = ?
+          AND logical_key = 'semantic_audit:system'
+          AND status = 'retry-wait' LIMIT 1`)
+        .get(runId) !== undefined;
     const incompleteReason =
       payload === undefined
-        ? receipts.length >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
-          ? "replacement_exhausted"
-          : "semantic_artifact_missing"
+        ? retryPending
+          ? "retry_pending"
+          : receipts.length >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
+            ? "replacement_exhausted"
+            : "semantic_artifact_missing"
         : null;
     return {
       runId,

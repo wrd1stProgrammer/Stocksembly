@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { billingCheckoutPath } from "@/src/lib/whop/contracts";
 import { getWhopEnvironment, getWhopPricing } from "@/src/lib/whop/server";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +96,7 @@ export default async function PricingPage({ searchParams }: Props) {
                     {plan.interval === "month" ? copy.perMonth : copy.perYear}
                   </small>
                 </strong>
-                <a href={plan.purchaseUrl}>{copy.choose}</a>
+                <a href={billingCheckoutPath(plan.key)}>{copy.choose}</a>
               </article>
             ))}
           </section>

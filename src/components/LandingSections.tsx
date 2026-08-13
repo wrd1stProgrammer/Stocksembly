@@ -13,6 +13,12 @@ export function LandingSections(_props: LandingSectionsProps) {
 
 export function LandingFooter({ locale }: LandingSectionsProps) {
   const content = copy[locale].footer;
+  const informationLinks = [
+    { href: "/about", label: content.about },
+    { href: "/methodology", label: content.methodology },
+    { href: "/editorial-policy", label: content.editorialPolicy },
+    { href: "/corrections", label: content.corrections },
+  ] as const;
   const legalLinks = [
     { href: "/terms", label: content.terms },
     { href: "/privacy", label: content.privacy },
@@ -35,6 +41,20 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
           <strong>{content.productHeading}</strong>
           <a href="#product">{content.howItWorks}</a>
           <a href="#product">{content.research}</a>
+        </nav>
+        <nav
+          className="site-footer__column"
+          aria-label={content.standardsHeading}
+        >
+          <strong>{content.standardsHeading}</strong>
+          {informationLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={locale === "en" ? `${link.href}?lang=en` : link.href}
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
         <address className="site-footer__column">
           <strong>{content.contactHeading}</strong>

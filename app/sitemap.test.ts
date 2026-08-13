@@ -18,6 +18,7 @@ function sitemapEntries(count: number) {
 
 beforeEach(() => {
   sitemapState.listResearchRoomSitemapEntries.mockReset();
+  sitemapState.listResearchRoomSitemapEntries.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -32,17 +33,19 @@ describe("sitemap", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
-  it("characterizes the current static URL set and shape", async () => {
+  it("lists only public static pages without fabricated modification dates", async () => {
     // Given
     const staticUrls = [
       "https://stocksembly.com",
       "https://stocksembly.com/research-room",
+      "https://stocksembly.com/about",
+      "https://stocksembly.com/methodology",
+      "https://stocksembly.com/editorial-policy",
+      "https://stocksembly.com/corrections",
       "https://stocksembly.com/terms",
       "https://stocksembly.com/privacy",
       "https://stocksembly.com/disclaimer",
       "https://stocksembly.com/risk-disclosure",
-      "https://stocksembly.com/login",
-      "https://stocksembly.com/signup",
     ];
 
     // When
@@ -56,30 +59,32 @@ describe("sitemap", () => {
         url: "https://stocksembly.com",
         changeFrequency: "weekly",
         priority: 1,
-        lastModified: expect.any(Date),
       }),
       expect.objectContaining({
         url: "https://stocksembly.com/research-room",
         changeFrequency: "daily",
         priority: 0.9,
-        lastModified: expect.any(Date),
       }),
       ...[
+        ["about", 0.6],
+        ["methodology", 0.7],
+        ["editorial-policy", 0.6],
+        ["corrections", 0.5],
         ["terms", 0.3],
         ["privacy", 0.3],
         ["disclaimer", 0.3],
         ["risk-disclosure", 0.3],
-        ["login", 0.4],
-        ["signup", 0.4],
       ].map(([path, priority]) =>
         expect.objectContaining({
           url: `https://stocksembly.com/${path}`,
           changeFrequency: "monthly",
           priority,
-          lastModified: expect.any(Date),
         }),
       ),
     ]);
+    expect(entries.every((entry) => entry.lastModified === undefined)).toBe(
+      true,
+    );
   });
 
   it("adds canonical public report entries from the catalog", async () => {
@@ -102,7 +107,7 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries.slice(8)).toEqual([
+    expect(entries.slice(10)).toEqual([
       {
         url: "https://stocksembly.com/research-room/00000000-0000-4000-8000-000000000001",
         lastModified: "2026-06-01T12:00:00.000Z",
@@ -129,8 +134,8 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries.slice(8)).toHaveLength(81);
-    expect(entries.slice(8).map((entry) => entry.url)).toEqual(
+    expect(entries.slice(10)).toHaveLength(81);
+    expect(entries.slice(10).map((entry) => entry.url)).toEqual(
       catalogEntries.map(
         (entry) => `https://stocksembly.com/research-room/${entry.reportId}`,
       ),
@@ -158,10 +163,10 @@ describe("sitemap", () => {
     const secondEntries = await sitemap();
 
     // Then
-    expect(firstEntries.slice(8).map((entry) => entry.url)).toEqual([
+    expect(firstEntries.slice(10).map((entry) => entry.url)).toEqual([
       "https://stocksembly.com/research-room/00000000-0000-4000-8000-000000000001",
     ]);
-    expect(secondEntries.slice(8).map((entry) => entry.url)).toEqual([
+    expect(secondEntries.slice(10).map((entry) => entry.url)).toEqual([
       "https://stocksembly.com/research-room/00000000-0000-4000-8000-000000000002",
     ]);
   });
@@ -178,16 +183,18 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries).toHaveLength(8);
+    expect(entries).toHaveLength(10);
     expect(entries.map((entry) => entry.url)).toEqual([
       "https://stocksembly.com",
       "https://stocksembly.com/research-room",
+      "https://stocksembly.com/about",
+      "https://stocksembly.com/methodology",
+      "https://stocksembly.com/editorial-policy",
+      "https://stocksembly.com/corrections",
       "https://stocksembly.com/terms",
       "https://stocksembly.com/privacy",
       "https://stocksembly.com/disclaimer",
       "https://stocksembly.com/risk-disclosure",
-      "https://stocksembly.com/login",
-      "https://stocksembly.com/signup",
     ]);
     expect(error).toHaveBeenCalledWith(
       "[sitemap] failed to load research room entries",

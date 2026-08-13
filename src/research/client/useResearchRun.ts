@@ -10,7 +10,12 @@ import {
   scheduleResearchFallback,
 } from "./eventSource";
 import { appendPublicEvent, parseStreamEvent, stateForRun } from "./projection";
-import type { ChildRun, PublicQuestion, PublicRunDetail } from "./schemas";
+import type {
+  ChildRun,
+  PublicQuestion,
+  PublicRunDetail,
+  RecoveredRun,
+} from "./schemas";
 
 export type { ResearchEventSource } from "./eventSource";
 
@@ -39,7 +44,7 @@ export type ResearchRunProjection = {
   readonly state: ResearchRunViewState;
   readonly lastEventSeq: number;
   readonly cancel: () => Promise<void>;
-  readonly retry: () => Promise<ChildRun>;
+  readonly retry: () => Promise<RecoveredRun>;
   readonly followUp: (question?: string) => Promise<ChildRun>;
   readonly askQuestion: (question: string) => Promise<PublicQuestion>;
   readonly resync: () => Promise<void>;
@@ -226,14 +231,14 @@ export function useResearchRun(
       throw error;
     }
   }, [createId, resync]);
-  const retry = useCallback(
-    async () =>
-      await optionsRef.current.client.retryRun(
-        snapshotRef.current.run.runId,
-        createId(),
-      ),
-    [createId],
-  );
+  const retry = useCallback(async () => {
+    const recovered = await optionsRef.current.client.retryRun(
+      snapshotRef.current.run.runId,
+      createId(),
+    );
+    await resync();
+    return recovered;
+  }, [createId, resync]);
   const reportId = useCallback(() => {
     const value = snapshotRef.current.run.reportId;
     if (value === undefined) {

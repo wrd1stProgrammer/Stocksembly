@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { agents } from "../../research/mockResearch";
 import type { ResearchEvent } from "../../research/types";
@@ -188,5 +188,99 @@ describe("MeetingMinutes", () => {
       "data-agent-thinking",
       agent.id,
     );
+  });
+
+  it("uses each focused agent's localized work copy during setup", () => {
+    const active = event(1);
+    const focused = agents.filter((agent) =>
+      ["market", "market_news", "benchmark"].includes(agent.id),
+    );
+
+    render(
+      <MeetingMinutes
+        current={active}
+        agents={focused}
+        events={[active]}
+        locale="ko"
+        isComplete={false}
+        individualizedPendingCopy
+        pendingAgentIds={focused.map((agent) => agent.id)}
+        reportVersion={1}
+      />,
+    );
+
+    expect(
+      screen.getByRole("status", {
+        name: "마야: 금리·물가와 시장 국면 해석 중",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("status", {
+        name: "준: 뉴스 흐름과 추세·거래량 대조 중",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("status", {
+        name: "알렉스: 동종기업과 벤치마크 편차 비교 중",
+      }),
+    ).toBeVisible();
+  });
+
+  it("falls back to the focused team when only an off-screen activity is active", () => {
+    const active = event(1);
+    const focused = agents.filter((agent) =>
+      ["market", "market_news", "benchmark"].includes(agent.id),
+    );
+
+    render(
+      <MeetingMinutes
+        current={active}
+        agents={focused}
+        events={[active]}
+        locale="ko"
+        isComplete={false}
+        individualizedPendingCopy
+        pendingActivities={[{ actorId: "chair", activity: "data_collection" }]}
+        pendingAgentIds={focused.map((agent) => agent.id)}
+        reportVersion={1}
+      />,
+    );
+
+    expect(document.querySelectorAll("[data-agent-thinking]")).toHaveLength(3);
+  });
+
+  it("shows the actual recovery rejection instead of blaming credits", async () => {
+    const active = event(1);
+    const onRetry = vi
+      .fn()
+      .mockRejectedValue(
+        new (await import("../../research/client/api")).ResearchRequestError(
+          409,
+          "RECOVERY_NOT_AVAILABLE",
+        ),
+      );
+    render(
+      <MeetingMinutes
+        current={active}
+        agents={agents}
+        events={[active]}
+        locale="ko"
+        isComplete={false}
+        terminalState="incomplete"
+        onRetry={onRetry}
+        reportVersion={1}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "실패 단계부터 다시 진행" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "이어갈 수 있는 실패 단계가 없습니다. 새 리서치를 시작해 주세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/크레딧과 연결 상태/)).not.toBeInTheDocument();
   });
 });

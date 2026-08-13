@@ -4,7 +4,8 @@ import { SidebarSimple } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ThinkingOrb } from "thinking-orbs";
-import type { Locale } from "../../lib/i18n";
+import { type Locale, researchCopy } from "../../lib/i18n";
+import { ResearchRequestError } from "../../research/client/api";
 import type {
   ActiveResearchActivity,
   ActiveResearchActivityKind,
@@ -25,6 +26,8 @@ type Props = {
   readonly reportVersion: number;
   readonly pendingAgentIds?: readonly AgentProfile["id"][];
   readonly pendingActivities?: readonly ActiveResearchActivity[];
+  readonly individualizedPendingCopy?: boolean;
+  readonly showLaunchStatus?: boolean;
   readonly questionsEnabled?: boolean;
   readonly chatEnabled?: boolean;
   readonly loadChatHistory?: boolean;
@@ -59,15 +62,20 @@ function TypedNarrative({
 
   useEffect(() => {
     if (!animate) {
-      setVisibleCharacters(totalLength);
+      setVisibleCharacters((current) =>
+        current === totalLength ? current : totalLength,
+      );
       return;
     }
-    setVisibleCharacters(0);
+    setVisibleCharacters((current) => (current === 0 ? current : 0));
+    if (totalLength === 0) return;
     let cursor = 0;
     const chunk = Math.max(1, Math.ceil(totalLength / 56));
     const timer = window.setInterval(() => {
       cursor = Math.min(totalLength, cursor + chunk);
-      setVisibleCharacters(cursor);
+      setVisibleCharacters((current) =>
+        current === cursor ? current : cursor,
+      );
       if (cursor >= totalLength) window.clearInterval(timer);
     }, 26);
     return () => window.clearInterval(timer);
@@ -184,87 +192,6 @@ function conversationLabel(group: ActivityGroup, locale: Locale): string {
   return labels[group][locale];
 }
 
-const ACTIVITY_STATUS_COPY: Readonly<
-  Record<ActiveResearchActivityKind, Readonly<Record<Locale, string>>>
-> = {
-  data_collection: {
-    ko: "데이터 수집 중",
-    en: "Collecting data",
-  },
-  macro_analysis: {
-    ko: "시장 환경 분석 중",
-    en: "Analyzing market conditions",
-  },
-  news_analysis: {
-    ko: "뉴스 분석 중",
-    en: "Analyzing news",
-  },
-  market_comparison: {
-    ko: "동종기업 비교 중",
-    en: "Comparing peers",
-  },
-  business_analysis: {
-    ko: "사업 분석 중",
-    en: "Analyzing the business",
-  },
-  product_analysis: {
-    ko: "제품 분석 중",
-    en: "Analyzing products",
-  },
-  competition_analysis: {
-    ko: "경쟁력 분석 중",
-    en: "Analyzing competition",
-  },
-  financial_analysis: {
-    ko: "재무 분석 중",
-    en: "Analyzing financials",
-  },
-  valuation_analysis: {
-    ko: "가치평가 중",
-    en: "Analyzing valuation",
-  },
-  earnings_quality_analysis: {
-    ko: "이익의 질 검증 중",
-    en: "Testing earnings quality",
-  },
-  downside_analysis: {
-    ko: "하방 위험 분석 중",
-    en: "Analyzing downside risk",
-  },
-  policy_scenario_analysis: {
-    ko: "정책 시나리오 분석 중",
-    en: "Analyzing policy scenarios",
-  },
-  team_synthesis: {
-    ko: "팀 의견 종합 중",
-    en: "Synthesizing team views",
-  },
-  challenge_review: {
-    ko: "반대 논리 검토 중",
-    en: "Testing the countercase",
-  },
-  followup_research: {
-    ko: "추가 근거 조사 중",
-    en: "Researching follow-ups",
-  },
-  response_review: {
-    ko: "반론 답변 검토 중",
-    en: "Reviewing rebuttals",
-  },
-  evidence_audit: {
-    ko: "근거 감사 중",
-    en: "Auditing evidence",
-  },
-  semantic_audit: {
-    ko: "주장 검증 중",
-    en: "Validating claims",
-  },
-  chair_synthesis: {
-    ko: "최종 판단 중",
-    en: "Finalizing the decision",
-  },
-};
-
 function inferredActivity(
   agentId: AgentProfile["id"],
 ): ActiveResearchActivityKind {
@@ -353,6 +280,8 @@ export function MeetingMinutes({
   reportVersion,
   pendingAgentIds = [],
   pendingActivities = [],
+  individualizedPendingCopy = false,
+  showLaunchStatus = false,
   questionsEnabled = true,
   chatEnabled = true,
   loadChatHistory = true,
@@ -369,7 +298,13 @@ export function MeetingMinutes({
   );
   const [pendingCount, setPendingCount] = useState(0);
   const [commandPending, setCommandPending] = useState<"retry" | "cancel">();
-  const [commandError, setCommandError] = useState<"retry" | "cancel">();
+  const [commandError, setCommandError] = useState<
+    | "retry"
+    | "cancel"
+    | "retry_forbidden"
+    | "retry_missing"
+    | "retry_unavailable"
+  >();
   const canAsk =
     isComplete && chatEnabled && questionsEnabled && reportId !== undefined;
   const hasConversation =
@@ -377,19 +312,21 @@ export function MeetingMinutes({
   const canChat = canAsk || hasConversation;
   const pendingWork = useMemo(() => {
     if (isComplete || terminalState !== undefined) return [];
-    if (pendingActivities.length > 0)
-      return pendingActivities.flatMap((activity) => {
-        const agent = agents.find(
-          (candidate) => candidate.id === activity.actorId,
-        );
-        return agent === undefined
-          ? []
-          : [{ agent, activity: activity.activity }];
-      });
+    const activitiesByAgent = new Map(
+      pendingActivities.map((activity) => [
+        activity.actorId,
+        activity.activity,
+      ]),
+    );
     const pendingAgentIdSet = new Set(pendingAgentIds);
-    return agents
-      .filter((agent) => pendingAgentIdSet.has(agent.id))
-      .map((agent) => ({ agent, activity: inferredActivity(agent.id) }));
+    return agents.flatMap((agent) => {
+      const activity =
+        activitiesByAgent.get(agent.id) ??
+        (pendingAgentIdSet.has(agent.id)
+          ? inferredActivity(agent.id)
+          : undefined);
+      return activity === undefined ? [] : [{ agent, activity }];
+    });
   }, [agents, isComplete, pendingActivities, pendingAgentIds, terminalState]);
   const knownIds = useRef(new Set(events.map((event) => event.id)));
   const feedRef = useRef<HTMLDivElement | null>(null);
@@ -474,11 +411,11 @@ export function MeetingMinutes({
             className="meeting-minutes__thinking"
             role="status"
             aria-live="polite"
-            aria-label={
-              locale === "ko"
-                ? `${agent.name.ko}: ${ACTIVITY_STATUS_COPY[activity].ko}`
-                : `${agent.name.en}: ${ACTIVITY_STATUS_COPY[activity].en}`
-            }
+            aria-label={`${agent.name[locale]}: ${
+              individualizedPendingCopy || activity === "data_collection"
+                ? researchCopy[locale].agentThinking[agent.id]
+                : researchCopy[locale].activityStatus[activity]
+            }`}
           >
             <span className="meeting-minutes__thinking-orb" aria-hidden="true">
               <ThinkingOrb
@@ -488,7 +425,13 @@ export function MeetingMinutes({
                 theme="auto"
               />
             </span>
-            <TextShimmerWave label={ACTIVITY_STATUS_COPY[activity][locale]} />
+            <TextShimmerWave
+              label={
+                individualizedPendingCopy || activity === "data_collection"
+                  ? researchCopy[locale].agentThinking[agent.id]
+                  : researchCopy[locale].activityStatus[activity]
+              }
+            />
           </p>
         </div>
       </article>
@@ -610,6 +553,29 @@ export function MeetingMinutes({
         }}
       >
         {mobileStack ? pendingAgentEntries : null}
+        {showLaunchStatus ? (
+          <div
+            className="meeting-minutes__entry meeting-minutes__launch-entry"
+            data-launch-status="true"
+          >
+            <article data-group="collection" data-pending="true">
+              <div aria-hidden="true" />
+              <div>
+                <header>
+                  <strong>
+                    {locale === "ko" ? "리서치 준비" : "Research setup"}
+                  </strong>
+                  <span>{groupLabel("collection", locale)}</span>
+                </header>
+                <p>
+                  {locale === "ko"
+                    ? "분석팀과 근거 수집 작업을 연결하고 있습니다. 준비되는 기록부터 이 회의록에 바로 표시됩니다."
+                    : "Connecting the research team and evidence collection. New records will appear in this meeting log as they are prepared."}
+                </p>
+              </div>
+            </article>
+          </div>
+        ) : null}
         {displayedEvents.map((event, index) => {
           const agent = agents.find((profile) => profile.id === event.agent);
           if (!agent) return null;
@@ -706,24 +672,53 @@ export function MeetingMinutes({
                   setCommandError(undefined);
                   setCommandPending("retry");
                   void onRetry()
-                    .catch(() => setCommandError("retry"))
+                    .catch((error: unknown) => {
+                      if (error instanceof ResearchRequestError) {
+                        setCommandError(
+                          error.code === "RECOVERY_NOT_AVAILABLE"
+                            ? "retry_unavailable"
+                            : error.status === 404
+                              ? "retry_missing"
+                              : error.status === 409
+                                ? "retry_forbidden"
+                                : "retry",
+                        );
+                        return;
+                      }
+                      setCommandError("retry");
+                    })
                     .finally(() => setCommandPending(undefined));
                 }}
               >
                 {commandPending === "retry"
                   ? locale === "ko"
-                    ? "복구 실행 생성 중"
-                    : "Preparing recovery"
+                    ? "복구 시작 중"
+                    : "Starting recovery"
                   : locale === "ko"
                     ? "실패 단계부터 다시 진행"
                     : "Resume failed stage"}
               </button>
             ) : null}
-            {commandError === "retry" ? (
+            {commandError === "retry" ||
+            commandError === "retry_forbidden" ||
+            commandError === "retry_missing" ||
+            commandError === "retry_unavailable" ? (
               <p className="meeting-minutes__command-error" role="alert">
-                {locale === "ko"
-                  ? "복구 실행을 시작하지 못했습니다. 크레딧과 연결 상태를 확인해 주세요."
-                  : "Recovery could not start. Check your credits and connection."}
+                {commandError === "retry_unavailable"
+                  ? locale === "ko"
+                    ? "이어갈 수 있는 실패 단계가 없습니다. 새 리서치를 시작해 주세요."
+                    : "This run has no resumable failed stage. Start a new research run."
+                  : commandError === "retry_forbidden"
+                    ? locale === "ko"
+                      ? "이미 복구 중이거나 완료된 리서치입니다. 새로고침해 상태를 확인해 주세요."
+                      : "This research is already recovering or complete. Refresh to see its current state."
+                    : commandError === "retry_missing"
+                      ? locale === "ko"
+                        ? "복구할 리서치를 찾지 못했습니다. 리서치 목록에서 다시 열어 주세요."
+                        : "The research could not be found. Reopen it from your research list."
+                      : locale === "ko"
+                        ? "복구 요청에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                        : "The recovery request failed. Please try again shortly."}
               </p>
             ) : null}
           </section>

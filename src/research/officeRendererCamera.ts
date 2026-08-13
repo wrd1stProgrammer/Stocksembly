@@ -42,7 +42,9 @@ type OfficeCameraInput = {
 // reframe rather than a teleport.  The previous 2× crop magnified ordinary
 // one-cell motion and made department hand-offs feel frantic.
 const CAMERA_PADDING = 96;
-const MAX_FOCUS_SCALE = 1.45;
+const MOBILE_CAMERA_MAX_WIDTH = 767;
+const MAX_MOBILE_FOCUS_SCALE = 1.45;
+const MAX_DESKTOP_FOCUS_SCALE = 1.2;
 const ACTOR_UI_TOP = ACTOR_ATLAS.footPivot.y + 20;
 const ACTOR_BOTTOM = ACTOR_ATLAS.frame.height - ACTOR_ATLAS.footPivot.y;
 
@@ -120,7 +122,9 @@ function focusCamera(
   const scale = Math.min(
     viewport.width / activeWidth,
     viewport.height / activeHeight,
-    MAX_FOCUS_SCALE,
+    viewport.width <= MOBILE_CAMERA_MAX_WIDTH
+      ? MAX_MOBILE_FOCUS_SCALE
+      : MAX_DESKTOP_FOCUS_SCALE,
   );
   const viewWidth = viewport.width / scale;
   const viewHeight = viewport.height / scale;

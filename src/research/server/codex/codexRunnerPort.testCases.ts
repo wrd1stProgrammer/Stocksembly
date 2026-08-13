@@ -208,6 +208,32 @@ export function registerPortTests(): void {
       await fixture.root.cleanup();
     });
 
+    it("classifies rejected structured-output schemas without retrying them as provider outages", async () => {
+      const fixture = await makePlatform();
+      const platform = {
+        ...fixture.platform,
+        runCodex: async () => ({
+          exitCode: 1,
+          stdout: [
+            Buffer.from(
+              '{"type":"turn.failed","error":{"message":"invalid_json_schema: oneOf is not permitted in text.format.schema"}}\n',
+            ),
+          ],
+          stderrBytes: 0,
+        }),
+      };
+      const port = createCodexPortForTesting(platform, fixture.reservations);
+
+      await expect(
+        port.run(runInput(fixture.attemptDir)),
+      ).rejects.toMatchObject({ code: "schema_invalid" });
+      const lifecycle = JSON.parse(
+        await readFile(join(fixture.attemptDir, "lifecycle.json"), "utf8"),
+      ) as { readonly failureClass: string };
+      expect(lifecycle.failureClass).toBe("schema_invalid");
+      await fixture.root.cleanup();
+    });
+
     it("does not link or spawn without a committed durable ordinal", async () => {
       // Given
       const fixture = await makePlatform();

@@ -1,3 +1,4 @@
+import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
@@ -12,6 +13,7 @@ import "@/src/styles/search-controls.css";
 import "@/src/styles/search-states.css";
 import "@/src/styles/landing.css";
 import "@/src/styles/legal.css";
+import "@/src/styles/public-information.css";
 import "@/src/styles/showcase.css";
 import "@/src/styles/responsive.css";
 import "@/src/styles/research-shell.css";
@@ -36,6 +38,9 @@ const inter = localFont({
   display: "swap",
   weight: "100 900",
 });
+
+const { NEXT_PUBLIC_GA_MEASUREMENT_ID } = process.env;
+const googleAnalyticsMeasurementId = NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stocksembly.com"),
@@ -97,6 +102,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body>
         <AuthSessionBridge />
         {children}
+        {googleAnalyticsMeasurementId ? (
+          <GoogleAnalytics gaId={googleAnalyticsMeasurementId} />
+        ) : null}
       </body>
     </html>
   );

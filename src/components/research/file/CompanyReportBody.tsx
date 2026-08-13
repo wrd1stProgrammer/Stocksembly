@@ -6,6 +6,7 @@ import {
   formatCompanyMetric,
 } from "./CompanyReportProduct";
 import type { DepartmentReportBodyProps } from "./DepartmentReportShared";
+import { ResearchTermHelp } from "./ResearchFilePrimitives";
 
 function MetricIdentity({
   id,
@@ -87,8 +88,19 @@ export function CompanyReportBrief(props: DepartmentReportBodyProps) {
           data-company-landmark="segment-mix"
         >
           <header>
-            <span>{ko ? "사업부 구성" : "Segment mix"}</span>
-            <strong>{product.segments.length}</strong>
+            <div>
+              <ResearchTermHelp
+                term="segmentMix"
+                label={ko ? "사업부 구성" : "Segment mix"}
+                locale={locale}
+              />
+              <strong>{product.segments.length}</strong>
+            </div>
+            <p>
+              {ko
+                ? "공시된 사업부별 매출 비중"
+                : "Reported revenue mix by business segment"}
+            </p>
           </header>
           <div>
             {product.segments.map((segment) => (
@@ -129,7 +141,11 @@ export function CompanyReportBrief(props: DepartmentReportBodyProps) {
           className={styles.adoption}
           data-company-landmark="adoption-proof"
         >
-          <span>{ko ? "채택 입증" : "Adoption proof"}</span>
+          <ResearchTermHelp
+            term="adoptionProof"
+            label={ko ? "채택 입증" : "Adoption proof"}
+            locale={locale}
+          />
           {product.adoptionProof.map((claim) => (
             <article key={claim.id}>
               <h3>{claim.thesis}</h3>

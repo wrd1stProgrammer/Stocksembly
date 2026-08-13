@@ -12,4 +12,8 @@ describe("workflow stage recovery classification", () => {
   it("still retries transient runtime failures", () => {
     expect(isRecoverableWorkflowFailure("provider_timeout")).toBe(true);
   });
+
+  it("does not start a second recovery loop after model replacements are exhausted", () => {
+    expect(isRecoverableWorkflowFailure("replacement_exhausted")).toBe(false);
+  });
 });

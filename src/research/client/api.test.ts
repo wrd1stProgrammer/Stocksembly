@@ -177,9 +177,8 @@ describe("research command client", () => {
             run: {
               runId: RUN_ID,
               snapshotId: SNAPSHOT_ID,
-              status: "queued",
-              parentRunId: RUN_ID,
-              lineage: "same-snapshot-retry",
+              status: "running",
+              recovery: "same-run-stage-resume",
             },
           });
     };
@@ -193,7 +192,7 @@ describe("research command client", () => {
     const child = await client.retryRun(RUN_ID, "retry-key");
 
     // Then
-    expect(child.lineage).toBe("same-snapshot-retry");
+    expect(child.recovery).toBe("same-run-stage-resume");
     expect(
       requests.map((request) => request.headers.get("idempotency-key")),
     ).toEqual(["cancel-key", "retry-key"]);

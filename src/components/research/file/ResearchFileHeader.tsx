@@ -5,6 +5,7 @@ import type { ResearchFileData } from "../../../research/compositions/types";
 import { RESEARCH_DEPARTMENT_COPY } from "../../../research/domain/researchTarget";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 import type { ResearchCompany } from "../../../research/types";
+import { ResearchTermHelp } from "./ResearchFilePrimitives";
 
 type Props = {
   readonly company: ResearchCompany;
@@ -152,11 +153,23 @@ export function ResearchFileHeader({
                   <dd>{publicConclusionLabel(model, locale)}</dd>
                 </div>
                 <div>
-                  <dt>{ko ? "팀 확신도" : "Team confidence"}</dt>
+                  <dt>
+                    <ResearchTermHelp
+                      term="teamConfidence"
+                      label={ko ? "팀 확신도" : "Team confidence"}
+                      locale={locale}
+                    />
+                  </dt>
                   <dd>{model.conclusionIndex}/100</dd>
                 </div>
                 <div>
-                  <dt>{ko ? "근거 신뢰도" : "Evidence reliability"}</dt>
+                  <dt>
+                    <ResearchTermHelp
+                      term="evidenceReliability"
+                      label={ko ? "근거 신뢰도" : "Evidence reliability"}
+                      locale={locale}
+                    />
+                  </dt>
                   <dd>{model.evidenceReliability}%</dd>
                 </div>
               </dl>

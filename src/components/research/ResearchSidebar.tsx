@@ -3,7 +3,6 @@
 import {
   CaretDown,
   MagnifyingGlass,
-  PaperPlaneTilt,
   SidebarSimple,
   User,
 } from "@phosphor-icons/react";
@@ -45,6 +44,7 @@ export function ResearchSidebar({
   collapsed,
   onCollapsedChange,
   onRunSelect,
+  onProfileOpen,
 }: ResearchSidebarProps) {
   const [openHistoryGroups, setOpenHistoryGroups] = useState<
     ReadonlySet<string>
@@ -219,25 +219,17 @@ export function ResearchSidebar({
         </section>
       </div>
 
-      <nav
-        className="research-sidebar__footer"
-        aria-label={locale === "ko" ? "사용자 메뉴" : "User menu"}
-      >
-        <a
-          href={`mailto:kicoa24@gmail.com?subject=${encodeURIComponent("Stocksembly 개선사항")}`}
+      {onProfileOpen === undefined ? null : (
+        <nav
+          className="research-sidebar__footer"
+          aria-label={locale === "ko" ? "사용자 메뉴" : "User menu"}
         >
-          <PaperPlaneTilt size={21} aria-hidden="true" />
-          <span>{locale === "ko" ? "개선사항 보내기" : "Send feedback"}</span>
-        </a>
-        <button
-          type="button"
-          disabled
-          title={locale === "ko" ? "계정 기능 준비 중" : "Account coming soon"}
-        >
-          <User size={21} aria-hidden="true" />
-          <span>{locale === "ko" ? "내 정보" : "My profile"}</span>
-        </button>
-      </nav>
+          <button type="button" onClick={onProfileOpen}>
+            <User size={21} aria-hidden="true" />
+            <span>{locale === "ko" ? "내 정보" : "My profile"}</span>
+          </button>
+        </nav>
+      )}
     </aside>
   );
 }

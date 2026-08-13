@@ -29,6 +29,7 @@ const DOCUMENT_TTL = 30 * 24 * 60 * 60 * 1_000;
 const CALENDAR_TTL = 6 * 60 * 60 * 1_000;
 const MAX_DOCUMENTS = 3;
 const MAX_DOCUMENT_CHARACTERS = 12_000;
+const MAX_BRIEFING_DOCUMENT_CHARACTERS = 160_000;
 const CALENDAR_WINDOW_DAYS = 90;
 
 function earningsSnapshot(
@@ -78,6 +79,7 @@ export async function collectInsightSentryDocuments(input: {
   readonly rollout: InsightSentryResearchRollout;
   readonly symbol: string;
   readonly asOf: string;
+  readonly collectionMode?: "briefing" | "research";
 }): Promise<FamilyResult<DocumentsDataset>> {
   const disabled = withheldWhenDisabled<DocumentsDataset>(
     input.rollout,
@@ -118,6 +120,10 @@ export async function collectInsightSentryDocuments(input: {
           }),
       ),
     );
+    const characterLimit =
+      input.collectionMode === "briefing"
+        ? MAX_BRIEFING_DOCUMENT_CHARACTERS
+        : MAX_DOCUMENT_CHARACTERS;
     const documents = selected.map((document, indexPosition) => {
       const content = contents[indexPosition];
       if (content === undefined) return undefined;
@@ -127,7 +133,7 @@ export async function collectInsightSentryDocuments(input: {
         title: content.data.title,
         reportedAt: unixSecondsToIso(document.reported_time),
         publishedAt: unixSecondsToIso(content.data.published_at),
-        content: content.data.content.slice(0, MAX_DOCUMENT_CHARACTERS),
+        content: content.data.content.slice(0, characterLimit),
       });
     });
     return Object.freeze({

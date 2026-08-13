@@ -6,6 +6,7 @@ import {
   buildMarketReportProduct,
   formatMarketMetric,
 } from "./MarketReportProduct";
+import { ResearchTermHelp } from "./ResearchFilePrimitives";
 
 const marketDimensionLabels: Readonly<
   Record<string, { readonly en: string; readonly ko: string }>
@@ -22,6 +23,14 @@ function marketDimensionLabel(dimension: string, locale: Locale): string {
   return (
     marketDimensionLabels[dimension]?.[locale] ?? dimension.replaceAll("_", " ")
   );
+}
+
+function persistenceRead(value: number, locale: Locale): string {
+  if (value > 0)
+    return locale === "ko" ? "벤치마크 대비 우위" : "Outperforming benchmark";
+  if (value < 0)
+    return locale === "ko" ? "벤치마크 대비 열위" : "Lagging benchmark";
+  return locale === "ko" ? "벤치마크와 동일" : "In line with benchmark";
 }
 
 function MetricIdentity({
@@ -64,7 +73,13 @@ export function MarketReportBrief(props: DepartmentReportBodyProps) {
     >
       <header className={styles.chapter}>
         <span>MARKET / 01</span>
-        <h2>{ko ? "국면·타이밍 보드" : "Regime & timing board"}</h2>
+        <h2 aria-label={ko ? "국면·타이밍 보드" : "Regime & timing board"}>
+          <ResearchTermHelp
+            term="regimeTiming"
+            label={ko ? "국면·타이밍 보드" : "Regime & timing board"}
+            locale={locale}
+          />
+        </h2>
         <p>
           {ko
             ? "현재 신호가 어느 국면에 놓였는지, 무엇이 지속과 반전을 구분하는지 먼저 봅니다."
@@ -98,7 +113,11 @@ export function MarketReportBrief(props: DepartmentReportBodyProps) {
         data-market-landmark="regime-quadrant"
       >
         <header>
-          <span>{ko ? "핵심 판단 렌즈" : "Core decision lenses"}</span>
+          <ResearchTermHelp
+            term="decisionLens"
+            label={ko ? "핵심 판단 렌즈" : "Core decision lenses"}
+            locale={locale}
+          />
           <strong>{regime.length}</strong>
         </header>
         <div data-card-count={Math.min(regime.length, 6)}>
@@ -253,7 +272,7 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
         >
           <header>
             <span>{ko ? "확인 지도" : "Confirmation map"}</span>
-            <h3>
+            <h3 aria-label={ko ? "신호 지속성" : "Signal persistence"}>
               {ko
                 ? "가격·수급 신호가 이 조건을 통과해야 판단이 바뀝니다"
                 : "The call changes only when price and flow clear these tests"}
@@ -281,12 +300,28 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
             className={styles.persistence}
             data-market-landmark="signal-persistence"
           >
-            <h3>{ko ? "신호 지속성" : "Signal persistence"}</h3>
+            <h3 aria-label={ko ? "날짜가 있는 촉매" : "Dated catalyst clock"}>
+              <ResearchTermHelp
+                term="signalPersistence"
+                label={ko ? "신호 지속성" : "Signal persistence"}
+                locale={locale}
+              />
+            </h3>
+            <p className={styles.sectionNote}>
+              {ko
+                ? "기간별 상대 성과가 같은 방향으로 이어지는지 확인합니다."
+                : "Checks whether relative performance keeps the same direction across horizons."}
+            </p>
             <ol>
               {product.persistence.map(({ label, point }) => (
                 <li key={point.id}>
                   <span>{label}</span>
                   <strong>{formatMarketMetric(point, locale)}</strong>
+                  <em
+                    data-direction={point.value >= 0 ? "positive" : "negative"}
+                  >
+                    {persistenceRead(point.value, locale)}
+                  </em>
                   <MetricIdentity
                     metricId={point.id}
                     period={point.period}
@@ -304,7 +339,13 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
             className={styles.clock}
             data-market-landmark="catalyst-clock"
           >
-            <h3>{ko ? "날짜가 있는 촉매" : "Dated catalyst clock"}</h3>
+            <h3>
+              <ResearchTermHelp
+                term="datedCatalyst"
+                label={ko ? "날짜가 있는 촉매" : "Dated catalyst clock"}
+                locale={locale}
+              />
+            </h3>
             <ol>
               {product.catalysts.map((item) => (
                 <li key={item.id} data-source-id={item.sourceId}>

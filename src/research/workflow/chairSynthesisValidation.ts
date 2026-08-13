@@ -104,6 +104,73 @@ function minimumSummaryTokens(
   return brief ? (locale === "ko" ? 8 : 10) : locale === "ko" ? 12 : 15;
 }
 
+function investmentModelGrounding(prompt: ChairPrompt): readonly {
+  readonly text: { readonly en: string; readonly ko: string };
+}[] {
+  const model = prompt.investmentModel;
+  if (model === undefined) return [];
+  const currentPrice =
+    model.currentPrice === undefined
+      ? { en: "", ko: "" }
+      : {
+          en: `Current price ${model.currentPrice}`,
+          ko: `현재가 ${model.currentPrice}`,
+        };
+  const scenarios = model.scenarios.map((scenario) => ({
+    en: [
+      scenario.label.en,
+      scenario.impliedPrice,
+      scenario.returnPercent,
+      scenario.requiredMetric.en,
+      scenario.requiredValue,
+      ...scenario.assumptions.map((assumption) => assumption.en),
+    ]
+      .filter((value) => value !== undefined && value !== "")
+      .join(" "),
+    ko: [
+      scenario.label.ko,
+      scenario.impliedPrice,
+      scenario.returnPercent,
+      scenario.requiredMetric.ko,
+      scenario.requiredValue,
+      ...scenario.assumptions.map((assumption) => assumption.ko),
+    ]
+      .filter((value) => value !== undefined && value !== "")
+      .join(" "),
+  }));
+  return [
+    {
+      text: {
+        en: [
+          model.summary.en,
+          model.methodNote.en,
+          currentPrice.en,
+          ...scenarios.map((scenario) => scenario.en),
+        ].join(" "),
+        ko: [
+          model.summary.ko,
+          model.methodNote.ko,
+          currentPrice.ko,
+          ...scenarios.map((scenario) => scenario.ko),
+        ].join(" "),
+      },
+    },
+  ];
+}
+
+function claimFamilyGrounding(
+  prompt: ChairPrompt,
+  selected: readonly ChairPrompt["sentences"][number][],
+): readonly ChairPrompt["sentences"][number][] {
+  const claimIds = new Set(selected.flatMap((sentence) => sentence.claimIds));
+  if (claimIds.size === 0) return selected;
+  return prompt.sentences.filter(
+    (sentence) =>
+      selected.some((owned) => owned.sentenceId === sentence.sentenceId) ||
+      sentence.claimIds.some((claimId) => claimIds.has(claimId)),
+  );
+}
+
 function editorialSummaryIssue(
   prompt: ChairPrompt,
   section: ModelCandidate["sections"][number],
@@ -129,17 +196,27 @@ function editorialSummaryIssue(
           : minimumSummaryTokens(prompt, section.sectionKey, locale))
     )
       return "low_information_summary";
-    if (
-      priorSections.some((prior) => {
-        const previous = prior.publicSummary[locale];
-        return (
-          textSimilarity(previous, text, locale).duplicate ||
-          meaningfullyRepeats(previous, text)
-        );
-      })
-    )
-      return "semantic_repetition";
   }
+  const repeated = priorSections
+    // The opening brief is intentionally an executive summary of the
+    // detailed sections. Comparing every detail section against it turns a
+    // consistent conclusion into a false duplicate.
+    .filter((prior) => prior.sectionKey !== "ten_second_brief")
+    .some((prior) => {
+      const enDuplicate =
+        textSimilarity(prior.publicSummary.en, section.publicSummary.en, "en")
+          .duplicate ||
+        meaningfullyRepeats(prior.publicSummary.en, section.publicSummary.en);
+      const koDuplicate =
+        textSimilarity(prior.publicSummary.ko, section.publicSummary.ko, "ko")
+          .duplicate ||
+        meaningfullyRepeats(prior.publicSummary.ko, section.publicSummary.ko);
+      // A bilingual report is duplicated only when both localized versions
+      // repeat the same prior section. Generic investment vocabulary in one
+      // language alone is not enough to discard a valid chair synthesis.
+      return enDuplicate && koDuplicate;
+    });
+  if (repeated) return "semantic_repetition";
   return undefined;
 }
 
@@ -432,10 +509,15 @@ function issueForCandidate(
         };
       ownedPrimaryClaimIds.add(claimId);
     }
+    const claimGrounding = claimFamilyGrounding(prompt, selected);
+    const grounding =
+      section.sectionKey === "valuation_comparison"
+        ? [...claimGrounding, ...investmentModelGrounding(prompt)]
+        : claimGrounding;
     if (
       !publicTextIsValid(
         section.publicSummary,
-        selected,
+        grounding,
         section.sectionKey === "ten_second_brief" ? 360 : 4_000,
       )
     )

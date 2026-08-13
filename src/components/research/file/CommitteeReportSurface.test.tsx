@@ -346,7 +346,7 @@ describe("CommitteeReportSurface", () => {
 
     expect(container.querySelector("[data-cockpit-price]")).toBeNull();
     expect(container.querySelectorAll("[data-decision-driver]")).toHaveLength(
-      2,
+      1,
     );
     expect(
       container.querySelector("[data-cockpit-next-event]"),
@@ -356,7 +356,7 @@ describe("CommitteeReportSurface", () => {
       container.querySelectorAll(
         "[data-operating-scenarios] .committee-operating-scenarios__grid > article",
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
     expect(container.querySelector("[data-valuation-status]")).toBeNull();
     expect(
       container.querySelector(".committee-expectations")?.textContent,

@@ -30,6 +30,19 @@ if [[ -f /etc/stocksembly/app.env ]]; then
   environment_arguments+=(--env-file /etc/stocksembly/app.env)
 fi
 
+require_environment_key() {
+  local file="$1"
+  local key="$2"
+  if [[ ! -f "$file" ]] || ! grep --quiet --extended-regexp "^${key}=.+" "$file"; then
+    echo "required production environment is missing: ${key}" >&2
+    exit 78
+  fi
+}
+
+require_environment_key /etc/stocksembly/aws.env STOCKSEMBLY_DATA_DIR
+require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_KEY
+require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_HOST
+
 start_containers() {
   local container_image="$1"
 

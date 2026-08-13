@@ -353,6 +353,13 @@
   opacity: 0.72;
 }
 
+.research-sidebar__footer button:not(:disabled):hover,
+.research-sidebar__footer button:not(:disabled):focus-visible {
+  color: var(--research-text);
+  background: var(--research-tree-hover);
+  cursor: pointer;
+}
+
 .research-sidebar[data-collapsed="true"] {
   padding-inline: 10px;
 }
@@ -3173,7 +3180,7 @@
 
 .research-editorial-document[data-report-department]
   .research-editorial-section {
-  padding: clamp(30px, 3.8vw, 48px) clamp(24px, 3.4vw, 42px);
+  padding: clamp(30px, 3.4vw, 42px) clamp(24px, 3.1vw, 38px);
   overflow: visible;
 }
 
@@ -3190,7 +3197,7 @@
 .research-editorial-document[data-report-department]
   .research-editorial-section
   > :where(section, div, aside) {
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 .research-department-section :where(p, dd, li) {
@@ -8829,6 +8836,54 @@
   line-height: 1.8;
 }
 
+/* The committee keeps all ten questions visible, but presents them as an
+   editorial ledger instead of a repeated card wall. */
+.research-editorial-document[data-report-surface="committee"]
+.research-anticipated-qa__grid {
+  grid-template-columns: 1fr;
+  border-left: 0;
+}
+
+.research-editorial-document[data-report-surface="committee"]
+  .research-anticipated-qa__grid
+  article {
+  display: grid;
+  grid-template-columns: 56px minmax(230px, 0.82fr) minmax(0, 1.18fr);
+  gap: 20px 30px;
+  align-items: start;
+  min-height: 0;
+  padding: 19px 0;
+  border-right: 0;
+  background: transparent;
+}
+
+.research-editorial-document[data-report-surface="committee"]
+  .research-anticipated-qa__grid
+  article
+  header {
+  display: grid;
+  justify-content: start;
+  gap: 6px;
+  margin: 0;
+}
+
+.research-editorial-document[data-report-surface="committee"]
+  .research-anticipated-qa__grid
+  article
+  h3 {
+  margin: 0;
+  font-size: clamp(16px, 1.35vw, 20px);
+  line-height: 1.5;
+}
+
+.research-editorial-document[data-report-surface="committee"]
+  .research-anticipated-qa__grid
+  article
+  p {
+  font-size: 14px;
+  line-height: 1.75;
+}
+
 .research-team-qa-list {
   display: grid;
   grid-template-columns: 1fr;
@@ -8841,11 +8896,11 @@
 
 .research-team-qa-list article {
   display: grid;
-  grid-template-columns: 78px minmax(190px, 0.8fr) minmax(0, 1.2fr);
-  gap: 20px;
+  grid-template-columns: 56px minmax(230px, 0.82fr) minmax(0, 1.18fr);
+  gap: 20px 30px;
   align-items: start;
   min-height: 0;
-  padding: 22px 0;
+  padding: 19px 0;
   border-bottom: 1px solid var(--editorial-rule);
 }
 
@@ -8889,15 +8944,71 @@
 .research-team-qa-list article h3 {
   margin: 0;
   color: var(--editorial-ink);
-  font-size: clamp(15px, 1.4vw, 19px);
-  line-height: 1.45;
+  font-size: clamp(16px, 1.35vw, 20px);
+  line-height: 1.5;
 }
 
 .research-team-qa-list article p {
   margin: 0;
   color: var(--editorial-muted);
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.research-term-help {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+}
+
+.research-term-help > button {
+  width: 15px;
+  height: 15px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: var(--editorial-muted);
+  border: 1px solid var(--editorial-rule-strong);
+  border-radius: 50%;
+  background: transparent;
+  font: 650 0.55rem / 1 var(--font-sans, sans-serif);
+  cursor: help;
+}
+
+.research-term-help > small {
+  position: absolute;
+  z-index: 12;
+  bottom: calc(100% + 9px);
+  left: 0;
+  width: min(270px, 72vw);
+  padding: 10px 12px;
+  color: var(--editorial-paper);
+  background: var(--editorial-ink);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 18%);
+  font-size: 0.65rem;
+  font-weight: 520;
+  letter-spacing: 0;
+  line-height: 1.55;
+  text-align: left;
+  text-transform: none;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease;
+}
+
+.research-term-help:hover > small,
+.research-term-help:focus-within > small {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .research-anticipated-qa__grid.is-compact {
@@ -8966,6 +9077,13 @@
   }
 
   .research-anticipated-qa__grid.is-compact article {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .research-editorial-document[data-report-surface="committee"]
+    .research-anticipated-qa__grid
+    article {
     grid-template-columns: 1fr;
     gap: 12px;
   }

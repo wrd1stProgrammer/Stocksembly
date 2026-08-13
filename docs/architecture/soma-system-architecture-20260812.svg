@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1200" viewBox="0 0 1920 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Stocksembly 시스템 구성도</title>
+  <desc id="desc">사용자 브라우저, Next.js 웹 API, SQS 대기열, 리서치 및 브리핑 워커, OpenAI 모델과 외부 데이터, PostgreSQL·SQLite·CAS/S3 저장소의 관계를 나타낸다.</desc>
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#17233c" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#637089"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#315efb"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+      .eyebrow { font-size: 22px; font-weight: 700; letter-spacing: 2.5px; fill: #315efb; }
+      .title { font-size: 52px; font-weight: 800; letter-spacing: -1.6px; fill: #17233c; }
+      .subtitle { font-size: 24px; font-weight: 500; fill: #657188; }
+      .zone-title { font-size: 20px; font-weight: 800; letter-spacing: 1.2px; fill: #59657c; }
+      .node-title { font-size: 25px; font-weight: 800; fill: #17233c; }
+      .node-sub { font-size: 18px; font-weight: 600; fill: #657188; }
+      .body { font-size: 18px; font-weight: 600; fill: #354158; }
+      .small { font-size: 16px; font-weight: 600; fill: #68748a; }
+      .tiny { font-size: 15px; font-weight: 700; fill: #68748a; }
+      .white-title { font-size: 25px; font-weight: 800; fill: #ffffff; }
+      .white-body { font-size: 17px; font-weight: 600; fill: #e9efff; }
+      .flow { fill: none; stroke: #637089; stroke-width: 3; marker-end: url(#arrow); }
+      .flow-blue { fill: none; stroke: #315efb; stroke-width: 3.5; marker-end: url(#arrowBlue); }
+      .flow-dashed { fill: none; stroke: #8b96aa; stroke-width: 2.5; stroke-dasharray: 8 8; marker-end: url(#arrow); }
+      .flow-label { font-size: 15px; font-weight: 800; fill: #536078; paint-order: stroke; stroke: #f6f8fc; stroke-width: 7px; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1200" fill="#f6f8fc"/>
+  <circle cx="1795" cy="54" r="108" fill="#315efb" opacity="0.06"/>
+  <circle cx="80" cy="1140" r="160" fill="#705cf6" opacity="0.05"/>
+
+  <text x="70" y="64" class="eyebrow">SOMA SUBMISSION · IMPLEMENTED ARCHITECTURE</text>
+  <text x="70" y="122" class="title">Stocksembly 시스템 구성도</text>
+  <text x="70" y="160" class="subtitle">근거를 먼저 봉인하고, 4개 분석팀이 검증·토론한 뒤 의장이 최종 리포트를 편집하는 미국주식 리서치 서비스</text>
+
+  <!-- Flows behind cards -->
+  <path d="M350 375 C370 375, 380 375, 400 375" class="flow-blue"/>
+  <text x="355" y="354" class="flow-label">HTTPS</text>
+  <path d="M710 356 C735 356, 748 356, 770 356" class="flow-blue"/>
+  <text x="717" y="335" class="flow-label">runId 등록</text>
+  <path d="M920 418 C944 418, 948 418, 968 418" class="flow-blue"/>
+  <text x="925" y="397" class="flow-label">long polling</text>
+  <path d="M1350 330 C1380 330, 1390 330, 1420 330" class="flow"/>
+  <text x="1360" y="308" class="flow-label">모델 호출</text>
+  <path d="M1420 486 C1390 486, 1380 486, 1350 486" class="flow"/>
+  <text x="1360" y="514" class="flow-label">근거 데이터</text>
+
+  <!-- Client -->
+  <rect x="50" y="210" width="300" height="510" rx="28" fill="#ffffff" stroke="#dce3ef" stroke-width="2" filter="url(#shadow)"/>
+  <text x="78" y="252" class="zone-title">CLIENT</text>
+  <rect x="78" y="282" width="244" height="92" rx="20" fill="#315efb"/>
+  <text x="102" y="322" class="white-title">사용자 브라우저</text>
+  <text x="102" y="352" class="white-body">PC · 모바일 웹</text>
+  <text x="78" y="424" class="node-title">웹 프론트엔드</text>
+  <circle cx="90" cy="463" r="5" fill="#315efb"/>
+  <text x="108" y="470" class="body">종목·질문 입력</text>
+  <circle cx="90" cy="505" r="5" fill="#315efb"/>
+  <text x="108" y="512" class="body">실시간 에이전트 대시보드</text>
+  <circle cx="90" cy="547" r="5" fill="#315efb"/>
+  <text x="108" y="554" class="body">리포트 · PDF · 예상 Q&amp;A</text>
+  <circle cx="90" cy="589" r="5" fill="#315efb"/>
+  <text x="108" y="596" class="body">관심종목 · 브리핑룸</text>
+  <rect x="78" y="632" width="244" height="58" rx="15" fill="#eef3ff"/>
+  <text x="100" y="668" class="small">Snapshot + 재생 가능한 SSE</text>
+
+  <!-- App host -->
+  <rect x="380" y="210" width="1000" height="510" rx="30" fill="#eef2fb" stroke="#ccd7ea" stroke-width="2"/>
+  <text x="408" y="252" class="zone-title">AWS APP HOST · EC2 · WEB / WORKER DOCKER</text>
+
+  <rect x="400" y="280" width="310" height="400" rx="24" fill="#ffffff" stroke="#d8e0ed" stroke-width="2" filter="url(#shadow)"/>
+  <text x="428" y="324" class="node-title">Next.js 웹/API</text>
+  <text x="428" y="352" class="node-sub">요청 접수와 공개 화면 투영</text>
+  <line x1="428" y1="374" x2="682" y2="374" stroke="#e1e6ef" stroke-width="2"/>
+  <text x="428" y="411" class="body">• Cognito JWT 인증·소유권 검증</text>
+  <text x="428" y="450" class="body">• 리서치 실행·취소·재시도 API</text>
+  <text x="428" y="489" class="body">• Snapshot 조회 + SSE 프레이밍</text>
+  <text x="428" y="528" class="body">• 리포트·PDF·브리핑 조회</text>
+  <rect x="428" y="567" width="254" height="78" rx="16" fill="#f4f6fa"/>
+  <text x="448" y="597" class="tiny">경계 원칙</text>
+  <text x="448" y="623" class="small">API는 장시간 분석을 직접 실행하지 않음</text>
+
+  <rect x="770" y="330" width="150" height="176" rx="22" fill="#ffffff" stroke="#b8c8ef" stroke-width="2" filter="url(#shadow)"/>
+  <circle cx="845" cy="375" r="24" fill="#eef3ff"/>
+  <path d="M831 375h28M831 365h28M831 385h28" stroke="#315efb" stroke-width="3" stroke-linecap="round"/>
+  <text x="795" y="426" class="node-title">SQS</text>
+  <text x="795" y="452" class="node-sub">+ DLQ</text>
+  <text x="795" y="481" class="small">리서치 입장 대기열</text>
+
+  <rect x="968" y="280" width="382" height="400" rx="24" fill="#17233c" filter="url(#shadow)"/>
+  <text x="996" y="324" class="white-title">장기 실행 Worker</text>
+  <text x="996" y="352" class="white-body">리서치와 정기 브리핑을 웹 요청에서 분리</text>
+  <line x1="996" y1="374" x2="1322" y2="374" stroke="#40506d" stroke-width="2"/>
+
+  <text x="996" y="408" class="white-body" style="font-weight:800">리서치 워크플로</text>
+  <text x="996" y="438" class="white-body">① 근거 수집 · 시점 봉인</text>
+  <text x="996" y="468" class="white-body">② 전문 에이전트 11명 독립 분석</text>
+  <text x="996" y="498" class="white-body">③ 시장 3 · 기업 3 · 재무 3 · 리스크 2</text>
+  <text x="996" y="528" class="white-body">④ 팀 합의 → 블라인드 반론 → 투표</text>
+  <text x="996" y="558" class="white-body">⑤ 구조·의미 감사 → 박 의장 종합</text>
+
+  <rect x="992" y="584" width="334" height="72" rx="16" fill="#263552"/>
+  <text x="1012" y="612" class="white-body" style="font-weight:800">구독 브리핑 워커</text>
+  <text x="1012" y="638" class="white-body">미국 거래일 08:30 ET → 브리핑룸 전달</text>
+
+  <!-- AI and data -->
+  <rect x="1420" y="210" width="450" height="510" rx="28" fill="#ffffff" stroke="#dce3ef" stroke-width="2" filter="url(#shadow)"/>
+  <text x="1448" y="252" class="zone-title">AI · EVIDENCE SOURCES</text>
+  <rect x="1448" y="282" width="394" height="104" rx="20" fill="#705cf6"/>
+  <text x="1472" y="324" class="white-title">OpenAI 모델</text>
+  <text x="1472" y="355" class="white-body">JSON Schema 출력 · 실행 격리 · 감사 기록</text>
+
+  <rect x="1448" y="414" width="394" height="116" rx="20" fill="#f3f0ff" stroke="#d8cffc" stroke-width="2"/>
+  <text x="1472" y="451" class="node-title">공식 데이터</text>
+  <text x="1472" y="481" class="body">SEC EDGAR · XBRL Company Facts</text>
+  <text x="1472" y="510" class="body">BLS · U.S. Treasury</text>
+
+  <rect x="1448" y="554" width="394" height="138" rx="20" fill="#eef9f6" stroke="#bfe5db" stroke-width="2"/>
+  <text x="1472" y="591" class="node-title">InsightSentry 데이터</text>
+  <text x="1472" y="621" class="body">시세 · 1h/4h/일봉 · 기술지표</text>
+  <text x="1472" y="650" class="body">펀더멘털 · 뉴스 · 문서 · 일정 · 피어</text>
+  <text x="1472" y="677" class="small">공급자 권리·조회시각·가용성 함께 기록</text>
+
+  <!-- Storage flows -->
+  <path d="M540 680 C540 755, 280 755, 280 825" class="flow-dashed"/>
+  <text x="336" y="746" class="flow-label">사용자·소유권·공개 상태</text>
+  <path d="M1120 680 C1120 756, 730 756, 730 825" class="flow-dashed"/>
+  <text x="815" y="744" class="flow-label">작업·이벤트·임대</text>
+  <path d="M1215 680 C1215 758, 1165 758, 1165 825" class="flow-dashed"/>
+  <text x="1182" y="744" class="flow-label">근거·산출물</text>
+  <path d="M505 280 C505 208, 1595 208, 1595 825" class="flow-dashed" opacity="0.75"/>
+
+  <!-- Persistence -->
+  <rect x="50" y="790" width="1820" height="340" rx="30" fill="#ffffff" stroke="#dce3ef" stroke-width="2"/>
+  <text x="78" y="832" class="zone-title">PERSISTENCE · AWS MANAGED SERVICES</text>
+
+  <rect x="82" y="866" width="410" height="222" rx="22" fill="#f5f7fb" stroke="#dce3ef" stroke-width="2"/>
+  <rect x="82" y="866" width="10" height="222" rx="5" fill="#315efb"/>
+  <text x="116" y="911" class="node-title">RDS for PostgreSQL</text>
+  <text x="116" y="943" class="node-sub">사용자에게 보이는 영속 상태</text>
+  <text x="116" y="982" class="body">• 사용자 · 이용권 · 사용량</text>
+  <text x="116" y="1017" class="body">• 실행·리포트 소유권과 공개 상태</text>
+  <text x="116" y="1052" class="body">• 관심종목 · 브리핑 · 읽음 상태</text>
+
+  <rect x="518" y="866" width="410" height="222" rx="22" fill="#f5f7fb" stroke="#dce3ef" stroke-width="2"/>
+  <rect x="518" y="866" width="10" height="222" rx="5" fill="#705cf6"/>
+  <text x="552" y="911" class="node-title">SQLite WAL</text>
+  <text x="552" y="943" class="node-sub">리서치 실행의 내부 트랜잭션 원장</text>
+  <text x="552" y="982" class="body">• 작업 · 시도 · 순서 있는 이벤트</text>
+  <text x="552" y="1017" class="body">• 30초 임대 · heartbeat · fence token</text>
+  <text x="552" y="1052" class="body">• 재시작·재시도 시 중단 지점 복구</text>
+
+  <rect x="954" y="866" width="410" height="222" rx="22" fill="#f5f7fb" stroke="#dce3ef" stroke-width="2"/>
+  <rect x="954" y="866" width="10" height="222" rx="5" fill="#0e9373"/>
+  <text x="988" y="911" class="node-title">SHA-256 CAS + S3</text>
+  <text x="988" y="943" class="node-sub">근거와 리포트의 변경 불가 계보</text>
+  <text x="988" y="982" class="body">• 원시·정규화 데이터와 모델 산출물</text>
+  <text x="988" y="1017" class="body">• 내용 해시로 위변조·교체 탐지</text>
+  <text x="988" y="1052" class="body">• 비공개 버전 S3 미러(설정 시)</text>
+
+  <rect x="1390" y="866" width="448" height="222" rx="22" fill="#f5f7fb" stroke="#dce3ef" stroke-width="2"/>
+  <rect x="1390" y="866" width="10" height="222" rx="5" fill="#e0782e"/>
+  <text x="1424" y="911" class="node-title">Cognito · Google · Whop</text>
+  <text x="1424" y="943" class="node-sub">인증과 구독 결제 경계</text>
+  <text x="1424" y="982" class="body">• 이메일·Google 로그인 · JWT</text>
+  <text x="1424" y="1017" class="body">• 결제·갱신·취소 Webhook</text>
+  <text x="1424" y="1052" class="body">• 비밀값은 Secrets Manager/IAM로 접근</text>
+
+  <text x="70" y="1170" class="small">현재 구현 기준 · 민감한 계정 ID, IP, 자격 증명, 내부 프롬프트는 생략</text>
+</svg>

@@ -61,11 +61,16 @@ export function publicTextIsValid(
   if (/(?:지금|즉시)\s*(?:매수|매도)/u.test(text.ko)) return false;
   const english = sentences.map((sentence) => sentence.text.en);
   const korean = sentences.map((sentence) => sentence.text.ko);
+  // The authenticated bilingual source can express the same monetary value
+  // with different units (for example $215.9B vs US$2159억). A translated
+  // summary may preserve either representation, so numeric grounding uses the
+  // union while language grounding remains locale-specific.
+  const bilingualNumbers = [...english, ...korean];
   return (
     sharesGroundingLanguage(text.en, english) &&
     sharesGroundingLanguage(text.ko, korean) &&
-    hasOnlyGroundedNumbers(text.en, english) &&
-    hasOnlyGroundedNumbers(text.ko, korean)
+    hasOnlyGroundedNumbers(text.en, bilingualNumbers) &&
+    hasOnlyGroundedNumbers(text.ko, bilingualNumbers)
   );
 }
 
