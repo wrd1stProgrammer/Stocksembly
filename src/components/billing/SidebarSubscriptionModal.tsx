@@ -79,6 +79,9 @@ export function SidebarSubscriptionModal({
           const status = (await statusResponse.json()) as WhopBillingStatus;
           setBillingStatus(status);
           setTier(status.tier === "free" ? "free" : "paid");
+        } else if (statusResponse.status === 401) {
+          setBillingStatus(undefined);
+          setTier("free");
         } else {
           setError(true);
         }

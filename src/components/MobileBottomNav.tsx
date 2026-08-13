@@ -10,6 +10,7 @@ export type MobileBottomNavItem = "home" | "research-room" | "briefing-room";
 type Props = {
   readonly activeItem: MobileBottomNavItem;
   readonly locale: Locale;
+  readonly hidden?: boolean;
 };
 
 const labels = {
@@ -35,7 +36,7 @@ function readScrollPosition(): number {
   );
 }
 
-export function MobileBottomNav({ activeItem, locale }: Props) {
+export function MobileBottomNav({ activeItem, locale, hidden = false }: Props) {
   const [compact, setCompact] = useState(false);
   const lastScrollPosition = useRef(0);
   const frame = useRef<number | null>(null);
@@ -66,6 +67,8 @@ export function MobileBottomNav({ activeItem, locale }: Props) {
       if (frame.current !== null) window.cancelAnimationFrame(frame.current);
     };
   }, []);
+
+  if (hidden) return null;
 
   const items = [
     {

@@ -2,10 +2,10 @@
 
 import { BorderBeam } from "border-beam";
 import { ArrowUpRight, LockKeyhole, X } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Locale } from "../../lib/i18n";
+import { SidebarSubscriptionModal } from "./SidebarSubscriptionModal";
 
 type Props = {
   readonly locale: Locale;
@@ -24,6 +24,7 @@ export function MembershipAccessModal({
 }: Props) {
   const titleId = useId();
   const [mounted, setMounted] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
   const dismiss = useCallback(() => {
     if (onClose !== undefined) {
       onClose();
@@ -37,7 +38,7 @@ export function MembershipAccessModal({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || plansOpen) return;
     document.body.classList.add("membership-access-modal-is-open");
     const closeFromKeyboard = (event: KeyboardEvent) => {
       if (event.key === "Escape") dismiss();
@@ -47,13 +48,17 @@ export function MembershipAccessModal({
       document.body.classList.remove("membership-access-modal-is-open");
       window.removeEventListener("keydown", closeFromKeyboard);
     };
-  }, [dismiss, open]);
+  }, [dismiss, open, plansOpen]);
 
   if (!mounted || !open) return null;
 
   const openPlans = () => {
-    onClose?.();
-    onOpenPlans?.();
+    if (onOpenPlans !== undefined) {
+      onClose?.();
+      onOpenPlans();
+      return;
+    }
+    setPlansOpen(true);
   };
 
   const isCustomize = reason === "customize";
@@ -86,68 +91,76 @@ export function MembershipAccessModal({
               "The full report is subscriber-only for its first seven days. Free accounts can open the same research after the seven-day window.",
           };
 
-  return createPortal(
-    <div className="membership-access-modal__backdrop" role="presentation">
-      <BorderBeam
-        className="membership-access-modal__beam"
-        size="pulse-outside"
-        colorVariant="colorful"
-        theme="dark"
-        strength={0.79}
-        borderRadius={20}
-      >
-        <section
-          className="membership-access-modal__dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-        >
-          <button
-            type="button"
-            className="membership-access-modal__close"
-            aria-label={locale === "ko" ? "닫기" : "Close"}
-            onClick={dismiss}
-          >
-            <X size={18} aria-hidden="true" />
-          </button>
-          <div className="membership-access-modal__icon" aria-hidden="true">
-            <LockKeyhole size={27} strokeWidth={1.8} />
-          </div>
-          <span className="membership-access-modal__eyebrow">
-            {copy.eyebrow}
-          </span>
-          <h2 id={titleId}>{copy.title}</h2>
-          <p>{copy.description}</p>
-          <div className="membership-access-modal__actions">
-            <button
-              type="button"
-              className="membership-access-modal__dismiss"
-              onClick={dismiss}
+  return (
+    <>
+      {plansOpen
+        ? null
+        : createPortal(
+            <div
+              className="membership-access-modal__backdrop"
+              role="presentation"
             >
-              {locale === "ko" ? "나중에" : "Maybe later"}
-            </button>
-            {onOpenPlans === undefined ? (
-              <Link
-                className="membership-access-modal__upgrade"
-                href="/?billing=plans"
+              <BorderBeam
+                className="membership-access-modal__beam"
+                size="pulse-outside"
+                colorVariant="colorful"
+                theme="dark"
+                strength={0.79}
+                borderRadius={20}
               >
-                {locale === "ko" ? "플랜 확인하기" : "View plans"}
-                <ArrowUpRight size={16} aria-hidden="true" />
-              </Link>
-            ) : (
-              <button
-                type="button"
-                className="membership-access-modal__upgrade"
-                onClick={openPlans}
-              >
-                {locale === "ko" ? "플랜 확인하기" : "View plans"}
-                <ArrowUpRight size={16} aria-hidden="true" />
-              </button>
-            )}
-          </div>
-        </section>
-      </BorderBeam>
-    </div>,
-    document.body,
+                <section
+                  className="membership-access-modal__dialog"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby={titleId}
+                >
+                  <button
+                    type="button"
+                    className="membership-access-modal__close"
+                    aria-label={locale === "ko" ? "닫기" : "Close"}
+                    onClick={dismiss}
+                  >
+                    <X size={18} aria-hidden="true" />
+                  </button>
+                  <div
+                    className="membership-access-modal__icon"
+                    aria-hidden="true"
+                  >
+                    <LockKeyhole size={27} strokeWidth={1.8} />
+                  </div>
+                  <span className="membership-access-modal__eyebrow">
+                    {copy.eyebrow}
+                  </span>
+                  <h2 id={titleId}>{copy.title}</h2>
+                  <p>{copy.description}</p>
+                  <div className="membership-access-modal__actions">
+                    <button
+                      type="button"
+                      className="membership-access-modal__dismiss"
+                      onClick={dismiss}
+                    >
+                      {locale === "ko" ? "나중에" : "Maybe later"}
+                    </button>
+                    <button
+                      type="button"
+                      className="membership-access-modal__upgrade"
+                      onClick={openPlans}
+                    >
+                      {locale === "ko" ? "플랜 확인하기" : "View plans"}
+                      <ArrowUpRight size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                </section>
+              </BorderBeam>
+            </div>,
+            document.body,
+          )}
+      <SidebarSubscriptionModal
+        open={plansOpen}
+        locale={locale}
+        initialTier="free"
+        onClose={() => setPlansOpen(false)}
+      />
+    </>
   );
 }

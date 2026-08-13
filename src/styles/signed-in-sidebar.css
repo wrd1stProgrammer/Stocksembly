@@ -1232,17 +1232,11 @@
     padding: 12px 6px 0;
   }
 
-  .app-shell--signed-in:not(.app-shell--sidebar-collapsed) > main,
-  .app-shell--signed-in:not(.app-shell--sidebar-collapsed) > .site-footer {
-    width: calc(100% - var(--mobile-sidebar-drawer-width));
-    transform: translateX(var(--mobile-sidebar-drawer-width));
-  }
-
   .app-shell--signed-in > main,
   .app-shell--signed-in > .site-footer {
-    transition:
-      transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-      width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+    width: 100%;
+    transform: none;
+    transition: none;
   }
 
   .app-shell--signed-in.app-shell--sidebar-collapsed > .site-footer {

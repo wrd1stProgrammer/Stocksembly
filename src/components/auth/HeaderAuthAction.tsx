@@ -52,7 +52,7 @@ export function HeaderAuthAction({
 
   if (authState === "signed-out") {
     return (
-      <Link className="sign-in" href="/login">
+      <Link className="sign-in sign-in--signed-out" href="/login">
         {label}
       </Link>
     );
@@ -62,11 +62,12 @@ export function HeaderAuthAction({
     <>
       <RecentResearchDrawer locale={locale} />
       <button
-        className="sign-in sign-in--button"
+        className="sign-in sign-in--button sign-in--signed-in"
         onClick={() => {
-          void clearResearchSession()
+          void signOut()
             .catch(() => undefined)
-            .finally(() => signOut())
+            .then(() => clearResearchSession())
+            .catch(() => undefined)
             .finally(() => setAuthState("signed-out"));
         }}
         type="button"

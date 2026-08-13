@@ -28,6 +28,7 @@ describe("production research authentication", () => {
     const cleared = await auth.bootstrapSessionResponse(
       new Request("https://stocksembly.com/api/research/session", {
         method: "DELETE",
+        headers: { cookie: "stocksembly_cognito_session=stale-token" },
       }),
     );
 
@@ -35,5 +36,6 @@ describe("production research authentication", () => {
     expect(automation.kind).toBe("authenticated");
     expect(cleared.headers.get("set-cookie")).toContain("Max-Age=0");
     expect(cleared.headers.get("set-cookie")).toContain("Secure");
+    expect(cleared.headers.get("x-stocksembly-session-changed")).toBe("true");
   });
 });

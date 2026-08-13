@@ -56,7 +56,8 @@
 .research-room-dashboard__title,
 .research-room-dashboard__heading,
 .research-room-dashboard__actions,
-.research-room-dashboard__actions > a {
+.research-room-dashboard__actions > a,
+.research-room-dashboard__actions > .sign-in {
   display: flex;
   align-items: center;
 }
@@ -93,7 +94,8 @@
 .research-room-dashboard__actions {
   gap: 9px;
 }
-.research-room-dashboard__actions > a {
+.research-room-dashboard__actions > a,
+.research-room-dashboard__actions > .sign-in {
   min-height: 34px;
   gap: 7px;
   padding: 0 11px;
@@ -1157,6 +1159,16 @@
   .research-room-dashboard__title .brand {
     display: none;
   }
+  .research-room-dashboard__actions {
+    gap: 6px;
+  }
+  .research-room-dashboard__actions > .sign-in,
+  .research-room-dashboard__actions > a {
+    min-height: 36px;
+    padding: 0 9px;
+    font-size: 0.67rem;
+    white-space: nowrap;
+  }
   .research-room-catalog {
     padding: 12px;
   }
@@ -1379,11 +1391,19 @@
   background: #08090b;
 }
 
-.briefing-room__topbar > div:first-child {
+.briefing-room__identity > div:first-child {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: end;
   column-gap: 18px;
+}
+
+.briefing-room__identity {
+  min-width: 0;
+}
+
+.briefing-room__identity > .sign-in {
+  display: none;
 }
 
 .briefing-room__topbar .brand {
@@ -2823,18 +2843,11 @@
     min-height: 64px;
   }
 
-  .research-room-dashboard:not(.is-sidebar-collapsed)
-    > .research-room-dashboard__content,
-  .briefing-room:not(.is-sidebar-collapsed) > .briefing-room__main {
-    width: calc(100% - var(--mobile-sidebar-drawer-width));
-    transform: translateX(var(--mobile-sidebar-drawer-width));
-  }
-
   .research-room-dashboard__content,
   .briefing-room__main {
-    transition:
-      transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-      width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+    width: 100%;
+    transform: none;
+    transition: none;
   }
 
   .research-room-dashboard__topbar {
@@ -2991,6 +3004,24 @@
     display: none;
   }
 
+  .briefing-room__identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .briefing-room__identity > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .briefing-room__identity > .sign-in {
+    display: inline-flex;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   .briefing-room.is-authenticated .briefing-room__next {
     width: 100%;
   }
@@ -3012,7 +3043,7 @@
     padding: 10px 14px;
   }
 
-  .briefing-room__topbar > div:first-child {
+  .briefing-room__identity > div:first-child {
     flex: 0 1 auto;
     min-width: 0;
     grid-template-columns: 1fr;

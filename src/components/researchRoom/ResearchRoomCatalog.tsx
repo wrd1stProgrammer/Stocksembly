@@ -32,8 +32,10 @@ import type {
   ResearchRoomScope,
   ResearchRoomSort,
 } from "../../research/server/researchRoom/researchRoomCatalog";
+import { HeaderAuthAction } from "../auth/HeaderAuthAction";
 import { Brand } from "../Brand";
 import { MembershipAccessModal } from "../billing/MembershipAccessModal";
+import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { MobileBottomNav } from "../MobileBottomNav";
 import { CompanyLogo } from "../research/ResearchSidebar";
 import { SignedInSidebar } from "../SignedInSidebar";
@@ -169,6 +171,7 @@ export function ResearchRoomCatalog({
   const [now, setNow] = useState<number | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
+  const [subscriptionOpen, setSubscriptionOpen] = useState(false);
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -259,6 +262,7 @@ export function ResearchRoomCatalog({
             router.replace(`/research-room?lang=${nextLocale}`)
           }
           onSignedOut={() => window.location.assign(`/?lang=${locale}`)}
+          onOpenSubscription={() => setSubscriptionOpen(true)}
           subscriptionTier={access.tier}
         />
       ) : null}
@@ -278,6 +282,12 @@ export function ResearchRoomCatalog({
             </div>
           </div>
           <div className="research-room-dashboard__actions">
+            {access.authenticated ? null : (
+              <HeaderAuthAction
+                label={copy[locale].nav.getStarted}
+                locale={locale}
+              />
+            )}
             <Link href={`/?lang=${locale}#product`}>
               <Plus size={16} aria-hidden="true" />
               {locale === "ko" ? "새 리서치" : "New research"}
@@ -576,12 +586,23 @@ export function ResearchRoomCatalog({
           </section>
         </main>
       </div>
-      <MobileBottomNav activeItem="research-room" locale={locale} />
+      <MobileBottomNav
+        activeItem="research-room"
+        locale={locale}
+        hidden={access.authenticated && !sidebarCollapsed}
+      />
       <MembershipAccessModal
         locale={locale}
         open={membershipGateOpen}
         reason="recent-report"
         onClose={() => setMembershipGateOpen(false)}
+        onOpenPlans={() => setSubscriptionOpen(true)}
+      />
+      <SidebarSubscriptionModal
+        open={subscriptionOpen}
+        locale={locale}
+        initialTier={access.authenticated ? access.tier : "free"}
+        onClose={() => setSubscriptionOpen(false)}
       />
     </div>
   );

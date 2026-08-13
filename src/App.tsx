@@ -19,7 +19,7 @@ import {
   SIGNED_IN_SIDEBAR_STORAGE_KEY,
   SignedInSidebar,
 } from "./components/SignedInSidebar";
-import { StarfallFieldBackground } from "./components/ui/starfall-field";
+import { SiteAtmosphere } from "./components/SiteAtmosphere";
 import type { Locale } from "./lib/i18n";
 import { copy } from "./lib/i18n";
 import { BILLING_CHANGED_EVENT } from "./lib/whop/billingEvents";
@@ -159,7 +159,9 @@ export function App() {
     const storedSidebarState = window.localStorage.getItem(
       SIGNED_IN_SIDEBAR_STORAGE_KEY,
     );
-    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    const isMobile =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 900px)").matches;
     setSidebarCollapsed(isMobile ? true : storedSidebarState === "true");
   }, []);
 
@@ -331,20 +333,7 @@ export function App() {
         sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""
       }`}
     >
-      <div className="atmosphere" aria-hidden="true">
-        <StarfallFieldBackground
-          className="atmosphere__starfall"
-          starsCount={220}
-          starsSize={1.7}
-          starsOpacity={0.82}
-          starsColor="#f4f4f5"
-          glowIntensity={11}
-          movementSpeed={0.16}
-          mouseInfluence={140}
-          gravityStrength={44}
-          globalPointerEvents
-        />
-      </div>
+      <SiteAtmosphere />
       {signedIn ? (
         <SignedInSidebar
           locale={locale}
@@ -401,7 +390,11 @@ export function App() {
         <LandingSections locale={locale} />
       </main>
       <LandingFooter locale={locale} />
-      <MobileBottomNav activeItem="home" locale={locale} />
+      <MobileBottomNav
+        activeItem="home"
+        locale={locale}
+        hidden={signedIn && !sidebarCollapsed}
+      />
       <SubscriptionModal
         open={subscriptionModalOpen}
         locale={locale}

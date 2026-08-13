@@ -7,6 +7,7 @@ import type {
   BriefingRoomState,
 } from "../../briefing/domain/contracts";
 import type { Locale } from "../../lib/i18n";
+import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { MobileBottomNav } from "../MobileBottomNav";
 import { SignedInSidebar } from "../SignedInSidebar";
 import { BriefingDetail } from "./BriefingDetail";
@@ -29,6 +30,7 @@ const mobileCopy = {
 export function BriefingRoom({ initialState, locale, initialDetails }: Props) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
+  const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const controller = useBriefingRoomController({
     initialState,
     locale,
@@ -57,20 +59,23 @@ export function BriefingRoom({ initialState, locale, initialDetails }: Props) {
             router.replace(`/briefing-room?lang=${nextLocale}`)
           }
           onSignedOut={() => window.location.assign(`/?lang=${locale}`)}
+          onOpenSubscription={() => setSubscriptionOpen(true)}
           subscriptionTier={state.tier === "free" ? "free" : "paid"}
         />
       ) : null}
 
-      <MobileBottomNav activeItem="briefing-room" locale={locale} />
+      <MobileBottomNav
+        activeItem="briefing-room"
+        locale={locale}
+        hidden={state.authenticated && !collapsed}
+      />
 
       <main className="briefing-room__main">
         <BriefingRoomHeader state={state} locale={locale} />
         {!state.authenticated || !state.enabled ? (
           <BriefingLocked
             locale={locale}
-            onOpenPlans={() =>
-              window.location.assign(`/?lang=${locale}&billing=plans`)
-            }
+            onOpenPlans={() => setSubscriptionOpen(true)}
           />
         ) : (
           <div className="briefing-room__workspace">
@@ -107,6 +112,18 @@ export function BriefingRoom({ initialState, locale, initialDetails }: Props) {
         briefing={controller.selected}
         locale={locale}
         onClose={() => controller.setDetailOpen(false)}
+      />
+      <SidebarSubscriptionModal
+        open={subscriptionOpen}
+        locale={locale}
+        initialTier={
+          state.authenticated
+            ? state.tier === "free"
+              ? "free"
+              : "paid"
+            : "free"
+        }
+        onClose={() => setSubscriptionOpen(false)}
       />
     </div>
   );

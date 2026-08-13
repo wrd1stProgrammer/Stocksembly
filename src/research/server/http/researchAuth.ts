@@ -189,10 +189,13 @@ export function createResearchAuth(
     bootstrapSession: () => Promise.resolve(""),
     async bootstrapSessionResponse(request) {
       if (request.method === "DELETE") {
+        const existing = cookieToken(request);
         return new Response(null, {
           status: 204,
           headers: {
             "set-cookie": clearedCognitoCookie(configuration.secureCookie),
+            "x-stocksembly-session-changed":
+              existing === undefined ? "false" : "true",
           },
         });
       }

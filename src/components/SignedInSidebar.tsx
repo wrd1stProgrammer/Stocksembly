@@ -214,8 +214,8 @@ export function SignedInSidebar({
 
   async function handleSignOut() {
     setProfileOpen(false);
-    await clearResearchSession().catch(() => undefined);
     await signOut().catch(() => undefined);
+    await clearResearchSession().catch(() => undefined);
     onSignedOut();
   }
 

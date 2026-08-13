@@ -54,10 +54,12 @@ export async function syncResearchSession(): Promise<boolean> {
   return response.headers.get("x-stocksembly-session-changed") === "true";
 }
 
-export async function clearResearchSession(): Promise<void> {
-  await fetch("/api/research/session", {
+export async function clearResearchSession(): Promise<boolean> {
+  const response = await fetch("/api/research/session", {
     method: "DELETE",
     credentials: "same-origin",
     cache: "no-store",
   });
+  if (!response.ok) throw new Error("RESEARCH_SESSION_CLEAR_FAILED");
+  return response.headers.get("x-stocksembly-session-changed") === "true";
 }

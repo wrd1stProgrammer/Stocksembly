@@ -333,7 +333,6 @@ export function LiveOfficeResearchRoom({
       (agentId) => visibleIds.has(agentId),
     );
     if (
-      focusedTeam &&
       !completed &&
       !terminal &&
       (projection.snapshot.events.length <= 2 || activeVisibleIds.length === 0)
@@ -342,7 +341,6 @@ export function LiveOfficeResearchRoom({
     return activeVisibleIds;
   }, [
     completed,
-    focusedTeam,
     projection.snapshot.activeAgentIds,
     projection.snapshot.events.length,
     terminal,
@@ -366,8 +364,13 @@ export function LiveOfficeResearchRoom({
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+    const mobile = window.matchMedia("(max-width: 767px)").matches;
+    setSidebarOpen(!mobile);
   }, []);
+
+  useEffect(() => {
+    if (!completed && !terminal) setTranscriptOpen(true);
+  }, [completed, terminal]);
 
   useEffect(() => {
     const symbol = projection.snapshot.run.symbol;
@@ -449,14 +452,6 @@ export function LiveOfficeResearchRoom({
     };
   }, [client]);
 
-  useEffect(() => {
-    if (projection.state === "published") {
-      setTranscriptOpen(true);
-    } else {
-      setTranscriptOpen(true);
-    }
-  }, [projection.state]);
-
   const connectionIssue =
     projection.state === "connection-interrupted" ||
     projection.state === "degraded" ||
@@ -468,11 +463,12 @@ export function LiveOfficeResearchRoom({
     const nextOpen = !collapsed;
     setSidebarOpen(nextOpen);
     if (
-      nextOpen &&
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px)").matches
+      typeof window === "undefined" ||
+      !window.matchMedia("(max-width: 767px)").matches
     )
-      setTranscriptOpen(false);
+      return;
+    if (nextOpen) setTranscriptOpen(false);
+    else if (!completed && !terminal) setTranscriptOpen(true);
   };
 
   const handleTranscriptToggle = (): void => {

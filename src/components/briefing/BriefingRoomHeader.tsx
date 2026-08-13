@@ -2,6 +2,7 @@ import { ArrowUpRight, BellRing, Clock3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { BriefingRoomState } from "../../briefing/domain/contracts";
 import type { Locale } from "../../lib/i18n";
+import { HeaderAuthAction } from "../auth/HeaderAuthAction";
 import { Brand } from "../Brand";
 import {
   formatBriefingDate,
@@ -86,10 +87,18 @@ export function BriefingRoomHeader({ state, locale }: HeaderProps) {
 
   return (
     <header className="briefing-room__topbar">
-      <div>
-        {!state.authenticated ? <Brand locale={locale} /> : null}
-        <span>{labels.eyebrow}</span>
-        <h1>{labels.title}</h1>
+      <div className="briefing-room__identity">
+        <div>
+          {!state.authenticated ? <Brand locale={locale} /> : null}
+          <span>{labels.eyebrow}</span>
+          <h1>{labels.title}</h1>
+        </div>
+        {state.authenticated ? null : (
+          <HeaderAuthAction
+            label={locale === "ko" ? "시작하기" : "Get started"}
+            locale={locale}
+          />
+        )}
       </div>
       <div className="briefing-room__publishing">
         {latestPublishedAt === undefined ? null : (

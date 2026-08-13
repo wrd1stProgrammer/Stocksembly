@@ -15,6 +15,7 @@ import {
   type ReactNode,
   useState,
 } from "react";
+import { SiteAtmosphere } from "../SiteAtmosphere";
 
 type AuthFrameProps = {
   readonly children: ReactNode;
@@ -33,6 +34,7 @@ export function AuthFrame({
 }: AuthFrameProps) {
   return (
     <main className="auth-shell">
+      <SiteAtmosphere />
       <div className="auth-shell__glow" aria-hidden="true" />
       <Link
         className="auth-shell__brand"
