@@ -6,6 +6,20 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { z } from "zod";
+import { adminAnalyticsWritesEnabled } from "../../admin/adminAnalyticsFlags";
+import type {
+  AcquisitionAttributionInput,
+  AcquisitionChannel,
+  AdminAnalyticsOverview,
+  AdminAnalyticsQuery,
+  AdminUserDetail,
+  AdminUserList,
+} from "../../admin/analyticsContracts";
+import {
+  queryAdminOverview,
+  queryAdminUser,
+  queryAdminUsers,
+} from "../../admin/server/postgresAdminAnalytics";
 import { selectNextEarnings } from "../../briefing/domain/briefingEarnings";
 import type {
   BriefingAccess,
@@ -95,6 +109,15 @@ function validPrincipalId(value: string | undefined): string | undefined {
     : undefined;
 }
 
+function validCheckoutAttemptId(value: string | undefined): string | undefined {
+  return value !== undefined &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      value,
+    )
+    ? value
+    : undefined;
+}
+
 function billingPlanKey(value: string | undefined): BillingPlanKey | undefined {
   return value === "pro-monthly" ||
     value === "pro-annual" ||
@@ -102,6 +125,48 @@ function billingPlanKey(value: string | undefined): BillingPlanKey | undefined {
     value === "ultra-annual"
     ? value
     : undefined;
+}
+
+function acquisitionChannel(
+  attribution: AcquisitionAttributionInput,
+): Exclude<AcquisitionChannel, "all" | "unknown"> {
+  const medium = attribution.medium?.toLowerCase();
+  const source = attribution.source?.toLowerCase();
+  const referrer = attribution.referrerHost?.toLowerCase();
+  if (medium === "cpc" || medium === "ppc" || medium === "paid_search")
+    return "paid_search";
+  if (medium === "email") return "email";
+  if (
+    medium === "social" ||
+    medium === "social_media" ||
+    [
+      "facebook",
+      "instagram",
+      "linkedin",
+      "x",
+      "twitter",
+      "youtube",
+      "tiktok",
+    ].includes(source ?? "")
+  )
+    return "social";
+  if (
+    medium === "organic" ||
+    ["google.com", "bing.com", "search.naver.com", "search.daum.net"].includes(
+      referrer ?? "",
+    )
+  )
+    return "organic_search";
+  if (referrer) return "referral";
+  if (
+    attribution.source ||
+    attribution.medium ||
+    attribution.campaign ||
+    attribution.term ||
+    attribution.content
+  )
+    return "campaign";
+  return "direct";
 }
 
 function sandboxWebhookPrincipalAllowed(principalId: string): boolean {
@@ -688,15 +753,10 @@ export class PostgresAccountStore implements AccountStore {
         `INSERT INTO app_users(
           principal_id, cognito_subject, username, email, display_name,
           created_at, updated_at, last_seen_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $6, $6)
-        ON CONFLICT (principal_id) DO UPDATE SET
-          username = COALESCE(EXCLUDED.username, app_users.username),
-          email = COALESCE(EXCLUDED.email, app_users.email),
-          display_name = COALESCE(EXCLUDED.display_name, app_users.display_name),
-          updated_at = CASE
-            WHEN app_users.last_seen_at < EXCLUDED.last_seen_at - interval '15 minutes'
-            THEN EXCLUDED.updated_at ELSE app_users.updated_at END,
-          last_seen_at = GREATEST(app_users.last_seen_at, EXCLUDED.last_seen_at)
+        ) VALUES ($1, $2, $3, $4, $5,
+                  transaction_timestamp(), transaction_timestamp(),
+                  transaction_timestamp())
+        ON CONFLICT (principal_id) DO NOTHING
         RETURNING created_at`,
         [
           principal.id,
@@ -705,22 +765,41 @@ export class PostgresAccountStore implements AccountStore {
             (principal.kind === "local" ? "local-development" : null),
           principal.email ?? null,
           principal.displayName ?? null,
-          observedAt,
         ],
       );
+      if (insertedUser.rows.length === 0)
+        await client.query(
+          `UPDATE app_users SET
+             username = COALESCE($2, username),
+             email = COALESCE($3, email),
+             display_name = COALESCE($4, display_name),
+             updated_at = CASE
+               WHEN last_seen_at < $5::timestamptz - interval '15 minutes'
+               THEN $5::timestamptz ELSE updated_at END,
+             last_seen_at = GREATEST(last_seen_at, $5::timestamptz)
+           WHERE principal_id = $1`,
+          [
+            principal.id,
+            principal.username ?? null,
+            principal.email ?? null,
+            principal.displayName ?? null,
+            observedAt,
+          ],
+        );
+      const accountCreatedAt = insertedUser.rows[0]?.created_at ?? observedAt;
       await client.query(
         `INSERT INTO entitlements(
           principal_id, plan_code, status, created_at, updated_at
         ) VALUES ($1, 'preview', 'active', $2, $2)
         ON CONFLICT (principal_id) DO NOTHING`,
-        [principal.id, observedAt],
+        [principal.id, accountCreatedAt],
       );
       // The sign-up grant is created with the account, rather than waiting
       // for the first billing page visit. The idempotent key keeps retries
       // from issuing the welcome credits twice.
-      if (insertedUser.rowCount === 1) {
-        const accountCreatedAt = isoTimestamp(
-          insertedUser.rows[0]?.created_at,
+      if (insertedUser.rows.length === 1) {
+        const normalizedAccountCreatedAt = isoTimestamp(
+          accountCreatedAt,
           new Date(),
         );
         await client.query(
@@ -732,11 +811,23 @@ export class PostgresAccountStore implements AccountStore {
           [
             `free-signup:${principal.id}`,
             principal.id,
-            accountCreatedAt.slice(0, 10),
+            normalizedAccountCreatedAt.slice(0, 10),
             FREE_SIGNUP_CREDIT_ALLOWANCE,
-            accountCreatedAt,
+            normalizedAccountCreatedAt,
           ],
         );
+        if (adminAnalyticsWritesEnabled())
+          await client.query(
+            `INSERT INTO analytics_events(
+               event_key, principal_id, event_name, occurred_at
+             ) VALUES ($1, $2, 'account_first_authenticated', $3)
+             ON CONFLICT (event_key) DO NOTHING`,
+            [
+              `account-first-authenticated:${principal.id}`,
+              principal.id,
+              normalizedAccountCreatedAt,
+            ],
+          );
       }
       await client.query("COMMIT");
       this.#syncedUsers.set(
@@ -1404,6 +1495,172 @@ export class PostgresAccountStore implements AccountStore {
     return status.tier === "free" ? "free" : "paid";
   }
 
+  async createCheckoutAttempt(
+    principalId: string,
+    planKey: BillingPlanKey,
+    attemptId: string,
+  ): Promise<void> {
+    if (!adminAnalyticsWritesEnabled()) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO billing_checkout_attempts(
+           attempt_id, principal_id, plan_key, status
+         ) VALUES ($1, $2, $3, 'creating')
+         ON CONFLICT (attempt_id) DO NOTHING`,
+        [attemptId, principalId, planKey],
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError("CHECKOUT_ATTEMPT_CREATE_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async markCheckoutAttemptReady(
+    attemptId: string,
+    checkoutConfigurationId?: string,
+  ): Promise<void> {
+    if (!adminAnalyticsWritesEnabled()) return;
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const updated = await client.query<{ principal_id: string }>(
+        `UPDATE billing_checkout_attempts
+         SET status = 'ready', ready_at = COALESCE(ready_at, now()),
+             checkout_configuration_id = COALESCE($2, checkout_configuration_id)
+         WHERE attempt_id = $1 AND status IN ('creating', 'ready')
+         RETURNING principal_id`,
+        [attemptId, checkoutConfigurationId ?? null],
+      );
+      const principalId = updated.rows[0]?.principal_id;
+      if (principalId !== undefined)
+        await client.query(
+          `INSERT INTO analytics_events(
+             event_key, principal_id, event_name, occurred_at
+           ) VALUES ($1, $2, 'checkout_started', now())
+           ON CONFLICT (event_key) DO NOTHING`,
+          [`checkout-ready:${attemptId}`, principalId],
+        );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw new AccountStoreUnavailableError("CHECKOUT_ATTEMPT_READY_FAILED", {
+        cause: error,
+      });
+    } finally {
+      client.release();
+    }
+  }
+
+  async markCheckoutAttemptFailed(attemptId: string): Promise<void> {
+    if (!adminAnalyticsWritesEnabled()) return;
+    try {
+      await this.pool.query(
+        `UPDATE billing_checkout_attempts
+         SET status = 'failed', failed_at = COALESCE(failed_at, now())
+         WHERE attempt_id = $1 AND ready_at IS NULL`,
+        [attemptId],
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError("CHECKOUT_ATTEMPT_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async recordAcquisitionAttribution(
+    principalId: string,
+    attribution: AcquisitionAttributionInput,
+  ): Promise<"stored" | "exists"> {
+    if (!adminAnalyticsWritesEnabled()) return "exists";
+    const channel = acquisitionChannel(attribution);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const inserted = await client.query<{ principal_id: string }>(
+        `INSERT INTO user_acquisition_attribution(
+           principal_id, channel, source, medium, campaign, term, content,
+           referrer_host, landing_path, captured_at
+         )
+         SELECT u.principal_id, $2, $3, $4, $5, $6, $7, $8, $9, $10
+         FROM app_users u
+         WHERE u.principal_id = $1
+           AND $10::timestamptz >= u.created_at - interval '7 days'
+           AND $10::timestamptz <= u.created_at + interval '10 minutes'
+         ON CONFLICT (principal_id) DO NOTHING
+         RETURNING principal_id`,
+        [
+          principalId,
+          channel,
+          attribution.source ?? null,
+          attribution.medium ?? null,
+          attribution.campaign ?? null,
+          attribution.term ?? null,
+          attribution.content ?? null,
+          attribution.referrerHost?.toLowerCase() ?? null,
+          attribution.landingPath,
+          attribution.capturedAt,
+        ],
+      );
+      if (inserted.rows.length > 0)
+        await client.query(
+          `UPDATE app_users SET acquisition_channel = $2
+           WHERE principal_id = $1 AND acquisition_channel = 'unknown'`,
+          [principalId, channel],
+        );
+      await client.query("COMMIT");
+      return inserted.rows.length > 0 ? "stored" : "exists";
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_ACQUISITION_ATTRIBUTION_FAILED",
+        { cause: error },
+      );
+    } finally {
+      client.release();
+    }
+  }
+
+  async adminAnalyticsOverview(
+    query: AdminAnalyticsQuery,
+  ): Promise<AdminAnalyticsOverview> {
+    try {
+      return await queryAdminOverview(this.pool, query);
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "ADMIN_ANALYTICS_OVERVIEW_FAILED",
+        {
+          cause: error,
+        },
+      );
+    }
+  }
+
+  async adminAnalyticsUsers(
+    query: AdminAnalyticsQuery,
+  ): Promise<AdminUserList> {
+    try {
+      return await queryAdminUsers(this.pool, query);
+    } catch (error) {
+      throw new AccountStoreUnavailableError("ADMIN_ANALYTICS_USERS_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
+  async adminAnalyticsUser(
+    principalId: string,
+    query: AdminAnalyticsQuery,
+  ): Promise<AdminUserDetail | undefined> {
+    try {
+      return await queryAdminUser(this.pool, principalId, query);
+    } catch (error) {
+      throw new AccountStoreUnavailableError("ADMIN_ANALYTICS_USER_FAILED", {
+        cause: error,
+      });
+    }
+  }
+
   async briefingAccess(principalId: string): Promise<BriefingAccess> {
     try {
       const result = await this.pool.query<{
@@ -1661,7 +1918,17 @@ export class PostgresAccountStore implements AccountStore {
         [principalId, symbol],
       );
       const removed = (result.rowCount ?? 0) > 0;
-      if (removed) await recordBriefingWatchlistChange(client, principalId);
+      if (removed) {
+        await recordBriefingWatchlistChange(client, principalId);
+        if (adminAnalyticsWritesEnabled())
+          await client.query(
+            `INSERT INTO analytics_events(
+               event_key, principal_id, event_name, occurred_at
+             ) VALUES ($1, $2, 'watchlist_removed', now())
+             ON CONFLICT (event_key) DO NOTHING`,
+            [`watchlist-removed:${randomUUID()}`, principalId],
+          );
+      }
       await client.query("COMMIT");
       return {
         removed,
@@ -2014,6 +2281,9 @@ export class PostgresAccountStore implements AccountStore {
     const metadataPrincipalId = validPrincipalId(
       stringValue(metadata["stocksembly_principal_id"]),
     );
+    const checkoutAttemptId = validCheckoutAttemptId(
+      stringValue(metadata["stocksembly_checkout_attempt_id"]),
+    );
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -2065,6 +2335,48 @@ export class PostgresAccountStore implements AccountStore {
            WHERE principal_id = $1`,
           [principalId, whopUserId],
         );
+      }
+
+      if (adminAnalyticsWritesEnabled()) {
+        const analyticsEventName =
+          eventType === "payment.succeeded"
+            ? "payment_succeeded"
+            : eventType === "payment.failed"
+              ? "payment_failed"
+              : eventType === "membership.deactivated"
+                ? "membership_deactivated"
+                : eventType === "membership.cancel_at_period_end_changed"
+                  ? "cancel_at_period_end_changed"
+                  : undefined;
+        if (analyticsEventName !== undefined)
+          await client.query(
+            `INSERT INTO analytics_events(
+               event_key, principal_id, event_name, occurred_at
+             ) VALUES ($1, $2, $3, $4)
+             ON CONFLICT (event_key) DO NOTHING`,
+            [
+              `whop:${event.sourceEnvironment ?? getWhopEnvironment()}:${eventId}`,
+              principalId,
+              analyticsEventName,
+              occurredAt,
+            ],
+          );
+        if (checkoutAttemptId !== undefined) {
+          if (eventType === "payment.succeeded")
+            await client.query(
+              `UPDATE billing_checkout_attempts
+               SET status = 'paid', paid_at = COALESCE(paid_at, $3)
+               WHERE attempt_id = $1 AND principal_id = $2`,
+              [checkoutAttemptId, principalId, occurredAt],
+            );
+          if (eventType === "payment.failed")
+            await client.query(
+              `UPDATE billing_checkout_attempts
+               SET status = 'failed', failed_at = COALESCE(failed_at, $3)
+               WHERE attempt_id = $1 AND principal_id = $2 AND paid_at IS NULL`,
+              [checkoutAttemptId, principalId, occurredAt],
+            );
+        }
       }
 
       const existingResult = await client.query<{

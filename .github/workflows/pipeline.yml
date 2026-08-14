@@ -121,7 +121,7 @@ jobs:
           deploy_script="$(base64 -w 0 infra/aws/container-deploy.sh)"
           parameters="$(
             jq -nc \
-              --arg command "printf '%s' '${deploy_script}' | base64 --decode | sudo tee /usr/local/bin/stocksembly-container-deploy >/dev/null && sudo chmod 0755 /usr/local/bin/stocksembly-container-deploy && sudo /usr/local/bin/stocksembly-container-deploy ${image}" \
+              --arg command "sudo sed -i -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=/d' -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=/d' /etc/stocksembly/aws.env && printf '%s\\n' 'STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=true' 'STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=false' | sudo tee -a /etc/stocksembly/aws.env >/dev/null && printf '%s' '${deploy_script}' | base64 --decode | sudo tee /usr/local/bin/stocksembly-container-deploy >/dev/null && sudo chmod 0755 /usr/local/bin/stocksembly-container-deploy && sudo /usr/local/bin/stocksembly-container-deploy ${image}" \
               '{commands:[$command]}'
           )"
           command_id="$(

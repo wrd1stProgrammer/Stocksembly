@@ -1,8 +1,9 @@
-import { GoogleAnalytics } from "@next/third-parties/google";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import type { ReactNode } from "react";
+import { adminAnalyticsWritesEnabled } from "@/src/admin/adminAnalyticsFlags";
+import { AnalyticsConsent } from "@/src/components/analytics/AnalyticsConsent";
 import { AuthSessionBridge } from "@/src/components/auth/AuthSessionBridge";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/src/styles/tailwind.css";
@@ -35,6 +36,7 @@ import "@/src/styles/signed-in-sidebar.css";
 import "@/src/styles/research-room.css";
 import "@/src/styles/billing.css";
 import "@/src/styles/mobile-bottom-nav.css";
+import "@/src/styles/admin-dashboard.css";
 
 const inter = localFont({
   src: "./fonts/inter-latin-variable.woff2",
@@ -106,9 +108,12 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body>
         <AuthSessionBridge />
         {children}
-        {googleAnalyticsMeasurementId ? (
-          <GoogleAnalytics gaId={googleAnalyticsMeasurementId} />
-        ) : null}
+        <AnalyticsConsent
+          enabled={adminAnalyticsWritesEnabled()}
+          {...(googleAnalyticsMeasurementId === undefined
+            ? {}
+            : { measurementId: googleAnalyticsMeasurementId })}
+        />
       </body>
     </html>
   );

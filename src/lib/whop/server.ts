@@ -172,6 +172,7 @@ export async function createWhopCheckout(input: {
   readonly principalId: string;
   readonly returnUrl: string;
   readonly idempotencyKey: string;
+  readonly checkoutAttemptId?: string;
 }): Promise<WhopCheckout> {
   const configuration = whopConfiguration();
   const plan = (await getWhopPricing()).find(
@@ -187,6 +188,9 @@ export async function createWhopCheckout(input: {
     metadata: {
       stocksembly_principal_id: input.principalId,
       stocksembly_plan_key: input.planKey,
+      ...(input.checkoutAttemptId === undefined
+        ? {}
+        : { stocksembly_checkout_attempt_id: input.checkoutAttemptId }),
     },
     redirect_url: input.returnUrl,
     "Idempotency-Key": input.idempotencyKey,

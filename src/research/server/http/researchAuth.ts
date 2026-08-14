@@ -11,6 +11,7 @@ export type ResearchPrincipal = {
   readonly username?: string;
   readonly email?: string;
   readonly displayName?: string;
+  readonly groups?: readonly string[];
 };
 
 export type ResearchAuthentication =
@@ -70,6 +71,16 @@ function stringClaim(
 ): string | undefined {
   const value = payload?.[key];
   return typeof value === "string" ? value : undefined;
+}
+
+function stringArrayClaim(
+  payload: Readonly<Record<string, unknown>> | undefined,
+  key: string,
+): readonly string[] | undefined {
+  const value = payload?.[key];
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string"))
+    return undefined;
+  return Object.freeze([...value]);
 }
 
 function cognitoCookie(
@@ -165,6 +176,7 @@ export function createResearchAuth(
         identity?.sub === payload.sub ? identity : undefined;
       const email = stringClaim(trustedIdentity, "email");
       const displayName = stringClaim(trustedIdentity, "name");
+      const groups = stringArrayClaim(payload, "cognito:groups");
       return {
         kind: "authenticated",
         via,
@@ -177,6 +189,7 @@ export function createResearchAuth(
             : {}),
           ...(email === undefined ? {} : { email }),
           ...(displayName === undefined ? {} : { displayName }),
+          ...(groups === undefined ? {} : { groups }),
         },
       };
     } catch {

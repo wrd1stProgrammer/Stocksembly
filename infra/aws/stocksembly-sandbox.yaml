@@ -247,6 +247,14 @@ Resources:
         RefreshToken: days
       UserPoolId: !Ref UserPool
 
+  AdminUserPoolGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      Description: Stocksembly administrator access
+      GroupName: admin
+      Precedence: 10
+      UserPoolId: !Ref UserPool
+
   DatabaseSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -421,6 +429,9 @@ Resources:
           STOCKSEMBLY_DB_NAME=stocksembly
           STOCKSEMBLY_DB_CA_PATH=/etc/ssl/certs/aws-rds-global-bundle.pem
           STOCKSEMBLY_DATA_DIR=/var/lib/stocksembly/research
+          STOCKSEMBLY_ANALYTICS_ENVIRONMENT=production
+          STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=false
+          STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=false
           ENV
           chmod 0600 /etc/stocksembly/aws.env
 

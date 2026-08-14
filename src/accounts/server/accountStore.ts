@@ -1,4 +1,11 @@
 import type {
+  AcquisitionAttributionInput,
+  AdminAnalyticsOverview,
+  AdminAnalyticsQuery,
+  AdminUserDetail,
+  AdminUserList,
+} from "../../admin/analyticsContracts";
+import type {
   BriefingAccess,
   BriefingAudience,
   BriefingEditionPayload,
@@ -103,6 +110,30 @@ export type AccountStore = {
     principalId: string,
   ) => Promise<AccountBillingStatus>;
   readonly handleWhopWebhook?: (event: WhopWebhookEvent) => Promise<void>;
+  readonly createCheckoutAttempt?: (
+    principalId: string,
+    planKey: BillingPlanKey,
+    attemptId: string,
+  ) => Promise<void>;
+  readonly markCheckoutAttemptReady?: (
+    attemptId: string,
+    checkoutConfigurationId?: string,
+  ) => Promise<void>;
+  readonly markCheckoutAttemptFailed?: (attemptId: string) => Promise<void>;
+  readonly recordAcquisitionAttribution?: (
+    principalId: string,
+    attribution: AcquisitionAttributionInput,
+  ) => Promise<"stored" | "exists">;
+  readonly adminAnalyticsOverview?: (
+    query: AdminAnalyticsQuery,
+  ) => Promise<AdminAnalyticsOverview>;
+  readonly adminAnalyticsUsers?: (
+    query: AdminAnalyticsQuery,
+  ) => Promise<AdminUserList>;
+  readonly adminAnalyticsUser?: (
+    principalId: string,
+    query: AdminAnalyticsQuery,
+  ) => Promise<AdminUserDetail | undefined>;
   readonly preferredLocale?: (
     principalId: string,
   ) => Promise<Locale | undefined>;

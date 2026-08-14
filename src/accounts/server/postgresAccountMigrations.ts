@@ -362,6 +362,87 @@ const migrations = [
         ON research_credit_reservations(principal_id, period_key, expires_at);
     `,
   },
+  {
+    version: 12,
+    name: "012_admin_analytics",
+    sql: `
+      ALTER TABLE app_users
+        ADD COLUMN acquisition_channel TEXT NOT NULL DEFAULT 'unknown';
+
+      ALTER TABLE app_users
+        ADD CONSTRAINT app_users_acquisition_channel_check CHECK (
+          acquisition_channel IN (
+            'direct', 'paid_search', 'organic_search', 'social', 'email',
+            'referral', 'campaign', 'other', 'unknown'
+          )
+        );
+
+      CREATE TABLE analytics_events (
+        event_key TEXT PRIMARY KEY,
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        event_name TEXT NOT NULL,
+        occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+        CHECK (event_name IN (
+          'account_first_authenticated', 'research_started',
+          'research_completed', 'report_opened', 'consultation_submitted',
+          'consultation_answered', 'briefing_opened', 'briefing_read',
+          'watchlist_added', 'watchlist_removed', 'checkout_started',
+          'payment_succeeded', 'payment_failed', 'membership_deactivated',
+          'cancel_at_period_end_changed'
+        )),
+        CHECK (jsonb_typeof(properties) = 'object')
+      );
+
+      CREATE INDEX analytics_events_principal_time_idx
+        ON analytics_events(principal_id, occurred_at DESC, event_key DESC);
+      CREATE INDEX analytics_events_name_time_idx
+        ON analytics_events(event_name, occurred_at DESC);
+
+      CREATE TABLE user_acquisition_attribution (
+        principal_id CHAR(64) PRIMARY KEY
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        channel TEXT NOT NULL,
+        source TEXT,
+        medium TEXT,
+        campaign TEXT,
+        term TEXT,
+        content TEXT,
+        referrer_host TEXT,
+        landing_path TEXT,
+        captured_at TIMESTAMPTZ NOT NULL,
+        attributed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        CHECK (channel IN (
+          'direct', 'paid_search', 'organic_search', 'social', 'email',
+          'referral', 'campaign', 'other'
+        ))
+      );
+
+      CREATE TABLE billing_checkout_attempts (
+        attempt_id UUID PRIMARY KEY,
+        principal_id CHAR(64) NOT NULL
+          REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        plan_key TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'creating',
+        checkout_configuration_id TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        ready_at TIMESTAMPTZ,
+        paid_at TIMESTAMPTZ,
+        failed_at TIMESTAMPTZ,
+        CHECK (plan_key IN (
+          'pro-monthly', 'pro-annual', 'ultra-monthly', 'ultra-annual'
+        )),
+        CHECK (status IN ('creating', 'ready', 'paid', 'failed', 'expired'))
+      );
+
+      CREATE INDEX billing_checkout_attempts_principal_time_idx
+        ON billing_checkout_attempts(principal_id, created_at DESC);
+      CREATE INDEX billing_checkout_attempts_ready_time_idx
+        ON billing_checkout_attempts(ready_at DESC)
+        WHERE ready_at IS NOT NULL;
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

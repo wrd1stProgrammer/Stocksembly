@@ -5,6 +5,18 @@ import {
   AccountStoreUnavailableError,
   type CreditAvailability,
 } from "../../../accounts/server/accountStore";
+import {
+  adminAnalyticsReadsEnabled,
+  adminAnalyticsWritesEnabled,
+} from "../../../admin/adminAnalyticsFlags";
+import type {
+  AcquisitionAttributionInput,
+  AdminAnalyticsOverview,
+  AdminAnalyticsQuery,
+  AdminUserDetail,
+  AdminUserList,
+} from "../../../admin/analyticsContracts";
+import { authorizeAdmin } from "../../../admin/server/adminAuthorization";
 import type {
   BriefingEditionPayload,
   BriefingRoomState,
@@ -56,6 +68,14 @@ const SubscriptionCheckoutStateSchema = z.object({
   manageUrl: z.string().url().optional(),
 });
 
+export type AdminAnalyticsReadResult<T> =
+  | { readonly kind: "ok"; readonly data: T }
+  | { readonly kind: "unauthenticated" }
+  | { readonly kind: "forbidden" }
+  | { readonly kind: "disabled" }
+  | { readonly kind: "not_found" }
+  | { readonly kind: "unavailable" };
+
 export type CreateResearchApiOptions = {
   readonly dataRoot: string;
   readonly databasePath: string;
@@ -102,6 +122,23 @@ export interface ResearchApi {
     planKey: BillingPlanKey,
   ) => Promise<Response>;
   readonly handleWhopWebhook: (event: WhopWebhookEvent) => Promise<void>;
+  readonly adminAnalyticsOverview: (
+    request: Request,
+    query: AdminAnalyticsQuery,
+  ) => Promise<AdminAnalyticsReadResult<AdminAnalyticsOverview>>;
+  readonly adminAnalyticsUsers: (
+    request: Request,
+    query: AdminAnalyticsQuery,
+  ) => Promise<AdminAnalyticsReadResult<AdminUserList>>;
+  readonly adminAnalyticsUser: (
+    request: Request,
+    principalId: string,
+    query: AdminAnalyticsQuery,
+  ) => Promise<AdminAnalyticsReadResult<AdminUserDetail>>;
+  readonly recordAcquisitionAttribution: (
+    request: Request,
+    attribution: AcquisitionAttributionInput,
+  ) => Promise<Response>;
   readonly preferredLocale: (request: Request) => Promise<{
     readonly authenticated: boolean;
     readonly locale?: Locale;
@@ -816,12 +853,31 @@ export async function createResearchApi(
             decision satisfies never;
         }
       }
-      const checkout = await createWhopCheckout({
+      const checkoutAttemptId = randomUUID();
+      await options.accountStore?.createCheckoutAttempt?.(
+        authentication.principal.id,
         planKey,
-        principalId: authentication.principal.id,
-        returnUrl: billingReturnUrl(request),
-        idempotencyKey: `stocksembly:${authentication.principal.id}:${planKey}:${randomUUID()}`,
-      });
+        checkoutAttemptId,
+      );
+      let checkout: Awaited<ReturnType<typeof createWhopCheckout>>;
+      try {
+        checkout = await createWhopCheckout({
+          planKey,
+          principalId: authentication.principal.id,
+          returnUrl: billingReturnUrl(request),
+          idempotencyKey: `stocksembly:checkout:${checkoutAttemptId}`,
+          checkoutAttemptId,
+        });
+        await options.accountStore?.markCheckoutAttemptReady?.(
+          checkoutAttemptId,
+          checkout.checkoutConfigurationId,
+        );
+      } catch (error) {
+        await options.accountStore?.markCheckoutAttemptFailed?.(
+          checkoutAttemptId,
+        );
+        throw error;
+      }
       if (request.headers.get("accept")?.includes("application/json"))
         return apiJson({ purchaseUrl: checkout.purchaseUrl });
       return Response.redirect(checkout.purchaseUrl, 303);
@@ -835,6 +891,87 @@ export async function createResearchApi(
           "ACCOUNT_STORE_REQUIRED_FOR_WEBHOOK",
         );
       await options.accountStore?.handleWhopWebhook?.(event);
+    },
+    async adminAnalyticsOverview(request, query) {
+      if (!adminAnalyticsReadsEnabled()) return { kind: "disabled" };
+      const authorization = authorizeAdmin(
+        await context.auth.authenticate(request),
+      );
+      if (authorization.kind !== "authorized") return authorization;
+      if (options.accountStore?.adminAnalyticsOverview === undefined)
+        return { kind: "unavailable" };
+      try {
+        return {
+          kind: "ok",
+          data: await options.accountStore.adminAnalyticsOverview(query),
+        };
+      } catch {
+        return { kind: "unavailable" };
+      }
+    },
+    async adminAnalyticsUsers(request, query) {
+      if (!adminAnalyticsReadsEnabled()) return { kind: "disabled" };
+      const authorization = authorizeAdmin(
+        await context.auth.authenticate(request),
+      );
+      if (authorization.kind !== "authorized") return authorization;
+      if (options.accountStore?.adminAnalyticsUsers === undefined)
+        return { kind: "unavailable" };
+      try {
+        return {
+          kind: "ok",
+          data: await options.accountStore.adminAnalyticsUsers(query),
+        };
+      } catch {
+        return { kind: "unavailable" };
+      }
+    },
+    async adminAnalyticsUser(request, principalId, query) {
+      if (!adminAnalyticsReadsEnabled()) return { kind: "disabled" };
+      const authorization = authorizeAdmin(
+        await context.auth.authenticate(request),
+      );
+      if (authorization.kind !== "authorized") return authorization;
+      if (options.accountStore?.adminAnalyticsUser === undefined)
+        return { kind: "unavailable" };
+      try {
+        const data = await options.accountStore.adminAnalyticsUser(
+          principalId,
+          query,
+        );
+        return data === undefined
+          ? { kind: "not_found" }
+          : { kind: "ok", data };
+      } catch {
+        return { kind: "unavailable" };
+      }
+    },
+    async recordAcquisitionAttribution(request, attribution) {
+      if (!adminAnalyticsWritesEnabled()) return apiError(404, "NOT_FOUND");
+      const policy = await enforceRequestPolicy(request, {
+        mutation: true,
+        allowedHost: options.allowedHost,
+        allowedOrigin: options.allowedOrigin,
+      });
+      if (policy.kind === "rejected") return policyError(policy.status);
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return apiError(401, "AUTHENTICATION_REQUIRED");
+      if (options.accountStore?.recordAcquisitionAttribution === undefined)
+        return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        const result = await options.accountStore.recordAcquisitionAttribution(
+          authentication.principal.id,
+          attribution,
+        );
+        return apiJson({ stored: result === "stored" });
+      } catch {
+        return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
+      }
     },
     async preferredLocale(request) {
       const authentication = await context.auth.authenticate(request);

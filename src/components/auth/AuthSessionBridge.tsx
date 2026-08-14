@@ -19,7 +19,9 @@ export function AuthSessionBridge() {
       pathname === "/research-room" ||
       pathname.startsWith("/research-room/") ||
       pathname === "/briefing-room" ||
-      pathname.startsWith("/briefing-room/");
+      pathname.startsWith("/briefing-room/") ||
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/");
     if (!configureAmplifyAuth()) {
       if (needsServerSession)
         void clearResearchSession()
@@ -35,6 +37,10 @@ export function AuthSessionBridge() {
       async () => {
         await syncResearchSession()
           .then((changed) => {
+            if (active)
+              window.dispatchEvent(
+                new CustomEvent("stocksembly:auth-session-ready"),
+              );
             if (active && changed && needsServerSession)
               window.location.reload();
           })
