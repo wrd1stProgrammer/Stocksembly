@@ -443,6 +443,23 @@ const migrations = [
         WHERE ready_at IS NOT NULL;
     `,
   },
+  {
+    version: 13,
+    name: "013_expand_account_locales",
+    sql: `
+      ALTER TABLE app_users
+        DROP CONSTRAINT IF EXISTS app_users_preferred_locale_check;
+
+      ALTER TABLE app_users
+        ADD CONSTRAINT app_users_preferred_locale_check
+        CHECK (
+          preferred_locale IS NULL
+          OR preferred_locale IN (
+            'en', 'ko', 'ja', 'zh-TW', 'es', 'pt-BR', 'de', 'fr'
+          )
+        );
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {
