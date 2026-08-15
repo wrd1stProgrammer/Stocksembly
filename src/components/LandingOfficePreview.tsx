@@ -2,7 +2,8 @@
 
 import { domAnimation, LazyMotion, m } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import type { Locale } from "../lib/i18n";
+import type { AppLocale } from "../lib/i18n";
+import { copy, researchLocale } from "../lib/i18n";
 import {
   createLandingOfficeState,
   landingOfficeSnapshot,
@@ -55,7 +56,11 @@ function observeVisibility(
   return () => observer.disconnect();
 }
 
-export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
+export function LandingOfficePreview({
+  locale,
+}: {
+  readonly locale: AppLocale;
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
   const [rendererReady, setRendererReady] = useState(false);
@@ -64,17 +69,7 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
   const selectedAgent = OFFICE_SCENE_MANIFEST.roster.find(
     (member) => member.id === selectedAgentId,
   );
-  const labels = {
-    active:
-      locale === "ko"
-        ? `${actorCount}개 에이전트 활동 중`
-        : `${actorCount} agents active`,
-    live: locale === "ko" ? "실시간 리서치 오피스" : "Live research office",
-    loading:
-      locale === "ko"
-        ? "리서치 오피스를 준비하고 있습니다"
-        : "Preparing the research office",
-  };
+  const labels = copy[locale].landing.office;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -139,7 +134,7 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
       );
       return createOfficeSnapshotRenderer({
         host,
-        locale,
+        locale: researchLocale(locale),
         reducedMotion,
         showActorUi: false,
         onActorSelect: setSelectedAgentId,
@@ -183,20 +178,13 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
   }, [locale]);
 
   return (
-    <section
-      className="landing-office-live"
-      aria-label={
-        locale === "ko"
-          ? "AI 에이전트 리서치 오피스"
-          : "AI agent research office"
-      }
-    >
+    <section className="landing-office-live" aria-label={labels.label}>
       <div className="landing-office-live__status">
         <span>
           <i aria-hidden="true" />
           {labels.live}
         </span>
-        <span>{labels.active}</span>
+        <span>{labels.active(actorCount)}</span>
       </div>
       <div
         ref={hostRef}
@@ -211,16 +199,14 @@ export function LandingOfficePreview({ locale }: { readonly locale: Locale }) {
         ) : null}
         {rendererFailed ? (
           <p className="landing-office-live__error" role="alert">
-            {locale === "ko"
-              ? "리서치 오피스를 불러오지 못했습니다."
-              : "The research office could not be loaded."}
+            {labels.error}
           </p>
         ) : null}
       </div>
       {selectedAgent === undefined ? null : (
         <OfficeAgentInfoPanel
           member={selectedAgent}
-          locale={locale}
+          locale={researchLocale(locale)}
           onClose={() => setSelectedAgentId(null)}
         />
       )}

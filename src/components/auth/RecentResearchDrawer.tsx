@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
+import { intlLocale } from "../../lib/i18n";
 import type { PublicRun } from "../../research/client/schemas";
 
 type LoadState = "idle" | "loading" | "ready" | "failed";
@@ -19,7 +20,7 @@ async function wait(delayMs: number): Promise<void> {
 
 function statusCopy(
   status: PublicRun["status"],
-  locale: Locale,
+  locale: AppLocale,
 ): { readonly label: string; readonly tone: "live" | "done" | "stopped" } {
   switch (status) {
     case "queued":
@@ -65,8 +66,8 @@ function statusCopy(
   }
 }
 
-function createdAtLabel(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+function createdAtLabel(value: string, locale: AppLocale): string {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -74,7 +75,11 @@ function createdAtLabel(value: string, locale: Locale): string {
   }).format(new Date(value));
 }
 
-export function RecentResearchDrawer({ locale }: { readonly locale: Locale }) {
+export function RecentResearchDrawer({
+  locale,
+}: {
+  readonly locale: AppLocale;
+}) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [runs, setRuns] = useState<readonly PublicRun[]>([]);

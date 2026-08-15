@@ -20,8 +20,15 @@ import {
   SignedInSidebar,
 } from "./components/SignedInSidebar";
 import { SiteAtmosphere } from "./components/SiteAtmosphere";
-import type { Locale } from "./lib/i18n";
-import { copy } from "./lib/i18n";
+import type { AppLocale } from "./lib/i18n";
+import {
+  copy,
+  DEFAULT_LOCALE,
+  isLocale,
+  localeFromCountry,
+  localeFromLanguageTag,
+  researchLocale,
+} from "./lib/i18n";
 import { BILLING_CHANGED_EVENT } from "./lib/whop/billingEvents";
 import type {
   WhopBillingStatus,
@@ -48,8 +55,10 @@ async function authenticatedFetch(
   });
 }
 
-export function App() {
-  const [locale, setLocale] = useState<Locale>("en");
+type AppProps = { readonly initialLocale?: AppLocale };
+
+export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
+  const [locale, setLocale] = useState<AppLocale>(initialLocale);
   const [signedIn, setSignedIn] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState<
@@ -127,9 +136,10 @@ export function App() {
     applyBillingStatus(status);
   }, [applyBillingStatus, signedIn]);
 
-  const changeLocale = useCallback((nextLocale: Locale) => {
+  const changeLocale = useCallback((nextLocale: AppLocale) => {
     setLocale(nextLocale);
     window.localStorage.setItem(PREFERRED_LOCALE_STORAGE_KEY, nextLocale);
+    document.cookie = `stocksembly_locale=${encodeURIComponent(nextLocale)}; Path=/; Max-Age=31536000; SameSite=Lax`;
     const url = new URL(window.location.href);
     url.searchParams.set("lang", nextLocale);
     window.history.replaceState(window.history.state, "", url);
@@ -145,17 +155,27 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const pathLocale = window.location.pathname.split("/")[1];
     const queryLocale = new URLSearchParams(window.location.search).get("lang");
     const storedLocale = window.localStorage.getItem(
       PREFERRED_LOCALE_STORAGE_KEY,
     );
-    const initialLocale =
-      queryLocale === "en" || queryLocale === "ko"
+    const country = document.documentElement.dataset["country"];
+    const detectedLocale = navigator.languages
+      .map(localeFromLanguageTag)
+      .find((value): value is AppLocale => value !== undefined);
+    const serverLocale = document.documentElement.dataset["locale"];
+    const resolvedLocale = isLocale(pathLocale)
+      ? pathLocale
+      : isLocale(queryLocale)
         ? queryLocale
-        : storedLocale === "en" || storedLocale === "ko"
+        : isLocale(storedLocale)
           ? storedLocale
-          : undefined;
-    if (initialLocale !== undefined) setLocale(initialLocale);
+          : (detectedLocale ??
+            (isLocale(serverLocale) ? serverLocale : undefined) ??
+            localeFromCountry(country) ??
+            initialLocale);
+    setLocale(resolvedLocale);
     const storedSidebarState = window.localStorage.getItem(
       SIGNED_IN_SIDEBAR_STORAGE_KEY,
     );
@@ -163,7 +183,7 @@ export function App() {
       typeof window.matchMedia === "function" &&
       window.matchMedia("(max-width: 900px)").matches;
     setSidebarCollapsed(isMobile ? true : storedSidebarState === "true");
-  }, []);
+  }, [initialLocale]);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -179,7 +199,7 @@ export function App() {
         const payload = (await response.json()) as {
           readonly locale?: unknown;
         };
-        if (active && (payload.locale === "en" || payload.locale === "ko")) {
+        if (active && isLocale(payload.locale)) {
           changeLocale(payload.locale);
         }
       })
@@ -321,10 +341,7 @@ export function App() {
 
   useEffect(() => {
     document.documentElement.lang = locale;
-    document.title =
-      locale === "en"
-        ? "Stocksembly — See the whole company"
-        : "Stocksembly — 기업의 전체를 보세요";
+    document.title = `${copy[locale].hero.titleLead} ${copy[locale].hero.titleTail} · Stocksembly`;
   }, [locale]);
 
   return (
@@ -392,12 +409,12 @@ export function App() {
       <LandingFooter locale={locale} />
       <MobileBottomNav
         activeItem="home"
-        locale={locale}
+        locale={researchLocale(locale)}
         hidden={signedIn && !sidebarCollapsed}
       />
       <SubscriptionModal
         open={subscriptionModalOpen}
-        locale={locale}
+        locale={researchLocale(locale)}
         subscriptionTier={subscriptionTier}
         plans={billingPlans}
         billingStatus={billingStatus}
@@ -406,7 +423,7 @@ export function App() {
         onClose={closeSubscriptionModal}
       />
       <CreditGrantModal
-        locale={locale}
+        locale={researchLocale(locale)}
         open={creditGrantModalOpen}
         notice={creditGrantNotice}
         onClose={closeCreditGrantModal}

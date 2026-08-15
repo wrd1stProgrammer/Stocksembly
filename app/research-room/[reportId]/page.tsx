@@ -8,6 +8,8 @@ import { CreditShortageModal } from "@/src/components/billing/CreditShortageModa
 import { MembershipAccessModal } from "@/src/components/billing/MembershipAccessModal";
 import { PublishedResearchWorkspace } from "@/src/components/researchRoom/PublishedResearchWorkspace";
 import type { Locale } from "@/src/lib/i18n";
+import { researchLocaleFromValue } from "@/src/lib/i18n";
+import { researchReportSeoTitle } from "@/src/lib/seo/researchReportMetadata";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import {
   loadResearchRoomReport,
@@ -46,7 +48,7 @@ export async function generateMetadata({
       title: "Research Room",
       robots: { index: false, follow: false },
     };
-  const locale: Locale = query.lang === "en" ? "en" : "ko";
+  const locale: Locale = researchLocaleFromValue(query.lang);
   const access = { authenticated: false, tier: "free" as const };
   const report = await loadResearchRoomReport(reportId, access).catch(
     () => undefined,
@@ -56,8 +58,13 @@ export async function generateMetadata({
   const reportPath = `/research-room/${reportId}`;
   const localizedReportPath =
     locale === "en" ? `${reportPath}?lang=en` : reportPath;
+  const seoTitle = researchReportSeoTitle(
+    report.item.symbol,
+    report.item.question,
+    locale,
+  );
   return {
-    title: `${report.item.symbol} · ${report.item.question}`,
+    title: seoTitle,
     description: report.file.thesis[locale],
     robots: { index: true, follow: true },
     alternates: {
@@ -69,10 +76,7 @@ export async function generateMetadata({
       },
     },
     openGraph: {
-      title:
-        locale === "ko"
-          ? `${report.item.symbol} 리서치 · Stocksembly`
-          : `${report.item.symbol} Research · Stocksembly`,
+      title: `${seoTitle} · Stocksembly`,
       description: report.file.thesis[locale],
       locale: locale === "ko" ? "ko_KR" : "en_US",
       alternateLocale: locale === "ko" ? "en_US" : "ko_KR",
@@ -89,7 +93,7 @@ export default async function ResearchRoomReportPage({
 }: Props) {
   const [{ reportId }, query] = await Promise.all([params, searchParams]);
   if (!z.string().uuid().safeParse(reportId).success) notFound();
-  const locale: Locale = query.lang === "en" ? "en" : "ko";
+  const locale: Locale = researchLocaleFromValue(query.lang);
   const api = await getLiveResearchApi();
   const request = await pageRequest(reportId);
   const access = await api.researchRoomAccess(request);
@@ -150,10 +154,15 @@ export default async function ResearchRoomReportPage({
     );
   }
   await recordResearchRoomView(reportId).catch(() => undefined);
+  const seoTitle = researchReportSeoTitle(
+    report.item.symbol,
+    report.item.question,
+    locale,
+  );
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "Report",
-    name: `${report.item.symbol} · ${report.item.question}`,
+    name: seoTitle,
     datePublished: report.item.publishedAt,
     about: { "@type": "Corporation", tickerSymbol: report.item.symbol },
     publisher: { "@type": "Organization", name: "Stocksembly" },

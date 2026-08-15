@@ -2,14 +2,14 @@
 
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Locale } from "../lib/i18n";
-import { copy } from "../lib/i18n";
+import type { AppLocale } from "../lib/i18n";
+import { copy, localeDetails, locales } from "../lib/i18n";
 import { HeaderAuthAction } from "./auth/HeaderAuthAction";
 import { Brand } from "./Brand";
 
 type HeaderProps = {
-  readonly locale: Locale;
-  readonly onLocaleChange: (locale: Locale) => void;
+  readonly locale: AppLocale;
+  readonly onLocaleChange: (locale: AppLocale) => void;
 };
 
 export function Header({ locale, onLocaleChange }: HeaderProps) {
@@ -34,7 +34,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
     };
   }, [languageOpen]);
 
-  function selectLocale(nextLocale: Locale) {
+  function selectLocale(nextLocale: AppLocale) {
     onLocaleChange(nextLocale);
     setLanguageOpen(false);
   }
@@ -52,7 +52,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
             aria-label={copy[locale].a11y.language}
             onClick={() => setLanguageOpen((open) => !open)}
           >
-            <span>{locale === "ko" ? "한국어" : "EN"}</span>
+            <span>{localeDetails[locale].nativeLabel}</span>
             <ChevronDown size={14} aria-hidden="true" />
           </button>
           {languageOpen ? (
@@ -61,12 +61,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
               role="listbox"
               aria-label={copy[locale].a11y.language}
             >
-              {(
-                [
-                  ["ko", "한국어", "Korean"],
-                  ["en", "English", "English"],
-                ] as const
-              ).map(([value, label, hint]) => (
+              {locales.map((value) => (
                 <button
                   type="button"
                   role="option"
@@ -76,8 +71,8 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
                   onClick={() => selectLocale(value)}
                 >
                   <span>
-                    <strong>{label}</strong>
-                    <small>{hint}</small>
+                    <strong>{localeDetails[value].nativeLabel}</strong>
+                    <small>{localeDetails[value].label}</small>
                   </span>
                   {locale === value ? (
                     <Check size={15} aria-hidden="true" />

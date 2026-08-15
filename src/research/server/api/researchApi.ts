@@ -23,7 +23,7 @@ import type {
   BriefingWatchlistItem,
 } from "../../../briefing/domain/contracts";
 import { nextUsPremarketBriefingAt } from "../../../briefing/domain/marketCalendar";
-import type { Locale } from "../../../lib/i18n";
+import type { AppLocale, Locale } from "../../../lib/i18n";
 import type {
   BillingPlanKey,
   WhopBillingStatus,
@@ -141,11 +141,11 @@ export interface ResearchApi {
   ) => Promise<Response>;
   readonly preferredLocale: (request: Request) => Promise<{
     readonly authenticated: boolean;
-    readonly locale?: Locale;
+    readonly locale?: AppLocale;
   }>;
   readonly updatePreferredLocale: (
     request: Request,
-    locale: Locale,
+    locale: AppLocale,
   ) => Promise<{ readonly authenticated: boolean; readonly stored: boolean }>;
   readonly briefingRoom: (
     request: Request,

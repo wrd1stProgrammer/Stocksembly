@@ -1,10 +1,10 @@
 import Link from "next/link";
-import type { Locale } from "../lib/i18n";
-import { copy } from "../lib/i18n";
+import type { AppLocale } from "../lib/i18n";
+import { copy, localeDetails, locales } from "../lib/i18n";
 import { Brand } from "./Brand";
 
 type LandingSectionsProps = {
-  readonly locale: Locale;
+  readonly locale: AppLocale;
 };
 
 export function LandingSections(_props: LandingSectionsProps) {
@@ -39,13 +39,7 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
           aria-label={content.productHeading}
         >
           <strong>{content.productHeading}</strong>
-          <Link
-            href={
-              locale === "ko"
-                ? "/ko/us-stock-analysis"
-                : "/en/us-stock-analysis"
-            }
-          >
+          <Link href={`/${locale}/us-stock-analysis`}>
             {content.stockAnalysis}
           </Link>
           <a href="#product">{content.howItWorks}</a>
@@ -57,10 +51,7 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
         >
           <strong>{content.standardsHeading}</strong>
           {informationLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={locale === "en" ? `${link.href}?lang=en` : link.href}
-            >
+            <Link key={link.href} href={`${link.href}?lang=${locale}`}>
               {link.label}
             </Link>
           ))}
@@ -90,9 +81,7 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
           ))}
         </nav>
         <span className="site-footer__locale">
-          {locale === "en"
-            ? "English · 한국어 제공"
-            : "한국어 · English available"}
+          {localeDetails[locale].nativeLabel} · {locales.length} languages
         </span>
       </div>
       <p className="site-footer__disclaimer">{content.disclaimer}</p>

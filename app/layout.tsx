@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { cookies, headers } from "next/headers";
 import Script from "next/script";
 import type { ReactNode } from "react";
 import { adminAnalyticsWritesEnabled } from "@/src/admin/adminAnalyticsFlags";
 import { AnalyticsConsent } from "@/src/components/analytics/AnalyticsConsent";
 import { AuthSessionBridge } from "@/src/components/auth/AuthSessionBridge";
+import { localeDetails, resolveRequestLocale } from "@/src/lib/i18n";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/src/styles/tailwind.css";
 import "@/src/styles/tokens.css";
@@ -63,7 +65,15 @@ export const metadata: Metadata = {
     siteName: "Stocksembly",
     type: "website",
     locale: "en_US",
-    alternateLocale: "ko_KR",
+    alternateLocale: [
+      "ko_KR",
+      "ja_JP",
+      "zh_TW",
+      "es_419",
+      "pt_BR",
+      "de_DE",
+      "fr_FR",
+    ],
   },
   icons: {
     icon: "/brand/stocksembly-app-icon.png",
@@ -82,9 +92,27 @@ type RootLayoutProps = {
   readonly children: ReactNode;
 };
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  const requestHeaders = await headers();
+  const requestCookies = await cookies();
+  const country =
+    requestHeaders.get("x-vercel-ip-country") ??
+    requestHeaders.get("cloudfront-viewer-country") ??
+    requestHeaders.get("cf-ipcountry") ??
+    "";
+  const storedLocale = requestCookies.get("stocksembly_locale")?.value;
+  const requestLocale = resolveRequestLocale({
+    storedLocale,
+    acceptLanguage: requestHeaders.get("accept-language"),
+    country,
+  });
   return (
-    <html lang="en" className={inter.variable}>
+    <html
+      lang={localeDetails[requestLocale].intl}
+      className={inter.variable}
+      data-country={country}
+      data-locale={requestLocale}
+    >
       <head>
         <meta
           name="naver-site-verification"

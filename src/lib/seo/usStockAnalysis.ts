@@ -1,11 +1,17 @@
-import type { Locale } from "../i18n";
+import type { AppLocale } from "../i18n";
 
 // allow: SIZE_OK — localized landing-page copy is a typed, reviewable data table.
 
 export const US_STOCK_ANALYSIS_PATHS = {
   en: "/en/us-stock-analysis",
   ko: "/ko/us-stock-analysis",
-} as const satisfies Readonly<Record<Locale, string>>;
+  ja: "/ja/us-stock-analysis",
+  "zh-TW": "/zh-TW/us-stock-analysis",
+  es: "/es/us-stock-analysis",
+  "pt-BR": "/pt-BR/us-stock-analysis",
+  de: "/de/us-stock-analysis",
+  fr: "/fr/us-stock-analysis",
+} as const satisfies Readonly<Record<AppLocale, string>>;
 
 type AnalysisCard = Readonly<{
   title: string;
@@ -358,4 +364,9 @@ export const usStockAnalysisCopy = {
       action: "Start team research",
     },
   },
-} as const satisfies Readonly<Record<Locale, UsStockAnalysisCopy>>;
+} as const satisfies Readonly<Record<"en" | "ko", UsStockAnalysisCopy>>;
+
+/** The long-form SEO explainer remains authored in Korean and English. */
+export function usStockAnalysisContent(locale: AppLocale): UsStockAnalysisCopy {
+  return usStockAnalysisCopy[locale === "ko" ? "ko" : "en"];
+}

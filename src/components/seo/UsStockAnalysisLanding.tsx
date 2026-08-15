@@ -1,25 +1,26 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
+import { intlLocale } from "../../lib/i18n";
 import {
   US_STOCK_ANALYSIS_PATHS,
-  usStockAnalysisCopy,
+  usStockAnalysisContent,
 } from "../../lib/seo/usStockAnalysis";
 import { LandingFooter } from "../LandingSections";
 import { UsStockAnalysisHeader } from "./UsStockAnalysisHeader";
 
 type UsStockAnalysisLandingProps = Readonly<{
-  locale: Locale;
+  locale: AppLocale;
 }>;
 
-function localizedHref(path: string, locale: Locale): string {
-  return locale === "en" ? `${path}?lang=en` : path;
+function localizedHref(path: string, locale: AppLocale): string {
+  return `${path}?lang=${locale}`;
 }
 
 export function UsStockAnalysisLanding({
   locale,
 }: UsStockAnalysisLandingProps) {
-  const content = usStockAnalysisCopy[locale];
+  const content = usStockAnalysisContent(locale);
   const startHref = `/?lang=${locale}#product`;
   const researchRoomHref = `/research-room?lang=${locale}`;
   const structuredData = {
@@ -28,7 +29,7 @@ export function UsStockAnalysisLanding({
     name: content.metadata.title,
     description: content.metadata.description,
     url: `https://stocksembly.com${US_STOCK_ANALYSIS_PATHS[locale]}`,
-    inLanguage: locale === "ko" ? "ko-KR" : "en-US",
+    inLanguage: intlLocale(locale),
     isPartOf: {
       "@type": "WebSite",
       name: "Stocksembly",

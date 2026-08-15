@@ -3,12 +3,12 @@
 import ky, { isTimeoutError } from "ky";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
 import { US_STOCK_ANALYSIS_PATHS } from "../../lib/seo/usStockAnalysis";
 import { Header } from "../Header";
 import { PREFERRED_LOCALE_STORAGE_KEY } from "../SignedInSidebar";
 
-async function persistAccountLocale(locale: Locale): Promise<void> {
+async function persistAccountLocale(locale: AppLocale): Promise<void> {
   try {
     await ky.put("/api/account/preferences", {
       json: { locale },
@@ -23,8 +23,10 @@ async function persistAccountLocale(locale: Locale): Promise<void> {
 }
 
 type SeoLocaleHeaderProps = Readonly<{
-  locale: Locale;
-  paths: Readonly<Record<Locale, string>>;
+  locale: AppLocale;
+  paths: Readonly<
+    Record<"en" | "ko", string> & Partial<Record<AppLocale, string>>
+  >;
 }>;
 
 export function SeoLocaleHeader({ locale, paths }: SeoLocaleHeaderProps) {
@@ -36,11 +38,11 @@ export function SeoLocaleHeader({ locale, paths }: SeoLocaleHeaderProps) {
   }, [locale]);
 
   const changeLocale = useCallback(
-    (nextLocale: Locale) => {
+    (nextLocale: AppLocale) => {
       window.localStorage.setItem(PREFERRED_LOCALE_STORAGE_KEY, nextLocale);
       document.documentElement.lang = nextLocale;
       void persistAccountLocale(nextLocale);
-      router.push(paths[nextLocale]);
+      router.push(paths[nextLocale] ?? paths.en);
     },
     [paths, router],
   );
@@ -49,7 +51,7 @@ export function SeoLocaleHeader({ locale, paths }: SeoLocaleHeaderProps) {
 }
 
 type UsStockAnalysisHeaderProps = Readonly<{
-  locale: Locale;
+  locale: AppLocale;
 }>;
 
 export function UsStockAnalysisHeader({ locale }: UsStockAnalysisHeaderProps) {

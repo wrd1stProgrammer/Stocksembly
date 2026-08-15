@@ -30,7 +30,8 @@ import type {
   BriefingWatchlistItem,
   SaveBriefingEdition,
 } from "../../briefing/domain/contracts";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale, Locale } from "../../lib/i18n";
+import { isLocale, researchLocale } from "../../lib/i18n";
 import type {
   BillingCreditActivity,
   BillingCreditNotice,
@@ -1974,10 +1975,12 @@ export class PostgresAccountStore implements AccountStore {
       );
       return Object.freeze(
         result.rows.map((row): BriefingAudience => {
-          const locale: Locale = row.preferred_locale === "ko" ? "ko" : "en";
+          const appLocale: AppLocale = isLocale(row.preferred_locale)
+            ? row.preferred_locale
+            : "en";
           return {
             principalId: row.principal_id,
-            locale,
+            locale: researchLocale(appLocale),
             item: briefingWatchlistItem(row),
           };
         }),
@@ -2535,7 +2538,7 @@ export class PostgresAccountStore implements AccountStore {
     }
   }
 
-  async preferredLocale(principalId: string): Promise<Locale | undefined> {
+  async preferredLocale(principalId: string): Promise<AppLocale | undefined> {
     try {
       const result = await this.pool.query<{ preferred_locale: string | null }>(
         `SELECT preferred_locale
@@ -2544,7 +2547,7 @@ export class PostgresAccountStore implements AccountStore {
         [principalId],
       );
       const locale = result.rows[0]?.preferred_locale;
-      return locale === "en" || locale === "ko" ? locale : undefined;
+      return isLocale(locale) ? locale : undefined;
     } catch (error) {
       throw new AccountStoreUnavailableError(
         "ACCOUNT_LOCALE_PREFERENCE_READ_FAILED",
@@ -2555,7 +2558,7 @@ export class PostgresAccountStore implements AccountStore {
 
   async updatePreferredLocale(
     principalId: string,
-    locale: Locale,
+    locale: AppLocale,
   ): Promise<void> {
     try {
       await this.pool.query(

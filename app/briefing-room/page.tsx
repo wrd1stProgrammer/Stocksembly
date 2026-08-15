@@ -6,6 +6,7 @@ import {
 } from "@/src/briefing/server/localBriefingPreviewStore";
 import { BriefingRoom } from "@/src/components/briefing/BriefingRoom";
 import type { Locale } from "@/src/lib/i18n";
+import { researchLocaleFromValue } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ async function requestFromPage(locale: Locale) {
 
 export default async function BriefingRoomPage({ searchParams }: Props) {
   const query = await searchParams;
-  const locale: Locale = query.lang === "en" ? "en" : "ko";
+  const locale: Locale = researchLocaleFromValue(query.lang);
   const [state, overlay] = await Promise.all([
     (await getLiveResearchApi()).briefingRoom(
       await requestFromPage(locale),

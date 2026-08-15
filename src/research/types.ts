@@ -1,4 +1,4 @@
-import type { Locale } from "../lib/i18n";
+import type { ResearchLocale } from "../lib/i18n";
 import type { ResearchEventWithMode } from "./compositionMode";
 import type { OfficeBeatId, OfficePublicEventKind } from "./officeChoreography";
 import type { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
@@ -26,8 +26,8 @@ export type ResearchEvent = {
   readonly id: string;
   readonly phase: ResearchPhase;
   readonly agent: AgentId;
-  readonly summary: Readonly<Record<Locale, string>>;
-  readonly detail: Readonly<Record<Locale, string>>;
+  readonly summary: Readonly<Record<ResearchLocale, string>>;
+  readonly detail: Readonly<Record<ResearchLocale, string>>;
   readonly source?: string;
   readonly progress: number;
   readonly tick?: number;
@@ -40,9 +40,9 @@ export type AgentProfile = {
   readonly id: AgentId;
   readonly departmentId: OfficeAreaId;
   readonly representative: boolean;
-  readonly name: Readonly<Record<Locale, string>>;
-  readonly role: Readonly<Record<Locale, string>>;
-  readonly specialty: Readonly<Record<Locale, string>>;
+  readonly name: Readonly<Record<ResearchLocale, string>>;
+  readonly role: Readonly<Record<ResearchLocale, string>>;
+  readonly specialty: Readonly<Record<ResearchLocale, string>>;
   readonly image: string;
   readonly spriteSheet: string;
 };
@@ -73,7 +73,7 @@ export type ResearchCompany = {
   readonly sector: string;
   readonly price: string;
   readonly change: string;
-  readonly marketStatus: Readonly<Record<Locale, string>>;
+  readonly marketStatus: Readonly<Record<ResearchLocale, string>>;
 };
 
 export type ResearchPlayback = {

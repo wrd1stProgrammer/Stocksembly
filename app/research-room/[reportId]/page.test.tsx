@@ -41,7 +41,7 @@ beforeEach(() => {
 });
 
 describe("public research report metadata", () => {
-  it("characterizes the current Korean default for an eligible public report", async () => {
+  it("defaults to English metadata for an eligible public report", async () => {
     // Given
     pageState.loadResearchRoomReport.mockResolvedValueOnce(publicReport());
 
@@ -49,10 +49,10 @@ describe("public research report metadata", () => {
     const metadata = await generateMetadata(metadataProps());
 
     // Then
-    expect(metadata.description).toBe("한국어 투자 논지");
+    expect(metadata.description).toBe("English investment thesis");
     expect(metadata.openGraph).toMatchObject({
-      description: "한국어 투자 논지",
-      url: `/research-room/${REPORT_ID}`,
+      description: "English investment thesis",
+      url: `/research-room/${REPORT_ID}?lang=en`,
     });
   });
 
@@ -65,7 +65,7 @@ describe("public research report metadata", () => {
 
     // Then
     expect(metadata).toMatchObject({
-      title: "NVDA · Is the growth durable?",
+      title: "NVDA 미국주식 분석: Is the growth durable?",
       description: "한국어 투자 논지",
       robots: { index: true, follow: true },
       alternates: {
@@ -77,7 +77,7 @@ describe("public research report metadata", () => {
         },
       },
       openGraph: {
-        title: "NVDA 리서치 · Stocksembly",
+        title: "NVDA 미국주식 분석: Is the growth durable? · Stocksembly",
         description: "한국어 투자 논지",
         locale: "ko_KR",
         alternateLocale: "en_US",
@@ -97,7 +97,7 @@ describe("public research report metadata", () => {
 
     // Then
     expect(metadata).toMatchObject({
-      title: "NVDA · Is the growth durable?",
+      title: "NVDA Stock Analysis: Is the growth durable?",
       description: "English investment thesis",
       robots: { index: true, follow: true },
       alternates: {
@@ -109,7 +109,7 @@ describe("public research report metadata", () => {
         },
       },
       openGraph: {
-        title: "NVDA Research · Stocksembly",
+        title: "NVDA Stock Analysis: Is the growth durable? · Stocksembly",
         description: "English investment thesis",
         locale: "en_US",
         alternateLocale: "ko_KR",
@@ -120,7 +120,7 @@ describe("public research report metadata", () => {
     });
   });
 
-  it("defaults an invalid metadata locale to Korean", async () => {
+  it("defaults an invalid metadata locale to English", async () => {
     // Given
     pageState.loadResearchRoomReport.mockResolvedValueOnce(publicReport());
 
@@ -131,10 +131,10 @@ describe("public research report metadata", () => {
 
     // Then
     expect(metadata).toMatchObject({
-      description: "한국어 투자 논지",
+      description: "English investment thesis",
       openGraph: {
-        description: "한국어 투자 논지",
-        locale: "ko_KR",
+        description: "English investment thesis",
+        locale: "en_US",
       },
     });
   });

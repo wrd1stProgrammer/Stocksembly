@@ -1,9 +1,9 @@
-import type { Locale } from "../lib/i18n";
+import type { ResearchLocale } from "../lib/i18n";
 import type { OfficeBeatId } from "./officeChoreography";
 
 export type OfficePlaybackCopy = {
-  readonly summary: Readonly<Record<Locale, string>>;
-  readonly detail: Readonly<Record<Locale, string>>;
+  readonly summary: Readonly<Record<ResearchLocale, string>>;
+  readonly detail: Readonly<Record<ResearchLocale, string>>;
   readonly source?: string;
 };
 

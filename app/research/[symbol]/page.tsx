@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { LaunchingResearchRoom } from "../../../src/components/research/LaunchingResearchRoom";
 import { ResearchRoom } from "../../../src/components/research/ResearchRoom";
 import type { Locale } from "../../../src/lib/i18n";
+import { researchLocaleFromValue } from "../../../src/lib/i18n";
 import { PublicRunDetailSchema } from "../../../src/research/client/schemas";
 import { TickerSymbolSchema } from "../../../src/research/domain/ids";
 import { researchProfileFromQuery } from "../../../src/research/domain/researchProfile";
@@ -39,7 +40,7 @@ export default async function ResearchPage({ params, searchParams }: Props) {
   const [{ symbol }, query] = await Promise.all([params, searchParams]);
   const ticker = TickerSymbolSchema.safeParse(symbol.toUpperCase());
   if (!ticker.success) notFound();
-  const locale: Locale = query.lang === "ko" ? "ko" : "en";
+  const locale: Locale = researchLocaleFromValue(query.lang);
   if (query.run === undefined && query.launch !== undefined)
     return (
       <LaunchingResearchRoom

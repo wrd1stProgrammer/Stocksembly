@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import type { Locale } from "@/src/lib/i18n";
+import type { AppLocale } from "@/src/lib/i18n";
+import { isLocale } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const runtime = "nodejs";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 const COOKIE_NAME = "stocksembly_locale";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-function localeCookie(response: NextResponse, locale: Locale) {
+function localeCookie(response: NextResponse, locale: AppLocale) {
   response.cookies.set(COOKIE_NAME, locale, {
     path: "/",
     maxAge: COOKIE_MAX_AGE,
@@ -39,7 +40,7 @@ export async function PUT(request: Request): Promise<Response> {
   const body = (await request.json().catch(() => undefined)) as
     | { readonly locale?: unknown }
     | undefined;
-  if (body?.locale !== "en" && body?.locale !== "ko")
+  if (!isLocale(body?.locale))
     return NextResponse.json(
       { error: { code: "LOCALE_INVALID" } },
       { status: 400 },

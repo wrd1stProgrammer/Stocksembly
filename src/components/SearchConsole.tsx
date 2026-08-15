@@ -11,8 +11,8 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { authIsConfigured } from "../auth/amplifyClient";
 import { createAuthenticatedResearchClient } from "../auth/researchClient";
 import { currentAuthTokens } from "../auth/researchSession";
-import type { Locale } from "../lib/i18n";
-import { copy } from "../lib/i18n";
+import type { AppLocale } from "../lib/i18n";
+import { copy, researchLocale } from "../lib/i18n";
 import { filterTickers, searchUsTickers, type Ticker } from "../lib/tickers";
 import { notifyBillingChanged } from "../lib/whop/billingEvents";
 import { researchCreditCost } from "../lib/whop/creditPolicy";
@@ -39,7 +39,7 @@ import {
 } from "./SearchPrimitives";
 
 type SearchConsoleProps = {
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly onOpenPlans?: () => void;
   readonly subscriptionTier?: "unknown" | "free" | "paid";
   readonly creditsRemaining?: number | undefined;
@@ -47,6 +47,327 @@ type SearchConsoleProps = {
     query: string,
     signal: AbortSignal,
   ) => Promise<readonly Ticker[]>;
+};
+
+type DetailCopy = {
+  readonly committee: string;
+  readonly committeeNote: string;
+  readonly teamNote: string;
+  readonly mode: string;
+  readonly auto: string;
+  readonly close: string;
+  readonly addComparison: string;
+  readonly startError: string;
+  readonly customize: string;
+  readonly horizon: string;
+  readonly horizonNote: string;
+  readonly counter: string;
+  readonly counterNote: string;
+  readonly depth: string;
+  readonly depthNote: string;
+  readonly purpose: string;
+  readonly purposeNote: string;
+  readonly peers: string;
+  readonly peersNote: string;
+  readonly peerPlaceholder: string;
+  readonly noPeers: string;
+  readonly horizonOptions: Readonly<
+    Record<"short" | "medium" | "long", string>
+  >;
+  readonly counterOptions: Readonly<Record<"standard" | "strong", string>>;
+  readonly depthOptions: Readonly<Record<"core" | "standard" | "deep", string>>;
+  readonly purposeOptions: Readonly<
+    Record<
+      "new_entry" | "holding_review" | "position_sizing" | "earnings",
+      string
+    >
+  >;
+};
+
+const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
+  en: {
+    committee: "Full research committee",
+    committeeNote: "All 11 specialists, rebuttal, and final decision",
+    teamNote: "Focused review by this team only",
+    mode: "Research mode",
+    auto: "Use question-based recommendation",
+    close: "Close",
+    addComparison: "Add comparison",
+    startError: "Unable to start research. Please try again.",
+    customize: "Customize",
+    horizon: "Investment horizon",
+    horizonNote: "How long the decision should remain valid",
+    counter: "Counterargument",
+    counterNote: "How aggressively the opposing case is tested",
+    depth: "Analysis depth",
+    depthNote: "Evidence breadth and report length",
+    purpose: "Decision purpose",
+    purposeNote: "The action the report should help decide",
+    peers: "Comparisons",
+    peersNote: "Stocksembly relative view · up to 5",
+    peerPlaceholder: "Add ticker (e.g. AMD)",
+    noPeers: "None",
+    horizonOptions: { short: "Short", medium: "Medium", long: "Long" },
+    counterOptions: { standard: "Standard", strong: "Strong" },
+    depthOptions: { core: "Core", standard: "Standard", deep: "Deep" },
+    purposeOptions: {
+      new_entry: "New entry",
+      holding_review: "Holding review",
+      position_sizing: "Position sizing",
+      earnings: "Around earnings",
+    },
+  },
+  ko: {
+    committee: "전체 에이전트 위원회",
+    committeeNote: "11명 전체 분석과 반론·최종 판단",
+    teamNote: "해당 팀만 참여하는 심층 검토",
+    mode: "리서치 방식",
+    auto: "질문에 맞춰 다시 추천",
+    close: "닫기",
+    addComparison: "비교기업 추가",
+    startError: "리서치를 시작할 수 없습니다. 다시 시도해 주세요.",
+    customize: "맞춤 설정",
+    horizon: "투자 기간",
+    horizonNote: "판단이 유효해야 할 시간",
+    counter: "반론 강도",
+    counterNote: "반대 논리를 파고드는 정도",
+    depth: "분석 깊이",
+    depthNote: "에이전트별 논거와 리포트 분량",
+    purpose: "의사결정 목적",
+    purposeNote: "결론을 실제 행동 조건으로 바꾸는 기준",
+    peers: "비교기업",
+    peersNote: "Stocksembly 상대 비교 · 최대 5개",
+    peerPlaceholder: "티커 입력 (예: AMD)",
+    noPeers: "미포함",
+    horizonOptions: { short: "단기", medium: "중기", long: "장기" },
+    counterOptions: { standard: "표준", strong: "강하게" },
+    depthOptions: { core: "핵심", standard: "표준", deep: "심층" },
+    purposeOptions: {
+      new_entry: "신규 진입",
+      holding_review: "보유 점검",
+      position_sizing: "비중 조절",
+      earnings: "실적 전후",
+    },
+  },
+  ja: {
+    committee: "全エージェント委員会",
+    committeeNote: "11人の分析、反対論、最終判断",
+    teamNote: "このチームだけによる詳細検証",
+    mode: "リサーチ方式",
+    auto: "質問に合わせて再推薦",
+    close: "閉じる",
+    addComparison: "比較企業を追加",
+    startError: "リサーチを開始できません。もう一度お試しください。",
+    customize: "カスタム設定",
+    horizon: "投資期間",
+    horizonNote: "判断を有効とする期間",
+    counter: "反対論の強度",
+    counterNote: "反対の見方を検証する深さ",
+    depth: "分析の深さ",
+    depthNote: "根拠の範囲とレポート量",
+    purpose: "判断目的",
+    purposeNote: "レポートで決めたい行動",
+    peers: "比較企業",
+    peersNote: "Stocksembly相対比較 · 最大5社",
+    peerPlaceholder: "ティッカーを追加（例：AMD）",
+    noPeers: "なし",
+    horizonOptions: { short: "短期", medium: "中期", long: "長期" },
+    counterOptions: { standard: "標準", strong: "強め" },
+    depthOptions: { core: "要点", standard: "標準", deep: "詳細" },
+    purposeOptions: {
+      new_entry: "新規投資",
+      holding_review: "保有点検",
+      position_sizing: "比率調整",
+      earnings: "決算前後",
+    },
+  },
+  "zh-TW": {
+    committee: "全體代理委員會",
+    committeeNote: "11 位專家分析、反方論點與最終判斷",
+    teamNote: "僅由該團隊進行深入檢視",
+    mode: "研究模式",
+    auto: "依問題重新推薦",
+    close: "關閉",
+    addComparison: "新增比較公司",
+    startError: "無法開始研究，請再試一次。",
+    customize: "自訂設定",
+    horizon: "投資期間",
+    horizonNote: "此判斷預計維持有效的時間",
+    counter: "反方強度",
+    counterNote: "檢驗反方論點的深入程度",
+    depth: "分析深度",
+    depthNote: "證據範圍與報告篇幅",
+    purpose: "決策目的",
+    purposeNote: "本報告要協助做出的行動",
+    peers: "比較公司",
+    peersNote: "Stocksembly 相對比較 · 最多 5 家",
+    peerPlaceholder: "輸入代號（例如 AMD）",
+    noPeers: "不納入",
+    horizonOptions: { short: "短期", medium: "中期", long: "長期" },
+    counterOptions: { standard: "標準", strong: "加強" },
+    depthOptions: { core: "重點", standard: "標準", deep: "深入" },
+    purposeOptions: {
+      new_entry: "新建部位",
+      holding_review: "持股檢視",
+      position_sizing: "部位調整",
+      earnings: "財報前後",
+    },
+  },
+  es: {
+    committee: "Comité completo de agentes",
+    committeeNote:
+      "Los 11 especialistas, la tesis contraria y la decisión final",
+    teamNote: "Revisión profunda solo por este equipo",
+    mode: "Modo de análisis",
+    auto: "Volver a recomendar según la pregunta",
+    close: "Cerrar",
+    addComparison: "Agregar comparable",
+    startError: "No se pudo iniciar el análisis. Inténtalo de nuevo.",
+    customize: "Personalizar",
+    horizon: "Horizonte de inversión",
+    horizonNote: "Durante cuánto tiempo debe ser válida la decisión",
+    counter: "Intensidad de la tesis contraria",
+    counterNote: "Cuánto se profundiza en los argumentos opuestos",
+    depth: "Profundidad",
+    depthNote: "Alcance de la evidencia y extensión del informe",
+    purpose: "Objetivo de la decisión",
+    purposeNote: "La acción que el informe debe ayudar a decidir",
+    peers: "Comparables",
+    peersNote: "Comparación relativa de Stocksembly · hasta 5",
+    peerPlaceholder: "Agregar ticker (p. ej., AMD)",
+    noPeers: "Sin comparables",
+    horizonOptions: {
+      short: "Corto plazo",
+      medium: "Mediano plazo",
+      long: "Largo plazo",
+    },
+    counterOptions: { standard: "Estándar", strong: "Fuerte" },
+    depthOptions: { core: "Esencial", standard: "Estándar", deep: "Profundo" },
+    purposeOptions: {
+      new_entry: "Nueva entrada",
+      holding_review: "Revisar posición",
+      position_sizing: "Ajustar peso",
+      earnings: "En torno a resultados",
+    },
+  },
+  "pt-BR": {
+    committee: "Comitê completo de agentes",
+    committeeNote: "Os 11 especialistas, contrapontos e decisão final",
+    teamNote: "Revisão aprofundada apenas por esta equipe",
+    mode: "Modo de research",
+    auto: "Recomendar novamente pela pergunta",
+    close: "Fechar",
+    addComparison: "Adicionar comparável",
+    startError: "Não foi possível iniciar o research. Tente novamente.",
+    customize: "Personalizar",
+    horizon: "Horizonte de investimento",
+    horizonNote: "Por quanto tempo a decisão deve permanecer válida",
+    counter: "Força do contraponto",
+    counterNote: "Até onde a tese contrária será testada",
+    depth: "Profundidade",
+    depthNote: "Amplitude das evidências e tamanho do relatório",
+    purpose: "Objetivo da decisão",
+    purposeNote: "A ação que o relatório deve ajudar a decidir",
+    peers: "Comparáveis",
+    peersNote: "Visão relativa Stocksembly · até 5",
+    peerPlaceholder: "Adicionar ticker (ex.: AMD)",
+    noPeers: "Nenhum",
+    horizonOptions: {
+      short: "Curto prazo",
+      medium: "Médio prazo",
+      long: "Longo prazo",
+    },
+    counterOptions: { standard: "Padrão", strong: "Forte" },
+    depthOptions: { core: "Essencial", standard: "Padrão", deep: "Profundo" },
+    purposeOptions: {
+      new_entry: "Nova entrada",
+      holding_review: "Revisar posição",
+      position_sizing: "Ajustar peso",
+      earnings: "Em torno dos resultados",
+    },
+  },
+  de: {
+    committee: "Gesamtes Agentenkomitee",
+    committeeNote: "Alle 11 Fachrollen, Gegenposition und Schlussurteil",
+    teamNote: "Vertiefte Prüfung nur durch dieses Team",
+    mode: "Research-Modus",
+    auto: "Anhand der Frage neu empfehlen",
+    close: "Schließen",
+    addComparison: "Vergleich hinzufügen",
+    startError:
+      "Research konnte nicht gestartet werden. Bitte versuchen Sie es erneut.",
+    customize: "Anpassen",
+    horizon: "Anlagehorizont",
+    horizonNote: "Wie lange die Entscheidung gelten soll",
+    counter: "Stärke der Gegenposition",
+    counterNote: "Wie gründlich die Gegenthese geprüft wird",
+    depth: "Analysetiefe",
+    depthNote: "Umfang der Belege und Berichtslänge",
+    purpose: "Entscheidungsziel",
+    purposeNote: "Welche Handlung der Bericht unterstützen soll",
+    peers: "Vergleichsunternehmen",
+    peersNote: "Stocksembly-Relativvergleich · bis zu 5",
+    peerPlaceholder: "Ticker hinzufügen (z. B. AMD)",
+    noPeers: "Keine",
+    horizonOptions: {
+      short: "Kurzfristig",
+      medium: "Mittelfristig",
+      long: "Langfristig",
+    },
+    counterOptions: { standard: "Standard", strong: "Stark" },
+    depthOptions: {
+      core: "Kernpunkte",
+      standard: "Standard",
+      deep: "Vertieft",
+    },
+    purposeOptions: {
+      new_entry: "Neueinstieg",
+      holding_review: "Bestand prüfen",
+      position_sizing: "Gewichtung anpassen",
+      earnings: "Rund um Zahlen",
+    },
+  },
+  fr: {
+    committee: "Comité complet d’agents",
+    committeeNote:
+      "Les 11 spécialistes, la thèse opposée et la décision finale",
+    teamNote: "Examen approfondi par cette équipe uniquement",
+    mode: "Mode de recherche",
+    auto: "Recommander selon la question",
+    close: "Fermer",
+    addComparison: "Ajouter un comparable",
+    startError: "Impossible de lancer la recherche. Veuillez réessayer.",
+    customize: "Personnaliser",
+    horizon: "Horizon d’investissement",
+    horizonNote: "Durée de validité attendue de la décision",
+    counter: "Intensité de la thèse opposée",
+    counterNote: "Niveau d’examen des arguments contraires",
+    depth: "Profondeur",
+    depthNote: "Étendue des preuves et longueur du rapport",
+    purpose: "Objectif de décision",
+    purposeNote: "L’action que le rapport doit aider à décider",
+    peers: "Comparables",
+    peersNote: "Comparaison relative Stocksembly · jusqu’à 5",
+    peerPlaceholder: "Ajouter un ticker (ex. AMD)",
+    noPeers: "Aucun",
+    horizonOptions: {
+      short: "Court terme",
+      medium: "Moyen terme",
+      long: "Long terme",
+    },
+    counterOptions: { standard: "Standard", strong: "Renforcé" },
+    depthOptions: {
+      core: "Essentiel",
+      standard: "Standard",
+      deep: "Approfondi",
+    },
+    purposeOptions: {
+      new_entry: "Nouvelle entrée",
+      holding_review: "Revoir la position",
+      position_sizing: "Ajuster le poids",
+      earnings: "Autour des résultats",
+    },
+  },
 };
 
 export function SearchConsole({
@@ -97,72 +418,14 @@ export function SearchConsole({
   const researchTarget = targetOverride ?? recommendation.target;
   const requiredCredits = researchCreditCost(researchTarget);
   const customSettingsLocked = subscriptionTier === "free";
+  const detailCopy = SEARCH_DETAIL_COPY[locale];
   const targetCopy =
     researchTarget.kind === "committee"
-      ? locale === "ko"
-        ? "전체 에이전트 위원회"
-        : "Full research committee"
+      ? detailCopy.committee
       : RESEARCH_DEPARTMENT_COPY[researchTarget.departmentId][
-          locale === "ko" ? "ko" : "en"
+          researchLocale(locale)
         ];
-  const profileCopy =
-    locale === "ko"
-      ? {
-          customize: "맞춤 설정",
-          horizon: "투자 기간",
-          horizonNote: "판단이 유효해야 할 시간",
-          counter: "반론 강도",
-          counterNote: "반대 논리를 파고드는 정도",
-          depth: "분석 깊이",
-          depthNote: "에이전트별 논거와 리포트 분량",
-          purpose: "의사결정 목적",
-          purposeNote: "결론을 실제 행동 조건으로 바꾸는 기준",
-          peers: "비교기업",
-          peersNote: "Stocksembly 상대 비교 · 최대 5개",
-          peerPlaceholder: "티커 입력 (예: AMD)",
-          noPeers: "미포함",
-          horizonOptions: {
-            short: "단기",
-            medium: "중기",
-            long: "장기",
-          },
-          counterOptions: { standard: "표준", strong: "강하게" },
-          depthOptions: { core: "핵심", standard: "표준", deep: "심층" },
-          purposeOptions: {
-            new_entry: "신규 진입",
-            holding_review: "보유 점검",
-            position_sizing: "비중 조절",
-            earnings: "실적 전후",
-          },
-        }
-      : {
-          customize: "Customize",
-          horizon: "Investment horizon",
-          horizonNote: "How long the decision should remain valid",
-          counter: "Counterargument",
-          counterNote: "How aggressively the opposing case is tested",
-          depth: "Analysis depth",
-          depthNote: "Evidence breadth and report length",
-          purpose: "Decision purpose",
-          purposeNote: "The action the report should help decide",
-          peers: "Comparisons",
-          peersNote: "Stocksembly relative view · up to 5",
-          peerPlaceholder: "Add ticker (e.g. AMD)",
-          noPeers: "None",
-          horizonOptions: {
-            short: "Short",
-            medium: "Medium",
-            long: "Long",
-          },
-          counterOptions: { standard: "Standard", strong: "Strong" },
-          depthOptions: { core: "Core", standard: "Standard", deep: "Deep" },
-          purposeOptions: {
-            new_entry: "New entry",
-            holding_review: "Holding review",
-            position_sizing: "Position sizing",
-            earnings: "Around earnings",
-          },
-        };
+  const profileCopy = detailCopy;
 
   function updateProfile<Key extends keyof ResearchProfile>(
     key: Key,
@@ -270,7 +533,7 @@ export function SearchConsole({
       const created = await client.startRun({
         symbol: firstMatch.symbol,
         question: researchQuestion,
-        locale,
+        locale: researchLocale(locale),
         idempotencyKey,
         researchTarget,
         researchProfile,
@@ -295,11 +558,7 @@ export function SearchConsole({
         setCreditShortageOpen(true);
         return;
       }
-      setSubmissionError(
-        locale === "ko"
-          ? "리서치를 시작할 수 없습니다. 다시 시도해 주세요."
-          : "Unable to start research. Please try again.",
-      );
+      setSubmissionError(detailCopy.startError);
     } finally {
       setIsSubmitting(false);
     }
@@ -367,7 +626,7 @@ export function SearchConsole({
                 </div>
                 <button
                   type="button"
-                  aria-label="Close"
+                  aria-label={detailCopy.close}
                   onClick={() => setProfileOpen(false)}
                 >
                   <X aria-hidden="true" size={16} />
@@ -429,7 +688,7 @@ export function SearchConsole({
                     />
                     <button
                       type="button"
-                      aria-label="Add comparison"
+                      aria-label={detailCopy.addComparison}
                       disabled={researchProfile.comparisonSymbols.length >= 5}
                       onClick={addComparisonSymbol}
                     >
@@ -489,16 +748,13 @@ export function SearchConsole({
                 <SlidersHorizontal aria-hidden="true" size={17} />
               )}
             </button>
-            <section
-              className="research-target"
-              aria-label={locale === "ko" ? "리서치 방식" : "Research mode"}
-            >
+            <section className="research-target" aria-label={detailCopy.mode}>
               <button
                 className="research-target__trigger"
                 type="button"
                 aria-expanded={targetPickerOpen}
                 aria-haspopup="menu"
-                title={recommendation.reason[locale]}
+                title={recommendation.reason[researchLocale(locale)]}
                 onClick={() => {
                   setProfileOpen(false);
                   setTargetPickerOpen((open) => !open);
@@ -512,14 +768,8 @@ export function SearchConsole({
                   {[
                     {
                       target: COMMITTEE_RESEARCH_TARGET,
-                      label:
-                        locale === "ko"
-                          ? "전체 에이전트 위원회"
-                          : "Full research committee",
-                      note:
-                        locale === "ko"
-                          ? "11명 전체 분석과 반론·최종 판단"
-                          : "All 11 specialists, rebuttal, and final decision",
+                      label: detailCopy.committee,
+                      note: detailCopy.committeeNote,
                     },
                     ...(
                       ["market", "company", "financial", "risk"] as const
@@ -530,12 +780,9 @@ export function SearchConsole({
                       },
                       label:
                         RESEARCH_DEPARTMENT_COPY[departmentId][
-                          locale === "ko" ? "ko" : "en"
+                          researchLocale(locale)
                         ],
-                      note:
-                        locale === "ko"
-                          ? "해당 팀만 참여하는 심층 검토"
-                          : "Focused review by this team only",
+                      note: detailCopy.teamNote,
                     })),
                   ].map((option) => {
                     const selected =
@@ -574,9 +821,7 @@ export function SearchConsole({
                         setTargetPickerOpen(false);
                       }}
                     >
-                      {locale === "ko"
-                        ? "질문에 맞춰 다시 추천"
-                        : "Use question-based recommendation"}
+                      {detailCopy.auto}
                     </button>
                   )}
                 </div>
@@ -622,14 +867,14 @@ export function SearchConsole({
         </form>
       </BorderBeam>
       <CreditShortageModal
-        locale={locale}
+        locale={researchLocale(locale)}
         open={creditShortageOpen}
         required={requiredCredits}
         remaining={creditsRemaining}
         onClose={() => setCreditShortageOpen(false)}
       />
       <MembershipAccessModal
-        locale={locale}
+        locale={researchLocale(locale)}
         open={membershipGateOpen}
         reason="customize"
         onClose={() => setMembershipGateOpen(false)}

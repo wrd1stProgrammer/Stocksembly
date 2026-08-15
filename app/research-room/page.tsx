@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ResearchRoomCatalog } from "@/src/components/researchRoom/ResearchRoomCatalog";
 import { researchRoomPageHref } from "@/src/components/researchRoom/researchRoomUrls";
 import type { Locale } from "@/src/lib/i18n";
+import { researchLocaleFromValue } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import {
   listResearchRoomReportPage,
@@ -28,7 +29,7 @@ export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
   const { lang, page: requestedPage } = await searchParams;
-  const locale: Locale = lang === "en" ? "en" : "ko";
+  const locale: Locale = lang === undefined ? "ko" : researchLocaleFromValue(lang);
   const page = archivePage(requestedPage);
   const canonical = researchRoomPageHref(page, locale);
   const languageAlternates = {
@@ -95,7 +96,7 @@ async function requestFromPage() {
 
 export default async function ResearchRoomPage({ searchParams }: Props) {
   const query = await searchParams;
-  const locale: Locale = query.lang === "en" ? "en" : "ko";
+  const locale: Locale = query.lang === undefined ? "ko" : researchLocaleFromValue(query.lang);
   const page = archivePage(query.page);
   const access = await (await getLiveResearchApi()).researchRoomAccess(
     await requestFromPage(),

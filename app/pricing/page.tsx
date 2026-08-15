@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { researchLocaleFromValue } from "@/src/lib/i18n";
 import { billingCheckoutPath } from "@/src/lib/whop/contracts";
 import { getWhopEnvironment, getWhopPricing } from "@/src/lib/whop/server";
 
@@ -55,7 +56,7 @@ function planLabel(
 
 export default async function PricingPage({ searchParams }: Props) {
   const query = await searchParams;
-  const locale = query.lang === "en" ? "en" : "ko";
+  const locale = researchLocaleFromValue(query.lang);
   const copy = planCopy[locale];
   const environment = getWhopEnvironment();
   const plans = await getWhopPricing().catch(() => []);

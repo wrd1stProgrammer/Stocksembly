@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { editorialDefinitions } from "@/src/editorial/catalog";
+import { locales } from "@/src/lib/i18n";
 import sitemap, { dynamic } from "./sitemap";
 
 const sitemapState = vi.hoisted(() => ({
@@ -41,78 +43,31 @@ describe("sitemap", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
-  it("lists only public static pages without fabricated modification dates", async () => {
-    // Given
-    const staticUrls = [
-      "https://stocksembly.com",
-      "https://stocksembly.com/research-room",
-      "https://stocksembly.com/ko/us-stock-analysis",
-      "https://stocksembly.com/en/us-stock-analysis",
-      "https://stocksembly.com/about",
-      "https://stocksembly.com/methodology",
-      "https://stocksembly.com/editorial-policy",
-      "https://stocksembly.com/corrections",
-      "https://stocksembly.com/terms",
-      "https://stocksembly.com/privacy",
-      "https://stocksembly.com/disclaimer",
-      "https://stocksembly.com/risk-disclosure",
-    ];
-
+  it("lists localized public and editorial pages with real editorial dates", async () => {
     // When
     const entries = await sitemap();
 
     // Then
-    expect(entries).toHaveLength(staticUrls.length);
-    expect(entries.map((entry) => entry.url)).toEqual(staticUrls);
-    expect(entries).toEqual([
-      expect.objectContaining({
-        url: "https://stocksembly.com",
-        changeFrequency: "weekly",
-        priority: 1,
-      }),
-      expect.objectContaining({
-        url: "https://stocksembly.com/research-room",
-        changeFrequency: "daily",
-        priority: 0.9,
-      }),
-      ...[
-        {
-          path: "ko/us-stock-analysis",
-          priority: 0.8,
-          changeFrequency: "weekly",
-        },
-        {
-          path: "en/us-stock-analysis",
-          priority: 0.8,
-          changeFrequency: "weekly",
-        },
-        { path: "about", priority: 0.6, changeFrequency: "monthly" },
-        { path: "methodology", priority: 0.7, changeFrequency: "monthly" },
-        {
-          path: "editorial-policy",
-          priority: 0.6,
-          changeFrequency: "monthly",
-        },
-        { path: "corrections", priority: 0.5, changeFrequency: "monthly" },
-        { path: "terms", priority: 0.3, changeFrequency: "monthly" },
-        { path: "privacy", priority: 0.3, changeFrequency: "monthly" },
-        { path: "disclaimer", priority: 0.3, changeFrequency: "monthly" },
-        {
-          path: "risk-disclosure",
-          priority: 0.3,
-          changeFrequency: "monthly",
-        },
-      ].map(({ path, priority, changeFrequency }) =>
-        expect.objectContaining({
-          url: `https://stocksembly.com/${path}`,
-          changeFrequency,
-          priority,
-        }),
+    const urls = entries.map((entry) => entry.url);
+    expect(urls).toContain("https://stocksembly.com");
+    expect(urls).toContain("https://stocksembly.com/research-room");
+    for (const locale of locales) {
+      expect(urls).toContain(`https://stocksembly.com/${locale}`);
+      expect(urls).toContain(`https://stocksembly.com/${locale}/blog`);
+      expect(urls).toContain(`https://stocksembly.com/${locale}/glossary`);
+    }
+    const editorialEntryUrls = entries.filter((entry) =>
+      editorialDefinitions.some(({ kind, slug }) =>
+        entry.url.endsWith(`/${kind}/${slug}`),
       ),
-    ]);
-    expect(entries.every((entry) => entry.lastModified === undefined)).toBe(
-      true,
     );
+    expect(editorialEntryUrls).toHaveLength(
+      locales.length * editorialDefinitions.length,
+    );
+    expect(editorialEntryUrls[0]).toMatchObject({
+      lastModified: editorialDefinitions[0]?.modifiedAt,
+      changeFrequency: "monthly",
+    });
   });
 
   it("adds canonical public report entries from the catalog", async () => {
@@ -214,6 +169,7 @@ describe("sitemap", () => {
 
   it("returns static entries and logs an identifiable error when the catalog fails", async () => {
     // Given
+    const staticEntries = await sitemap();
     const failure = new Error("catalog unavailable");
     const error = vi
       .spyOn(console, "error")
@@ -224,21 +180,7 @@ describe("sitemap", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries).toHaveLength(12);
-    expect(entries.map((entry) => entry.url)).toEqual([
-      "https://stocksembly.com",
-      "https://stocksembly.com/research-room",
-      "https://stocksembly.com/ko/us-stock-analysis",
-      "https://stocksembly.com/en/us-stock-analysis",
-      "https://stocksembly.com/about",
-      "https://stocksembly.com/methodology",
-      "https://stocksembly.com/editorial-policy",
-      "https://stocksembly.com/corrections",
-      "https://stocksembly.com/terms",
-      "https://stocksembly.com/privacy",
-      "https://stocksembly.com/disclaimer",
-      "https://stocksembly.com/risk-disclosure",
-    ]);
+    expect(entries).toEqual(staticEntries);
     expect(error).toHaveBeenCalledWith(
       "[sitemap] failed to load research room entries",
       failure,

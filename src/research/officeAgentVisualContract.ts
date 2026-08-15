@@ -1,4 +1,4 @@
-import type { Locale } from "../lib/i18n";
+import type { ResearchLocale } from "../lib/i18n";
 import type {
   OfficeFacing,
   OfficeManifestAgentId,
@@ -28,8 +28,8 @@ export type OfficeAgentClipContract = {
 };
 
 export type OfficeAgentPersona = {
-  readonly codename: Readonly<Record<Locale, string>>;
-  readonly motif: Readonly<Record<Locale, string>>;
+  readonly codename: Readonly<Record<ResearchLocale, string>>;
+  readonly motif: Readonly<Record<ResearchLocale, string>>;
   readonly motionCharacter:
     | "authoritative"
     | "deliberate"

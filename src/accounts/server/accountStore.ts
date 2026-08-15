@@ -14,7 +14,7 @@ import type {
   BriefingWatchlistItem,
   SaveBriefingEdition,
 } from "../../briefing/domain/contracts";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale, Locale } from "../../lib/i18n";
 import type {
   BillingCreditActivity,
   BillingCreditNotice,
@@ -136,10 +136,10 @@ export type AccountStore = {
   ) => Promise<AdminUserDetail | undefined>;
   readonly preferredLocale?: (
     principalId: string,
-  ) => Promise<Locale | undefined>;
+  ) => Promise<AppLocale | undefined>;
   readonly updatePreferredLocale?: (
     principalId: string,
-    locale: Locale,
+    locale: AppLocale,
   ) => Promise<void>;
   readonly briefingAccess?: (principalId: string) => Promise<BriefingAccess>;
   readonly listBriefingWatchlist?: (

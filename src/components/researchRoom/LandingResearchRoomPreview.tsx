@@ -5,7 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { copy, type Locale } from "../../lib/i18n";
+import {
+  type AppLocale,
+  copy,
+  intlLocale,
+  researchLocale,
+} from "../../lib/i18n";
 import type { ResearchRoomCatalogItem } from "../../research/server/researchRoom/researchRoomCatalog";
 import { MembershipAccessModal } from "../billing/MembershipAccessModal";
 import { FlippingCard } from "../ui/flipping-card";
@@ -39,27 +44,25 @@ function CompanyWatermark({ symbol }: { readonly symbol: string }) {
   );
 }
 
-function researchTargetLabel(report: ResearchRoomCatalogItem, locale: Locale) {
+function researchTargetLabel(
+  report: ResearchRoomCatalogItem,
+  locale: AppLocale,
+) {
+  const labels = copy[locale].landing.researchRoom;
   if (report.researchTarget.kind === "committee") {
-    return locale === "ko" ? "전체 위원회" : "Full committee";
+    return labels.fullCommittee;
   }
-  const labels = {
-    market: locale === "ko" ? "시장팀" : "Market team",
-    company: locale === "ko" ? "기업팀" : "Company team",
-    financial: locale === "ko" ? "재무팀" : "Financial team",
-    risk: locale === "ko" ? "리스크팀" : "Risk team",
-  } as const;
-  return labels[report.researchTarget.departmentId];
+  return labels.teams[report.researchTarget.departmentId];
 }
 
-function publishedTimeLabel(value: string, locale: Locale, now: number) {
+function publishedTimeLabel(value: string, locale: AppLocale, now: number) {
   const publishedAt = new Date(value);
   const elapsedMinutes = Math.max(
     0,
     Math.floor((now - publishedAt.getTime()) / 60_000),
   );
   if (elapsedMinutes >= 24 * 60) {
-    return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+    return new Intl.DateTimeFormat(intlLocale(locale), {
       month: "short",
       day: "numeric",
     }).format(publishedAt);
@@ -104,7 +107,7 @@ export function LandingResearchRoomPreview({
   locale,
   onOpenPlans,
 }: {
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly onOpenPlans?: () => void;
 }) {
   const router = useRouter();
@@ -116,6 +119,7 @@ export function LandingResearchRoomPreview({
   >(COMPANY_NAME_FALLBACKS);
   const [now, setNow] = useState(() => Date.now());
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
+  const labels = copy[locale].landing.researchRoom;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -193,24 +197,12 @@ export function LandingResearchRoomPreview({
       >
         <header>
           <div>
-            <span>
-              {locale === "ko"
-                ? "RESEARCH ROOM · 최근 5개"
-                : "RESEARCH ROOM · LATEST FIVE"}
-            </span>
-            <h2 id="landing-research-room-title">
-              {locale === "ko"
-                ? "다른 투자자의 질문을 뒤집어 보세요."
-                : "Flip through questions investors already asked."}
-            </h2>
-            <p>
-              {locale === "ko"
-                ? "카드 뒷면에서 질문을 확인하고, 완성된 리서치로 바로 이동합니다."
-                : "Reveal the question on the back, then open the finished research."}
-            </p>
+            <span>{labels.eyebrow}</span>
+            <h2 id="landing-research-room-title">{labels.title}</h2>
+            <p>{labels.description}</p>
           </div>
           <Link href={`/research-room?lang=${locale}`}>
-            {locale === "ko" ? "모든 리서치 보기" : "Browse all research"}
+            {labels.browse}
             <ArrowUpRight size={17} />
           </Link>
         </header>
@@ -221,11 +213,7 @@ export function LandingResearchRoomPreview({
                 width={194}
                 height={240}
                 className="landing-research-flip__surface"
-                ariaLabel={
-                  locale === "ko"
-                    ? `${report.symbol} 리서치 카드 뒤집기: ${report.question}`
-                    : `Flip ${report.symbol} research card: ${report.question}`
-                }
+                ariaLabel={labels.flipLabel(report.symbol, report.question)}
                 onActivate={() => {
                   if (report.locked) {
                     setMembershipGateOpen(true);
@@ -252,7 +240,7 @@ export function LandingResearchRoomPreview({
                       <time dateTime={report.publishedAt}>
                         {publishedTimeLabel(report.publishedAt, locale, now)}
                       </time>
-                      <span>{locale === "ko" ? "뒤집기 ↗" : "Flip ↗"}</span>
+                      <span>{labels.flip}</span>
                     </div>
                   </div>
                 }
@@ -267,17 +255,11 @@ export function LandingResearchRoomPreview({
                       {report.locked ? (
                         <>
                           <LockKeyhole size={14} />
-                          <span>
-                            {locale === "ko"
-                              ? "7일 후 공개 · 클릭하여 안내"
-                              : "Opens in 7 days · View access"}
-                          </span>
+                          <span>{labels.locked}</span>
                         </>
                       ) : (
                         <>
-                          <span>
-                            {locale === "ko" ? "리서치 열기" : "Open research"}
-                          </span>
+                          <span>{labels.open}</span>
                           <ArrowUpRight size={15} />
                         </>
                       )}
@@ -290,7 +272,7 @@ export function LandingResearchRoomPreview({
         </ol>
       </section>
       <MembershipAccessModal
-        locale={locale}
+        locale={researchLocale(locale)}
         open={membershipGateOpen}
         reason="recent-report"
         onClose={() => setMembershipGateOpen(false)}

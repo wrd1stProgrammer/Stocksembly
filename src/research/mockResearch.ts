@@ -1,4 +1,4 @@
-import type { Locale } from "../lib/i18n";
+import type { ResearchLocale } from "../lib/i18n";
 import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import type {
   AgentProfile,
@@ -11,7 +11,7 @@ import type {
 const localized = (
   en: string,
   ko: string,
-): Readonly<Record<Locale, string>> => ({
+): Readonly<Record<ResearchLocale, string>> => ({
   en,
   ko,
 });
@@ -218,7 +218,7 @@ export function makeResearchCompany(
 }
 
 export const phaseLabels: Readonly<
-  Record<ResearchPhase, Readonly<Record<Locale, string>>>
+  Record<ResearchPhase, Readonly<Record<ResearchLocale, string>>>
 > = {
   briefing: localized("Briefing", "브리핑"),
   collecting: localized("Collecting", "자료 수집"),

@@ -31,6 +31,12 @@ describe("stock research hub metadata", () => {
           languages: {
             "ko-KR": "/ko/stocks/nvda",
             "en-US": "/en/stocks/nvda",
+            "ja-JP": "/ja/stocks/nvda",
+            "zh-TW": "/zh-TW/stocks/nvda",
+            "es-419": "/es/stocks/nvda",
+            "pt-BR": "/pt-BR/stocks/nvda",
+            "de-DE": "/de/stocks/nvda",
+            "fr-FR": "/fr/stocks/nvda",
             "x-default": "/en/stocks/nvda",
           },
         },

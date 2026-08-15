@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarDays, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
+import { intlLocale, researchLocale } from "../../lib/i18n";
 import { stockResearchHubCopy } from "../../lib/seo/stockResearchHubCopy";
 import { stockResearchHubPaths } from "../../lib/seo/stockResearchHubMetadata";
 import { researchTargetQueryValue } from "../../research/domain/researchTarget";
@@ -10,11 +11,11 @@ import { SeoLocaleHeader } from "./UsStockAnalysisHeader";
 
 type StockResearchHubPageProps = Readonly<{
   hub: StockResearchHub;
-  locale: Locale;
+  locale: AppLocale;
 }>;
 
-function publishedDate(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+function publishedDate(value: string, locale: AppLocale): string {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -26,7 +27,7 @@ export function StockResearchHubPage({
   hub,
   locale,
 }: StockResearchHubPageProps) {
-  const content = stockResearchHubCopy[locale];
+  const content = stockResearchHubCopy[researchLocale(locale)];
   const paths = stockResearchHubPaths(hub.symbol);
   const canonicalUrl = `https://stocksembly.com${paths[locale]}`;
   const structuredData = {
@@ -35,7 +36,7 @@ export function StockResearchHubPage({
     name: content.title(hub.company, hub.symbol),
     description: content.description(hub.company, hub.symbol),
     url: canonicalUrl,
-    inLanguage: locale === "ko" ? "ko-KR" : "en-US",
+    inLanguage: intlLocale(locale),
     about: {
       "@type": "Corporation",
       name: hub.company,

@@ -1,9 +1,227 @@
 import type { ActiveResearchActivityKind } from "../research/domain/activeResearchActivity";
 import type { AgentId } from "../research/types";
 
-const locales = ["en", "ko"] as const;
+export const locales = [
+  "en",
+  "ko",
+  "ja",
+  "zh-TW",
+  "es",
+  "pt-BR",
+  "de",
+  "fr",
+] as const;
 
-export type Locale = (typeof locales)[number];
+export type AppLocale = (typeof locales)[number];
+export type Locale = "en" | "ko";
+
+export const DEFAULT_LOCALE: AppLocale = "en";
+
+export const localeDetails: Readonly<
+  Record<
+    AppLocale,
+    {
+      readonly label: string;
+      readonly nativeLabel: string;
+      readonly intl: string;
+      readonly hreflang: string;
+      readonly openGraph: string;
+    }
+  >
+> = {
+  en: {
+    label: "English",
+    nativeLabel: "English",
+    intl: "en-US",
+    hreflang: "en-US",
+    openGraph: "en_US",
+  },
+  ko: {
+    label: "Korean",
+    nativeLabel: "한국어",
+    intl: "ko-KR",
+    hreflang: "ko-KR",
+    openGraph: "ko_KR",
+  },
+  ja: {
+    label: "Japanese",
+    nativeLabel: "日本語",
+    intl: "ja-JP",
+    hreflang: "ja-JP",
+    openGraph: "ja_JP",
+  },
+  "zh-TW": {
+    label: "Traditional Chinese",
+    nativeLabel: "繁體中文",
+    intl: "zh-TW",
+    hreflang: "zh-TW",
+    openGraph: "zh_TW",
+  },
+  es: {
+    label: "Spanish",
+    nativeLabel: "Español",
+    intl: "es-419",
+    hreflang: "es-419",
+    openGraph: "es_419",
+  },
+  "pt-BR": {
+    label: "Brazilian Portuguese",
+    nativeLabel: "Português (Brasil)",
+    intl: "pt-BR",
+    hreflang: "pt-BR",
+    openGraph: "pt_BR",
+  },
+  de: {
+    label: "German",
+    nativeLabel: "Deutsch",
+    intl: "de-DE",
+    hreflang: "de-DE",
+    openGraph: "de_DE",
+  },
+  fr: {
+    label: "French",
+    nativeLabel: "Français",
+    intl: "fr-FR",
+    hreflang: "fr-FR",
+    openGraph: "fr_FR",
+  },
+};
+
+export function isLocale(value: unknown): value is AppLocale {
+  return (
+    typeof value === "string" && (locales as readonly string[]).includes(value)
+  );
+}
+
+export function localeFromLanguageTag(
+  value: string | null | undefined,
+): AppLocale | undefined {
+  if (!value) return undefined;
+  const tag = value.trim().replaceAll("_", "-").toLowerCase();
+  if (tag.startsWith("ko")) return "ko";
+  if (tag.startsWith("ja")) return "ja";
+  if (
+    tag.startsWith("zh-tw") ||
+    tag.startsWith("zh-hk") ||
+    tag.startsWith("zh-hant")
+  )
+    return "zh-TW";
+  if (tag.startsWith("es")) return "es";
+  if (tag.startsWith("pt")) return "pt-BR";
+  if (tag.startsWith("de")) return "de";
+  if (tag.startsWith("fr")) return "fr";
+  if (tag.startsWith("en")) return "en";
+  return undefined;
+}
+
+export function localeFromAcceptLanguage(
+  value: string | null | undefined,
+): AppLocale | undefined {
+  if (!value) return undefined;
+  return value
+    .split(",")
+    .map((part) => {
+      const [tag, ...parameters] = part.trim().split(";");
+      const quality = parameters
+        .map((parameter) => parameter.trim())
+        .find((parameter) => parameter.startsWith("q="));
+      const parsedQuality =
+        quality === undefined ? 1 : Number(quality.slice(2));
+      return {
+        tag,
+        quality: Number.isFinite(parsedQuality) ? parsedQuality : 0,
+      };
+    })
+    .sort((left, right) => right.quality - left.quality)
+    .map(({ tag }) => localeFromLanguageTag(tag))
+    .find((locale): locale is AppLocale => locale !== undefined);
+}
+
+export function localeFromCountry(
+  value: string | null | undefined,
+): AppLocale | undefined {
+  switch (value?.trim().toUpperCase()) {
+    case "KR":
+      return "ko";
+    case "JP":
+      return "ja";
+    case "TW":
+    case "HK":
+    case "MO":
+      return "zh-TW";
+    case "ES":
+    case "MX":
+    case "AR":
+    case "BO":
+    case "CL":
+    case "CO":
+    case "CR":
+    case "CU":
+    case "DO":
+    case "EC":
+    case "GT":
+    case "HN":
+    case "NI":
+    case "PA":
+    case "PE":
+    case "PR":
+    case "PY":
+    case "SV":
+    case "UY":
+    case "VE":
+      return "es";
+    case "BR":
+    case "PT":
+      return "pt-BR";
+    case "DE":
+    case "AT":
+    case "LI":
+      return "de";
+    case "FR":
+    case "BE":
+    case "MC":
+      return "fr";
+    default:
+      return undefined;
+  }
+}
+
+export function resolveRequestLocale(input: {
+  readonly storedLocale?: string | null | undefined;
+  readonly acceptLanguage?: string | null | undefined;
+  readonly country?: string | null | undefined;
+}): AppLocale {
+  return isLocale(input.storedLocale)
+    ? input.storedLocale
+    : (localeFromAcceptLanguage(input.acceptLanguage) ??
+        localeFromCountry(input.country) ??
+        DEFAULT_LOCALE);
+}
+
+export function intlLocale(locale: AppLocale): string {
+  return localeDetails[locale].intl;
+}
+
+export type UiMessages = Readonly<
+  { readonly en: string } & Partial<Record<Exclude<AppLocale, "en">, string>>
+>;
+
+/** Returns a native UI string when available and English for any missing key. */
+export function uiMessage(locale: AppLocale, messages: UiMessages): string {
+  return messages[locale] ?? messages.en;
+}
+
+/** Existing audited research artifacts remain bilingual until translated projections are persisted. */
+export type ResearchLocale = "en" | "ko";
+
+export function researchLocale(locale: AppLocale): ResearchLocale {
+  return locale === "ko" ? "ko" : "en";
+}
+
+/** Parses a UI locale and falls back to English for bilingual report content. */
+export function researchLocaleFromValue(value: unknown): ResearchLocale {
+  return isLocale(value) ? researchLocale(value) : "en";
+}
 
 export type ResearchCopy = {
   readonly camera: {
@@ -20,7 +238,7 @@ export type ResearchCopy = {
   readonly agentThinking: Readonly<Record<AgentId, string>>;
 };
 
-export const researchCopy: Readonly<Record<Locale, ResearchCopy>> = {
+export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
   en: {
     camera: {
       overview: "Overview",
@@ -115,6 +333,290 @@ export const researchCopy: Readonly<Record<Locale, ResearchCopy>> = {
       chair: "근거 검토 절차 조율 중",
     },
   },
+  ja: {
+    camera: {
+      overview: "全体表示",
+      focus: "フォーカス",
+      overviewToggle: "オフィス全体を表示",
+      focusToggle: "進行中のリサーチ班を追跡",
+    },
+    aria: {
+      stage: "AIリサーチチームの稼働状況",
+      semanticSummary: "現在の公開オフィス活動",
+    },
+    activityStatus: {
+      data_collection: "データを収集中",
+      macro_analysis: "市場環境を分析中",
+      news_analysis: "ニュースを分析中",
+      market_comparison: "同業他社を比較中",
+      business_analysis: "事業を分析中",
+      product_analysis: "製品を分析中",
+      competition_analysis: "競争力を分析中",
+      financial_analysis: "財務を分析中",
+      valuation_analysis: "バリュエーションを分析中",
+      earnings_quality_analysis: "利益の質を検証中",
+      downside_analysis: "下振れリスクを分析中",
+      policy_scenario_analysis: "政策シナリオを分析中",
+      team_synthesis: "チーム見解を統合中",
+      challenge_review: "反対論を検証中",
+      followup_research: "追加調査中",
+      response_review: "反論への回答を確認中",
+      evidence_audit: "根拠を監査中",
+      semantic_audit: "主張を検証中",
+      chair_synthesis: "最終判断を作成中",
+    },
+    agentThinking: {
+      market: "金利・インフレと市場局面を分析中",
+      market_news: "ニュース、トレンド、出来高を照合中",
+      benchmark: "同業他社とベンチマークを比較中",
+      company: "事業モデルと成長要因を分析中",
+      company_product: "製品採用の根拠を検証中",
+      company_competition: "競争優位と市場地位を比較中",
+      financial: "財務諸表とキャッシュ転換を照合中",
+      valuation: "バリュエーションと期待シナリオを作成中",
+      financial_quality: "利益の質と持続性を検証中",
+      risk: "下振れ経路と警戒指標を追跡中",
+      risk_policy: "政策・規制シナリオをストレステスト中",
+      chair: "根拠レビューを調整中",
+    },
+  },
+  "zh-TW": {
+    camera: {
+      overview: "總覽",
+      focus: "聚焦",
+      overviewToggle: "查看完整研究室",
+      focusToggle: "跟隨目前研究小組",
+    },
+    aria: { stage: "AI 研究團隊進度", semanticSummary: "目前公開研究室動態" },
+    activityStatus: {
+      data_collection: "正在蒐集資料",
+      macro_analysis: "正在分析市場環境",
+      news_analysis: "正在分析新聞",
+      market_comparison: "正在比較同業",
+      business_analysis: "正在分析業務",
+      product_analysis: "正在分析產品",
+      competition_analysis: "正在分析競爭力",
+      financial_analysis: "正在分析財務",
+      valuation_analysis: "正在分析估值",
+      earnings_quality_analysis: "正在檢驗獲利品質",
+      downside_analysis: "正在分析下行風險",
+      policy_scenario_analysis: "正在分析政策情境",
+      team_synthesis: "正在整合團隊觀點",
+      challenge_review: "正在檢驗反方論點",
+      followup_research: "正在追加研究",
+      response_review: "正在檢視反駁回應",
+      evidence_audit: "正在稽核證據",
+      semantic_audit: "正在驗證主張",
+      chair_synthesis: "正在完成最終判斷",
+    },
+    agentThinking: {
+      market: "正在解讀利率、通膨與市場階段",
+      market_news: "正在交叉核對新聞、趨勢與成交量",
+      benchmark: "正在比較同業與基準差異",
+      company: "正在分析商業模式與成長動能",
+      company_product: "正在驗證產品採用證據",
+      company_competition: "正在比較護城河與競爭地位",
+      financial: "正在核對財報與現金轉換",
+      valuation: "正在建立估值與預期情境",
+      financial_quality: "正在檢驗獲利品質與持續性",
+      risk: "正在追蹤下行路徑與預警訊號",
+      risk_policy: "正在壓力測試政策與監管情境",
+      chair: "正在協調證據審查",
+    },
+  },
+  es: {
+    camera: {
+      overview: "Vista general",
+      focus: "Enfoque",
+      overviewToggle: "Ver toda la oficina",
+      focusToggle: "Seguir al equipo de investigación activo",
+    },
+    aria: {
+      stage: "Actividad del equipo de investigación con IA",
+      semanticSummary: "Actividad pública actual de la oficina",
+    },
+    activityStatus: {
+      data_collection: "Recopilando datos",
+      macro_analysis: "Analizando el entorno de mercado",
+      news_analysis: "Analizando noticias",
+      market_comparison: "Comparando empresas pares",
+      business_analysis: "Analizando el negocio",
+      product_analysis: "Analizando productos",
+      competition_analysis: "Analizando la competencia",
+      financial_analysis: "Analizando las finanzas",
+      valuation_analysis: "Analizando la valoración",
+      earnings_quality_analysis: "Evaluando la calidad de beneficios",
+      downside_analysis: "Analizando el riesgo bajista",
+      policy_scenario_analysis: "Analizando escenarios regulatorios",
+      team_synthesis: "Integrando las perspectivas",
+      challenge_review: "Evaluando la tesis contraria",
+      followup_research: "Realizando investigación adicional",
+      response_review: "Revisando las refutaciones",
+      evidence_audit: "Auditando la evidencia",
+      semantic_audit: "Validando las afirmaciones",
+      chair_synthesis: "Finalizando la decisión",
+    },
+    agentThinking: {
+      market: "Interpretando tasas, inflación y régimen de mercado",
+      market_news: "Contrastando noticias, tendencia y volumen",
+      benchmark: "Comparando pares y dispersión frente al índice",
+      company: "Analizando el modelo de negocio y los motores de crecimiento",
+      company_product: "Validando la adopción del producto",
+      company_competition:
+        "Comparando ventajas competitivas y posición de mercado",
+      financial: "Conciliando estados financieros y conversión de caja",
+      valuation: "Construyendo escenarios de valoración y expectativas",
+      financial_quality: "Evaluando calidad y duración de beneficios",
+      risk: "Trazando riesgos bajistas y alertas tempranas",
+      risk_policy: "Probando escenarios regulatorios",
+      chair: "Coordinando la revisión de evidencia",
+    },
+  },
+  "pt-BR": {
+    camera: {
+      overview: "Visão geral",
+      focus: "Foco",
+      overviewToggle: "Ver todo o escritório",
+      focusToggle: "Acompanhar a equipe de pesquisa ativa",
+    },
+    aria: {
+      stage: "Atividade da equipe de pesquisa com IA",
+      semanticSummary: "Atividade pública atual do escritório",
+    },
+    activityStatus: {
+      data_collection: "Coletando dados",
+      macro_analysis: "Analisando o ambiente de mercado",
+      news_analysis: "Analisando notícias",
+      market_comparison: "Comparando empresas pares",
+      business_analysis: "Analisando o negócio",
+      product_analysis: "Analisando produtos",
+      competition_analysis: "Analisando a concorrência",
+      financial_analysis: "Analisando as finanças",
+      valuation_analysis: "Analisando o valuation",
+      earnings_quality_analysis: "Testando a qualidade dos lucros",
+      downside_analysis: "Analisando riscos de queda",
+      policy_scenario_analysis: "Analisando cenários regulatórios",
+      team_synthesis: "Consolidando as visões da equipe",
+      challenge_review: "Testando a tese contrária",
+      followup_research: "Fazendo pesquisa adicional",
+      response_review: "Revisando as refutações",
+      evidence_audit: "Auditando evidências",
+      semantic_audit: "Validando as afirmações",
+      chair_synthesis: "Finalizando a decisão",
+    },
+    agentThinking: {
+      market: "Interpretando juros, inflação e regime de mercado",
+      market_news: "Cruzando notícias, tendência e volume",
+      benchmark: "Comparando pares e dispersão do benchmark",
+      company: "Mapeando o modelo de negócio e os vetores de crescimento",
+      company_product: "Validando evidências de adoção do produto",
+      company_competition:
+        "Comparando vantagem competitiva e posição de mercado",
+      financial: "Conciliando demonstrações e conversão de caixa",
+      valuation: "Construindo cenários de valuation e expectativas",
+      financial_quality: "Testando a qualidade e a duração dos lucros",
+      risk: "Mapeando riscos de queda e alertas antecipados",
+      risk_policy: "Testando cenários regulatórios",
+      chair: "Coordenando a revisão das evidências",
+    },
+  },
+  de: {
+    camera: {
+      overview: "Übersicht",
+      focus: "Fokus",
+      overviewToggle: "Gesamtes Research-Büro anzeigen",
+      focusToggle: "Aktivem Research-Team folgen",
+    },
+    aria: {
+      stage: "Aktivität des KI-Research-Teams",
+      semanticSummary: "Aktuelle öffentliche Büroaktivität",
+    },
+    activityStatus: {
+      data_collection: "Daten werden gesammelt",
+      macro_analysis: "Marktumfeld wird analysiert",
+      news_analysis: "Nachrichten werden analysiert",
+      market_comparison: "Vergleichsunternehmen werden geprüft",
+      business_analysis: "Geschäft wird analysiert",
+      product_analysis: "Produkte werden analysiert",
+      competition_analysis: "Wettbewerb wird analysiert",
+      financial_analysis: "Finanzdaten werden analysiert",
+      valuation_analysis: "Bewertung wird analysiert",
+      earnings_quality_analysis: "Ergebnisqualität wird geprüft",
+      downside_analysis: "Abwärtsrisiko wird analysiert",
+      policy_scenario_analysis: "Regulierungsszenarien werden analysiert",
+      team_synthesis: "Teammeinungen werden zusammengeführt",
+      challenge_review: "Gegenthese wird geprüft",
+      followup_research: "Zusätzliche Recherche läuft",
+      response_review: "Einwände werden geprüft",
+      evidence_audit: "Belege werden auditiert",
+      semantic_audit: "Aussagen werden validiert",
+      chair_synthesis: "Entscheidung wird finalisiert",
+    },
+    agentThinking: {
+      market: "Zinsen, Inflation und Marktregime werden eingeordnet",
+      market_news: "Nachrichten, Trend und Volumen werden abgeglichen",
+      benchmark: "Peers und Benchmark-Abweichungen werden verglichen",
+      company: "Geschäftsmodell und Wachstumstreiber werden analysiert",
+      company_product: "Produktakzeptanz wird geprüft",
+      company_competition:
+        "Wettbewerbsvorteile und Marktposition werden verglichen",
+      financial: "Abschlüsse und Cash Conversion werden abgeglichen",
+      valuation: "Bewertungs- und Erwartungsszenarien werden erstellt",
+      financial_quality: "Ergebnisqualität und Beständigkeit werden geprüft",
+      risk: "Abwärtspfade und Frühwarnsignale werden verfolgt",
+      risk_policy: "Regulierungs- und Politikszenarien werden getestet",
+      chair: "Evidenzprüfung wird koordiniert",
+    },
+  },
+  fr: {
+    camera: {
+      overview: "Vue d’ensemble",
+      focus: "Focus",
+      overviewToggle: "Afficher tout le bureau",
+      focusToggle: "Suivre l’équipe de recherche active",
+    },
+    aria: {
+      stage: "Activité de l’équipe de recherche IA",
+      semanticSummary: "Activité publique actuelle du bureau",
+    },
+    activityStatus: {
+      data_collection: "Collecte des données",
+      macro_analysis: "Analyse de l’environnement de marché",
+      news_analysis: "Analyse des actualités",
+      market_comparison: "Comparaison des sociétés comparables",
+      business_analysis: "Analyse de l’activité",
+      product_analysis: "Analyse des produits",
+      competition_analysis: "Analyse de la concurrence",
+      financial_analysis: "Analyse financière",
+      valuation_analysis: "Analyse de la valorisation",
+      earnings_quality_analysis: "Évaluation de la qualité des résultats",
+      downside_analysis: "Analyse du risque baissier",
+      policy_scenario_analysis: "Analyse des scénarios réglementaires",
+      team_synthesis: "Synthèse des avis de l’équipe",
+      challenge_review: "Test de la thèse opposée",
+      followup_research: "Recherche complémentaire",
+      response_review: "Examen des réfutations",
+      evidence_audit: "Audit des preuves",
+      semantic_audit: "Validation des affirmations",
+      chair_synthesis: "Finalisation de la décision",
+    },
+    agentThinking: {
+      market: "Interprétation des taux, de l’inflation et du régime de marché",
+      market_news: "Recoupement des actualités, de la tendance et des volumes",
+      benchmark: "Comparaison des pairs et des écarts à l’indice",
+      company: "Analyse du modèle économique et des moteurs de croissance",
+      company_product: "Validation des preuves d’adoption produit",
+      company_competition:
+        "Comparaison de l’avantage concurrentiel et du positionnement",
+      financial: "Rapprochement des comptes et de la conversion en trésorerie",
+      valuation: "Construction de scénarios de valorisation et d’anticipations",
+      financial_quality:
+        "Évaluation de la qualité et de la durabilité des résultats",
+      risk: "Analyse des scénarios baissiers et des signaux d’alerte",
+      risk_policy: "Test des scénarios réglementaires",
+      chair: "Coordination de la revue des preuves",
+    },
+  },
 };
 
 type Copy = {
@@ -140,6 +642,27 @@ type Copy = {
   readonly landing: {
     readonly sourcesLabel: string;
     readonly sources: readonly string[];
+    readonly office: {
+      readonly live: string;
+      readonly active: (count: number) => string;
+      readonly loading: string;
+      readonly label: string;
+      readonly error: string;
+    };
+    readonly researchRoom: {
+      readonly eyebrow: string;
+      readonly title: string;
+      readonly description: string;
+      readonly browse: string;
+      readonly fullCommittee: string;
+      readonly teams: Readonly<
+        Record<"market" | "company" | "financial" | "risk", string>
+      >;
+      readonly flip: string;
+      readonly flipLabel: (symbol: string, question: string) => string;
+      readonly locked: string;
+      readonly open: string;
+    };
     readonly publishedTime: {
       readonly justNow: string;
       readonly minutesAgo: (minutes: number) => string;
@@ -183,7 +706,7 @@ type Copy = {
   };
 };
 
-export const copy: Readonly<Record<Locale, Copy>> = {
+export const copy: Readonly<Record<AppLocale, Copy>> = {
   en: {
     a11y: {
       home: "Stocksembly home",
@@ -215,6 +738,32 @@ export const copy: Readonly<Record<Locale, Copy>> = {
         "Company releases",
         "Trusted news",
       ],
+      office: {
+        live: "Live research office",
+        active: (count) => `${count} agents active`,
+        loading: "Preparing the research office",
+        label: "AI agent research office",
+        error: "The research office could not be loaded.",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · LATEST FIVE",
+        title: "Flip through questions investors already asked.",
+        description:
+          "Reveal the question on the back, then open the finished research.",
+        browse: "Browse all research",
+        fullCommittee: "Full committee",
+        teams: {
+          market: "Market team",
+          company: "Company team",
+          financial: "Financial team",
+          risk: "Risk team",
+        },
+        flip: "Flip ↗",
+        flipLabel: (symbol, question) =>
+          `Flip ${symbol} research card: ${question}`,
+        locked: "Opens in 7 days · View access",
+        open: "Open research",
+      },
       publishedTime: {
         justNow: "Just now",
         minutesAgo: (minutes) => `${minutes}m ago`,
@@ -291,6 +840,32 @@ export const copy: Readonly<Record<Locale, Copy>> = {
         "기업 발표",
         "검증된 뉴스",
       ],
+      office: {
+        live: "실시간 리서치 오피스",
+        active: (count) => `${count}개 에이전트 활동 중`,
+        loading: "리서치 오피스를 준비하고 있습니다",
+        label: "AI 에이전트 리서치 오피스",
+        error: "리서치 오피스를 불러오지 못했습니다.",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · 최근 5개",
+        title: "다른 투자자의 질문을 뒤집어 보세요.",
+        description:
+          "카드 뒷면에서 질문을 확인하고, 완성된 리서치로 바로 이동합니다.",
+        browse: "모든 리서치 보기",
+        fullCommittee: "전체 위원회",
+        teams: {
+          market: "시장팀",
+          company: "기업팀",
+          financial: "재무팀",
+          risk: "리스크팀",
+        },
+        flip: "뒤집기 ↗",
+        flipLabel: (symbol, question) =>
+          `${symbol} 리서치 카드 뒤집기: ${question}`,
+        locked: "7일 후 공개 · 클릭하여 안내",
+        open: "리서치 열기",
+      },
       publishedTime: {
         justNow: "방금 전",
         minutesAgo: (minutes) => `${minutes}분 전`,
@@ -334,6 +909,591 @@ export const copy: Readonly<Record<Locale, Copy>> = {
         "지원 대상인 미국 기업을 찾지 못했습니다. 다른 티커를 입력하세요.",
       matchHint: "기업을 선택하거나 바로 리서치를 시작하세요.",
       queued: (symbol) => `${symbol} 리서치 룸이 준비됐습니다.`,
+    },
+  },
+  ja: {
+    a11y: {
+      home: "Stocksembly ホーム",
+      language: "言語",
+      navigation: "メインナビゲーション",
+      results: "検索結果",
+    },
+    nav: { product: "製品", getStarted: "始める", pricing: "料金プラン" },
+    hero: {
+      eyebrow: "米国株のマルチエージェント・リサーチ",
+      titleLead: "投資論点を",
+      titleTail: "検証する。",
+      descriptionLead:
+        "11人のAI専門家が、事業・業績・バリュエーション・カタリスト・リスクを調査します。",
+      descriptionTail:
+        "独立したリサーチ議長が反対論を検討し、根拠と結び付いた最終判断にまとめます。",
+      proof: "結論だけでなく、根拠と意見の相違まで確認できます。",
+    },
+    landing: {
+      sourcesLabel: "リサーチ対象",
+      sources: [
+        "SEC提出書類",
+        "決算発表",
+        "市場データ",
+        "企業発表",
+        "信頼できるニュース",
+      ],
+      office: {
+        live: "リアルタイム・リサーチオフィス",
+        active: (count) => `${count}人のエージェントが稼働中`,
+        loading: "リサーチオフィスを準備しています",
+        label: "AIエージェント・リサーチオフィス",
+        error: "リサーチオフィスを読み込めませんでした。",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · 最新5件",
+        title: "投資家がすでに尋ねた論点をめくってみましょう。",
+        description: "裏面で質問を確認し、完成したリサーチを開けます。",
+        browse: "すべてのリサーチを見る",
+        fullCommittee: "全委員会",
+        teams: {
+          market: "市場チーム",
+          company: "企業チーム",
+          financial: "財務チーム",
+          risk: "リスクチーム",
+        },
+        flip: "めくる ↗",
+        flipLabel: (symbol, question) =>
+          `${symbol}のリサーチカードをめくる：${question}`,
+        locked: "7日後に公開 · 閲覧条件",
+        open: "リサーチを開く",
+      },
+      publishedTime: {
+        justNow: "たった今",
+        minutesAgo: (minutes) => `${minutes}分前`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `${hours}時間${minutes > 0 ? `${minutes}分` : ""}前`,
+      },
+    },
+    footer: {
+      purpose: "出典を保ち、意見の相違を可視化するAI株式リサーチ。",
+      productHeading: "製品",
+      howItWorks: "仕組み",
+      research: "リサーチを開始",
+      stockAnalysis: "米国株分析",
+      standardsHeading: "会社情報・基準",
+      about: "Stocksemblyについて",
+      methodology: "リサーチ手法",
+      editorialPolicy: "編集方針",
+      corrections: "訂正方針",
+      contactHeading: "お問い合わせ",
+      support: "カスタマーサポート",
+      operator: "SERN運営 · 韓国",
+      legalHeading: "法的情報",
+      terms: "利用規約",
+      privacy: "プライバシーポリシー",
+      disclaimerLabel: "リサーチ免責事項",
+      risk: "リスク開示",
+      disclaimer:
+        "情報・教育目的のAI支援リサーチです。売買推奨や目標株価ではありません。データやモデル出力は遅延、不完全、または不正確な場合があります。投資には元本割れのリスクがあります。",
+      rights: "SERN. All rights reserved.",
+    },
+    search: {
+      label: "ティッカーまたは企業",
+      placeholder: "米国株のティッカーまたは企業名を検索",
+      questionLabel: "検証する投資質問",
+      questionPlaceholder:
+        "例：成長率は現在のバリュエーションを正当化できるか？",
+      action: "チームリサーチを開始",
+      loading: "リサーチルームを準備中",
+      popular: "人気のティッカー",
+      clear: "検索をクリア",
+      noResults:
+        "対応する米国企業が見つかりません。別のティッカーを入力してください。",
+      matchHint: "企業を選択するか、そのままリサーチを開始してください。",
+      queued: (symbol) => `${symbol} のリサーチルームを用意しました。`,
+    },
+  },
+  "zh-TW": {
+    a11y: {
+      home: "Stocksembly 首頁",
+      language: "語言",
+      navigation: "主要導覽",
+      results: "搜尋結果",
+    },
+    nav: { product: "產品", getStarted: "開始使用", pricing: "方案" },
+    hero: {
+      eyebrow: "美股多代理研究",
+      titleLead: "驗證核心",
+      titleTail: "投資爭點。",
+      descriptionLead: "11 位 AI 專家共同研究企業、財報、估值、催化劑與風險。",
+      descriptionTail: "獨立研究主席檢視反方論點，彙整為連結證據的最終判斷。",
+      proof: "不只看結論，也能檢視證據與分歧。",
+    },
+    landing: {
+      sourcesLabel: "研究範圍",
+      sources: ["SEC 申報文件", "財報發布", "市場資料", "公司公告", "可信新聞"],
+      office: {
+        live: "即時研究辦公室",
+        active: (count) => `${count} 位代理正在運作`,
+        loading: "正在準備研究辦公室",
+        label: "AI 代理研究辦公室",
+        error: "無法載入研究辦公室。",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · 最新 5 份",
+        title: "翻閱其他投資人已經提出的問題。",
+        description: "翻到背面查看問題，再開啟完整研究。",
+        browse: "瀏覽所有研究",
+        fullCommittee: "全體委員會",
+        teams: {
+          market: "市場團隊",
+          company: "企業團隊",
+          financial: "財務團隊",
+          risk: "風險團隊",
+        },
+        flip: "翻面 ↗",
+        flipLabel: (symbol, question) => `翻開 ${symbol} 研究卡：${question}`,
+        locked: "7 天後開放 · 查看權限",
+        open: "開啟研究",
+      },
+      publishedTime: {
+        justNow: "剛剛",
+        minutesAgo: (minutes) => `${minutes} 分鐘前`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `${hours} 小時${minutes > 0 ? ` ${minutes} 分鐘` : ""}前`,
+      },
+    },
+    footer: {
+      purpose: "保留來源並呈現分歧的 AI 股票研究。",
+      productHeading: "產品",
+      howItWorks: "運作方式",
+      research: "開始研究",
+      stockAnalysis: "美股分析",
+      standardsHeading: "關於與標準",
+      about: "關於 Stocksembly",
+      methodology: "研究方法",
+      editorialPolicy: "編輯政策",
+      corrections: "更正政策",
+      contactHeading: "聯絡我們",
+      support: "客戶支援",
+      operator: "由 SERN 營運 · 韓國",
+      legalHeading: "法律資訊",
+      terms: "服務條款",
+      privacy: "隱私權政策",
+      disclaimerLabel: "研究免責聲明",
+      risk: "風險揭露",
+      disclaimer:
+        "本服務為資訊與教育用途的 AI 輔助研究，不提供買賣建議或目標價。資料與模型輸出可能延遲、不完整或不準確。投資可能導致本金損失。",
+      rights: "SERN. All rights reserved.",
+    },
+    search: {
+      label: "股票代號或公司",
+      placeholder: "搜尋美股代號或公司名稱",
+      questionLabel: "要驗證的投資問題",
+      questionPlaceholder: "例如：成長能否合理化目前估值？",
+      action: "開始團隊研究",
+      loading: "正在準備研究室",
+      popular: "熱門股票",
+      clear: "清除搜尋",
+      noResults: "找不到支援的美國公司，請嘗試其他股票代號。",
+      matchHint: "選擇公司，或直接開始研究。",
+      queued: (symbol) => `${symbol} 研究室已準備完成。`,
+    },
+  },
+  es: {
+    a11y: {
+      home: "Inicio de Stocksembly",
+      language: "Idioma",
+      navigation: "Navegación principal",
+      results: "Resultados de búsqueda",
+    },
+    nav: { product: "Producto", getStarted: "Comenzar", pricing: "Planes" },
+    hero: {
+      eyebrow: "Análisis multiagente de acciones de EE. UU.",
+      titleLead: "Pon a prueba",
+      titleTail: "la tesis de inversión.",
+      descriptionLead:
+        "Once especialistas de IA investigan el negocio, los resultados, la valoración, los catalizadores y los riesgos.",
+      descriptionTail:
+        "Un presidente de investigación independiente examina la tesis contraria y presenta una conclusión vinculada a la evidencia.",
+      proof: "Consulta la evidencia y los desacuerdos detrás de la conclusión.",
+    },
+    landing: {
+      sourcesLabel: "Cobertura de investigación",
+      sources: [
+        "Documentos de la SEC",
+        "Resultados",
+        "Datos de mercado",
+        "Comunicados corporativos",
+        "Noticias verificadas",
+      ],
+      office: {
+        live: "Oficina de análisis en vivo",
+        active: (count) => `${count} agentes activos`,
+        loading: "Preparando la oficina de análisis",
+        label: "Oficina de análisis con agentes de IA",
+        error: "No se pudo cargar la oficina de análisis.",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · ÚLTIMOS CINCO",
+        title: "Descubre las preguntas que otros inversores ya hicieron.",
+        description:
+          "Voltea la tarjeta, lee la pregunta y abre el análisis completo.",
+        browse: "Ver todos los análisis",
+        fullCommittee: "Comité completo",
+        teams: {
+          market: "Equipo de mercado",
+          company: "Equipo de empresa",
+          financial: "Equipo financiero",
+          risk: "Equipo de riesgos",
+        },
+        flip: "Voltear ↗",
+        flipLabel: (symbol, question) =>
+          `Voltear la tarjeta de ${symbol}: ${question}`,
+        locked: "Disponible en 7 días · Ver acceso",
+        open: "Abrir análisis",
+      },
+      publishedTime: {
+        justNow: "Ahora",
+        minutesAgo: (minutes) => `Hace ${minutes} min`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `Hace ${hours} h${minutes > 0 ? ` ${minutes} min` : ""}`,
+      },
+    },
+    footer: {
+      purpose:
+        "Análisis bursátil con IA que conserva las fuentes y muestra los desacuerdos.",
+      productHeading: "Producto",
+      howItWorks: "Cómo funciona",
+      research: "Iniciar análisis",
+      stockAnalysis: "Análisis de acciones de EE. UU.",
+      standardsHeading: "Información y estándares",
+      about: "Sobre Stocksembly",
+      methodology: "Metodología",
+      editorialPolicy: "Política editorial",
+      corrections: "Política de correcciones",
+      contactHeading: "Contacto",
+      support: "Atención al cliente",
+      operator: "Operado por SERN · Corea del Sur",
+      legalHeading: "Legal",
+      terms: "Términos del servicio",
+      privacy: "Política de privacidad",
+      disclaimerLabel: "Aviso de investigación",
+      risk: "Divulgación de riesgos",
+      disclaimer:
+        "Análisis asistido por IA con fines informativos y educativos. No constituye recomendación de compra o venta ni precio objetivo. Los datos y resultados pueden ser tardíos, incompletos o inexactos. Invertir implica riesgo de pérdida del capital.",
+      rights: "SERN. Todos los derechos reservados.",
+    },
+    search: {
+      label: "Ticker o empresa",
+      placeholder: "Busca un ticker o empresa de EE. UU.",
+      questionLabel: "Pregunta de inversión",
+      questionPlaceholder:
+        "Ej.: ¿El crecimiento justifica la valoración actual?",
+      action: "Iniciar análisis en equipo",
+      loading: "Preparando la sala de análisis",
+      popular: "Tickers populares",
+      clear: "Borrar búsqueda",
+      noResults:
+        "No encontramos una empresa estadounidense compatible. Prueba otro ticker.",
+      matchHint: "Selecciona una empresa o inicia el análisis directamente.",
+      queued: (symbol) => `La sala de análisis de ${symbol} está lista.`,
+    },
+  },
+  "pt-BR": {
+    a11y: {
+      home: "Início da Stocksembly",
+      language: "Idioma",
+      navigation: "Navegação principal",
+      results: "Resultados da busca",
+    },
+    nav: { product: "Produto", getStarted: "Começar", pricing: "Planos" },
+    hero: {
+      eyebrow: "Research multiagente para ações dos EUA",
+      titleLead: "Teste a",
+      titleTail: "tese de investimento.",
+      descriptionLead:
+        "Onze especialistas de IA pesquisam o negócio, resultados, valuation, catalisadores e riscos.",
+      descriptionTail:
+        "Um chair independente analisa a tese contrária e consolida uma conclusão ligada às evidências.",
+      proof: "Veja as evidências e as divergências por trás da conclusão.",
+    },
+    landing: {
+      sourcesLabel: "Cobertura da pesquisa",
+      sources: [
+        "Documentos da SEC",
+        "Resultados",
+        "Dados de mercado",
+        "Comunicados da empresa",
+        "Notícias verificadas",
+      ],
+      office: {
+        live: "Escritório de research ao vivo",
+        active: (count) => `${count} agentes ativos`,
+        loading: "Preparando o escritório de research",
+        label: "Escritório de research com agentes de IA",
+        error: "Não foi possível carregar o escritório de research.",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · CINCO MAIS RECENTES",
+        title: "Veja as perguntas que outros investidores já fizeram.",
+        description:
+          "Vire o cartão, confira a pergunta e abra o research completo.",
+        browse: "Ver todos os researchs",
+        fullCommittee: "Comitê completo",
+        teams: {
+          market: "Equipe de mercado",
+          company: "Equipe de empresa",
+          financial: "Equipe financeira",
+          risk: "Equipe de riscos",
+        },
+        flip: "Virar ↗",
+        flipLabel: (symbol, question) =>
+          `Virar o cartão de ${symbol}: ${question}`,
+        locked: "Disponível em 7 dias · Ver acesso",
+        open: "Abrir research",
+      },
+      publishedTime: {
+        justNow: "Agora",
+        minutesAgo: (minutes) => `Há ${minutes} min`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `Há ${hours} h${minutes > 0 ? ` ${minutes} min` : ""}`,
+      },
+    },
+    footer: {
+      purpose:
+        "Research de ações com IA que preserva as fontes e mostra as divergências.",
+      productHeading: "Produto",
+      howItWorks: "Como funciona",
+      research: "Iniciar research",
+      stockAnalysis: "Análise de ações dos EUA",
+      standardsHeading: "Sobre e padrões",
+      about: "Sobre a Stocksembly",
+      methodology: "Metodologia",
+      editorialPolicy: "Política editorial",
+      corrections: "Política de correções",
+      contactHeading: "Contato",
+      support: "Atendimento",
+      operator: "Operado pela SERN · Coreia do Sul",
+      legalHeading: "Legal",
+      terms: "Termos de Serviço",
+      privacy: "Política de Privacidade",
+      disclaimerLabel: "Aviso de research",
+      risk: "Divulgação de riscos",
+      disclaimer:
+        "Research assistido por IA para fins informativos e educacionais. Não constitui recomendação de compra ou venda nem preço-alvo. Dados e resultados podem estar atrasados, incompletos ou incorretos. Investir envolve risco de perda do capital.",
+      rights: "SERN. Todos os direitos reservados.",
+    },
+    search: {
+      label: "Ticker ou empresa",
+      placeholder: "Busque um ticker ou empresa dos EUA",
+      questionLabel: "Pergunta de investimento",
+      questionPlaceholder: "Ex.: o crescimento justifica o valuation atual?",
+      action: "Iniciar research em equipe",
+      loading: "Preparando a sala de research",
+      popular: "Tickers populares",
+      clear: "Limpar busca",
+      noResults:
+        "Nenhuma empresa americana compatível foi encontrada. Tente outro ticker.",
+      matchHint: "Selecione uma empresa ou inicie o research diretamente.",
+      queued: (symbol) => `A sala de research de ${symbol} está pronta.`,
+    },
+  },
+  de: {
+    a11y: {
+      home: "Stocksembly Startseite",
+      language: "Sprache",
+      navigation: "Hauptnavigation",
+      results: "Suchergebnisse",
+    },
+    nav: { product: "Produkt", getStarted: "Loslegen", pricing: "Tarife" },
+    hero: {
+      eyebrow: "Multi-Agent-Research für US-Aktien",
+      titleLead: "Prüfen Sie die",
+      titleTail: "Investmentthese.",
+      descriptionLead:
+        "Elf KI-Spezialisten untersuchen Geschäft, Ergebnisse, Bewertung, Katalysatoren und Risiken.",
+      descriptionTail:
+        "Ein unabhängiger Research-Chair prüft die Gegenthese und fasst alles zu einem evidenzbasierten Urteil zusammen.",
+      proof: "Sehen Sie die Belege und Meinungsunterschiede hinter dem Urteil.",
+    },
+    landing: {
+      sourcesLabel: "Research-Abdeckung",
+      sources: [
+        "SEC-Berichte",
+        "Quartalszahlen",
+        "Marktdaten",
+        "Unternehmensmeldungen",
+        "Geprüfte Nachrichten",
+      ],
+      office: {
+        live: "Live-Research-Office",
+        active: (count) => `${count} Agenten aktiv`,
+        loading: "Research-Office wird vorbereitet",
+        label: "Research-Office mit KI-Agenten",
+        error: "Das Research-Office konnte nicht geladen werden.",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · NEUESTE FÜNF",
+        title: "Entdecken Sie Fragen, die Anleger bereits gestellt haben.",
+        description:
+          "Karte umdrehen, Frage lesen und das fertige Research öffnen.",
+        browse: "Alle Analysen ansehen",
+        fullCommittee: "Gesamtes Komitee",
+        teams: {
+          market: "Marktteam",
+          company: "Unternehmensteam",
+          financial: "Finanzteam",
+          risk: "Risikoteam",
+        },
+        flip: "Umdrehen ↗",
+        flipLabel: (symbol, question) =>
+          `Research-Karte für ${symbol} umdrehen: ${question}`,
+        locked: "In 7 Tagen verfügbar · Zugang ansehen",
+        open: "Research öffnen",
+      },
+      publishedTime: {
+        justNow: "Gerade eben",
+        minutesAgo: (minutes) => `Vor ${minutes} Min.`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `Vor ${hours} Std.${minutes > 0 ? ` ${minutes} Min.` : ""}`,
+      },
+    },
+    footer: {
+      purpose:
+        "KI-Aktienresearch, das Quellen erhält und Meinungsunterschiede sichtbar macht.",
+      productHeading: "Produkt",
+      howItWorks: "So funktioniert es",
+      research: "Research starten",
+      stockAnalysis: "US-Aktienanalyse",
+      standardsHeading: "Über uns & Standards",
+      about: "Über Stocksembly",
+      methodology: "Research-Methodik",
+      editorialPolicy: "Redaktionelle Richtlinie",
+      corrections: "Korrekturrichtlinie",
+      contactHeading: "Kontakt",
+      support: "Kundensupport",
+      operator: "Betrieben von SERN · Südkorea",
+      legalHeading: "Rechtliches",
+      terms: "Nutzungsbedingungen",
+      privacy: "Datenschutzerklärung",
+      disclaimerLabel: "Research-Hinweis",
+      risk: "Risikohinweis",
+      disclaimer:
+        "KI-gestütztes Research zu Informations- und Bildungszwecken. Keine Kauf- oder Verkaufsempfehlung und kein Kursziel. Daten und Modellergebnisse können verzögert, unvollständig oder ungenau sein. Anlagen bergen das Risiko eines Kapitalverlusts.",
+      rights: "SERN. Alle Rechte vorbehalten.",
+    },
+    search: {
+      label: "Ticker oder Unternehmen",
+      placeholder: "US-Ticker oder Unternehmen suchen",
+      questionLabel: "Investmentfrage",
+      questionPlaceholder:
+        "Z. B.: Rechtfertigt das Wachstum die aktuelle Bewertung?",
+      action: "Team-Research starten",
+      loading: "Research-Raum wird vorbereitet",
+      popular: "Beliebte Ticker",
+      clear: "Suche löschen",
+      noResults:
+        "Kein unterstütztes US-Unternehmen gefunden. Versuchen Sie einen anderen Ticker.",
+      matchHint: "Unternehmen auswählen oder Research direkt starten.",
+      queued: (symbol) => `Der Research-Raum für ${symbol} ist bereit.`,
+    },
+  },
+  fr: {
+    a11y: {
+      home: "Accueil Stocksembly",
+      language: "Langue",
+      navigation: "Navigation principale",
+      results: "Résultats de recherche",
+    },
+    nav: { product: "Produit", getStarted: "Commencer", pricing: "Offres" },
+    hero: {
+      eyebrow: "Recherche multi-agents sur les actions américaines",
+      titleLead: "Mettez à l’épreuve",
+      titleTail: "la thèse d’investissement.",
+      descriptionLead:
+        "Onze spécialistes IA étudient l’activité, les résultats, la valorisation, les catalyseurs et les risques.",
+      descriptionTail:
+        "Un président de recherche indépendant examine la thèse contraire et rend un jugement relié aux preuves.",
+      proof: "Consultez les preuves et les désaccords derrière la conclusion.",
+    },
+    landing: {
+      sourcesLabel: "Périmètre de recherche",
+      sources: [
+        "Documents SEC",
+        "Résultats financiers",
+        "Données de marché",
+        "Communiqués d’entreprise",
+        "Actualités vérifiées",
+      ],
+      office: {
+        live: "Bureau de recherche en direct",
+        active: (count) => `${count} agents actifs`,
+        loading: "Préparation du bureau de recherche",
+        label: "Bureau de recherche avec agents IA",
+        error: "Impossible de charger le bureau de recherche.",
+      },
+      researchRoom: {
+        eyebrow: "RESEARCH ROOM · CINQ DERNIÈRES",
+        title: "Découvrez les questions déjà posées par les investisseurs.",
+        description:
+          "Retournez la carte, lisez la question puis ouvrez la recherche complète.",
+        browse: "Voir toutes les recherches",
+        fullCommittee: "Comité complet",
+        teams: {
+          market: "Équipe marché",
+          company: "Équipe entreprise",
+          financial: "Équipe financière",
+          risk: "Équipe risques",
+        },
+        flip: "Retourner ↗",
+        flipLabel: (symbol, question) =>
+          `Retourner la carte ${symbol} : ${question}`,
+        locked: "Disponible dans 7 jours · Voir l’accès",
+        open: "Ouvrir la recherche",
+      },
+      publishedTime: {
+        justNow: "À l’instant",
+        minutesAgo: (minutes) => `Il y a ${minutes} min`,
+        hoursMinutesAgo: (hours, minutes) =>
+          `Il y a ${hours} h${minutes > 0 ? ` ${minutes} min` : ""}`,
+      },
+    },
+    footer: {
+      purpose:
+        "Une recherche actions par IA qui conserve les sources et rend les désaccords visibles.",
+      productHeading: "Produit",
+      howItWorks: "Fonctionnement",
+      research: "Lancer une recherche",
+      stockAnalysis: "Analyse d’actions américaines",
+      standardsHeading: "À propos et standards",
+      about: "À propos de Stocksembly",
+      methodology: "Méthodologie",
+      editorialPolicy: "Politique éditoriale",
+      corrections: "Politique de correction",
+      contactHeading: "Contact",
+      support: "Service client",
+      operator: "Opéré par SERN · Corée du Sud",
+      legalHeading: "Mentions légales",
+      terms: "Conditions d’utilisation",
+      privacy: "Politique de confidentialité",
+      disclaimerLabel: "Avertissement de recherche",
+      risk: "Information sur les risques",
+      disclaimer:
+        "Recherche assistée par IA à des fins d’information et d’éducation. Il ne s’agit ni d’une recommandation d’achat ou de vente ni d’un objectif de cours. Les données et résultats peuvent être retardés, incomplets ou inexacts. Investir comporte un risque de perte en capital.",
+      rights: "SERN. Tous droits réservés.",
+    },
+    search: {
+      label: "Ticker ou entreprise",
+      placeholder: "Rechercher un ticker ou une entreprise américaine",
+      questionLabel: "Question d’investissement",
+      questionPlaceholder:
+        "Ex. : la croissance justifie-t-elle la valorisation actuelle ?",
+      action: "Lancer la recherche en équipe",
+      loading: "Préparation de la salle de recherche",
+      popular: "Tickers populaires",
+      clear: "Effacer la recherche",
+      noResults:
+        "Aucune entreprise américaine prise en charge n’a été trouvée. Essayez un autre ticker.",
+      matchHint:
+        "Sélectionnez une entreprise ou lancez directement la recherche.",
+      queued: (symbol) => `La salle de recherche ${symbol} est prête.`,
     },
   },
 };

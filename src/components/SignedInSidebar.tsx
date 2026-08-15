@@ -7,7 +7,6 @@ import {
   signOut,
 } from "aws-amplify/auth";
 import {
-  BellRing,
   Check,
   ChevronRight,
   CircleHelp,
@@ -16,7 +15,6 @@ import {
   FileText,
   Home,
   Languages,
-  LayoutDashboard,
   LibraryBig,
   LogOut,
   PanelLeft,
@@ -30,25 +28,36 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createAuthenticatedResearchClient } from "../auth/researchClient";
 import { clearResearchSession } from "../auth/researchSession";
-import { copy, type Locale } from "../lib/i18n";
+import {
+  type AppLocale,
+  copy,
+  intlLocale,
+  localeDetails,
+  locales,
+  researchLocale,
+} from "../lib/i18n";
 import type { PublicRun } from "../research/client/schemas";
 import { Brand } from "./Brand";
 import { SidebarSubscriptionModal } from "./billing/SidebarSubscriptionModal";
 import { CompanyLogo } from "./research/ResearchSidebar";
+import {
+  type SignedInSidebarActiveItem,
+  SignedInSidebarNavigation,
+} from "./SignedInSidebarNavigation";
 
 type SignedInSidebarProps = {
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly collapsed: boolean;
   readonly mobileContext?: {
     readonly eyebrow: string;
     readonly title: string;
   };
   readonly onCollapsedChange: (collapsed: boolean) => void;
-  readonly onLocaleChange: (locale: Locale) => void;
+  readonly onLocaleChange: (locale: AppLocale) => void;
   readonly onSignedOut: () => void;
   readonly onOpenSubscription?: () => void;
   readonly subscriptionTier?: "unknown" | "free" | "paid";
-  readonly activeItem?: "dashboard" | "research-room" | "briefing-room";
+  readonly activeItem?: SignedInSidebarActiveItem;
 };
 
 export const SIGNED_IN_SIDEBAR_STORAGE_KEY =
@@ -70,7 +79,7 @@ type HistoryGroup = {
   readonly runs: readonly PublicRun[];
 };
 
-function statusLabel(status: PublicRun["status"], locale: Locale) {
+function statusLabel(status: PublicRun["status"], locale: AppLocale) {
   if (status === "queued" || status === "running" || status === "cancelling") {
     return locale === "ko" ? "분석 중" : "Researching";
   }
@@ -80,8 +89,8 @@ function statusLabel(status: PublicRun["status"], locale: Locale) {
   return locale === "ko" ? "중단됨" : "Stopped";
 }
 
-function dateLabel(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+function dateLabel(value: string, locale: AppLocale): string {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     month: "short",
     day: "numeric",
   }).format(new Date(value));
@@ -118,7 +127,7 @@ export function SignedInSidebar({
         await client.bootstrapSession();
         setRuns((await client.listRuns?.(12)) ?? []);
         const briefingResponse = await fetch(
-          `/api/briefings?locale=${locale}`,
+          `/api/briefings?locale=${researchLocale(locale)}`,
           { credentials: "same-origin", cache: "no-store" },
         ).catch(() => undefined);
         if (briefingResponse?.ok) {
@@ -228,10 +237,11 @@ export function SignedInSidebar({
     setSubscriptionModalOpen(true);
   }
 
-  async function handleLocaleSelection(nextLocale: Locale) {
+  async function handleLocaleSelection(nextLocale: AppLocale) {
     setLanguageOpen(false);
     onLocaleChange(nextLocale);
     window.localStorage.setItem(PREFERRED_LOCALE_STORAGE_KEY, nextLocale);
+    document.cookie = `stocksembly_locale=${encodeURIComponent(nextLocale)}; Path=/; Max-Age=31536000; SameSite=Lax`;
 
     const url = new URL(window.location.href);
     url.searchParams.set("lang", nextLocale);
@@ -319,48 +329,14 @@ export function SignedInSidebar({
         </button>
       </div>
 
-      <nav
-        className="signed-in-sidebar__compact-nav"
-        aria-label={locale === "ko" ? "빠른 화면 이동" : "Quick navigation"}
-        aria-hidden={!collapsed}
-      >
-        <Link
-          className={activeItem === "dashboard" ? "is-active" : undefined}
-          href={`/?lang=${locale}#product`}
-          aria-label={locale === "ko" ? "대시보드" : "Dashboard"}
-          aria-current={activeItem === "dashboard" ? "page" : undefined}
-          tabIndex={collapsed ? 0 : -1}
-          title={locale === "ko" ? "대시보드" : "Dashboard"}
-          onClick={preserveCollapsedNavigation}
-        >
-          <LayoutDashboard size={18} aria-hidden="true" />
-        </Link>
-        <Link
-          className={activeItem === "research-room" ? "is-active" : undefined}
-          href={`/research-room?lang=${locale}`}
-          aria-label={locale === "ko" ? "리서치룸" : "Research room"}
-          aria-current={activeItem === "research-room" ? "page" : undefined}
-          tabIndex={collapsed ? 0 : -1}
-          title={locale === "ko" ? "리서치룸" : "Research room"}
-          onClick={preserveCollapsedNavigation}
-        >
-          <LibraryBig size={18} aria-hidden="true" />
-        </Link>
-        <Link
-          className={activeItem === "briefing-room" ? "is-active" : undefined}
-          href={`/briefing-room?lang=${locale}`}
-          aria-label={locale === "ko" ? "브리핑룸" : "Briefing room"}
-          aria-current={activeItem === "briefing-room" ? "page" : undefined}
-          tabIndex={collapsed ? 0 : -1}
-          title={locale === "ko" ? "브리핑룸" : "Briefing room"}
-          onClick={preserveCollapsedNavigation}
-        >
-          <BellRing size={18} aria-hidden="true" />
-          {briefingUnread > 0 ? (
-            <span className="signed-in-sidebar__compact-badge" />
-          ) : null}
-        </Link>
-      </nav>
+      <SignedInSidebarNavigation
+        locale={locale}
+        collapsed={collapsed}
+        variant="compact"
+        activeItem={activeItem}
+        briefingUnread={briefingUnread}
+        onCompactNavigate={preserveCollapsedNavigation}
+      />
 
       <button
         type="button"
@@ -377,42 +353,14 @@ export function SignedInSidebar({
           id="signed-in-sidebar-content"
           aria-hidden={collapsed}
         >
-          <nav
-            className="signed-in-sidebar__nav"
-            aria-label={locale === "ko" ? "워크스페이스" : "Workspace"}
-          >
-            <Link
-              className={activeItem === "dashboard" ? "is-active" : undefined}
-              href={`/?lang=${locale}#product`}
-            >
-              <LayoutDashboard size={18} />
-              <span>{locale === "ko" ? "대시보드" : "Dashboard"}</span>
-            </Link>
-            <Link
-              className={
-                activeItem === "research-room" ? "is-active" : undefined
-              }
-              href={`/research-room?lang=${locale}`}
-            >
-              <LibraryBig size={18} />
-              <span>{locale === "ko" ? "리서치룸" : "Research room"}</span>
-            </Link>
-            <Link
-              className={
-                activeItem === "briefing-room" ? "is-active" : undefined
-              }
-              href={`/briefing-room?lang=${locale}`}
-            >
-              <BellRing size={18} />
-              <span>{locale === "ko" ? "브리핑룸" : "Briefing room"}</span>
-              {briefingUnread > 0 ? (
-                <small className="signed-in-sidebar__nav-badge">
-                  {Math.min(99, briefingUnread)}
-                </small>
-              ) : null}
-            </Link>
-          </nav>
-
+          <SignedInSidebarNavigation
+            locale={locale}
+            collapsed={collapsed}
+            variant="expanded"
+            activeItem={activeItem}
+            briefingUnread={briefingUnread}
+            onCompactNavigate={preserveCollapsedNavigation}
+          />
           <section
             className="signed-in-sidebar__history"
             aria-labelledby="signed-in-history-title"
@@ -559,45 +507,34 @@ export function SignedInSidebar({
                       onClick={() => setLanguageOpen((open) => !open)}
                     >
                       <Languages size={18} />
-                      <span>{locale === "ko" ? "언어" : "Language"}</span>
-                      <small>{locale === "ko" ? "한국어" : "English"}</small>
+                      <span>{copy[locale].a11y.language}</span>
+                      <small>{localeDetails[locale].nativeLabel}</small>
                       <ChevronRight size={16} />
                     </button>
                     {languageOpen ? (
                       <div
                         className="signed-in-sidebar__language-menu"
                         role="menu"
-                        aria-label={
-                          locale === "ko" ? "언어 선택" : "Choose language"
-                        }
+                        aria-label={copy[locale].a11y.language}
                       >
-                        <p>
-                          {locale === "ko" ? "표시 언어" : "Display language"}
-                        </p>
-                        <button
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={locale === "ko"}
-                          onClick={() => void handleLocaleSelection("ko")}
-                        >
-                          <span>
-                            <strong>한국어</strong>
-                            <small>KO</small>
-                          </span>
-                          {locale === "ko" ? <Check size={15} /> : null}
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={locale === "en"}
-                          onClick={() => void handleLocaleSelection("en")}
-                        >
-                          <span>
-                            <strong>English</strong>
-                            <small>EN</small>
-                          </span>
-                          {locale === "en" ? <Check size={15} /> : null}
-                        </button>
+                        <p>{copy[locale].a11y.language}</p>
+                        {locales.map((value) => (
+                          <button
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={locale === value}
+                            key={value}
+                            onClick={() => void handleLocaleSelection(value)}
+                          >
+                            <span>
+                              <strong>
+                                {localeDetails[value].nativeLabel}
+                              </strong>
+                              <small>{localeDetails[value].label}</small>
+                            </span>
+                            {locale === value ? <Check size={15} /> : null}
+                          </button>
+                        ))}
                       </div>
                     ) : null}
                   </div>
@@ -652,7 +589,7 @@ export function SignedInSidebar({
       {onOpenSubscription === undefined ? (
         <SidebarSubscriptionModal
           open={subscriptionModalOpen}
-          locale={locale}
+          locale={researchLocale(locale)}
           initialTier={subscriptionTier}
           onClose={() => setSubscriptionModalOpen(false)}
         />

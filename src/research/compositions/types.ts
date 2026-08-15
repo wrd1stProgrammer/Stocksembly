@@ -1,4 +1,4 @@
-import type { Locale } from "../../lib/i18n";
+import type { ResearchLocale } from "../../lib/i18n";
 import type { AnticipatedQuestion } from "../anticipatedQuestions";
 import type {
   CompositionOrigin,
@@ -16,7 +16,7 @@ import type { AgentProfile, ResearchCompany, ResearchPhase } from "../types";
 
 export { validateCompositionPayload } from "./payloadValidation";
 
-export type LocalizedText = Readonly<Record<Locale, string>>;
+export type LocalizedText = Readonly<Record<ResearchLocale, string>>;
 
 export type ResearchEvidenceStrength =
   | "strong"
@@ -267,5 +267,5 @@ export type OfficialDependencies = {
 };
 
 export type PhaseLabels = Readonly<
-  Record<ResearchPhase, Readonly<Record<Locale, string>>>
+  Record<ResearchPhase, Readonly<Record<ResearchLocale, string>>>
 >;

@@ -1,6 +1,6 @@
-import type { Locale } from "../lib/i18n";
+import type { ResearchLocale } from "../lib/i18n";
 
-export type LocalizedText = Readonly<Record<Locale, string>>;
+export type LocalizedText = Readonly<Record<ResearchLocale, string>>;
 
 const text = (en: string, ko: string): LocalizedText => ({ en, ko });
 

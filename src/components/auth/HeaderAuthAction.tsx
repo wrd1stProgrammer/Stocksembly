@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { configureAmplifyAuth } from "../../auth/amplifyClient";
 import { clearResearchSession } from "../../auth/researchSession";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
+import { uiMessage } from "../../lib/i18n";
 import { RecentResearchDrawer } from "./RecentResearchDrawer";
 
 export function HeaderAuthAction({
@@ -13,7 +14,7 @@ export function HeaderAuthAction({
   locale,
 }: {
   readonly label: string;
-  readonly locale: Locale;
+  readonly locale: AppLocale;
 }) {
   const [authState, setAuthState] = useState<
     "checking" | "signed-in" | "signed-out"
@@ -72,7 +73,16 @@ export function HeaderAuthAction({
         }}
         type="button"
       >
-        {locale === "ko" ? "로그아웃" : "Sign out"}
+        {uiMessage(locale, {
+          en: "Sign out",
+          ko: "로그아웃",
+          ja: "ログアウト",
+          "zh-TW": "登出",
+          es: "Cerrar sesión",
+          "pt-BR": "Sair",
+          de: "Abmelden",
+          fr: "Se déconnecter",
+        })}
       </button>
     </>
   );

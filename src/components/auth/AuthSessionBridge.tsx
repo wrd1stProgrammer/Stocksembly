@@ -8,12 +8,17 @@ import {
   clearResearchSession,
   syncResearchSession,
 } from "@/src/auth/researchSession";
+import { isLocale } from "@/src/lib/i18n";
 
 export function AuthSessionBridge() {
   const pathname = usePathname();
 
   useEffect(() => {
     let active = true;
+    const [, localeSegment, editorialSegment] = pathname.split("/");
+    const isEditorialRoute =
+      isLocale(localeSegment) &&
+      (editorialSegment === "blog" || editorialSegment === "glossary");
     const needsServerSession =
       pathname.startsWith("/research/") ||
       pathname === "/research-room" ||
@@ -21,7 +26,8 @@ export function AuthSessionBridge() {
       pathname === "/briefing-room" ||
       pathname.startsWith("/briefing-room/") ||
       pathname === "/admin" ||
-      pathname.startsWith("/admin/");
+      pathname.startsWith("/admin/") ||
+      isEditorialRoute;
     if (!configureAmplifyAuth()) {
       if (needsServerSession)
         void clearResearchSession()

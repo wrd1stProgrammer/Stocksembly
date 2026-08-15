@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { FullReportPreview } from "../../../src/components/research/FullReportPreview";
 import { ResearchRoom } from "../../../src/components/research/ResearchRoom";
 import type { Locale } from "../../../src/lib/i18n";
+import { researchLocaleFromValue } from "../../../src/lib/i18n";
 import { findTicker } from "../../../src/lib/tickers";
 import { committeeReportPreviewFixture } from "../../../src/research/committeeReportPreviewFixture";
 import { fixtureComposition } from "../../../src/research/compositions/fixture";
@@ -31,7 +32,7 @@ export default async function FixtureResearchPage({
   const [{ symbol }, query] = await Promise.all([params, searchParams]);
   const ticker = findTicker(symbol);
   if (!ticker) notFound();
-  const locale: Locale = query.lang === "ko" ? "ko" : "en";
+  const locale: Locale = researchLocaleFromValue(query.lang);
   const company = fixtureComposition.createCompany(
     ticker.symbol,
     ticker.company,
