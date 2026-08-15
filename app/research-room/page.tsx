@@ -29,7 +29,8 @@ export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
   const { lang, page: requestedPage } = await searchParams;
-  const locale: Locale = lang === undefined ? "ko" : researchLocaleFromValue(lang);
+  const locale: Locale =
+    lang === undefined ? "ko" : researchLocaleFromValue(lang);
   const page = archivePage(requestedPage);
   const canonical = researchRoomPageHref(page, locale);
   const languageAlternates = {
@@ -96,7 +97,8 @@ async function requestFromPage() {
 
 export default async function ResearchRoomPage({ searchParams }: Props) {
   const query = await searchParams;
-  const locale: Locale = query.lang === undefined ? "ko" : researchLocaleFromValue(query.lang);
+  const locale: Locale =
+    query.lang === undefined ? "ko" : researchLocaleFromValue(query.lang);
   const page = archivePage(query.page);
   const access = await (await getLiveResearchApi()).researchRoomAccess(
     await requestFromPage(),
