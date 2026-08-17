@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fixtureData,
   fixturePayload,
@@ -35,6 +35,17 @@ const company = fixtureData.createCompany(
   "NASDAQ",
   "Semiconductors",
 );
+
+beforeEach(() => {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  });
+});
 
 afterEach(() => {
   liveState.projectionState = "live";
@@ -128,7 +139,7 @@ describe("ResearchRoom product playback", () => {
     expect(container.querySelector(".activity-tabs")).toBeNull();
     expect(container.querySelector(".office-stage")).toHaveAttribute(
       "data-camera-mode",
-      "overview",
+      "automatic",
     );
     expect(container.querySelector(".office-camera-toggle")).toBeNull();
     expect(container.querySelectorAll("[data-event-id] a")).toHaveLength(0);

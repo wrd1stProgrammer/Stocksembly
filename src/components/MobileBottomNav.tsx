@@ -38,6 +38,7 @@ function readScrollPosition(): number {
 
 export function MobileBottomNav({ activeItem, locale, hidden = false }: Props) {
   const [compact, setCompact] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const lastScrollPosition = useRef(0);
   const frame = useRef<number | null>(null);
   const copy = labels[locale];
@@ -68,6 +69,34 @@ export function MobileBottomNav({ activeItem, locale, hidden = false }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    const isTextEntry = (target: EventTarget | null): boolean =>
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLInputElement &&
+        ![
+          "button",
+          "checkbox",
+          "color",
+          "file",
+          "radio",
+          "range",
+          "reset",
+          "submit",
+        ].includes(target.type)) ||
+      (target instanceof HTMLElement && target.isContentEditable);
+    const handleFocusIn = (event: FocusEvent) =>
+      setKeyboardOpen(isTextEntry(event.target));
+    const handleFocusOut = (event: FocusEvent) =>
+      setKeyboardOpen(isTextEntry(event.relatedTarget));
+
+    document.addEventListener("focusin", handleFocusIn);
+    document.addEventListener("focusout", handleFocusOut);
+    return () => {
+      document.removeEventListener("focusin", handleFocusIn);
+      document.removeEventListener("focusout", handleFocusOut);
+    };
+  }, []);
+
   if (hidden) return null;
 
   const items = [
@@ -95,6 +124,7 @@ export function MobileBottomNav({ activeItem, locale, hidden = false }: Props) {
     <nav
       className="mobile-bottom-nav"
       data-compact={compact ? "true" : "false"}
+      data-keyboard-open={keyboardOpen ? "true" : undefined}
       aria-label={copy.navigation}
     >
       {items.map(({ id, href, label, Icon }) => {
