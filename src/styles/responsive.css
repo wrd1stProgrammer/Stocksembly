@@ -92,7 +92,8 @@
   }
   .search-field input,
   .research-question-field textarea {
-    font-size: var(--type-label);
+    font-size: var(--type-body);
+    touch-action: manipulation;
   }
   .research-question-field {
     min-height: 42px;

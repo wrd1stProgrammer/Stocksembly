@@ -149,6 +149,11 @@ export function LandingOfficePreview({
           return;
         }
         controller = createdController;
+        const mobileCamera =
+          window.matchMedia?.("(max-width: 767px)").matches ?? false;
+        createdController.setCameraControlMode(
+          mobileCamera ? "free" : "overview",
+        );
         controller.renderSnapshot(currentSnapshot, { cameraMode: "overview" });
         host.setAttribute("data-visible-bubble-count", "0");
         host.setAttribute("data-office-ready", "true");

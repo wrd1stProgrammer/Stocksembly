@@ -35,7 +35,18 @@
       width 340ms cubic-bezier(0.16, 1, 0.3, 1),
       height 340ms cubic-bezier(0.16, 1, 0.3, 1),
       padding 340ms cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 340ms ease;
+      box-shadow 340ms ease,
+      opacity 180ms ease,
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .mobile-bottom-nav[data-keyboard-open="true"] {
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(
+      -50%,
+      calc(100% + var(--mobile-bottom-nav-bottom-offset))
+    );
   }
 
   .mobile-bottom-nav[data-compact="true"] {

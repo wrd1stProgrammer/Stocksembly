@@ -3,6 +3,7 @@ import type { KeyboardEventHandler, ReactNode } from "react";
 import { useId } from "react";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../research/domain/researchDirection";
 import { LiveCaretInput } from "./live-caret-input";
+import { useMobileInputMode } from "./useMobileInputMode";
 
 type BorderBeamProps = {
   readonly children: ReactNode;
@@ -41,29 +42,49 @@ type SearchFieldProps = {
 
 export function SearchField(props: SearchFieldProps) {
   const id = useId();
+  const nativeInput = useMobileInputMode();
   return (
     <label
       className="search-field"
       data-invalid={props.invalid || undefined}
+      data-input-mode={nativeInput ? "native" : "animated"}
       htmlFor={id}
     >
       <span className="composer-field__label">{props.label}</span>
-      <LiveCaretInput
-        className="search-field__live-input"
-        fieldClassName="search-field__mirror"
-        id={id}
-        type="search"
-        value={props.value}
-        placeholder={props.placeholder}
-        disabled={props.disabled}
-        aria-invalid={props.invalid}
-        aria-label={props.label}
-        cursorVariant="line"
-        charAnimation="spring"
-        color="var(--color-accent-bright)"
-        onChange={props.onChange}
-        onKeyDown={props.onKeyDown}
-      />
+      {nativeInput ? (
+        <input
+          className="search-field__native-input"
+          id={id}
+          type="search"
+          value={props.value}
+          placeholder={props.placeholder}
+          disabled={props.disabled}
+          aria-invalid={props.invalid}
+          aria-label={props.label}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          onChange={(event) => props.onChange(event.currentTarget.value)}
+          onKeyDown={props.onKeyDown}
+        />
+      ) : (
+        <LiveCaretInput
+          className="search-field__live-input"
+          fieldClassName="search-field__mirror"
+          id={id}
+          type="search"
+          value={props.value}
+          placeholder={props.placeholder}
+          disabled={props.disabled}
+          aria-invalid={props.invalid}
+          aria-label={props.label}
+          cursorVariant="line"
+          charAnimation="spring"
+          color="var(--color-accent-bright)"
+          onChange={props.onChange}
+          onKeyDown={props.onKeyDown}
+        />
+      )}
     </label>
   );
 }
@@ -78,25 +99,44 @@ type ResearchQuestionFieldProps = {
 
 export function ResearchQuestionField(props: ResearchQuestionFieldProps) {
   const id = useId();
+  const nativeInput = useMobileInputMode();
   return (
-    <label className="research-question-field" htmlFor={id}>
+    <label
+      className="research-question-field"
+      data-input-mode={nativeInput ? "native" : "animated"}
+      htmlFor={id}
+    >
       <span className="composer-field__label">{props.label}</span>
-      <LiveCaretInput
-        className="research-question-field__live-input"
-        fieldClassName="research-question-field__mirror"
-        multiline
-        id={id}
-        value={props.value}
-        aria-label={props.label}
-        placeholder={props.placeholder}
-        disabled={props.disabled}
-        maxLength={RESEARCH_DIRECTION_MAX_CHARACTERS}
-        rows={1}
-        cursorVariant="line"
-        charAnimation="spring"
-        color="var(--color-accent-bright)"
-        onChange={props.onChange}
-      />
+      {nativeInput ? (
+        <textarea
+          className="research-question-field__native-input"
+          id={id}
+          value={props.value}
+          aria-label={props.label}
+          placeholder={props.placeholder}
+          disabled={props.disabled}
+          maxLength={RESEARCH_DIRECTION_MAX_CHARACTERS}
+          rows={1}
+          onChange={(event) => props.onChange(event.currentTarget.value)}
+        />
+      ) : (
+        <LiveCaretInput
+          className="research-question-field__live-input"
+          fieldClassName="research-question-field__mirror"
+          multiline
+          id={id}
+          value={props.value}
+          aria-label={props.label}
+          placeholder={props.placeholder}
+          disabled={props.disabled}
+          maxLength={RESEARCH_DIRECTION_MAX_CHARACTERS}
+          rows={1}
+          cursorVariant="line"
+          charAnimation="spring"
+          color="var(--color-accent-bright)"
+          onChange={props.onChange}
+        />
+      )}
       <small aria-live="polite">
         {Array.from(props.value).length}/{RESEARCH_DIRECTION_MAX_CHARACTERS}
       </small>

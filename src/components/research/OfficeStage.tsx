@@ -46,7 +46,7 @@ export function OfficeStage({
 }: Props) {
   const labels = researchCopy[locale];
   const [cameraControlMode, setCameraControlMode] =
-    useState<OfficeCameraControlMode>(focusedTeam ? "automatic" : "overview");
+    useState<OfficeCameraControlMode>("automatic");
   const cameraModes: readonly {
     readonly id: OfficeCameraControlMode;
     readonly ko: string;

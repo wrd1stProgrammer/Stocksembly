@@ -10,6 +10,7 @@ const state = vi.hoisted(() => {
     inspect: vi.fn(),
     renderSnapshot: vi.fn(),
     setCameraMode: vi.fn(),
+    setCameraControlMode: vi.fn(),
     setPaused: vi.fn(),
   };
   const createOfficeSnapshotRenderer = vi.fn(
@@ -44,6 +45,16 @@ vi.mock("../research/officeGame", () => ({
 describe("LandingOfficePreview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
       callback(0);
       return 1;
@@ -83,6 +94,9 @@ describe("LandingOfficePreview", () => {
       expect.anything(),
       { cameraMode: "overview" },
     );
+    expect(state.controller.setCameraControlMode).toHaveBeenCalledWith(
+      "overview",
+    );
 
     // When
     act(() => state.selectMarket());
@@ -92,5 +106,30 @@ describe("LandingOfficePreview", () => {
       screen.getByRole("complementary", { name: "Maya agent details" }),
     ).toBeVisible();
     expect(screen.getByText("Market Lead")).toBeVisible();
+  });
+
+  it("enables free pinch zoom and dragging on mobile", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 767px)",
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    render(<LandingOfficePreview locale="ko" />);
+    await waitFor(() =>
+      expect(state.createOfficeSnapshotRenderer).toHaveBeenCalledOnce(),
+    );
+    await act(async () => state.resolve());
+
+    await waitFor(() =>
+      expect(state.controller.setCameraControlMode).toHaveBeenCalledWith(
+        "free",
+      ),
+    );
   });
 });

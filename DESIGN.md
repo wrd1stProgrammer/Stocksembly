@@ -130,6 +130,7 @@ Base unit: 4px.
 - States: empty, populated, focus, no-result, disabled.
 - Accessibility: persistent screen-reader label, descriptive error, Escape clears.
 - Motion: 220ms rim opacity and glow filter.
+- Responsive input: desktop retains the animated caret treatment; mobile uses the native search control at 16px so iOS does not zoom the page and typing does not pay the per-character animation cost.
 
 ### Research Question Field
 
@@ -138,6 +139,7 @@ Base unit: 4px.
 - Accessibility: the visible label owns the textarea; the prompt remains optional so ticker-only research still works.
 - Boundary: the field shows a live character count and accepts at most 100 Unicode characters; empty, punctuation-only, repeated-character, or over-limit input is ignored by the server and broad research continues.
 - Layout: it shares the console's primary row with the company field on desktop and moves below it on mobile.
+- Responsive input: desktop retains the animated caret treatment; mobile uses a native one-row textarea at 16px for stable keyboard entry.
 
 ### Research Button
 
@@ -191,6 +193,7 @@ Base unit: 4px.
 - Structure: left navigation, central research document, and right transcript/chat rail share one uninterrupted dark workspace. Panel separation uses tonal contrast and the shell gap only; bright outer borders and white corner rims are prohibited. Each rail retains the shared medium shell radius so the workspace remains soft without restoring a visible outline.
 - Left navigation: a top-right icon collapses the rail to a compact 52px control strip and restores it without changing the report or right-panel state. The footer keeps feedback and profile actions at the bottom; the compact state preserves their icons and accessible labels.
 - Mobile home shell: at the mobile breakpoint the signed-in navigation becomes a full-width top bar. A first-visit mobile session starts collapsed with the app mark/name centered beside a left-side expand control; expanding reveals a left-side drawer over the page with a backdrop. The desktop rail keeps its existing width transition and placement.
+- Mobile bottom navigation: the floating primary navigation leaves the viewport while a text field owns focus, then returns when the soft keyboard is dismissed so it never competes with the composer.
 - Right navigation: the existing transcript/chat toggle remains independent from the left rail so readers can choose any left/right panel combination.
 - Active research state: the right rail keeps the same transcript/chat header and collapse control used by the published report. Transcript remains available and live; Chat stays visibly disabled with an explanatory accessible label until the report is published.
 - Live conversation projection: up to three distinct, current-stage transcript speakers may show simultaneous bubbles. Bubble placement must remain collision-free; collaborative-event participants orient toward one another while the durable workflow continues to own movement timing and parallel execution.
@@ -225,6 +228,7 @@ Base unit: 4px.
 - Reuses the production v8 office world, furniture, seats, and complete 11-agent roster. Agents independently alternate between seated work, short room-scale walks, a brief standing pause, and a return to their assigned seat.
 - Actor labels and speech bubbles are suppressed in this ambient variant. A compact localized live-status rail is the only overlay; detailed activity remains in the main research workspace.
 - The animation pauses when offscreen and resolves to the seated state under reduced motion.
+- Camera interaction: desktop stays on the fixed overview; mobile enables bounded one-finger panning and two-finger pinch zoom through the production renderer's free-camera constraints.
 
 ### Site Footer
 
@@ -407,7 +411,7 @@ Research-room personas:
 - The production `PixelOfficeGame` component is the lifecycle bridge only. It passes immutable playback snapshots into `createOfficeSnapshotRenderer`; it never authors percentage positions, alternate seat coordinates, CSS sprite movement, or a second behavioral clock.
 - Simulation, navigation, furniture, actors, labels, and bubbles share the manifest's single `1374×1145` world space. DOM percentage maps and composite furniture placement are retired from the product path.
 - Its visible heading contains only the localized `LIVE RESEARCH ROOM` label. Phase names, focus pills, progress percentages, objective overlays, footer progress, and result controls are not part of the room frame.
-- Product playback uses the fixed overview camera only. Focus and activity-follow cameras remain renderer tooling for calibration, not user-facing research-room behavior.
+- Product playback starts in automatic camera mode so the active work remains legible; users may still choose free pan/zoom or the fixed full overview from the existing camera control.
 - Logical world: `1374×1145`, `43×35` cells at `32px`, full-bleed near-square. The canvas uses up to 2× device-pixel density with linear sampling for the painted office and character atlas, one fixed `0.46` actor scale, fixed feet pivots, and feet-y depth.
 - `src/research/officeSceneManifest.ts` is the only owner of roster IDs, departments, rooms, doors, seats, talk anchors, visitor anchors, and standing-forum anchors. `AgentId` is inferred from that roster.
 - The base raster contains architecture only: no people, chairs, desks, monitors, signs, labels, bubbles, or forum furniture. Actors, seats, desks, monitors, chairs, department labels, bubbles, and forum markers are separate render layers.
