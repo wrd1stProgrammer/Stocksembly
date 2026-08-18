@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import { seedPublishedReport } from "./researchReportRoute.testSupport";
@@ -47,7 +48,13 @@ export function setRunStatus(
 export function setInitialResearchJobStatus(
   harness: ApiHarness,
   runId: string,
-  status: "retry-wait" | "failed" | "succeeded",
+  status:
+    | "leased"
+    | "retry-wait"
+    | "failed"
+    | "spawn-reserved"
+    | "running"
+    | "succeeded",
 ): void {
   const database = new Database(harness.databasePath);
   try {
@@ -56,6 +63,37 @@ export function setInitialResearchJobStatus(
         WHERE run_id = ? AND kind = 'research'
           AND logical_key = 'collection:initial'`)
       .run(status, runId);
+  } finally {
+    database.close();
+  }
+}
+
+export function interruptInitialResearchJob(
+  harness: ApiHarness,
+  runId: string,
+  status: "spawn-reserved" | "running",
+): string {
+  const database = new Database(harness.databasePath);
+  const attemptId = randomUUID();
+  try {
+    database.transaction(() => {
+      database
+        .prepare(`INSERT INTO attempts(attempt_id, job_id, run_id, snapshot_id,
+          kind, status, logical_artifact_key, input_hash, created_at)
+          SELECT @attemptId, job_id, run_id, snapshot_id, kind, @status,
+            logical_key, input_hash, created_at
+          FROM jobs WHERE run_id = @runId AND kind = 'research'
+            AND logical_key = 'collection:initial'`)
+        .run({ attemptId, runId, status });
+      database
+        .prepare(`UPDATE jobs SET status = @status, attempt_id = @attemptId,
+          lease_owner = 'interrupted-worker', lease_token = 1,
+          lease_expires_at = '2099-01-01T00:00:00.000Z'
+          WHERE run_id = @runId AND kind = 'research'
+            AND logical_key = 'collection:initial'`)
+        .run({ attemptId, runId, status });
+    })();
+    return attemptId;
   } finally {
     database.close();
   }

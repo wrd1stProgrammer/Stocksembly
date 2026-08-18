@@ -15,6 +15,7 @@ import {
   commitCommand,
   replayCommand,
 } from "./researchCommandIdempotency";
+import { requeueInterruptedResearchJobs } from "./researchRunRetryRecovery";
 
 const ParentRowSchema = z.object({
   run_id: z.string().uuid(),
@@ -144,6 +145,7 @@ export function retryResearchRun(
             AND report_id IS NULL`)
         .run(parentRunId).changes;
       if (updated !== 1) return { kind: "illegal_state" };
+      requeueInterruptedResearchJobs(database, parentRunId);
       database
         .prepare(`UPDATE jobs SET status = 'retry-wait', lease_owner = NULL,
           lease_expires_at = NULL
