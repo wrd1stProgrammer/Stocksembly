@@ -219,6 +219,7 @@ describe("SearchConsole durable research launch", () => {
         analysisDepth: "standard",
         decisionPurpose: "new_entry",
         comparisonSymbols: [],
+        explanationMode: "professional",
       },
       researchTarget: {
         kind: "department",
@@ -227,6 +228,33 @@ describe("SearchConsole durable research launch", () => {
     });
     expect(testState.push).toHaveBeenCalledWith(
       `/research/NVDA?run=${RUN_ID}&lang=en`,
+    );
+  });
+
+  it("launches easy explanation mode without reducing analysis depth", async () => {
+    render(<SearchConsole locale="ko" />);
+    fireEvent.click(screen.getByRole("button", { name: "쉽게 설명" }));
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "NVDA" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "검증할 투자 질문" }),
+      { target: { value: "성장성이 유지될까?" } },
+    );
+
+    const form = screen.getByRole("searchbox").closest("form");
+    if (!(form instanceof HTMLFormElement))
+      throw new TypeError("search form missing");
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(testState.startRun).toHaveBeenCalledOnce());
+    expect(testState.startRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        researchProfile: expect.objectContaining({
+          analysisDepth: "standard",
+          explanationMode: "easy",
+        }),
+      }),
     );
   });
 

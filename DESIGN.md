@@ -148,6 +148,13 @@ Base unit: 4px.
 - Accessibility: native button, `aria-busy` while loading.
 - Motion: 140ms transform/opacity; glow follows state without layout animation.
 
+### Research Explanation Mode
+
+- Structure: a compact two-option control in the home composer offers `Easy` / `Professional` wording before a run starts. It remains available to every subscription tier and is separate from paid research-depth controls.
+- Contract: the selected mode changes only the final reader-facing explanation. Evidence collection, agent roles, analysis depth, disagreement, citations, and decision logic remain identical.
+- Easy state: lead with the conclusion, define specialized terms at first use, explain why each important number matters, and prefer short direct sentences. Professional state preserves the existing finance register.
+- Accessibility: the control exposes one labelled group, native buttons, `aria-pressed`, visible keyboard focus, and no motion beyond pressed feedback.
+
 ### Search Console
 
 - Structure: form containing Company/Ticker Field, Research Question Field, Research Button, popular Ticker Chips, and a company result region.

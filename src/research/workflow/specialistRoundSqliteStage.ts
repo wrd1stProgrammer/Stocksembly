@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { hashBytes } from "../domain/contractHelpers";
 import { EventIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { analyticalResearchProfile } from "../domain/researchProfile";
 import { workflowRoleById } from "../domain/roleRegistry";
 import { TEAM_CORE_DATA } from "../domain/teamCoreData";
 import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
@@ -243,7 +244,8 @@ export function prepareSpecialistJobs(
       "Fill every required preallocated request.claimSlots item owned by this role. Each slot includes an analyticalAngle and must produce one decision-relevant atomic claim that directly answers that angle. Optional supporting slots may remain unused only when the evidence cannot support a distinct claim.",
       "For each filled slot, preserve its claimId and decisionDimension, set roleOwner to request.role.id, cite evidence, select no more than three decisive metric IDs, state the single strongest contrary observation, and give a claim-specific observable falsifier.",
       "Claims from the same role must not restate one another. Give each slot a different mechanism, metric combination, investor implication, and falsifier; do not split one sentence into several cosmetic claims.",
-      `CUSTOM RESEARCH PROFILE ${JSON.stringify(request.mandate.researchProfile)}`,
+      `CUSTOM RESEARCH PROFILE ${JSON.stringify(analyticalResearchProfile(request.mandate.researchProfile))}`,
+      "The explanationMode metadata is reserved for final reader-facing copy. It must not reduce evidence breadth, analytical rigor, disagreement, or falsification work in this specialist stage.",
       "Apply the custom profile to analysis, not merely wording. short emphasizes the next catalyst and timing; medium emphasizes the next two to four reporting periods; long emphasizes moat, reinvestment, and terminal economics. new_entry requires entry prerequisites and valuation tolerance; holding_review requires thesis health and hold-or-reassess triggers; position_sizing requires asymmetry, concentration risk, and add/reduce conditions; earnings requires the dated earnings calendar, available estimates, recent filing, and the metric most likely to move the thesis before versus after the release.",
       "When counterargumentIntensity is strong, spend material analytical weight on the strongest evidence-backed opposing case and identify what the consensus view may be missing. Do not manufacture symmetry when one side is better supported.",
       "When analysisDepth is core, prioritize the single decisive claim and only add a distinct supporting claim when it changes the decision. For standard, cover every required slot. For deep, fill every slot and connect the mechanism to a measurable investor implication.",

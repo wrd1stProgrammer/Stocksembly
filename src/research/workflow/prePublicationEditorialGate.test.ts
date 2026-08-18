@@ -743,6 +743,7 @@ describe("persisted anticipated Q&A selection", () => {
         investmentHorizon: "short",
         counterargumentIntensity: "strong",
         analysisDepth: "deep",
+        explanationMode: "professional",
         decisionPurpose: "earnings",
         comparisonSymbols: [TickerSymbolSchema.parse("MSFT")],
       },
