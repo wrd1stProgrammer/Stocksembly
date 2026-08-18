@@ -3,6 +3,15 @@ import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "./officeSimulation";
 import type { AgentId } from "./types";
 
+export const WORKSTATION_TABLE_VISUAL_OFFSET_Y = 8;
+export const WORKSTATION_SEAT_VISUAL_OFFSET_Y = 16;
+
+const workstationSideInsetRatio = (moduleCount: number): number => {
+  if (moduleCount === 3) return 42 / 352;
+  if (moduleCount === 2) return 8 / 224;
+  return 0;
+};
+
 export type OfficeSeatRenderState = {
   readonly actorId: AgentId;
   readonly position: WorldPoint;
@@ -73,6 +82,37 @@ function rectGeometry(rect: {
   });
 }
 
+export function workstationSeatVisualPosition(
+  actorId: AgentId,
+): WorldPoint | undefined {
+  const member = OFFICE_SCENE_MANIFEST.roster.find(
+    (candidate) => candidate.id === actorId,
+  );
+  if (!member || member.departmentId === "chair") return undefined;
+  const furniture = OFFICE_SCENE_MANIFEST.furniture.find(
+    (candidate) =>
+      candidate.roomId === member.departmentId &&
+      candidate.purpose === "workstation",
+  );
+  if (!furniture) return undefined;
+  const departmentMembers = OFFICE_SCENE_MANIFEST.roster.filter(
+    (candidate) => candidate.departmentId === member.departmentId,
+  );
+  const index = departmentMembers.findIndex(
+    (candidate) => candidate.id === actorId,
+  );
+  if (index < 0) return undefined;
+  const geometry = rectGeometry(furniture.footprint);
+  const inset =
+    geometry.size.width * workstationSideInsetRatio(departmentMembers.length);
+  const left = geometry.position.x - geometry.size.width / 2 + inset;
+  const contentWidth = geometry.size.width - inset * 2;
+  return Object.freeze({
+    x: left + (contentWidth * (index + 0.5)) / departmentMembers.length,
+    y: cellFoot(member.workSeat.cell).y + WORKSTATION_SEAT_VISUAL_OFFSET_Y,
+  });
+}
+
 export function furnitureStatesForSnapshot(
   snapshot: OfficeSimulationSnapshot,
 ): readonly OfficeFurnitureRenderState[] {
@@ -80,15 +120,31 @@ export function furnitureStatesForSnapshot(
   return Object.freeze(
     OFFICE_SCENE_MANIFEST.furniture.map((furniture) => {
       const geometry = rectGeometry(furniture.footprint);
+      const workstationOffsetY =
+        furniture.purpose === "workstation"
+          ? WORKSTATION_TABLE_VISUAL_OFFSET_Y
+          : 0;
+      const seatOffsetY =
+        furniture.purpose === "workstation"
+          ? WORKSTATION_SEAT_VISUAL_OFFSET_Y
+          : 0;
       const seats = OFFICE_SCENE_MANIFEST.roster.flatMap((member) => {
         if (!belongsToFurniture(member, furniture)) return [];
         const actor = actorById.get(member.id);
         if (!actor) return [];
         const seat = seatForFurniture(member, furniture.purpose);
+        const basePosition = cellFoot(seat.cell);
+        const workstationPosition = workstationSeatVisualPosition(member.id);
         return [
           Object.freeze({
             actorId: member.id,
-            position: cellFoot(seat.cell),
+            position:
+              furniture.purpose === "workstation" && workstationPosition
+                ? workstationPosition
+                : Object.freeze({
+                    ...basePosition,
+                    y: basePosition.y + seatOffsetY,
+                  }),
             laptopPosition: cellFoot(seat.inputCell),
             facing: seat.facing,
             occupied:
@@ -104,7 +160,10 @@ export function furnitureStatesForSnapshot(
         purpose: furniture.purpose,
         assetPath: furniture.assetPath,
         accent: furniture.accent,
-        position: geometry.position,
+        position: Object.freeze({
+          ...geometry.position,
+          y: geometry.position.y + workstationOffsetY,
+        }),
         size: geometry.size,
         zIndex: Math.round(geometry.bottom * 1000),
         seats: Object.freeze(seats),

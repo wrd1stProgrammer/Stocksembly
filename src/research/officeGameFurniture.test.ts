@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { furnitureStatesForSnapshot } from "./officeGameFurniture";
+import {
+  furnitureStatesForSnapshot,
+  WORKSTATION_TABLE_VISUAL_OFFSET_Y,
+  workstationSeatVisualPosition,
+} from "./officeGameFurniture";
 import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import {
   createOfficeSimulation,
@@ -95,6 +99,45 @@ describe("office snapshot furniture", () => {
         );
       }),
     ).toBe(true);
+  });
+
+  it("keeps one personal chair tight to each lowered workstation module", () => {
+    const states = furnitureStatesForSnapshot(snapshotAt(40));
+
+    for (const furniture of OFFICE_SCENE_MANIFEST.furniture.filter(
+      (candidate) => candidate.purpose === "workstation",
+    )) {
+      const state = states.find((candidate) => candidate.id === furniture.id);
+      if (!state) throw new Error(`Missing furniture state ${furniture.id}`);
+      const members = OFFICE_SCENE_MANIFEST.roster.filter(
+        (member) => member.departmentId === furniture.roomId,
+      );
+      const rawTableCenterY =
+        ((furniture.footprint.min.y + furniture.footprint.max.y + 1) *
+          OFFICE_SCENE_MANIFEST.world.cellSize) /
+        2;
+
+      expect(state.seats).toHaveLength(members.length);
+      expect(state.position.y).toBe(
+        rawTableCenterY + WORKSTATION_TABLE_VISUAL_OFFSET_Y,
+      );
+      const visibleSeatXs = state.seats.map(({ position }) => position.x);
+      if (members.length === 3) {
+        const distance = visibleSeatXs[1] - visibleSeatXs[0];
+        expect(distance).toBeLessThan(state.size.width / 3);
+        expect(visibleSeatXs[2] - visibleSeatXs[1]).toBeCloseTo(distance);
+      }
+      for (const member of members) {
+        const seat = state.seats.find(
+          (candidate) => candidate.actorId === member.id,
+        );
+        const expectedPosition = workstationSeatVisualPosition(member.id);
+        if (!expectedPosition) {
+          throw new Error(`Missing workstation position ${member.id}`);
+        }
+        expect(seat?.position).toEqual(expectedPosition);
+      }
+    }
   });
 
   it("derives seats only for actors present in a department-scoped snapshot", () => {

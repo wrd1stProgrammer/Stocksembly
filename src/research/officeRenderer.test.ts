@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { ACTOR_ATLAS } from "./officeActorAtlas";
 import { officeAgentAssetPath } from "./officeAgentAssets";
 import type { OfficeActorAction } from "./officeChoreography";
+import { workstationSeatVisualPosition } from "./officeGameFurniture";
 import {
   type OfficeRenderSnapshot,
   renderOfficeSnapshot,
@@ -355,6 +356,29 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(source).not.toMatch(/app\.ticker\.add|moveAgent\(|elapsedMs\s*\+=/);
     expect(source).not.toMatch(/LEGACY_AGENT_IDS|\/research\/office-v6/);
     expect(source).not.toMatch(/Math\.random|setInterval|setTimeout/);
+  });
+
+  it("moves only personal-workstation seated actors with their tightened chairs", () => {
+    const workSnapshot = snapshotAt(80);
+    const workProjection = project(workSnapshot);
+    const workActor = workSnapshot.actors.find(({ id }) => id === "market");
+    const renderedWorkActor = workProjection.actors.find(
+      ({ id }) => id === "market",
+    );
+    const meetingSnapshot = snapshotAt(340);
+    const meetingProjection = project(meetingSnapshot);
+    const meetingActor = meetingSnapshot.actors.find(
+      ({ id }) => id === "market_news",
+    );
+    const renderedMeetingActor = meetingProjection.actors.find(
+      ({ id }) => id === "market_news",
+    );
+
+    expect(workActor).toBeDefined();
+    expect(renderedWorkActor?.world).toEqual(
+      workstationSeatVisualPosition("market"),
+    );
+    expect(renderedMeetingActor?.world.y).toBe(meetingActor?.world.y);
   });
 
   it("lays out desktop bubbles and labels without overlap or clipped actor fragments", () => {
