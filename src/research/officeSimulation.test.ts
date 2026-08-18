@@ -106,9 +106,7 @@ describe("office fixed-tick simulation", () => {
     }
 
     // Then
-    expect(mayaAtTalk.cell).toEqual(
-      OFFICE_SCENE_MANIFEST.departments.market.talkAnchors[0]?.cell,
-    );
+    expect(mayaAtTalk.cell).toEqual(manifestActor("market").seat.cell);
     expect(sawIntermediate).toBe(true);
     expect(officeBeatAt(499).id).toBe(officeBeatAt(500).id);
     const revised = actor(runTo(500), "market");
@@ -180,6 +178,8 @@ describe("office fixed-tick simulation", () => {
     }
     for (const department of Object.values(OFFICE_SCENE_MANIFEST.departments)) {
       for (const memberId of department.memberIds) {
+        const member = manifestActor(memberId);
+        expect(actor(departmentTalk, memberId).cell).toEqual(member.seat.cell);
         expect(actor(departmentTalk, memberId).action).toBe(
           memberId === department.representativeId ? "talk" : "listen",
         );
@@ -209,6 +209,61 @@ describe("office fixed-tick simulation", () => {
       const expected = forumAnchor?.cell ?? manifestMember.seat.cell;
       expect(member.cell).toEqual(expected);
     }
+  });
+
+  it("keeps moving representatives outside Dr. Park's sprite clearance", () => {
+    // Given
+    let state = runTo(719);
+    const crossedChairClearance: string[] = [];
+
+    // When
+    while (state.tick < 1300) {
+      state = stepOfficeSimulation(state);
+      const chair = actor(state, "chair");
+      for (const member of state.actors.filter(
+        (candidate) => candidate.id !== "chair",
+      )) {
+        const cell = member.motion?.to ?? member.cell;
+        const clearance = Math.max(
+          Math.abs(cell.x - chair.cell.x),
+          Math.abs(cell.y - chair.cell.y),
+        );
+        if (clearance <= 1)
+          crossedChairClearance.push(`${member.id}@${state.tick}`);
+      }
+    }
+
+    // Then
+    expect(crossedChairClearance).toEqual([]);
+  });
+
+  it("does not leave gathering representatives walking in place near the chair", () => {
+    // Given
+    let state = runTo(1079);
+    const stationary = new Map<string, { key: string; ticks: number }>();
+    const stalls: string[] = [];
+
+    // When
+    while (state.tick < 1300) {
+      state = stepOfficeSimulation(state);
+      for (const member of state.actors.filter((candidate) =>
+        ["market", "company", "financial", "risk"].includes(candidate.id),
+      )) {
+        const key = officeCellKey(member.cell);
+        const prior = stationary.get(member.id);
+        const ticks =
+          member.action === "stand" && prior?.key === key
+            ? prior.ticks + 1
+            : member.action === "stand"
+              ? 1
+              : 0;
+        stationary.set(member.id, { key, ticks });
+        if (ticks === 9) stalls.push(`${member.id}@${key}`);
+      }
+    }
+
+    // Then
+    expect(stalls).toEqual([]);
   });
 
   it("emits a public route failure and preserves the last valid cell", () => {

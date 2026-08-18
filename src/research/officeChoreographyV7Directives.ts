@@ -87,27 +87,19 @@ function ordered(
 function departmentTalk(): readonly OfficeActorDirective[] {
   const directives = seatedDirectives("department-talk");
   for (const department of Object.values(OFFICE_SCENE_MANIFEST.departments)) {
-    const representativeAnchor = department.talkAnchors.find(
-      (candidate) => candidate.agentId === department.representativeId,
-    );
-    for (const anchor of department.talkAnchors) {
-      const counterpart =
-        anchor.agentId === department.representativeId
-          ? department.talkAnchors.find(
-              (candidate) => candidate.agentId !== anchor.agentId,
-            )
-          : representativeAnchor;
-      directives.set(anchor.agentId, {
-        actorId: anchor.agentId,
-        destination: anchor.cell,
-        facing:
-          counterpart === undefined
-            ? anchor.facing
-            : facingToward(anchor.cell, counterpart.cell),
+    for (const memberId of department.memberIds) {
+      const member = OFFICE_SCENE_MANIFEST.roster.find(
+        (candidate) => candidate.id === memberId,
+      );
+      if (!member)
+        throw new RangeError(`Missing department member ${memberId}`);
+      directives.set(memberId, {
+        ...seatDirective(
+          member,
+          `department-talk-${department.representativeId}`,
+        ),
         terminalAction:
-          anchor.agentId === department.representativeId ? "talk" : "listen",
-        travelAction: "walk",
-        revisionKey: `department-talk-${department.representativeId}`,
+          memberId === department.representativeId ? "talk" : "listen",
       });
     }
   }

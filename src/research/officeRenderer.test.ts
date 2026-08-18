@@ -361,7 +361,7 @@ describe("manifest-derived office snapshot renderer", () => {
     // Given
     const viewport = { width: 1376, height: 774 };
     const projection = project(
-      snapshotAt(520),
+      snapshotAt(530),
       undefined,
       "snapshot",
       viewport,
@@ -375,6 +375,12 @@ describe("manifest-derived office snapshot renderer", () => {
     // Then
     for (const label of labels) {
       expect(label.label.bounds.top - label.bodyBounds.bottom).toBe(1);
+      const labelCenter =
+        (label.label.bounds.left + label.label.bounds.right) / 2;
+      const labelWidth = label.label.bounds.right - label.label.bounds.left;
+      expect(
+        Math.abs(labelCenter - label.screenPosition.x),
+      ).toBeLessThanOrEqual(labelWidth * 0.32 + 0.001);
       for (const bubble of bubbles) {
         expect(overlaps(label.label.bounds, bubble.bubble.bounds)).toBe(false);
       }
@@ -415,7 +421,7 @@ describe("manifest-derived office snapshot renderer", () => {
     // Given
     const viewport = { width: 1376, height: 774 };
     const projection = project(
-      snapshotAt(520),
+      snapshotAt(530),
       undefined,
       "snapshot",
       viewport,

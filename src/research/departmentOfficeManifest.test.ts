@@ -155,31 +155,62 @@ describe("department office manifest", () => {
     // Then
     expect(talk).toEqual({
       market: [
-        [{ x: 14, y: 10 }, "left"],
+        [{ x: 12, y: 11 }, "right"],
         [{ x: 12, y: 10 }, "right"],
         [{ x: 11, y: 12 }, "up"],
       ],
       company: [
-        [{ x: 31, y: 10 }, "right"],
+        [{ x: 31, y: 10 }, "left"],
         [{ x: 33, y: 12 }, "left"],
         [{ x: 34, y: 14 }, "up"],
       ],
       financial: [
-        [{ x: 17, y: 24 }, "left"],
-        [{ x: 15, y: 24 }, "right"],
+        [{ x: 13, y: 24 }, "right"],
+        [{ x: 15, y: 25 }, "left"],
         [{ x: 15, y: 26 }, "up"],
       ],
       risk: [
-        [{ x: 25, y: 24 }, "right"],
+        [{ x: 30, y: 23 }, "left"],
         [{ x: 27, y: 24 }, "left"],
       ],
     });
     expect(visitors).toEqual({
-      market: { cell: { x: 15, y: 10 }, facing: "left" },
-      company: { cell: { x: 30, y: 10 }, facing: "right" },
-      financial: { cell: { x: 18, y: 24 }, facing: "left" },
-      risk: { cell: { x: 24, y: 24 }, facing: "right" },
+      market: { cell: { x: 14, y: 11 }, facing: "left" },
+      company: { cell: { x: 29, y: 10 }, facing: "right" },
+      financial: { cell: { x: 15, y: 24 }, facing: "left" },
+      risk: { cell: { x: 28, y: 23 }, facing: "right" },
     });
+  });
+
+  it("keeps every cross-team exchange close to its table without crowding the leaders", () => {
+    for (const [departmentId, department] of Object.entries(
+      OFFICE_SCENE_MANIFEST.departments,
+    )) {
+      const host = department.talkAnchors.find(
+        (anchor) => anchor.agentId === department.representativeId,
+      );
+      const table = OFFICE_SCENE_MANIFEST.furniture.find(
+        (item) => item.roomId === departmentId,
+      );
+      if (!host || !table) throw new RangeError(`Missing ${departmentId}`);
+      const leaderDistance =
+        Math.abs(host.cell.x - department.visitorAnchor.cell.x) +
+        Math.abs(host.cell.y - department.visitorAnchor.cell.y);
+      const tableDistance =
+        Math.max(
+          table.footprint.min.x - host.cell.x,
+          0,
+          host.cell.x - table.footprint.max.x,
+        ) +
+        Math.max(
+          table.footprint.min.y - host.cell.y,
+          0,
+          host.cell.y - table.footprint.max.y,
+        );
+
+      expect(leaderDistance, departmentId).toBeGreaterThanOrEqual(2);
+      expect(tableDistance, departmentId).toBeLessThanOrEqual(2);
+    }
   });
 
   it("locks inward-facing forum anchors and the five-forum seven-home split", () => {
@@ -275,7 +306,7 @@ describe("department office manifest", () => {
     const errors = validateOfficeSceneManifest(manifest);
     // Then
     expect(errors).toContain(
-      "anchor market:talk:market_news duplicates market:talk:market at 14,10",
+      "anchor market:talk:market_news duplicates market:talk:market at 12,11",
     );
   });
 

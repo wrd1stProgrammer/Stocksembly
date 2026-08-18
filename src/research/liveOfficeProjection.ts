@@ -114,51 +114,71 @@ function phaseFor(kind: PublicResearchEvent["kind"]): ResearchPhase {
 function progressTick(
   event: PublicResearchEvent,
   events: readonly PublicResearchEvent[],
+  priorTick: number,
 ): number {
-  const count = (kind: PublicResearchEvent["kind"]) =>
-    events.filter((item) => item.kind === kind).length;
+  const ordinal = events.filter(
+    (item) => item.kind === event.kind && item.sequence <= event.sequence,
+  ).length;
+  let tick: number;
   switch (event.kind) {
     case "run_created":
-      return 0;
+      tick = 0;
+      break;
     case "collection_started":
-      return 30;
+      tick = 30;
+      break;
     case "evidence_cutoff_recorded":
-      return 80;
+      tick = 80;
+      break;
     case "snapshot_sealed":
-      return 160;
+      tick = 160;
+      break;
     case "mandate_sealed":
-      return 220;
+      tick = 220;
+      break;
     case "specialist_memo_committed":
-      return Math.min(570, 220 + count(event.kind) * 35);
+      tick = 220 + Math.min(19, ordinal);
+      break;
     case "department_consolidation_committed":
-      return Math.min(720, 580 + count(event.kind) * 35);
+      tick = Math.min(325, 241 + (ordinal - 1) * 28);
+      break;
     case "challenge_committed":
-      return Math.min(880, 720 + count(event.kind) * 40);
     case "followup_committed":
-      return Math.min(1_010, 900 + count(event.kind) * 35);
+      tick = 501;
+      break;
     case "owner_response_committed":
-    case "department_ballot_committed":
-      return Math.min(1_180, 1_020 + count(event.kind) * 30);
+      tick = 861;
+      break;
     case "structural_audit_completed":
-      return 1_250;
     case "semantic_audit_committed":
-      return 1_330;
+      tick = 1_056;
+      break;
     case "gathering_started":
-      return 1_390;
+      tick = 1_261;
+      break;
+    case "department_ballot_committed":
+      tick = Math.min(1_466, 1_301 + (ordinal - 1) * 55);
+      break;
     case "committee_classified":
-      return 1_450;
+      tick = 1_521;
+      break;
     case "chair_synthesis_committed":
-      return 1_520;
+      tick = 1_541;
+      break;
     case "runtime_status":
-      return Math.min(1_510, event.sequence * 20);
+      tick = priorTick;
+      break;
     case "report_published":
-      return 1_580;
+      tick = 1_580;
+      break;
     case "run_incomplete":
     case "run_failed":
     case "run_cancelling":
     case "run_cancelled":
-      return Math.min(1_570, event.sequence * 20);
+      tick = priorTick;
+      break;
   }
+  return Math.max(priorTick, tick);
 }
 
 function summaryFor(event: PublicResearchEvent) {
@@ -206,10 +226,15 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
     collectionStartedSeen.add(fingerprint);
     return true;
   });
-  const projected = visibleEvents.map((event) => {
+  const projected: ResearchEvent[] = [];
+  for (const event of visibleEvents) {
     const summary = summaryFor(event);
-    const tick = progressTick(event, visibleEvents);
-    return {
+    const tick = progressTick(
+      event,
+      visibleEvents,
+      projected.at(-1)?.tick ?? 0,
+    );
+    projected.push({
       id: `durable-${event.sequence}`,
       phase: phaseFor(event.kind),
       agent: actorId(event.actorId ?? event.participantIds[0] ?? defaultActor),
@@ -224,8 +249,8 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
       participantIds: event.participantIds.filter((id): id is AgentId =>
         ACTOR_IDS.has(id as AgentId),
       ),
-    } satisfies ResearchEvent;
-  });
+    } satisfies ResearchEvent);
+  }
   const current =
     projected.at(-1) ??
     ({

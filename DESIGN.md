@@ -442,16 +442,16 @@ Research-room personas:
 - Risk: Liam/리암 — Risk Lead/리스크 책임, representative; Min/민 — Policy & Scenario/정책·시나리오.
 - Independent chair: Dr. Park/박 의장 — Research Chair/리서치 의장.
 - Every work seat is on the top or bottom edge of its table; side chairs and side-facing seated poses are prohibited. North-edge seats reserve one clear cell between the actor's feet and the tabletop so their fixed nameplates never overlap furniture. Work seats use `(seat)/(input)/facing`: Maya `(7,6)/(7,7)/down`; June `(9,11)/(9,10)/up`; Alex `(12,11)/(12,10)/up`; Ethan `(35,6)/(35,7)/down`; Aria `(34,11)/(34,10)/up`; Leo `(37,11)/(37,10)/up`; Noah `(7,23)/(7,24)/down`; Sofia `(11,23)/(11,24)/down`; Hana `(9,28)/(9,27)/up`; Liam `(31,23)/(31,24)/down`; Min `(34,28)/(34,27)/up`; Dr. Park `(22,11)/(22,10)/up`.
-- Talk anchors are grouped near each room portal so visits finish within the authored beat: Market `(14,10)`, `(12,10)`; Company `(31,10)`, `(33,12)`, `(34,14)`; Financial `(17,24)`, `(15,24)`, `(15,26)`; Risk `(25,24)`, `(27,24)`.
-- Visitor anchors sit one cell from the host lead and face inward: Market `(15,10)`, Company `(30,10)`, Financial `(18,24)`, and Risk `(24,24)`. The host lead turns toward the visitor so every cross-team visit reads as a face-to-face exchange.
+- Department checkpoints keep every member in their assigned chair and use seated talk/listen poses. Standing talk anchors are reserved for cross-team visits: Market lead `(12,11)`, Company lead `(31,10)`, Financial lead `(13,24)`, and Risk lead `(30,23)`.
+- Visitor anchors sit at least two cells from the host lead and face inward: Market `(14,11)`, Company `(29,10)`, Financial `(15,24)`, and Risk `(28,23)`. Each host remains within two cells of its department table, so the exchange reads as a briefing at the team workspace rather than a corridor conversation.
 - Forum anchors gather around target `(22,14)`: Maya `(20,12)/down`, Ethan `(24,12)/down`, Noah `(20,15)/up`, Liam `(24,15)/up`, and Dr. Park `(22,14)/down` toward `(22,15)`.
-- Department work is visibly concurrent. Talk anchors turn teammates toward one another; visitor anchors preserve host/visitor facing; forum anchors turn Maya, Ethan, Noah, Liam, and Dr. Park toward `(24,14)`.
+- Department work is visibly concurrent. Seated checkpoints keep teammates at their workstations; visitor anchors preserve host/visitor facing; forum anchors turn Maya, Ethan, Noah, Liam, and Dr. Park toward `(24,14)`.
 - At completion exactly five actors remain standing in the forum and six non-representatives remain at their department seats. Every chair exists from the first frame; occupancy changes its subtle highlight only.
 - Every actor owns a transparent `4×4` directional atlas with a common 160×192 frame and foot baseline, displayed at the fixed `0.46` world scale. Work uses a seated frame; walking, talks, visits, and forum presentation use standing frames without changing actor scale.
 - Public bubbles stay under two short lines and report source counts, task summaries, evidence handoffs, disagreement, and open questions only.
 - The product renderer maps the simulator's fixed-tick actor snapshots into the selected near-square office overview. Position interpolation is transform-only; work, team-talk, visits, returns, gathering, and forum actions remain visible without camera zoom or pan.
 - Parallel research starts visibly at tick 40 with two rotating, department-separated progress bubbles. Later bubbles are owned by public `talk`, `summarize`, `present`, and `chair-synthesis` actions, never hidden chain-of-thought.
-- Compact 14px nameplates use a dark squared plate with a neutral one-pixel rim and remain fixed on the row one pixel below each actor's feet, including while that actor has a progress bubble. Only crowded nameplates may shift sideways on that same row; bubbles avoid every visible actor body and move around the anchored plates rather than pushing names into furniture. Progress bubbles use a larger white speech surface above the head, while non-travelling actors hold a static directional frame instead of looping a walk cycle.
+- Compact 14px nameplates use a dark squared plate with a neutral one-pixel rim and remain fixed on the row one pixel below each actor's feet, including while that actor has a progress bubble. Crowded nameplates may shift by at most `0.32×` their own width on that same row, keeping the name visibly tethered to its actor; bubbles avoid every visible actor body and move around the anchored plates rather than pushing names into furniture. Progress bubbles use a larger white speech surface above the head, while non-travelling actors hold a static directional frame instead of looping a walk cycle.
 - Department furniture is generated from the same manifest as five independent Pixi clusters: compact tables use varied widths and offsets near the usable center of each room, laptops placed only on tabletops, and one persistent direction-specific chair aligned to each top/bottom work anchor. Top and bottom laptops use separately authored top-down geometry rather than rotating one perspective; north-edge laptops sit deeper on the surface so the required foot-level nameplate never masks their screens. Chair cushions render behind seated actors, while only the lower up-facing backrest crosses in front to make the body read as seated inside the chair. Furniture footprints are physical obstacles; doors and cross-room routes remain unobstructed.
 - Pause freezes ticks. Replay resets ticks, routes, occupancy, reservations, ledger, camera, and trace. Skip synchronously retains the full public ledger and lands on the exact five-forum/six-home final state.
 
@@ -459,6 +459,7 @@ Research-room personas:
 
 - The right pane renders exactly eight ordered semantic groups from the contract JSON above. Each group exposes public action summaries, evidence labels, timestamps, and verification states; never raw reasoning.
 - Every durable public event maps to one group and is rendered once in event-sequence order. Progress percentages, ETAs, source-link clutter, and a second transcript clock are prohibited.
+- Durable event milestones only expose settled speech or work frames. A committed event never freezes the client on an intermediate `walk`, `stand`, `return`, or `orient` frame; representatives remain at their seats until the corresponding challenge or response has actually committed.
 - The transcript is append-only during playback. New entries announce through a polite live region without stealing focus; snapshot plus SSE cursor replay reconstructs the same sequence after reload.
 
 #### Evidence Summary
@@ -493,7 +494,7 @@ One `50ms` fixed-tick simulator owns behavior and elapsed labels. Render interpo
 |---|---|
 | `0..39` | chair briefing; eleven specialists seated |
 | `40..239` | four departments work in parallel |
-| `240..359` | all departments talk at their own anchors |
+| `240..359` | all departments talk while seated at their assigned workstations |
 | `360..639` | Maya→Company and Noah→Risk visits |
 | `640..719` | visitors return and summarize |
 | `720..999` | Ethan→Financial and Liam→Market visits |

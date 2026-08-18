@@ -440,9 +440,9 @@ export const OFFICE_SCENE_MANIFEST = {
       talkAnchors: [
         {
           agentId: "market",
-          cell: { x: 14, y: 10 },
-          facing: "left",
-          target: { x: 12, y: 10 },
+          cell: { x: 12, y: 11 },
+          facing: "right",
+          target: { x: 14, y: 11 },
         },
         {
           agentId: "market_news",
@@ -457,7 +457,7 @@ export const OFFICE_SCENE_MANIFEST = {
           target: { x: 12, y: 10 },
         },
       ],
-      visitorAnchor: { cell: { x: 15, y: 10 }, facing: "left" },
+      visitorAnchor: { cell: { x: 14, y: 11 }, facing: "left" },
     },
     company: {
       memberIds: ["company", "company_product", "company_competition"],
@@ -468,8 +468,8 @@ export const OFFICE_SCENE_MANIFEST = {
         {
           agentId: "company",
           cell: { x: 31, y: 10 },
-          facing: "right",
-          target: { x: 33, y: 12 },
+          facing: "left",
+          target: { x: 29, y: 10 },
         },
         {
           agentId: "company_product",
@@ -484,7 +484,7 @@ export const OFFICE_SCENE_MANIFEST = {
           target: { x: 33, y: 12 },
         },
       ],
-      visitorAnchor: { cell: { x: 30, y: 10 }, facing: "right" },
+      visitorAnchor: { cell: { x: 29, y: 10 }, facing: "right" },
     },
     financial: {
       memberIds: ["financial", "valuation", "financial_quality"],
@@ -494,15 +494,15 @@ export const OFFICE_SCENE_MANIFEST = {
       talkAnchors: [
         {
           agentId: "financial",
-          cell: { x: 17, y: 24 },
-          facing: "left",
+          cell: { x: 13, y: 24 },
+          facing: "right",
           target: { x: 15, y: 24 },
         },
         {
           agentId: "valuation",
-          cell: { x: 15, y: 24 },
-          facing: "right",
-          target: { x: 17, y: 24 },
+          cell: { x: 15, y: 25 },
+          facing: "left",
+          target: { x: 13, y: 25 },
         },
         {
           agentId: "financial_quality",
@@ -511,7 +511,7 @@ export const OFFICE_SCENE_MANIFEST = {
           target: { x: 15, y: 24 },
         },
       ],
-      visitorAnchor: { cell: { x: 18, y: 24 }, facing: "left" },
+      visitorAnchor: { cell: { x: 15, y: 24 }, facing: "left" },
     },
     risk: {
       memberIds: ["risk", "risk_policy"],
@@ -521,9 +521,9 @@ export const OFFICE_SCENE_MANIFEST = {
       talkAnchors: [
         {
           agentId: "risk",
-          cell: { x: 25, y: 24 },
-          facing: "right",
-          target: { x: 27, y: 24 },
+          cell: { x: 30, y: 23 },
+          facing: "left",
+          target: { x: 28, y: 23 },
         },
         {
           agentId: "risk_policy",
@@ -532,7 +532,7 @@ export const OFFICE_SCENE_MANIFEST = {
           target: { x: 25, y: 24 },
         },
       ],
-      visitorAnchor: { cell: { x: 24, y: 24 }, facing: "right" },
+      visitorAnchor: { cell: { x: 28, y: 23 }, facing: "right" },
     },
   },
   chairOffice: {
