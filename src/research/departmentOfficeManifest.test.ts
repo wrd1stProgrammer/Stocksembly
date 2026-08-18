@@ -10,17 +10,17 @@ function contractManifest(): typeof OFFICE_SCENE_MANIFEST {
 }
 
 const expectedWorkSeats = {
-  market: [{ x: 4, y: 13 }, { x: 4, y: 14 }, "down"],
-  market_news: [{ x: 8, y: 13 }, { x: 8, y: 14 }, "down"],
-  benchmark: [{ x: 12, y: 13 }, { x: 12, y: 14 }, "down"],
-  company: [{ x: 31, y: 13 }, { x: 31, y: 14 }, "down"],
-  company_product: [{ x: 35, y: 13 }, { x: 35, y: 14 }, "down"],
-  company_competition: [{ x: 39, y: 13 }, { x: 39, y: 14 }, "down"],
-  financial: [{ x: 5, y: 30 }, { x: 5, y: 31 }, "down"],
-  valuation: [{ x: 9, y: 30 }, { x: 9, y: 31 }, "down"],
-  financial_quality: [{ x: 13, y: 30 }, { x: 13, y: 31 }, "down"],
-  risk: [{ x: 31, y: 30 }, { x: 31, y: 31 }, "down"],
-  risk_policy: [{ x: 35, y: 30 }, { x: 35, y: 31 }, "down"],
+  market: [{ x: 4, y: 14 }, { x: 4, y: 15 }, "down"],
+  market_news: [{ x: 8, y: 14 }, { x: 8, y: 15 }, "down"],
+  benchmark: [{ x: 12, y: 14 }, { x: 12, y: 15 }, "down"],
+  company: [{ x: 31, y: 14 }, { x: 31, y: 15 }, "down"],
+  company_product: [{ x: 35, y: 14 }, { x: 35, y: 15 }, "down"],
+  company_competition: [{ x: 39, y: 14 }, { x: 39, y: 15 }, "down"],
+  financial: [{ x: 5, y: 31 }, { x: 5, y: 32 }, "down"],
+  valuation: [{ x: 9, y: 31 }, { x: 9, y: 32 }, "down"],
+  financial_quality: [{ x: 13, y: 31 }, { x: 13, y: 32 }, "down"],
+  risk: [{ x: 31, y: 31 }, { x: 31, y: 32 }, "down"],
+  risk_policy: [{ x: 35, y: 31 }, { x: 35, y: 32 }, "down"],
   chair: [{ x: 22, y: 11 }, { x: 22, y: 10 }, "up"],
 } as const;
 
@@ -148,7 +148,7 @@ describe("department office manifest", () => {
     ).toBe(true);
   });
 
-  it("keeps varied department tables below wall displays and near room centers", () => {
+  it("keeps evenly spaced personal desks below the shared meeting tables", () => {
     // Given
     const manifest = contractManifest();
     // When
@@ -157,29 +157,54 @@ describe("department office manifest", () => {
     );
     // Then
     expect(footprints).toEqual({
-      "market-workstations": {
-        min: { x: 3, y: 14 },
+      "market-workstation": { min: { x: 3, y: 15 }, max: { x: 5, y: 16 } },
+      "market-news-workstation": {
+        min: { x: 7, y: 15 },
+        max: { x: 9, y: 16 },
+      },
+      "benchmark-workstation": {
+        min: { x: 11, y: 15 },
         max: { x: 13, y: 16 },
       },
       "market-table": { min: { x: 5, y: 8 }, max: { x: 11, y: 10 } },
       "chair-desk": { min: { x: 20, y: 8 }, max: { x: 25, y: 10 } },
-      "company-workstations": {
-        min: { x: 30, y: 14 },
+      "company-workstation": {
+        min: { x: 30, y: 15 },
+        max: { x: 32, y: 16 },
+      },
+      "company-product-workstation": {
+        min: { x: 34, y: 15 },
+        max: { x: 36, y: 16 },
+      },
+      "company-competition-workstation": {
+        min: { x: 38, y: 15 },
         max: { x: 40, y: 16 },
       },
       "company-table": { min: { x: 32, y: 8 }, max: { x: 38, y: 10 } },
-      "financial-workstations": {
-        min: { x: 4, y: 31 },
+      "financial-workstation": {
+        min: { x: 4, y: 32 },
+        max: { x: 6, y: 33 },
+      },
+      "valuation-workstation": {
+        min: { x: 8, y: 32 },
+        max: { x: 10, y: 33 },
+      },
+      "financial-quality-workstation": {
+        min: { x: 12, y: 32 },
         max: { x: 14, y: 33 },
       },
       "financial-table": { min: { x: 6, y: 25 }, max: { x: 12, y: 27 } },
-      "risk-workstations": {
-        min: { x: 30, y: 31 },
+      "risk-workstation": {
+        min: { x: 30, y: 32 },
+        max: { x: 32, y: 33 },
+      },
+      "risk-policy-workstation": {
+        min: { x: 34, y: 32 },
         max: { x: 36, y: 33 },
       },
       "risk-table": { min: { x: 30, y: 25 }, max: { x: 35, y: 27 } },
     });
-    expect(manifest.furniture).toHaveLength(9);
+    expect(manifest.furniture).toHaveLength(16);
   });
 
   it("locks department talk and visitor anchors", () => {

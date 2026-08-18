@@ -73,7 +73,7 @@ describe("office snapshot furniture", () => {
     expect(seats.filter((seat) => !seat.occupied)).toHaveLength(16);
   });
 
-  it("derives nine furniture clusters and both seat modes per analyst", () => {
+  it("derives sixteen furniture clusters and both seat modes per analyst", () => {
     // Given
     const snapshot = snapshotAt(40);
 
@@ -89,8 +89,8 @@ describe("office snapshot furniture", () => {
     );
     expect(
       states.every((state) => {
-        const maxWidthCells = state.purpose === "workstation" ? 13 : 7;
-        const maxHeightCells = state.purpose === "workstation" ? 4 : 3;
+        const maxWidthCells = state.purpose === "workstation" ? 3 : 7;
+        const maxHeightCells = state.purpose === "workstation" ? 2 : 3;
         return (
           state.size.width <=
             OFFICE_SCENE_MANIFEST.world.cellSize * maxWidthCells &&
@@ -109,34 +109,30 @@ describe("office snapshot furniture", () => {
     )) {
       const state = states.find((candidate) => candidate.id === furniture.id);
       if (!state) throw new Error(`Missing furniture state ${furniture.id}`);
-      const members = OFFICE_SCENE_MANIFEST.roster.filter(
-        (member) => member.departmentId === furniture.roomId,
+      if (!("memberId" in furniture)) {
+        throw new Error(`Missing workstation owner ${furniture.id}`);
+      }
+      const member = OFFICE_SCENE_MANIFEST.roster.find(
+        (candidate) => candidate.id === furniture.memberId,
       );
+      if (!member) throw new Error(`Missing member ${furniture.memberId}`);
       const rawTableCenterY =
         ((furniture.footprint.min.y + furniture.footprint.max.y + 1) *
           OFFICE_SCENE_MANIFEST.world.cellSize) /
         2;
 
-      expect(state.seats).toHaveLength(members.length);
+      expect(state.seats).toHaveLength(1);
       expect(state.position.y).toBe(
         rawTableCenterY + WORKSTATION_TABLE_VISUAL_OFFSET_Y,
       );
-      const visibleSeatXs = state.seats.map(({ position }) => position.x);
-      if (members.length === 3) {
-        const distance = visibleSeatXs[1] - visibleSeatXs[0];
-        expect(distance).toBeLessThan(state.size.width / 3);
-        expect(visibleSeatXs[2] - visibleSeatXs[1]).toBeCloseTo(distance);
+      const seat = state.seats[0];
+      const expectedPosition = workstationSeatVisualPosition(member.id);
+      if (!expectedPosition) {
+        throw new Error(`Missing workstation position ${member.id}`);
       }
-      for (const member of members) {
-        const seat = state.seats.find(
-          (candidate) => candidate.actorId === member.id,
-        );
-        const expectedPosition = workstationSeatVisualPosition(member.id);
-        if (!expectedPosition) {
-          throw new Error(`Missing workstation position ${member.id}`);
-        }
-        expect(seat?.position).toEqual(expectedPosition);
-      }
+      expect(seat?.actorId).toBe(member.id);
+      expect(seat?.position).toEqual(expectedPosition);
+      expect(seat?.position.x).toBe(state.position.x);
     }
   });
 

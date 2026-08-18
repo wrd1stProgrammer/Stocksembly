@@ -39,7 +39,7 @@ describe("office personal workstation contract", () => {
     }
   });
 
-  it("renders four generated workstation banks with 3-3-3-2 analyst seats", () => {
+  it("renders one generated personal table for every analyst", () => {
     // Given
     const individualResearch = snapshotAt(80);
 
@@ -49,22 +49,15 @@ describe("office personal workstation contract", () => {
     ).filter((state) => state.purpose === "workstation");
 
     // Then
-    expect(
-      Object.fromEntries(
-        workstationStates.map((state) => [state.id, state.seats.length]),
-      ),
-    ).toEqual({
-      "market-workstations": 3,
-      "company-workstations": 3,
-      "financial-workstations": 3,
-      "risk-workstations": 2,
-    });
+    expect(workstationStates).toHaveLength(11);
+    expect(workstationStates.every((state) => state.seats.length === 1)).toBe(
+      true,
+    );
     expect(
       workstationStates.every(
         (state) =>
-          state.assetPath?.startsWith(
-            "/research/office-v9/entities/workstations-",
-          ) === true,
+          state.assetPath ===
+          "/research/office-v9/entities/workstation-single-table.png",
       ),
     ).toBe(true);
     expect(

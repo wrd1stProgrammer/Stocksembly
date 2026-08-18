@@ -72,36 +72,27 @@ describe("office v9 generated actor assets", () => {
     }
   });
 
-  it("ships transparent generated workstation banks for every department", () => {
-    const workstationAssets = [
-      ["workstations-market.png", 352],
-      ["workstations-company.png", 352],
-      ["workstations-financial.png", 352],
-      ["workstations-risk.png", 224],
-    ] as const;
-    for (const [fileName, width] of workstationAssets) {
-      const image = PNG.sync.read(
-        readFileSync(
-          resolve(
-            process.cwd(),
-            "public/research/office-v9/entities",
-            fileName,
-          ),
+  it("ships one transparent table-only asset for every personal desk", () => {
+    const image = PNG.sync.read(
+      readFileSync(
+        resolve(
+          process.cwd(),
+          "public/research/office-v9/entities/workstation-single-table.png",
         ),
-      );
-      const cornerAlpha = [
-        image.data[3],
-        image.data[(image.width - 1) * 4 + 3],
-        image.data[(image.height - 1) * image.width * 4 + 3],
-        image.data[(image.width * image.height - 1) * 4 + 3],
-      ];
-      expect(image.width).toBe(width);
-      expect(image.height).toBe(96);
-      expect(cornerAlpha.every((alpha) => alpha === 0)).toBe(true);
-      expect(
-        image.data.some((channel, index) => index % 4 === 3 && channel >= 220),
-      ).toBe(true);
-    }
+      ),
+    );
+    const cornerAlpha = [
+      image.data[3],
+      image.data[(image.width - 1) * 4 + 3],
+      image.data[(image.height - 1) * image.width * 4 + 3],
+      image.data[(image.width * image.height - 1) * 4 + 3],
+    ];
+    expect(image.width).toBe(192);
+    expect(image.height).toBe(112);
+    expect(cornerAlpha.every((alpha) => alpha === 0)).toBe(true);
+    expect(
+      image.data.some((channel, index) => index % 4 === 3 && channel >= 220),
+    ).toBe(true);
   });
 
   it("keeps walking frames uncropped and seated poses centered", () => {

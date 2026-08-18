@@ -6,12 +6,6 @@ import type { AgentId } from "./types";
 export const WORKSTATION_TABLE_VISUAL_OFFSET_Y = 8;
 export const WORKSTATION_SEAT_VISUAL_OFFSET_Y = 16;
 
-const workstationSideInsetRatio = (moduleCount: number): number => {
-  if (moduleCount === 3) return 42 / 352;
-  if (moduleCount === 2) return 8 / 224;
-  return 0;
-};
-
 export type OfficeSeatRenderState = {
   readonly actorId: AgentId;
   readonly position: WorldPoint;
@@ -43,6 +37,7 @@ function belongsToFurniture(
   member: (typeof OFFICE_SCENE_MANIFEST.roster)[number],
   furniture: (typeof OFFICE_SCENE_MANIFEST.furniture)[number],
 ): boolean {
+  if ("memberId" in furniture) return member.id === furniture.memberId;
   if (member.departmentId !== furniture.roomId) return false;
   return furniture.purpose === "chair"
     ? member.departmentId === "chair"
@@ -91,24 +86,14 @@ export function workstationSeatVisualPosition(
   if (!member || member.departmentId === "chair") return undefined;
   const furniture = OFFICE_SCENE_MANIFEST.furniture.find(
     (candidate) =>
-      candidate.roomId === member.departmentId &&
-      candidate.purpose === "workstation",
+      candidate.purpose === "workstation" &&
+      "memberId" in candidate &&
+      candidate.memberId === actorId,
   );
   if (!furniture) return undefined;
-  const departmentMembers = OFFICE_SCENE_MANIFEST.roster.filter(
-    (candidate) => candidate.departmentId === member.departmentId,
-  );
-  const index = departmentMembers.findIndex(
-    (candidate) => candidate.id === actorId,
-  );
-  if (index < 0) return undefined;
   const geometry = rectGeometry(furniture.footprint);
-  const inset =
-    geometry.size.width * workstationSideInsetRatio(departmentMembers.length);
-  const left = geometry.position.x - geometry.size.width / 2 + inset;
-  const contentWidth = geometry.size.width - inset * 2;
   return Object.freeze({
-    x: left + (contentWidth * (index + 0.5)) / departmentMembers.length,
+    x: geometry.position.x,
     y: cellFoot(member.workSeat.cell).y + WORKSTATION_SEAT_VISUAL_OFFSET_Y,
   });
 }

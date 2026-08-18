@@ -244,7 +244,7 @@ export async function createOfficeFurnitureRuntime(
     const seats = new Map<AgentId, SeatRuntime>();
     for (const seat of state.seats) {
       const chairParts = chairFor(seat, chairTextures);
-      const laptop = state.assetPath === null ? laptopFor(seat) : null;
+      const laptop = laptopFor(seat);
       if (laptop) laptop.zIndex = state.zIndex + 100;
       world.addChild(...chairParts);
       if (laptop) world.addChild(laptop);
