@@ -9,7 +9,22 @@ function contractManifest(): typeof OFFICE_SCENE_MANIFEST {
   return OFFICE_SCENE_MANIFEST;
 }
 
-const expectedSeats = {
+const expectedWorkSeats = {
+  market: [{ x: 4, y: 14 }, { x: 4, y: 15 }, "down"],
+  market_news: [{ x: 8, y: 14 }, { x: 8, y: 15 }, "down"],
+  benchmark: [{ x: 12, y: 14 }, { x: 12, y: 15 }, "down"],
+  company: [{ x: 31, y: 14 }, { x: 31, y: 15 }, "down"],
+  company_product: [{ x: 35, y: 14 }, { x: 35, y: 15 }, "down"],
+  company_competition: [{ x: 39, y: 14 }, { x: 39, y: 15 }, "down"],
+  financial: [{ x: 5, y: 31 }, { x: 5, y: 32 }, "down"],
+  valuation: [{ x: 9, y: 31 }, { x: 9, y: 32 }, "down"],
+  financial_quality: [{ x: 13, y: 31 }, { x: 13, y: 32 }, "down"],
+  risk: [{ x: 31, y: 31 }, { x: 31, y: 32 }, "down"],
+  risk_policy: [{ x: 35, y: 31 }, { x: 35, y: 32 }, "down"],
+  chair: [{ x: 22, y: 11 }, { x: 22, y: 10 }, "up"],
+} as const;
+
+const expectedMeetingSeats = {
   market: [{ x: 8, y: 7 }, { x: 8, y: 8 }, "down"],
   market_news: [{ x: 7, y: 11 }, { x: 7, y: 10 }, "up"],
   benchmark: [{ x: 9, y: 11 }, { x: 9, y: 10 }, "up"],
@@ -95,28 +110,45 @@ describe("department office manifest", () => {
     ]);
   });
 
-  it("locks every seat, input cell, and work facing", () => {
+  it("locks every personal and meeting seat with vertical facings", () => {
     // Given
     const manifest = contractManifest();
     // When
-    const seats = Object.fromEntries(
+    const workSeats = Object.fromEntries(
       manifest.roster.map((member) => [
         member.id,
-        [member.seat.cell, member.seat.inputCell, member.seat.facing],
+        [
+          member.workSeat.cell,
+          member.workSeat.inputCell,
+          member.workSeat.facing,
+        ],
+      ]),
+    );
+    const meetingSeats = Object.fromEntries(
+      manifest.roster.map((member) => [
+        member.id,
+        [
+          member.meetingSeat.cell,
+          member.meetingSeat.inputCell,
+          member.meetingSeat.facing,
+        ],
       ]),
     );
     // Then
-    expect(seats).toEqual(expectedSeats);
+    expect(workSeats).toEqual(expectedWorkSeats);
+    expect(meetingSeats).toEqual(expectedMeetingSeats);
     expect(
-      manifest.roster.every(
-        ({ seat }) =>
-          (seat.facing === "up" || seat.facing === "down") &&
-          seat.cell.x === seat.inputCell.x,
-      ),
+      manifest.roster
+        .flatMap(({ workSeat, meetingSeat }) => [workSeat, meetingSeat])
+        .every(
+          (seat) =>
+            (seat.facing === "up" || seat.facing === "down") &&
+            seat.cell.x === seat.inputCell.x,
+        ),
     ).toBe(true);
   });
 
-  it("keeps varied department tables below wall displays and near room centers", () => {
+  it("keeps evenly spaced personal desks below the shared meeting tables", () => {
     // Given
     const manifest = contractManifest();
     // When
@@ -125,15 +157,54 @@ describe("department office manifest", () => {
     );
     // Then
     expect(footprints).toEqual({
+      "market-workstation": { min: { x: 3, y: 15 }, max: { x: 5, y: 16 } },
+      "market-news-workstation": {
+        min: { x: 7, y: 15 },
+        max: { x: 9, y: 16 },
+      },
+      "benchmark-workstation": {
+        min: { x: 11, y: 15 },
+        max: { x: 13, y: 16 },
+      },
       "market-table": { min: { x: 5, y: 8 }, max: { x: 11, y: 10 } },
       "chair-desk": { min: { x: 20, y: 8 }, max: { x: 25, y: 10 } },
+      "company-workstation": {
+        min: { x: 30, y: 15 },
+        max: { x: 32, y: 16 },
+      },
+      "company-product-workstation": {
+        min: { x: 34, y: 15 },
+        max: { x: 36, y: 16 },
+      },
+      "company-competition-workstation": {
+        min: { x: 38, y: 15 },
+        max: { x: 40, y: 16 },
+      },
       "company-table": { min: { x: 32, y: 8 }, max: { x: 38, y: 10 } },
+      "financial-workstation": {
+        min: { x: 4, y: 32 },
+        max: { x: 6, y: 33 },
+      },
+      "valuation-workstation": {
+        min: { x: 8, y: 32 },
+        max: { x: 10, y: 33 },
+      },
+      "financial-quality-workstation": {
+        min: { x: 12, y: 32 },
+        max: { x: 14, y: 33 },
+      },
       "financial-table": { min: { x: 6, y: 25 }, max: { x: 12, y: 27 } },
+      "risk-workstation": {
+        min: { x: 30, y: 32 },
+        max: { x: 32, y: 33 },
+      },
+      "risk-policy-workstation": {
+        min: { x: 34, y: 32 },
+        max: { x: 36, y: 33 },
+      },
       "risk-table": { min: { x: 30, y: 25 }, max: { x: 35, y: 27 } },
     });
-    expect(
-      new Set(manifest.furniture.map((item) => item.footprint.min.x)).size,
-    ).toBe(5);
+    expect(manifest.furniture).toHaveLength(16);
   });
 
   it("locks department talk and visitor anchors", () => {
@@ -155,31 +226,62 @@ describe("department office manifest", () => {
     // Then
     expect(talk).toEqual({
       market: [
-        [{ x: 14, y: 10 }, "left"],
+        [{ x: 12, y: 11 }, "right"],
         [{ x: 12, y: 10 }, "right"],
         [{ x: 11, y: 12 }, "up"],
       ],
       company: [
-        [{ x: 31, y: 10 }, "right"],
+        [{ x: 31, y: 10 }, "left"],
         [{ x: 33, y: 12 }, "left"],
-        [{ x: 34, y: 14 }, "up"],
+        [{ x: 38, y: 12 }, "left"],
       ],
       financial: [
-        [{ x: 17, y: 24 }, "left"],
-        [{ x: 15, y: 24 }, "right"],
+        [{ x: 13, y: 24 }, "right"],
+        [{ x: 15, y: 25 }, "left"],
         [{ x: 15, y: 26 }, "up"],
       ],
       risk: [
-        [{ x: 25, y: 24 }, "right"],
+        [{ x: 30, y: 23 }, "left"],
         [{ x: 27, y: 24 }, "left"],
       ],
     });
     expect(visitors).toEqual({
-      market: { cell: { x: 15, y: 10 }, facing: "left" },
-      company: { cell: { x: 30, y: 10 }, facing: "right" },
-      financial: { cell: { x: 18, y: 24 }, facing: "left" },
-      risk: { cell: { x: 24, y: 24 }, facing: "right" },
+      market: { cell: { x: 14, y: 11 }, facing: "left" },
+      company: { cell: { x: 29, y: 10 }, facing: "right" },
+      financial: { cell: { x: 15, y: 24 }, facing: "left" },
+      risk: { cell: { x: 28, y: 23 }, facing: "right" },
     });
+  });
+
+  it("keeps every cross-team exchange close to its table without crowding the leaders", () => {
+    for (const [departmentId, department] of Object.entries(
+      OFFICE_SCENE_MANIFEST.departments,
+    )) {
+      const host = department.talkAnchors.find(
+        (anchor) => anchor.agentId === department.representativeId,
+      );
+      const table = OFFICE_SCENE_MANIFEST.furniture.find(
+        (item) => item.roomId === departmentId && item.purpose === "meeting",
+      );
+      if (!host || !table) throw new RangeError(`Missing ${departmentId}`);
+      const leaderDistance =
+        Math.abs(host.cell.x - department.visitorAnchor.cell.x) +
+        Math.abs(host.cell.y - department.visitorAnchor.cell.y);
+      const tableDistance =
+        Math.max(
+          table.footprint.min.x - host.cell.x,
+          0,
+          host.cell.x - table.footprint.max.x,
+        ) +
+        Math.max(
+          table.footprint.min.y - host.cell.y,
+          0,
+          host.cell.y - table.footprint.max.y,
+        );
+
+      expect(leaderDistance, departmentId).toBeGreaterThanOrEqual(2);
+      expect(tableDistance, departmentId).toBeLessThanOrEqual(2);
+    }
   });
 
   it("locks inward-facing forum anchors and the five-forum seven-home split", () => {
@@ -229,7 +331,13 @@ describe("department office manifest", () => {
     // Given
     const manifest = contractManifest();
     const anchors = [
-      ...manifest.roster.map((member) => member.seat.cell),
+      ...manifest.roster.flatMap((member) => [
+        member.workSeat.cell,
+        ...(member.workSeat.cell.x === member.meetingSeat.cell.x &&
+        member.workSeat.cell.y === member.meetingSeat.cell.y
+          ? []
+          : [member.meetingSeat.cell]),
+      ]),
       ...Object.values(manifest.departments).flatMap((department) => [
         ...department.talkAnchors.map((anchor) => anchor.cell),
         department.visitorAnchor.cell,
@@ -275,7 +383,7 @@ describe("department office manifest", () => {
     const errors = validateOfficeSceneManifest(manifest);
     // Then
     expect(errors).toContain(
-      "anchor market:talk:market_news duplicates market:talk:market at 14,10",
+      "anchor market:talk:market_news duplicates market:talk:market at 12,11",
     );
   });
 
@@ -284,11 +392,13 @@ describe("department office manifest", () => {
     const manifest = structuredClone(contractManifest());
     const june = manifest.roster.find((member) => member.id === "market_news");
     if (!june) throw new Error("June is missing");
-    Reflect.set(june.seat, "facing", "left");
+    Reflect.set(june.meetingSeat, "facing", "left");
     // When
     const errors = validateOfficeSceneManifest(manifest);
     // Then
-    expect(errors).toContain("market_news:seat does not face input 7,10");
+    expect(errors).toContain(
+      "market_news:meetingSeat does not face input 7,10",
+    );
   });
 
   it("reports a precise missing-locale error", () => {

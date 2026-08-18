@@ -9,7 +9,7 @@ import type { AgentId } from "./types";
 
 type SeatRuntime = {
   readonly chairParts: readonly Container[];
-  readonly laptop: Container;
+  readonly laptop: Container | null;
 };
 
 export type OfficeFurnitureRuntime = {
@@ -84,9 +84,31 @@ export function laptopVisualForFacing(facing: OfficeFacing): {
   throw new RangeError(`Work laptops only support vertical facing: ${facing}`);
 }
 
-function tableFor(state: OfficeFurnitureRenderState): Container {
+export function furnitureAssetPathFor(
+  state: OfficeFurnitureRenderState,
+): string | null {
+  return state.assetPath;
+}
+
+function tableFor(
+  state: OfficeFurnitureRenderState,
+  texture: Texture | undefined,
+): Container {
   const root = new Container();
   const { width, height } = state.size;
+  if (state.assetPath !== null) {
+    if (!texture)
+      throw new RangeError(`No generated furniture texture ${state.assetPath}`);
+    const sprite = new Sprite(texture);
+    sprite.anchor.set(0.5);
+    sprite.width = width;
+    sprite.height = height;
+    sprite.roundPixels = true;
+    root.addChild(sprite);
+    root.position.set(state.position.x, state.position.y);
+    root.zIndex = state.zIndex;
+    return root;
+  }
   const radius =
     state.kind === "round"
       ? Math.min(width, height) / 2
@@ -185,25 +207,47 @@ export async function createOfficeFurnitureRuntime(
   world: Container,
   states: readonly OfficeFurnitureRenderState[],
 ): Promise<OfficeFurnitureRuntime> {
-  const [chairUpTexture, chairDownTexture] = await Promise.all([
-    Assets.load<Texture>(chairAssetPathForFacing("up")),
-    Assets.load<Texture>(chairAssetPathForFacing("down")),
-  ]);
+  const assetPaths = [
+    ...new Set(
+      states.flatMap((state) =>
+        state.assetPath === null ? [] : [state.assetPath],
+      ),
+    ),
+  ];
+  const [chairUpTexture, chairDownTexture, generatedEntries] =
+    await Promise.all([
+      Assets.load<Texture>(chairAssetPathForFacing("up")),
+      Assets.load<Texture>(chairAssetPathForFacing("down")),
+      Promise.all(
+        assetPaths.map(async (path) => {
+          const texture = await Assets.load<Texture>(path);
+          texture.source.scaleMode = "linear";
+          return [path, texture] as const;
+        }),
+      ),
+    ]);
   chairUpTexture.source.scaleMode = "linear";
   chairDownTexture.source.scaleMode = "linear";
   const chairTextures = Object.freeze({
     up: chairUpTexture,
     down: chairDownTexture,
   });
+  const generatedTextures = new Map(generatedEntries);
   const entries = states.map((state) => {
-    const table = tableFor(state);
+    const table = tableFor(
+      state,
+      state.assetPath === null
+        ? undefined
+        : generatedTextures.get(state.assetPath),
+    );
     world.addChild(table);
     const seats = new Map<AgentId, SeatRuntime>();
     for (const seat of state.seats) {
       const chairParts = chairFor(seat, chairTextures);
       const laptop = laptopFor(seat);
-      laptop.zIndex = state.zIndex + 100;
-      world.addChild(...chairParts, laptop);
+      if (laptop) laptop.zIndex = state.zIndex + 100;
+      world.addChild(...chairParts);
+      if (laptop) world.addChild(laptop);
       seats.set(seat.actorId, { chairParts, laptop });
     }
     return [state.id, { table, seats }] as const;

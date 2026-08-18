@@ -115,8 +115,8 @@ describe("persisted structural audit authority", () => {
       artifactId: first.structuralAuditArtifactId,
       participantIds: [],
       summary: {
-        en: "Structural evidence audit completed.",
-        ko: "구조적 근거 감사가 완료됐습니다.",
+        en: "Required evidence and source links have been verified for the report.",
+        ko: "리포트에 필요한 근거와 출처 연결을 확인했습니다.",
       },
     });
   });
@@ -285,9 +285,7 @@ describe("persisted structural audit authority", () => {
     if (first === undefined) throw new TypeError("claim fixture missing");
     const original = first.claim;
     const addedClaim = createAtomicClaim({
-      claimId: ClaimIdSchema.parse(
-        "00000000-0000-4000-8000-000000000905",
-      ),
+      claimId: ClaimIdSchema.parse("00000000-0000-4000-8000-000000000905"),
       runId: original.runId,
       snapshotId: original.snapshotId,
       text: original.text,

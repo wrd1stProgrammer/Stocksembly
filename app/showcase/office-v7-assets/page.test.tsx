@@ -106,7 +106,7 @@ describe("office v7 asset gallery route", () => {
     );
 
     // Then
-    expect(expectedPaths).toHaveLength(74);
+    expect(expectedPaths).toHaveLength(79);
     expect([...renderedPaths].sort()).toEqual([...expectedPaths].sort());
   });
 
@@ -143,7 +143,7 @@ describe("office v7 asset gallery route", () => {
           if (!(element instanceof HTMLElement)) {
             throw new TypeError(`Missing ${layer} layer for ${member.id}`);
           }
-          const expected = expectedSeatLayout[member.seat.facing][layer];
+          const expected = expectedSeatLayout[member.workSeat.facing][layer];
           const actual = {
             x: element.style.getPropertyValue("--office-v7-seat-x"),
             y: element.style.getPropertyValue("--office-v7-seat-y"),
@@ -158,10 +158,10 @@ describe("office v7 asset gallery route", () => {
         })
         .join("|");
 
-      expect(stage).toHaveAttribute("data-seat-facing", member.seat.facing);
+      expect(stage).toHaveAttribute("data-seat-facing", member.workSeat.facing);
       expect(vacatedStage).toHaveAttribute(
         "data-seat-facing",
-        member.seat.facing,
+        member.workSeat.facing,
       );
       expect(stage.querySelectorAll('img[alt*="chair"]')).toHaveLength(0);
       expect(vacatedChair).toHaveAttribute(
@@ -177,11 +177,11 @@ describe("office v7 asset gallery route", () => {
       expect(vacatedChair.style.getPropertyValue("--office-v7-seat-z")).toBe(
         "1",
       );
-      facingSignatures.set(member.seat.facing, signature);
+      facingSignatures.set(member.workSeat.facing, signature);
     }
 
     const authoredFacings = new Set(
-      OFFICE_SCENE_MANIFEST.roster.map((member) => member.seat.facing),
+      OFFICE_SCENE_MANIFEST.roster.map((member) => member.workSeat.facing),
     );
     expect(facingSignatures.size).toBe(authoredFacings.size);
     expect(new Set(facingSignatures.values()).size).toBe(authoredFacings.size);

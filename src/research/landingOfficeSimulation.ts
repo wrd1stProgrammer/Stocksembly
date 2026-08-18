@@ -52,7 +52,9 @@ export type LandingOfficeState = {
 };
 
 const seatKeys = new Set(
-  OFFICE_SCENE_MANIFEST.roster.map((member) => officeCellKey(member.seat.cell)),
+  OFFICE_SCENE_MANIFEST.roster.map((member) =>
+    officeCellKey(member.workSeat.cell),
+  ),
 );
 
 const roamingFloorByDepartment = {
@@ -157,9 +159,9 @@ export function createLandingOfficeState(
       OFFICE_SCENE_MANIFEST.roster.map((member, index) =>
         Object.freeze({
           id: member.id,
-          cell: Object.freeze({ ...member.seat.cell }),
-          destination: Object.freeze({ ...member.seat.cell }),
-          facing: member.seat.facing,
+          cell: Object.freeze({ ...member.workSeat.cell }),
+          destination: Object.freeze({ ...member.workSeat.cell }),
+          facing: member.workSeat.facing,
           failedReplans: 0,
           holdTicks: 2 + (index % 7),
           mode: "arrived" as const,
@@ -169,7 +171,7 @@ export function createLandingOfficeState(
           priority: index,
           ready: true,
           revision: 0,
-          route: Object.freeze([Object.freeze({ ...member.seat.cell })]),
+          route: Object.freeze([Object.freeze({ ...member.workSeat.cell })]),
           routeIndex: 0,
           waitTicks: 0,
         }),
@@ -208,10 +210,10 @@ function prepareActor(
     return Object.freeze({ ...actor, holdTicks: actor.holdTicks - 1 });
   }
   if (actor.phase === "away") {
-    const nextRoute = route(actor.cell, member.seat.cell);
+    const nextRoute = route(actor.cell, member.workSeat.cell);
     return Object.freeze({
       ...actor,
-      destination: member.seat.cell,
+      destination: member.workSeat.cell,
       failedReplans: 0,
       mode: nextRoute.length === 1 ? "arrived" : "moving",
       originalDestination: null,
@@ -267,9 +269,9 @@ export function stepLandingOfficeState(
     if (actor.phase === "returning") {
       return Object.freeze({
         ...next,
-        cell: member.seat.cell,
-        destination: member.seat.cell,
-        facing: member.seat.facing,
+        cell: member.workSeat.cell,
+        destination: member.workSeat.cell,
+        facing: member.workSeat.facing,
         holdTicks: 4 + randomInteger(seed, 8),
         phase: "seated" as const,
       });

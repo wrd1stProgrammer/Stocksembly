@@ -72,6 +72,29 @@ describe("office v9 generated actor assets", () => {
     }
   });
 
+  it("ships one transparent table-only asset for every personal desk", () => {
+    const image = PNG.sync.read(
+      readFileSync(
+        resolve(
+          process.cwd(),
+          "public/research/office-v9/entities/workstation-single-table.png",
+        ),
+      ),
+    );
+    const cornerAlpha = [
+      image.data[3],
+      image.data[(image.width - 1) * 4 + 3],
+      image.data[(image.height - 1) * image.width * 4 + 3],
+      image.data[(image.width * image.height - 1) * 4 + 3],
+    ];
+    expect(image.width).toBe(192);
+    expect(image.height).toBe(112);
+    expect(cornerAlpha.every((alpha) => alpha === 0)).toBe(true);
+    expect(
+      image.data.some((channel, index) => index % 4 === 3 && channel >= 220),
+    ).toBe(true);
+  });
+
   it("keeps walking frames uncropped and seated poses centered", () => {
     for (const member of OFFICE_SCENE_MANIFEST.roster) {
       const image = PNG.sync.read(

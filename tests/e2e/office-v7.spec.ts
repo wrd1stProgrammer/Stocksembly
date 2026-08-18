@@ -113,7 +113,7 @@ async function waitForPaintedOffice(
   page: Page,
   office: Locator,
 ): Promise<CanvasPaintEvidence> {
-  await expect(office).toHaveAttribute("data-render-actor-count", "11");
+  await expect(office).toHaveAttribute("data-render-actor-count", "12");
   await page.waitForFunction(
     () =>
       Number(
@@ -333,7 +333,7 @@ test.describe("Todo 8 controlled-clock office-v7 contract", () => {
       action: "summarize",
     });
     expect(actor(frameAt(frames, 719), "market").cell).toEqual(
-      manifestActor("market").seat.cell,
+      representativeCell("market"),
     );
     expect(actor(frameAt(frames, 920), "company").cell).toEqual(
       OFFICE_SCENE_MANIFEST.departments.financial.visitorAnchor.cell,
@@ -343,7 +343,7 @@ test.describe("Todo 8 controlled-clock office-v7 contract", () => {
       action: "summarize",
     });
     expect(actor(frameAt(frames, 1079), "company").cell).toEqual(
-      manifestActor("company").seat.cell,
+      representativeCell("company"),
     );
     const complete = frameAt(frames, 1580);
     const forumIds = new Set(
@@ -354,13 +354,13 @@ test.describe("Todo 8 controlled-clock office-v7 contract", () => {
     expect([
       complete.actors.filter(({ id }) => forumIds.has(id)).length,
       complete.actors.filter(({ id }) => !forumIds.has(id)).length,
-    ]).toEqual([5, 6]);
+    ]).toEqual([5, 7]);
     for (const entry of complete.actors) {
       const member = manifestActor(entry.id);
       const forum = Object.values(OFFICE_SCENE_MANIFEST.forum.anchors).find(
         ({ agentId }) => agentId === entry.id,
       );
-      expect(entry.cell).toEqual(forum?.cell ?? member.seat.cell);
+      expect(entry.cell).toEqual(forum?.cell ?? member.workSeat.cell);
     }
     expect(replayFrames).toEqual(frames.slice(1));
     expect(replayFrames.at(-1)?.traceHash).toBe(complete.traceHash);
@@ -449,7 +449,7 @@ test.describe("Todo 8 controlled-clock office-v7 contract", () => {
     await enPage.getByRole("button", { name: "Pause" }).click();
     await expect(enPage.getByRole("button", { name: "Resume" })).toBeVisible();
     await expect(enPage.locator(".office-stage.is-paused")).toBeVisible();
-    await expect(enOffice).toHaveAttribute("data-render-actor-count", "11");
+    await expect(enOffice).toHaveAttribute("data-render-actor-count", "12");
     const enPausedPaint = await canvasPaintEvidence(enOffice);
     await enPage.screenshot({
       path: path.join(evidenceDir, "desktop.png"),
@@ -471,7 +471,7 @@ test.describe("Todo 8 controlled-clock office-v7 contract", () => {
       koPage.getByRole("button", { name: "계속하기" }),
     ).toBeVisible();
     await expect(koPage.locator(".office-stage.is-paused")).toBeVisible();
-    await expect(koOffice).toHaveAttribute("data-render-actor-count", "11");
+    await expect(koOffice).toHaveAttribute("data-render-actor-count", "12");
     const koPausedPaint = await canvasPaintEvidence(koOffice);
     await koPage.screenshot({
       path: path.join(evidenceDir, "mobile.png"),

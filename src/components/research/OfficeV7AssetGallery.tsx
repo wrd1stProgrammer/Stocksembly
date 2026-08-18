@@ -131,10 +131,10 @@ function ActorCard({
       <div className="office-v7-gallery__walk-row">
         <span>Walk strip</span>
         <span
-          className={`office-v7-gallery__walk-strip office-v7-gallery__sprite--row-${directions.indexOf(member.seat.facing)}`}
+          className={`office-v7-gallery__walk-strip office-v7-gallery__sprite--row-${directions.indexOf(member.workSeat.facing)}`}
         >
           <GalleryImage
-            alt={`${member.name.en}, ${member.seat.facing} idle and walk strip`}
+            alt={`${member.name.en}, ${member.workSeat.facing} idle and walk strip`}
             height={768}
             src={`${publicRoot}/agents/${member.id}.png`}
             width={640}
@@ -155,13 +155,13 @@ function SeatComposite({
     <article className="office-v7-gallery__seat-card">
       <header>
         <h3>{member.name.en}</h3>
-        <span>{member.seat.facing}</span>
+        <span>{member.workSeat.facing}</span>
       </header>
       <div className="office-v7-gallery__seat-states">
         <figure>
           <div
-            className={`office-v7-gallery__seat-stage office-v7-gallery__seat-stage--${member.seat.facing}`}
-            data-seat-facing={member.seat.facing}
+            className={`office-v7-gallery__seat-stage office-v7-gallery__seat-stage--${member.workSeat.facing}`}
+            data-seat-facing={member.workSeat.facing}
           >
             <GalleryImage
               alt={`${member.name.en} department-tinted desk`}
@@ -169,7 +169,7 @@ function SeatComposite({
               data-seat-layer="desk"
               height={128}
               src={`${seatRoot}-desk.png`}
-              style={seatLayerStyle(member.seat.facing, "desk")}
+              style={seatLayerStyle(member.workSeat.facing, "desk")}
               width={128}
             />
             <GalleryImage
@@ -178,19 +178,19 @@ function SeatComposite({
               data-seat-layer="monitor"
               height={128}
               src={`${seatRoot}-monitor.png`}
-              style={seatLayerStyle(member.seat.facing, "monitor")}
+              style={seatLayerStyle(member.workSeat.facing, "monitor")}
               width={128}
             />
             <span
               className="office-v7-gallery__seat-actor"
               data-seat-layer="actor"
-              style={seatLayerStyle(member.seat.facing, "actor")}
+              style={seatLayerStyle(member.workSeat.facing, "actor")}
             >
               <SpriteFrame
                 actorId={member.id}
                 actorName={member.name.en}
                 column={3}
-                facing={member.seat.facing}
+                facing={member.workSeat.facing}
               />
             </span>
           </div>
@@ -199,10 +199,10 @@ function SeatComposite({
         <figure>
           <div
             className="office-v7-gallery__vacated-stage"
-            data-seat-facing={member.seat.facing}
+            data-seat-facing={member.workSeat.facing}
           >
             <GalleryImage
-              alt={`${member.name.en} vacated ${member.seat.facing} chair`}
+              alt={`${member.name.en} vacated ${member.workSeat.facing} chair`}
               data-seat-layer="chair"
               height={128}
               src={`${seatRoot}-chair.png`}

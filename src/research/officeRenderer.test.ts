@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { ACTOR_ATLAS } from "./officeActorAtlas";
 import { officeAgentAssetPath } from "./officeAgentAssets";
 import type { OfficeActorAction } from "./officeChoreography";
+import { workstationSeatVisualPosition } from "./officeGameFurniture";
 import {
   type OfficeRenderSnapshot,
   renderOfficeSnapshot,
@@ -357,11 +358,34 @@ describe("manifest-derived office snapshot renderer", () => {
     expect(source).not.toMatch(/Math\.random|setInterval|setTimeout/);
   });
 
+  it("moves only personal-workstation seated actors with their tightened chairs", () => {
+    const workSnapshot = snapshotAt(80);
+    const workProjection = project(workSnapshot);
+    const workActor = workSnapshot.actors.find(({ id }) => id === "market");
+    const renderedWorkActor = workProjection.actors.find(
+      ({ id }) => id === "market",
+    );
+    const meetingSnapshot = snapshotAt(340);
+    const meetingProjection = project(meetingSnapshot);
+    const meetingActor = meetingSnapshot.actors.find(
+      ({ id }) => id === "market_news",
+    );
+    const renderedMeetingActor = meetingProjection.actors.find(
+      ({ id }) => id === "market_news",
+    );
+
+    expect(workActor).toBeDefined();
+    expect(renderedWorkActor?.world).toEqual(
+      workstationSeatVisualPosition("market"),
+    );
+    expect(renderedMeetingActor?.world.y).toBe(meetingActor?.world.y);
+  });
+
   it("lays out desktop bubbles and labels without overlap or clipped actor fragments", () => {
     // Given
     const viewport = { width: 1376, height: 774 };
     const projection = project(
-      snapshotAt(520),
+      snapshotAt(530),
       undefined,
       "snapshot",
       viewport,
@@ -375,6 +399,12 @@ describe("manifest-derived office snapshot renderer", () => {
     // Then
     for (const label of labels) {
       expect(label.label.bounds.top - label.bodyBounds.bottom).toBe(1);
+      const labelCenter =
+        (label.label.bounds.left + label.label.bounds.right) / 2;
+      const labelWidth = label.label.bounds.right - label.label.bounds.left;
+      expect(
+        Math.abs(labelCenter - label.screenPosition.x),
+      ).toBeLessThanOrEqual(labelWidth * 0.32 + 0.001);
       for (const bubble of bubbles) {
         expect(overlaps(label.label.bounds, bubble.bubble.bounds)).toBe(false);
       }
@@ -415,7 +445,7 @@ describe("manifest-derived office snapshot renderer", () => {
     // Given
     const viewport = { width: 1376, height: 774 };
     const projection = project(
-      snapshotAt(520),
+      snapshotAt(530),
       undefined,
       "snapshot",
       viewport,

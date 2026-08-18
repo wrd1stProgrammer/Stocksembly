@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { furnitureStatesForSnapshot } from "./officeGameFurniture";
+import {
+  furnitureStatesForSnapshot,
+  WORKSTATION_TABLE_VISUAL_OFFSET_Y,
+  workstationSeatVisualPosition,
+} from "./officeGameFurniture";
 import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import {
   createOfficeSimulation,
@@ -55,7 +59,7 @@ describe("office snapshot furniture", () => {
     expect(mayaAfter?.position).toEqual(mayaBefore?.position);
   });
 
-  it("leaves six home seats occupied when five representatives reach the forum", () => {
+  it("leaves seven personal seats occupied when five representatives reach the forum", () => {
     // Given
     const complete = snapshotAt(1580);
 
@@ -66,10 +70,10 @@ describe("office snapshot furniture", () => {
 
     // Then
     expect(seats.filter((seat) => seat.occupied)).toHaveLength(7);
-    expect(seats.filter((seat) => !seat.occupied)).toHaveLength(5);
+    expect(seats.filter((seat) => !seat.occupied)).toHaveLength(16);
   });
 
-  it("derives five table clusters and one fixed seat per manifest actor", () => {
+  it("derives sixteen furniture clusters and both seat modes per analyst", () => {
     // Given
     const snapshot = snapshotAt(40);
 
@@ -79,19 +83,57 @@ describe("office snapshot furniture", () => {
 
     // Then
     expect(states).toHaveLength(OFFICE_SCENE_MANIFEST.furniture.length);
-    expect(seats.map((seat) => seat.actorId).sort()).toEqual(
-      OFFICE_SCENE_MANIFEST.roster.map((member) => member.id).sort(),
-    );
+    expect(seats).toHaveLength(23);
     expect(states.every((state) => state.size.width > state.size.height)).toBe(
       true,
     );
     expect(
-      states.every(
-        (state) =>
-          state.size.width <= OFFICE_SCENE_MANIFEST.world.cellSize * 7 &&
-          state.size.height <= OFFICE_SCENE_MANIFEST.world.cellSize * 3,
-      ),
+      states.every((state) => {
+        const maxWidthCells = state.purpose === "workstation" ? 3 : 7;
+        const maxHeightCells = state.purpose === "workstation" ? 2 : 3;
+        return (
+          state.size.width <=
+            OFFICE_SCENE_MANIFEST.world.cellSize * maxWidthCells &&
+          state.size.height <=
+            OFFICE_SCENE_MANIFEST.world.cellSize * maxHeightCells
+        );
+      }),
     ).toBe(true);
+  });
+
+  it("keeps one personal chair tight to each lowered workstation module", () => {
+    const states = furnitureStatesForSnapshot(snapshotAt(40));
+
+    for (const furniture of OFFICE_SCENE_MANIFEST.furniture.filter(
+      (candidate) => candidate.purpose === "workstation",
+    )) {
+      const state = states.find((candidate) => candidate.id === furniture.id);
+      if (!state) throw new Error(`Missing furniture state ${furniture.id}`);
+      if (!("memberId" in furniture)) {
+        throw new Error(`Missing workstation owner ${furniture.id}`);
+      }
+      const member = OFFICE_SCENE_MANIFEST.roster.find(
+        (candidate) => candidate.id === furniture.memberId,
+      );
+      if (!member) throw new Error(`Missing member ${furniture.memberId}`);
+      const rawTableCenterY =
+        ((furniture.footprint.min.y + furniture.footprint.max.y + 1) *
+          OFFICE_SCENE_MANIFEST.world.cellSize) /
+        2;
+
+      expect(state.seats).toHaveLength(1);
+      expect(state.position.y).toBe(
+        rawTableCenterY + WORKSTATION_TABLE_VISUAL_OFFSET_Y,
+      );
+      const seat = state.seats[0];
+      const expectedPosition = workstationSeatVisualPosition(member.id);
+      if (!expectedPosition) {
+        throw new Error(`Missing workstation position ${member.id}`);
+      }
+      expect(seat?.actorId).toBe(member.id);
+      expect(seat?.position).toEqual(expectedPosition);
+      expect(seat?.position.x).toBe(state.position.x);
+    }
   });
 
   it("derives seats only for actors present in a department-scoped snapshot", () => {
@@ -114,14 +156,16 @@ describe("office snapshot furniture", () => {
 
     // Then
     expect(seats.map((seat) => seat.actorId).sort()).toEqual(
-      [...memberIds].sort(),
+      [...memberIds, ...memberIds].sort(),
     );
     expect(seats.some((seat) => seat.actorId === "chair")).toBe(false);
   });
 
   it("centers every compact table within its department room", () => {
     const states = furnitureStatesForSnapshot(snapshotAt(40));
-    for (const state of states) {
+    for (const state of states.filter(
+      (candidate) => candidate.purpose !== "workstation",
+    )) {
       const furniture = OFFICE_SCENE_MANIFEST.furniture.find(
         ({ id }) => id === state.id,
       );

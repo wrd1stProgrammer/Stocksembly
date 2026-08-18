@@ -140,7 +140,7 @@ function labelCandidates(
   viewport: OfficeRendererViewport,
 ): readonly OfficeScreenRect[] {
   return Object.freeze(
-    [0, -0.45, 0.45, -0.9, 0.9].map((offset) =>
+    [0, -0.32, 0.32].map((offset) =>
       screenRect(
         context.x + offset * width,
         context.bodyBounds.bottom + ELEMENT_GAP,

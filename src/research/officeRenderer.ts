@@ -13,6 +13,7 @@ import {
   bubbleStateForSnapshot,
   isActorReadyForSpeech,
 } from "./officeGameBubbleState";
+import { workstationSeatVisualPosition } from "./officeGameFurniture";
 import {
   type OfficeCameraTransform,
   type OfficeRendererCameraMode,
@@ -210,9 +211,13 @@ export function renderOfficeSnapshot(
         actor.id,
         input.conversation,
       );
-      const atWorkSeat =
-        actor.cell.x === member.seat.cell.x &&
-        actor.cell.y === member.seat.cell.y;
+      const atWorkSeat = [member.workSeat, member.meetingSeat].some(
+        (seat) => actor.cell.x === seat.cell.x && actor.cell.y === seat.cell.y,
+      );
+      const atPersonalWorkSeat =
+        actor.cell.x === member.workSeat.cell.x &&
+        actor.cell.y === member.workSeat.cell.y &&
+        member.departmentId !== "chair";
       const visualPose = officeVisualPoseFor({
         action: actor.action,
         atWorkSeat,
@@ -230,9 +235,13 @@ export function renderOfficeSnapshot(
       // Do not render the final walking interpolation with a seated frame.
       // The seat is a semantic interaction point, so switching to the seated
       // pose snaps the feet to the chair and avoids the visible slide into it.
-      const world = enteringSeat
+      const seatedWorld = enteringSeat
         ? Object.freeze({ ...actor.world })
         : interpolatedWorld;
+      const world =
+        animation === "sit" && atPersonalWorkSeat
+          ? (workstationSeatVisualPosition(actor.id) ?? seatedWorld)
+          : seatedWorld;
       const physicalCounterpart =
         counterpart !== undefined &&
         !atWorkSeat &&

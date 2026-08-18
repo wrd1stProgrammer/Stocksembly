@@ -35,17 +35,38 @@ type OfficeReplanContext = {
   readonly blockerId: string | null;
 };
 
+type OfficeTrafficOccupant = Pick<OfficeTrafficActor, "cell" | "id" | "motion">;
+
+function occupiedCells(actor: OfficeTrafficOccupant): readonly Cell[] {
+  const anchors = actor.motion ? [actor.cell, actor.motion.to] : [actor.cell];
+  if (actor.id !== "chair") return anchors;
+  return anchors.flatMap((anchor) => {
+    const cells: Cell[] = [];
+    for (let y = anchor.y - 1; y <= anchor.y + 1; y += 1) {
+      for (let x = anchor.x - 1; x <= anchor.x + 1; x += 1) {
+        cells.push({ x, y });
+      }
+    }
+    return cells;
+  });
+}
+
+export function officeTrafficBlockedCells(
+  actors: readonly OfficeTrafficOccupant[],
+  actorId: string,
+): readonly Cell[] {
+  const blocked: Cell[] = [];
+  for (const candidate of actors) {
+    if (candidate.id !== actorId) blocked.push(...occupiedCells(candidate));
+  }
+  return blocked;
+}
+
 function otherCells(
   actors: readonly OfficeTrafficActor[],
   actorId: string,
 ): readonly Cell[] {
-  return actors
-    .filter((candidate) => candidate.id !== actorId)
-    .flatMap((candidate) =>
-      candidate.motion
-        ? [candidate.cell, candidate.motion.to]
-        : [candidate.cell],
-    );
+  return officeTrafficBlockedCells(actors, actorId);
 }
 
 function resumeFromYield(
@@ -221,7 +242,11 @@ export function stepOfficeTraffic(
     .map((actor) => resumeFromYield(grid, advanced, actor))
     .sort(compareTrafficActors);
   const occupancy = new Map(
-    resumed.map((actor) => [officeCellKey(actor.cell), actor.id] as const),
+    resumed.flatMap((actor) =>
+      occupiedCells(actor).map(
+        (cell) => [officeCellKey(cell), actor.id] as const,
+      ),
+    ),
   );
   const reservations: OfficeReservation[] = resumed.flatMap((actor) =>
     actor.motion ? [reservationForMotion(actor.id, actor.motion)] : [],
@@ -260,7 +285,8 @@ export function stepOfficeTraffic(
       moved.set(actor.id, { ...actor, ready: true });
       continue;
     }
-    const occupiedBy = occupancy.get(officeCellKey(destination));
+    const occupant = occupancy.get(officeCellKey(destination));
+    const occupiedBy = occupant === actor.id ? undefined : occupant;
     const reservedBy = reservations.find(
       (reservation) =>
         officeCellKey(reservation.to) === officeCellKey(destination),

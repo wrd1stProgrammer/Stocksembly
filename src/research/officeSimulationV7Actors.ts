@@ -17,7 +17,11 @@ import type {
   OfficeRouteFailureEvent,
   OfficeSimulationActor,
 } from "./officeSimulationV7Types";
-import { type OfficeReservation, stepOfficeTraffic } from "./officeTrafficV7";
+import {
+  type OfficeReservation,
+  officeTrafficBlockedCells,
+  stepOfficeTraffic,
+} from "./officeTrafficV7";
 
 export type OfficeActorStepInput = {
   readonly actors: readonly OfficeSimulationActor[];
@@ -54,10 +58,10 @@ export function createInitialOfficeActors(): readonly OfficeSimulationActor[] {
         id: member.id,
         department: member.departmentId,
         priority,
-        cell: member.seat.cell,
+        cell: member.workSeat.cell,
         destination: directive.destination,
         originalDestination: null,
-        route: Object.freeze([member.seat.cell]),
+        route: Object.freeze([member.workSeat.cell]),
         routeIndex: 0,
         waitTicks: 0,
         failedReplans: 0,
@@ -143,7 +147,7 @@ function reconcileDirective(
   const route = findOfficeRoute(input.grid, {
     from: routeOrigin,
     to: directive.destination,
-    blockedCells: [],
+    blockedCells: officeTrafficBlockedCells(input.actors, actor.id),
   });
   if (route.kind === "unreachable") {
     return {

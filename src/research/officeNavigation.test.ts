@@ -80,10 +80,10 @@ describe("office navigation", () => {
     const marketDoors = OFFICE_SCENE_MANIFEST.rooms.market.doors;
     const marketSeat = OFFICE_SCENE_MANIFEST.roster.find(
       (member) => member.id === "market",
-    )?.seat.cell;
+    )?.workSeat.cell;
     const companySeat = OFFICE_SCENE_MANIFEST.roster.find(
       (member) => member.id === "company",
-    )?.seat.cell;
+    )?.workSeat.cell;
     if (!marketSeat || !companySeat) throw new RangeError("Missing lead seats");
 
     // When
@@ -266,8 +266,8 @@ describe("office navigation", () => {
     }
 
     // Then
-    expect(failedReplanTicks).toEqual([15, 27]);
-    expect(firstYieldTick).toBe(39);
+    expect(failedReplanTicks).toEqual([14, 26]);
+    expect(firstYieldTick).toBe(38);
     expect(observedSwap).toBe(false);
     expect(
       traffic.actors.map(({ id, cell: current }) => [id, current]),
