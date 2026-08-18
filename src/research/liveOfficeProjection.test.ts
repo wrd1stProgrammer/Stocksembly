@@ -21,8 +21,8 @@ function collectionStarted(sequence: number): PublicResearchEvent {
     occurredAt: `2026-08-06T16:00:0${sequence}.000Z`,
     stateId: "collection_started",
     summary: {
-      en: "Official SEC and macro evidence collection started.",
-      ko: "SEC 및 공식 거시경제 근거 수집을 시작했습니다.",
+      en: "Collecting SEC filings, market, news, and macroeconomic data while verifying sources and reference times.",
+      ko: "SEC 공시와 시세·뉴스·거시경제 데이터를 수집하고, 출처와 기준 시각을 확인하고 있습니다.",
     },
     participantIds: [],
     claimIds: [],

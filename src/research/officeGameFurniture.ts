@@ -14,12 +14,31 @@ export type OfficeSeatRenderState = {
 export type OfficeFurnitureRenderState = {
   readonly id: string;
   readonly kind: (typeof OFFICE_SCENE_MANIFEST.furniture)[number]["kind"];
+  readonly purpose: (typeof OFFICE_SCENE_MANIFEST.furniture)[number]["purpose"];
+  readonly assetPath: string | null;
   readonly accent: number;
   readonly position: WorldPoint;
   readonly size: { readonly width: number; readonly height: number };
   readonly zIndex: number;
   readonly seats: readonly OfficeSeatRenderState[];
 };
+
+function seatForFurniture(
+  member: (typeof OFFICE_SCENE_MANIFEST.roster)[number],
+  purpose: OfficeFurnitureRenderState["purpose"],
+) {
+  return purpose === "meeting" ? member.meetingSeat : member.workSeat;
+}
+
+function belongsToFurniture(
+  member: (typeof OFFICE_SCENE_MANIFEST.roster)[number],
+  furniture: (typeof OFFICE_SCENE_MANIFEST.furniture)[number],
+): boolean {
+  if (member.departmentId !== furniture.roomId) return false;
+  return furniture.purpose === "chair"
+    ? member.departmentId === "chair"
+    : member.departmentId !== "chair";
+}
 
 function cellFoot(cell: {
   readonly x: number;
@@ -62,25 +81,28 @@ export function furnitureStatesForSnapshot(
     OFFICE_SCENE_MANIFEST.furniture.map((furniture) => {
       const geometry = rectGeometry(furniture.footprint);
       const seats = OFFICE_SCENE_MANIFEST.roster.flatMap((member) => {
-        if (member.departmentId !== furniture.roomId) return [];
+        if (!belongsToFurniture(member, furniture)) return [];
         const actor = actorById.get(member.id);
         if (!actor) return [];
+        const seat = seatForFurniture(member, furniture.purpose);
         return [
           Object.freeze({
             actorId: member.id,
-            position: cellFoot(member.seat.cell),
-            laptopPosition: cellFoot(member.seat.inputCell),
-            facing: member.seat.facing,
+            position: cellFoot(seat.cell),
+            laptopPosition: cellFoot(seat.inputCell),
+            facing: seat.facing,
             occupied:
-              actor.cell.x === member.seat.cell.x &&
-              actor.cell.y === member.seat.cell.y &&
-              (actor.action === "seated-work" || actor.action === "idle"),
+              actor.cell.x === seat.cell.x &&
+              actor.cell.y === seat.cell.y &&
+              ["idle", "listen", "seated-work", "talk"].includes(actor.action),
           }),
         ];
       });
       return Object.freeze({
         id: furniture.id,
         kind: furniture.kind,
+        purpose: furniture.purpose,
+        assetPath: furniture.assetPath,
         accent: furniture.accent,
         position: geometry.position,
         size: geometry.size,

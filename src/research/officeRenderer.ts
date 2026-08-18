@@ -210,9 +210,9 @@ export function renderOfficeSnapshot(
         actor.id,
         input.conversation,
       );
-      const atWorkSeat =
-        actor.cell.x === member.seat.cell.x &&
-        actor.cell.y === member.seat.cell.y;
+      const atWorkSeat = [member.workSeat, member.meetingSeat].some(
+        (seat) => actor.cell.x === seat.cell.x && actor.cell.y === seat.cell.y,
+      );
       const visualPose = officeVisualPoseFor({
         action: actor.action,
         atWorkSeat,

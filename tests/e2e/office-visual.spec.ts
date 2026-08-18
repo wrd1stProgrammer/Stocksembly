@@ -39,7 +39,7 @@ test("renders the v8 snapshot calibration surface and camera contract", async ({
   });
   expect(geometry.sceneRatio).toBeCloseTo(1374 / 1145, 2);
   expect(geometry.canvasRatio).toBeCloseTo(1374 / 1145, 2);
-  expect(geometry.actorCount).toBe("11");
+  expect(geometry.actorCount).toBe("12");
   expect(geometry.cameraMode).toMatch(/focus|overview/);
   expect(geometry.uiLayout).toBeTruthy();
 

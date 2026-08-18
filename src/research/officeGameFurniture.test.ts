@@ -55,7 +55,7 @@ describe("office snapshot furniture", () => {
     expect(mayaAfter?.position).toEqual(mayaBefore?.position);
   });
 
-  it("leaves six home seats occupied when five representatives reach the forum", () => {
+  it("leaves seven personal seats occupied when five representatives reach the forum", () => {
     // Given
     const complete = snapshotAt(1580);
 
@@ -66,10 +66,10 @@ describe("office snapshot furniture", () => {
 
     // Then
     expect(seats.filter((seat) => seat.occupied)).toHaveLength(7);
-    expect(seats.filter((seat) => !seat.occupied)).toHaveLength(5);
+    expect(seats.filter((seat) => !seat.occupied)).toHaveLength(16);
   });
 
-  it("derives five table clusters and one fixed seat per manifest actor", () => {
+  it("derives nine furniture clusters and both seat modes per analyst", () => {
     // Given
     const snapshot = snapshotAt(40);
 
@@ -79,18 +79,21 @@ describe("office snapshot furniture", () => {
 
     // Then
     expect(states).toHaveLength(OFFICE_SCENE_MANIFEST.furniture.length);
-    expect(seats.map((seat) => seat.actorId).sort()).toEqual(
-      OFFICE_SCENE_MANIFEST.roster.map((member) => member.id).sort(),
-    );
+    expect(seats).toHaveLength(23);
     expect(states.every((state) => state.size.width > state.size.height)).toBe(
       true,
     );
     expect(
-      states.every(
-        (state) =>
-          state.size.width <= OFFICE_SCENE_MANIFEST.world.cellSize * 7 &&
-          state.size.height <= OFFICE_SCENE_MANIFEST.world.cellSize * 3,
-      ),
+      states.every((state) => {
+        const maxWidthCells = state.purpose === "workstation" ? 13 : 7;
+        const maxHeightCells = state.purpose === "workstation" ? 4 : 3;
+        return (
+          state.size.width <=
+            OFFICE_SCENE_MANIFEST.world.cellSize * maxWidthCells &&
+          state.size.height <=
+            OFFICE_SCENE_MANIFEST.world.cellSize * maxHeightCells
+        );
+      }),
     ).toBe(true);
   });
 
@@ -114,14 +117,16 @@ describe("office snapshot furniture", () => {
 
     // Then
     expect(seats.map((seat) => seat.actorId).sort()).toEqual(
-      [...memberIds].sort(),
+      [...memberIds, ...memberIds].sort(),
     );
     expect(seats.some((seat) => seat.actorId === "chair")).toBe(false);
   });
 
   it("centers every compact table within its department room", () => {
     const states = furnitureStatesForSnapshot(snapshotAt(40));
-    for (const state of states) {
+    for (const state of states.filter(
+      (candidate) => candidate.purpose !== "workstation",
+    )) {
       const furniture = OFFICE_SCENE_MANIFEST.furniture.find(
         ({ id }) => id === state.id,
       );

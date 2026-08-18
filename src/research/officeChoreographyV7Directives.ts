@@ -47,10 +47,25 @@ function seatDirective(
 ): OfficeActorDirective {
   return {
     actorId: member.id,
-    destination: member.seat.cell,
-    facing: member.seat.facing,
+    destination: member.workSeat.cell,
+    facing: member.workSeat.facing,
     terminalAction: member.id === chair.id ? "idle" : "seated-work",
     travelAction: "return",
+    revisionKey,
+  };
+}
+
+function meetingSeatDirective(
+  member: (typeof OFFICE_SCENE_MANIFEST.roster)[number],
+  revisionKey: string,
+  terminalAction: OfficeActorDirective["terminalAction"],
+): OfficeActorDirective {
+  return {
+    actorId: member.id,
+    destination: member.meetingSeat.cell,
+    facing: member.meetingSeat.facing,
+    terminalAction,
+    travelAction: "walk",
     revisionKey,
   };
 }
@@ -76,6 +91,20 @@ function seatedDirectives(
   );
 }
 
+function departmentMeetingDirectives(
+  revisionKey: string,
+): Map<OfficeManifestAgentId, OfficeActorDirective> {
+  const directives = seatedDirectives(revisionKey);
+  for (const member of OFFICE_SCENE_MANIFEST.roster) {
+    if (member.departmentId === "chair") continue;
+    directives.set(
+      member.id,
+      meetingSeatDirective(member, revisionKey, "listen"),
+    );
+  }
+  return directives;
+}
+
 function ordered(
   directives: ReadonlyMap<OfficeManifestAgentId, OfficeActorDirective>,
 ): readonly OfficeActorDirective[] {
@@ -93,14 +122,14 @@ function departmentTalk(): readonly OfficeActorDirective[] {
       );
       if (!member)
         throw new RangeError(`Missing department member ${memberId}`);
-      directives.set(memberId, {
-        ...seatDirective(
+      directives.set(
+        memberId,
+        meetingSeatDirective(
           member,
           `department-talk-${department.representativeId}`,
-        ),
-        terminalAction:
           memberId === department.representativeId ? "talk" : "listen",
-      });
+        ),
+      );
     }
   }
   return ordered(directives);
@@ -111,7 +140,7 @@ function visit(
   revisionKey: string,
   hostsSpeak: boolean,
 ): readonly OfficeActorDirective[] {
-  const directives = seatedDirectives(revisionKey);
+  const directives = departmentMeetingDirectives(revisionKey);
   for (const pair of pairs) {
     const visitorDepartment =
       OFFICE_SCENE_MANIFEST.departments[pair.visitorDepartment];
@@ -144,7 +173,7 @@ function visit(
 function representativesReady(
   revisionKey: string,
 ): readonly OfficeActorDirective[] {
-  const directives = seatedDirectives(revisionKey);
+  const directives = departmentMeetingDirectives(revisionKey);
   for (const department of Object.values(OFFICE_SCENE_MANIFEST.departments)) {
     const representativeId = department.representativeId;
     const anchor = department.talkAnchors.find(

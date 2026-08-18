@@ -142,8 +142,8 @@ export async function writeStructuralAudit(
             participantIds: [],
             stage: "structural_audit",
             summary: {
-              en: "Structural evidence audit completed.",
-              ko: "구조적 근거 감사가 완료됐습니다.",
+              en: "Required evidence and source links have been verified for the report.",
+              ko: "리포트에 필요한 근거와 출처 연결을 확인했습니다.",
             },
             claimIds: result.claims.map((claim) => claim.claimId),
             sourceIds: parentIds,

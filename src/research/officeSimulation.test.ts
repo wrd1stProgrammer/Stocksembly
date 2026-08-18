@@ -106,7 +106,7 @@ describe("office fixed-tick simulation", () => {
     }
 
     // Then
-    expect(mayaAtTalk.cell).toEqual(manifestActor("market").seat.cell);
+    expect(mayaAtTalk.cell).toEqual(manifestActor("market").meetingSeat.cell);
     expect(sawIntermediate).toBe(true);
     expect(officeBeatAt(499).id).toBe(officeBeatAt(500).id);
     const revised = actor(runTo(500), "market");
@@ -179,7 +179,9 @@ describe("office fixed-tick simulation", () => {
     for (const department of Object.values(OFFICE_SCENE_MANIFEST.departments)) {
       for (const memberId of department.memberIds) {
         const member = manifestActor(memberId);
-        expect(actor(departmentTalk, memberId).cell).toEqual(member.seat.cell);
+        expect(actor(departmentTalk, memberId).cell).toEqual(
+          member.meetingSeat.cell,
+        );
         expect(actor(departmentTalk, memberId).action).toBe(
           memberId === department.representativeId ? "talk" : "listen",
         );
@@ -206,7 +208,7 @@ describe("office fixed-tick simulation", () => {
       if (manifestMember.finalLocation === "forum" && !forumAnchor) {
         throw new RangeError(`Missing forum anchor ${member.id}`);
       }
-      const expected = forumAnchor?.cell ?? manifestMember.seat.cell;
+      const expected = forumAnchor?.cell ?? manifestMember.workSeat.cell;
       expect(member.cell).toEqual(expected);
     }
   });

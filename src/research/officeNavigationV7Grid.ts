@@ -96,7 +96,10 @@ export function buildOfficeNavigationGrid(
     blockedEdges,
   });
   const semanticCells = new Set([
-    ...OFFICE_SCENE_MANIFEST.roster.map((member) => key(member.seat.cell)),
+    ...OFFICE_SCENE_MANIFEST.roster.flatMap((member) => [
+      key(member.workSeat.cell),
+      key(member.meetingSeat.cell),
+    ]),
     ...Object.values(OFFICE_SCENE_MANIFEST.departments).flatMap(
       (department) => [
         ...department.talkAnchors.map((anchor) => key(anchor.cell)),

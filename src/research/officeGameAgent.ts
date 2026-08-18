@@ -82,7 +82,7 @@ export async function createAgentRuntime(
 ): Promise<MutableAgentDisplayRuntime> {
   const sheet = await Assets.load<Texture>(officeAgentAssetPath(member.id));
   const clips = buildActorClips(sheet);
-  const initialAnimation: AnimationKey = `idle_${member.seat.facing}`;
+  const initialAnimation: AnimationKey = `idle_${member.workSeat.facing}`;
   const sprite = new AnimatedSprite([...clips[initialAnimation]]);
   sprite.anchor.set(
     ACTOR_ATLAS.footPivot.x / ACTOR_ATLAS.frame.width,

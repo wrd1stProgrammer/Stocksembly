@@ -72,6 +72,39 @@ describe("office v9 generated actor assets", () => {
     }
   });
 
+  it("ships transparent generated workstation banks for every department", () => {
+    const workstationAssets = [
+      "workstations-market.png",
+      "workstations-company.png",
+      "workstations-financial.png",
+      "workstations-risk.png",
+    ] as const;
+    for (const fileName of workstationAssets) {
+      const image = PNG.sync.read(
+        readFileSync(
+          resolve(
+            process.cwd(),
+            "public/research/office-v9/entities",
+            fileName,
+          ),
+        ),
+      );
+      const cornerAlpha = [
+        image.data[3],
+        image.data[(image.width - 1) * 4 + 3],
+        image.data[(image.height - 1) * image.width * 4 + 3],
+        image.data[(image.width * image.height - 1) * 4 + 3],
+      ];
+      expect(image.width).toBe(384);
+      expect(image.height).toBeGreaterThanOrEqual(80);
+      expect(image.height).toBeLessThanOrEqual(120);
+      expect(cornerAlpha.every((alpha) => alpha === 0)).toBe(true);
+      expect(
+        image.data.some((channel, index) => index % 4 === 3 && channel >= 220),
+      ).toBe(true);
+    }
+  });
+
   it("keeps walking frames uncropped and seated poses centered", () => {
     for (const member of OFFICE_SCENE_MANIFEST.roster) {
       const image = PNG.sync.read(

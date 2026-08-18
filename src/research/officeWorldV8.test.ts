@@ -20,7 +20,7 @@ describe("office v8 world contract", () => {
     );
 
     // When / Then
-    expect(OFFICE_SCENE_MANIFEST.version).toBe(8);
+    expect(OFFICE_SCENE_MANIFEST.version).toBe(9);
     expect(OFFICE_SCENE_MANIFEST.assets.base).toBe(
       "/research/office-v8/base.png",
     );
@@ -51,7 +51,10 @@ describe("office v8 world contract", () => {
     }
     for (const member of OFFICE_SCENE_MANIFEST.roster) {
       expect(
-        isOfficeCellWalkable(OFFICE_NAVIGATION_GRID, member.seat.cell),
+        isOfficeCellWalkable(OFFICE_NAVIGATION_GRID, member.workSeat.cell),
+      ).toBe(true);
+      expect(
+        isOfficeCellWalkable(OFFICE_NAVIGATION_GRID, member.meetingSeat.cell),
       ).toBe(true);
     }
     const doors: Cell[] = [];
@@ -65,8 +68,8 @@ describe("office v8 world contract", () => {
 
   it("routes cross-room travel through the declared portals", () => {
     // Given
-    const from = OFFICE_SCENE_MANIFEST.roster[0].seat.cell;
-    const to = OFFICE_SCENE_MANIFEST.roster[3].seat.cell;
+    const from = OFFICE_SCENE_MANIFEST.roster[0].workSeat.cell;
+    const to = OFFICE_SCENE_MANIFEST.roster[3].workSeat.cell;
     const portalKeys = new Set(
       [
         ...OFFICE_SCENE_MANIFEST.rooms.market.doors,

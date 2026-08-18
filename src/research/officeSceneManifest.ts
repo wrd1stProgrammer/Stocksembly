@@ -49,6 +49,8 @@ export type OfficeSceneManifestContract = {
     readonly id: string;
     readonly roomId: "chair" | "company" | "financial" | "market" | "risk";
     readonly kind: "desk" | "oval" | "round" | "strategy";
+    readonly purpose: "chair" | "meeting" | "workstation";
+    readonly assetPath: string | null;
     readonly footprint: CellRect;
     readonly accent: number;
   }[];
@@ -63,7 +65,12 @@ export type OfficeSceneManifestContract = {
     readonly name: LocalizedPublicText;
     readonly role: LocalizedPublicText;
     readonly specialty: LocalizedPublicText;
-    readonly seat: {
+    readonly workSeat: {
+      readonly cell: Cell;
+      readonly inputCell: Cell;
+      readonly facing: OfficeFacing;
+    };
+    readonly meetingSeat: {
       readonly cell: Cell;
       readonly inputCell: Cell;
       readonly facing: OfficeFacing;
@@ -170,9 +177,20 @@ export const OFFICE_SCENE_MANIFEST = {
   },
   furniture: [
     {
+      id: "market-workstations",
+      roomId: "market",
+      kind: "desk",
+      purpose: "workstation",
+      assetPath: "/research/office-v9/entities/workstations-market.png",
+      footprint: { min: { x: 2, y: 3 }, max: { x: 13, y: 5 } },
+      accent: 0x5b82a5,
+    },
+    {
       id: "market-table",
       roomId: "market",
       kind: "round",
+      purpose: "meeting",
+      assetPath: null,
       // Keep the three market seats on the same table footprint.  The old
       // six-cell footprint left the benchmark chair (x=12) floating outside
       // the table and made its laptop look detached from the room.
@@ -183,27 +201,62 @@ export const OFFICE_SCENE_MANIFEST = {
       id: "chair-desk",
       roomId: "chair",
       kind: "desk",
+      purpose: "chair",
+      assetPath: null,
       footprint: { min: { x: 20, y: 8 }, max: { x: 25, y: 10 } },
       accent: 0xc58a43,
+    },
+    {
+      id: "company-workstations",
+      roomId: "company",
+      kind: "desk",
+      purpose: "workstation",
+      assetPath: "/research/office-v9/entities/workstations-company.png",
+      footprint: { min: { x: 30, y: 3 }, max: { x: 40, y: 5 } },
+      accent: 0x4e9b91,
     },
     {
       id: "company-table",
       roomId: "company",
       kind: "oval",
+      purpose: "meeting",
+      assetPath: null,
       footprint: { min: { x: 32, y: 8 }, max: { x: 38, y: 10 } },
       accent: 0x4e9b91,
+    },
+    {
+      id: "financial-workstations",
+      roomId: "financial",
+      kind: "desk",
+      purpose: "workstation",
+      assetPath: "/research/office-v9/entities/workstations-financial.png",
+      footprint: { min: { x: 3, y: 20 }, max: { x: 15, y: 23 } },
+      accent: 0xb68c5a,
     },
     {
       id: "financial-table",
       roomId: "financial",
       kind: "desk",
+      purpose: "meeting",
+      assetPath: null,
       footprint: { min: { x: 6, y: 25 }, max: { x: 12, y: 27 } },
       accent: 0xb68c5a,
+    },
+    {
+      id: "risk-workstations",
+      roomId: "risk",
+      kind: "strategy",
+      purpose: "workstation",
+      assetPath: "/research/office-v9/entities/workstations-risk.png",
+      footprint: { min: { x: 30, y: 20 }, max: { x: 38, y: 22 } },
+      accent: 0x8b6f93,
     },
     {
       id: "risk-table",
       roomId: "risk",
       kind: "strategy",
+      purpose: "meeting",
+      assetPath: null,
       footprint: { min: { x: 30, y: 25 }, max: { x: 35, y: 27 } },
       accent: 0x8b6f93,
     },
@@ -218,9 +271,12 @@ export const OFFICE_SCENE_MANIFEST = {
       name: { en: "Maya", ko: "마야" },
       role: { en: "Market Lead", ko: "시장 책임" },
       specialty: { en: "Market regime and synthesis", ko: "시장 국면·종합" },
-      seat: {
-        // Keep the lead directly above the tabletop.  The input rests on the
-        // table's north edge while the actor remains on the chair anchor.
+      workSeat: {
+        cell: { x: 4, y: 6 },
+        inputCell: { x: 4, y: 5 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 8, y: 7 },
         inputCell: { x: 8, y: 8 },
         facing: "down",
@@ -239,7 +295,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Trend, momentum, volatility and volume",
         ko: "추세·모멘텀·변동성·거래량",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 8, y: 6 },
+        inputCell: { x: 8, y: 5 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 7, y: 11 },
         inputCell: { x: 7, y: 10 },
         facing: "up",
@@ -261,7 +322,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Indices, sector ETFs, peers, rates and beta",
         ko: "지수·섹터 ETF·동종사·금리·베타",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 12, y: 6 },
+        inputCell: { x: 12, y: 5 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 9, y: 11 },
         inputCell: { x: 9, y: 10 },
         facing: "up",
@@ -280,7 +346,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Moat, strategy and synthesis",
         ko: "경쟁우위·전략·종합",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 31, y: 6 },
+        inputCell: { x: 31, y: 5 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 35, y: 7 },
         inputCell: { x: 35, y: 8 },
         facing: "down",
@@ -296,7 +367,12 @@ export const OFFICE_SCENE_MANIFEST = {
       name: { en: "Aria", ko: "아리아" },
       role: { en: "Product Analyst", ko: "제품 분석가" },
       specialty: { en: "Product adoption and roadmap", ko: "제품 채택·로드맵" },
-      seat: {
+      workSeat: {
+        cell: { x: 35, y: 6 },
+        inputCell: { x: 35, y: 5 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 34, y: 11 },
         inputCell: { x: 34, y: 10 },
         facing: "up",
@@ -315,7 +391,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Competition and positioning",
         ko: "경쟁 구도·포지셔닝",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 39, y: 6 },
+        inputCell: { x: 39, y: 5 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 37, y: 11 },
         inputCell: { x: 37, y: 10 },
         facing: "up",
@@ -334,7 +415,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Financial statements and synthesis",
         ko: "재무제표·종합",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 4, y: 24 },
+        inputCell: { x: 4, y: 23 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 7, y: 24 },
         inputCell: { x: 7, y: 25 },
         facing: "down",
@@ -353,7 +439,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Valuation multiples and earnings scenarios",
         ko: "가치평가 배수·이익 시나리오",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 9, y: 24 },
+        inputCell: { x: 9, y: 23 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 11, y: 24 },
         inputCell: { x: 11, y: 25 },
         facing: "down",
@@ -372,7 +463,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Earnings quality and disclosures",
         ko: "이익의 질·공시",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 14, y: 24 },
+        inputCell: { x: 14, y: 23 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 9, y: 28 },
         inputCell: { x: 9, y: 27 },
         facing: "up",
@@ -388,7 +484,12 @@ export const OFFICE_SCENE_MANIFEST = {
       name: { en: "Liam", ko: "리암" },
       role: { en: "Risk Lead", ko: "리스크 책임" },
       specialty: { en: "Downside risks and synthesis", ko: "하방 위험·종합" },
-      seat: {
+      workSeat: {
+        cell: { x: 32, y: 23 },
+        inputCell: { x: 32, y: 22 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 31, y: 24 },
         inputCell: { x: 31, y: 25 },
         facing: "down",
@@ -407,7 +508,12 @@ export const OFFICE_SCENE_MANIFEST = {
         en: "Policy shocks and scenarios",
         ko: "정책 충격·시나리오",
       },
-      seat: {
+      workSeat: {
+        cell: { x: 36, y: 23 },
+        inputCell: { x: 36, y: 22 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 34, y: 28 },
         inputCell: { x: 34, y: 27 },
         facing: "up",
@@ -423,7 +529,12 @@ export const OFFICE_SCENE_MANIFEST = {
       name: { en: "Dr. Park", ko: "박 의장" },
       role: { en: "Research Chair", ko: "리서치 의장" },
       specialty: { en: "Synthesis and evidence audit", ko: "종합·근거 감사" },
-      seat: {
+      workSeat: {
+        cell: { x: 22, y: 11 },
+        inputCell: { x: 22, y: 10 },
+        facing: "up",
+      },
+      meetingSeat: {
         cell: { x: 22, y: 11 },
         inputCell: { x: 22, y: 10 },
         facing: "up",
@@ -795,12 +906,15 @@ export function validateOfficeSceneManifest(
         }
       }
     }
-    if (
-      !facesTarget(member.seat.cell, member.seat.inputCell, member.seat.facing)
-    ) {
-      errors.push(
-        `${member.id}:seat does not face input ${member.seat.inputCell.x},${member.seat.inputCell.y}`,
-      );
+    for (const [seatKind, seat] of Object.entries({
+      workSeat: member.workSeat,
+      meetingSeat: member.meetingSeat,
+    })) {
+      if (!facesTarget(seat.cell, seat.inputCell, seat.facing)) {
+        errors.push(
+          `${member.id}:${seatKind} does not face input ${seat.inputCell.x},${seat.inputCell.y}`,
+        );
+      }
     }
   }
 
@@ -821,8 +935,15 @@ export function validateOfficeSceneManifest(
       errors.push(`anchor ${label} is blocked at ${key}`);
     }
   };
-  for (const member of candidate.roster)
-    registerAnchor(`${member.id}:seat`, member.seat.cell);
+  for (const member of candidate.roster) {
+    registerAnchor(`${member.id}:workSeat`, member.workSeat.cell);
+    if (
+      member.meetingSeat.cell.x !== member.workSeat.cell.x ||
+      member.meetingSeat.cell.y !== member.workSeat.cell.y
+    ) {
+      registerAnchor(`${member.id}:meetingSeat`, member.meetingSeat.cell);
+    }
+  }
   for (const [departmentId, department] of Object.entries(
     candidate.departments,
   )) {
