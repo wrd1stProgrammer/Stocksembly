@@ -43,6 +43,7 @@ const SpecialistJobSchema = z
                 investmentHorizon: z.enum(["short", "medium", "long"]),
                 counterargumentIntensity: z.enum(["standard", "strong"]),
                 analysisDepth: z.enum(["core", "standard", "deep"]),
+                explanationMode: z.enum(["professional", "easy"]).optional(),
                 decisionPurpose: z.enum([
                   "new_entry",
                   "holding_review",

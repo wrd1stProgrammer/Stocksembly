@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { TickerSymbolSchema } from "./ids";
 import {
+  analyticalResearchProfile,
   DEFAULT_RESEARCH_PROFILE,
   inferQuestionComparisonSymbols,
+  normalizeResearchProfile,
+  publicExplanationPolicy,
   withQuestionComparisonSymbols,
 } from "./researchProfile";
 
@@ -27,5 +30,36 @@ describe("research profile question comparators", () => {
         "AMD",
       ).comparisonSymbols,
     ).toEqual(["AVGO", "NVDA"]);
+  });
+});
+
+describe("research explanation mode", () => {
+  it("normalizes legacy profiles to the professional explanation mode", () => {
+    const { explanationMode, ...legacyProfile } = DEFAULT_RESEARCH_PROFILE;
+    expect(explanationMode).toBe("professional");
+
+    expect(normalizeResearchProfile(legacyProfile).explanationMode).toBe(
+      "professional",
+    );
+  });
+
+  it("keeps analytical inputs identical while changing only public explanation", () => {
+    const easy = {
+      ...DEFAULT_RESEARCH_PROFILE,
+      explanationMode: "easy",
+    } as const;
+    const professional = {
+      ...DEFAULT_RESEARCH_PROFILE,
+      explanationMode: "professional",
+    } as const;
+
+    expect(analyticalResearchProfile(easy)).toEqual(
+      analyticalResearchProfile(professional),
+    );
+    expect(publicExplanationPolicy(easy)).toMatchObject({
+      mode: "easy",
+      defineSpecializedTerms: true,
+      preserveAnalyticalDepth: true,
+    });
   });
 });

@@ -31,6 +31,7 @@ import {
 } from "../research/domain/researchTarget";
 import { CreditShortageModal } from "./billing/CreditShortageModal";
 import { MembershipAccessModal } from "./billing/MembershipAccessModal";
+import { ResearchExplanationModeControl } from "./ResearchExplanationModeControl";
 import {
   BorderBeam,
   ResearchButton,
@@ -724,30 +725,37 @@ export function SearchConsole({
           ) : null}
 
           <div className="search-console__actions">
-            <button
-              className="research-profile-trigger"
-              type="button"
-              aria-expanded={profileOpen}
-              aria-controls="research-profile-panel"
-              aria-label={profileCopy.customize}
-              title={profileCopy.customize}
-              aria-disabled={customSettingsLocked || undefined}
-              data-locked={customSettingsLocked ? "true" : undefined}
-              onClick={() => {
-                if (customSettingsLocked) {
-                  setMembershipGateOpen(true);
-                  return;
-                }
-                setTargetPickerOpen(false);
-                setProfileOpen((open) => !open);
-              }}
-            >
-              {customSettingsLocked ? (
-                <LockKeyhole aria-hidden="true" size={16} />
-              ) : (
-                <SlidersHorizontal aria-hidden="true" size={17} />
-              )}
-            </button>
+            <div className="search-console__left-actions">
+              <button
+                className="research-profile-trigger"
+                type="button"
+                aria-expanded={profileOpen}
+                aria-controls="research-profile-panel"
+                aria-label={profileCopy.customize}
+                title={profileCopy.customize}
+                aria-disabled={customSettingsLocked || undefined}
+                data-locked={customSettingsLocked ? "true" : undefined}
+                onClick={() => {
+                  if (customSettingsLocked) {
+                    setMembershipGateOpen(true);
+                    return;
+                  }
+                  setTargetPickerOpen(false);
+                  setProfileOpen((open) => !open);
+                }}
+              >
+                {customSettingsLocked ? (
+                  <LockKeyhole aria-hidden="true" size={16} />
+                ) : (
+                  <SlidersHorizontal aria-hidden="true" size={17} />
+                )}
+              </button>
+              <ResearchExplanationModeControl
+                locale={locale}
+                value={researchProfile.explanationMode ?? "professional"}
+                onChange={(value) => updateProfile("explanationMode", value)}
+              />
+            </div>
             <section className="research-target" aria-label={detailCopy.mode}>
               <button
                 className="research-target__trigger"

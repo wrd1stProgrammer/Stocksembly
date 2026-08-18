@@ -155,6 +155,10 @@
 }
 
 @media (max-width: 480px) {
+  .research-explanation-mode button {
+    padding-inline: 6px;
+    font-size: 9px;
+  }
   .research-profile__choice {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;

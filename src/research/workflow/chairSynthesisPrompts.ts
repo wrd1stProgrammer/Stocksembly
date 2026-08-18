@@ -1,4 +1,9 @@
 import {
+  explanationModeOf,
+  publicExplanationPolicy,
+  type ResearchProfile,
+} from "../domain/researchProfile";
+import {
   CHAIR_PROSE_REWRITE_REASONS,
   CHAIR_SECTION_ALLOWED_KINDS,
   CHAIR_SECTION_KEYS,
@@ -8,6 +13,12 @@ import { decisionTextsAreDistinct } from "./chairSynthesisTextValidation";
 
 type ChairSectionKey = (typeof CHAIR_SECTION_KEYS)[number];
 type ChairSentence = ChairSynthesisPrompt["sentences"][number];
+
+function explanationInstruction(profile: ResearchProfile): string {
+  return explanationModeOf(profile) === "easy"
+    ? "Write public summaries for a first-time investor: lead with the conclusion, define specialized finance terms at first use, explain why each important number matters, and prefer short direct sentences. Preserve every analytical distinction, uncertainty, and citation boundary."
+    : "Use a concise professional finance register and explain the decision relevance of important numbers.";
+}
 
 const PRIMARY_KIND_ORDER: Readonly<
   Record<ChairSectionKey, readonly ChairSentence["kind"][]>
@@ -381,6 +392,9 @@ export function chairSynthesisModelPrompt(
       ),
     },
     publicSummaryContract: {
+      explanationPolicy: publicExplanationPolicy(
+        prompt.mandate.researchProfile,
+      ),
       english:
         "Use Latin-script English grounded in the selected sentences' English text. Use at least one exact grounding token and only numbers from the selected evidence. Synthesize meaning; never paste a source sentence as the whole section.",
       korean:
@@ -417,8 +431,10 @@ export function chairSynthesisModelPrompt(
       decisionPurpose: prompt.mandate.researchProfile.decisionPurpose,
       counterargumentIntensity:
         prompt.mandate.researchProfile.counterargumentIntensity,
+      explanationMode: explanationModeOf(prompt.mandate.researchProfile),
       comparisonSymbols: prompt.mandate.researchProfile.comparisonSymbols,
       requirements: [
+        explanationInstruction(prompt.mandate.researchProfile),
         "The report must answer mandate.question rather than merely describe the company. Reuse the question's subject, not its wording, and make the relevance explicit in the ten-second brief and one supporting section only.",
         "Convert evidence into a decision, not a meeting recap.",
         "For short horizon, prioritize the next catalyst, price/estimate direction, and a near-term invalidation signal; do not let long-run optionality dominate the conclusion.",
@@ -533,10 +549,14 @@ export function chairSectionRewritePrompt(input: {
       counterargumentIntensity:
         input.prompt.mandate.researchProfile.counterargumentIntensity,
       analysisDepth: input.prompt.mandate.researchProfile.analysisDepth,
+      explanationMode: explanationModeOf(input.prompt.mandate.researchProfile),
+      explanationPolicy: publicExplanationPolicy(
+        input.prompt.mandate.researchProfile,
+      ),
       comparisonSymbols: input.prompt.mandate.researchProfile.comparisonSymbols,
     },
     instructions: proseOnly
-      ? `Rewrite only publicSummary and preserve primarySentenceId, sentenceIds, and conflictAdjudication exactly. Do not patch the old wording with a label, prefix, suffix, synonym swap, or generic caveat; rebuild the thought from the preserved evidence. ${sectionPublicSummaryConstruction(input.sectionKey, input.prompt.mandate.researchProfile.analysisDepth)} A number cluster must be followed by comparison or interpretation. English must use Latin-language grounding from the selected English evidence; Korean must use Hangul-language grounding from the selected Korean evidence. The two leaves must not be normalized copies or transliterations. Do not add IDs or numbers outside the preserved evidence. Return only chair_section_rewrite JSON.`
-      : `${sectionPublicSummaryConstruction(input.sectionKey, input.prompt.mandate.researchProfile.analysisDepth)} Synthesize the evidence instead of copying the primary sentence verbatim. Return only chair_section_rewrite JSON. Do not add IDs or numbers outside the permitted catalog.`,
+      ? `Rewrite only publicSummary and preserve primarySentenceId, sentenceIds, and conflictAdjudication exactly. Do not patch the old wording with a label, prefix, suffix, synonym swap, or generic caveat; rebuild the thought from the preserved evidence. ${sectionPublicSummaryConstruction(input.sectionKey, input.prompt.mandate.researchProfile.analysisDepth)} ${explanationInstruction(input.prompt.mandate.researchProfile)} A number cluster must be followed by comparison or interpretation. English must use Latin-language grounding from the selected English evidence; Korean must use Hangul-language grounding from the selected Korean evidence. The two leaves must not be normalized copies or transliterations. Do not add IDs or numbers outside the preserved evidence. Return only chair_section_rewrite JSON.`
+      : `${sectionPublicSummaryConstruction(input.sectionKey, input.prompt.mandate.researchProfile.analysisDepth)} ${explanationInstruction(input.prompt.mandate.researchProfile)} Synthesize the evidence instead of copying the primary sentence verbatim. Return only chair_section_rewrite JSON. Do not add IDs or numbers outside the permitted catalog.`,
   });
 }

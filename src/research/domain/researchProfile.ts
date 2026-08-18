@@ -4,6 +4,7 @@ import { TickerSymbolSchema } from "./ids";
 export const INVESTMENT_HORIZONS = ["short", "medium", "long"] as const;
 export const COUNTERARGUMENT_INTENSITIES = ["standard", "strong"] as const;
 export const ANALYSIS_DEPTHS = ["core", "standard", "deep"] as const;
+export const EXPLANATION_MODES = ["professional", "easy"] as const;
 export const DECISION_PURPOSES = [
   "new_entry",
   "holding_review",
@@ -16,6 +17,7 @@ export const ResearchProfileSchema = z
     investmentHorizon: z.enum(INVESTMENT_HORIZONS),
     counterargumentIntensity: z.enum(COUNTERARGUMENT_INTENSITIES),
     analysisDepth: z.enum(ANALYSIS_DEPTHS),
+    explanationMode: z.enum(EXPLANATION_MODES).default("professional"),
     decisionPurpose: z.enum(DECISION_PURPOSES),
     comparisonSymbols: z
       .array(TickerSymbolSchema)
@@ -30,6 +32,32 @@ export const ResearchProfileSchema = z
   .readonly();
 
 export type ResearchProfile = z.infer<typeof ResearchProfileSchema>;
+export type ExplanationMode = (typeof EXPLANATION_MODES)[number];
+
+export function explanationModeOf(profile: ResearchProfile): ExplanationMode {
+  return profile.explanationMode ?? "professional";
+}
+
+export function analyticalResearchProfile(profile: ResearchProfile) {
+  return Object.freeze({
+    investmentHorizon: profile.investmentHorizon,
+    counterargumentIntensity: profile.counterargumentIntensity,
+    analysisDepth: profile.analysisDepth,
+    decisionPurpose: profile.decisionPurpose,
+    comparisonSymbols: profile.comparisonSymbols,
+  });
+}
+
+export function publicExplanationPolicy(profile: ResearchProfile) {
+  const mode = explanationModeOf(profile);
+  return Object.freeze({
+    mode,
+    preserveAnalyticalDepth: true,
+    defineSpecializedTerms: mode === "easy",
+    explainMetricMeaning: true,
+    sentenceStyle: mode === "easy" ? "plain-short" : "professional",
+  });
+}
 
 const QUESTION_SYMBOL_ALIASES: Readonly<Record<string, readonly string[]>> =
   Object.freeze({
@@ -104,6 +132,7 @@ export const DEFAULT_RESEARCH_PROFILE: ResearchProfile = Object.freeze({
   investmentHorizon: "medium",
   counterargumentIntensity: "standard",
   analysisDepth: "standard",
+  explanationMode: "professional",
   decisionPurpose: "new_entry",
   comparisonSymbols: Object.freeze([]),
 });
@@ -116,6 +145,7 @@ export function normalizeResearchProfile(
   const subject = subjectSymbol?.trim().toUpperCase();
   return ResearchProfileSchema.parse({
     ...parsed,
+    explanationMode: explanationModeOf(parsed),
     comparisonSymbols: [
       ...new Set(
         parsed.comparisonSymbols
@@ -132,6 +162,7 @@ export function researchProfileFromQuery(input: {
   readonly depth?: string;
   readonly purpose?: string;
   readonly peers?: string;
+  readonly explanation?: string;
 }): ResearchProfile {
   const peers = (input.peers ?? "")
     .split(",")
@@ -142,6 +173,7 @@ export function researchProfileFromQuery(input: {
     investmentHorizon: input.horizon,
     counterargumentIntensity: input.counter,
     analysisDepth: input.depth,
+    explanationMode: input.explanation ?? "professional",
     decisionPurpose: input.purpose,
     comparisonSymbols: peers,
   });
