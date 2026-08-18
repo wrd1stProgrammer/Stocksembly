@@ -533,14 +533,14 @@ export function createInitialCollectionHandler(
             ? event(
                 "mandate_sealed",
                 mandateSealedAt,
-                "All eleven specialists received evidence-bound mandates.",
-                "11명의 모든 전문 에이전트에게 근거가 결합된 조사 과제를 배정했습니다.",
+                "Structuring the collected market, filing, and news data into evidence for specialist analysis.",
+                "수집한 시장·공시·뉴스 데이터를 전문 에이전트가 분석할 근거로 정리하고 있습니다.",
               )
             : event(
                 "mandate_sealed",
                 mandateSealedAt,
-                `The ${researchTarget.departmentId} team received a focused evidence-bound mandate.`,
-                `${researchTarget.departmentId} 팀에게 근거가 결합된 심층 조사 과제를 배정했습니다.`,
+                "Structuring the collected market, filing, and news data for the selected team's focused analysis.",
+                "수집한 시장·공시·뉴스 데이터를 선택한 팀의 심층 분석 근거로 정리하고 있습니다.",
                 selectedRoleIds,
               ),
       });
