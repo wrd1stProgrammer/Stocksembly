@@ -4,6 +4,7 @@ import {
   commandRequest,
   createRun,
   databaseScalar,
+  interruptInitialResearchJob,
   postCommand,
   publishRun,
   setInitialResearchJobRetry,
@@ -204,6 +205,51 @@ export function registerResearchRunCommandTests(
       ),
     ).toBe(0);
   });
+
+  it.each(["spawn-reserved", "running"] as const)(
+    "invalidates an interrupted %s attempt before resuming the same run",
+    async (interruptedStatus) => {
+      const harness = harnessValue();
+      const run = await createRun(harness, `retry-${interruptedStatus}`);
+      const attemptId = interruptInitialResearchJob(
+        harness,
+        run.runId,
+        interruptedStatus,
+      );
+      setRunStatus(harness, run.runId, "incomplete");
+
+      const response = await harness.api.handle(
+        commandRequest(
+          harness,
+          `/api/research/runs/${run.runId}/retries`,
+          `retry-${interruptedStatus}-command`,
+        ),
+      );
+
+      expect(response.status).toBe(202);
+      expect(
+        databaseScalar(
+          harness,
+          "SELECT status FROM attempts WHERE attempt_id = ?",
+          attemptId,
+        ),
+      ).toBe("unknown");
+      expect(
+        databaseScalar(
+          harness,
+          "SELECT status FROM jobs WHERE run_id = ? AND kind = 'research'",
+          run.runId,
+        ),
+      ).toBe("retry-wait");
+      expect(
+        databaseScalar(
+          harness,
+          "SELECT lease_owner FROM jobs WHERE run_id = ? AND kind = 'research'",
+          run.runId,
+        ),
+      ).toBeNull();
+    },
+  );
 
   it("allocates fresh-snapshot follow-up versions atomically while v1 remains current", async () => {
     // Given
