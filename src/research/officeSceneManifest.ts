@@ -182,7 +182,7 @@ export const OFFICE_SCENE_MANIFEST = {
       kind: "desk",
       purpose: "workstation",
       assetPath: "/research/office-v9/entities/workstations-market.png",
-      footprint: { min: { x: 2, y: 3 }, max: { x: 13, y: 5 } },
+      footprint: { min: { x: 3, y: 14 }, max: { x: 13, y: 16 } },
       accent: 0x5b82a5,
     },
     {
@@ -212,7 +212,7 @@ export const OFFICE_SCENE_MANIFEST = {
       kind: "desk",
       purpose: "workstation",
       assetPath: "/research/office-v9/entities/workstations-company.png",
-      footprint: { min: { x: 30, y: 3 }, max: { x: 40, y: 5 } },
+      footprint: { min: { x: 30, y: 14 }, max: { x: 40, y: 16 } },
       accent: 0x4e9b91,
     },
     {
@@ -230,7 +230,7 @@ export const OFFICE_SCENE_MANIFEST = {
       kind: "desk",
       purpose: "workstation",
       assetPath: "/research/office-v9/entities/workstations-financial.png",
-      footprint: { min: { x: 3, y: 20 }, max: { x: 15, y: 23 } },
+      footprint: { min: { x: 4, y: 31 }, max: { x: 14, y: 33 } },
       accent: 0xb68c5a,
     },
     {
@@ -248,7 +248,7 @@ export const OFFICE_SCENE_MANIFEST = {
       kind: "strategy",
       purpose: "workstation",
       assetPath: "/research/office-v9/entities/workstations-risk.png",
-      footprint: { min: { x: 30, y: 20 }, max: { x: 38, y: 22 } },
+      footprint: { min: { x: 30, y: 31 }, max: { x: 36, y: 33 } },
       accent: 0x8b6f93,
     },
     {
@@ -272,9 +272,9 @@ export const OFFICE_SCENE_MANIFEST = {
       role: { en: "Market Lead", ko: "시장 책임" },
       specialty: { en: "Market regime and synthesis", ko: "시장 국면·종합" },
       workSeat: {
-        cell: { x: 4, y: 6 },
-        inputCell: { x: 4, y: 5 },
-        facing: "up",
+        cell: { x: 4, y: 13 },
+        inputCell: { x: 4, y: 14 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 8, y: 7 },
@@ -296,9 +296,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "추세·모멘텀·변동성·거래량",
       },
       workSeat: {
-        cell: { x: 8, y: 6 },
-        inputCell: { x: 8, y: 5 },
-        facing: "up",
+        cell: { x: 8, y: 13 },
+        inputCell: { x: 8, y: 14 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 7, y: 11 },
@@ -323,9 +323,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "지수·섹터 ETF·동종사·금리·베타",
       },
       workSeat: {
-        cell: { x: 12, y: 6 },
-        inputCell: { x: 12, y: 5 },
-        facing: "up",
+        cell: { x: 12, y: 13 },
+        inputCell: { x: 12, y: 14 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 9, y: 11 },
@@ -347,9 +347,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "경쟁우위·전략·종합",
       },
       workSeat: {
-        cell: { x: 31, y: 6 },
-        inputCell: { x: 31, y: 5 },
-        facing: "up",
+        cell: { x: 31, y: 13 },
+        inputCell: { x: 31, y: 14 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 35, y: 7 },
@@ -368,9 +368,9 @@ export const OFFICE_SCENE_MANIFEST = {
       role: { en: "Product Analyst", ko: "제품 분석가" },
       specialty: { en: "Product adoption and roadmap", ko: "제품 채택·로드맵" },
       workSeat: {
-        cell: { x: 35, y: 6 },
-        inputCell: { x: 35, y: 5 },
-        facing: "up",
+        cell: { x: 35, y: 13 },
+        inputCell: { x: 35, y: 14 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 34, y: 11 },
@@ -392,9 +392,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "경쟁 구도·포지셔닝",
       },
       workSeat: {
-        cell: { x: 39, y: 6 },
-        inputCell: { x: 39, y: 5 },
-        facing: "up",
+        cell: { x: 39, y: 13 },
+        inputCell: { x: 39, y: 14 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 37, y: 11 },
@@ -416,9 +416,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "재무제표·종합",
       },
       workSeat: {
-        cell: { x: 4, y: 24 },
-        inputCell: { x: 4, y: 23 },
-        facing: "up",
+        cell: { x: 5, y: 30 },
+        inputCell: { x: 5, y: 31 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 7, y: 24 },
@@ -440,9 +440,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "가치평가 배수·이익 시나리오",
       },
       workSeat: {
-        cell: { x: 9, y: 24 },
-        inputCell: { x: 9, y: 23 },
-        facing: "up",
+        cell: { x: 9, y: 30 },
+        inputCell: { x: 9, y: 31 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 11, y: 24 },
@@ -464,9 +464,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "이익의 질·공시",
       },
       workSeat: {
-        cell: { x: 14, y: 24 },
-        inputCell: { x: 14, y: 23 },
-        facing: "up",
+        cell: { x: 13, y: 30 },
+        inputCell: { x: 13, y: 31 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 9, y: 28 },
@@ -485,9 +485,9 @@ export const OFFICE_SCENE_MANIFEST = {
       role: { en: "Risk Lead", ko: "리스크 책임" },
       specialty: { en: "Downside risks and synthesis", ko: "하방 위험·종합" },
       workSeat: {
-        cell: { x: 32, y: 23 },
-        inputCell: { x: 32, y: 22 },
-        facing: "up",
+        cell: { x: 31, y: 30 },
+        inputCell: { x: 31, y: 31 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 31, y: 24 },
@@ -509,9 +509,9 @@ export const OFFICE_SCENE_MANIFEST = {
         ko: "정책 충격·시나리오",
       },
       workSeat: {
-        cell: { x: 36, y: 23 },
-        inputCell: { x: 36, y: 22 },
-        facing: "up",
+        cell: { x: 35, y: 30 },
+        inputCell: { x: 35, y: 31 },
+        facing: "down",
       },
       meetingSeat: {
         cell: { x: 34, y: 28 },
@@ -590,9 +590,9 @@ export const OFFICE_SCENE_MANIFEST = {
         },
         {
           agentId: "company_competition",
-          cell: { x: 34, y: 14 },
-          facing: "up",
-          target: { x: 33, y: 12 },
+          cell: { x: 38, y: 12 },
+          facing: "left",
+          target: { x: 35, y: 12 },
         },
       ],
       visitorAnchor: { cell: { x: 29, y: 10 }, facing: "right" },

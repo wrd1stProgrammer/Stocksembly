@@ -10,17 +10,17 @@ function contractManifest(): typeof OFFICE_SCENE_MANIFEST {
 }
 
 const expectedWorkSeats = {
-  market: [{ x: 4, y: 6 }, { x: 4, y: 5 }, "up"],
-  market_news: [{ x: 8, y: 6 }, { x: 8, y: 5 }, "up"],
-  benchmark: [{ x: 12, y: 6 }, { x: 12, y: 5 }, "up"],
-  company: [{ x: 31, y: 6 }, { x: 31, y: 5 }, "up"],
-  company_product: [{ x: 35, y: 6 }, { x: 35, y: 5 }, "up"],
-  company_competition: [{ x: 39, y: 6 }, { x: 39, y: 5 }, "up"],
-  financial: [{ x: 4, y: 24 }, { x: 4, y: 23 }, "up"],
-  valuation: [{ x: 9, y: 24 }, { x: 9, y: 23 }, "up"],
-  financial_quality: [{ x: 14, y: 24 }, { x: 14, y: 23 }, "up"],
-  risk: [{ x: 32, y: 23 }, { x: 32, y: 22 }, "up"],
-  risk_policy: [{ x: 36, y: 23 }, { x: 36, y: 22 }, "up"],
+  market: [{ x: 4, y: 13 }, { x: 4, y: 14 }, "down"],
+  market_news: [{ x: 8, y: 13 }, { x: 8, y: 14 }, "down"],
+  benchmark: [{ x: 12, y: 13 }, { x: 12, y: 14 }, "down"],
+  company: [{ x: 31, y: 13 }, { x: 31, y: 14 }, "down"],
+  company_product: [{ x: 35, y: 13 }, { x: 35, y: 14 }, "down"],
+  company_competition: [{ x: 39, y: 13 }, { x: 39, y: 14 }, "down"],
+  financial: [{ x: 5, y: 30 }, { x: 5, y: 31 }, "down"],
+  valuation: [{ x: 9, y: 30 }, { x: 9, y: 31 }, "down"],
+  financial_quality: [{ x: 13, y: 30 }, { x: 13, y: 31 }, "down"],
+  risk: [{ x: 31, y: 30 }, { x: 31, y: 31 }, "down"],
+  risk_policy: [{ x: 35, y: 30 }, { x: 35, y: 31 }, "down"],
   chair: [{ x: 22, y: 11 }, { x: 22, y: 10 }, "up"],
 } as const;
 
@@ -158,24 +158,24 @@ describe("department office manifest", () => {
     // Then
     expect(footprints).toEqual({
       "market-workstations": {
-        min: { x: 2, y: 3 },
-        max: { x: 13, y: 5 },
+        min: { x: 3, y: 14 },
+        max: { x: 13, y: 16 },
       },
       "market-table": { min: { x: 5, y: 8 }, max: { x: 11, y: 10 } },
       "chair-desk": { min: { x: 20, y: 8 }, max: { x: 25, y: 10 } },
       "company-workstations": {
-        min: { x: 30, y: 3 },
-        max: { x: 40, y: 5 },
+        min: { x: 30, y: 14 },
+        max: { x: 40, y: 16 },
       },
       "company-table": { min: { x: 32, y: 8 }, max: { x: 38, y: 10 } },
       "financial-workstations": {
-        min: { x: 3, y: 20 },
-        max: { x: 15, y: 23 },
+        min: { x: 4, y: 31 },
+        max: { x: 14, y: 33 },
       },
       "financial-table": { min: { x: 6, y: 25 }, max: { x: 12, y: 27 } },
       "risk-workstations": {
-        min: { x: 30, y: 20 },
-        max: { x: 38, y: 22 },
+        min: { x: 30, y: 31 },
+        max: { x: 36, y: 33 },
       },
       "risk-table": { min: { x: 30, y: 25 }, max: { x: 35, y: 27 } },
     });
@@ -208,7 +208,7 @@ describe("department office manifest", () => {
       company: [
         [{ x: 31, y: 10 }, "left"],
         [{ x: 33, y: 12 }, "left"],
-        [{ x: 34, y: 14 }, "up"],
+        [{ x: 38, y: 12 }, "left"],
       ],
       financial: [
         [{ x: 13, y: 24 }, "right"],

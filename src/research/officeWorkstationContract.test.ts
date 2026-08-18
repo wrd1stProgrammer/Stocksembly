@@ -72,6 +72,25 @@ describe("office personal workstation contract", () => {
         .flatMap((state) => state.seats)
         .every((seat) => seat.occupied),
     ).toBe(true);
+    expect(
+      workstationStates
+        .flatMap((state) => state.seats)
+        .every((seat) => seat.facing === "down"),
+    ).toBe(true);
+    expect(
+      workstationStates.every((state) => {
+        const furniture = OFFICE_SCENE_MANIFEST.furniture.find(
+          (item) => item.id === state.id,
+        );
+        if (!furniture) return false;
+        const room = OFFICE_SCENE_MANIFEST.rooms[furniture.roomId];
+        return (
+          state.position.y >
+          ((room.bounds.min.y + room.bounds.max.y + 1) / 2) *
+            OFFICE_SCENE_MANIFEST.world.cellSize
+        );
+      }),
+    ).toBe(true);
   });
 
   it("vacates personal chairs and occupies team chairs during consensus", () => {
@@ -90,5 +109,14 @@ describe("office personal workstation contract", () => {
     // Then
     expect(workSeats.every((seat) => !seat.occupied)).toBe(true);
     expect(meetingSeats.every((seat) => seat.occupied)).toBe(true);
+  });
+
+  it("keeps personal chair rows visually clear of meeting chair rows", () => {
+    for (const member of OFFICE_SCENE_MANIFEST.roster) {
+      if (member.departmentId === "chair") continue;
+      expect(
+        Math.abs(member.workSeat.cell.y - member.meetingSeat.cell.y),
+      ).toBeGreaterThanOrEqual(2);
+    }
   });
 });

@@ -74,12 +74,12 @@ describe("office v9 generated actor assets", () => {
 
   it("ships transparent generated workstation banks for every department", () => {
     const workstationAssets = [
-      "workstations-market.png",
-      "workstations-company.png",
-      "workstations-financial.png",
-      "workstations-risk.png",
+      ["workstations-market.png", 352],
+      ["workstations-company.png", 352],
+      ["workstations-financial.png", 352],
+      ["workstations-risk.png", 224],
     ] as const;
-    for (const fileName of workstationAssets) {
+    for (const [fileName, width] of workstationAssets) {
       const image = PNG.sync.read(
         readFileSync(
           resolve(
@@ -95,9 +95,8 @@ describe("office v9 generated actor assets", () => {
         image.data[(image.height - 1) * image.width * 4 + 3],
         image.data[(image.width * image.height - 1) * 4 + 3],
       ];
-      expect(image.width).toBe(384);
-      expect(image.height).toBeGreaterThanOrEqual(80);
-      expect(image.height).toBeLessThanOrEqual(120);
+      expect(image.width).toBe(width);
+      expect(image.height).toBe(96);
       expect(cornerAlpha.every((alpha) => alpha === 0)).toBe(true);
       expect(
         image.data.some((channel, index) => index % 4 === 3 && channel >= 220),
