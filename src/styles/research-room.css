@@ -1234,6 +1234,26 @@
   grid-template-columns: minmax(0, 1fr) minmax(340px, 360px);
 }
 
+@media (min-width: 768px) {
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="false"]
+    .research-layout {
+    grid-template-columns: minmax(0, 1fr) 48px;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"]
+    .office-workbench {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"]
+    .meeting-minutes {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
 .public-research-workspace__back {
   position: fixed;
   z-index: 40;
