@@ -180,6 +180,12 @@ export type RecordAgentRunnerEvidenceInput = {
   readonly reasoning: "low" | "medium";
   readonly browsingPolicy: "disabled" | "audited_web";
   readonly toolTranscriptHash: string;
+  readonly toolEventCount?: number;
+  readonly inputTokens?: number;
+  readonly cachedInputTokens?: number;
+  readonly cacheWriteInputTokens?: number;
+  readonly outputTokens?: number;
+  readonly reasoningOutputTokens?: number;
 };
 
 export interface AgentRunnerEvidenceRecorderPort {

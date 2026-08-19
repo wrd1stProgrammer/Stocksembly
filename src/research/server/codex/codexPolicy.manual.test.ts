@@ -35,7 +35,7 @@ it("inspects the complete argv and provenance policy matrix", async () => {
 
   // Then
   expect(matrix).toHaveLength(CODEX_STAGES.length);
-  expect(matrix.every((row) => row.argvModel === "gpt-5.6-terra")).toBe(true);
+  expect(matrix.every((row) => row.argvModel === "gpt-5.6-luna")).toBe(true);
   expect(
     matrix.every(
       (row) =>
@@ -67,9 +67,9 @@ it("inspects the complete argv and provenance policy matrix", async () => {
         invocation:
           "pnpm vitest run src/research/server/codex/codexPolicy.manual.test.ts --exclude '.next/**'",
         assertions: {
-          allStagesExactlyMedium: true,
+          allStagesExactlyLow: true,
           noXhigh: true,
-          noNonTerraModel: true,
+          allStagesLuna: true,
           browsingDisabled: true,
           transcriptHashBound: true,
         },
@@ -82,7 +82,7 @@ it("inspects the complete argv and provenance policy matrix", async () => {
   );
 });
 
-it("routes only support specialist memos through Luna low reasoning", () => {
+it("keeps every research role on Luna low reasoning", () => {
   const supportRuntime = researchRuntimeOverride(
     "memo",
     "memo:company_product",
@@ -104,21 +104,21 @@ it("routes only support specialist memos through Luna low reasoning", () => {
     supportRuntime,
   );
   expect(trustedResearchRuntime("memo", "memo:company")).toEqual({
-    model: "gpt-5.6-terra",
-    reasoning: "medium",
+    model: "gpt-5.6-luna",
+    reasoning: "low",
   });
   expect(argv[argv.indexOf("--model") + 1]).toBe("gpt-5.6-luna");
   expect(argv).toContain('model_reasoning_effort="low"');
 });
 
-it("keeps experimental Luna routing disabled by default", () => {
+it("keeps Luna low as the default when the specialist override is disabled", () => {
   expect(
     researchRuntimeOverride("memo", "memo:company_product", false),
   ).toBeUndefined();
   expect(trustedResearchRuntime("memo", "memo:company_product", false)).toEqual(
     {
-      model: "gpt-5.6-terra",
-      reasoning: "medium",
+      model: "gpt-5.6-luna",
+      reasoning: "low",
     },
   );
 });

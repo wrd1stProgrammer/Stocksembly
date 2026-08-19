@@ -36,6 +36,7 @@ import type {
   PeersDataset,
 } from "../server/data/insightsentry/insightSentryResearchContracts";
 import { createInsightSentryResearchDataAdapter } from "../server/data/insightsentry/insightSentryResearchData";
+import type { SemanticNewsClassifierUsage } from "../server/data/insightsentry/insightSentrySemanticNewsClassifier";
 import { createSemanticNewsClassifier } from "../server/data/insightsentry/insightSentrySemanticNewsClassifier";
 import { deriveInsightSentryTechnicalAnalysis } from "../server/data/insightsentry/insightSentryTechnical";
 import type { InsightSentryWireAdapter } from "../server/data/insightsentry/insightSentryTransport";
@@ -591,6 +592,9 @@ export async function collectInsightSentryInitialEvidence(input: {
     | "earnings";
   readonly configuration?: InsightSentryConfigResult;
   readonly adapter?: InsightSentryWireAdapter;
+  readonly recordAuxiliaryCodexUsage?: (
+    usage: SemanticNewsClassifierUsage,
+  ) => Promise<void> | void;
 }): Promise<InsightSentryInitialCollection> {
   const requests = new Map<string, InsightSentryRequestLedgerEntry>();
   const responses = new Map<string, CapturedResponse>();
@@ -648,7 +652,11 @@ export async function collectInsightSentryInitialEvidence(input: {
     dataRoot: input.dataRoot,
     classifyNews:
       input.adapter === undefined
-        ? createSemanticNewsClassifier()
+        ? createSemanticNewsClassifier({
+            ...(input.recordAuxiliaryCodexUsage === undefined
+              ? {}
+              : { recordUsage: input.recordAuxiliaryCodexUsage }),
+          })
         : deterministicClassifier(),
     screenPeers:
       input.peerProfile === undefined

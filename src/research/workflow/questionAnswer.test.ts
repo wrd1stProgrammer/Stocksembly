@@ -133,7 +133,7 @@ describe("official grounded question answering", () => {
     runtime.fixture.cleanup();
   });
 
-  it("routes advanced consultation questions to the Sol light runtime", async () => {
+  it("routes advanced consultation questions to the Luna light runtime", async () => {
     // Given
     const codex = new QuestionCodexFake();
     const runtime = await runOne({ advancedQuestion: true, codex });
@@ -144,7 +144,7 @@ describe("official grounded question answering", () => {
     // Then
     expect(handled).toMatchObject({ kind: "handled", committed: true });
     expect(codex.runtimeOverrides).toEqual([
-      { model: "gpt-5.6-sol", reasoning: "low" },
+      { model: "gpt-5.6-luna", reasoning: "low" },
     ]);
     await runtime.engine.shutdown();
     await runtime.official.close();

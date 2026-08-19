@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { CodexTokenUsage } from "./codexJsonl";
 import type {
   CodexBrowsingPolicy,
   CodexModel,
@@ -73,6 +74,7 @@ export type SafeCodexEvidence = {
   readonly exitCode: 0;
   readonly toolEventCount: number;
   readonly searchedUrls?: readonly string[];
+  readonly tokenUsage?: CodexTokenUsage;
   readonly cleanup: "complete";
 };
 

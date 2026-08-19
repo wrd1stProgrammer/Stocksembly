@@ -7,7 +7,7 @@ const VALID_EVENTS = [
   '{"type":"turn.started"}\n',
   '{"type":"item.completed","item":{"type":"reasoning","text":"discarded"}}\n',
   '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"message\\":\\"PONG\\"}"}}\n',
-  '{"type":"turn.completed"}\n',
+  '{"type":"turn.completed","usage":{"input_tokens":21003,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0}}\n',
 ] as const;
 
 export function registerJsonlTests(): void {
@@ -33,6 +33,13 @@ export function registerJsonlTests(): void {
         toolEventCount: 0,
         toolTranscript: [],
         webArtifacts: [],
+        tokenUsage: {
+          inputTokens: 21_003,
+          cachedInputTokens: 0,
+          cacheWriteInputTokens: 0,
+          outputTokens: 5,
+          reasoningOutputTokens: 0,
+        },
       });
     });
 

@@ -16,6 +16,19 @@ import type {
 } from "./insightSentryResearchContracts";
 import { NewsClassifierResponseSchema } from "./insightSentryResearchSchemas";
 
+export type SemanticNewsClassifierUsage = {
+  readonly callId: string;
+  readonly phase: "shortlist" | "detail";
+  readonly model: "gpt-5.6-luna";
+  readonly reasoning: "low";
+  readonly toolEventCount: number;
+  readonly inputTokens?: number;
+  readonly cachedInputTokens?: number;
+  readonly cacheWriteInputTokens?: number;
+  readonly outputTokens?: number;
+  readonly reasoningOutputTokens?: number;
+};
+
 function heuristic(candidate: NewsClassifierCandidate) {
   const text =
     `${candidate.title} ${candidate.alternateTitles.join(" ")} ${candidate.clusterFeatures.topics.join(" ")}`.toLowerCase();
@@ -84,9 +97,7 @@ function prompt(
   ].join("\n\n");
 }
 
-async function classifyWithLuna(
-  request: Parameters<NewsClassifier>[0],
-): Promise<unknown> {
+async function classifyWithLuna(request: Parameters<NewsClassifier>[0]) {
   const key = {
     runId: RunIdSchema.parse(randomUUID()),
     jobId: JobIdSchema.parse(randomUUID()),
@@ -133,7 +144,7 @@ async function classifyWithLuna(
       prompt: classifierPrompt,
       outputSchema: NewsClassifierResponseSchema,
     });
-    return result.candidate;
+    return { callId: key.attemptId, result } as const;
   } finally {
     await rm(attemptDir, { recursive: true, force: true }).catch(
       () => undefined,
@@ -141,13 +152,37 @@ async function classifyWithLuna(
   }
 }
 
-export function createSemanticNewsClassifier(): NewsClassifier {
+export function createSemanticNewsClassifier(
+  options: {
+    readonly recordUsage?: (
+      usage: SemanticNewsClassifierUsage,
+    ) => Promise<void> | void;
+  } = {},
+): NewsClassifier {
   return async (request) => {
     if (request.candidates.length === 0) return { classifications: [] };
     const fallback = request.candidates.map(heuristic);
     try {
+      const completed = await classifyWithLuna(request);
+      const tokenUsage = completed.result.evidence.tokenUsage;
+      await options.recordUsage?.({
+        callId: completed.callId,
+        phase: request.phase,
+        model: request.model,
+        reasoning: request.reasoning,
+        toolEventCount: completed.result.evidence.toolEventCount,
+        ...(tokenUsage === undefined
+          ? {}
+          : {
+              inputTokens: tokenUsage.inputTokens,
+              cachedInputTokens: tokenUsage.cachedInputTokens,
+              cacheWriteInputTokens: tokenUsage.cacheWriteInputTokens,
+              outputTokens: tokenUsage.outputTokens,
+              reasoningOutputTokens: tokenUsage.reasoningOutputTokens,
+            }),
+      });
       const parsed = NewsClassifierResponseSchema.parse(
-        await classifyWithLuna(request),
+        completed.result.candidate,
       );
       const known = new Map(
         parsed.classifications.map((item) => [item.candidateId, item]),
