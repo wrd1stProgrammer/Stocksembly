@@ -556,15 +556,22 @@ describe("chair synthesis directional contract", () => {
         repairChairCandidate(JSON.stringify(prompt), invalid, rewrite),
       ).sections,
     ).toHaveLength(6);
-    expect(
+    const structurallyDriftedRewrite = ChairSynthesisOutputSchema.parse(
       repairChairCandidate(JSON.stringify(prompt), invalid, {
         ...rewrite,
         section: {
           ...rewrite.section,
           primarySentenceId: "sentence:not-preserved",
+          sentenceIds: ["sentence:not-preserved"],
         },
       }),
-    ).toEqual({});
+    ).sections.find((section) => section.sectionKey === "ten_second_brief");
+    expect(structurallyDriftedRewrite?.primarySentenceId).toBe(
+      original.primarySentenceId,
+    );
+    expect(structurallyDriftedRewrite?.sentenceIds).toEqual(
+      original.sentenceIds,
+    );
   });
 
   it("uses approved section evidence when a bilingual leaf rewrite is still invalid", () => {
@@ -903,6 +910,43 @@ describe("chair synthesis directional contract", () => {
     expect(
       modelPrompt.directionalBriefContract.roles.countercase.assignedSentenceId,
     ).toBe("dissent:challenge:valuation");
+  });
+
+  it("skips a challenge whose English leaf is not actually English", () => {
+    const { prompt } = mixedClaimValidationFixture();
+    const sourceArtifactId = prompt.sourceArtifactIds[0];
+    if (sourceArtifactId === undefined) throw new TypeError("missing source");
+    const validDissent = prompt.sentences.find(
+      (sentence) => sentence.kind === "dissent",
+    );
+    if (validDissent === undefined) throw new TypeError("missing dissent");
+    const promptWithInvalidChallenge = {
+      ...prompt,
+      sentences: [
+        ...prompt.sentences,
+        {
+          sentenceId: "dissent:challenge:wrong-locale",
+          kind: "dissent" as const,
+          claimIds: [],
+          sourceArtifactIds: [sourceArtifactId],
+          text: {
+            en: "영문 필드에 들어간 한국어 반론입니다.",
+            ko: "영문 필드에 들어간 한국어 반론입니다.",
+          },
+        },
+      ],
+    };
+    const modelPrompt = JSON.parse(
+      chairSynthesisModelPrompt(promptWithInvalidChallenge),
+    ) as {
+      directionalBriefContract: {
+        roles: { countercase: { assignedSentenceId: string } };
+      };
+    };
+
+    expect(
+      modelPrompt.directionalBriefContract.roles.countercase.assignedSentenceId,
+    ).toBe(validDissent.sentenceId);
   });
 
   it("rejects duplicated decision components after editorial normalization", () => {

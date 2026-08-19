@@ -359,6 +359,9 @@ export async function runCodexWithPlatform<Candidate>(
       exitCode: 0,
       toolEventCount: collected.toolEventCount,
       searchedUrls: collected.searchedUrls,
+      ...(collected.tokenUsage === undefined
+        ? {}
+        : { tokenUsage: collected.tokenUsage }),
       cleanup: "complete",
     });
     await writeExclusiveJson(input.attemptDir, "lifecycle.json", evidence);

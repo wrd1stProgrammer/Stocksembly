@@ -11,9 +11,6 @@ import {
 
 const EMPTY_TOOL_TRANSCRIPT_HASH =
   "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570";
-const TRUSTED_BINARY_HASH =
-  "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e";
-
 class RecordingEvidenceStore {
   readonly inputs: RecordAgentRunnerEvidenceInput[] = [];
 
@@ -41,12 +38,12 @@ const validResult: CodexRunResult<{ readonly ok: true }> = {
   evidence: {
     ordinal: binding.ordinal,
     stage: binding.stage,
-    model: "gpt-5.6-terra",
-    reasoning: "medium",
+    model: "gpt-5.6-luna",
+    reasoning: "low",
     browsingPolicy: "audited_web",
     toolTranscriptHash: EMPTY_TOOL_TRANSCRIPT_HASH,
-    binaryVersion: "codex-cli 0.146.0-alpha.3.1",
-    binaryHash: TRUSTED_BINARY_HASH,
+    binaryVersion: CODEX_RUNTIME_PINS.version,
+    binaryHash: CODEX_RUNTIME_PINS.originSha256,
     originDevice: "1",
     originInode: "1",
     linkDevice: "1",

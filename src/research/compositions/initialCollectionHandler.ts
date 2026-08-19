@@ -27,6 +27,7 @@ import {
   SEC_IDENTITY_ERROR_CODES,
   SecIdentityConfigError,
 } from "../server/data/sec/secIdentityConfig";
+import { recordAuxiliaryCodexUsage } from "../server/persistence/sqlite/auxiliaryCodexUsageRepository";
 import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
@@ -281,6 +282,12 @@ export function createInitialCollectionHandler(
           question: request.question,
           cas: options.cas,
           researchProfile,
+          recordAuxiliaryCodexUsage: (usage) =>
+            recordAuxiliaryCodexUsage(options.databasePath, {
+              ...usage,
+              runId,
+              recordedAt: clock(),
+            }),
         });
       } catch (error) {
         return collectionFailure(error, clock(), attempt.ordinal);

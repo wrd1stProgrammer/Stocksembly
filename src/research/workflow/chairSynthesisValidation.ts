@@ -830,18 +830,15 @@ export function repairChairCandidate(
     (section) => section.sectionKey === issue.sectionKey,
   );
   const rewrittenSection = PROSE_REWRITE_REASONS.has(issue.reason)
-    ? originalSection !== undefined &&
-      originalSection.primarySentenceId ===
-        rewrite.data.section.primarySentenceId &&
-      JSON.stringify(originalSection.sentenceIds) ===
-        JSON.stringify(rewrite.data.section.sentenceIds) &&
-      JSON.stringify(originalSection.conflictAdjudication) ===
-        JSON.stringify(rewrite.data.section.conflictAdjudication)
-      ? {
+    ? originalSection === undefined
+      ? undefined
+      : {
+          // A prose-only rewrite never gets authority over sentence ownership
+          // or conflict adjudication. Preserve those trusted fields on the
+          // server and consume only the rewritten bilingual leaf.
           ...originalSection,
           publicSummary: rewrite.data.section.publicSummary,
         }
-      : undefined
     : rewrite.data.section;
   if (rewrittenSection === undefined) return {};
   const sections = candidate.data.sections.filter(

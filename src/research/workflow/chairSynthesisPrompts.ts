@@ -9,7 +9,10 @@ import {
   CHAIR_SECTION_KEYS,
   type ChairSynthesisPrompt,
 } from "./chairSynthesisContracts";
-import { decisionTextsAreDistinct } from "./chairSynthesisTextValidation";
+import {
+  decisionTextsAreDistinct,
+  publicTextIsValid,
+} from "./chairSynthesisTextValidation";
 
 type ChairSectionKey = (typeof CHAIR_SECTION_KEYS)[number];
 type ChairSentence = ChairSynthesisPrompt["sentences"][number];
@@ -111,7 +114,11 @@ export function chairDirectionalBriefAssignment(
     (sentence) => sentence.sentenceId === tenSecond?.primarySentenceId,
   );
   const countercaseCandidates = prompt.sentences
-    .filter((sentence) => sentence.kind === "dissent")
+    .filter(
+      (sentence) =>
+        sentence.kind === "dissent" &&
+        publicTextIsValid(sentence.text, [sentence], 360),
+    )
     // A challenge is a better countercase than an echoed claim. Keep the
     // catalog order as the final tie-breaker so the assignment stays stable.
     .sort(
@@ -126,7 +133,9 @@ export function chairDirectionalBriefAssignment(
           decisionTextsAreDistinct([decisive.text, sentence.text]),
         ) ?? countercaseCandidates[0]);
   const falsifierCandidates = prompt.sentences.filter(
-    (sentence) => sentence.kind === "change_condition",
+    (sentence) =>
+      sentence.kind === "change_condition" &&
+      publicTextIsValid(sentence.text, [sentence], 360),
   );
   const falsifier =
     decisive === undefined || countercase === undefined

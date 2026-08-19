@@ -7,6 +7,15 @@ import type { CapturedWebArtifact } from "./codexTypes";
 
 const EventSchema = z.object({
   type: z.string(),
+  usage: z
+    .object({
+      input_tokens: z.number().int().nonnegative(),
+      cached_input_tokens: z.number().int().nonnegative(),
+      cache_write_input_tokens: z.number().int().nonnegative(),
+      output_tokens: z.number().int().nonnegative(),
+      reasoning_output_tokens: z.number().int().nonnegative(),
+    })
+    .optional(),
   item: z
     .object({
       type: z.string(),
@@ -51,6 +60,15 @@ export type CollectedCodexJsonl = {
   readonly toolEventCount: number;
   readonly toolTranscript: readonly SanitizedToolEvent[];
   readonly webArtifacts: readonly CapturedWebArtifact[];
+  readonly tokenUsage?: CodexTokenUsage;
+};
+
+export type CodexTokenUsage = {
+  readonly inputTokens: number;
+  readonly cachedInputTokens: number;
+  readonly cacheWriteInputTokens: number;
+  readonly outputTokens: number;
+  readonly reasoningOutputTokens: number;
 };
 
 const LIFECYCLE_EVENTS = new Set([
@@ -240,6 +258,7 @@ export function collectCodexJsonl(
   let capturedBytes = 0;
   let phase: "initial" | "thread" | "turn" | "complete" = "initial";
   let finalText: string | undefined;
+  let tokenUsage: CodexTokenUsage | undefined;
   for (const line of lines) {
     let decoded: unknown;
     try {
@@ -260,6 +279,15 @@ export function collectCodexJsonl(
       continue;
     }
     if (event.type === "turn.completed" && phase === "turn") {
+      if (event.usage !== undefined) {
+        tokenUsage = Object.freeze({
+          inputTokens: event.usage.input_tokens,
+          cachedInputTokens: event.usage.cached_input_tokens,
+          cacheWriteInputTokens: event.usage.cache_write_input_tokens,
+          outputTokens: event.usage.output_tokens,
+          reasoningOutputTokens: event.usage.reasoning_output_tokens,
+        });
+      }
       phase = "complete";
       continue;
     }
@@ -345,5 +373,6 @@ export function collectCodexJsonl(
     toolEventCount: toolTranscript.length,
     toolTranscript: Object.freeze(toolTranscript),
     webArtifacts: Object.freeze(webArtifacts),
+    ...(tokenUsage === undefined ? {} : { tokenUsage }),
   });
 }
