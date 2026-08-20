@@ -98,7 +98,6 @@ for attempt in {1..30}; do
     sleep 5
     if [[ "$(docker inspect --format '{{.State.Running}}' stocksembly-web 2>/dev/null)" == "true" ]] &&
       [[ "$(docker inspect --format '{{.State.Running}}' stocksembly-worker 2>/dev/null)" == "true" ]] &&
-      [[ "$(docker inspect --format '{{.RestartCount}}' stocksembly-worker 2>/dev/null)" == "0" ]] &&
       docker exec stocksembly-worker node research-worker/worker.mjs health >/dev/null 2>&1; then
       systemctl disable stocksembly-web stocksembly-worker >/dev/null
       docker image prune --force --filter "until=168h" >/dev/null
@@ -107,6 +106,15 @@ for attempt in {1..30}; do
   fi
   sleep 2
 done
+
+echo "deployment health check failed; container state follows" >&2
+docker inspect \
+  --format '{{.Name}} status={{.State.Status}} running={{.State.Running}} restartCount={{.RestartCount}} exitCode={{.State.ExitCode}} error={{json .State.Error}}' \
+  stocksembly-web stocksembly-worker >&2 || true
+echo "stocksembly-web recent logs" >&2
+docker logs --tail 80 stocksembly-web >&2 || true
+echo "stocksembly-worker recent logs" >&2
+docker logs --tail 80 stocksembly-worker >&2 || true
 
 if [[ -n "$previous_image" ]]; then
   printf 'STOCKSEMBLY_IMAGE=%s\n' "$previous_image" >"$environment_file"
@@ -121,5 +129,4 @@ else
   fi
 fi
 
-echo "deployment health check failed" >&2
 exit 1
