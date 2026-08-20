@@ -65,15 +65,22 @@ jobs:
           APP_ORIGIN: https://stocksembly.com
           GA_MEASUREMENT_ID: G-YRQDC6R5TL
         run: |
-          image="${REGISTRY}/${ECR_REPOSITORY}:sha-${GITHUB_SHA}"
-          docker build \
-            --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}" \
-            --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=${COGNITO_USER_POOL_CLIENT_ID}" \
-            --build-arg "NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN}" \
-            --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
-            --build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}" \
-            --tag "$image" .
-          docker push "$image"
+          image_tag="sha-${GITHUB_SHA}"
+          image="${REGISTRY}/${ECR_REPOSITORY}:${image_tag}"
+          if aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=${image_tag}" >/dev/null 2>&1; then
+            echo "Reusing existing immutable image: $image"
+          else
+            docker build \
+              --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}" \
+              --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=${COGNITO_USER_POOL_CLIENT_ID}" \
+              --build-arg "NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN}" \
+              --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
+              --build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}" \
+              --tag "$image" .
+            docker push "$image"
+          fi
           echo "image=$image" >> "$GITHUB_ENV"
       - name: Sync provider environment
         env:
@@ -128,14 +135,30 @@ jobs:
             aws ssm send-command \
               --instance-ids "$INSTANCE_ID" \
               --document-name AWS-RunShellScript \
+              --timeout-seconds 900 \
               --parameters "$parameters" \
               --query 'Command.CommandId' \
               --output text
           )"
-          aws ssm wait command-executed \
-            --command-id "$command_id" \
-            --instance-id "$INSTANCE_ID"
+          status="Pending"
+          for attempt in {1..120}; do
+            status="$(
+              aws ssm get-command-invocation \
+                --command-id "$command_id" \
+                --instance-id "$INSTANCE_ID" \
+                --query 'Status' \
+                --output text 2>/dev/null || true
+            )"
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut|Cancelling) break ;;
+            esac
+            sleep 5
+          done
           aws ssm get-command-invocation \
             --command-id "$command_id" \
             --instance-id "$INSTANCE_ID" \
             --query '{status:Status,stdout:StandardOutputContent,stderr:StandardErrorContent}'
+          if [[ "$status" != "Success" ]]; then
+            echo "production deployment failed with SSM status: $status" >&2
+            exit 1
+          fi
