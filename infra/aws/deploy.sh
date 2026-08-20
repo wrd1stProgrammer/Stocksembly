@@ -61,6 +61,14 @@ ssh -i "$key_path" -o StrictHostKeyChecking=accept-new "ec2-user@${host}" \
    sudo sed -i '/^STOCKSEMBLY_PUBLIC_ORIGIN=/d' /etc/stocksembly/aws.env
    printf 'STOCKSEMBLY_PUBLIC_ORIGIN=%s\n' "$public_origin" |
      sudo tee -a /etc/stocksembly/aws.env >/dev/null
+   sudo sed -i \
+     -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=/d' \
+     -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=/d' \
+     /etc/stocksembly/aws.env
+   printf '%s\n' \
+     'STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=true' \
+     'STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=true' |
+     sudo tee -a /etc/stocksembly/aws.env >/dev/null
    sudo install -m 0644 /tmp/stocksembly-web.service /etc/systemd/system/
    sudo install -m 0644 /tmp/stocksembly-worker.service /etc/systemd/system/
    sudo systemctl daemon-reload

@@ -69,6 +69,17 @@ const fixture: AdminAnalyticsOverview = {
     },
   },
   acquisition: [{ key: "unknown", label: "미확인", count: 120, rate: 100 }],
+  acquisitionSources: [
+    { key: "threads", label: "threads", count: 12, rate: 10 },
+  ],
+  acquisitionCampaigns: [
+    {
+      key: "threads_profile",
+      label: "threads_profile",
+      count: 12,
+      rate: 10,
+    },
+  ],
   plans: [{ key: "free", label: "Free", count: 101, rate: 84.17 }],
   statuses: [{ key: "active", label: "활성", count: 120, rate: 100 }],
   retention: [{ horizon: "D1", eligible: 100, retained: 30, rate: 30 }],
@@ -88,7 +99,38 @@ const fixture: AdminAnalyticsOverview = {
     cancelScheduled: 2,
     pastDue: 1,
   },
-  users: { total: 0, page: 1, pageSize: 50, pageCount: 1, items: [] },
+  users: {
+    total: 1,
+    page: 1,
+    pageSize: 50,
+    pageCount: 1,
+    items: [
+      {
+        principalId: "a".repeat(64),
+        email: "threads-user@example.com",
+        displayName: null,
+        locale: "ko",
+        acquisitionChannel: "social",
+        acquisition: {
+          source: "threads",
+          medium: "organic_social",
+          campaign: "threads_profile",
+          term: null,
+          content: "bio_link",
+          referrerHost: "threads.net",
+          landingPath: "/",
+          capturedAt: "2026-08-13T00:00:00.000Z",
+        },
+        createdAt: "2026-08-13T00:05:00.000Z",
+        lastSeenAt: "2026-08-14T00:00:00.000Z",
+        plan: "free",
+        status: "none",
+        actionCount: 1,
+        lastMeaningfulAt: "2026-08-13T00:10:00.000Z",
+        firstPaidAt: null,
+      },
+    ],
+  },
 };
 
 describe("AdminDashboard", () => {
@@ -99,6 +141,8 @@ describe("AdminDashboard", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("결제 이동 준비 완료 → 결제")).toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("threads").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("threads_profile").length).toBeGreaterThan(0);
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 });

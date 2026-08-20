@@ -31,6 +31,20 @@ describe("admin analytics query", () => {
     expect(query.to).toBe("2026-08-03T15:00:00.000Z");
   });
 
+  it("normalizes UTM source and campaign filters", () => {
+    const query = parseAdminAnalyticsQuery(
+      new URLSearchParams({
+        range: "30",
+        source: "  Threads  ",
+        campaign: " threads_profile ",
+      }),
+      asOf,
+    );
+
+    expect(query.source).toBe("Threads");
+    expect(query.campaign).toBe("threads_profile");
+  });
+
   it("rejects reversed and future ranges", () => {
     expect(() =>
       parseAdminAnalyticsQuery(

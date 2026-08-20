@@ -19,6 +19,15 @@ attribution, checkout-attempt correlation, payment events and the analytics
 consent surface. Keep both false until migration 12 has been applied and the
 privacy notice is ready.
 
+The production CloudFormation template enables both flags. First-touch UTM
+values are stored only after analytics consent, retained across authentication,
+and exposed to administrators as source, medium, campaign, content, referrer,
+and landing path. The recommended Threads link is:
+
+```text
+https://stocksembly.com/?utm_source=threads&utm_medium=organic_social&utm_campaign=threads_profile&utm_content=bio_link
+```
+
 The CloudFormation stack creates the Cognito group but does not add a user.
 Assign an administrator explicitly, then sign out and sign back in so Cognito
 issues a fresh access token:

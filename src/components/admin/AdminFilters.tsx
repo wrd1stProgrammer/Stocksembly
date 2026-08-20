@@ -41,6 +41,24 @@ export function AdminFilters({ query }: Props) {
         </select>
       </label>
       <label>
+        <span>UTM 소스</span>
+        <input
+          type="text"
+          name="source"
+          defaultValue={query.source ?? ""}
+          placeholder="threads"
+        />
+      </label>
+      <label>
+        <span>UTM 캠페인</span>
+        <input
+          type="text"
+          name="campaign"
+          defaultValue={query.campaign ?? ""}
+          placeholder="threads_profile"
+        />
+      </label>
+      <label>
         <span>언어</span>
         <select name="locale" defaultValue={query.locale ?? ""}>
           <option value="">전체</option>

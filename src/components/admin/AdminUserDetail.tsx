@@ -50,6 +50,57 @@ export function AdminUserDetail({ data, backQuery }: Props) {
           <strong>{user.acquisitionChannel}</strong>
         </article>
       </section>
+      <section className="admin-panel admin-detail__acquisition">
+        <header className="admin-panel__header">
+          <div>
+            <p>FIRST TOUCH</p>
+            <h2>최초 유입 정보</h2>
+          </div>
+        </header>
+        {user.acquisition === null ? (
+          <div className="admin-empty">저장된 UTM 정보가 없습니다.</div>
+        ) : (
+          <dl>
+            <div>
+              <dt>Source / Medium</dt>
+              <dd>
+                {user.acquisition.source ?? "—"} /{" "}
+                {user.acquisition.medium ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt>Campaign</dt>
+              <dd>{user.acquisition.campaign ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Term</dt>
+              <dd>{user.acquisition.term ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Content</dt>
+              <dd>{user.acquisition.content ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Landing</dt>
+              <dd>{user.acquisition.landingPath ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Referrer</dt>
+              <dd>{user.acquisition.referrerHost ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Captured</dt>
+              <dd>
+                {user.acquisition.capturedAt
+                  ? new Date(user.acquisition.capturedAt).toLocaleString(
+                      "ko-KR",
+                    )
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+        )}
+      </section>
       <section className="admin-panel admin-detail__timeline">
         <header className="admin-panel__header">
           <div>

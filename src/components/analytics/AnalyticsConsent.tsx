@@ -12,6 +12,7 @@ type Props = {
 };
 
 type Consent = "granted" | "denied" | "unset";
+type PendingAttribution = Record<string, string>;
 
 function currentConsent(): Consent {
   const value = document.cookie
@@ -27,7 +28,7 @@ function clean(value: string | null): string | undefined {
   return normalized ? normalized : undefined;
 }
 
-function pendingAttribution(): Record<string, string> {
+function pendingAttribution(): PendingAttribution {
   const url = new URL(window.location.href);
   const source = clean(url.searchParams.get("utm_source"));
   const medium = clean(url.searchParams.get("utm_medium"));
@@ -55,6 +56,32 @@ function pendingAttribution(): Record<string, string> {
   };
 }
 
+function hasExplicitCampaign(value: PendingAttribution): boolean {
+  return ["source", "medium", "campaign", "term", "content"].some(
+    (key) => typeof value[key] === "string" && value[key] !== "",
+  );
+}
+
+function persistPendingAttribution(): void {
+  const current = pendingAttribution();
+  const saved = window.localStorage.getItem(PENDING_KEY);
+  if (saved === null) {
+    window.localStorage.setItem(PENDING_KEY, JSON.stringify(current));
+    return;
+  }
+  try {
+    const parsed = JSON.parse(saved) as unknown;
+    if (parsed === null || typeof parsed !== "object") throw new TypeError();
+    const previous = parsed as PendingAttribution;
+    // Preserve first-touch campaign attribution, but let the first explicit
+    // UTM replace an earlier unattributed/direct landing before signup.
+    if (!hasExplicitCampaign(previous) && hasExplicitCampaign(current))
+      window.localStorage.setItem(PENDING_KEY, JSON.stringify(current));
+  } catch {
+    window.localStorage.setItem(PENDING_KEY, JSON.stringify(current));
+  }
+}
+
 async function submitPendingAttribution(): Promise<void> {
   const pending = window.localStorage.getItem(PENDING_KEY);
   if (pending === null) return;
@@ -64,7 +91,10 @@ async function submitPendingAttribution(): Promise<void> {
     headers: { "content-type": "application/json" },
     body: pending,
   }).catch(() => undefined);
-  if (response?.ok || (response !== undefined && response.status !== 401))
+  if (
+    response?.ok ||
+    (response !== undefined && [400, 413, 415].includes(response.status))
+  )
     window.localStorage.removeItem(PENDING_KEY);
 }
 
@@ -72,11 +102,7 @@ export function AnalyticsConsent({ enabled, measurementId }: Props) {
   const [consent, setConsent] = useState<Consent>("unset");
   const activate = useCallback(() => {
     if (!enabled) return;
-    if (window.localStorage.getItem(PENDING_KEY) === null)
-      window.localStorage.setItem(
-        PENDING_KEY,
-        JSON.stringify(pendingAttribution()),
-      );
+    persistPendingAttribution();
     void submitPendingAttribution();
   }, [enabled]);
 
