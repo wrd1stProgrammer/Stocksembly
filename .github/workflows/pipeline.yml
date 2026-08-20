@@ -15,51 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  diagnose-research-readiness:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      AWS_REGION: us-east-1
-      INSTANCE_ID: i-030eacac11712c94d
-    steps:
-      - uses: aws-actions/configure-aws-credentials@v6.1.1
-        with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-      - name: Run research readiness diagnostic
-        run: |
-          parameters="$(jq -nc \
-            --arg command "sudo docker exec stocksembly-worker node research-worker/worker.mjs readiness-diagnostic" \
-            '{commands:[$command]}')"
-          command_id="$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name AWS-RunShellScript \
-            --timeout-seconds 600 \
-            --parameters "$parameters" \
-            --query 'Command.CommandId' \
-            --output text)"
-          status="Pending"
-          for attempt in {1..120}; do
-            status="$(aws ssm get-command-invocation \
-              --command-id "$command_id" \
-              --instance-id "$INSTANCE_ID" \
-              --query 'Status' \
-              --output text 2>/dev/null || true)"
-            case "$status" in
-              Success|Failed|Cancelled|TimedOut|Cancelling) break ;;
-            esac
-            sleep 5
-          done
-          aws ssm get-command-invocation \
-            --command-id "$command_id" \
-            --instance-id "$INSTANCE_ID" \
-            --query '{status:Status,stdout:StandardOutputContent,stderr:StandardErrorContent}'
-          [[ "$status" == "Success" ]]
-
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 30

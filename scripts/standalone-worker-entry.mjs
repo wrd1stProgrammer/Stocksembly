@@ -27,9 +27,22 @@ try {
 } catch (error) {
   const reportedCode =
     error instanceof Error && "code" in error ? error.code : undefined;
+  const reportedCheck =
+    error instanceof Error &&
+    "check" in error &&
+    typeof error.check === "string"
+      ? error.check
+      : undefined;
+  const reportedReason =
+    error instanceof Error &&
+    "reason" in error &&
+    typeof error.reason === "string"
+      ? error.reason
+      : undefined;
   const code = !nativeBindingValidated
     ? "SQLITE_NATIVE_UNAVAILABLE"
     : [
+          "CODEX_ISOLATION_FAILED",
           "MIGRATIONS_UNAVAILABLE",
           "WORKER_DATA_READ_ONLY",
           "WORKER_LEASE_OCCUPIED",
@@ -38,17 +51,22 @@ try {
         ].includes(reportedCode)
       ? reportedCode
       : "WORKER_FAILED";
-  process.stderr.write(
-    `${JSON.stringify({
-      kind: "worker_error",
-      code,
-      message:
-        code === "SQLITE_NATIVE_UNAVAILABLE"
-          ? "The packaged better-sqlite3 native binding is unavailable"
-          : error instanceof Error
-            ? error.message
-            : "The packaged research worker failed",
-    })}\n`,
+  await new Promise((resolve) =>
+    process.stderr.write(
+      `${JSON.stringify({
+        kind: "worker_error",
+        code,
+        ...(reportedCheck ? { check: reportedCheck } : {}),
+        ...(reportedReason ? { reason: reportedReason } : {}),
+        message:
+          code === "SQLITE_NATIVE_UNAVAILABLE"
+            ? "The packaged better-sqlite3 native binding is unavailable"
+            : error instanceof Error
+              ? error.message
+              : "The packaged research worker failed",
+      })}\n`,
+      resolve,
+    ),
   );
-  process.exitCode = 1;
+  process.exit(1);
 }
