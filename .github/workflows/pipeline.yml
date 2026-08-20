@@ -79,7 +79,16 @@ jobs:
               --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
               --build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}" \
               --tag "$image" .
-            docker push "$image"
+            if ! push_output="$(docker push "$image" 2>&1)"; then
+              echo "$push_output"
+              if grep -Fq "cannot be overwritten because the tag is immutable" <<<"$push_output"; then
+                echo "Reusing existing immutable image after concurrent push: $image"
+              else
+                exit 1
+              fi
+            else
+              echo "$push_output"
+            fi
           fi
           echo "image=$image" >> "$GITHUB_ENV"
       - name: Sync provider environment
