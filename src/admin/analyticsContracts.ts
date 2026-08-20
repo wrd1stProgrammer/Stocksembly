@@ -82,9 +82,22 @@ export type AdminAnalyticsQuery = {
   readonly locale?: string;
   readonly plan?: "free" | "pro" | "ultra";
   readonly status?: "active" | "trialing" | "past_due" | "cancelled";
+  readonly source?: string;
+  readonly campaign?: string;
   readonly search?: string;
   readonly page: number;
   readonly pageSize: number;
+};
+
+export type AdminUserAcquisition = {
+  readonly source: string | null;
+  readonly medium: string | null;
+  readonly campaign: string | null;
+  readonly term: string | null;
+  readonly content: string | null;
+  readonly referrerHost: string | null;
+  readonly landingPath: string | null;
+  readonly capturedAt: string | null;
 };
 
 export type AdminKpis = {
@@ -140,6 +153,7 @@ export type AdminUserRow = {
   readonly displayName: string | null;
   readonly locale: string | null;
   readonly acquisitionChannel: Exclude<AcquisitionChannel, "all">;
+  readonly acquisition: AdminUserAcquisition | null;
   readonly createdAt: string;
   readonly lastSeenAt: string;
   readonly plan: "free" | "pro" | "ultra" | "unknown";
@@ -166,6 +180,8 @@ export type AdminAnalyticsOverview = {
   readonly signupFunnel: AdminFunnel;
   readonly checkoutFunnel: AdminFunnel;
   readonly acquisition: readonly AdminBreakdown[];
+  readonly acquisitionSources: readonly AdminBreakdown[];
+  readonly acquisitionCampaigns: readonly AdminBreakdown[];
   readonly plans: readonly AdminBreakdown[];
   readonly statuses: readonly AdminBreakdown[];
   readonly retention: readonly AdminRetention[];
@@ -270,6 +286,10 @@ export function parseAdminAnalyticsQuery(
   );
   const rawSearch = searchParams.get("q")?.normalize("NFC").trim();
   const search = rawSearch?.slice(0, 100) || undefined;
+  const rawSource = searchParams.get("source")?.normalize("NFC").trim();
+  const source = rawSource?.slice(0, 120) || undefined;
+  const rawCampaign = searchParams.get("campaign")?.normalize("NFC").trim();
+  const campaign = rawCampaign?.slice(0, 120) || undefined;
   return {
     range,
     from: kstMidnightUtc(fromDate).toISOString(),
@@ -290,6 +310,8 @@ export function parseAdminAnalyticsQuery(
     statusValue === "cancelled"
       ? { status: statusValue }
       : {}),
+    ...(source === undefined ? {} : { source }),
+    ...(campaign === undefined ? {} : { campaign }),
     ...(search === undefined ? {} : { search }),
     page,
     pageSize,

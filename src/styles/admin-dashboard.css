@@ -560,6 +560,19 @@
   display: block;
 }
 
+.admin-acquisition__source,
+.admin-acquisition__campaign {
+  display: block;
+}
+
+.admin-acquisition__campaign {
+  max-width: 180px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--admin-muted);
+  text-overflow: ellipsis;
+}
+
 .admin-users td:first-child small {
   max-width: 220px;
   margin-top: 3px;
@@ -672,6 +685,37 @@
   list-style: none;
 }
 
+.admin-detail__acquisition {
+  margin-bottom: 10px;
+}
+
+.admin-detail__acquisition dl {
+  display: grid;
+  padding: 0;
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.admin-detail__acquisition dl > div {
+  min-width: 0;
+}
+
+.admin-detail__acquisition dt {
+  color: var(--admin-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.admin-detail__acquisition dd {
+  margin: 6px 0 0;
+  overflow: hidden;
+  color: #dce1ea;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-detail__timeline li {
   display: grid;
   grid-template-columns: 10px 1fr auto;
@@ -752,7 +796,8 @@
   .admin-kpis,
   .admin-two-column,
   .admin-three-column,
-  .admin-detail__facts {
+  .admin-detail__facts,
+  .admin-detail__acquisition dl {
     grid-template-columns: 1fr;
   }
   .admin-filters {

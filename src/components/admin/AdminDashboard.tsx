@@ -37,6 +37,8 @@ function queryString(data: AdminAnalyticsOverview, page?: number): string {
   if (data.query.locale) params.set("locale", data.query.locale);
   if (data.query.plan) params.set("plan", data.query.plan);
   if (data.query.status) params.set("status", data.query.status);
+  if (data.query.source) params.set("source", data.query.source);
+  if (data.query.campaign) params.set("campaign", data.query.campaign);
   if (data.query.search) params.set("q", data.query.search);
   if (page !== undefined) params.set("page", String(page));
   return params.toString();
@@ -162,6 +164,12 @@ function UserTable({
             value={data.query.throughDate}
           />
           <input type="hidden" name="channel" value={data.query.channel} />
+          {data.query.source ? (
+            <input type="hidden" name="source" value={data.query.source} />
+          ) : null}
+          {data.query.campaign ? (
+            <input type="hidden" name="campaign" value={data.query.campaign} />
+          ) : null}
           <Search size={16} aria-hidden="true" />
           <input
             name="q"
@@ -202,7 +210,16 @@ function UserTable({
                   </small>
                 </td>
                 <td>{new Date(user.createdAt).toLocaleDateString("ko-KR")}</td>
-                <td>{user.acquisitionChannel}</td>
+                <td className="admin-acquisition">
+                  <strong className="admin-acquisition__source">
+                    {user.acquisition?.source ?? user.acquisitionChannel}
+                  </strong>
+                  <small className="admin-acquisition__campaign">
+                    {user.acquisition?.campaign ??
+                      user.acquisition?.medium ??
+                      "—"}
+                  </small>
+                </td>
                 <td>
                   <span className={`admin-plan is-${user.plan}`}>
                     {user.plan}
@@ -369,6 +386,10 @@ export function AdminDashboard({ data }: Props) {
         </div>
         <div className="admin-three-column">
           <Breakdown title="유입 채널" rows={data.acquisition} />
+          <Breakdown title="UTM 소스" rows={data.acquisitionSources} />
+          <Breakdown title="UTM 캠페인" rows={data.acquisitionCampaigns} />
+        </div>
+        <div className="admin-two-column">
           <Breakdown title="현재 플랜" rows={data.plans} />
           <Breakdown title="현재 상태" rows={data.statuses} />
         </div>

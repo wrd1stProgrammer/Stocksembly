@@ -430,8 +430,8 @@ Resources:
           STOCKSEMBLY_DB_CA_PATH=/etc/ssl/certs/aws-rds-global-bundle.pem
           STOCKSEMBLY_DATA_DIR=/var/lib/stocksembly/research
           STOCKSEMBLY_ANALYTICS_ENVIRONMENT=production
-          STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=false
-          STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=false
+          STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=true
+          STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=true
           ENV
           chmod 0600 /etc/stocksembly/aws.env
 

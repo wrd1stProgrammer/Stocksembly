@@ -6,10 +6,10 @@ import {
 } from "@aws-sdk/client-secrets-manager";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 import { z } from "zod";
+import { acquisitionChannel } from "../../admin/acquisitionAttribution";
 import { adminAnalyticsWritesEnabled } from "../../admin/adminAnalyticsFlags";
 import type {
   AcquisitionAttributionInput,
-  AcquisitionChannel,
   AdminAnalyticsOverview,
   AdminAnalyticsQuery,
   AdminUserDetail,
@@ -126,48 +126,6 @@ function billingPlanKey(value: string | undefined): BillingPlanKey | undefined {
     value === "ultra-annual"
     ? value
     : undefined;
-}
-
-function acquisitionChannel(
-  attribution: AcquisitionAttributionInput,
-): Exclude<AcquisitionChannel, "all" | "unknown"> {
-  const medium = attribution.medium?.toLowerCase();
-  const source = attribution.source?.toLowerCase();
-  const referrer = attribution.referrerHost?.toLowerCase();
-  if (medium === "cpc" || medium === "ppc" || medium === "paid_search")
-    return "paid_search";
-  if (medium === "email") return "email";
-  if (
-    medium === "social" ||
-    medium === "social_media" ||
-    [
-      "facebook",
-      "instagram",
-      "linkedin",
-      "x",
-      "twitter",
-      "youtube",
-      "tiktok",
-    ].includes(source ?? "")
-  )
-    return "social";
-  if (
-    medium === "organic" ||
-    ["google.com", "bing.com", "search.naver.com", "search.daum.net"].includes(
-      referrer ?? "",
-    )
-  )
-    return "organic_search";
-  if (referrer) return "referral";
-  if (
-    attribution.source ||
-    attribution.medium ||
-    attribution.campaign ||
-    attribution.term ||
-    attribution.content
-  )
-    return "campaign";
-  return "direct";
 }
 
 function sandboxWebhookPrincipalAllowed(principalId: string): boolean {

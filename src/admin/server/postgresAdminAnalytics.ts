@@ -84,6 +84,18 @@ function userFilters(
     add((value) => `u.acquisition_channel = ${value}`, query.channel);
   if (query.locale !== undefined)
     add((value) => `u.preferred_locale = ${value}`, query.locale);
+  if (query.source !== undefined)
+    add(
+      (value) =>
+        `EXISTS (SELECT 1 FROM user_acquisition_attribution ufa WHERE ufa.principal_id = u.principal_id AND lower(ufa.source) = lower(${value}))`,
+      query.source,
+    );
+  if (query.campaign !== undefined)
+    add(
+      (value) =>
+        `EXISTS (SELECT 1 FROM user_acquisition_attribution ufa WHERE ufa.principal_id = u.principal_id AND lower(ufa.campaign) = lower(${value}))`,
+      query.campaign,
+    );
   return {
     values,
     sql: conditions.length === 0 ? "TRUE" : conditions.join(" AND "),
@@ -141,6 +153,10 @@ function iso(value: unknown): string | null {
 
 function requiredIso(value: unknown): string {
   return iso(value) ?? new Date(0).toISOString();
+}
+
+function nullableString(value: unknown): string | null {
+  return value === null || value === undefined ? null : String(value);
 }
 
 function breakdown(
@@ -207,6 +223,20 @@ function mapUser(row: Record<string, unknown>): AdminUserRow {
     ].includes(channel)
       ? channel
       : "unknown") as AdminUserRow["acquisitionChannel"],
+    acquisition:
+      row["acquisition_captured_at"] === null ||
+      row["acquisition_captured_at"] === undefined
+        ? null
+        : {
+            source: nullableString(row["acquisition_source"]),
+            medium: nullableString(row["acquisition_medium"]),
+            campaign: nullableString(row["acquisition_campaign"]),
+            term: nullableString(row["acquisition_term"]),
+            content: nullableString(row["acquisition_content"]),
+            referrerHost: nullableString(row["acquisition_referrer_host"]),
+            landingPath: nullableString(row["acquisition_landing_path"]),
+            capturedAt: iso(row["acquisition_captured_at"]),
+          },
     createdAt: requiredIso(row["created_at"]),
     lastSeenAt: requiredIso(row["last_seen_at"]),
     plan: (["free", "pro", "ultra", "unknown"].includes(plan)
@@ -242,6 +272,12 @@ async function listUsersWithClient(
     `WITH ${CANONICAL_EVENTS_CTE}
      SELECT u.principal_id, u.email, u.display_name, u.preferred_locale,
        u.acquisition_channel, u.created_at, u.last_seen_at,
+       a.source AS acquisition_source, a.medium AS acquisition_medium,
+       a.campaign AS acquisition_campaign, a.term AS acquisition_term,
+       a.content AS acquisition_content,
+       a.referrer_host AS acquisition_referrer_host,
+       a.landing_path AS acquisition_landing_path,
+       a.captured_at AS acquisition_captured_at,
        CASE WHEN e.plan_code IN ('pro','ultra') THEN e.plan_code
             WHEN e.plan_code IS NULL OR e.plan_code = 'preview' THEN 'free'
             ELSE 'unknown' END AS plan,
@@ -259,9 +295,11 @@ async function listUsersWithClient(
        ) AS first_paid_at
      FROM app_users u
      LEFT JOIN entitlements e ON e.principal_id = u.principal_id
+     LEFT JOIN user_acquisition_attribution a
+       ON a.principal_id = u.principal_id
      LEFT JOIN canonical_events ce ON ce.principal_id = u.principal_id
      WHERE ${where}
-     GROUP BY u.principal_id, e.plan_code, e.status
+     GROUP BY u.principal_id, e.plan_code, e.status, a.principal_id
      ORDER BY u.created_at DESC, u.principal_id DESC
      LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
     [...values, query.pageSize, offset],
@@ -448,6 +486,26 @@ export async function queryAdminOverview(
        GROUP BY u.acquisition_channel ORDER BY count DESC, key`,
       globalValues,
     );
+    const sourceRows = await client.query<{ key: string; count: number }>(
+      `SELECT COALESCE(NULLIF(lower(a.source), ''), 'unattributed') AS key,
+              COUNT(*)::int AS count
+       FROM app_users u
+       LEFT JOIN user_acquisition_attribution a
+         ON a.principal_id = u.principal_id
+       WHERE u.created_at >= $1 AND u.created_at < $2 AND ${global.sql}
+       GROUP BY key ORDER BY count DESC, key`,
+      globalValues,
+    );
+    const campaignRows = await client.query<{ key: string; count: number }>(
+      `SELECT COALESCE(NULLIF(lower(a.campaign), ''), 'unattributed') AS key,
+              COUNT(*)::int AS count
+       FROM app_users u
+       LEFT JOIN user_acquisition_attribution a
+         ON a.principal_id = u.principal_id
+       WHERE u.created_at >= $1 AND u.created_at < $2 AND ${global.sql}
+       GROUP BY key ORDER BY count DESC, key`,
+      globalValues,
+    );
     const current = userFilters(query, 1);
     const planRows = await client.query<{ key: string; count: number }>(
       `SELECT CASE WHEN e.plan_code IN ('pro','ultra') THEN e.plan_code
@@ -584,6 +642,12 @@ export async function queryAdminOverview(
         },
       },
       acquisition: breakdown(acquisitionRows.rows, CHANNEL_LABELS),
+      acquisitionSources: breakdown(sourceRows.rows, {
+        unattributed: "미기록",
+      }),
+      acquisitionCampaigns: breakdown(campaignRows.rows, {
+        unattributed: "미기록",
+      }),
       plans: breakdown(planRows.rows, PLAN_LABELS),
       statuses: breakdown(statusRows.rows, STATUS_LABELS),
       retention: retentionRows.rows.map(
@@ -630,6 +694,12 @@ export async function queryAdminUser(
       `WITH ${CANONICAL_EVENTS_CTE}
        SELECT u.principal_id, u.email, u.display_name, u.preferred_locale,
          u.acquisition_channel, u.created_at, u.last_seen_at,
+         a.source AS acquisition_source, a.medium AS acquisition_medium,
+         a.campaign AS acquisition_campaign, a.term AS acquisition_term,
+         a.content AS acquisition_content,
+         a.referrer_host AS acquisition_referrer_host,
+         a.landing_path AS acquisition_landing_path,
+         a.captured_at AS acquisition_captured_at,
          CASE WHEN e.plan_code IN ('pro','ultra') THEN e.plan_code
               WHEN e.plan_code IS NULL OR e.plan_code = 'preview' THEN 'free'
               ELSE 'unknown' END AS plan,
@@ -647,9 +717,11 @@ export async function queryAdminUser(
          ) AS first_paid_at
        FROM app_users u
        LEFT JOIN entitlements e ON e.principal_id = u.principal_id
+       LEFT JOIN user_acquisition_attribution a
+         ON a.principal_id = u.principal_id
        LEFT JOIN canonical_events ce ON ce.principal_id = u.principal_id
        WHERE u.principal_id = $1
-       GROUP BY u.principal_id, e.plan_code, e.status`,
+       GROUP BY u.principal_id, e.plan_code, e.status, a.principal_id`,
       [principalId, query.from, query.to],
     );
     const rawUser = userResult.rows[0];
