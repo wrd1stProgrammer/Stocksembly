@@ -54,8 +54,19 @@ describe("research presentation", () => {
 
     // Then
     expect(segments.length).toBeGreaterThan(1);
-    expect(segments.every((segment) => segment.length <= 58)).toBe(true);
+    expect(segments.every((segment) => segment.length <= 85)).toBe(true);
     expect(segments.join(" ")).not.toContain("...");
+  });
+
+  it("splits a long English finding into several compact utterances", () => {
+    const value =
+      "Compute and Networking generated roughly $193.5B of reported business revenue while the agreement links future AI-factory capacity to an OpenAI tenant.";
+
+    const segments = speechBubbleSegments(value, "en");
+
+    expect(segments.length).toBeGreaterThan(1);
+    expect(segments.every((segment) => segment.length <= 130)).toBe(true);
+    expect(segments.join(" ")).toBe(value);
   });
 
   it("derives a qualitative posture and real audit denominator", () => {

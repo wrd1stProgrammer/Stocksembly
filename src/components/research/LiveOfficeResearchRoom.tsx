@@ -130,12 +130,25 @@ export function formatResearchHistoryDate(
     : `${month}.${day}.${year}`;
 }
 
+export function shouldScopeDepartmentOffice(
+  target: PublicRun["researchTarget"],
+  beatId: OfficeSimulationSnapshot["beatId"],
+): boolean {
+  return (
+    target?.kind === "department" &&
+    beatId !== "representative-gathering" &&
+    beatId !== "forum" &&
+    beatId !== "complete"
+  );
+}
+
 function scopeOfficeSnapshot(
   snapshot: OfficeSimulationSnapshot,
   run: PublicRun,
 ): OfficeSimulationSnapshot {
   const target = run.researchTarget;
-  if (target === undefined || target.kind === "committee") return snapshot;
+  if (!shouldScopeDepartmentOffice(target, snapshot.beatId)) return snapshot;
+  if (target === undefined || target.kind !== "department") return snapshot;
   const selected = new Set<string>(
     OFFICE_SCENE_MANIFEST.departments[target.departmentId]?.memberIds ?? [],
   );

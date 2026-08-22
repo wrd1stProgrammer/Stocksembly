@@ -149,9 +149,11 @@ function progressTick(
     case "owner_response_committed":
       tick = 861;
       break;
-    case "structural_audit_completed":
     case "semantic_audit_committed":
       tick = 1_056;
+      break;
+    case "structural_audit_completed":
+      tick = 1_261;
       break;
     case "gathering_started":
       tick = 1_261;

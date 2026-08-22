@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ResearchEvent } from "../../research/types";
-import { concurrentSpeechEvents } from "./PixelOfficeGame";
+import { concurrentSpeechEvents, speechBubbleMessage } from "./PixelOfficeGame";
 
 function event(
   id: string,
@@ -31,5 +31,20 @@ describe("concurrentSpeechEvents", () => {
     expect(
       concurrentSpeechEvents(events[3], events).map(({ id }) => id),
     ).toEqual(["memo-company", "memo-market-2", "memo-financial"]);
+  });
+
+  it("stops a concurrent speaker after its final bounded segment", () => {
+    const long: ResearchEvent = {
+      ...event("memo-company", "company", "specialist_memo_committed"),
+      summary: {
+        en: "Compute and Networking generated roughly $193.5B of reported business revenue while future AI-factory capacity remains tied to an OpenAI tenant.",
+        ko: "기업 분석 요약입니다.",
+      },
+    };
+
+    const message = speechBubbleMessage(long, "en", 99);
+
+    expect(message).toBe("");
+    expect(speechBubbleMessage(long, "en", 0).length).toBeGreaterThan(46);
   });
 });
