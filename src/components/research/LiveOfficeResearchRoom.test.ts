@@ -3,6 +3,7 @@ import { workflowV2PresentationFixture } from "../../research/workflowV2Presenta
 import {
   formatResearchHistoryDate,
   loadReport,
+  shouldScopeDepartmentOffice,
 } from "./LiveOfficeResearchRoom";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -21,4 +22,14 @@ it("formats compact research history dates", () => {
 
   expect(formatResearchHistoryDate(createdAt, "ko")).toBe("26.07.31");
   expect(formatResearchHistoryDate(createdAt, "en")).toBe("07.31.26");
+});
+
+it("opens a department run to the five-person forum for the chair stage", () => {
+  const target = { kind: "department", departmentId: "financial" } as const;
+
+  expect(shouldScopeDepartmentOffice(target, "return-b")).toBe(true);
+  expect(shouldScopeDepartmentOffice(target, "representative-gathering")).toBe(
+    false,
+  );
+  expect(shouldScopeDepartmentOffice(target, "forum")).toBe(false);
 });

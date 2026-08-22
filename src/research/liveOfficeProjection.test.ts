@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PublicResearchEvent, PublicRunDetail } from "./client/schemas";
 import { createLiveOfficeFrame } from "./liveOfficeAnimation";
 import { liveOfficeProjection } from "./liveOfficeProjection";
+import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import { officeSimulationSnapshot } from "./officeSimulation";
 
 const run: PublicRunDetail["run"] = {
@@ -145,5 +146,31 @@ describe("liveOfficeProjection", () => {
         ["stand", "walk", "return", "orient"].includes(actor.action),
       ),
     ).toEqual([]);
+  });
+
+  it("shows the verified-evidence event with five representatives gathered for the chair", () => {
+    const projection = liveOfficeProjection({
+      run,
+      events: [committed(1, "structural_audit_completed", "chair", [])],
+    });
+    const snapshot = officeSimulationSnapshot(
+      createLiveOfficeFrame(projection.tick).simulation,
+    );
+    const forumIds = new Set(
+      OFFICE_SCENE_MANIFEST.roster
+        .filter(({ finalLocation }) => finalLocation === "forum")
+        .map(({ id }) => id),
+    );
+    const forumActors = snapshot.actors.filter(({ id }) => forumIds.has(id));
+
+    expect(projection.tick).toBe(1_261);
+    expect(snapshot.beatId).toBe("representative-gathering");
+    expect(forumActors).toHaveLength(5);
+    expect(forumActors.find(({ id }) => id === "chair")?.action).toBe("talk");
+    expect(
+      forumActors
+        .filter(({ id }) => id !== "chair")
+        .every(({ action }) => action === "listen"),
+    ).toBe(true);
   });
 });

@@ -4,6 +4,7 @@ import {
   createAgentRuntime,
   type MutableAgentDisplayRuntime,
 } from "./officeGameAgent";
+import { renderProgressBubbleTyping } from "./officeGameBubble";
 import {
   furnitureStatesForSnapshot,
   type OfficeFurnitureRenderState,
@@ -61,6 +62,7 @@ export type OfficeGameController = {
   ) => OfficeRenderSnapshot;
   readonly setCameraMode: (mode: OfficeRendererCameraMode) => void;
   readonly setCameraControlMode: (mode: OfficeCameraControlMode) => void;
+  readonly setBubbleTypingElapsed: (elapsedMs: number) => void;
   readonly inspect: () => OfficeGameInspection;
   readonly setPaused: (isPaused: boolean) => void;
   readonly destroy: () => void;
@@ -273,7 +275,6 @@ export async function createOfficeSnapshotRenderer(
       world.addChild(runtime.body);
       uiLayer.addChild(runtime.ui);
     }
-
     let cameraMode: OfficeRendererCameraMode = "overview";
     let lastSnapshot = initialSnapshot;
     let lastCameraActorIds: OfficeSnapshotRenderOptions["cameraActorIds"];
@@ -569,6 +570,10 @@ export async function createOfficeSnapshotRenderer(
         } else {
           freeCamera = undefined;
         }
+      },
+      setBubbleTypingElapsed(elapsedMs: number) {
+        for (const runtime of actors.values())
+          renderProgressBubbleTyping(runtime.bubble, elapsedMs, reducedMotion);
       },
       inspect() {
         return Object.freeze({

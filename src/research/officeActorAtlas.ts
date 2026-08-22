@@ -15,6 +15,11 @@ export const ACTOR_ATLAS = {
   footPivot: { x: 80, y: 178 },
   displayScale: 0.53,
   seatedScaleMultiplier: 1.12,
+  visualTopInset: {
+    idle: 32,
+    walk: 31,
+    sit: 64,
+  },
   readability: {
     shadowRadiusX: 22,
     shadowRadiusY: 6.5,
@@ -22,6 +27,10 @@ export const ACTOR_ATLAS = {
   },
   safeInset: 10,
 } as const;
+
+export function actorVisualTopInset(mode: ActorAnimationMode): number {
+  return ACTOR_ATLAS.visualTopInset[mode];
+}
 
 export function actorDisplayScale(
   mode: ActorAnimationMode,

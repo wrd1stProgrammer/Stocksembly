@@ -535,6 +535,25 @@ describe("manifest-derived office snapshot renderer", () => {
     ).toBe(false);
   });
 
+  it("bounds live transcript text before it reaches Pixi", () => {
+    const longMessage =
+      "NVIDIA's reported economics support premium valuation while revenue, margin, and cash conversion still require separate evidence checks.";
+    const market = renderOfficeSnapshot({
+      snapshot: snapshotAt(40),
+      interpolation: 1,
+      reducedMotion: false,
+      cameraMode: "overview",
+      viewport: { width: 1376, height: 774 },
+      locale: "en",
+      liveBubbles: [{ actorId: "market", message: longMessage }],
+    }).actors.find((actor) => actor.id === "market");
+
+    expect(market?.bubble.visible).toBe(true);
+    expect(market?.bubble.message.length).toBeGreaterThan(46);
+    expect(market?.bubble.message.length).toBeLessThanOrEqual(130);
+    expect(market?.bubble.message).not.toBe(longMessage);
+  });
+
   it("suppresses a live transcript while its actor is still travelling", () => {
     const base = snapshotAt(40);
     const travelling = updateActor(base, "market", (actor) => ({

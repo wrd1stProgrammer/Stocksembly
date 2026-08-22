@@ -1,4 +1,8 @@
-import { ACTOR_ATLAS, actorDisplayScale } from "./officeActorAtlas";
+import {
+  ACTOR_ATLAS,
+  actorDisplayScale,
+  actorVisualTopInset,
+} from "./officeActorAtlas";
 import { bubbleDimensions } from "./officeGameBubble";
 import type {
   OfficeRenderActor,
@@ -192,7 +196,10 @@ function contextFor(
   const spriteScale = actorDisplayScale(actor.animation) * camera.scale;
   const bodyBounds = Object.freeze({
     left: x - ACTOR_ATLAS.footPivot.x * spriteScale,
-    top: y - ACTOR_ATLAS.footPivot.y * spriteScale,
+    top:
+      y +
+      (actorVisualTopInset(actor.animation) - ACTOR_ATLAS.footPivot.y) *
+        spriteScale,
     right:
       x + (ACTOR_ATLAS.frame.width - ACTOR_ATLAS.footPivot.x) * spriteScale,
     bottom:
