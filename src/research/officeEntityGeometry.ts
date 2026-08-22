@@ -38,9 +38,9 @@ export const OFFICE_ENTITY_GEOMETRY = Object.freeze({
     }),
   }),
   roomSigns: Object.freeze({
-    market: Object.freeze({ x: 50, y: 48, width: 238, height: 66 }),
-    chair: Object.freeze({ x: 568, y: 48, width: 250, height: 66 }),
-    company: Object.freeze({ x: 1094, y: 48, width: 238, height: 66 }),
+    market: Object.freeze({ x: 50, y: 48, width: 250, height: 66 }),
+    chair: Object.freeze({ x: 562, y: 48, width: 250, height: 66 }),
+    company: Object.freeze({ x: 946, y: 48, width: 250, height: 66 }),
     financial: Object.freeze({ x: 50, y: 560, width: 250, height: 66 }),
     risk: Object.freeze({ x: 754, y: 560, width: 250, height: 66 }),
   }),

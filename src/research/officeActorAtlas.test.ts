@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ACTOR_ATLAS,
+  actorDisplayScale,
   actorFrame,
   actorWalkColumns,
   validateActorAtlas,
@@ -18,7 +19,14 @@ describe("office actor atlas", () => {
   });
 
   it("uses the legible production world scale", () => {
-    expect(ACTOR_ATLAS.displayScale).toBe(0.46);
+    expect(ACTOR_ATLAS.displayScale).toBe(0.53);
+    expect(actorDisplayScale("idle")).toBe(0.53);
+    expect(actorDisplayScale("walk")).toBe(0.53);
+    expect(actorDisplayScale("sit")).toBeCloseTo(0.594);
+    expect(ACTOR_ATLAS.readability).toMatchObject({
+      shadowRadiusX: 22,
+      shadowRadiusY: 6.5,
+    });
   });
 
   it("maps seated side profiles toward their named direction", () => {

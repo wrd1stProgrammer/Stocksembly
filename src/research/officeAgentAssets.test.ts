@@ -31,6 +31,30 @@ function frameBounds(image: PNG, row: number, column: number) {
   };
 }
 
+function profileSkinCenter(image: PNG, row: number, column: number): number {
+  let weightedX = 0;
+  let skinPixels = 0;
+  for (let y = 20; y < 105; y += 1) {
+    for (let x = 0; x < 160; x += 1) {
+      const offset = ((row * 192 + y) * image.width + column * 160 + x) * 4;
+      const red = image.data[offset] ?? 0;
+      const green = image.data[offset + 1] ?? 0;
+      const blue = image.data[offset + 2] ?? 0;
+      const alpha = image.data[offset + 3] ?? 0;
+      const isSkin =
+        alpha > 180 &&
+        red > 105 &&
+        red > green * 1.2 &&
+        green > blue * 0.75 &&
+        blue < 120;
+      if (!isSkin) continue;
+      weightedX += x;
+      skinPixels += 1;
+    }
+  }
+  return weightedX / skinPixels;
+}
+
 describe("office v9 generated actor assets", () => {
   it("ships one normalized atlas for every manifest actor", () => {
     for (const member of OFFICE_SCENE_MANIFEST.roster) {
@@ -46,6 +70,21 @@ describe("office v9 generated actor assets", () => {
       expect(
         image.data.some((channel, index) => index % 4 === 3 && channel > 0),
       ).toBe(true);
+    }
+  });
+
+  it("keeps every Noah left-walk frame facing left", () => {
+    const image = PNG.sync.read(
+      readFileSync(
+        resolve(
+          process.cwd(),
+          "public/research/office-v9/agents/financial.png",
+        ),
+      ),
+    );
+
+    for (const column of [0, 1, 2]) {
+      expect(profileSkinCenter(image, 2, column)).toBeLessThan(80);
     }
   });
 
