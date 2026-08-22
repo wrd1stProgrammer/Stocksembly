@@ -32,6 +32,18 @@ describe("office room plaques", () => {
     }
   });
 
+  it("uses one top-left room inset and one plaque size", () => {
+    const { cellSize } = OFFICE_SCENE_MANIFEST.world;
+    for (const plaque of OFFICE_ROOM_PLAQUES) {
+      const room = OFFICE_SCENE_MANIFEST.rooms[plaque.id].bounds;
+      expect(plaque.position).toMatchObject({
+        x: room.min.x * cellSize + 18,
+        y: room.min.y * cellSize + 16,
+      });
+      expect(plaque.size).toMatchObject({ width: 250, height: 66 });
+    }
+  });
+
   it("reserves body clearance around every department interaction anchor", () => {
     const { cellSize } = OFFICE_SCENE_MANIFEST.world;
     const actorHalfWidth = 28;

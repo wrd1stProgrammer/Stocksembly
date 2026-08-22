@@ -13,9 +13,24 @@ export const ACTOR_ATLAS = {
   columns: 4,
   rows: 4,
   footPivot: { x: 80, y: 178 },
-  displayScale: 0.46,
+  displayScale: 0.53,
+  seatedScaleMultiplier: 1.12,
+  readability: {
+    shadowRadiusX: 22,
+    shadowRadiusY: 6.5,
+    shadowAlpha: 0.34,
+  },
   safeInset: 10,
 } as const;
+
+export function actorDisplayScale(
+  mode: ActorAnimationMode,
+  seatedScaleMultiplier: number = ACTOR_ATLAS.seatedScaleMultiplier,
+): number {
+  return (
+    ACTOR_ATLAS.displayScale * (mode === "sit" ? seatedScaleMultiplier : 1)
+  );
+}
 
 const walkRows: Readonly<Record<Direction, number>> = {
   down: 0,

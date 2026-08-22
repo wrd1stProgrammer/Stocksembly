@@ -7,7 +7,7 @@ import {
   type Texture,
 } from "pixi.js";
 import type { Locale } from "../lib/i18n";
-import { ACTOR_ATLAS } from "./officeActorAtlas";
+import { ACTOR_ATLAS, actorDisplayScale } from "./officeActorAtlas";
 import { officeAgentAssetPath } from "./officeAgentAssets";
 import { type AnimationKey, animationKey } from "./officeGameAnimations";
 import {
@@ -35,6 +35,17 @@ export type MutableAgentDisplayRuntime = {
   readonly label: Container;
   currentAnimation: AnimationKey;
 };
+
+function makeActorGroundShadow(): Graphics {
+  return new Graphics()
+    .ellipse(
+      0,
+      -1,
+      ACTOR_ATLAS.readability.shadowRadiusX,
+      ACTOR_ATLAS.readability.shadowRadiusY,
+    )
+    .fill({ color: 0x081018, alpha: ACTOR_ATLAS.readability.shadowAlpha });
+}
 
 function makeLabel(text: string): Container {
   const root = new Container();
@@ -65,6 +76,7 @@ function playAnimation(
   state: OfficeRenderActor,
 ): void {
   const key = animationKey(state.animation, state.facing);
+  runtime.sprite.scale.set(actorDisplayScale(state.animation));
   if (runtime.currentAnimation === key) return;
   runtime.currentAnimation = key;
   runtime.sprite.textures = [...runtime.clips[key]];
@@ -88,10 +100,11 @@ export async function createAgentRuntime(
     ACTOR_ATLAS.footPivot.x / ACTOR_ATLAS.frame.width,
     ACTOR_ATLAS.footPivot.y / ACTOR_ATLAS.frame.height,
   );
-  sprite.scale.set(ACTOR_ATLAS.displayScale);
+  sprite.scale.set(actorDisplayScale("idle"));
   sprite.roundPixels = true;
   const body = new Container();
-  body.addChild(sprite);
+  const shadow = makeActorGroundShadow();
+  body.addChild(shadow, sprite);
   const ui = new Container();
   const label = makeLabel(member.name[locale]);
   const bubble = createProgressBubble();
