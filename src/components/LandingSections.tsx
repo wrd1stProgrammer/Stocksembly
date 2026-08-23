@@ -38,7 +38,7 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
           className="site-footer__column"
           aria-label={content.productHeading}
         >
-          <strong>{content.productHeading}</strong>
+          <h2>{content.productHeading}</h2>
           <Link href={`/${locale}/us-stock-analysis`}>
             {content.stockAnalysis}
           </Link>
@@ -49,21 +49,26 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
           className="site-footer__column"
           aria-label={content.standardsHeading}
         >
-          <strong>{content.standardsHeading}</strong>
+          <h2>{content.standardsHeading}</h2>
           {informationLinks.map((link) => (
-            <Link key={link.href} href={`${link.href}?lang=${locale}`}>
+            <Link
+              key={link.href}
+              href={locale === "en" ? `${link.href}?lang=en` : link.href}
+            >
               {link.label}
             </Link>
           ))}
         </nav>
         <address className="site-footer__column">
-          <strong>{content.contactHeading}</strong>
-          <a href="mailto:kicoa24@gmail.com">{content.support}</a>
+          <h2>{content.contactHeading}</h2>
+          <Link href={locale === "en" ? "/contact?lang=en" : "/contact"}>
+            {content.support}
+          </Link>
           <span>kicoa24@gmail.com</span>
           <span>Room 306, 32-4, Banryong-ro 18beon-gil, South Korea</span>
         </address>
         <nav className="site-footer__column" aria-label={content.legalHeading}>
-          <strong>{content.legalHeading}</strong>
+          <h2>{content.legalHeading}</h2>
           {legalLinks.map((link) => (
             <Link key={link.href} href={link.href}>
               {link.label}

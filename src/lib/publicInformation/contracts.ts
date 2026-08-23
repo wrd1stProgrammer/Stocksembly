@@ -5,6 +5,7 @@ export const PUBLIC_INFORMATION_KEYS = [
   "methodology",
   "editorial-policy",
   "corrections",
+  "contact",
 ] as const;
 
 export type PublicInformationKey = (typeof PUBLIC_INFORMATION_KEYS)[number];
@@ -20,7 +21,7 @@ export type PublicInformationSection = Readonly<{
 export type PublicInformationDocument = Readonly<{
   key: PublicInformationKey;
   path: `/${PublicInformationKey}`;
-  schemaType: "AboutPage" | "WebPage";
+  schemaType: "AboutPage" | "ContactPage" | "WebPage";
   title: LocalizedPublicText;
   description: LocalizedPublicText;
   eyebrow: LocalizedPublicText;

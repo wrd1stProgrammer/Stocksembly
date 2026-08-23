@@ -193,11 +193,14 @@
   font-size: var(--type-label);
 }
 
-.site-footer__column strong {
+.site-footer__column strong,
+.site-footer__column h2 {
   margin-bottom: var(--space-2);
+  margin-top: 0;
   color: var(--color-text);
   font-size: var(--type-label);
   font-weight: 680;
+  line-height: inherit;
 }
 
 .site-footer__column a,

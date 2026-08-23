@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { LandingFooter } from "./LandingSections";
 
@@ -7,6 +7,7 @@ const informationPaths = [
   "/methodology",
   "/editorial-policy",
   "/corrections",
+  "/contact",
 ] as const;
 
 describe("landing footer public information links", () => {
@@ -37,5 +38,22 @@ describe("landing footer public information links", () => {
 
     for (const path of informationPaths)
       expect(container.querySelector(`a[href="${path}"]`)).not.toBeNull();
+  });
+
+  it("uses visible footer section labels as semantic headings", () => {
+    render(<LandingFooter locale="en" />);
+
+    expect(
+      screen.getByRole("heading", { name: "Product", level: 2 }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "About & standards", level: 2 }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Contact", level: 2 }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Legal", level: 2 }),
+    ).toBeVisible();
   });
 });
