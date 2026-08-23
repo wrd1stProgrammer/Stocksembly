@@ -1,4 +1,5 @@
 import { aboutDocument } from "./about";
+import { contactDocument } from "./contact";
 import type {
   PublicInformationDocument,
   PublicInformationKey,
@@ -12,6 +13,7 @@ export const publicInformationDocuments = {
   methodology: methodologyDocument,
   "editorial-policy": editorialPolicyDocument,
   corrections: correctionsDocument,
+  contact: contactDocument,
 } as const satisfies Readonly<
   Record<PublicInformationKey, PublicInformationDocument>
 >;

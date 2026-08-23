@@ -74,6 +74,21 @@ export const metadata: Metadata = {
       "de_DE",
       "fr_FR",
     ],
+    images: [
+      {
+        url: "/brand/stocksembly-app-icon.png",
+        width: 1024,
+        height: 1024,
+        alt: "Stocksembly",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Stocksembly — AI Team Research for US Stocks",
+    description:
+      "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind US stocks, then an independent chair delivers an evidence-linked judgment.",
+    images: ["/brand/stocksembly-app-icon.png"],
   },
   icons: {
     icon: "/brand/stocksembly-app-icon.png",
@@ -114,6 +129,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
       data-locale={requestLocale}
     >
       <head>
+        <link rel="describedby" href="/llms.txt" />
         <meta
           name="naver-site-verification"
           content="d0550c1445439dad95faf56141ffab5fa14761b3"
