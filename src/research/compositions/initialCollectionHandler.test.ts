@@ -119,6 +119,8 @@ describe("InsightSentry initial workflow collection", () => {
         return wireResponse(
           200,
           JSON.stringify({
+            last_update: 1_753_348_800_000,
+            _ct: 1_753_348_800_000,
             total_items: 1,
             data: [
               {
