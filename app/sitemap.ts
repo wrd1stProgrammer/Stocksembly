@@ -17,6 +17,7 @@ const PUBLIC_INFORMATION_PAGES = [
   { path: "methodology", priority: 0.7 },
   { path: "editorial-policy", priority: 0.6 },
   { path: "corrections", priority: 0.5 },
+  { path: "contact", priority: 0.5 },
 ] as const;
 
 export const dynamic = "force-dynamic";

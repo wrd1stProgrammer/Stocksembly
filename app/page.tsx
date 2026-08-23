@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { App } from "@/src/App";
 import { resolveRequestLocale } from "@/src/lib/i18n";
+import {
+  homeStructuredData,
+  serializeStructuredData,
+} from "@/src/lib/seo/homeStructuredData";
 
 export const metadata: Metadata = {
   alternates: {
@@ -33,5 +37,12 @@ export default async function HomePage() {
       requestHeaders.get("cloudfront-viewer-country") ??
       requestHeaders.get("cf-ipcountry"),
   });
-  return <App initialLocale={locale} />;
+  return (
+    <>
+      <App initialLocale={locale} />
+      <script type="application/ld+json">
+        {serializeStructuredData(homeStructuredData(locale))}
+      </script>
+    </>
+  );
 }
