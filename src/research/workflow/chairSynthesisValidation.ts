@@ -298,8 +298,6 @@ export function projectChairAssignments(
     ]),
   ]);
   for (const section of candidate.sections) {
-    const allowedKinds: readonly string[] =
-      CHAIR_SECTION_ALLOWED_KINDS[section.sectionKey];
     for (const sentenceId of section.sentenceIds) {
       const sentence = catalog.get(sentenceId);
       if (sentence === undefined) {
@@ -311,7 +309,6 @@ export function projectChairAssignments(
         continue;
       }
       if (
-        !allowedKinds.includes(sentence.kind) ||
         sentence.claimIds.some(
           (claimId) => !prompt.auditedClaimIds.includes(claimId),
         )
@@ -358,17 +355,22 @@ export function projectChairAssignments(
       )
     )
       return undefined;
+    const allowedKinds: readonly string[] =
+      CHAIR_SECTION_ALLOWED_KINDS[sectionKey];
     const sentenceIds = [
       assignment.primarySentenceId,
       ...(sectionKey === "supported_analysis"
         ? requiredPositionSentenceIds
         : []),
-      ...section.sentenceIds.filter(
-        (sentenceId) =>
-          catalog.has(sentenceId) &&
+      ...section.sentenceIds.filter((sentenceId) => {
+        const sentence = catalog.get(sentenceId);
+        return (
+          sentence !== undefined &&
+          allowedKinds.includes(sentence.kind) &&
           !assignedPrimaryIds.has(sentenceId) &&
-          !conflictOwnedIds.has(sentenceId),
-      ),
+          !conflictOwnedIds.has(sentenceId)
+        );
+      }),
     ].filter(
       (sentenceId, index, values) =>
         values.indexOf(sentenceId) === index &&
@@ -722,6 +724,46 @@ export function validChairCandidate(promptJson: string, raw: unknown): unknown {
   return candidate.success ? resolvedCandidate(prompt, candidate.data) : {};
 }
 
+export function mergeChairSectionRewrite(
+  raw: unknown,
+  rewriteRaw: unknown,
+): unknown {
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(
+    normalizedModelCandidate(raw),
+  );
+  const rewrite = ChairSectionRewriteSchema.safeParse(rewriteRaw);
+  if (!candidate.success || !rewrite.success) return {};
+  return {
+    ...candidate.data,
+    sections: [
+      ...candidate.data.sections.filter(
+        (section) => section.sectionKey !== rewrite.data.section.sectionKey,
+      ),
+      rewrite.data.section,
+    ],
+  };
+}
+
+export function nextChairSectionRewrite(
+  promptJson: string,
+  raw: unknown,
+  rewriteRaw: unknown,
+):
+  | {
+      readonly originalCandidate: unknown;
+      readonly issue: ChairCandidateIssue;
+    }
+  | undefined {
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(
+    mergeChairSectionRewrite(raw, rewriteRaw),
+  );
+  if (!candidate.success) return undefined;
+  const issue = chairCandidateIssue(promptJson, candidate.data);
+  return issue === undefined
+    ? undefined
+    : { originalCandidate: candidate.data, issue };
+}
+
 function groundedFallbackText(
   values: readonly string[],
   maxLength: number,
@@ -841,13 +883,12 @@ export function repairChairCandidate(
         }
     : rewrite.data.section;
   if (rewrittenSection === undefined) return {};
-  const sections = candidate.data.sections.filter(
-    (section) => section.sectionKey !== issue.sectionKey,
+  const rewrittenCandidate = ChairSynthesisModelOutputSchema.parse(
+    mergeChairSectionRewrite(candidate.data, {
+      ...rewrite.data,
+      section: rewrittenSection,
+    }),
   );
-  const rewrittenCandidate = {
-    ...candidate.data,
-    sections: [...sections, rewrittenSection],
-  };
   const repaired = resolvedCandidate(prompt, rewrittenCandidate);
   if (
     !PROSE_REWRITE_REASONS.has(issue.reason) ||

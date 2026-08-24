@@ -37,6 +37,26 @@ describe("chair synthesis public text", () => {
     ).toBe(false);
   });
 
+  it("accepts a grounded number rounded to lower precision", () => {
+    expect(
+      publicTextIsValid(
+        {
+          en: "EV/revenue is about 24.3x versus the peer median.",
+          ko: "EV/매출은 peer 중앙값 대비 약 24.3배입니다.",
+        },
+        [
+          {
+            text: {
+              en: "EV/revenue is 24.28x versus the peer median.",
+              ko: "EV/매출은 peer 중앙값 대비 24.28배입니다.",
+            },
+          },
+        ],
+        360,
+      ),
+    ).toBe(true);
+  });
+
   it("accepts equivalent financial-unit formatting", () => {
     expect(
       publicTextIsValid(
