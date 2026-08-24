@@ -8,6 +8,7 @@ import type { NavigationGrid } from "./officeNavigation";
 import type {
   Cell,
   OFFICE_SCENE_MANIFEST,
+  OfficeDepartmentId,
   OfficeFacing,
   OfficeManifestAgentId,
   WorldPoint,
@@ -17,6 +18,7 @@ import type { OfficeReservation, OfficeTrafficActor } from "./officeTrafficV7";
 export type OfficeSimulationOptions = {
   readonly reducedMotion?: boolean;
   readonly navigationGrid?: NavigationGrid;
+  readonly departmentReleaseOrder?: readonly OfficeDepartmentId[];
 };
 
 export type OfficeSimulationActor = OfficeTrafficActor & {
@@ -55,6 +57,7 @@ export type OfficeSimulationState = {
   readonly cameraTarget: OfficeCameraTarget;
   readonly paused: boolean;
   readonly reducedMotion: boolean;
+  readonly departmentReleaseOrder: readonly OfficeDepartmentId[];
   readonly navigationGrid: NavigationGrid;
   readonly trace: readonly string[];
   readonly traceHashValue: number;

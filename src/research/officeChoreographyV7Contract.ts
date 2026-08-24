@@ -1,5 +1,6 @@
 import type {
   Cell,
+  OfficeDepartmentId,
   OfficeFacing,
   OfficeManifestAgentId,
 } from "./officeSceneManifest";
@@ -10,6 +11,16 @@ export const OFFICE_CLOCK_CONTRACT = Object.freeze({
   maxFrameDeltaMs: 250,
   completeTick: 1580,
 });
+
+export const OFFICE_DEPARTMENT_TALK_TIMELINE = Object.freeze({
+  firstReleaseTick: 240,
+  releaseIntervalTicks: 30,
+  settledOffsetTicks: 29,
+  memberStaggerTicks: 4,
+});
+
+export const DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER: readonly OfficeDepartmentId[] =
+  Object.freeze(["market", "company", "financial", "risk"]);
 
 const COMPLETE_BEAT = {
   id: "complete",

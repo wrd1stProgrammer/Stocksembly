@@ -108,6 +108,41 @@ describe("liveOfficeProjection", () => {
     expect(withChallenge.tick).toBeGreaterThanOrEqual(500);
   });
 
+  it("releases and settles only the team whose consensus response arrived", () => {
+    const projection = liveOfficeProjection({
+      run,
+      events: [
+        collectionStarted(1),
+        committed(2, "department_consolidation_committed", "financial", [
+          "financial",
+          "valuation",
+          "financial_quality",
+        ]),
+      ],
+    });
+    const snapshot = officeSimulationSnapshot(
+      createLiveOfficeFrame(projection.tick, projection.departmentReleaseOrder)
+        .simulation,
+    );
+    const released = new Set(["financial", "valuation", "financial_quality"]);
+
+    expect(projection.departmentReleaseOrder).toEqual(["financial"]);
+    expect(projection.tick).toBe(269);
+    for (const member of OFFICE_SCENE_MANIFEST.roster) {
+      const current = snapshot.actors.find(({ id }) => id === member.id);
+      expect(current?.cell).toEqual(
+        released.has(member.id)
+          ? member.meetingSeat.cell
+          : member.workSeat.cell,
+      );
+    }
+    expect(
+      snapshot.actors.filter((actor) =>
+        ["stand", "walk", "return", "orient"].includes(actor.action),
+      ),
+    ).toEqual([]);
+  });
+
   it("lands every durable exchange on a settled frame instead of a walking loop", () => {
     // Given
     const events: PublicResearchEvent[] = [collectionStarted(1)];
@@ -137,7 +172,8 @@ describe("liveOfficeProjection", () => {
     // When
     const projection = liveOfficeProjection({ run, events });
     const snapshot = officeSimulationSnapshot(
-      createLiveOfficeFrame(projection.tick).simulation,
+      createLiveOfficeFrame(projection.tick, projection.departmentReleaseOrder)
+        .simulation,
     );
 
     // Then

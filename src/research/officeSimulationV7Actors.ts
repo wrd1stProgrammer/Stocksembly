@@ -1,15 +1,19 @@
 import type { OfficeActorDirective } from "./officeChoreography";
 import {
+  DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   OFFICE_CLOCK_CONTRACT,
   officeDirectivesAt,
 } from "./officeChoreography";
 import {
   findOfficeRoute,
+  findOfficeRouteVia,
   type NavigationGrid,
   officeCellKey,
 } from "./officeNavigation";
 import {
+  type Cell,
   OFFICE_SCENE_MANIFEST,
+  type OfficeDepartmentId,
   type OfficeManifestAgentId,
 } from "./officeSceneManifest";
 import { mergeOfficeTrafficActor } from "./officeSimulationV7TrafficMerge";
@@ -49,8 +53,10 @@ function directiveFor(
   return directive;
 }
 
-export function createInitialOfficeActors(): readonly OfficeSimulationActor[] {
-  const directives = officeDirectivesAt(0);
+export function createInitialOfficeActors(
+  departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+): readonly OfficeSimulationActor[] {
+  const directives = officeDirectivesAt(0, departmentReleaseOrder);
   return Object.freeze(
     OFFICE_SCENE_MANIFEST.roster.map((member, priority) => {
       const directive = directiveFor(directives, member.id);
@@ -94,6 +100,72 @@ function routeFailure(
     participantIds: Object.freeze([actorId]),
     status: "route-unavailable",
   });
+}
+
+function containsCell(
+  bounds: { readonly min: Cell; readonly max: Cell },
+  cell: Cell,
+): boolean {
+  return (
+    cell.x >= bounds.min.x &&
+    cell.x <= bounds.max.x &&
+    cell.y >= bounds.min.y &&
+    cell.y <= bounds.max.y
+  );
+}
+
+function departmentAt(cell: Cell): OfficeDepartmentId | undefined {
+  return (
+    Object.entries(OFFICE_SCENE_MANIFEST.departments) as readonly [
+      OfficeDepartmentId,
+      (typeof OFFICE_SCENE_MANIFEST.departments)[OfficeDepartmentId],
+    ][]
+  ).find(([, department]) => containsCell(department.room, cell))?.[0];
+}
+
+const lowerDepartments = new Set<OfficeDepartmentId>(["financial", "risk"]);
+
+function preferredDoorWaypoints(from: Cell, to: Cell): readonly Cell[] {
+  const sourceDepartment = departmentAt(from);
+  const destinationDepartment = departmentAt(to);
+  if (
+    sourceDepartment !== undefined &&
+    sourceDepartment === destinationDepartment
+  ) {
+    return [];
+  }
+  const waypoints: Cell[] = [];
+  if (sourceDepartment !== undefined) {
+    waypoints.push(OFFICE_SCENE_MANIFEST.departments[sourceDepartment].door);
+  }
+  const sourceIsLower =
+    sourceDepartment !== undefined && lowerDepartments.has(sourceDepartment);
+  const destinationIsLower =
+    destinationDepartment !== undefined &&
+    lowerDepartments.has(destinationDepartment);
+  const sourceInChair = containsCell(
+    OFFICE_SCENE_MANIFEST.chairOffice.room,
+    from,
+  );
+  const destinationInChair = containsCell(
+    OFFICE_SCENE_MANIFEST.chairOffice.room,
+    to,
+  );
+  if (
+    (sourceIsLower &&
+      (destinationInChair ||
+        (destinationDepartment !== undefined && !destinationIsLower))) ||
+    (destinationIsLower &&
+      (sourceInChair || (sourceDepartment !== undefined && !sourceIsLower)))
+  ) {
+    waypoints.push(OFFICE_SCENE_MANIFEST.chairOffice.door);
+  }
+  if (destinationDepartment !== undefined) {
+    waypoints.push(
+      OFFICE_SCENE_MANIFEST.departments[destinationDepartment].door,
+    );
+  }
+  return waypoints;
 }
 
 function reconcileDirective(
@@ -144,11 +216,20 @@ function reconcileDirective(
     };
   }
   const routeOrigin = actor.motion?.to ?? actor.cell;
-  const route = findOfficeRoute(input.grid, {
+  const routeRequest = {
     from: routeOrigin,
     to: directive.destination,
     blockedCells: officeTrafficBlockedCells(input.actors, actor.id),
-  });
+  };
+  const preferredRoute = findOfficeRouteVia(
+    input.grid,
+    routeRequest,
+    preferredDoorWaypoints(routeOrigin, directive.destination),
+  );
+  const route =
+    preferredRoute.kind === "found"
+      ? preferredRoute
+      : findOfficeRoute(input.grid, routeRequest);
   if (route.kind === "unreachable") {
     return {
       actor: {
