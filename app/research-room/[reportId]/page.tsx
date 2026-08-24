@@ -9,6 +9,10 @@ import { MembershipAccessModal } from "@/src/components/billing/MembershipAccess
 import { PublishedResearchWorkspace } from "@/src/components/researchRoom/PublishedResearchWorkspace";
 import type { Locale } from "@/src/lib/i18n";
 import { researchLocaleFromValue } from "@/src/lib/i18n";
+import {
+  boundedSeoDescription,
+  brandedSeoTitle,
+} from "@/src/lib/seo/metadataText";
 import { researchReportSeoTitle } from "@/src/lib/seo/researchReportMetadata";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import {
@@ -58,14 +62,13 @@ export async function generateMetadata({
   const reportPath = `/research-room/${reportId}`;
   const localizedReportPath =
     locale === "en" ? `${reportPath}?lang=en` : reportPath;
-  const seoTitle = researchReportSeoTitle(
-    report.item.symbol,
-    report.item.question,
-    locale,
+  const seoTitle = brandedSeoTitle(
+    researchReportSeoTitle(report.item.symbol, report.item.question, locale),
   );
+  const seoDescription = boundedSeoDescription(report.file.thesis[locale]);
   return {
-    title: seoTitle,
-    description: report.file.thesis[locale],
+    title: { absolute: seoTitle },
+    description: seoDescription,
     robots: { index: true, follow: true },
     alternates: {
       canonical: localizedReportPath,
@@ -76,8 +79,8 @@ export async function generateMetadata({
       },
     },
     openGraph: {
-      title: `${seoTitle} · Stocksembly`,
-      description: report.file.thesis[locale],
+      title: seoTitle,
+      description: seoDescription,
       locale: locale === "ko" ? "ko_KR" : "en_US",
       alternateLocale: locale === "ko" ? "en_US" : "ko_KR",
       url: localizedReportPath,

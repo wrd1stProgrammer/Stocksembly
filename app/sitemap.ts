@@ -24,15 +24,10 @@ export const dynamic = "force-dynamic";
 
 function staticSitemapEntries(): MetadataRoute.Sitemap {
   return [
-    {
-      url: BASE_URL,
-      changeFrequency: "weekly",
-      priority: 1,
-    },
     ...locales.map((locale) => ({
       url: `${BASE_URL}/${locale}`,
       changeFrequency: "weekly" as const,
-      priority: 0.9,
+      priority: locale === "en" ? 1 : 0.9,
     })),
     {
       url: `${BASE_URL}/research-room`,

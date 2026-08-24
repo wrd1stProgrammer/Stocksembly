@@ -15,6 +15,11 @@ describe("agent content-negotiation proxy", () => {
     expect(response.headers.get("x-middleware-rewrite")).toBe(
       "https://stocksembly.com/api/agent-markdown/about?lang=en",
     );
+    expect(
+      response.headers.get(
+        "x-middleware-request-x-stocksembly-markdown-source-origin",
+      ),
+    ).toBe("https://stocksembly.com");
   });
 
   it("returns 406 when neither HTML nor Markdown is acceptable", async () => {
@@ -44,5 +49,17 @@ describe("agent content-negotiation proxy", () => {
 
     expect(response.headers.get("x-middleware-next")).toBe("1");
     expect(response.headers.get("Vary")).toContain("Accept");
+  });
+
+  it("forwards a supported path locale to the root layout", () => {
+    const response = proxy(
+      new NextRequest("https://stocksembly.com/zh-TW/blog", {
+        headers: { Accept: "text/html" },
+      }),
+    );
+
+    expect(
+      response.headers.get("x-middleware-request-x-stocksembly-route-locale"),
+    ).toBe("zh-TW");
   });
 });
