@@ -9,25 +9,50 @@ type SourceText = { readonly text: PublicText };
 const NUMERIC_TOKEN =
   /[$€£]?[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:%|[A-Za-z]+)?/gu;
 
-function numericValue(token: string): string | undefined {
-  const match = token.replaceAll(",", "").match(/\d+(?:\.\d+)?/u);
+type NumericValue = {
+  readonly canonical: string;
+  readonly value: number;
+  readonly decimalPlaces: number;
+};
+
+function numericValue(token: string): NumericValue | undefined {
+  const match = token.replaceAll(",", "").match(/\d+(?:\.(\d+))?/u);
   if (match === null) return undefined;
   const value = Number(match[0]);
-  return Number.isFinite(value) ? String(value) : undefined;
+  return Number.isFinite(value)
+    ? {
+        canonical: String(value),
+        value,
+        decimalPlaces: match[1]?.length ?? 0,
+      }
+    : undefined;
+}
+
+function isGroundedNumber(
+  summary: NumericValue,
+  sources: readonly NumericValue[],
+): boolean {
+  if (sources.some((source) => source.canonical === summary.canonical))
+    return true;
+  const scale = 10 ** summary.decimalPlaces;
+  return sources.some(
+    (source) =>
+      source.decimalPlaces > summary.decimalPlaces &&
+      Math.round((source.value + Number.EPSILON) * scale) / scale ===
+        summary.value,
+  );
 }
 
 function hasOnlyGroundedNumbers(
   summary: string,
   sources: readonly string[],
 ): boolean {
-  const groundedValues = new Set(
-    (sources.join(" ").match(NUMERIC_TOKEN) ?? [])
-      .map(numericValue)
-      .filter((value): value is string => value !== undefined),
-  );
+  const groundedValues = (sources.join(" ").match(NUMERIC_TOKEN) ?? [])
+    .map(numericValue)
+    .filter((value): value is NumericValue => value !== undefined);
   return (summary.match(NUMERIC_TOKEN) ?? []).every((token) => {
     const value = numericValue(token);
-    return value !== undefined && groundedValues.has(value);
+    return value !== undefined && isGroundedNumber(value, groundedValues);
   });
 }
 

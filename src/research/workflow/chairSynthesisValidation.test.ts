@@ -9,6 +9,7 @@ import {
 import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
 import {
   chairCandidateIssue,
+  nextChairSectionRewrite,
   projectChairAssignments,
   repairChairCandidate,
   validChairCandidate,
@@ -385,6 +386,36 @@ describe("chair synthesis directional contract", () => {
     ).not.toContain(duplicatedSentenceId);
   });
 
+  it("drops section-ineligible evidence during deterministic projection", () => {
+    const { prompt, candidate } = mixedClaimValidationFixture();
+    const claim = prompt.sentences.find(
+      (sentence) => sentence.kind === "claim",
+    );
+    if (claim === undefined) throw new TypeError("missing claim fixture");
+    const invalid = {
+      ...candidate,
+      sections: candidate.sections.map((section) =>
+        section.sectionKey === "change_conditions"
+          ? {
+              ...section,
+              sentenceIds: [...section.sentenceIds, claim.sentenceId],
+            }
+          : section,
+      ),
+    };
+
+    const projection = projectChairAssignments(JSON.stringify(prompt), invalid);
+    expect(projection).toBeDefined();
+    expect(
+      projection?.candidate.sections.find(
+        (section) => section.sectionKey === "change_conditions",
+      )?.sentenceIds,
+    ).not.toContain(claim.sentenceId);
+    expect(
+      validChairCandidate(JSON.stringify(prompt), projection?.candidate),
+    ).not.toEqual({});
+  });
+
   it("fails closed before launch when an exact directional role is unavailable", () => {
     const { prompt } = mixedClaimValidationFixture();
 
@@ -514,6 +545,70 @@ describe("chair synthesis directional contract", () => {
       reason: "missing_section",
     });
     expect(ChairSynthesisOutputSchema.parse(repaired).sections).toHaveLength(6);
+  });
+
+  it("moves a targeted repair to the next invalid section", () => {
+    const { prompt, candidate } = mixedClaimValidationFixture();
+    const supported = candidate.sections.find(
+      (section) => section.sectionKey === "supported_analysis",
+    );
+    const valuation = candidate.sections.find(
+      (section) => section.sectionKey === "valuation_comparison",
+    );
+    if (
+      supported?.conflictAdjudication === undefined ||
+      valuation === undefined
+    )
+      throw new TypeError("missing sequential repair fixture");
+    const invalid = {
+      ...candidate,
+      sections: candidate.sections.map((section) => {
+        if (section.sectionKey === "supported_analysis")
+          return {
+            ...section,
+            conflictAdjudication: {
+              ...supported.conflictAdjudication,
+              reasonSentenceId: "sentence:not-owned",
+            },
+          };
+        if (section.sectionKey === "valuation_comparison")
+          return {
+            ...section,
+            publicSummary: {
+              en: "Buy now.",
+              ko: "지금 매수.",
+            },
+          };
+        return section;
+      }),
+    };
+    const promptJson = JSON.stringify(prompt);
+    const rewriteSection = (section: (typeof candidate.sections)[number]) => ({
+      sectionKey: section.sectionKey,
+      publicSummary: section.publicSummary,
+      primarySentenceId: section.primarySentenceId,
+      sentenceIds: section.sentenceIds,
+      conflictAdjudication: section.conflictAdjudication ?? null,
+    });
+
+    expect(chairCandidateIssue(promptJson, invalid)).toEqual({
+      sectionKey: "supported_analysis",
+      reason: "team_conflict_not_adjudicated",
+    });
+    const afterConflict = nextChairSectionRewrite(promptJson, invalid, {
+      kind: "chair_section_rewrite",
+      section: rewriteSection(supported),
+    });
+    expect(afterConflict?.issue).toEqual({
+      sectionKey: "valuation_comparison",
+      reason: "invalid_bilingual_summary",
+    });
+    expect(
+      nextChairSectionRewrite(promptJson, afterConflict?.originalCandidate, {
+        kind: "chair_section_rewrite",
+        section: rewriteSection(valuation),
+      }),
+    ).toBeUndefined();
   });
 
   it("repairs only the bilingual leaf while preserving sentence ownership", () => {
