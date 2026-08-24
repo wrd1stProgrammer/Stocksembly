@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { locales } from "../lib/i18n";
 import { editorialDefinitions, editorialEntries } from "./catalog";
 import { editorialContent } from "./content";
 import { editorialEntryMetadata, editorialIndexMetadata } from "./metadata";
@@ -45,5 +46,34 @@ describe("editorial library", () => {
         images: [{ url: `https://stocksembly.com${definition.image}` }],
       },
     });
+  });
+
+  it("bounds every localized editorial search title and description", () => {
+    for (const locale of locales) {
+      for (const kind of ["blog", "glossary"] as const) {
+        const indexMetadata = editorialIndexMetadata(locale, kind);
+        const { title: indexTitle } = indexMetadata;
+        if (
+          typeof indexTitle !== "object" ||
+          indexTitle === null ||
+          !("absolute" in indexTitle)
+        )
+          throw new Error("Expected an absolute editorial index title");
+        expect(indexTitle.absolute.length).toBeLessThanOrEqual(60);
+        expect(indexMetadata.description?.length).toBeLessThanOrEqual(160);
+      }
+      for (const definition of editorialDefinitions) {
+        const entryMetadata = editorialEntryMetadata(locale, definition);
+        const { title: entryTitle } = entryMetadata;
+        if (
+          typeof entryTitle !== "object" ||
+          entryTitle === null ||
+          !("absolute" in entryTitle)
+        )
+          throw new Error("Expected an absolute editorial entry title");
+        expect(entryTitle.absolute.length).toBeLessThanOrEqual(60);
+        expect(entryMetadata.description?.length).toBeLessThanOrEqual(160);
+      }
+    }
   });
 });

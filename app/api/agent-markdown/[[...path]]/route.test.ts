@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ORIGINAL_TARGET_HEADER } from "@/src/lib/agent/markdownHeaders";
+import {
+  MARKDOWN_SOURCE_ORIGIN_HEADER,
+  ORIGINAL_TARGET_HEADER,
+} from "@/src/lib/agent/markdownHeaders";
 
 const kyState = vi.hoisted(() => ({ get: vi.fn() }));
 
@@ -25,7 +28,10 @@ describe("agent Markdown route", () => {
 
     const response = await GET(
       new Request("https://stocksembly.com/api/agent-markdown/missing", {
-        headers: { [ORIGINAL_TARGET_HEADER]: "/missing" },
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/missing",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+        },
       }),
     );
 
@@ -55,11 +61,66 @@ describe("agent Markdown route", () => {
 
     const response = await GET(
       new Request("https://stocksembly.com/api/agent-markdown", {
-        headers: { [ORIGINAL_TARGET_HEADER]: "/" },
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+        },
       }),
     );
 
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("# Stocksembly");
+  });
+
+  it("loads HTML from the public origin behind an internal reverse proxy", async () => {
+    kyState.get.mockResolvedValueOnce(
+      new Response(
+        "<html><body><main><h1>About Stocksembly</h1></main></body></html>",
+        {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8" },
+        },
+      ),
+    );
+
+    const response = await GET(
+      new Request("https://localhost:3000/api/agent-markdown/about", {
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/about?lang=en",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(kyState.get).toHaveBeenCalledWith(
+      new URL("https://stocksembly.com/about?lang=en"),
+      expect.objectContaining({ retry: 0, throwHttpErrors: false }),
+    );
+  });
+
+  it("rejects an untrusted source origin", async () => {
+    const response = await GET(
+      new Request("https://localhost:3000/api/agent-markdown/about", {
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/about",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "http://169.254.169.254",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(kyState.get).not.toHaveBeenCalled();
+  });
+
+  it("requires the source origin marker added by the proxy", async () => {
+    const response = await GET(
+      new Request("https://stocksembly.com/api/agent-markdown/about", {
+        headers: { [ORIGINAL_TARGET_HEADER]: "/about" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(kyState.get).not.toHaveBeenCalled();
   });
 });
