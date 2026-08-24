@@ -1,5 +1,10 @@
 import type { PublicResearchEvent, PublicRunDetail } from "./client/schemas";
 import { WORKFLOW_V1_ROLE_REGISTRY } from "./domain/roleRegistry";
+import { OFFICE_DEPARTMENT_TALK_TIMELINE } from "./officeChoreography";
+import {
+  OFFICE_SCENE_MANIFEST,
+  type OfficeDepartmentId,
+} from "./officeSceneManifest";
 import type { AgentId, ResearchEvent, ResearchPhase } from "./types";
 
 const ACTOR_IDS = new Set<AgentId>([
@@ -140,7 +145,19 @@ function progressTick(
       tick = 220 + Math.min(19, ordinal);
       break;
     case "department_consolidation_committed":
-      tick = Math.min(325, 241 + (ordinal - 1) * 28);
+      {
+        const releaseOrder = departmentReleaseOrder(events, event.sequence);
+        const departmentId = departmentForEvent(event);
+        const departmentIndex =
+          departmentId === undefined
+            ? Math.max(0, ordinal - 1)
+            : Math.max(0, releaseOrder.indexOf(departmentId));
+        tick =
+          OFFICE_DEPARTMENT_TALK_TIMELINE.firstReleaseTick +
+          departmentIndex *
+            OFFICE_DEPARTMENT_TALK_TIMELINE.releaseIntervalTicks +
+          OFFICE_DEPARTMENT_TALK_TIMELINE.settledOffsetTicks;
+      }
       break;
     case "challenge_committed":
     case "followup_committed":
@@ -206,10 +223,50 @@ const waitingSummary = {
   ko: "다음 리서치 커밋 이벤트를 기다리고 있습니다",
 } as const;
 
+function departmentForEvent(
+  event: PublicResearchEvent,
+): OfficeDepartmentId | undefined {
+  for (const actorId of [event.actorId, ...event.participantIds]) {
+    const member = OFFICE_SCENE_MANIFEST.roster.find(
+      (candidate) => candidate.id === actorId,
+    );
+    if (
+      member !== undefined &&
+      member.departmentId !== "chair" &&
+      Object.hasOwn(OFFICE_SCENE_MANIFEST.departments, member.departmentId)
+    ) {
+      return member.departmentId as OfficeDepartmentId;
+    }
+  }
+  return undefined;
+}
+
+function departmentReleaseOrder(
+  events: readonly PublicResearchEvent[],
+  throughSequence = Number.POSITIVE_INFINITY,
+): readonly OfficeDepartmentId[] {
+  const seen = new Set<OfficeDepartmentId>();
+  const order: OfficeDepartmentId[] = [];
+  for (const event of events) {
+    if (
+      event.sequence > throughSequence ||
+      event.kind !== "department_consolidation_committed"
+    ) {
+      continue;
+    }
+    const departmentId = departmentForEvent(event);
+    if (departmentId === undefined || seen.has(departmentId)) continue;
+    seen.add(departmentId);
+    order.push(departmentId);
+  }
+  return Object.freeze(order);
+}
+
 export function liveOfficeProjection(snapshot: PublicRunDetail): {
   readonly tick: number;
   readonly current: ResearchEvent;
   readonly events: readonly ResearchEvent[];
+  readonly departmentReleaseOrder: readonly OfficeDepartmentId[];
 } {
   const defaultActor =
     snapshot.run.researchTarget?.kind === "department"
@@ -268,5 +325,6 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
     tick: current.tick ?? 0,
     current,
     events: Object.freeze(projected),
+    departmentReleaseOrder: departmentReleaseOrder(visibleEvents),
   });
 }

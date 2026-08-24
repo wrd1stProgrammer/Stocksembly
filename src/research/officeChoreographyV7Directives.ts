@@ -1,5 +1,7 @@
 import {
   assertNeverOffice,
+  DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+  OFFICE_DEPARTMENT_TALK_TIMELINE,
   type OfficeActorDirective,
   type OfficeCameraTarget,
   officeBeatAt,
@@ -113,10 +115,26 @@ function ordered(
   );
 }
 
-function departmentTalk(): readonly OfficeActorDirective[] {
-  const directives = seatedDirectives("department-talk");
-  for (const department of Object.values(OFFICE_SCENE_MANIFEST.departments)) {
-    for (const memberId of department.memberIds) {
+function departmentTalk(
+  tick: number,
+  releaseOrder: readonly OfficeDepartmentId[],
+): readonly OfficeActorDirective[] {
+  const directives = seatedDirectives("department-talk-pending");
+  for (const [departmentIndex, departmentId] of releaseOrder.entries()) {
+    const department = OFFICE_SCENE_MANIFEST.departments[departmentId];
+    const releaseTick =
+      OFFICE_DEPARTMENT_TALK_TIMELINE.firstReleaseTick +
+      departmentIndex * OFFICE_DEPARTMENT_TALK_TIMELINE.releaseIntervalTicks;
+    for (const [memberIndex, memberId] of department.memberIds.entries()) {
+      // A short in-team stagger prevents specialists from trying to swap
+      // through the same aisle while still reading as one team leaving.
+      if (
+        tick <
+        releaseTick +
+          memberIndex * OFFICE_DEPARTMENT_TALK_TIMELINE.memberStaggerTicks
+      ) {
+        continue;
+      }
       const member = OFFICE_SCENE_MANIFEST.roster.find(
         (candidate) => candidate.id === memberId,
       );
@@ -126,7 +144,7 @@ function departmentTalk(): readonly OfficeActorDirective[] {
         memberId,
         meetingSeatDirective(
           member,
-          `department-talk-${department.representativeId}`,
+          `department-talk-${departmentId}-${memberId}`,
           memberId === department.representativeId ? "talk" : "listen",
         ),
       );
@@ -242,6 +260,7 @@ function stagedGathering(tick: number): readonly OfficeActorDirective[] {
 
 export function officeDirectivesAt(
   tick: number,
+  departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
 ): readonly OfficeActorDirective[] {
   const beat = officeBeatAt(tick);
   switch (beat.id) {
@@ -258,7 +277,7 @@ export function officeDirectivesAt(
       return ordered(seatedDirectives(`parallel-work-${revision}`));
     }
     case "department-talk":
-      return departmentTalk();
+      return departmentTalk(tick, departmentReleaseOrder);
     case "visit-wave-a":
       return tick >= 540
         ? representativesReady("return-a-approach")
@@ -286,13 +305,16 @@ export function officeDirectivesAt(
   }
 }
 
-export function officeCameraTargetAt(tick: number): OfficeCameraTarget {
+export function officeCameraTargetAt(
+  tick: number,
+  departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+): OfficeCameraTarget {
   const beat = officeBeatAt(tick);
   if (beat.id === "briefing") return { kind: "actors", actorIds: [chair.id] };
   if (beat.id === "parallel-work" || beat.id === "department-talk") {
     return { kind: "overview" };
   }
-  const directives = officeDirectivesAt(tick).filter(
+  const directives = officeDirectivesAt(tick, departmentReleaseOrder).filter(
     (directive) => directive.terminalAction !== "seated-work",
   );
   return {

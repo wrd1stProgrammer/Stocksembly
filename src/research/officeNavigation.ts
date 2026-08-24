@@ -194,6 +194,39 @@ export function findOfficeRoute(
   return { kind: "unreachable", from: request.from, to: request.to };
 }
 
+export function findOfficeRouteVia(
+  grid: NavigationGrid,
+  request: RouteRequest,
+  waypoints: readonly Cell[],
+): RouteResult {
+  const targets = [...waypoints, request.to].filter(
+    (target, index, values) =>
+      officeCellKey(target) !== officeCellKey(request.from) &&
+      (index === 0 ||
+        officeCellKey(target) !== officeCellKey(values[index - 1] ?? target)),
+  );
+  const path: Cell[] = [request.from];
+  let cursor = request.from;
+  for (const target of targets) {
+    const targetKey = officeCellKey(target);
+    const segment = findOfficeRoute(grid, {
+      from: cursor,
+      to: target,
+      // A doorway is a route contract, not a permanent obstacle. Runtime
+      // traffic reservations still serialize agents that reach it together.
+      blockedCells: request.blockedCells.filter(
+        (cell) => officeCellKey(cell) !== targetKey,
+      ),
+    });
+    if (segment.kind === "unreachable") {
+      return { kind: "unreachable", from: request.from, to: request.to };
+    }
+    path.push(...segment.path.slice(1));
+    cursor = target;
+  }
+  return { kind: "found", path: Object.freeze(path) };
+}
+
 export function findYieldRoute(
   grid: NavigationGrid,
   request: RouteRequest,

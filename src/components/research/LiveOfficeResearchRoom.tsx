@@ -262,7 +262,10 @@ export function LiveOfficeResearchRoom({
     () => liveOfficeProjection(projection.snapshot),
     [projection.snapshot],
   );
-  const animation = useLiveOfficeAnimation(office.tick);
+  const animation = useLiveOfficeAnimation(
+    office.tick,
+    office.departmentReleaseOrder,
+  );
   const snapshot = scopeOfficeSnapshot(
     animation.snapshot,
     projection.snapshot.run,

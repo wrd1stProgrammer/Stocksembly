@@ -2,13 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ResearchEventWithMode } from "./compositionMode";
-import { OFFICE_CLOCK_CONTRACT } from "./officeChoreography";
+import {
+  DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+  OFFICE_CLOCK_CONTRACT,
+} from "./officeChoreography";
+import type { OfficeDepartmentId } from "./officeSceneManifest";
 import {
   advanceOfficeFrame,
   createOfficeFrame,
   createOfficeSimulation,
   type OfficeFrame,
   officeSimulationSnapshot,
+  setOfficeDepartmentReleaseOrder,
   stepOfficeSimulation,
 } from "./officeSimulation";
 
@@ -24,8 +29,11 @@ export function durablePublicEventTargetTick(
   );
 }
 
-export function createLiveOfficeFrame(targetTick: number): OfficeFrame {
-  let simulation = createOfficeSimulation();
+export function createLiveOfficeFrame(
+  targetTick: number,
+  departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+): OfficeFrame {
+  let simulation = createOfficeSimulation({ departmentReleaseOrder });
   while (simulation.tick < targetTick)
     simulation = stepOfficeSimulation(simulation);
   return createOfficeFrame(simulation);
@@ -54,11 +62,35 @@ export function advanceLiveOfficeFrameForDisplay(
   return advanceLiveOfficeFrame(frame, targetTick, frameDeltaMs);
 }
 
-export function useLiveOfficeAnimation(targetTick: number) {
-  const [frame, setFrame] = useState(() => createLiveOfficeFrame(targetTick));
+export function useLiveOfficeAnimation(
+  targetTick: number,
+  departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+) {
+  const [frame, setFrame] = useState(() =>
+    createLiveOfficeFrame(targetTick, departmentReleaseOrder),
+  );
   const frameRef = useRef(frame);
 
   useEffect(() => {
+    const configuredSimulation = setOfficeDepartmentReleaseOrder(
+      frameRef.current.simulation,
+      departmentReleaseOrder,
+    );
+    const configuredPreviousSimulation = setOfficeDepartmentReleaseOrder(
+      frameRef.current.previousSimulation,
+      departmentReleaseOrder,
+    );
+    if (
+      configuredSimulation !== frameRef.current.simulation ||
+      configuredPreviousSimulation !== frameRef.current.previousSimulation
+    ) {
+      frameRef.current = Object.freeze({
+        ...frameRef.current,
+        simulation: configuredSimulation,
+        previousSimulation: configuredPreviousSimulation,
+      });
+      setFrame(frameRef.current);
+    }
     if (frameRef.current.simulation.tick >= targetTick) return;
     let animationFrame = 0;
     let previousTimestamp: number | undefined;
@@ -80,7 +112,7 @@ export function useLiveOfficeAnimation(targetTick: number) {
     };
     animationFrame = window.requestAnimationFrame(advance);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [targetTick]);
+  }, [departmentReleaseOrder, targetTick]);
 
   return useMemo(
     () => ({

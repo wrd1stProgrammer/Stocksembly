@@ -125,7 +125,7 @@ describe("office fixed-tick simulation", () => {
     const visitB = runTo(890);
     const returnBSummary = runTo(1055);
     const returnB = runTo(1079);
-    const departmentTalk = runTo(340);
+    const departmentTalk = runTo(359);
 
     // When
     const complete = skipOfficeSimulation(createOfficeSimulation());
@@ -211,6 +211,79 @@ describe("office fixed-tick simulation", () => {
       const expected = forumAnchor?.cell ?? manifestMember.workSeat.cell;
       expect(member.cell).toEqual(expected);
     }
+  });
+
+  it("keeps Sofia and Hana on separate staged paths during financial consensus", () => {
+    let state = runTo(239, { departmentReleaseOrder: ["financial"] });
+    let observedSwap = false;
+
+    while (state.tick < 269) {
+      state = stepOfficeSimulation(state);
+      const financialReservations = state.reservations.filter(({ actorId }) =>
+        ["valuation", "financial_quality"].includes(actorId),
+      );
+      observedSwap ||= financialReservations.some((left, index) =>
+        financialReservations
+          .slice(index + 1)
+          .some(
+            (right) =>
+              officeCellKey(left.from) === officeCellKey(right.to) &&
+              officeCellKey(left.to) === officeCellKey(right.from),
+          ),
+      );
+    }
+
+    expect(observedSwap).toBe(false);
+    expect(actor(state, "valuation")).toMatchObject({
+      cell: manifestActor("valuation").meetingSeat.cell,
+      action: "listen",
+      motion: null,
+    });
+    expect(actor(state, "financial_quality")).toMatchObject({
+      cell: manifestActor("financial_quality").meetingSeat.cell,
+      action: "listen",
+      motion: null,
+    });
+  });
+
+  it("routes Noah and Liam through the authored room entrances", () => {
+    let state = runTo(359);
+    const noahCells = new Set<string>();
+    while (state.tick < 530) {
+      state = stepOfficeSimulation(state);
+      const noah = actor(state, "financial");
+      noahCells.add(officeCellKey(noah.cell));
+      if (noah.motion) noahCells.add(officeCellKey(noah.motion.to));
+    }
+
+    state = runTo(719);
+    const liamCells = new Set<string>();
+    while (state.tick < 890) {
+      state = stepOfficeSimulation(state);
+      const liam = actor(state, "risk");
+      liamCells.add(officeCellKey(liam.cell));
+      if (liam.motion) liamCells.add(officeCellKey(liam.motion.to));
+    }
+
+    expect(
+      noahCells.has(
+        officeCellKey(OFFICE_SCENE_MANIFEST.departments.financial.door),
+      ),
+    ).toBe(true);
+    expect(
+      noahCells.has(officeCellKey(OFFICE_SCENE_MANIFEST.departments.risk.door)),
+    ).toBe(true);
+    expect(
+      liamCells.has(officeCellKey(OFFICE_SCENE_MANIFEST.departments.risk.door)),
+    ).toBe(true);
+    expect(
+      liamCells.has(officeCellKey(OFFICE_SCENE_MANIFEST.chairOffice.door)),
+    ).toBe(true);
+    expect(
+      liamCells.has(
+        officeCellKey(OFFICE_SCENE_MANIFEST.departments.market.door),
+      ),
+    ).toBe(true);
   });
 
   it("keeps moving representatives outside Dr. Park's sprite clearance", () => {
