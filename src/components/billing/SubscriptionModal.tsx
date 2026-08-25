@@ -164,16 +164,7 @@ function SubscriptionOverview({
           ? "활성"
           : "Active";
   const providerManageUrl = billingStatus?.manageUrl;
-  const planChangeUrl =
-    providerManageUrl ?? `/pricing?lang=${encodeURIComponent(locale)}`;
-  const planChangeLabel =
-    billingStatus?.tier === "pro"
-      ? locale === "ko"
-        ? "Ultra로 업그레이드"
-        : "Upgrade to Ultra"
-      : locale === "ko"
-        ? "플랜 관리하기"
-        : "Manage plan";
+  const pricingUrl = `/pricing?lang=${encodeURIComponent(locale)}`;
   const periodCaption = billingStatus?.cancelAtPeriodEnd
     ? locale === "ko"
       ? "플랜 종료 예정"
@@ -262,16 +253,30 @@ function SubscriptionOverview({
         </div>
       </dl>
 
-      <a
-        className="subscription-overview__manage"
-        href={planChangeUrl}
-        {...(providerManageUrl === undefined
-          ? {}
-          : { target: "_blank", rel: "noreferrer" })}
-      >
-        {planChangeLabel}
-        <ExternalLink size={16} aria-hidden="true" />
-      </a>
+      <div className="subscription-overview__actions">
+        {billingStatus?.tier === "pro" ? (
+          <a
+            className="subscription-overview__action subscription-overview__upgrade"
+            href={pricingUrl}
+          >
+            {locale === "ko" ? "Ultra로 업그레이드" : "Upgrade to Ultra"}
+            <ExternalLink size={16} aria-hidden="true" />
+          </a>
+        ) : null}
+        {providerManageUrl === undefined ? null : (
+          <a
+            className="subscription-overview__action subscription-overview__manage"
+            href={providerManageUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {locale === "ko"
+              ? "구독 관리 및 해지"
+              : "Manage or cancel subscription"}
+            <ExternalLink size={16} aria-hidden="true" />
+          </a>
+        )}
+      </div>
     </section>
   );
 }
