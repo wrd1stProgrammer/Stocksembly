@@ -31,6 +31,7 @@ import type {
 import { CREDIT_COSTS } from "../../../lib/whop/creditPolicy";
 import {
   createWhopCheckout,
+  createWhopProMonthlyLiveTestCheckout,
   type SubscriptionCheckoutState,
   subscriptionCheckoutDecision,
   type WhopWebhookEvent,
@@ -120,6 +121,9 @@ export interface ResearchApi {
   readonly billingCheckout: (
     request: Request,
     planKey: BillingPlanKey,
+  ) => Promise<Response>;
+  readonly adminBillingLiveTestCheckout: (
+    request: Request,
   ) => Promise<Response>;
   readonly handleWhopWebhook: (event: WhopWebhookEvent) => Promise<void>;
   readonly adminAnalyticsOverview: (
@@ -881,6 +885,60 @@ export async function createResearchApi(
       if (request.headers.get("accept")?.includes("application/json"))
         return apiJson({ purchaseUrl: checkout.purchaseUrl });
       return Response.redirect(checkout.purchaseUrl, 303);
+    },
+    async adminBillingLiveTestCheckout(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return apiError(401, "AUTHENTICATION_REQUIRED");
+      const authorization = authorizeAdmin(authentication);
+      if (authorization.kind !== "authorized")
+        return apiError(403, "REQUEST_FORBIDDEN");
+      if (
+        options.accountStore?.billingStatus === undefined ||
+        options.accountStore.createCheckoutAttempt === undefined
+      )
+        throw new AccountStoreUnavailableError(
+          "ACCOUNT_STORE_REQUIRED_FOR_BILLING",
+        );
+
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      const currentBillingStatus = await options.accountStore.billingStatus(
+        authentication.principal.id,
+      );
+      if (
+        subscriptionCheckoutDecision(currentBillingStatus).kind !== "checkout"
+      )
+        return apiError(409, "BILLING_MANAGE_URL_REQUIRED");
+
+      const checkoutAttemptId = randomUUID();
+      await options.accountStore.createCheckoutAttempt(
+        authentication.principal.id,
+        "pro-monthly",
+        checkoutAttemptId,
+      );
+      try {
+        const checkout = await createWhopProMonthlyLiveTestCheckout({
+          principalId: authentication.principal.id,
+          returnUrl: billingReturnUrl(request),
+          idempotencyKey: `stocksembly:live-test-checkout:${checkoutAttemptId}`,
+          checkoutAttemptId,
+        });
+        await options.accountStore.markCheckoutAttemptReady?.(
+          checkoutAttemptId,
+          checkout.checkoutConfigurationId,
+        );
+        if (request.headers.get("accept")?.includes("application/json"))
+          return apiJson({ purchaseUrl: checkout.purchaseUrl });
+        return Response.redirect(checkout.purchaseUrl, 303);
+      } catch (error) {
+        await options.accountStore.markCheckoutAttemptFailed?.(
+          checkoutAttemptId,
+        );
+        throw error;
+      }
     },
     async handleWhopWebhook(event) {
       if (

@@ -68,6 +68,20 @@ const planDefinitions = [
   },
 ] as const;
 
+const PRO_MONTHLY_LIVE_TEST_PLAN_ENV_KEY = "WHOP_PLAN_PRO_MONTHLY_LIVE_TEST_ID";
+const PRO_MONTHLY_LIVE_TEST_AMOUNT = 1;
+const PRO_MONTHLY_LIVE_TEST_BILLING_PERIOD = 30;
+
+export function isWhopProMonthlyLiveTestPlan(plan: {
+  readonly renewal_price: number;
+  readonly billing_period: number;
+}): boolean {
+  return (
+    plan.renewal_price === PRO_MONTHLY_LIVE_TEST_AMOUNT &&
+    plan.billing_period === PRO_MONTHLY_LIVE_TEST_BILLING_PERIOD
+  );
+}
+
 function env(name: string): string | undefined {
   const value = process.env[name]?.trim();
   return value === "" ? undefined : value;
@@ -139,6 +153,7 @@ export function billingPlanKeyForWhopPlanId(
   planId: string | undefined,
 ): BillingPlanKey | undefined {
   if (planId === undefined) return undefined;
+  if (env(PRO_MONTHLY_LIVE_TEST_PLAN_ENV_KEY) === planId) return "pro-monthly";
   for (const definition of planDefinitions) {
     if (
       env(definition.envKey) === planId ||
@@ -167,6 +182,35 @@ export type WhopCheckout = {
   readonly purchaseUrl: string;
 };
 
+function createCheckoutConfiguration(input: {
+  readonly configuration: ReturnType<typeof whopConfiguration>;
+  readonly planId: string;
+  readonly planKey: BillingPlanKey;
+  readonly principalId: string;
+  readonly returnUrl: string;
+  readonly idempotencyKey: string;
+  readonly checkoutAttemptId?: string;
+  readonly liveTest?: boolean;
+}) {
+  return whopClient(input.configuration).checkoutConfigurations.create({
+    account_id: input.configuration.companyId,
+    mode: "payment",
+    plan_id: input.planId,
+    metadata: {
+      stocksembly_principal_id: input.principalId,
+      stocksembly_plan_key: input.planKey,
+      ...(input.liveTest === true
+        ? { stocksembly_billing_test: "live-dollar" }
+        : {}),
+      ...(input.checkoutAttemptId === undefined
+        ? {}
+        : { stocksembly_checkout_attempt_id: input.checkoutAttemptId }),
+    },
+    redirect_url: input.returnUrl,
+    "Idempotency-Key": input.idempotencyKey,
+  });
+}
+
 export async function createWhopCheckout(input: {
   readonly planKey: BillingPlanKey;
   readonly principalId: string;
@@ -179,21 +223,16 @@ export async function createWhopCheckout(input: {
     (candidate) => candidate.key === input.planKey,
   );
   if (plan === undefined) throw new Error("WHOP_PLAN_NOT_FOUND");
-  const checkout = await whopClient(
+  const checkout = await createCheckoutConfiguration({
     configuration,
-  ).checkoutConfigurations.create({
-    account_id: configuration.companyId,
-    mode: "payment",
-    plan_id: plan.planId,
-    metadata: {
-      stocksembly_principal_id: input.principalId,
-      stocksembly_plan_key: input.planKey,
-      ...(input.checkoutAttemptId === undefined
-        ? {}
-        : { stocksembly_checkout_attempt_id: input.checkoutAttemptId }),
-    },
-    redirect_url: input.returnUrl,
-    "Idempotency-Key": input.idempotencyKey,
+    planId: plan.planId,
+    planKey: input.planKey,
+    principalId: input.principalId,
+    returnUrl: input.returnUrl,
+    idempotencyKey: input.idempotencyKey,
+    ...(input.checkoutAttemptId === undefined
+      ? {}
+      : { checkoutAttemptId: input.checkoutAttemptId }),
   });
   const purchaseUrl = checkout.purchase_url ?? plan.purchaseUrl;
   return {
@@ -202,6 +241,45 @@ export async function createWhopCheckout(input: {
       : { checkoutConfigurationId: checkout.id }),
     planId: plan.planId,
     purchaseUrl,
+  };
+}
+
+export async function createWhopProMonthlyLiveTestCheckout(input: {
+  readonly principalId: string;
+  readonly returnUrl: string;
+  readonly idempotencyKey: string;
+  readonly checkoutAttemptId?: string;
+}): Promise<WhopCheckout> {
+  if (getWhopEnvironment() !== "production")
+    throw new Error("WHOP_LIVE_TEST_PRODUCTION_ONLY");
+  const planId = env(PRO_MONTHLY_LIVE_TEST_PLAN_ENV_KEY);
+  if (planId === undefined) throw new Error("WHOP_LIVE_TEST_PLAN_REQUIRED");
+  const plan = (await listWhopPlans()).find(
+    (candidate) => candidate.id === planId,
+  );
+  if (plan === undefined) throw new Error("WHOP_LIVE_TEST_PLAN_NOT_FOUND");
+  if (!isWhopProMonthlyLiveTestPlan(plan))
+    throw new Error("WHOP_LIVE_TEST_PLAN_INVALID");
+
+  const configuration = whopConfiguration();
+  const checkout = await createCheckoutConfiguration({
+    configuration,
+    planId: plan.id,
+    planKey: "pro-monthly",
+    principalId: input.principalId,
+    returnUrl: input.returnUrl,
+    idempotencyKey: input.idempotencyKey,
+    liveTest: true,
+    ...(input.checkoutAttemptId === undefined
+      ? {}
+      : { checkoutAttemptId: input.checkoutAttemptId }),
+  });
+  return {
+    ...(checkout.id === undefined
+      ? {}
+      : { checkoutConfigurationId: checkout.id }),
+    planId: plan.id,
+    purchaseUrl: checkout.purchase_url ?? plan.purchase_url,
   };
 }
 
