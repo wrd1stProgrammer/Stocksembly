@@ -84,3 +84,11 @@ export type WhopPricingResponse = {
   readonly productId: string;
   readonly plans: readonly WhopPricingPlan[];
 };
+
+export type WhopCheckoutLaunch = {
+  readonly purchaseUrl: string;
+  readonly planId?: string;
+  readonly sessionId?: string;
+  readonly returnUrl?: string;
+  readonly environment?: "sandbox" | "production";
+};
