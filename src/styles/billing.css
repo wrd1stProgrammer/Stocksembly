@@ -2137,7 +2137,15 @@ body.subscription-modal-is-open {
   letter-spacing: 0;
 }
 
-.subscription-overview__manage {
+.subscription-overview__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.subscription-overview__action {
   display: inline-flex;
   min-height: 36px;
   align-items: center;
@@ -2145,7 +2153,6 @@ body.subscription-modal-is-open {
   gap: 8px;
   border: 1px solid var(--billing-card-rim);
   border-radius: var(--radius-pill);
-  margin-top: 12px;
   padding: 0 14px;
   color: var(--color-text);
   background: transparent;
@@ -2158,8 +2165,12 @@ body.subscription-modal-is-open {
     color var(--motion-micro);
 }
 
-.subscription-overview__manage:hover,
-.subscription-overview__manage:focus-visible {
+.subscription-overview__manage {
+  margin-left: auto;
+}
+
+.subscription-overview__action:hover,
+.subscription-overview__action:focus-visible {
   border-color: var(--billing-accent);
   color: var(--billing-accent);
   background: color-mix(in srgb, var(--billing-accent) 8%, transparent);
@@ -2216,7 +2227,7 @@ body.subscription-modal-is-open {
     grid-column: 1 / -1;
   }
 
-  .subscription-overview__manage {
+  .subscription-overview__action {
     width: auto;
   }
 }
@@ -2235,8 +2246,17 @@ body.subscription-modal-is-open {
     grid-column: auto;
   }
 
-  .subscription-overview__manage {
+  .subscription-overview__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .subscription-overview__action {
     width: 100%;
+  }
+
+  .subscription-overview__manage {
+    margin-left: 0;
   }
 }
 
