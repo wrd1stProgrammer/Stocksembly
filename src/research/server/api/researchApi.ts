@@ -32,6 +32,7 @@ import { CREDIT_COSTS } from "../../../lib/whop/creditPolicy";
 import {
   createWhopCheckout,
   createWhopProMonthlyLiveTestCheckout,
+  getWhopEnvironment,
   type SubscriptionCheckoutState,
   subscriptionCheckoutDecision,
   type WhopWebhookEvent,
@@ -858,6 +859,7 @@ export async function createResearchApi(
         }
       }
       const checkoutAttemptId = randomUUID();
+      const returnUrl = billingReturnUrl(request);
       await options.accountStore?.createCheckoutAttempt?.(
         authentication.principal.id,
         planKey,
@@ -868,7 +870,7 @@ export async function createResearchApi(
         checkout = await createWhopCheckout({
           planKey,
           principalId: authentication.principal.id,
-          returnUrl: billingReturnUrl(request),
+          returnUrl,
           idempotencyKey: `stocksembly:checkout:${checkoutAttemptId}`,
           checkoutAttemptId,
         });
@@ -883,7 +885,15 @@ export async function createResearchApi(
         throw error;
       }
       if (request.headers.get("accept")?.includes("application/json"))
-        return apiJson({ purchaseUrl: checkout.purchaseUrl });
+        return apiJson({
+          purchaseUrl: checkout.purchaseUrl,
+          planId: checkout.planId,
+          ...(checkout.checkoutConfigurationId === undefined
+            ? {}
+            : { sessionId: checkout.checkoutConfigurationId }),
+          returnUrl,
+          environment: getWhopEnvironment(),
+        });
       return Response.redirect(checkout.purchaseUrl, 303);
     },
     async adminBillingLiveTestCheckout(request) {

@@ -666,7 +666,7 @@ export function SubscriptionModal({
             {!isSubscribed && !billingStateUnknown ? (
               <p className="subscription-modal__footnote">
                 {locale === "ko"
-                  ? "결제는 Whop의 보안 결제 페이지에서 진행됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
+                  ? "결제는 Whop의 보안 결제 시스템에서 처리됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
                   : "Checkout is handled securely by Whop. Annual plans are charged as one yearly total."}
               </p>
             ) : null}

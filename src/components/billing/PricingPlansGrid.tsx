@@ -2,9 +2,10 @@
 
 import { MotionConfig, motion } from "motion/react";
 import { useId, useState } from "react";
-import { currentAuthTokens } from "../../auth/researchSession";
 import type { Locale } from "../../lib/i18n";
 import { PricingCard, type PricingCardPlan } from "../ui/pricing-card";
+import { useWhopCheckout } from "./useWhopCheckout";
+import { WhopCheckoutModal } from "./WhopCheckoutModal";
 
 export type { PricingCardPlan as SubscriptionPlanCard } from "../ui/pricing-card";
 
@@ -89,52 +90,14 @@ export function PricingPlansGrid({
   onFreeSelect,
 }: PricingPlansGridProps) {
   const [cycle, setCycle] = useState<BillingCycle>(initialCycle);
-  const [checkoutPlanId, setCheckoutPlanId] = useState<string>();
-  const [checkoutError, setCheckoutError] = useState(false);
+  const {
+    checkout,
+    pendingId,
+    error: checkoutError,
+    startCheckout,
+    closeCheckout,
+  } = useWhopCheckout();
   const isAnnual = cycle === "annual";
-
-  async function handleCheckout(checkoutUrl: string, planId: string) {
-    if (checkoutPlanId !== undefined) return;
-    setCheckoutPlanId(planId);
-    setCheckoutError(false);
-    try {
-      const tokens = await currentAuthTokens();
-      if (tokens.accessToken === undefined) {
-        const next = `${window.location.pathname}${window.location.search}`;
-        window.location.assign(`/login?next=${encodeURIComponent(next)}`);
-        return;
-      }
-
-      const response = await fetch(checkoutUrl, {
-        credentials: "same-origin",
-        cache: "no-store",
-        headers: {
-          accept: "application/json",
-          authorization: `Bearer ${tokens.accessToken}`,
-          ...(tokens.identityToken
-            ? { "x-stocksembly-identity-token": tokens.identityToken }
-            : {}),
-        },
-      });
-      const payload = (await response.json().catch(() => undefined)) as
-        | { readonly purchaseUrl?: unknown }
-        | undefined;
-
-      if (response.status === 401) {
-        const next = `${window.location.pathname}${window.location.search}`;
-        window.location.assign(`/login?next=${encodeURIComponent(next)}`);
-        return;
-      }
-      if (!response.ok || typeof payload?.purchaseUrl !== "string")
-        throw new Error("BILLING_CHECKOUT_UNAVAILABLE");
-
-      window.location.assign(payload.purchaseUrl);
-    } catch {
-      setCheckoutError(true);
-    } finally {
-      setCheckoutPlanId(undefined);
-    }
-  }
 
   return (
     <MotionConfig reducedMotion="user">
@@ -166,11 +129,11 @@ export function PricingPlansGrid({
                 onCheckout={
                   checkoutUrl
                     ? () => {
-                        void handleCheckout(checkoutUrl, plan.id);
+                        void startCheckout(checkoutUrl, plan.id, plan.name);
                       }
                     : undefined
                 }
-                checkoutPending={checkoutPlanId === plan.id}
+                checkoutPending={pendingId === plan.id}
                 onFreeSelect={onFreeSelect}
               />
             );
@@ -184,6 +147,11 @@ export function PricingPlansGrid({
           </p>
         ) : null}
       </section>
+      <WhopCheckoutModal
+        checkout={checkout}
+        locale={locale}
+        onClose={closeCheckout}
+      />
     </MotionConfig>
   );
 }

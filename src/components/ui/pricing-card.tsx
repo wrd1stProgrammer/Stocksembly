@@ -196,8 +196,8 @@ export function PricingCard({
             >
               {checkoutPending
                 ? locale === "ko"
-                  ? "결제 페이지 여는 중..."
-                  : "Opening checkout..."
+                  ? "보안 결제 준비 중..."
+                  : "Preparing secure checkout..."
                 : locale === "ko"
                   ? "시작하기"
                   : "Get started"}

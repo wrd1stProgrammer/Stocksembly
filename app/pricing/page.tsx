@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { PublicPricingGrid } from "@/src/components/billing/PublicPricingGrid";
 import { researchLocaleFromValue } from "@/src/lib/i18n";
-import { billingCheckoutPath } from "@/src/lib/whop/contracts";
 import { getWhopEnvironment, getWhopPricing } from "@/src/lib/whop/server";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,7 @@ const planCopy = {
     perMonth: "/ month",
     perYear: "/ year",
     choose: "Continue to checkout",
+    checkoutError: "We could not open checkout. Please try again.",
     sandbox: "Sandbox test checkout",
     unavailable: "Sandbox billing is not available right now.",
     pro: "Core research access for everyday decisions.",
@@ -40,19 +41,13 @@ const planCopy = {
     perMonth: "/ 월",
     perYear: "/ 년",
     choose: "결제 화면으로 이동",
+    checkoutError: "결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요.",
     sandbox: "Sandbox 테스트 결제",
     unavailable: "현재 Sandbox 결제를 사용할 수 없습니다.",
     pro: "일상적인 투자 판단을 위한 핵심 리서치 액세스.",
     ultra: "더 깊은 검증과 전체 논의를 원하는 투자자를 위한 플랜.",
   },
 } as const;
-
-function planLabel(
-  interval: "month" | "year",
-  copy: { readonly monthly: string; readonly annual: string },
-) {
-  return interval === "month" ? copy.monthly : copy.annual;
-}
 
 export default async function PricingPage({ searchParams }: Props) {
   const query = await searchParams;
@@ -76,31 +71,7 @@ export default async function PricingPage({ searchParams }: Props) {
             {copy.unavailable}
           </p>
         ) : (
-          <section
-            className="billing-page__grid"
-            aria-label="Stocksembly plans"
-          >
-            {plans.map((plan) => (
-              <article
-                className={`billing-card${plan.tier === "Ultra" ? " billing-card--featured" : ""}`}
-                key={plan.key}
-              >
-                <div className="billing-card__topline">
-                  <span>{plan.tier}</span>
-                  <small>{planLabel(plan.interval, copy)}</small>
-                </div>
-                <h2>{plan.tier}</h2>
-                <p>{plan.tier === "Pro" ? copy.pro : copy.ultra}</p>
-                <strong>
-                  ${plan.amount}
-                  <small>
-                    {plan.interval === "month" ? copy.perMonth : copy.perYear}
-                  </small>
-                </strong>
-                <a href={billingCheckoutPath(plan.key)}>{copy.choose}</a>
-              </article>
-            ))}
-          </section>
+          <PublicPricingGrid plans={plans} locale={locale} copy={copy} />
         )}
       </div>
     </main>
