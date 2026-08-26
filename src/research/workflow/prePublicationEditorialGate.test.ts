@@ -108,6 +108,24 @@ function cleanCandidate(): PrePublicationEditorialCandidate {
 }
 
 describe("pre-publication editorial quality gate", () => {
+  it("validates the selected model language alongside deterministic bilingual fields", () => {
+    const candidate = cleanCandidate();
+    const englishBoundaryCandidate: PrePublicationEditorialCandidate = {
+      ...candidate,
+      position: { en: candidate.position.en, ko: candidate.position.en },
+      rationale: { en: candidate.rationale.en, ko: candidate.rationale.en },
+      sections: candidate.sections.map((section) => ({
+        ...section,
+        text: { en: section.text.en, ko: section.text.en },
+      })),
+    };
+
+    expect(
+      evaluatePrePublicationEditorialGate(englishBoundaryCandidate)
+        .publishable,
+    ).toBe(true);
+  });
+
   it("rejects the sanitized SPCX-like candidate with exact field paths", () => {
     const result = evaluatePrePublicationEditorialGate(fixture);
     expect(result.passed).toBe(false);

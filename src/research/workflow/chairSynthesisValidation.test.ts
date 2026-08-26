@@ -1126,10 +1126,10 @@ describe("chair synthesis directional contract", () => {
     expect(accepted).toEqual({});
   });
 
-  it("rejects copied English and Korean summaries", () => {
+  it("accepts exact source-locale mirrors from the single-language boundary", () => {
     // Given
     const { prompt, candidate } = mixedClaimValidationFixture();
-    const invalid = {
+    const hydrated = {
       ...candidate,
       sections: candidate.sections.map((section) => ({
         ...section,
@@ -1141,10 +1141,12 @@ describe("chair synthesis directional contract", () => {
     };
 
     // When
-    const accepted = validChairCandidate(JSON.stringify(prompt), invalid);
+    const accepted = validChairCandidate(JSON.stringify(prompt), hydrated);
 
     // Then
-    expect(accepted).toEqual({});
+    expect(ChairSynthesisOutputSchema.parse(accepted).kind).toBe(
+      "chair_synthesis",
+    );
   });
 
   it("rejects punctuation-only locale copies and accepts substantive bilingual text", () => {

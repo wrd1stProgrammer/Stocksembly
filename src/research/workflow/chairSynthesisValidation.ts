@@ -176,7 +176,11 @@ function editorialSummaryIssue(
   section: ModelCandidate["sections"][number],
   priorSections: readonly ModelCandidate["sections"][number][],
 ): string | undefined {
-  for (const locale of ["en", "ko"] as const) {
+  const locales =
+    section.publicSummary.en === section.publicSummary.ko
+      ? ([prompt.mandate.locale] as const)
+      : (["en", "ko"] as const);
+  for (const locale of locales) {
     const text = section.publicSummary[locale];
     if (
       containsCapabilityLeakage(text) ||
@@ -223,6 +227,7 @@ function editorialSummaryIssue(
 function projectedDirectionalText(
   candidate: ModelCandidate["decisionBrief"],
   directional: ReturnType<typeof chairDirectionalBriefAssignment>,
+  locale: "en" | "ko",
 ): Pick<
   ModelCandidate["decisionBrief"],
   "decisiveReason" | "strongestCountercase" | "falsifier"
@@ -241,7 +246,7 @@ function projectedDirectionalText(
     const source = sources[index];
     return (
       source !== undefined &&
-      publicTextIsValid(text, [source], 360) &&
+      publicTextIsValid(text, [source], 360, locale) &&
       !isSymmetricHedge(text)
     );
   });
@@ -401,7 +406,11 @@ export function projectChairAssignments(
     ...candidate,
     decisionBrief: {
       ...candidate.decisionBrief,
-      ...projectedDirectionalText(candidate.decisionBrief, directional),
+      ...projectedDirectionalText(
+        candidate.decisionBrief,
+        directional,
+        prompt.mandate.locale,
+      ),
       stance: directional.stance,
       confidence: directional.confidence,
       primaryClaimIds: directional.primaryClaimIds,
@@ -521,6 +530,7 @@ function issueForCandidate(
         section.publicSummary,
         grounding,
         section.sectionKey === "ten_second_brief" ? 360 : 4_000,
+        prompt.mandate.locale,
       )
     )
       return {
@@ -628,7 +638,8 @@ function issueForCandidate(
     decisionTexts.some((text, index) => {
       const sentence = roleSentences[index];
       return (
-        sentence === undefined || !publicTextIsValid(text, [sentence], 360)
+        sentence === undefined ||
+        !publicTextIsValid(text, [sentence], 360, prompt.mandate.locale)
       );
     })
   )

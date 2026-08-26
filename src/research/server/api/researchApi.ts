@@ -118,6 +118,11 @@ export interface ResearchApi {
     request: Request,
     reportId: string,
   ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
+  readonly consumeResearchTranslationCredit: (
+    request: Request,
+    reportId: string,
+    targetLocale: Locale,
+  ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
   readonly billingStatus: (request: Request) => Promise<WhopBillingStatus>;
   readonly billingCheckout: (
     request: Request,
@@ -756,6 +761,62 @@ export async function createResearchApi(
           allowed: false,
           remaining: 0,
           required: 3,
+        };
+      }
+    },
+    async consumeResearchTranslationCredit(request, reportId, targetLocale) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return {
+          authenticated: false,
+          allowed: false,
+          remaining: 0,
+          required: CREDIT_COSTS.researchTranslation,
+        };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          `/api/research-room/${encodeURIComponent(reportId)}/translation/credit`,
+          {
+            method: "POST",
+            body: { targetLocale },
+          },
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as CreditAvailability & {
+            readonly authenticated: boolean;
+          };
+      }
+      if (options.accountStore?.consumeResearchTranslationCredit === undefined)
+        return {
+          authenticated: true,
+          allowed: options.billingRequired !== true,
+          remaining: 0,
+          required:
+            options.billingRequired === true
+              ? CREDIT_COSTS.researchTranslation
+              : 0,
+        };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        return {
+          authenticated: true,
+          ...(await options.accountStore.consumeResearchTranslationCredit(
+            authentication.principal.id,
+            `research-translation:${authentication.principal.id}:${reportId}:${targetLocale}`,
+            reportId,
+            targetLocale,
+          )),
+        };
+      } catch {
+        return {
+          authenticated: true,
+          allowed: false,
+          remaining: 0,
+          required: CREDIT_COSTS.researchTranslation,
         };
       }
     },

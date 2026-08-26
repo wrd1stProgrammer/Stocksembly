@@ -25,12 +25,18 @@ function archivePage(value: string | undefined): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
+async function researchRoomLocale(value: string | undefined): Promise<Locale> {
+  if (value !== undefined) return researchLocaleFromValue(value);
+  return researchLocaleFromValue(
+    (await cookies()).get("stocksembly_locale")?.value,
+  );
+}
+
 export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
   const { lang, page: requestedPage } = await searchParams;
-  const locale: Locale =
-    lang === undefined ? "ko" : researchLocaleFromValue(lang);
+  const locale = await researchRoomLocale(lang);
   const page = archivePage(requestedPage);
   const canonical = researchRoomPageHref(page, locale);
   const languageAlternates = {
@@ -97,14 +103,14 @@ async function requestFromPage() {
 
 export default async function ResearchRoomPage({ searchParams }: Props) {
   const query = await searchParams;
-  const locale: Locale =
-    query.lang === undefined ? "ko" : researchLocaleFromValue(query.lang);
+  const locale = await researchRoomLocale(query.lang);
   const page = archivePage(query.page);
   const access = await (await getLiveResearchApi()).researchRoomAccess(
     await requestFromPage(),
   );
   const reportPage = await listResearchRoomReportPage(access, {
     limit: RESEARCH_ROOM_PAGE_SIZE,
+    locale,
     ...(page > 1 ? { offset: (page - 1) * RESEARCH_ROOM_PAGE_SIZE } : {}),
     sort: "latest",
   });

@@ -117,7 +117,12 @@ export function chairDirectionalBriefAssignment(
     .filter(
       (sentence) =>
         sentence.kind === "dissent" &&
-        publicTextIsValid(sentence.text, [sentence], 360),
+        publicTextIsValid(
+          sentence.text,
+          [sentence],
+          360,
+          prompt.mandate.locale,
+        ),
     )
     // A challenge is a better countercase than an echoed claim. Keep the
     // catalog order as the final tie-breaker so the assignment stays stable.
@@ -135,7 +140,12 @@ export function chairDirectionalBriefAssignment(
   const falsifierCandidates = prompt.sentences.filter(
     (sentence) =>
       sentence.kind === "change_condition" &&
-      publicTextIsValid(sentence.text, [sentence], 360),
+      publicTextIsValid(
+        sentence.text,
+        [sentence],
+        360,
+        prompt.mandate.locale,
+      ),
   );
   const falsifier =
     decisive === undefined || countercase === undefined
