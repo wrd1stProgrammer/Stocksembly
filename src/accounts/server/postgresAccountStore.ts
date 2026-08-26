@@ -74,6 +74,7 @@ import {
   type CreditAvailability,
 } from "./accountStore";
 import { applyPostgresAccountMigrations } from "./postgresAccountMigrations";
+import { rotatingDatabasePassword } from "./rotatingDatabasePassword";
 
 const SecretSchema = z.object({
   host: z.string().min(1).optional(),
@@ -628,38 +629,44 @@ async function poolConfiguration(): Promise<PoolConfig | undefined> {
   if (!secretArn) return undefined;
   const region = process.env["AWS_REGION"];
   if (!region) throw new Error("AWS_REGION_REQUIRED_FOR_DATABASE_SECRET");
-  const secrets = new SecretsManagerClient({ region });
-  try {
-    const response = await secrets.send(
-      new GetSecretValueCommand({ SecretId: secretArn }),
-    );
-    if (!response.SecretString) throw new Error("DATABASE_SECRET_EMPTY");
-    const secret = SecretSchema.parse(JSON.parse(response.SecretString));
-    const host = process.env["STOCKSEMBLY_DB_HOST"] ?? secret.host;
-    if (!host) throw new Error("STOCKSEMBLY_DB_HOST_REQUIRED");
-    const certificateAuthority = await readFile(
-      process.env["STOCKSEMBLY_DB_CA_PATH"] ??
-        "/etc/ssl/certs/aws-rds-global-bundle.pem",
-      "utf8",
-    );
-    return {
-      host,
-      port:
-        Number.parseInt(process.env["STOCKSEMBLY_DB_PORT"] ?? "", 10) ||
-        secret.port ||
-        5432,
-      user: secret.username,
-      password: secret.password,
-      database:
-        process.env["STOCKSEMBLY_DB_NAME"] ?? secret.dbname ?? "stocksembly",
-      ssl: { ca: certificateAuthority, rejectUnauthorized: true },
-      max: 4,
-      connectionTimeoutMillis: 5_000,
-      idleTimeoutMillis: 30_000,
-    };
-  } finally {
-    secrets.destroy();
-  }
+  const loadSecret = async () => {
+    const secrets = new SecretsManagerClient({ region });
+    try {
+      const response = await secrets.send(
+        new GetSecretValueCommand({ SecretId: secretArn }),
+      );
+      if (!response.SecretString) throw new Error("DATABASE_SECRET_EMPTY");
+      return SecretSchema.parse(JSON.parse(response.SecretString));
+    } finally {
+      secrets.destroy();
+    }
+  };
+  const secret = await loadSecret();
+  const host = process.env["STOCKSEMBLY_DB_HOST"] ?? secret.host;
+  if (!host) throw new Error("STOCKSEMBLY_DB_HOST_REQUIRED");
+  const certificateAuthority = await readFile(
+    process.env["STOCKSEMBLY_DB_CA_PATH"] ??
+      "/etc/ssl/certs/aws-rds-global-bundle.pem",
+    "utf8",
+  );
+  return {
+    host,
+    port:
+      Number.parseInt(process.env["STOCKSEMBLY_DB_PORT"] ?? "", 10) ||
+      secret.port ||
+      5432,
+    user: secret.username,
+    password: rotatingDatabasePassword(
+      secret.password,
+      async () => (await loadSecret()).password,
+    ),
+    database:
+      process.env["STOCKSEMBLY_DB_NAME"] ?? secret.dbname ?? "stocksembly",
+    ssl: { ca: certificateAuthority, rejectUnauthorized: true },
+    max: 4,
+    connectionTimeoutMillis: 5_000,
+    idleTimeoutMillis: 30_000,
+  };
 }
 
 export class PostgresAccountStore implements AccountStore {
