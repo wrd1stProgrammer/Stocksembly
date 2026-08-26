@@ -175,12 +175,12 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
       .map(localeFromLanguageTag)
       .find((value): value is AppLocale => value !== undefined);
     const serverLocale = document.documentElement.dataset["locale"];
-    const resolvedLocale = isLocale(storedLocale)
-      ? storedLocale
+    const resolvedLocale = isLocale(queryLocale)
+      ? queryLocale
       : isLocale(pathLocale)
         ? pathLocale
-        : isLocale(queryLocale)
-          ? queryLocale
+        : isLocale(storedLocale)
+          ? storedLocale
           : (detectedLocale ??
             (isLocale(serverLocale) ? serverLocale : undefined) ??
             localeFromCountry(country) ??
@@ -197,6 +197,8 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
 
   useEffect(() => {
     if (!signedIn) return;
+    const queryLocale = new URLSearchParams(window.location.search).get("lang");
+    if (isLocale(queryLocale)) return;
     let active = true;
     const requestRevision = localeSelectionRevision.current;
     void syncResearchSession()
@@ -427,7 +429,7 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
       <LandingFooter locale={locale} />
       <MobileBottomNav
         activeItem="home"
-        locale={researchLocale(locale)}
+        locale={locale}
         hidden={signedIn && !sidebarCollapsed}
       />
       <SubscriptionModal

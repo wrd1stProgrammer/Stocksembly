@@ -3,7 +3,11 @@
 import { ArrowLeft, Languages, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { Locale } from "../../lib/i18n";
+import {
+  type AppLocale,
+  type ResearchLocale,
+  researchLocale,
+} from "../../lib/i18n";
 import type { PublicRunDetail } from "../../research/client/schemas";
 import type { ResearchFileData } from "../../research/compositions/types";
 import { liveOfficeProjection } from "../../research/liveOfficeProjection";
@@ -16,16 +20,17 @@ import {
   type ResearchConversationEntry,
 } from "../research/MeetingMinutes";
 import { OfficeStage } from "../research/OfficeStage";
+import { researchRoomUiCopy } from "./researchRoomCopy";
 
 type Props = {
   readonly accessAuthenticated: boolean;
   readonly company: ResearchCompany;
   readonly conversation: readonly ResearchConversationEntry[];
   readonly file: ResearchFileData;
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly originalQuestion: string;
   readonly reportId: string;
-  readonly sourceLocale: Locale;
+  readonly sourceLocale: ResearchLocale;
   readonly runDetail: PublicRunDetail;
   readonly version: number;
 };
@@ -42,10 +47,17 @@ export function PublishedResearchWorkspace({
   runDetail,
   version,
 }: Props) {
+  const roomCopy = researchRoomUiCopy[locale];
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [presentedFile, setPresentedFile] = useState(file);
   const [presentedQuestion, setPresentedQuestion] = useState(originalQuestion);
-  const [presentedLocale, setPresentedLocale] = useState(sourceLocale);
+  const [presentedRunDetail, setPresentedRunDetail] = useState(runDetail);
+  const [presentedConversation, setPresentedConversation] =
+    useState(conversation);
+  const [contentLocale, setContentLocale] =
+    useState<ResearchLocale>(sourceLocale);
+  const [translatedTargetLocale, setTranslatedTargetLocale] =
+    useState<AppLocale>();
   const [translating, setTranslating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [creditShortage, setCreditShortage] = useState<{
@@ -53,19 +65,19 @@ export function PublishedResearchWorkspace({
     readonly required: number;
   } | null>(null);
   const needsTranslation =
-    sourceLocale !== locale && presentedLocale !== locale;
+    sourceLocale !== locale && translatedTargetLocale !== locale;
   const projection = useMemo(
-    () => liveOfficeProjection(runDetail),
-    [runDetail],
+    () => liveOfficeProjection(presentedRunDetail),
+    [presentedRunDetail],
   );
   const visibleAgents = useMemo(() => {
-    const target = runDetail.run.researchTarget;
+    const target = presentedRunDetail.run.researchTarget;
     if (target?.kind !== "department") return agents;
     const memberIds = new Set<string>(
       OFFICE_SCENE_MANIFEST.departments[target.departmentId]?.memberIds ?? [],
     );
     return agents.filter((agent) => memberIds.has(agent.id));
-  }, [runDetail.run.researchTarget]);
+  }, [presentedRunDetail.run.researchTarget]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -89,15 +101,14 @@ export function PublishedResearchWorkspace({
         readonly error?: string;
         readonly file?: ResearchFileData;
         readonly question?: string;
+        readonly runDetail?: PublicRunDetail;
+        readonly conversation?: readonly ResearchConversationEntry[];
+        readonly renderLocale?: ResearchLocale;
         readonly remaining?: number;
         readonly required?: number;
       };
       if (response.status === 401) {
-        setTranslationError(
-          locale === "ko"
-            ? "전문 번역은 로그인 후 이용할 수 있습니다."
-            : "Sign in to use professional translation.",
-        );
+        setTranslationError(roomCopy.signInToTranslate);
         return;
       }
       if (response.status === 402) {
@@ -107,18 +118,23 @@ export function PublishedResearchWorkspace({
         });
         return;
       }
-      if (!response.ok || payload.file === undefined)
+      if (
+        !response.ok ||
+        payload.file === undefined ||
+        payload.runDetail === undefined ||
+        payload.conversation === undefined ||
+        payload.renderLocale === undefined
+      )
         throw new Error(payload.error ?? "TRANSLATION_FAILED");
       setPresentedFile(payload.file);
+      setPresentedRunDetail(payload.runDetail);
+      setPresentedConversation(payload.conversation);
       if (payload.question !== undefined)
         setPresentedQuestion(payload.question);
-      setPresentedLocale(locale);
+      setContentLocale(payload.renderLocale);
+      setTranslatedTargetLocale(locale);
     } catch {
-      setTranslationError(
-        locale === "ko"
-          ? "번역을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."
-          : "Translation could not be completed. Please try again shortly.",
-      );
+      setTranslationError(roomCopy.translationFailed);
     } finally {
       setTranslating(false);
     }
@@ -139,7 +155,7 @@ export function PublishedResearchWorkspace({
           href={`/research-room?lang=${locale}`}
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          {locale === "ko" ? "리서치룸" : "Research room"}
+          {roomCopy.back}
         </Link>
         {sourceLocale === locale ? null : (
           <button
@@ -157,13 +173,9 @@ export function PublishedResearchWorkspace({
             ) : (
               <Languages size={15} aria-hidden="true" />
             )}
-            {presentedLocale === locale
-              ? locale === "ko"
-                ? "번역 완료"
-                : "Translated"
-              : locale === "ko"
-                ? "전문 번역 · 1 크레딧"
-                : "Professional translation · 1 credit"}
+            {translatedTargetLocale === locale
+              ? roomCopy.translated
+              : roomCopy.professionalTranslation}
           </button>
         )}
         {translationError === null ? null : (
@@ -179,7 +191,8 @@ export function PublishedResearchWorkspace({
         <OfficeStage
           current={projection.current}
           events={projection.events}
-          locale={presentedLocale}
+          locale={contentLocale}
+          uiLocale={locale}
           isPaused={false}
           isComplete
           company={company}
@@ -195,7 +208,8 @@ export function PublishedResearchWorkspace({
           current={projection.current}
           agents={visibleAgents}
           events={projection.events}
-          locale={presentedLocale}
+          locale={contentLocale}
+          uiLocale={locale}
           isComplete
           reportId={reportId}
           reportVersion={version}
@@ -203,13 +217,13 @@ export function PublishedResearchWorkspace({
           chatEnabled={accessAuthenticated}
           loadChatHistory={false}
           originalQuestion={presentedQuestion}
-          conversation={conversation}
+          conversation={presentedConversation}
           panelOpen={transcriptOpen}
           onPanelToggle={() => setTranscriptOpen((open) => !open)}
         />
       </div>
       <CreditShortageModal
-        locale={locale}
+        locale={researchLocale(locale)}
         open={creditShortage !== null}
         {...(creditShortage === null
           ? {}

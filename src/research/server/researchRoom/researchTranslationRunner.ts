@@ -11,8 +11,9 @@ import {
   type LaunchReservationReader,
 } from "../codex/codexReservation";
 import { createCodexPort } from "../codex/codexRunner";
+import type { ResearchTranslationLocale } from "./researchTranslationLocales";
 
-export type ResearchTranslationLocale = "en" | "ko";
+export type { ResearchTranslationLocale } from "./researchTranslationLocales";
 
 export type ResearchTranslationItem = {
   readonly id: string;
@@ -35,13 +36,22 @@ export function translationPrompt(
   items: readonly ResearchTranslationItem[],
   targetLocale: ResearchTranslationLocale,
 ): string {
-  const targetLanguage = targetLocale === "ko" ? "Korean" : "English";
+  const targetLanguage: Readonly<Record<ResearchTranslationLocale, string>> = {
+    en: "English",
+    ko: "Korean",
+    ja: "Japanese",
+    "zh-TW": "Traditional Chinese as used in Taiwan",
+    es: "natural Latin American Spanish",
+    "pt-BR": "Brazilian Portuguese",
+    de: "German",
+    fr: "French",
+  };
   return [
-    `Professionally translate the supplied US-equity research text into natural ${targetLanguage}.`,
+    `Professionally translate the supplied US-equity research text into ${targetLanguage[targetLocale]}.`,
     "Do not browse and do not add, remove, soften, or strengthen any investment claim.",
     "Preserve tickers, company names, numbers, currencies, dates, citation markers, and technical financial meaning exactly.",
     "Return exactly one translation for every id. The text must contain only the translated text, without commentary or quotation marks.",
-    JSON.stringify({ locale: targetLocale, items }),
+    JSON.stringify({ locale: targetLocale, targetLocale, items }),
   ].join("\n\n");
 }
 
@@ -138,20 +148,43 @@ export async function translateResearchText(
   targetLocale: ResearchTranslationLocale,
 ): Promise<ReadonlyMap<string, string>> {
   if (items.length === 0) return new Map();
+  const idsByText = new Map<string, string[]>();
+  const uniqueItems: ResearchTranslationItem[] = [];
+  for (const item of items) {
+    const duplicateIds = idsByText.get(item.text);
+    if (duplicateIds !== undefined) {
+      duplicateIds.push(item.id);
+      continue;
+    }
+    idsByText.set(item.text, [item.id]);
+    uniqueItems.push(item);
+  }
+  const uniqueTranslations = new Map<string, string>();
+  const batches = translationBatches(uniqueItems);
+  const completedBatches = await Promise.all(
+    batches.map(async (batch) => {
+      const originalIds = batch.map((item) => item.id);
+      const normalized = batch.map((item, index) => ({
+        id: String(index),
+        text: item.text,
+      }));
+      const result = await translateResearchBatch(normalized, targetLocale);
+      return originalIds.map((id, index) => {
+        const text = result.get(String(index));
+        if (text === undefined)
+          throw new TypeError("research_translation_incomplete");
+        return [id, text] as const;
+      });
+    }),
+  );
+  for (const batch of completedBatches)
+    for (const [id, text] of batch) uniqueTranslations.set(id, text);
   const translated = new Map<string, string>();
-  for (const batch of translationBatches(items)) {
-    const originalIds = batch.map((item) => item.id);
-    const normalized = batch.map((item, index) => ({
-      id: String(index),
-      text: item.text,
-    }));
-    const result = await translateResearchBatch(normalized, targetLocale);
-    originalIds.forEach((id, index) => {
-      const text = result.get(String(index));
-      if (text === undefined)
-        throw new TypeError("research_translation_incomplete");
-      translated.set(id, text);
-    });
+  for (const item of uniqueItems) {
+    const text = uniqueTranslations.get(item.id);
+    if (text === undefined)
+      throw new TypeError("research_translation_incomplete");
+    for (const id of idsByText.get(item.text) ?? []) translated.set(id, text);
   }
   return translated;
 }

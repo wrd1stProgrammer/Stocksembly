@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ResearchRoomCatalog } from "@/src/components/researchRoom/ResearchRoomCatalog";
+import { researchRoomUiCopy } from "@/src/components/researchRoom/researchRoomCopy";
 import { researchRoomPageHref } from "@/src/components/researchRoom/researchRoomUrls";
-import type { Locale } from "@/src/lib/i18n";
-import { researchLocaleFromValue } from "@/src/lib/i18n";
+import {
+  type AppLocale,
+  appLocaleFromValue,
+  isLocale,
+  localeDetails,
+  locales,
+} from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import {
   listResearchRoomReportPage,
@@ -25,11 +31,14 @@ function archivePage(value: string | undefined): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-async function researchRoomLocale(value: string | undefined): Promise<Locale> {
-  if (value !== undefined) return researchLocaleFromValue(value);
-  return researchLocaleFromValue(
-    (await cookies()).get("stocksembly_locale")?.value,
-  );
+async function researchRoomLocale(
+  value: string | undefined,
+  preferStored = false,
+): Promise<AppLocale> {
+  const stored = (await cookies()).get("stocksembly_locale")?.value;
+  if (preferStored && isLocale(stored)) return stored;
+  if (isLocale(value)) return value;
+  return appLocaleFromValue(stored);
 }
 
 export async function generateMetadata({
@@ -39,11 +48,13 @@ export async function generateMetadata({
   const locale = await researchRoomLocale(lang);
   const page = archivePage(requestedPage);
   const canonical = researchRoomPageHref(page, locale);
-  const languageAlternates = {
-    ko: researchRoomPageHref(page, "ko"),
-    en: researchRoomPageHref(page, "en"),
-    "x-default": researchRoomPageHref(page, "ko"),
-  };
+  const languageAlternates = Object.fromEntries([
+    ...locales.map((candidate) => [
+      localeDetails[candidate].hreflang,
+      researchRoomPageHref(page, candidate),
+    ]),
+    ["x-default", researchRoomPageHref(page, "en")],
+  ]);
   const pageTitle = page > 1 ? ` - Page ${page}` : "";
   if (locale === "en") {
     return {
@@ -62,6 +73,23 @@ export async function generateMetadata({
         type: "website",
         locale: "en_US",
         alternateLocale: "ko_KR",
+      },
+    };
+  }
+  if (locale !== "ko") {
+    const roomCopy = researchRoomUiCopy[locale];
+    return {
+      title: `${roomCopy.title}${pageTitle}`,
+      description:
+        "Explore published US stock research by ticker, investment thesis, and specialist team.",
+      alternates: { canonical, languages: languageAlternates },
+      openGraph: {
+        title: `Stocksembly ${roomCopy.title}`,
+        description:
+          "Explore evidence-led US stock research reviewed by Stocksembly's AI team.",
+        url: canonical,
+        type: "website",
+        locale: localeDetails[locale].openGraph,
       },
     };
   }
@@ -103,11 +131,23 @@ async function requestFromPage() {
 
 export default async function ResearchRoomPage({ searchParams }: Props) {
   const query = await searchParams;
-  const locale = await researchRoomLocale(query.lang);
   const page = archivePage(query.page);
-  const access = await (await getLiveResearchApi()).researchRoomAccess(
-    await requestFromPage(),
-  );
+  const api = await getLiveResearchApi();
+  const request = await requestFromPage();
+  const storedLocale = (await cookies()).get("stocksembly_locale")?.value;
+  const [access, preference] = await Promise.all([
+    api.researchRoomAccess(request),
+    api.preferredLocale(request),
+  ]);
+  const locale = isLocale(query.lang)
+    ? query.lang
+    : access.authenticated && isLocale(storedLocale)
+      ? storedLocale
+      : preference.authenticated && preference.locale !== undefined
+        ? preference.locale
+        : await researchRoomLocale(undefined, access.authenticated);
+  if (access.authenticated && query.lang !== locale)
+    redirect(researchRoomPageHref(page, locale));
   const reportPage = await listResearchRoomReportPage(access, {
     limit: RESEARCH_ROOM_PAGE_SIZE,
     locale,

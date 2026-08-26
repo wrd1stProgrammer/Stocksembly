@@ -32,6 +32,7 @@ const migrationFiles = [
   "025_codex_token_usage.sql",
   "026_auxiliary_codex_usage.sql",
   "027_research_localizations.sql",
+  "028_research_localization_languages.sql",
 ] as const;
 
 export type OrderedMigration = {

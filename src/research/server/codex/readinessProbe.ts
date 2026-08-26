@@ -29,7 +29,7 @@ import {
 } from "./readiness";
 import { assertExactReadinessEnvironment } from "./readinessEnvironment";
 import {
-  EXPECTED_DISABLED_FEATURES_HASH,
+  expectedDisabledFeaturesHash,
   runProtectedFeatureInventory,
 } from "./readinessFeatures";
 import {
@@ -257,7 +257,7 @@ export async function runProductionCodexReadinessProbe(
       certificateHash: certificate.hash,
       localeHash: digest(platform.pins.locale),
       disabledFeaturesHash,
-      expectedDisabledFeaturesHash: EXPECTED_DISABLED_FEATURES_HASH,
+      expectedDisabledFeaturesHash: expectedDisabledFeaturesHash(platform),
       allowedEvidenceHash,
       returnedEvidenceHash: result.candidate.evidenceSha256,
       artifactExposure,

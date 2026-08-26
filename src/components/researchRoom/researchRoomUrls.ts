@@ -1,8 +1,8 @@
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
 
-export function researchRoomPageHref(page: number, locale: Locale): string {
+export function researchRoomPageHref(page: number, locale: AppLocale): string {
   const params = new URLSearchParams();
-  if (locale === "en") params.set("lang", "en");
+  params.set("lang", locale);
   if (page > 1) params.set("page", String(page));
   const query = params.toString();
   return query.length === 0 ? "/research-room" : `/research-room?${query}`;

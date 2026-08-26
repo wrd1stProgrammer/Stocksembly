@@ -1148,7 +1148,7 @@ export class PostgresAccountStore implements AccountStore {
     principalId: string,
     eventKey: string,
     reportId: string,
-    targetLocale: Locale,
+    targetLocale: AppLocale,
   ): Promise<CreditAvailability> {
     const now = new Date();
     const client = await this.pool.connect();

@@ -21,4 +21,12 @@ describe("MobileBottomNav", () => {
     fireEvent.focusOut(input, { relatedTarget: null });
     expect(navigation).not.toHaveAttribute("data-keyboard-open");
   });
+
+  it("preserves Japanese in the research-room destination", () => {
+    render(<MobileBottomNav activeItem="home" locale="ja" />);
+
+    expect(
+      screen.getByRole("link", { name: /リサーチルーム/u }),
+    ).toHaveAttribute("href", "/research-room?lang=ja");
+  });
 });

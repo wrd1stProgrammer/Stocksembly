@@ -7,6 +7,7 @@ import type { CodexRunnerPlatform } from "./codexPlatform";
 import {
   buildChildEnvironment,
   CODEX_DISABLED_FEATURES,
+  CODEX_RUNTIME_PINS,
   CODEX_RUNTIME_POLICY,
 } from "./codexPolicy";
 import { prepareEphemeralRuntime } from "./codexRuntime";
@@ -36,18 +37,49 @@ function parseFeatureLines(stdout: string): ReadonlyMap<string, boolean> {
   return features;
 }
 
-export function disabledFeatureInventoryHash(stdout: string): string {
+const PINNED_FORCED_FEATURES: Readonly<Record<string, readonly string[]>> = {
+  "codex-cli 0.150.0-alpha.8": ["unified_exec"],
+};
+
+function expectedFeatureValue(version: string, name: string): boolean {
+  return PINNED_FORCED_FEATURES[version]?.includes(name) ?? false;
+}
+
+export function disabledFeatureInventoryHash(
+  stdout: string,
+  version: string = CODEX_RUNTIME_PINS.version,
+): string {
   const features = parseFeatureLines(stdout);
   const disabled = CODEX_DISABLED_FEATURES.map((name) => {
-    if (features.get(name) !== false) throw new CodexIsolationError("feature");
-    return Object.freeze([name, false] as const);
+    const expected = expectedFeatureValue(version, name);
+    if (features.get(name) !== expected)
+      throw new CodexIsolationError("feature");
+    return Object.freeze([name, expected] as const);
   });
   return sha256Value(disabled);
 }
 
 export const EXPECTED_DISABLED_FEATURES_HASH = sha256Value(
-  CODEX_DISABLED_FEATURES.map((name) => Object.freeze([name, false] as const)),
+  CODEX_DISABLED_FEATURES.map((name) =>
+    Object.freeze([
+      name,
+      expectedFeatureValue(CODEX_RUNTIME_PINS.version, name),
+    ] as const),
+  ),
 );
+
+export function expectedDisabledFeaturesHash(
+  platform: CodexRunnerPlatform,
+): string {
+  return sha256Value(
+    CODEX_DISABLED_FEATURES.map((name) =>
+      Object.freeze([
+        name,
+        expectedFeatureValue(platform.pins.version, name),
+      ] as const),
+    ),
+  );
+}
 
 export async function runProtectedFeatureInventory(
   platform: CodexRunnerPlatform,
@@ -118,6 +150,7 @@ export async function runProtectedFeatureInventory(
     if (execution.exitCode !== 0) throw new CodexIsolationError("feature");
     return disabledFeatureInventoryHash(
       Buffer.concat(execution.stdout).toString("utf8"),
+      platform.pins.version,
     );
   } finally {
     await runtime.cleanup();

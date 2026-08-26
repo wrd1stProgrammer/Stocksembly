@@ -121,7 +121,7 @@ export interface ResearchApi {
   readonly consumeResearchTranslationCredit: (
     request: Request,
     reportId: string,
-    targetLocale: Locale,
+    targetLocale: AppLocale,
   ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
   readonly billingStatus: (request: Request) => Promise<WhopBillingStatus>;
   readonly billingCheckout: (

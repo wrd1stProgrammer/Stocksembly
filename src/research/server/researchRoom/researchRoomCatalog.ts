@@ -27,7 +27,7 @@ import {
   type ResearchQuestionLocalizationInput,
 } from "./researchRoomLocalizations";
 import { ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE } from "./researchRoomPublicCatalog";
-import type { ResearchTranslationLocale } from "./researchTranslationRunner";
+import type { ResearchTranslationLocale } from "./researchTranslationLocales";
 
 export const RESEARCH_ROOM_PAGE_SIZE = 32;
 
@@ -427,6 +427,7 @@ export async function listResearchRoomReportPage(
       }),
     ),
     locale,
+    { translateMissing: true },
   );
   return {
     reports: catalog.rows.map((row) =>

@@ -5,6 +5,18 @@ const REPORT_ID = "00000000-0000-4000-8000-000000000001";
 
 const pageState = vi.hoisted(() => ({
   loadResearchRoomReport: vi.fn(),
+  storedLocale: undefined as string | undefined,
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      name === "stocksembly_locale" && pageState.storedLocale !== undefined
+        ? { value: pageState.storedLocale }
+        : undefined,
+    toString: () => "",
+  }),
+  headers: async () => new Headers({ host: "127.0.0.1:3000" }),
 }));
 
 vi.mock("@/src/research/server/researchRoom/researchRoomCatalog", () => ({
@@ -38,6 +50,7 @@ function publicReport() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  pageState.storedLocale = undefined;
 });
 
 describe("public research report metadata", () => {

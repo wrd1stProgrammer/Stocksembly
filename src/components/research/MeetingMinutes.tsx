@@ -4,7 +4,11 @@ import { SidebarSimple } from "@phosphor-icons/react";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ThinkingOrb } from "thinking-orbs";
-import { type Locale, researchCopy } from "../../lib/i18n";
+import {
+  type AppLocale,
+  type ResearchLocale,
+  researchCopy,
+} from "../../lib/i18n";
 import { ResearchRequestError } from "../../research/client/api";
 import type {
   ActiveResearchActivity,
@@ -12,6 +16,7 @@ import type {
 } from "../../research/domain/activeResearchActivity";
 import { activityCopy } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
+import { researchMeetingUiCopy } from "./researchMeetingUiCopy";
 import { TeamQuestionPanel } from "./TeamQuestionPanel";
 import { TextShimmerWave } from "./TextShimmerWave";
 
@@ -19,7 +24,8 @@ type Props = {
   readonly current: ResearchEvent;
   readonly agents: readonly AgentProfile[];
   readonly events: readonly ResearchEvent[];
-  readonly locale: Locale;
+  readonly locale: ResearchLocale;
+  readonly uiLocale?: AppLocale;
   readonly isComplete: boolean;
   readonly terminalState?: "failed" | "incomplete" | "cancelled";
   readonly reportId?: string;
@@ -169,27 +175,14 @@ function activityGroup(event: ResearchEvent): ActivityGroup {
   }
 }
 
-function groupLabel(group: ActivityGroup, locale: Locale): string {
-  const labels = {
-    collection: { en: "Evidence setup", ko: "근거 준비" },
-    individual: { en: "Independent research", ko: "개별 조사" },
-    team: { en: "Team synthesis", ko: "팀 합의" },
-    debate: { en: "Cross-team debate", ko: "팀 간 반론" },
-    audit: { en: "Evidence audit", ko: "근거 감사" },
-    committee: { en: "Final committee", ko: "최종 위원회" },
-  } as const;
-  return labels[group][locale];
+function groupLabel(group: ActivityGroup, locale: AppLocale): string {
+  return researchMeetingUiCopy[locale].groups[group];
 }
 
-function conversationLabel(group: ActivityGroup, locale: Locale): string {
-  const labels = {
-    team: { en: "joint synthesis", ko: "공동 정리" },
-    debate: { en: "challenge and rebuttal", ko: "주장·반론" },
-    committee: { en: "committee review", ko: "위원회 검토" },
-  } as const;
+function conversationLabel(group: ActivityGroup, locale: AppLocale): string {
   if (group !== "team" && group !== "debate" && group !== "committee")
     return "";
-  return labels[group][locale];
+  return researchMeetingUiCopy[locale].conversations[group];
 }
 
 function inferredActivity(
@@ -218,22 +211,25 @@ function ConversationHistory({
   agents,
   conversation,
   locale,
+  uiLocale,
   originalQuestion,
 }: {
   readonly agents: readonly AgentProfile[];
   readonly conversation: readonly ResearchConversationEntry[];
-  readonly locale: Locale;
+  readonly locale: ResearchLocale;
+  readonly uiLocale: AppLocale;
   readonly originalQuestion?: string;
 }) {
+  const ui = researchMeetingUiCopy[uiLocale];
   const initial = originalQuestion?.trim();
   return (
     <section
       className="meeting-minutes__conversation-history"
-      aria-label={locale === "ko" ? "채팅 기록" : "Chat history"}
+      aria-label={ui.chatHistory}
     >
       {initial ? (
         <article data-role="user">
-          <span>{locale === "ko" ? "원 질문" : "Original brief"}</span>
+          <span>{ui.originalBrief}</span>
           <p>{initial}</p>
         </article>
       ) : null}
@@ -247,7 +243,7 @@ function ConversationHistory({
             key={`${exchange.createdAt}-${exchange.question}`}
           >
             <article data-role="user">
-              <span>{locale === "ko" ? "후속 질문" : "Follow-up"}</span>
+              <span>{ui.followUp}</span>
               <p>{exchange.question}</p>
             </article>
             <article data-role="assistant">
@@ -255,10 +251,7 @@ function ConversationHistory({
                 <Image src={agent.image} alt="" width={24} height={58} />
               )}
               <div>
-                <span>
-                  {agent?.name[locale] ??
-                    (locale === "ko" ? "리서치 의장" : "Research chair")}
-                </span>
+                <span>{agent?.name[locale] ?? ui.researchChair}</span>
                 <p>{exchange.answer}</p>
               </div>
             </article>
@@ -274,6 +267,7 @@ export function MeetingMinutes({
   agents,
   events,
   locale,
+  uiLocale = locale,
   isComplete,
   terminalState,
   reportId,
@@ -292,6 +286,7 @@ export function MeetingMinutes({
   onRetry,
   onCancel,
 }: Props) {
+  const ui = researchMeetingUiCopy[uiLocale];
   const [mode, setMode] = useState<"minutes" | "questions">("minutes");
   const [newEventIds, setNewEventIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -444,38 +439,28 @@ export function MeetingMinutes({
       className="activity-panel meeting-minutes"
       data-questions-enabled={questionsEnabled ? "true" : "false"}
       data-panel-open={panelOpen ? "true" : "false"}
-      aria-label={locale === "ko" ? "회의록" : "Meeting minutes"}
+      aria-label={ui.minutes}
     >
       <header className="meeting-minutes__header is-complete">
-        <h2 className="sr-only">
-          {locale === "ko" ? "회의록" : "Meeting minutes"}
-        </h2>
+        <h2 className="sr-only">{ui.minutes}</h2>
         <fieldset className="meeting-minutes__modes">
-          <legend className="sr-only">
-            {locale === "ko" ? "우측 패널 보기" : "Right panel view"}
-          </legend>
+          <legend className="sr-only">{ui.rightPanelView}</legend>
           <button
             type="button"
             aria-pressed={mode === "minutes"}
             onClick={() => setMode("minutes")}
           >
-            {locale === "ko" ? "회의록" : "Meeting log"}
+            {ui.meetingLog}
           </button>
           <button
             type="button"
             aria-pressed={mode === "questions"}
             aria-disabled={!canChat}
             disabled={!canChat}
-            title={
-              canChat
-                ? undefined
-                : locale === "ko"
-                  ? "리서치 완료 후 이용할 수 있습니다"
-                  : "Available after the research is complete"
-            }
+            title={canChat ? undefined : ui.chatAfterComplete}
             onClick={() => setMode("questions")}
           >
-            {locale === "ko" ? "채팅" : "Chat"}
+            {ui.chat}
           </button>
         </fieldset>
         <div className="meeting-minutes__controls">
@@ -492,13 +477,7 @@ export function MeetingMinutes({
                   .finally(() => setCommandPending(undefined));
               }}
             >
-              {commandPending === "cancel"
-                ? locale === "ko"
-                  ? "취소 중"
-                  : "Cancelling"
-                : locale === "ko"
-                  ? "분석 취소"
-                  : "Cancel"}
+              {commandPending === "cancel" ? ui.cancelling : ui.cancelResearch}
             </button>
           ) : null}
           {onPanelToggle === undefined ? null : (
@@ -507,15 +486,7 @@ export function MeetingMinutes({
               className="meeting-minutes__panel-toggle"
               aria-expanded={panelOpen}
               aria-controls="research-meeting-minutes-content"
-              title={
-                locale === "ko"
-                  ? panelOpen
-                    ? "우측 패널 접기"
-                    : "우측 패널 펼치기"
-                  : panelOpen
-                    ? "Collapse right panel"
-                    : "Expand right panel"
-              }
+              title={panelOpen ? ui.collapsePanel : ui.expandPanel}
               onClick={onPanelToggle}
             >
               <SidebarSimple
@@ -523,17 +494,13 @@ export function MeetingMinutes({
                 weight={panelOpen ? "fill" : "regular"}
                 aria-hidden="true"
               />
-              <span className="sr-only">
-                {locale === "ko" ? "우측 패널" : "Right panel"}
-              </span>
+              <span className="sr-only">{ui.rightPanel}</span>
             </button>
           )}
         </div>
         {commandError === "cancel" ? (
           <p className="meeting-minutes__command-error" role="alert">
-            {locale === "ko"
-              ? "취소 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."
-              : "The cancellation request could not be processed. Try again shortly."}
+            {ui.cancelFailed}
           </p>
         ) : null}
       </header>
@@ -562,16 +529,10 @@ export function MeetingMinutes({
               <div aria-hidden="true" />
               <div>
                 <header>
-                  <strong>
-                    {locale === "ko" ? "리서치 준비" : "Research setup"}
-                  </strong>
-                  <span>{groupLabel("collection", locale)}</span>
+                  <strong>{ui.researchSetup}</strong>
+                  <span>{groupLabel("collection", uiLocale)}</span>
                 </header>
-                <p>
-                  {locale === "ko"
-                    ? "분석팀과 근거 수집 작업을 연결하고 있습니다. 준비되는 기록부터 이 회의록에 바로 표시됩니다."
-                    : "Connecting the research team and evidence collection. New records will appear in this meeting log as they are prepared."}
-                </p>
+                <p>{ui.setupBody}</p>
               </div>
             </article>
           </div>
@@ -597,7 +558,7 @@ export function MeetingMinutes({
             <div className="meeting-minutes__entry" key={event.id}>
               {startsGroup ? (
                 <div className="meeting-minutes__group" data-group={group}>
-                  <span>{groupLabel(group, locale)}</span>
+                  <span>{groupLabel(group, uiLocale)}</span>
                 </div>
               ) : null}
               <article
@@ -629,7 +590,7 @@ export function MeetingMinutes({
                     </strong>
                     <span>
                       {collaborative
-                        ? conversationLabel(group, locale)
+                        ? conversationLabel(group, uiLocale)
                         : agent.role[locale]}
                     </span>
                   </header>
@@ -651,19 +612,9 @@ export function MeetingMinutes({
             role="status"
           >
             <span>
-              {terminalState === "cancelled"
-                ? locale === "ko"
-                  ? "분석 취소됨"
-                  : "Research cancelled"
-                : locale === "ko"
-                  ? "리서치를 완성하지 못했습니다"
-                  : "Research could not be completed"}
+              {terminalState === "cancelled" ? ui.cancelled : ui.incomplete}
             </span>
-            <p>
-              {locale === "ko"
-                ? "완료된 단계는 보존되며 리서치 크레딧은 차감되지 않습니다. 같은 데이터 기준으로 실패한 단계부터 다시 진행할 수 있습니다."
-                : "Finished stages were preserved and no research credit was charged. You can resume from the affected stage using the same evidence snapshot."}
-            </p>
+            <p>{ui.terminalBody}</p>
             {terminalState !== "cancelled" && onRetry ? (
               <button
                 type="button"
@@ -690,13 +641,7 @@ export function MeetingMinutes({
                     .finally(() => setCommandPending(undefined));
                 }}
               >
-                {commandPending === "retry"
-                  ? locale === "ko"
-                    ? "복구 시작 중"
-                    : "Starting recovery"
-                  : locale === "ko"
-                    ? "실패 단계부터 다시 진행"
-                    : "Resume failed stage"}
+                {commandPending === "retry" ? ui.startingRecovery : ui.resume}
               </button>
             ) : null}
             {commandError === "retry" ||
@@ -705,20 +650,12 @@ export function MeetingMinutes({
             commandError === "retry_unavailable" ? (
               <p className="meeting-minutes__command-error" role="alert">
                 {commandError === "retry_unavailable"
-                  ? locale === "ko"
-                    ? "이어갈 수 있는 실패 단계가 없습니다. 새 리서치를 시작해 주세요."
-                    : "This run has no resumable failed stage. Start a new research run."
+                  ? ui.retryUnavailable
                   : commandError === "retry_forbidden"
-                    ? locale === "ko"
-                      ? "이미 복구 중이거나 완료된 리서치입니다. 새로고침해 상태를 확인해 주세요."
-                      : "This research is already recovering or complete. Refresh to see its current state."
+                    ? ui.retryForbidden
                     : commandError === "retry_missing"
-                      ? locale === "ko"
-                        ? "복구할 리서치를 찾지 못했습니다. 리서치 목록에서 다시 열어 주세요."
-                        : "The research could not be found. Reopen it from your research list."
-                      : locale === "ko"
-                        ? "복구 요청에 실패했습니다. 잠시 후 다시 시도해 주세요."
-                        : "The recovery request failed. Please try again shortly."}
+                      ? ui.retryMissing
+                      : ui.retryFailed}
               </p>
             ) : null}
           </section>
@@ -730,9 +667,7 @@ export function MeetingMinutes({
           className="meeting-minutes__new"
           onClick={scrollToLatest}
         >
-          {locale === "ko"
-            ? `새 기록 ${pendingCount}개`
-            : `${pendingCount} new update${pendingCount === 1 ? "" : "s"}`}
+          {ui.newUpdates(pendingCount)}
         </button>
       ) : null}
       {canChat ? (
@@ -747,6 +682,7 @@ export function MeetingMinutes({
               agents={agents}
               conversation={conversation}
               locale={locale}
+              uiLocale={uiLocale}
               {...(originalQuestion === undefined ? {} : { originalQuestion })}
             />
           ) : null}

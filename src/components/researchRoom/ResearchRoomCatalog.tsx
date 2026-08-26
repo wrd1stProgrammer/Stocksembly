@@ -24,8 +24,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { copy, type Locale } from "../../lib/i18n";
-import { RESEARCH_DEPARTMENT_COPY } from "../../research/domain/researchTarget";
+import {
+  type AppLocale,
+  copy as appCopy,
+  intlLocale,
+  researchLocale,
+} from "../../lib/i18n";
 import type {
   ResearchRoomAccess,
   ResearchRoomCatalogItem,
@@ -40,6 +44,7 @@ import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { MobileBottomNav } from "../MobileBottomNav";
 import { CompanyLogo } from "../research/ResearchSidebar";
 import { SignedInSidebar } from "../SignedInSidebar";
+import { researchRoomUiCopy } from "./researchRoomCopy";
 import { researchRoomPageHref } from "./researchRoomUrls";
 
 type Props = {
@@ -48,7 +53,7 @@ type Props = {
   readonly initialPage: number;
   readonly initialReports: readonly ResearchRoomCatalogItem[];
   readonly initialTotal: number;
-  readonly locale: Locale;
+  readonly locale: AppLocale;
 };
 
 const PAGE_SIZE = 32;
@@ -85,23 +90,14 @@ function ResearchRoomCardFrame({ children }: { readonly children: ReactNode }) {
   );
 }
 
-function scopeLabel(value: Scope, locale: Locale): string {
-  const labels = {
-    all: { en: "All", ko: "전체" },
-    committee: { en: "All agents", ko: "전체 에이전트" },
-    market: { en: "Market agent", ko: "시장 에이전트" },
-    company: { en: "Company agent", ko: "기업 에이전트" },
-    financial: { en: "Financial agent", ko: "재무 에이전트" },
-    risk: { en: "Risk agent", ko: "리스크 에이전트" },
-  } as const;
-  return labels[value][locale];
+function scopeLabel(value: Scope, locale: AppLocale): string {
+  return researchRoomUiCopy[locale].scopes[value];
 }
 
-function teamLabel(item: ResearchRoomCatalogItem, locale: Locale) {
+function teamLabel(item: ResearchRoomCatalogItem, locale: AppLocale) {
   if (item.researchTarget.kind === "committee")
-    return locale === "ko" ? "전체 위원회" : "Full committee";
-  const content = RESEARCH_DEPARTMENT_COPY[item.researchTarget.departmentId];
-  return locale === "ko" ? content.ko : content.en;
+    return researchRoomUiCopy[locale].teams.committee;
+  return researchRoomUiCopy[locale].teams[item.researchTarget.departmentId];
 }
 
 function TeamIcon({ item }: { readonly item: ResearchRoomCatalogItem }) {
@@ -116,8 +112,8 @@ function TeamIcon({ item }: { readonly item: ResearchRoomCatalogItem }) {
   return <ShieldAlert size={14} aria-hidden="true" />;
 }
 
-function dateLabel(value: string, locale: Locale) {
-  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+function dateLabel(value: string, locale: AppLocale) {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -128,7 +124,7 @@ const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1_000;
 
 export function formatResearchRoomPublishedAt(
   value: string,
-  locale: Locale,
+  locale: AppLocale,
   now = Date.now(),
 ): string {
   const publishedAt = new Date(value).getTime();
@@ -139,12 +135,12 @@ export function formatResearchRoomPublishedAt(
     elapsed < DAY_IN_MILLISECONDS
   ) {
     const totalMinutes = Math.floor(elapsed / 60_000);
-    if (totalMinutes < 1) return copy[locale].landing.publishedTime.justNow;
+    if (totalMinutes < 1) return appCopy[locale].landing.publishedTime.justNow;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return hours > 0
-      ? copy[locale].landing.publishedTime.hoursMinutesAgo(hours, minutes)
-      : copy[locale].landing.publishedTime.minutesAgo(minutes);
+      ? appCopy[locale].landing.publishedTime.hoursMinutesAgo(hours, minutes)
+      : appCopy[locale].landing.publishedTime.minutesAgo(minutes);
   }
   return dateLabel(value, locale);
 }
@@ -157,6 +153,7 @@ export function ResearchRoomCatalog({
   initialTotal,
   locale,
 }: Props) {
+  const roomCopy = researchRoomUiCopy[locale];
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<Scope>("all");
@@ -175,6 +172,10 @@ export function ResearchRoomCatalog({
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const [languageNotice, setLanguageNotice] =
     useState<ResearchRoomCatalogItem | null>(null);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -279,22 +280,22 @@ export function ResearchRoomCatalog({
               <LibraryBig size={19} aria-hidden="true" />
               <div>
                 <span className="research-room-dashboard__eyebrow">
-                  {locale === "ko" ? "리서치 아카이브" : "Editorial archive"}
+                  {roomCopy.eyebrow}
                 </span>
-                <h1>{locale === "ko" ? "리서치룸" : "Research room"}</h1>
+                <h1>{roomCopy.title}</h1>
               </div>
             </div>
           </div>
           <div className="research-room-dashboard__actions">
             {access.authenticated ? null : (
               <HeaderAuthAction
-                label={copy[locale].nav.getStarted}
+                label={appCopy[locale].nav.getStarted}
                 locale={locale}
               />
             )}
             <Link href={`/?lang=${locale}#product`}>
               <Plus size={16} aria-hidden="true" />
-              {locale === "ko" ? "새 리서치" : "New research"}
+              {roomCopy.newResearch}
             </Link>
           </div>
         </header>
@@ -303,10 +304,10 @@ export function ResearchRoomCatalog({
           <aside className="research-room-company-index">
             <header>
               <Building2 size={16} aria-hidden="true" />
-              <strong>{locale === "ko" ? "기업" : "Companies"}</strong>
+              <strong>{roomCopy.companies}</strong>
               <span>{companies.length}</span>
             </header>
-            <nav aria-label={locale === "ko" ? "기업 필터" : "Company filter"}>
+            <nav aria-label={roomCopy.companyFilter}>
               <button
                 type="button"
                 className={company === "all" ? "is-active" : undefined}
@@ -314,11 +315,9 @@ export function ResearchRoomCatalog({
               >
                 <LayoutGrid size={17} aria-hidden="true" />
                 <span>
-                  <strong>
-                    {locale === "ko" ? "전체 기업" : "All companies"}
-                  </strong>
+                  <strong>{roomCopy.allCompanies}</strong>
                   <small>
-                    {total} {locale === "ko" ? "개" : "reports"}
+                    {total} {roomCopy.reports}
                   </small>
                 </span>
               </button>
@@ -333,7 +332,7 @@ export function ResearchRoomCatalog({
                   <span>
                     <strong>{item.symbol}</strong>
                     <small>
-                      {item.count} {locale === "ko" ? "개" : "reports"}
+                      {item.count} {roomCopy.reports}
                     </small>
                   </span>
                 </button>
@@ -344,7 +343,7 @@ export function ResearchRoomCatalog({
           <section className="research-room-catalog__workspace">
             <search
               className="research-room-catalog__controls"
-              aria-label={locale === "ko" ? "리서치 검색" : "Research filters"}
+              aria-label={roomCopy.researchFilters}
             >
               <label>
                 <Search size={17} aria-hidden="true" />
@@ -354,19 +353,13 @@ export function ResearchRoomCatalog({
                     setPage(1);
                     setQuery(event.target.value);
                   }}
-                  placeholder={
-                    locale === "ko"
-                      ? "티커 또는 투자 질문 검색"
-                      : "Search ticker or investment question"
-                  }
+                  placeholder={roomCopy.searchPlaceholder}
                 />
               </label>
               <div className="research-room-catalog__agent-filter">
                 <SlidersHorizontal size={15} aria-hidden="true" />
                 <label>
-                  <span className="sr-only">
-                    {locale === "ko" ? "에이전트 필터" : "Agent filter"}
-                  </span>
+                  <span className="sr-only">{roomCopy.agentFilter}</span>
                   <select
                     value={scope}
                     onChange={(event) =>
@@ -390,31 +383,22 @@ export function ResearchRoomCatalog({
                 ) : (
                   <CompanyLogo symbol={selectedCompany} />
                 )}
-                <strong>
-                  {selectedCompany ??
-                    (locale === "ko" ? "전체 리서치" : "All research")}
-                </strong>
+                <strong>{selectedCompany ?? roomCopy.allResearch}</strong>
               </div>
               <div className="research-room-catalog__result-actions">
                 <span>
-                  {total} {locale === "ko" ? "개 리포트" : "reports"}
+                  {total} {roomCopy.reports}
                 </span>
                 <label className="research-room-catalog__sort">
-                  <span className="sr-only">
-                    {locale === "ko" ? "정렬" : "Sort"}
-                  </span>
+                  <span className="sr-only">{roomCopy.sort}</span>
                   <select
                     value={sort}
                     onChange={(event) =>
                       resetPage(() => setSort(event.target.value as Sort))
                     }
                   >
-                    <option value="latest">
-                      {locale === "ko" ? "최신순" : "Latest"}
-                    </option>
-                    <option value="popular">
-                      {locale === "ko" ? "인기순" : "Popular"}
-                    </option>
+                    <option value="latest">{roomCopy.latest}</option>
+                    <option value="popular">{roomCopy.popular}</option>
                   </select>
                 </label>
               </div>
@@ -450,9 +434,7 @@ export function ResearchRoomCatalog({
                     </header>
                     <h2>
                       {report.question ||
-                        (locale === "ko"
-                          ? `${report.symbol} 핵심 투자 논지 검증`
-                          : `${report.symbol} investment thesis review`)}
+                        roomCopy.thesisFallback(report.symbol)}
                     </h2>
                     <footer>
                       <time dateTime={report.publishedAt}>
@@ -467,13 +449,11 @@ export function ResearchRoomCatalog({
                       </time>
                       {report.locked ? (
                         <span className="research-room-catalog__locked">
-                          {locale === "ko"
-                            ? "7일 후 공개"
-                            : "Opens after 7 days"}
+                          {roomCopy.opensAfterSevenDays}
                         </span>
                       ) : (
                         <span className="research-room-catalog__open">
-                          {locale === "ko" ? "열기" : "Open"}
+                          {roomCopy.open}
                           <ArrowUpRight size={14} aria-hidden="true" />
                         </span>
                       )}
@@ -486,11 +466,7 @@ export function ResearchRoomCatalog({
                     <button
                       type="button"
                       className="research-room-catalog__card"
-                      aria-label={
-                        locale === "ko"
-                          ? `${report.symbol} 최신 리서치 구독 안내`
-                          : `${report.symbol} subscriber access`
-                      }
+                      aria-label={roomCopy.subscriberAccess(report.symbol)}
                       onClick={() => setMembershipGateOpen(true)}
                     >
                       {card}
@@ -523,16 +499,14 @@ export function ResearchRoomCatalog({
               {reports.length === 0 ? (
                 <p className="research-room-catalog__empty">
                   <FileText size={22} aria-hidden="true" />
-                  {locale === "ko"
-                    ? "조건에 맞는 리서치가 없습니다."
-                    : "No research matches these filters."}
+                  {roomCopy.noMatches}
                 </p>
               ) : null}
             </section>
             {totalPages > 1 ? (
               <nav
                 className="research-room-catalog__pagination"
-                aria-label={locale === "ko" ? "페이지 이동" : "Pagination"}
+                aria-label={roomCopy.pagination}
               >
                 {usesDefaultArchiveView ? (
                   page === 1 ? (
@@ -546,9 +520,7 @@ export function ResearchRoomCatalog({
                     <Link
                       className="research-room-catalog__page-link"
                       href={researchRoomPageHref(page - 1, locale)}
-                      aria-label={
-                        locale === "ko" ? "이전 페이지" : "Previous page"
-                      }
+                      aria-label={roomCopy.previousPage}
                     >
                       <ChevronLeft size={16} aria-hidden="true" />
                     </Link>
@@ -558,9 +530,7 @@ export function ResearchRoomCatalog({
                     type="button"
                     disabled={page === 1 || loading}
                     onClick={() => setPage((value) => Math.max(1, value - 1))}
-                    aria-label={
-                      locale === "ko" ? "이전 페이지" : "Previous page"
-                    }
+                    aria-label={roomCopy.previousPage}
                   >
                     <ChevronLeft size={16} aria-hidden="true" />
                   </button>
@@ -580,7 +550,7 @@ export function ResearchRoomCatalog({
                     <Link
                       className="research-room-catalog__page-link"
                       href={researchRoomPageHref(page + 1, locale)}
-                      aria-label={locale === "ko" ? "다음 페이지" : "Next page"}
+                      aria-label={roomCopy.nextPage}
                     >
                       <ChevronRight size={16} aria-hidden="true" />
                     </Link>
@@ -592,7 +562,7 @@ export function ResearchRoomCatalog({
                     onClick={() =>
                       setPage((value) => Math.min(totalPages, value + 1))
                     }
-                    aria-label={locale === "ko" ? "다음 페이지" : "Next page"}
+                    aria-label={roomCopy.nextPage}
                   >
                     <ChevronRight size={16} aria-hidden="true" />
                   </button>
@@ -608,7 +578,7 @@ export function ResearchRoomCatalog({
         hidden={access.authenticated && !sidebarCollapsed}
       />
       <MembershipAccessModal
-        locale={locale}
+        locale={researchLocale(locale)}
         open={membershipGateOpen}
         reason="recent-report"
         onClose={() => setMembershipGateOpen(false)}
@@ -616,7 +586,7 @@ export function ResearchRoomCatalog({
       />
       <SidebarSubscriptionModal
         open={subscriptionOpen}
-        locale={locale}
+        locale={researchLocale(locale)}
         initialTier={access.authenticated ? access.tier : "free"}
         onClose={() => setSubscriptionOpen(false)}
       />
@@ -630,19 +600,13 @@ export function ResearchRoomCatalog({
             <Languages size={20} aria-hidden="true" />
             <div>
               <h2 id="research-room-language-notice-title">
-                {locale === "ko"
-                  ? "다른 언어를 사용하는 사용자가 만든 리서치입니다"
-                  : "This research was created by a user in another language"}
+                {roomCopy.languageNoticeTitle}
               </h2>
-              <p>
-                {locale === "ko"
-                  ? "원문으로 먼저 열람할 수 있으며, 리포트 안에서 1크레딧으로 전문 번역할 수 있습니다."
-                  : "You can open the original now and use professional translation inside the report for 1 credit."}
-              </p>
+              <p>{roomCopy.languageNoticeBody}</p>
             </div>
             <footer>
               <button type="button" onClick={() => setLanguageNotice(null)}>
-                {locale === "ko" ? "취소" : "Cancel"}
+                {roomCopy.cancel}
               </button>
               <button
                 type="button"
@@ -653,7 +617,7 @@ export function ResearchRoomCatalog({
                   )
                 }
               >
-                {locale === "ko" ? "원문으로 열기" : "Open original"}
+                {roomCopy.openOriginal}
               </button>
             </footer>
           </section>

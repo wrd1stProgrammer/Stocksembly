@@ -20,6 +20,7 @@ const pageState = vi.hoisted(() => ({
     tier: "free",
   } satisfies ResearchRoomAccess,
   researchRoomAccess: vi.fn(),
+  preferredLocale: vi.fn(),
   listResearchRoomReportPage: vi.fn(),
   storedLocale: undefined as string | undefined,
 }));
@@ -38,6 +39,7 @@ vi.mock("next/headers", () => ({
 vi.mock("@/src/research/server/api/liveResearchApi", () => ({
   getLiveResearchApi: async () => ({
     researchRoomAccess: pageState.researchRoomAccess,
+    preferredLocale: pageState.preferredLocale,
   }),
 }));
 
@@ -123,6 +125,7 @@ const paginatedReportPage = {
 beforeEach(() => {
   vi.clearAllMocks();
   pageState.storedLocale = undefined;
+  pageState.preferredLocale.mockResolvedValue({ authenticated: false });
   vi.stubGlobal(
     "fetch",
     vi.fn(() => new Promise<Response>(() => undefined)),
@@ -144,6 +147,26 @@ describe("research room archive page", () => {
     expect(pageState.listResearchRoomReportPage).toHaveBeenCalledWith(
       pageState.access,
       { limit: 32, locale: "ko", sort: "latest" },
+    );
+  });
+
+  it("keeps the freshly selected URL locale ahead of stale cookie and account values", async () => {
+    pageState.storedLocale = "en";
+    pageState.researchRoomAccess.mockResolvedValueOnce({
+      authenticated: true,
+      tier: "free",
+    });
+    pageState.preferredLocale.mockResolvedValueOnce({
+      authenticated: true,
+      locale: "ko",
+    });
+    pageState.listResearchRoomReportPage.mockResolvedValueOnce(reportPage);
+
+    await ResearchRoomPage({ searchParams: Promise.resolve({ lang: "ja" }) });
+
+    expect(pageState.listResearchRoomReportPage).toHaveBeenCalledWith(
+      { authenticated: true, tier: "free" },
+      { limit: 32, locale: "ja", sort: "latest" },
     );
   });
 

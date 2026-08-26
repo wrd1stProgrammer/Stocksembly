@@ -2,13 +2,19 @@ import { LockKeyhole } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { CreditShortageModal } from "@/src/components/billing/CreditShortageModal";
 import { MembershipAccessModal } from "@/src/components/billing/MembershipAccessModal";
 import { PublishedResearchWorkspace } from "@/src/components/researchRoom/PublishedResearchWorkspace";
-import type { Locale } from "@/src/lib/i18n";
-import { researchLocaleFromValue } from "@/src/lib/i18n";
+import { researchRoomUiCopy } from "@/src/components/researchRoom/researchRoomCopy";
+import {
+  type AppLocale,
+  appLocaleFromValue,
+  isLocale,
+  localeDetails,
+  researchLocale,
+} from "@/src/lib/i18n";
 import {
   boundedSeoDescription,
   brandedSeoTitle,
@@ -27,11 +33,14 @@ type Props = {
   readonly searchParams: Promise<{ readonly lang?: string }>;
 };
 
-async function researchRoomLocale(value: string | undefined): Promise<Locale> {
-  if (value !== undefined) return researchLocaleFromValue(value);
-  return researchLocaleFromValue(
-    (await cookies()).get("stocksembly_locale")?.value,
-  );
+async function researchRoomLocale(
+  value: string | undefined,
+  preferStored = false,
+): Promise<AppLocale> {
+  const stored = (await cookies()).get("stocksembly_locale")?.value;
+  if (preferStored && isLocale(stored)) return stored;
+  if (isLocale(value)) return value;
+  return appLocaleFromValue(stored);
 }
 
 async function pageRequest(reportId: string) {
@@ -60,6 +69,7 @@ export async function generateMetadata({
       robots: { index: false, follow: false },
     };
   const locale = await researchRoomLocale(query.lang);
+  const contentLocale = researchLocale(locale);
   const access = { authenticated: false, tier: "free" as const };
   const report = await loadResearchRoomReport(
     reportId,
@@ -71,11 +81,19 @@ export async function generateMetadata({
     return { title: "Research Room", robots: { index: false, follow: false } };
   const reportPath = `/research-room/${reportId}`;
   const localizedReportPath =
-    locale === "en" ? `${reportPath}?lang=en` : reportPath;
+    locale === "ko"
+      ? reportPath
+      : `${reportPath}?lang=${encodeURIComponent(locale)}`;
   const seoTitle = brandedSeoTitle(
-    researchReportSeoTitle(report.item.symbol, report.item.question, locale),
+    researchReportSeoTitle(
+      report.item.symbol,
+      report.item.question,
+      contentLocale,
+    ),
   );
-  const seoDescription = boundedSeoDescription(report.file.thesis[locale]);
+  const seoDescription = boundedSeoDescription(
+    report.file.thesis[contentLocale],
+  );
   return {
     title: { absolute: seoTitle },
     description: seoDescription,
@@ -91,8 +109,13 @@ export async function generateMetadata({
     openGraph: {
       title: seoTitle,
       description: seoDescription,
-      locale: locale === "ko" ? "ko_KR" : "en_US",
-      alternateLocale: locale === "ko" ? "en_US" : "ko_KR",
+      locale: localeDetails[locale].openGraph,
+      alternateLocale:
+        locale === "ko"
+          ? "en_US"
+          : locale === "en"
+            ? "ko_KR"
+            : ["en_US", "ko_KR"],
       url: localizedReportPath,
       type: "article",
       publishedTime: report.item.publishedAt,
@@ -106,10 +129,24 @@ export default async function ResearchRoomReportPage({
 }: Props) {
   const [{ reportId }, query] = await Promise.all([params, searchParams]);
   if (!z.string().uuid().safeParse(reportId).success) notFound();
-  const locale = await researchRoomLocale(query.lang);
   const api = await getLiveResearchApi();
   const request = await pageRequest(reportId);
-  const access = await api.researchRoomAccess(request);
+  const storedLocale = (await cookies()).get("stocksembly_locale")?.value;
+  const [access, preference] = await Promise.all([
+    api.researchRoomAccess(request),
+    api.preferredLocale(request),
+  ]);
+  const locale = isLocale(query.lang)
+    ? query.lang
+    : access.authenticated && isLocale(storedLocale)
+      ? storedLocale
+      : preference.authenticated && preference.locale !== undefined
+        ? preference.locale
+        : await researchRoomLocale(undefined, access.authenticated);
+  if (access.authenticated && query.lang !== locale)
+    redirect(`/research-room/${reportId}?lang=${encodeURIComponent(locale)}`);
+  const roomCopy = researchRoomUiCopy[locale];
+  const contentLocale = researchLocale(locale);
   const report = await loadResearchRoomReport(
     reportId,
     access,
@@ -120,26 +157,18 @@ export default async function ResearchRoomReportPage({
   if (report === "locked") {
     return (
       <main className="research-room-locked" lang={locale}>
-        <MembershipAccessModal locale={locale} open reason="recent-report" />
+        <MembershipAccessModal
+          locale={contentLocale}
+          open
+          reason="recent-report"
+        />
         <LockKeyhole size={34} />
         <span>MEMBER EDITION</span>
-        <h1>
-          {locale === "ko"
-            ? "최신 리서치는 유료 멤버에게 먼저 공개됩니다."
-            : "Latest research opens to paid members first."}
-        </h1>
-        <p>
-          {locale === "ko"
-            ? "무료 계정은 발행 7일 후 같은 리포트를 전체 열람할 수 있습니다."
-            : "Free accounts can read the full report seven days after publication."}
-        </p>
+        <h1>{roomCopy.lockedTitle}</h1>
+        <p>{roomCopy.lockedBody}</p>
         <div>
-          <Link href={`/research-room?lang=${locale}`}>
-            {locale === "ko"
-              ? "리서치룸으로 돌아가기"
-              : "Back to Research Room"}
-          </Link>
-          <Link href="/login">{locale === "ko" ? "로그인" : "Sign in"}</Link>
+          <Link href={`/research-room?lang=${locale}`}>{roomCopy.back}</Link>
+          <Link href={`/login?lang=${locale}`}>{roomCopy.signIn}</Link>
         </div>
       </main>
     );
@@ -149,25 +178,15 @@ export default async function ResearchRoomReportPage({
     return (
       <main className="research-room-locked" lang={locale}>
         <CreditShortageModal
-          locale={locale}
+          locale={contentLocale}
           open
           remaining={credit.remaining}
           required={credit.required}
         />
         <span>CREDIT LIMIT</span>
-        <h1>
-          {locale === "ko"
-            ? "크레딧이 부족해 리서치룸을 열 수 없습니다."
-            : "This Research Room needs more credits."}
-        </h1>
-        <p>
-          {locale === "ko"
-            ? "플랜을 확인하거나 다음 크레딧 지급을 기다려 주세요."
-            : "Review your plan or wait for the next credit grant."}
-        </p>
-        <Link href={`/research-room?lang=${locale}`}>
-          {locale === "ko" ? "리서치룸으로 돌아가기" : "Back to Research Room"}
-        </Link>
+        <h1>{roomCopy.creditTitle}</h1>
+        <p>{roomCopy.creditBody}</p>
+        <Link href={`/research-room?lang=${locale}`}>{roomCopy.back}</Link>
       </main>
     );
   }
@@ -175,7 +194,7 @@ export default async function ResearchRoomReportPage({
   const seoTitle = researchReportSeoTitle(
     report.item.symbol,
     report.item.question,
-    locale,
+    contentLocale,
   );
   const structuredData = {
     "@context": "https://schema.org",
@@ -184,12 +203,9 @@ export default async function ResearchRoomReportPage({
     datePublished: report.item.publishedAt,
     about: { "@type": "Corporation", tickerSymbol: report.item.symbol },
     publisher: { "@type": "Organization", name: "Stocksembly" },
-    description: report.file.thesis[locale],
+    description: report.file.thesis[contentLocale],
     inLanguage: report.item.locale,
-    url:
-      locale === "en"
-        ? `https://stocksembly.com/research-room/${reportId}?lang=en`
-        : `https://stocksembly.com/research-room/${reportId}`,
+    url: `https://stocksembly.com/research-room/${reportId}?lang=${encodeURIComponent(locale)}`,
   };
   return (
     <>
