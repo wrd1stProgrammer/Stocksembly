@@ -4,13 +4,13 @@ import type { ResearchLocale } from "../../application/createMandateContracts";
 import type { PublicRunDetail } from "../../client/schemas";
 import type { ResearchFileData } from "../../compositions/types";
 import {
-  type ResearchTranslationItem,
-  translateResearchText,
-} from "./researchTranslationRunner";
-import {
   RESEARCH_TRANSLATION_LOCALES,
   type ResearchTranslationLocale,
 } from "./researchTranslationLocales";
+import {
+  type ResearchTranslationItem,
+  translateResearchText,
+} from "./researchTranslationRunner";
 
 export type ResearchQuestionLocalizationInput = {
   readonly runId: string;
