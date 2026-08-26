@@ -460,6 +460,31 @@ const migrations = [
         );
     `,
   },
+  {
+    version: 14,
+    name: "014_research_translation_credits",
+    sql: `
+      ALTER TABLE usage_events
+        DROP CONSTRAINT usage_events_kind_check;
+
+      ALTER TABLE usage_events
+        ADD CONSTRAINT usage_events_kind_check CHECK (
+          kind IN (
+            'research_run_created',
+            'consultation_answered',
+            'full_research',
+            'department_research',
+            'chat_bundle',
+            'research_room',
+            'research_translation'
+          )
+        );
+
+      CREATE INDEX usage_events_research_translation_report_idx
+        ON usage_events(principal_id, report_id)
+        WHERE kind = 'research_translation';
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

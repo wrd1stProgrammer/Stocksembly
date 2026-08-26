@@ -35,6 +35,7 @@ export type BillingCreditActivityCode =
   | "department_research"
   | "chat_bundle"
   | "research_room"
+  | "research_translation"
   | "research_run"
   | "consultation";
 

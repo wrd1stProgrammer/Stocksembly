@@ -75,22 +75,39 @@ export function publicTextIsValid(
   text: PublicText,
   sentences: readonly SourceText[],
   maxLength: number,
+  expectedLocale?: "en" | "ko",
 ): boolean {
-  const normalizedEn = normalizeEditorialText(text.en).replace(/\s/gu, "");
-  const normalizedKo = normalizeEditorialText(text.ko).replace(/\s/gu, "");
-  if (normalizedEn === normalizedKo) return false;
+  const singleLocale = text.en.trim() === text.ko.trim();
+  const english = sentences.map((sentence) => sentence.text.en);
+  const korean = sentences.map((sentence) => sentence.text.ko);
+  const bilingualNumbers = [...english, ...korean];
+  if (singleLocale) {
+    if (expectedLocale === undefined) return false;
+    if (
+      (expectedLocale === "en" &&
+        (!/\p{Script=Latin}/u.test(text.en) ||
+          /\p{Script=Hangul}/u.test(text.en))) ||
+      (expectedLocale === "ko" && !/\p{Script=Hangul}/u.test(text.ko))
+    )
+      return false;
+    const source = [...english, ...korean];
+    return (
+      text.en.length <= maxLength &&
+      !/\b(?:buy|sell)\s+now\b/iu.test(text.en) &&
+      !/(?:지금|즉시)\s*(?:매수|매도)/u.test(text.en) &&
+      sharesGroundingLanguage(text.en, source) &&
+      hasOnlyGroundedNumbers(text.en, bilingualNumbers)
+    );
+  }
   if (!/\p{Script=Latin}/u.test(text.en) || !/\p{Script=Hangul}/u.test(text.ko))
     return false;
   if (text.en.length > maxLength || text.ko.length > maxLength) return false;
   if (/\b(?:buy|sell)\s+now\b/iu.test(text.en)) return false;
   if (/(?:지금|즉시)\s*(?:매수|매도)/u.test(text.ko)) return false;
-  const english = sentences.map((sentence) => sentence.text.en);
-  const korean = sentences.map((sentence) => sentence.text.ko);
   // The authenticated bilingual source can express the same monetary value
   // with different units (for example $215.9B vs US$2159억). A translated
   // summary may preserve either representation, so numeric grounding uses the
   // union while language grounding remains locale-specific.
-  const bilingualNumbers = [...english, ...korean];
   return (
     sharesGroundingLanguage(text.en, english) &&
     sharesGroundingLanguage(text.ko, korean) &&

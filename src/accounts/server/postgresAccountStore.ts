@@ -517,6 +517,8 @@ function activityCode(
       return "chat_bundle";
     case "research_room":
       return "research_room";
+    case "research_translation":
+      return "research_translation";
     case "consultation_answered":
       return "consultation";
     default:
@@ -1135,6 +1137,82 @@ export class PostgresAccountStore implements AccountStore {
       await client.query("ROLLBACK");
       throw new AccountStoreUnavailableError(
         "ACCOUNT_RESEARCH_ROOM_CREDIT_FAILED",
+        { cause: error },
+      );
+    } finally {
+      client.release();
+    }
+  }
+
+  async consumeResearchTranslationCredit(
+    principalId: string,
+    eventKey: string,
+    reportId: string,
+    targetLocale: Locale,
+  ): Promise<CreditAvailability> {
+    const now = new Date();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `SELECT principal_id FROM entitlements
+         WHERE principal_id = $1 FOR UPDATE`,
+        [principalId],
+      );
+      const context = await creditPeriodContext(client, principalId, now);
+      await ensureCreditGrant(client, principalId, context, now);
+      const used = await usedCredits(client, principalId, context);
+      const granted = await grantedCredits(client, principalId, context);
+      const reserved = await reservedResearchCredits(
+        client,
+        principalId,
+        context,
+        now,
+      );
+      const remaining = Math.max(0, granted - used - reserved);
+      const required = CREDIT_COSTS.researchTranslation;
+      const existing = await client.query(
+        `SELECT 1 FROM usage_events
+         WHERE principal_id = $1
+           AND kind = 'research_translation'
+           AND report_id = $2
+           AND metadata->>'targetLocale' = $3
+         LIMIT 1`,
+        [principalId, reportId, targetLocale],
+      );
+      if (existing.rows.length > 0) {
+        await client.query("COMMIT");
+        return availability(remaining, 0);
+      }
+      if (remaining < required) {
+        await client.query("COMMIT");
+        return availability(remaining, required);
+      }
+      const inserted = await client.query(
+        `INSERT INTO usage_events(
+          event_key, principal_id, kind, report_id, quantity,
+          occurred_at, metadata
+        ) VALUES ($1, $2, 'research_translation', $3, $4, $5, $6::jsonb)
+        ON CONFLICT (event_key) DO NOTHING
+        RETURNING event_key`,
+        [
+          eventKey,
+          principalId,
+          reportId,
+          required,
+          now.toISOString(),
+          JSON.stringify({ reportId, targetLocale }),
+        ],
+      );
+      await client.query("COMMIT");
+      return availability(
+        inserted.rows.length === 0 ? remaining : remaining - required,
+        inserted.rows.length === 0 ? 0 : required,
+      );
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_RESEARCH_TRANSLATION_CREDIT_FAILED",
         { cause: error },
       );
     } finally {

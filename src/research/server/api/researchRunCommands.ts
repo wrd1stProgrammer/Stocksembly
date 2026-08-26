@@ -284,6 +284,12 @@ export function insertChild(
       parent.research_profile_json,
     );
   database
+    .prepare(`INSERT INTO research_question_localizations(
+      run_id, locale, question, created_at
+    ) VALUES (?, ?, ?, ?)
+    ON CONFLICT(run_id, locale) DO NOTHING`)
+    .run(context.ids.runId, parent.locale, input.question, context.now);
+  database
     .prepare(`INSERT INTO run_lineage(child_run_id, parent_run_id, kind,
       effective_snapshot_id, prior_report_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
     .run(

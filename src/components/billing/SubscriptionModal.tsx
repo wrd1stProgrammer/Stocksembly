@@ -303,6 +303,8 @@ function creditActivityLabel(
         return "채팅 100회 사용";
       case "research_room":
         return "리서치룸 열람";
+      case "research_translation":
+        return "리서치 전문 번역";
       case "research_run":
         return "리서치";
       case "consultation":
@@ -326,6 +328,8 @@ function creditActivityLabel(
       return "100 chat messages";
     case "research_room":
       return "Research Room view";
+    case "research_translation":
+      return "Professional research translation";
     case "research_run":
       return "Research run";
     case "consultation":

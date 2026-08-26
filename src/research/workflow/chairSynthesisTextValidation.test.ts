@@ -76,4 +76,32 @@ describe("chair synthesis public text", () => {
       ),
     ).toBe(true);
   });
+
+  it("accepts an exact English mirror when English was requested", () => {
+    expect(
+      publicTextIsValid(
+        {
+          en: "FY2026 operating margin reached 46.8 alongside revenue growth.",
+          ko: "FY2026 operating margin reached 46.8 alongside revenue growth.",
+        },
+        sources,
+        360,
+        "en",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a Korean mirror when English was requested", () => {
+    expect(
+      publicTextIsValid(
+        {
+          en: "FY2026 영업이익률은 46.8에 도달했다.",
+          ko: "FY2026 영업이익률은 46.8에 도달했다.",
+        },
+        sources,
+        360,
+        "en",
+      ),
+    ).toBe(false);
+  });
 });

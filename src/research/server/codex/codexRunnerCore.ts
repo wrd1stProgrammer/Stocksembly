@@ -2,6 +2,9 @@
 import { dirname, join } from "node:path";
 import type { z } from "zod";
 import {
+  effectiveCodexPrompt,
+  hydrateLocalizedCandidate,
+  modelOutputLocale,
   schemaDocument,
   sha256Value,
   writeExclusiveJson,
@@ -138,8 +141,10 @@ export async function runCodexWithPlatform<Candidate>(
   reservations: LaunchReservationReader,
 ): Promise<CodexRunResult<Candidate>> {
   await runnerPhase("input_validation", () => validateRunInput(input));
+  const outputLocale = modelOutputLocale(input.prompt);
+  const effectivePrompt = effectiveCodexPrompt(input.prompt, outputLocale);
   const schema = await runnerPhase("input_validation", () =>
-    schemaDocument(input.outputSchema),
+    schemaDocument(input.outputSchema, outputLocale),
   );
   const inputHash = await runnerPhase("input_validation", () =>
     codexInputHash(input),
@@ -285,7 +290,7 @@ export async function runCodexWithPlatform<Candidate>(
       argv,
       cwd: input.attemptDir,
       environment,
-      stdin: input.prompt,
+      stdin: effectivePrompt,
       timeoutMs: CODEX_RUNTIME_POLICY.timeoutMs,
       inactivityTimeoutMs: CODEX_RUNTIME_POLICY.inactivityTimeoutMs,
       killGraceMs: CODEX_RUNTIME_POLICY.killGraceMs,
@@ -342,7 +347,11 @@ export async function runCodexWithPlatform<Candidate>(
     } catch {
       throw new CodexRunnerError("output_invalid");
     }
-    const parsedCandidate = input.outputSchema.safeParse(untrustedCandidate);
+    const parsedCandidate = input.outputSchema.safeParse(
+      outputLocale === undefined
+        ? untrustedCandidate
+        : hydrateLocalizedCandidate(untrustedCandidate, outputLocale),
+    );
     if (!parsedCandidate.success) throw new CodexRunnerError("output_invalid");
     await writeExclusiveJson(
       input.attemptDir,

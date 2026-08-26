@@ -13,6 +13,10 @@ import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/p
 import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { createQuestionAnswerHandler } from "../server/qa/questionAnswerHandler";
 import { QuestionAnswerSqliteAuthority } from "../server/qa/questionAnswerSqliteAuthority";
+import {
+  backfillPublishedResearchQuestionLocalizations,
+  ensurePublishedResearchQuestionLocalizations,
+} from "../server/researchRoom/researchRoomLocalizations";
 import type { AttemptHandler } from "../worker/leaseEngine";
 import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
 import type { SqliteChairSynthesisOptions } from "../workflow/chairSynthesisContracts";
@@ -274,11 +278,18 @@ export async function createOfficialAttemptHandler(
       return { kind: "permanent", code: "unsupported_workflow_stage" };
     },
     afterCommit: async (attempt, outcome) => {
-      if (outcome.kind === "accepted") await coordinator.advance(attempt.runId);
+      if (outcome.kind === "accepted") {
+        await coordinator.advance(attempt.runId);
+        await ensurePublishedResearchQuestionLocalizations(
+          options.databasePath,
+          attempt.runId,
+        );
+      }
     },
     reconcile: async () => await coordinator.resumeActiveRuns(),
   };
   await coordinator.resumeActiveRuns();
+  await backfillPublishedResearchQuestionLocalizations(options.databasePath);
   return {
     handler,
     close: async () => {

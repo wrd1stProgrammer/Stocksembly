@@ -9,6 +9,7 @@ import {
   Clock3,
   FileText,
   Landmark,
+  Languages,
   LayoutGrid,
   LibraryBig,
   LockKeyhole,
@@ -172,6 +173,8 @@ export function ResearchRoomCatalog({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
+  const [languageNotice, setLanguageNotice] =
+    useState<ResearchRoomCatalogItem | null>(null);
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -197,6 +200,7 @@ export function ResearchRoomCatalog({
           page: String(page),
           scope,
           sort,
+          lang: locale,
         });
         if (query.trim().length > 0) params.set("q", query.trim());
         if (company !== "all") params.set("company", company);
@@ -231,7 +235,7 @@ export function ResearchRoomCatalog({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [company, page, query, scope, sort]);
+  }, [company, locale, page, query, scope, sort]);
 
   const selectedCompany = company === "all" ? undefined : company;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -476,6 +480,7 @@ export function ResearchRoomCatalog({
                     </footer>
                   </article>
                 );
+                const differentLanguage = report.locale !== locale;
                 return report.locked ? (
                   <ResearchRoomCardFrame key={report.reportId}>
                     <button
@@ -487,6 +492,17 @@ export function ResearchRoomCatalog({
                           : `${report.symbol} subscriber access`
                       }
                       onClick={() => setMembershipGateOpen(true)}
+                    >
+                      {card}
+                    </button>
+                  </ResearchRoomCardFrame>
+                ) : differentLanguage ? (
+                  <ResearchRoomCardFrame key={report.reportId}>
+                    <button
+                      type="button"
+                      className="research-room-catalog__card"
+                      aria-label={`${report.symbol} ${report.question}`}
+                      onClick={() => setLanguageNotice(report)}
                     >
                       {card}
                     </button>
@@ -604,6 +620,45 @@ export function ResearchRoomCatalog({
         initialTier={access.authenticated ? access.tier : "free"}
         onClose={() => setSubscriptionOpen(false)}
       />
+      {languageNotice === null ? null : (
+        <div className="research-room-language-notice" role="presentation">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="research-room-language-notice-title"
+          >
+            <Languages size={20} aria-hidden="true" />
+            <div>
+              <h2 id="research-room-language-notice-title">
+                {locale === "ko"
+                  ? "다른 언어를 사용하는 사용자가 만든 리서치입니다"
+                  : "This research was created by a user in another language"}
+              </h2>
+              <p>
+                {locale === "ko"
+                  ? "원문으로 먼저 열람할 수 있으며, 리포트 안에서 1크레딧으로 전문 번역할 수 있습니다."
+                  : "You can open the original now and use professional translation inside the report for 1 credit."}
+              </p>
+            </div>
+            <footer>
+              <button type="button" onClick={() => setLanguageNotice(null)}>
+                {locale === "ko" ? "취소" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                className="is-primary"
+                onClick={() =>
+                  router.push(
+                    `/research-room/${languageNotice.reportId}?lang=${locale}`,
+                  )
+                }
+              >
+                {locale === "ko" ? "원문으로 열기" : "Open original"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
