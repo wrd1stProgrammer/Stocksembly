@@ -1,4 +1,4 @@
-import type { ResearchLocale } from "../lib/i18n";
+import type { ResearchLocale } from "./application/createMandateContracts";
 import type { ResearchEventWithMode } from "./compositionMode";
 import type { OfficeBeatId, OfficePublicEventKind } from "./officeChoreography";
 import type { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
