@@ -26,6 +26,10 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  applyLocalePreference,
+  persistAccountLocale,
+} from "../auth/localePreference";
 import { createAuthenticatedResearchClient } from "../auth/researchClient";
 import { clearResearchSession } from "../auth/researchSession";
 import {
@@ -62,7 +66,8 @@ type SignedInSidebarProps = {
 
 export const SIGNED_IN_SIDEBAR_STORAGE_KEY =
   "stocksembly:signed-in-sidebar-collapsed";
-export const PREFERRED_LOCALE_STORAGE_KEY = "stocksembly:preferred-locale";
+export { PREFERRED_LOCALE_STORAGE_KEY } from "../auth/localePreference";
+
 const BRIEFINGS_READ_EVENT = "stocksembly:briefings-read";
 
 type LoadState = "loading" | "ready" | "failed";
@@ -239,21 +244,10 @@ export function SignedInSidebar({
 
   async function handleLocaleSelection(nextLocale: AppLocale) {
     setLanguageOpen(false);
+    applyLocalePreference(nextLocale, { updateUrl: true });
+    const persistence = persistAccountLocale(nextLocale);
     onLocaleChange(nextLocale);
-    window.localStorage.setItem(PREFERRED_LOCALE_STORAGE_KEY, nextLocale);
-    document.cookie = `stocksembly_locale=${encodeURIComponent(nextLocale)}; Path=/; Max-Age=31536000; SameSite=Lax`;
-
-    const url = new URL(window.location.href);
-    url.searchParams.set("lang", nextLocale);
-    window.history.replaceState(window.history.state, "", url);
-
-    await fetch("/api/account/preferences", {
-      method: "PUT",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ locale: nextLocale }),
-    }).catch(() => undefined);
+    await persistence;
   }
 
   function handleCollapsedChange(next: boolean) {

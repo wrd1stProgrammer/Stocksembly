@@ -2,8 +2,13 @@
 
 import { getCurrentUser } from "aws-amplify/auth";
 import { ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { configureAmplifyAuth } from "./auth/amplifyClient";
+import {
+  applyLocalePreference,
+  PREFERRED_LOCALE_STORAGE_KEY,
+  persistAccountLocale,
+} from "./auth/localePreference";
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
 import { CreditGrantModal } from "./components/billing/CreditGrantModal";
 import { SubscriptionModal } from "./components/billing/SubscriptionModal";
@@ -15,7 +20,6 @@ import { PrismRevealText } from "./components/PrismRevealText";
 import { LandingResearchRoomPreview } from "./components/researchRoom/LandingResearchRoomPreview";
 import { SearchConsole } from "./components/SearchConsole";
 import {
-  PREFERRED_LOCALE_STORAGE_KEY,
   SIGNED_IN_SIDEBAR_STORAGE_KEY,
   SignedInSidebar,
 } from "./components/SignedInSidebar";
@@ -77,6 +81,7 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
     useState<WhopBillingStatus["creditNotice"]>();
   const [creditGrantModalOpen, setCreditGrantModalOpen] = useState(false);
   const [creditNoticeOwnerKey, setCreditNoticeOwnerKey] = useState("anonymous");
+  const localeSelectionRevision = useRef(0);
   const content = copy[locale];
 
   const applyBillingStatus = useCallback(
@@ -136,14 +141,19 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
     applyBillingStatus(status);
   }, [applyBillingStatus, signedIn]);
 
-  const changeLocale = useCallback((nextLocale: AppLocale) => {
+  const applyLocale = useCallback((nextLocale: AppLocale) => {
     setLocale(nextLocale);
-    window.localStorage.setItem(PREFERRED_LOCALE_STORAGE_KEY, nextLocale);
-    document.cookie = `stocksembly_locale=${encodeURIComponent(nextLocale)}; Path=/; Max-Age=31536000; SameSite=Lax`;
-    const url = new URL(window.location.href);
-    url.searchParams.set("lang", nextLocale);
-    window.history.replaceState(window.history.state, "", url);
+    applyLocalePreference(nextLocale, { updateUrl: true });
   }, []);
+
+  const selectLocale = useCallback(
+    (nextLocale: AppLocale) => {
+      localeSelectionRevision.current += 1;
+      applyLocale(nextLocale);
+      void persistAccountLocale(nextLocale);
+    },
+    [applyLocale],
+  );
 
   const openSubscriptionModal = useCallback(() => {
     setSubscriptionModalOpen(true);
@@ -165,12 +175,12 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
       .map(localeFromLanguageTag)
       .find((value): value is AppLocale => value !== undefined);
     const serverLocale = document.documentElement.dataset["locale"];
-    const resolvedLocale = isLocale(pathLocale)
-      ? pathLocale
-      : isLocale(queryLocale)
-        ? queryLocale
-        : isLocale(storedLocale)
-          ? storedLocale
+    const resolvedLocale = isLocale(storedLocale)
+      ? storedLocale
+      : isLocale(pathLocale)
+        ? pathLocale
+        : isLocale(queryLocale)
+          ? queryLocale
           : (detectedLocale ??
             (isLocale(serverLocale) ? serverLocale : undefined) ??
             localeFromCountry(country) ??
@@ -188,6 +198,7 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
   useEffect(() => {
     if (!signedIn) return;
     let active = true;
+    const requestRevision = localeSelectionRevision.current;
     void syncResearchSession()
       .catch(() => undefined)
       .then(async () => {
@@ -199,15 +210,19 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
         const payload = (await response.json()) as {
           readonly locale?: unknown;
         };
-        if (active && isLocale(payload.locale)) {
-          changeLocale(payload.locale);
+        if (
+          active &&
+          localeSelectionRevision.current === requestRevision &&
+          isLocale(payload.locale)
+        ) {
+          applyLocale(payload.locale);
         }
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [changeLocale, signedIn]);
+  }, [applyLocale, signedIn]);
 
   useEffect(() => {
     if (!signedIn) {
@@ -356,7 +371,10 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
           locale={locale}
           collapsed={sidebarCollapsed}
           onCollapsedChange={setSidebarCollapsed}
-          onLocaleChange={changeLocale}
+          onLocaleChange={(nextLocale) => {
+            localeSelectionRevision.current += 1;
+            applyLocale(nextLocale);
+          }}
           onSignedOut={() => {
             setSidebarCollapsed(false);
             setSignedIn(false);
@@ -366,7 +384,7 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
         />
       ) : null}
       {signedIn ? null : (
-        <Header locale={locale} onLocaleChange={changeLocale} />
+        <Header locale={locale} onLocaleChange={selectLocale} />
       )}
       <main>
         <section className="hero" id="product">
