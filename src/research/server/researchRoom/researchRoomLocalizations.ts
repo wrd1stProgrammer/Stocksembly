@@ -1,15 +1,20 @@
 import Database from "better-sqlite3";
 import { z } from "zod";
+import type { ResearchLocale } from "../../application/createMandateContracts";
+import type { PublicRunDetail } from "../../client/schemas";
 import type { ResearchFileData } from "../../compositions/types";
 import {
   type ResearchTranslationItem,
-  type ResearchTranslationLocale,
   translateResearchText,
 } from "./researchTranslationRunner";
+import {
+  RESEARCH_TRANSLATION_LOCALES,
+  type ResearchTranslationLocale,
+} from "./researchTranslationLocales";
 
 export type ResearchQuestionLocalizationInput = {
   readonly runId: string;
-  readonly locale: ResearchTranslationLocale;
+  readonly locale: ResearchLocale;
   readonly question: string;
 };
 
@@ -119,11 +124,7 @@ export async function ensurePublishedResearchQuestionLocalizations(
   runId: string,
 ): Promise<void> {
   const database = openDatabase(databasePath, true);
-  let input:
-    | (ResearchQuestionLocalizationInput & {
-        readonly targetLocale: ResearchTranslationLocale;
-      })
-    | undefined;
+  let input: ResearchQuestionLocalizationInput | undefined;
   try {
     const row = database
       .prepare(`SELECT research_requests.run_id, research_requests.locale,
@@ -149,16 +150,18 @@ export async function ensurePublishedResearchQuestionLocalizations(
         runId: row.run_id,
         locale: row.locale,
         question: row.question,
-        targetLocale: row.locale === "en" ? "ko" : "en",
       };
     }
   } finally {
     database.close();
   }
   if (input === undefined) return;
-  await localizedResearchQuestions(databasePath, [input], input.targetLocale, {
-    translateMissing: true,
-  });
+  for (const targetLocale of RESEARCH_TRANSLATION_LOCALES) {
+    if (targetLocale === input.locale) continue;
+    await localizedResearchQuestions(databasePath, [input], targetLocale, {
+      translateMissing: true,
+    });
+  }
 }
 
 export async function backfillPublishedResearchQuestionLocalizations(
@@ -177,17 +180,20 @@ export async function backfillPublishedResearchQuestionLocalizations(
           AND NOT EXISTS (
             SELECT 1 FROM research_question_localizations
             WHERE research_question_localizations.run_id = research_requests.run_id
-              AND research_question_localizations.locale =
-                CASE research_requests.locale WHEN 'en' THEN 'ko' ELSE 'en' END
+            GROUP BY research_question_localizations.run_id
+            HAVING COUNT(DISTINCT research_question_localizations.locale) >= ?
           )
-        ORDER BY reports.published_at DESC
+        ORDER BY research_requests.created_at DESC
         LIMIT ?`)
-      .all(Math.max(1, Math.min(256, Math.trunc(limit))))
+      .all(
+        RESEARCH_TRANSLATION_LOCALES.length,
+        Math.max(1, Math.min(256, Math.trunc(limit))),
+      )
       .map((value) => PublishedQuestionRowSchema.parse(value));
   } finally {
     database.close();
   }
-  for (const targetLocale of ["en", "ko"] as const) {
+  for (const targetLocale of RESEARCH_TRANSLATION_LOCALES) {
     const inputs = rows
       .filter((row) => row.locale !== targetLocale)
       .map(
@@ -209,7 +215,7 @@ type MutableRecord = Record<string, unknown>;
 
 function isLocalizedText(
   value: unknown,
-): value is Record<ResearchTranslationLocale, string> {
+): value is Record<ResearchLocale, string> {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     return false;
   const record = value as MutableRecord;
@@ -226,7 +232,7 @@ function excludedTranslationPath(path: readonly string[]): boolean {
 
 function collectLocalizedText(
   value: unknown,
-  sourceLocale: ResearchTranslationLocale,
+  sourceLocale: ResearchLocale,
   path: readonly string[] = [],
   output = new Map<string, string>(),
 ): ReadonlyMap<string, string> {
@@ -255,70 +261,199 @@ function collectLocalizedText(
 
 function applyTranslations(
   value: unknown,
-  targetLocale: ResearchTranslationLocale,
+  renderLocale: ResearchLocale,
   translated: ReadonlyMap<string, string>,
   path: readonly string[] = [],
 ): void {
   if (excludedTranslationPath(path)) return;
   if (isLocalizedText(value)) {
     const text = translated.get(JSON.stringify(path));
-    if (text !== undefined) value[targetLocale] = text;
+    if (text !== undefined) value[renderLocale] = text;
     return;
   }
   if (Array.isArray(value)) {
     value.forEach((entry, index) => {
-      applyTranslations(entry, targetLocale, translated, [
+      applyTranslations(entry, renderLocale, translated, [
         ...path,
         String(index),
       ]);
     });
   } else if (typeof value === "object" && value !== null) {
     Object.entries(value).forEach(([key, entry]) => {
-      applyTranslations(entry, targetLocale, translated, [...path, key]);
+      applyTranslations(entry, renderLocale, translated, [...path, key]);
     });
   }
 }
 
-export async function translatedResearchFile(
+export type TranslatedResearchProjection = {
+  readonly file: ResearchFileData;
+  readonly question: string;
+  readonly runDetail: PublicRunDetail;
+  readonly conversation: readonly ResearchTranslationConversation[];
+  readonly renderLocale: ResearchLocale;
+};
+
+export type ResearchTranslationConversation = {
+  readonly question: string;
+  readonly answer: string;
+  readonly agentId: string;
+  readonly createdAt: string;
+};
+
+type TranslationCacheEnvelope = {
+  readonly schemaVersion: 1;
+  readonly file: ResearchFileData;
+  readonly runDetail: PublicRunDetail;
+  readonly conversation: readonly ResearchTranslationConversation[];
+};
+
+function translationCacheEnvelope(
+  value: unknown,
+): TranslationCacheEnvelope | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const record = value as MutableRecord;
+  if (
+    record["schemaVersion"] !== 1 ||
+    typeof record["file"] !== "object" ||
+    record["file"] === null ||
+    typeof record["runDetail"] !== "object" ||
+    record["runDetail"] === null ||
+    !Array.isArray(record["conversation"])
+  )
+    return undefined;
+  return value as TranslationCacheEnvelope;
+}
+
+function translatedRenderLocale(
+  targetLocale: ResearchTranslationLocale,
+): ResearchLocale {
+  return targetLocale === "ko" ? "ko" : "en";
+}
+
+export async function translatedResearchProjection(
   databasePath: string,
   reportId: string,
+  runId: string,
   file: ResearchFileData,
-  sourceLocale: ResearchTranslationLocale,
+  question: string,
+  runDetail: PublicRunDetail,
+  conversation: readonly ResearchTranslationConversation[],
+  sourceLocale: ResearchLocale,
   targetLocale: ResearchTranslationLocale,
-): Promise<ResearchFileData> {
-  if (sourceLocale === targetLocale) return file;
+): Promise<TranslatedResearchProjection> {
+  const renderLocale = translatedRenderLocale(targetLocale);
+  if (sourceLocale === targetLocale)
+    return {
+      file,
+      question,
+      runDetail,
+      conversation,
+      renderLocale: sourceLocale,
+    };
   const cachedDatabase = openDatabase(databasePath, true);
+  let cachedFile: ResearchFileData | undefined;
+  let cachedEnvelope: TranslationCacheEnvelope | undefined;
+  let cachedQuestion: string | undefined;
   try {
-    const row = cachedDatabase
+    const fileRow = cachedDatabase
       .prepare(`SELECT file_json FROM research_report_translations
         WHERE report_id = ? AND locale = ?`)
       .get(reportId, targetLocale) as
       | { readonly file_json?: unknown }
       | undefined;
-    if (typeof row?.file_json === "string")
-      return JSON.parse(row.file_json) as ResearchFileData;
+    if (typeof fileRow?.file_json === "string") {
+      const parsed: unknown = JSON.parse(fileRow.file_json);
+      cachedEnvelope = translationCacheEnvelope(parsed);
+      cachedFile = cachedEnvelope?.file ?? (parsed as ResearchFileData);
+    }
+    const questionRow = cachedDatabase
+      .prepare(`SELECT question FROM research_question_localizations
+        WHERE run_id = ? AND locale = ?`)
+      .get(runId, targetLocale) as { readonly question?: unknown } | undefined;
+    if (typeof questionRow?.question === "string")
+      cachedQuestion = questionRow.question;
   } finally {
     cachedDatabase.close();
   }
 
-  const source = collectLocalizedText(file, sourceLocale);
+  if (cachedEnvelope !== undefined && cachedQuestion !== undefined)
+    return {
+      file: cachedEnvelope.file,
+      question: cachedQuestion,
+      runDetail: cachedEnvelope.runDetail,
+      conversation: cachedEnvelope.conversation,
+      renderLocale,
+    };
+
+  const source =
+    cachedFile === undefined
+      ? new Map(collectLocalizedText(file, sourceLocale))
+      : new Map<string, string>();
+  collectLocalizedText(runDetail, sourceLocale, ["__runDetail__"], source);
+  conversation.forEach((exchange, index) => {
+    if (exchange.question.trim().length > 0)
+      source.set(`__conversation__:${index}:question`, exchange.question);
+    if (exchange.answer.trim().length > 0)
+      source.set(`__conversation__:${index}:answer`, exchange.answer);
+  });
+  if (cachedQuestion === undefined) source.set("__question__", question.trim());
   const items: ResearchTranslationItem[] = [...source.entries()].map(
     ([id, text]) => ({ id, text }),
   );
   const translated = await translateResearchText(items, targetLocale);
-  const output = structuredClone(file) as ResearchFileData;
-  applyTranslations(output, targetLocale, translated);
+  const output = cachedFile ?? (structuredClone(file) as ResearchFileData);
+  if (cachedFile === undefined)
+    applyTranslations(output, renderLocale, translated);
+  const translatedRunDetail = structuredClone(runDetail) as PublicRunDetail;
+  applyTranslations(translatedRunDetail, renderLocale, translated, [
+    "__runDetail__",
+  ]);
+  const translatedConversation = conversation.map((exchange, index) => ({
+    ...exchange,
+    question:
+      translated.get(`__conversation__:${index}:question`) ?? exchange.question,
+    answer:
+      translated.get(`__conversation__:${index}:answer`) ?? exchange.answer,
+  }));
+  const translatedQuestion =
+    cachedQuestion ?? translated.get("__question__")?.trim();
+  if (translatedQuestion === undefined || translatedQuestion.length === 0)
+    throw new TypeError("research_question_translation_incomplete");
   const database = openDatabase(databasePath);
   try {
-    database
-      .prepare(`INSERT INTO research_report_translations(
-        report_id, locale, file_json, created_at
-      ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-      ON CONFLICT(report_id, locale) DO UPDATE SET
-        file_json = excluded.file_json, created_at = excluded.created_at`)
-      .run(reportId, targetLocale, JSON.stringify(output));
+    const saveFile = database.prepare(`INSERT INTO research_report_translations(
+      report_id, locale, file_json, created_at
+    ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(report_id, locale) DO UPDATE SET
+      file_json = excluded.file_json, created_at = excluded.created_at`);
+    const saveQuestion =
+      database.prepare(`INSERT INTO research_question_localizations(
+      run_id, locale, question, created_at
+    ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(run_id, locale) DO UPDATE SET
+      question = excluded.question, created_at = excluded.created_at`);
+    database.transaction(() => {
+      saveFile.run(
+        reportId,
+        targetLocale,
+        JSON.stringify({
+          schemaVersion: 1,
+          file: output,
+          runDetail: translatedRunDetail,
+          conversation: translatedConversation,
+        } satisfies TranslationCacheEnvelope),
+      );
+      if (cachedQuestion === undefined)
+        saveQuestion.run(runId, targetLocale, translatedQuestion);
+    })();
   } finally {
     database.close();
   }
-  return output;
+  return {
+    file: output,
+    question: translatedQuestion,
+    runDetail: translatedRunDetail,
+    conversation: translatedConversation,
+    renderLocale,
+  };
 }

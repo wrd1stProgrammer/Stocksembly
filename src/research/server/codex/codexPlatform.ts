@@ -66,13 +66,18 @@ export function productionCodexPlatform(): CodexRunnerPlatform {
   if (process.platform !== "darwin" && process.platform !== "linux")
     throw new CodexRunnerError("policy_violation");
   const direct = process.platform === "linux";
+  const pins = direct ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS;
   const linuxOriginDirectory = dirname(LINUX_CODEX_RUNTIME_PINS.originPath);
   return Object.freeze({
-    pins: direct ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS,
+    pins,
     executionMode: direct ? "direct" : "sandbox_exec",
     authPath: join(homedir(), ".codex", "auth.json"),
     tempParent: direct ? linuxOriginDirectory : tmpdir(),
-    hostEnvironment: process.env,
+    hostEnvironment: {
+      ...process.env,
+      LANG: pins.locale,
+      LC_ALL: pins.locale,
+    },
     ...(direct ? {} : { inspectSignature: inspectCodeSignature }),
     runVersion: executeSpawn,
     runCodex: executeSpawn,

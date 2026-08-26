@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { researchLocaleFromValue } from "@/src/lib/i18n";
+import { appLocaleFromValue } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import {
   listResearchRoomReportPage,
@@ -38,7 +38,7 @@ export async function GET(request: Request): Promise<Response> {
       : "all";
   const requestedCompany = url.searchParams.get("company");
   const requestedQuery = url.searchParams.get("q");
-  const locale = researchLocaleFromValue(url.searchParams.get("lang"));
+  const locale = appLocaleFromValue(url.searchParams.get("lang"));
   const access = await (await getLiveResearchApi()).researchRoomAccess(request);
   const reportPage = await listResearchRoomReportPage(access, {
     limit,

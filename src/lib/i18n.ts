@@ -189,6 +189,11 @@ export function intlLocale(locale: AppLocale): string {
   return localeDetails[locale].intl;
 }
 
+/** Parses a supported application locale without collapsing it to report storage languages. */
+export function appLocaleFromValue(value: unknown): AppLocale {
+  return isLocale(value) ? value : DEFAULT_LOCALE;
+}
+
 export type UiMessages = Readonly<
   { readonly en: string } & Partial<Record<Exclude<AppLocale, "en">, string>>
 >;

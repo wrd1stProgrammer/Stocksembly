@@ -12,4 +12,11 @@ describe("production Codex platform", () => {
       ).toBe(true);
     else expect(platform.tempParent).toBe(tmpdir());
   });
+
+  it("pins the web host locale before running readiness checks", () => {
+    const platform = productionCodexPlatform();
+
+    expect(platform.hostEnvironment["LANG"]).toBe(platform.pins.locale);
+    expect(platform.hostEnvironment["LC_ALL"]).toBe(platform.pins.locale);
+  });
 });

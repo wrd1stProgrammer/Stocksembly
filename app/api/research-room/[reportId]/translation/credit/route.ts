@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { locales } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const runtime = "nodejs";
@@ -6,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 type Props = { readonly params: Promise<{ readonly reportId: string }> };
 
-const RequestSchema = z.object({ targetLocale: z.enum(["en", "ko"]) });
+const RequestSchema = z.object({ targetLocale: z.enum(locales) });
 
 export async function POST(
   request: Request,

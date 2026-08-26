@@ -3,13 +3,13 @@
 import { BellRing, House, LibraryBig } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { Locale } from "../lib/i18n";
+import type { AppLocale } from "../lib/i18n";
 
 export type MobileBottomNavItem = "home" | "research-room" | "briefing-room";
 
 type Props = {
   readonly activeItem: MobileBottomNavItem;
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly hidden?: boolean;
 };
 
@@ -25,6 +25,42 @@ const labels = {
     researchRoom: "Research room",
     briefingRoom: "Briefing room",
     navigation: "Primary navigation",
+  },
+  ja: {
+    home: "ホーム",
+    researchRoom: "リサーチルーム",
+    briefingRoom: "ブリーフィング",
+    navigation: "メインナビゲーション",
+  },
+  "zh-TW": {
+    home: "首頁",
+    researchRoom: "研究室",
+    briefingRoom: "簡報室",
+    navigation: "主要導覽",
+  },
+  es: {
+    home: "Inicio",
+    researchRoom: "Investigación",
+    briefingRoom: "Informes",
+    navigation: "Navegación principal",
+  },
+  "pt-BR": {
+    home: "Início",
+    researchRoom: "Pesquisas",
+    briefingRoom: "Briefings",
+    navigation: "Navegação principal",
+  },
+  de: {
+    home: "Start",
+    researchRoom: "Research Room",
+    briefingRoom: "Briefings",
+    navigation: "Hauptnavigation",
+  },
+  fr: {
+    home: "Accueil",
+    researchRoom: "Recherche",
+    briefingRoom: "Briefings",
+    navigation: "Navigation principale",
   },
 } as const;
 

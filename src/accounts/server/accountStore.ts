@@ -103,7 +103,7 @@ export type AccountStore = {
     principalId: string,
     eventKey: string,
     reportId: string,
-    targetLocale: Locale,
+    targetLocale: AppLocale,
   ) => Promise<CreditAvailability>;
   readonly listConsultations?: (
     principalId: string,
