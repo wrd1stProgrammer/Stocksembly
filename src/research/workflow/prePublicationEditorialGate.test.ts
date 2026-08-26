@@ -121,8 +121,7 @@ describe("pre-publication editorial quality gate", () => {
     };
 
     expect(
-      evaluatePrePublicationEditorialGate(englishBoundaryCandidate)
-        .publishable,
+      evaluatePrePublicationEditorialGate(englishBoundaryCandidate).publishable,
     ).toBe(true);
   });
 
