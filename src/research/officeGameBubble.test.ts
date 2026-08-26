@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bubbleDimensions } from "./officeGameBubble";
+import { bubbleDimensions, typewriterCharacterCount } from "./officeGameBubble";
 import { bubbleStateFor, isActorReadyForSpeech } from "./officeGameBubbleState";
 
 describe("office progress bubbles", () => {
@@ -9,12 +9,25 @@ describe("office progress bubbles", () => {
     const long = bubbleDimensions(
       "장문의 리서치 근거를 읽기 쉬운 두세 줄로 나누어 말풍선 안에 표시합니다",
     );
+    const fourLine = bubbleDimensions(
+      "NVIDIA's reported economics support premium valuation while revenue, operating margin, and cash conversion still require separate evidence checks.",
+    );
 
     // Then
     expect(short.width).toBeLessThan(long.width);
     expect(short.height).toBeLessThanOrEqual(long.height);
     expect(long.width).toBeLessThanOrEqual(212);
-    expect(long.height).toBeLessThanOrEqual(82);
+    expect(long.height).toBeLessThanOrEqual(100);
+    expect(fourLine.height).toBeGreaterThanOrEqual(86);
+    expect(fourLine.height).toBeLessThanOrEqual(100);
+  });
+
+  it("types characters quickly and disables the animation for reduced motion", () => {
+    expect(typewriterCharacterCount(0)).toBe(0);
+    expect(typewriterCharacterCount(11)).toBe(0);
+    expect(typewriterCharacterCount(12)).toBe(1);
+    expect(typewriterCharacterCount(120)).toBe(10);
+    expect(typewriterCharacterCount(0, true)).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it("waits until an actor has arrived and finished orienting before speech", () => {

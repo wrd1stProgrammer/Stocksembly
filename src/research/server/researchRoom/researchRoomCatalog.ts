@@ -22,7 +22,12 @@ import {
   isResearchRoomIndexable,
   isResearchRoomPublicationMature,
 } from "./researchRoomIndexability";
+import {
+  localizedResearchQuestions,
+  type ResearchQuestionLocalizationInput,
+} from "./researchRoomLocalizations";
 import { ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE } from "./researchRoomPublicCatalog";
+import type { ResearchTranslationLocale } from "./researchTranslationRunner";
 
 export const RESEARCH_ROOM_PAGE_SIZE = 32;
 
@@ -46,6 +51,7 @@ export type ResearchRoomListOptions = {
   readonly company?: string;
   readonly scope?: ResearchRoomScope;
   readonly sort?: ResearchRoomSort;
+  readonly locale?: ResearchTranslationLocale;
 };
 
 const CatalogRowSchema = z.object({
@@ -152,11 +158,12 @@ function itemFor(
   row: z.infer<typeof CatalogRowSchema>,
   access: ResearchRoomAccess,
   now: Date,
+  localizedQuestion = row.question,
 ): ResearchRoomCatalogItem {
   return {
     reportId: row.report_id,
     symbol: row.symbol,
-    question: row.question,
+    question: localizedQuestion,
     locale: row.locale,
     researchTarget: targetFor(row),
     publishedAt: row.published_at,
@@ -235,9 +242,14 @@ function catalogFilter(options: ResearchRoomListOptions): CatalogFilter {
     const pattern = `%${query.replace(/[\\%_]/gu, "\\$&")}%`;
     clauses.push(
       `(LOWER(research_requests.symbol) LIKE ? ESCAPE '\\' OR
-        LOWER(research_requests.question) LIKE ? ESCAPE '\\')`,
+        LOWER(research_requests.question) LIKE ? ESCAPE '\\' OR
+        EXISTS (
+          SELECT 1 FROM research_question_localizations
+          WHERE research_question_localizations.run_id = research_requests.run_id
+            AND LOWER(research_question_localizations.question) LIKE ? ESCAPE '\\'
+        ))`,
     );
-    params.push(pattern, pattern);
+    params.push(pattern, pattern, pattern);
   }
   const company = options.company?.trim().toLocaleUpperCase();
   if (company !== undefined && company.length > 0 && company !== "ALL") {
@@ -350,7 +362,7 @@ export async function listResearchRoomReportPage(
   const offset = boundedOffset(options.offset);
   const now = options.now ?? new Date();
   const filter = catalogFilter(options);
-  return await withDatabase((database) => {
+  const catalog = await withDatabase((database) => {
     const rows = database
       .prepare(
         `${selectSql(filter.where)}
@@ -358,7 +370,7 @@ export async function listResearchRoomReportPage(
          LIMIT ? OFFSET ?`,
       )
       .all(...filter.params, limit, offset)
-      .map((value) => itemFor(CatalogRowSchema.parse(value), access, now));
+      .map((value) => CatalogRowSchema.parse(value));
     const countRow = z
       .object({ count: z.number().int().nonnegative() })
       .parse(
@@ -392,11 +404,37 @@ export async function listResearchRoomReportPage(
           .parse(value),
       );
     return {
-      reports: rows,
+      rows,
       total: countRow.count,
       companies,
     };
   });
+  const locale = options.locale;
+  if (locale === undefined)
+    return {
+      reports: catalog.rows.map((row) => itemFor(row, access, now)),
+      total: catalog.total,
+      companies: catalog.companies,
+    };
+  const runtime = await prepareLiveResearchRuntime();
+  const localized = await localizedResearchQuestions(
+    runtime.databasePath,
+    catalog.rows.map(
+      (row): ResearchQuestionLocalizationInput => ({
+        runId: row.run_id,
+        locale: row.locale,
+        question: row.question,
+      }),
+    ),
+    locale,
+  );
+  return {
+    reports: catalog.rows.map((row) =>
+      itemFor(row, access, now, localized.get(row.run_id) ?? row.question),
+    ),
+    total: catalog.total,
+    companies: catalog.companies,
+  };
 }
 
 export async function recordResearchRoomView(reportId: string): Promise<void> {
@@ -475,6 +513,7 @@ export async function loadResearchRoomReport(
   reportId: string,
   access: ResearchRoomAccess,
   now = new Date(),
+  viewerLocale?: ResearchTranslationLocale,
 ): Promise<ResearchRoomReportBundle | "locked" | undefined> {
   const result = await withDatabase((database) => {
     const value = database
@@ -508,6 +547,23 @@ export async function loadResearchRoomReport(
   if (result.kind === "locked") return "locked";
 
   const runtime = await prepareLiveResearchRuntime();
+  const localizedQuestion =
+    viewerLocale === undefined
+      ? result.item.question
+      : ((
+          await localizedResearchQuestions(
+            runtime.databasePath,
+            [
+              {
+                runId: result.row.run_id,
+                locale: result.row.locale,
+                question: result.row.question,
+              },
+            ],
+            viewerLocale,
+          )
+        ).get(result.row.run_id) ?? result.item.question);
+  const item = { ...result.item, question: localizedQuestion };
   const archive = createLiveS3ArtifactArchive();
   const report = await loadPublicResearchReport(
     {
@@ -517,7 +573,7 @@ export async function loadResearchRoomReport(
     publicationFor(result.row),
   );
   if (report === undefined) return undefined;
-  const file = researchReportToFile(report, result.item.publishedAt);
+  const file = researchReportToFile(report, item.publishedAt);
   const conversation = result.questions.map((question) => {
     const locale = result.item.locale;
     const answer = question.answer;
@@ -550,7 +606,7 @@ export async function loadResearchRoomReport(
     events: result.events,
   });
   return {
-    item: result.item,
+    item,
     file,
     company: companyFor(result.item.symbol, file),
     conversation,

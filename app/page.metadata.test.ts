@@ -14,13 +14,9 @@ import { metadata as rootMetadata } from "./layout";
 import HomePage, { metadata } from "./page";
 
 describe("homepage metadata", () => {
-  it("declares the apex homepage as canonical", () => {
-    expect(metadata.alternates?.canonical).toBe("/");
-    expect(metadata.alternates?.languages).toMatchObject({
-      "en-US": "/en",
-      "ko-KR": "/ko",
-      "x-default": "/en",
-    });
+  it("consolidates the language-negotiated apex under the English canonical", () => {
+    expect(metadata.alternates?.canonical).toBe("/en");
+    expect(metadata.alternates?.languages).toBeUndefined();
   });
 
   it("publishes an Open Graph image from the root metadata", () => {

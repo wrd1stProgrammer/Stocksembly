@@ -64,6 +64,16 @@ export function recordSuccessfulRunnerEvidence(
     reasoning: evidence.reasoning,
     browsingPolicy: evidence.browsingPolicy,
     toolTranscriptHash: evidence.toolTranscriptHash,
+    toolEventCount: evidence.toolEventCount,
+    ...(evidence.tokenUsage === undefined
+      ? {}
+      : {
+          inputTokens: evidence.tokenUsage.inputTokens,
+          cachedInputTokens: evidence.tokenUsage.cachedInputTokens,
+          cacheWriteInputTokens: evidence.tokenUsage.cacheWriteInputTokens,
+          outputTokens: evidence.tokenUsage.outputTokens,
+          reasoningOutputTokens: evidence.tokenUsage.reasoningOutputTokens,
+        }),
   });
 }
 

@@ -113,18 +113,24 @@ describe("SubscriptionModal pricing", () => {
       ".subscription-overview__price-amount",
     );
     const allowance = container.querySelector(".subscription-overview__number");
-    const planChange = container.querySelector(
+    const planUpgrade = container.querySelector(
+      ".subscription-overview__upgrade",
+    );
+    const planManage = container.querySelector(
       ".subscription-overview__manage",
     );
 
     expect(balance).toHaveTextContent("100");
     expect(price).toHaveTextContent("$190");
     expect(allowance).toHaveTextContent("216");
-    expect(planChange).toHaveTextContent("Ultra로 업그레이드");
-    expect(planChange).toHaveAttribute(
+    expect(planUpgrade).toHaveTextContent("Ultra로 업그레이드");
+    expect(planUpgrade).toHaveAttribute("href", "/pricing?lang=ko");
+    expect(planManage).toHaveTextContent("구독 관리 및 해지");
+    expect(planManage).toHaveAttribute(
       "href",
       "https://sandbox.whop.com/billing/manage/mber_test/",
     );
+    expect(planManage).toHaveAttribute("target", "_blank");
     expect(balance?.childElementCount).toBe(0);
     expect(price?.childElementCount).toBe(0);
     expect(allowance?.childElementCount).toBe(0);

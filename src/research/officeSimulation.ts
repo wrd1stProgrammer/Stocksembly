@@ -1,4 +1,5 @@
 import {
+  DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   OFFICE_CLOCK_CONTRACT,
   type OfficeCameraTarget,
   officeBeatAt,
@@ -9,7 +10,10 @@ import {
 import { assertNeverOffice } from "./officeChoreographyV7Contract";
 import { OFFICE_NAVIGATION_GRID } from "./officeNavigation";
 import type { WorldPoint } from "./officeSceneManifest";
-import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
+import {
+  OFFICE_SCENE_MANIFEST,
+  type OfficeDepartmentId,
+} from "./officeSceneManifest";
 import {
   createInitialOfficeActors,
   stepOfficeActors,
@@ -57,9 +61,15 @@ function freezeCamera(camera: OfficeCameraTarget): OfficeCameraTarget {
 
 function initialState(options: OfficeSimulationOptions): OfficeSimulationState {
   const navigationGrid = options.navigationGrid ?? OFFICE_NAVIGATION_GRID;
-  const actors = createInitialOfficeActors();
+  const departmentReleaseOrder = Object.freeze([
+    ...(options.departmentReleaseOrder ??
+      DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER),
+  ]);
+  const actors = createInitialOfficeActors(departmentReleaseOrder);
   const events = Object.freeze([...officeEventsAt(0)]);
-  const cameraTarget = freezeCamera(officeCameraTargetAt(0));
+  const cameraTarget = freezeCamera(
+    officeCameraTargetAt(0, departmentReleaseOrder),
+  );
   const line = normalizeOfficeTraceFrame({
     tick: 0,
     beatId: "briefing",
@@ -78,6 +88,7 @@ function initialState(options: OfficeSimulationOptions): OfficeSimulationState {
     cameraTarget,
     paused: false,
     reducedMotion: options.reducedMotion ?? false,
+    departmentReleaseOrder,
     navigationGrid,
     trace: Object.freeze([line]),
     traceHashValue,
@@ -100,7 +111,7 @@ export function stepOfficeSimulation(
   const beat = officeBeatAt(tick);
   const actorStep = stepOfficeActors({
     actors: state.actors,
-    directives: officeDirectivesAt(tick),
+    directives: officeDirectivesAt(tick, state.departmentReleaseOrder),
     grid: state.navigationGrid,
     reducedMotion: state.reducedMotion,
     tick,
@@ -110,7 +121,9 @@ export function stepOfficeSimulation(
     ...officeEventsAt(tick),
     ...actorStep.routeFailures,
   ]);
-  const cameraTarget = freezeCamera(officeCameraTargetAt(tick));
+  const cameraTarget = freezeCamera(
+    officeCameraTargetAt(tick, state.departmentReleaseOrder),
+  );
   const line = normalizeOfficeTraceFrame({
     tick,
     beatId: beat.id,
@@ -148,6 +161,33 @@ export function replayOfficeSimulation(
   return createOfficeSimulation({
     reducedMotion: state.reducedMotion,
     navigationGrid: state.navigationGrid,
+    departmentReleaseOrder: state.departmentReleaseOrder,
+  });
+}
+
+export function setOfficeDepartmentReleaseOrder(
+  state: OfficeSimulationState,
+  releaseOrder: readonly OfficeDepartmentId[],
+): OfficeSimulationState {
+  const normalized = [
+    ...new Set(
+      releaseOrder.filter((departmentId) =>
+        Object.hasOwn(OFFICE_SCENE_MANIFEST.departments, departmentId),
+      ),
+    ),
+  ];
+  if (
+    normalized.length === state.departmentReleaseOrder.length &&
+    normalized.every(
+      (departmentId, index) =>
+        departmentId === state.departmentReleaseOrder[index],
+    )
+  ) {
+    return state;
+  }
+  return Object.freeze({
+    ...state,
+    departmentReleaseOrder: Object.freeze(normalized),
   });
 }
 

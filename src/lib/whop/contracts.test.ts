@@ -3,6 +3,7 @@ import { billingCheckoutPath } from "./contracts";
 import { paidCreditGrantDelta } from "./creditPolicy";
 import {
   billingPlanKeyForWhopPlanId,
+  isWhopProMonthlyLiveTestPlan,
   subscriptionCheckoutDecision,
 } from "./server";
 
@@ -24,6 +25,32 @@ describe("Whop billing contracts", () => {
     expect(billingPlanKeyForWhopPlanId("plan_sandbox_ultra")).toBe(
       "ultra-monthly",
     );
+  });
+
+  it("maps the hidden one-dollar live test plan to Pro monthly", () => {
+    vi.stubEnv(
+      "WHOP_PLAN_PRO_MONTHLY_LIVE_TEST_ID",
+      "plan_live_test_pro_monthly",
+    );
+
+    expect(billingPlanKeyForWhopPlanId("plan_live_test_pro_monthly")).toBe(
+      "pro-monthly",
+    );
+  });
+
+  it("accepts only the one-dollar monthly production test shape", () => {
+    expect(
+      isWhopProMonthlyLiveTestPlan({
+        renewal_price: 1,
+        billing_period: 30,
+      }),
+    ).toBe(true);
+    expect(
+      isWhopProMonthlyLiveTestPlan({
+        renewal_price: 19,
+        billing_period: 30,
+      }),
+    ).toBe(false);
   });
 
   it("uses the existing Whop membership portal for an active paid user", () => {

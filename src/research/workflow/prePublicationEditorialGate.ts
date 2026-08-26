@@ -90,8 +90,58 @@ function issue(
     : { code, path, relatedPath };
 }
 
-function publicFields(candidate: PrePublicationEditorialCandidate) {
-  return (["en", "ko"] as const).flatMap((locale) => [
+function candidateLocales(
+  candidate: PrePublicationEditorialCandidate,
+): readonly EditorialLocale[] {
+  const localized = [
+    candidate.position,
+    candidate.rationale,
+    ...candidate.sections.map((section) => section.text),
+    ...candidate.anticipatedQuestions.flatMap((question) => [
+      question.question,
+      question.answer,
+    ]),
+  ];
+  const mirrored = localized
+    .filter((value) => value.en.trim() === value.ko.trim())
+    .map((value) => value.en);
+  if (mirrored.length === 0) return ["en", "ko"];
+  const korean = mirrored.filter((text) =>
+    /\p{Script=Hangul}/u.test(text),
+  ).length;
+  const english = mirrored.filter(
+    (text) =>
+      /\p{Script=Latin}/u.test(text) && !/\p{Script=Hangul}/u.test(text),
+  ).length;
+  if (korean > english) return ["ko"];
+  if (english > korean) return ["en"];
+  return ["en", "ko"];
+}
+
+function includeMirroredLocalePaths(
+  paths: readonly string[],
+  locales: readonly EditorialLocale[],
+): readonly string[] {
+  if (locales.length !== 1) return paths;
+  const locale = locales[0];
+  if (locale === undefined) return paths;
+  const other = locale === "en" ? "ko" : "en";
+  return [
+    ...new Set(
+      paths.flatMap((path) =>
+        path.endsWith(`.${locale}`)
+          ? [path, `${path.slice(0, -locale.length)}${other}`]
+          : [path],
+      ),
+    ),
+  ].sort();
+}
+
+function publicFields(
+  candidate: PrePublicationEditorialCandidate,
+  locales: readonly EditorialLocale[],
+) {
+  return locales.flatMap((locale) => [
     { path: `position.${locale}`, text: candidate.position[locale], locale },
     { path: `rationale.${locale}`, text: candidate.rationale[locale], locale },
     ...candidate.sections.map((section, index) => ({
@@ -180,11 +230,11 @@ export function evaluatePrePublicationEditorialGate(
   hardViolations: readonly PublicationQualityViolation[];
   softViolations: readonly PublicationQualityViolation[];
 }> {
-  const violations = [
-    ...localeViolations(candidate, "en"),
-    ...localeViolations(candidate, "ko"),
-  ];
-  const fields = publicFields(candidate);
+  const locales = candidateLocales(candidate);
+  const violations = locales.flatMap((locale) =>
+    localeViolations(candidate, locale),
+  );
+  const fields = publicFields(candidate, locales);
   const supported = new Set(
     candidate.supportedNumbers.map((value) => value.replaceAll(",", "")),
   );
@@ -208,7 +258,7 @@ export function evaluatePrePublicationEditorialGate(
     if (containsInternalMetadataLeakage(field.text))
       violations.push(issue("forbidden_public_vocabulary", field.path));
   }
-  for (const locale of ["en", "ko"] as const) {
+  for (const locale of locales) {
     for (let left = 0; left < candidate.sections.length; left += 1) {
       for (
         let right = left + 1;
@@ -244,7 +294,7 @@ export function evaluatePrePublicationEditorialGate(
       if (!candidate.permittedClaimIds.includes(claimId))
         violations.push(issue("section_ownership_conflict", path));
     }
-    for (const locale of ["en", "ko"] as const) {
+    for (const locale of locales) {
       const checkpoint = section.checkpoint?.[locale];
       if (checkpoint === undefined) continue;
       const path = `sections[${index}].checkpoint.${locale}`;
@@ -279,7 +329,7 @@ export function evaluatePrePublicationEditorialGate(
         ),
       );
     else evidenceOwner.set(evidenceKey, `${base}.evidenceArtifactIds`);
-    for (const locale of ["en", "ko"] as const) {
+    for (const locale of locales) {
       const questionKey = `${locale}:${normalizeEditorialText(qa.question[locale])}`;
       const priorQuestion = questionOwner.get(questionKey);
       if (priorQuestion !== undefined)
@@ -586,14 +636,17 @@ export async function gateWithOneTargetedRewrite(
         synthesisLineage.map((path) => [path, "synthesis"]),
       ),
     };
-  const paths = [
-    ...new Set(
-      first.violations.flatMap((entry) => [
-        entry.path,
-        ...(entry.relatedPath === undefined ? [] : [entry.relatedPath]),
-      ]),
-    ),
-  ].sort();
+  const paths = includeMirroredLocalePaths(
+    [
+      ...new Set(
+        first.violations.flatMap((entry) => [
+          entry.path,
+          ...(entry.relatedPath === undefined ? [] : [entry.relatedPath]),
+        ]),
+      ),
+    ].sort(),
+    candidateLocales(sanitizedOriginal),
+  );
   const rewriteRequest: TargetedRewriteRequest = {
     attempt: 1,
     fieldPaths: paths,
@@ -632,14 +685,17 @@ export async function gateWithOneTargetedRewrite(
   ).sort();
   const second = evaluatePrePublicationEditorialGate(normalizedRewrite);
   if (!second.publishable) {
-    const recoveryPaths = [
-      ...new Set(
-        second.hardViolations.flatMap((entry) => [
-          entry.path,
-          ...(entry.relatedPath === undefined ? [] : [entry.relatedPath]),
-        ]),
-      ),
-    ].sort();
+    const recoveryPaths = includeMirroredLocalePaths(
+      [
+        ...new Set(
+          second.hardViolations.flatMap((entry) => [
+            entry.path,
+            ...(entry.relatedPath === undefined ? [] : [entry.relatedPath]),
+          ]),
+        ),
+      ].sort(),
+      candidateLocales(normalizedRewrite),
+    );
     const recovered = sanitizePrePublicationCandidate(
       deterministicMetadataRewrite(normalizedRewrite, {
         attempt: 1,

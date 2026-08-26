@@ -35,6 +35,7 @@ export type BillingCreditActivityCode =
   | "department_research"
   | "chat_bundle"
   | "research_room"
+  | "research_translation"
   | "research_run"
   | "consultation";
 
@@ -83,4 +84,12 @@ export type WhopPricingResponse = {
   readonly environment: "sandbox" | "production";
   readonly productId: string;
   readonly plans: readonly WhopPricingPlan[];
+};
+
+export type WhopCheckoutLaunch = {
+  readonly purchaseUrl: string;
+  readonly planId?: string;
+  readonly sessionId?: string;
+  readonly returnUrl?: string;
+  readonly environment?: "sandbox" | "production";
 };

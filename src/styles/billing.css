@@ -120,15 +120,19 @@
   letter-spacing: 0;
 }
 
-.billing-card > a {
+.billing-card > a,
+.billing-card > button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-top: 1.35rem;
+  border: 0;
   border-radius: 0.75rem;
   padding: 0.85rem 1rem;
   background: #eef4ff;
   color: #08111f;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 0.85rem;
   font-weight: 750;
   text-decoration: none;
@@ -137,9 +141,15 @@
     background 160ms ease;
 }
 
-.billing-card > a:hover {
+.billing-card > a:hover,
+.billing-card > button:hover:not(:disabled) {
   background: #ffffff;
   transform: translateY(-2px);
+}
+
+.billing-card > button:disabled {
+  cursor: wait;
+  opacity: 0.66;
 }
 
 .billing-page__unavailable {
@@ -2137,7 +2147,15 @@ body.subscription-modal-is-open {
   letter-spacing: 0;
 }
 
-.subscription-overview__manage {
+.subscription-overview__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.subscription-overview__action {
   display: inline-flex;
   min-height: 36px;
   align-items: center;
@@ -2145,7 +2163,6 @@ body.subscription-modal-is-open {
   gap: 8px;
   border: 1px solid var(--billing-card-rim);
   border-radius: var(--radius-pill);
-  margin-top: 12px;
   padding: 0 14px;
   color: var(--color-text);
   background: transparent;
@@ -2158,8 +2175,12 @@ body.subscription-modal-is-open {
     color var(--motion-micro);
 }
 
-.subscription-overview__manage:hover,
-.subscription-overview__manage:focus-visible {
+.subscription-overview__manage {
+  margin-left: auto;
+}
+
+.subscription-overview__action:hover,
+.subscription-overview__action:focus-visible {
   border-color: var(--billing-accent);
   color: var(--billing-accent);
   background: color-mix(in srgb, var(--billing-accent) 8%, transparent);
@@ -2216,7 +2237,7 @@ body.subscription-modal-is-open {
     grid-column: 1 / -1;
   }
 
-  .subscription-overview__manage {
+  .subscription-overview__action {
     width: auto;
   }
 }
@@ -2235,8 +2256,17 @@ body.subscription-modal-is-open {
     grid-column: auto;
   }
 
-  .subscription-overview__manage {
+  .subscription-overview__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .subscription-overview__action {
     width: 100%;
+  }
+
+  .subscription-overview__manage {
+    margin-left: 0;
   }
 }
 
@@ -2573,4 +2603,197 @@ body.subscription-modal-is-open {
 .subscription-modal__loading .relative > div,
 .subscription-credit-activity__loading .relative > div {
   background: #fff;
+}
+
+/* Whop's secure iframe stays intact; Stocksembly owns only this surrounding shell. */
+body.whop-checkout-modal-is-open {
+  overflow: hidden;
+}
+
+.whop-checkout-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border: 0;
+  padding: 20px;
+  overflow: auto;
+  color: #f4f4f5;
+  background: rgb(0 0 0 / 82%);
+  backdrop-filter: blur(10px);
+}
+
+.whop-checkout-modal__dialog {
+  width: min(620px, 100%);
+  max-height: min(820px, calc(100dvh - 40px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 13%);
+  border-radius: 22px;
+  background: #111113;
+  box-shadow: 0 32px 96px rgb(0 0 0 / 70%);
+  animation: subscription-modal-dialog-in 280ms cubic-bezier(0.16, 1, 0.3, 1)
+    both;
+}
+
+.whop-checkout-modal__header {
+  min-height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px 16px 24px;
+  border-bottom: 1px solid rgb(255 255 255 / 9%);
+}
+
+.whop-checkout-modal__security {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #a1a1aa;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.whop-checkout-modal__header h2 {
+  margin: 6px 0 0;
+  color: #fafafa;
+  font-size: clamp(1.15rem, 3vw, 1.45rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+.whop-checkout-modal__close {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 50%;
+  color: #a1a1aa;
+  background: #18181b;
+  cursor: pointer;
+}
+
+.whop-checkout-modal__close:hover,
+.whop-checkout-modal__close:focus-visible {
+  border-color: rgb(255 255 255 / 28%);
+  color: #fafafa;
+}
+
+.whop-checkout-modal__close:focus-visible,
+.whop-checkout-modal__footer a:focus-visible {
+  outline: 3px solid #71717a;
+  outline-offset: 3px;
+}
+
+.whop-checkout-modal__embed {
+  min-height: 460px;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #111113;
+}
+
+.whop-checkout-modal__embed .whop-checkout-wrapper,
+.whop-checkout-modal__embed iframe {
+  width: 100%;
+}
+
+.whop-checkout-modal__loading {
+  min-height: 440px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  color: #a1a1aa;
+  font-size: 0.78rem;
+}
+
+.whop-checkout-modal__loading .relative > div {
+  background: #fff;
+}
+
+.whop-checkout-modal__footer {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 22px;
+  border-top: 1px solid rgb(255 255 255 / 9%);
+  background: #0d0d0f;
+}
+
+.whop-checkout-modal__footer p {
+  margin: 0;
+  color: #71717a;
+  font-size: 0.67rem;
+  line-height: 1.45;
+}
+
+.whop-checkout-modal__footer p.is-error {
+  color: #fda4af;
+}
+
+.whop-checkout-modal__footer a {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: #d4d4d8;
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.whop-checkout-modal__footer a:hover {
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .whop-checkout-modal__backdrop {
+    padding: 0;
+    background: #111113;
+    backdrop-filter: none;
+  }
+
+  .whop-checkout-modal__dialog {
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .whop-checkout-modal__header {
+    min-height: 78px;
+    padding: max(14px, env(safe-area-inset-top)) 16px 12px 20px;
+  }
+
+  .whop-checkout-modal__embed {
+    min-height: 0;
+  }
+
+  .whop-checkout-modal__footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 20px max(14px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whop-checkout-modal__dialog {
+    animation: none;
+  }
 }

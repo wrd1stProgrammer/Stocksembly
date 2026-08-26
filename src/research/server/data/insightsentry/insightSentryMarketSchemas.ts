@@ -46,7 +46,7 @@ export const InfoResponseSchema = z.looseObject({
     .optional(),
 });
 
-export const QuoteResponseSchema = z.strictObject({
+export const QuoteResponseSchema = z.looseObject({
   total_items: z.number().int().nonnegative(),
   data: z.array(
     z.looseObject({

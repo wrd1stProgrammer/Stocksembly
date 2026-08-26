@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../../lib/i18n";
-import {
-  createOfficeSnapshotRenderer,
-  type OfficeCameraControlMode,
-  type OfficeGameController,
+import type {
+  OfficeCameraControlMode,
+  OfficeGameController,
 } from "../../research/officeGame";
 import {
   bubbleStateForSnapshot,
@@ -13,10 +12,7 @@ import {
 } from "../../research/officeGameBubbleState";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
-import {
-  activityCopy,
-  speechBubbleSegments,
-} from "../../research/researchPresentation";
+import { speechBubbleSegments } from "../../research/researchPresentation";
 import type {
   AgentId,
   ResearchEvent,
@@ -66,6 +62,7 @@ type PendingRender = {
 
 const EMPTY_RESEARCH_EVENTS: readonly ResearchEvent[] = [];
 const MOBILE_CAMERA_QUERY = "(max-width: 767px)";
+const BUBBLE_TYPING_WINDOW_MS = 1_600;
 
 export function concurrentSpeechEvents(
   currentEvent: ResearchEvent | undefined,
@@ -94,6 +91,15 @@ export function concurrentSpeechEvents(
     })
     .slice(0, 3)
     .reverse();
+}
+
+export function speechBubbleMessage(
+  event: ResearchEvent,
+  locale: Locale,
+  segmentIndex: number,
+): string {
+  const segments = speechBubbleSegments(event.summary[locale], locale);
+  return segments[Math.max(0, segmentIndex)] ?? "";
 }
 
 function sceneMode(
@@ -160,16 +166,19 @@ export function PixelOfficeGame({
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<OfficeGameController | null>(null);
-  const liveBubbleSegments = useMemo(
-    () =>
-      currentEvent === undefined
-        ? []
-        : speechBubbleSegments(currentEvent.summary[locale], locale),
-    [currentEvent, locale],
-  );
   const speechEvents = useMemo(
     () => concurrentSpeechEvents(currentEvent, events),
     [currentEvent, events],
+  );
+  const speechSegmentsByEvent = useMemo(
+    () =>
+      new Map(
+        speechEvents.map((event) => [
+          event.id,
+          speechBubbleSegments(event.summary[locale], locale),
+        ]),
+      ),
+    [locale, speechEvents],
   );
   const conversationParticipantIds = useMemo(
     () =>
@@ -218,15 +227,12 @@ export function PixelOfficeGame({
     isPaused,
     liveBubbles: readySpeechEvents.map((event) => ({
       actorId: event.agent,
-      message:
-        event.id === currentEvent?.id
-          ? (liveBubbleSegments[0] ??
-            activityCopy(event.summary[locale], locale).headline)
-          : activityCopy(event.summary[locale], locale).headline,
+      message: speechBubbleMessage(event, locale, 0),
     })),
     ...(conversation === undefined ? {} : { conversation }),
   });
   const [rendererFailed, setRendererFailed] = useState(false);
+  const [rendererReady, setRendererReady] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [mobileCameraActive, setMobileCameraActive] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
@@ -240,6 +246,11 @@ export function PixelOfficeGame({
   });
   const bubbleSegmentIndex =
     bubblePlayback.key === bubbleSequenceKey ? bubblePlayback.index : 0;
+  const bubbleSegmentCount = readySpeechEvents.reduce(
+    (maximum, event) =>
+      Math.max(maximum, speechSegmentsByEvent.get(event.id)?.length ?? 0),
+    0,
+  );
   const mode = sceneMode(snapshot, phase);
   const effectiveCameraMode =
     cameraControlMode === "overview"
@@ -301,23 +312,17 @@ export function PixelOfficeGame({
     0;
   const liveBubbleStates = useMemo(
     () =>
-      readySpeechEvents.map((event) => ({
-        actorId: event.agent,
-        message:
-          event.id === currentEvent?.id &&
-          liveBubbleSegments.length > 0 &&
-          bubbleSegmentIndex < liveBubbleSegments.length
-            ? (liveBubbleSegments[bubbleSegmentIndex] ?? "")
-            : activityCopy(event.summary[locale], locale).headline,
-      })),
-    [
-      bubbleSegmentIndex,
-      currentEvent?.id,
-      liveBubbleSegments,
-      locale,
-      readySpeechEvents,
-    ],
+      readySpeechEvents
+        .map((event) => ({
+          actorId: event.agent,
+          message: speechBubbleMessage(event, locale, bubbleSegmentIndex),
+        }))
+        .filter(({ message }) => message !== ""),
+    [bubbleSegmentIndex, locale, readySpeechEvents],
   );
+  const bubbleTypingKey = liveBubbleStates
+    .map(({ actorId, message }) => `${actorId}:${message}`)
+    .join("\u0000");
   const visibleBubbleCount =
     currentEvent !== undefined
       ? liveBubbleStates.length
@@ -325,7 +330,11 @@ export function PixelOfficeGame({
           (actor) => bubbleStateForSnapshot(actor, snapshot, locale).visible,
         ).length ?? 0);
   useEffect(() => {
-    if (!conversationReady || bubbleSegmentIndex >= liveBubbleSegments.length)
+    if (
+      !conversationReady ||
+      bubbleSegmentCount <= 1 ||
+      bubbleSegmentIndex >= bubbleSegmentCount - 1
+    )
       return;
     const timer = window.setTimeout(
       () =>
@@ -333,17 +342,17 @@ export function PixelOfficeGame({
           key: bubbleSequenceKey,
           index: Math.min(
             (current.key === bubbleSequenceKey ? current.index : 0) + 1,
-            liveBubbleSegments.length,
+            bubbleSegmentCount - 1,
           ),
         })),
-      2_800,
+      3_400,
     );
     return () => window.clearTimeout(timer);
   }, [
     bubbleSegmentIndex,
+    bubbleSegmentCount,
     bubbleSequenceKey,
     conversationReady,
-    liveBubbleSegments,
   ]);
 
   useEffect(() => {
@@ -387,21 +396,26 @@ export function PixelOfficeGame({
     ).matches;
     setReducedMotion(prefersReducedMotion);
     setRendererFailed(false);
+    setRendererReady(false);
 
-    void createOfficeSnapshotRenderer({
-      host,
-      locale,
-      reducedMotion: prefersReducedMotion,
-      showActorBubbles: true,
-      onActorSelect: setSelectedAgentId,
-      signal: abortController.signal,
-    })
+    void import("../../research/officeGame")
+      .then(({ createOfficeSnapshotRenderer }) =>
+        createOfficeSnapshotRenderer({
+          host,
+          locale,
+          reducedMotion: prefersReducedMotion,
+          showActorBubbles: true,
+          onActorSelect: setSelectedAgentId,
+          signal: abortController.signal,
+        }),
+      )
       .then((controller) => {
         if (abortController.signal.aborted) {
           controller.destroy();
           return;
         }
         controllerRef.current = controller;
+        setRendererReady(true);
         const pending = pendingRenderRef.current;
         controller.setCameraControlMode(pending.cameraControlMode);
         if (pending.snapshot) {
@@ -434,8 +448,27 @@ export function PixelOfficeGame({
       abortController.abort();
       controllerRef.current?.destroy();
       controllerRef.current = null;
+      setRendererReady(false);
     };
   }, [locale]);
+
+  useEffect(() => {
+    if (!rendererReady || bubbleTypingKey.length === 0) return;
+    if (reducedMotion) {
+      controllerRef.current?.setBubbleTypingElapsed(BUBBLE_TYPING_WINDOW_MS);
+      return;
+    }
+    let frameId = 0;
+    const startedAt = performance.now();
+    const type = (now: number) => {
+      const elapsedMs = Math.min(BUBBLE_TYPING_WINDOW_MS, now - startedAt);
+      controllerRef.current?.setBubbleTypingElapsed(elapsedMs);
+      if (elapsedMs < BUBBLE_TYPING_WINDOW_MS)
+        frameId = window.requestAnimationFrame(type);
+    };
+    frameId = window.requestAnimationFrame(type);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [bubbleTypingKey, reducedMotion, rendererReady]);
 
   useEffect(() => {
     const controller = controllerRef.current;

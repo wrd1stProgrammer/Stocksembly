@@ -8,7 +8,12 @@ import {
   type RunId,
   RunIdSchema,
 } from "../../domain/ids";
-import { schemaDocument, sha256Value } from "./codexArtifacts";
+import {
+  effectiveCodexPrompt,
+  modelOutputLocale,
+  schemaDocument,
+  sha256Value,
+} from "./codexArtifacts";
 import { CodexRunnerError } from "./codexErrors";
 import type { CodexStage } from "./codexPolicy";
 
@@ -82,10 +87,11 @@ export function codexInputHash(input: {
   readonly prompt: string;
   readonly outputSchema: z.ZodType;
 }): string {
+  const locale = modelOutputLocale(input.prompt);
   return sha256Value({
     stage: input.stage,
-    prompt: input.prompt,
-    schema: schemaDocument(input.outputSchema),
+    prompt: effectiveCodexPrompt(input.prompt, locale),
+    schema: schemaDocument(input.outputSchema, locale),
   });
 }
 

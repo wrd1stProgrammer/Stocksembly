@@ -6,14 +6,19 @@ import {
   resolveStocksemblyDataDirectory,
 } from "../artifacts/filesystemArtifactPaths";
 import { createLiveS3ArtifactArchive } from "../artifacts/s3ArtifactArchive";
-import { CodexIsolationError } from "../codex/readiness";
-import { runProductionCodexReadinessProbe } from "../codex/readinessProbe";
 import { createLiveResearchQueue } from "../queue/sqsResearchQueue";
 import { getLiveTickerCatalog } from "./liveTickerCatalog";
 import { createResearchApi, type ResearchApi } from "./researchApi";
 import { loadPublicResearchReport } from "./researchApiReportReader";
 
 let instance: Promise<ResearchApi> | undefined;
+
+export function researchDispatchIsReady(
+  loopback: boolean,
+  queueConfigured: boolean,
+): boolean {
+  return loopback || queueConfigured;
+}
 
 export async function prepareLiveResearchRuntime() {
   const paths = await prepareArtifactPaths(resolveStocksemblyDataDirectory());
@@ -56,15 +61,11 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
     billingRequired,
     allowedHost: publicOrigin.host,
     allowedOrigin: publicOrigin.origin,
-    readiness: async () => {
-      try {
-        await runProductionCodexReadinessProbe("worker_admission");
-        return true;
-      } catch (error) {
-        if (error instanceof CodexIsolationError) return false;
-        throw error;
-      }
-    },
+    // The worker owns Codex admission and re-checks readiness before launches.
+    // The web request only needs a dispatch path; running a model probe here can
+    // outlive the browser timeout after the run has already been accepted.
+    readiness: async () =>
+      researchDispatchIsReady(loopback, researchQueue !== undefined),
     availableDiskBytes: async () => {
       const status = await statfs(paths.root);
       return status.bavail * status.bsize;

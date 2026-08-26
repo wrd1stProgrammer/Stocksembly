@@ -35,6 +35,9 @@ importers:
       '@solar-icons/react':
         specifier: ^1.1.1
         version: 1.1.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@whop/checkout':
+        specifier: 0.6.0
+        version: 0.6.0(react@19.2.7)
       '@whop/sdk':
         specifier: 0.0.42
         version: 0.0.42
@@ -1477,6 +1480,14 @@ packages:
 
   '@webgpu/types@0.1.71':
     resolution: {integrity: sha512-mMy8/ODcKhab808co15eW+yN+HgXoQxRQHTiBV9Mrvl1r0ufnid7YOcI+gi4eUWSWl9ezD6TW2KXccrL8HCh2A==}
+
+  '@whop/checkout@0.6.0':
+    resolution: {integrity: sha512-cKmeKM55ZZnUVAYB4eJG2kr749dvvWZ3WPaMZw9aLurTuuxE4NnMKcSnBBdZZOFHjemj4YAcMufJFAGfrqyH6g==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@whop/sdk@0.0.42':
     resolution: {integrity: sha512-ZBtdGGIziRQa5WP9xk2qASPPhyBVKzS74IrHJ9hB8xKPwAKqY4Ca2XsA9QKjgXT7gNnGjKJADdBvcMGtnNG+JA==}
@@ -4696,6 +4707,10 @@ snapshots:
       tinyrainbow: 3.1.0
 
   '@webgpu/types@0.1.71': {}
+
+  '@whop/checkout@0.6.0(react@19.2.7)':
+    optionalDependencies:
+      react: 19.2.7
 
   '@whop/sdk@0.0.42':
     dependencies:

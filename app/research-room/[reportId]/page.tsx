@@ -9,6 +9,10 @@ import { MembershipAccessModal } from "@/src/components/billing/MembershipAccess
 import { PublishedResearchWorkspace } from "@/src/components/researchRoom/PublishedResearchWorkspace";
 import type { Locale } from "@/src/lib/i18n";
 import { researchLocaleFromValue } from "@/src/lib/i18n";
+import {
+  boundedSeoDescription,
+  brandedSeoTitle,
+} from "@/src/lib/seo/metadataText";
 import { researchReportSeoTitle } from "@/src/lib/seo/researchReportMetadata";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import {
@@ -22,6 +26,13 @@ type Props = {
   readonly params: Promise<{ readonly reportId: string }>;
   readonly searchParams: Promise<{ readonly lang?: string }>;
 };
+
+async function researchRoomLocale(value: string | undefined): Promise<Locale> {
+  if (value !== undefined) return researchLocaleFromValue(value);
+  return researchLocaleFromValue(
+    (await cookies()).get("stocksembly_locale")?.value,
+  );
+}
 
 async function pageRequest(reportId: string) {
   const [incomingHeaders, incomingCookies] = await Promise.all([
@@ -48,24 +59,26 @@ export async function generateMetadata({
       title: "Research Room",
       robots: { index: false, follow: false },
     };
-  const locale: Locale = researchLocaleFromValue(query.lang);
+  const locale = await researchRoomLocale(query.lang);
   const access = { authenticated: false, tier: "free" as const };
-  const report = await loadResearchRoomReport(reportId, access).catch(
-    () => undefined,
-  );
+  const report = await loadResearchRoomReport(
+    reportId,
+    access,
+    new Date(),
+    locale,
+  ).catch(() => undefined);
   if (report === undefined || report === "locked")
     return { title: "Research Room", robots: { index: false, follow: false } };
   const reportPath = `/research-room/${reportId}`;
   const localizedReportPath =
     locale === "en" ? `${reportPath}?lang=en` : reportPath;
-  const seoTitle = researchReportSeoTitle(
-    report.item.symbol,
-    report.item.question,
-    locale,
+  const seoTitle = brandedSeoTitle(
+    researchReportSeoTitle(report.item.symbol, report.item.question, locale),
   );
+  const seoDescription = boundedSeoDescription(report.file.thesis[locale]);
   return {
-    title: seoTitle,
-    description: report.file.thesis[locale],
+    title: { absolute: seoTitle },
+    description: seoDescription,
     robots: { index: true, follow: true },
     alternates: {
       canonical: localizedReportPath,
@@ -76,8 +89,8 @@ export async function generateMetadata({
       },
     },
     openGraph: {
-      title: `${seoTitle} · Stocksembly`,
-      description: report.file.thesis[locale],
+      title: seoTitle,
+      description: seoDescription,
       locale: locale === "ko" ? "ko_KR" : "en_US",
       alternateLocale: locale === "ko" ? "en_US" : "ko_KR",
       url: localizedReportPath,
@@ -93,11 +106,16 @@ export default async function ResearchRoomReportPage({
 }: Props) {
   const [{ reportId }, query] = await Promise.all([params, searchParams]);
   if (!z.string().uuid().safeParse(reportId).success) notFound();
-  const locale: Locale = researchLocaleFromValue(query.lang);
+  const locale = await researchRoomLocale(query.lang);
   const api = await getLiveResearchApi();
   const request = await pageRequest(reportId);
   const access = await api.researchRoomAccess(request);
-  const report = await loadResearchRoomReport(reportId, access);
+  const report = await loadResearchRoomReport(
+    reportId,
+    access,
+    new Date(),
+    locale,
+  );
   if (report === undefined) notFound();
   if (report === "locked") {
     return (
@@ -167,7 +185,7 @@ export default async function ResearchRoomReportPage({
     about: { "@type": "Corporation", tickerSymbol: report.item.symbol },
     publisher: { "@type": "Organization", name: "Stocksembly" },
     description: report.file.thesis[locale],
-    inLanguage: locale,
+    inLanguage: report.item.locale,
     url:
       locale === "en"
         ? `https://stocksembly.com/research-room/${reportId}?lang=en`
@@ -184,6 +202,7 @@ export default async function ResearchRoomReportPage({
         originalQuestion={report.item.question}
         reportId={report.item.reportId}
         runDetail={report.runDetail}
+        sourceLocale={report.item.locale}
         version={report.version}
       />
       <script type="application/ld+json">

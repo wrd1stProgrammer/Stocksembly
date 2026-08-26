@@ -9,25 +9,50 @@ type SourceText = { readonly text: PublicText };
 const NUMERIC_TOKEN =
   /[$€£]?[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:%|[A-Za-z]+)?/gu;
 
-function numericValue(token: string): string | undefined {
-  const match = token.replaceAll(",", "").match(/\d+(?:\.\d+)?/u);
+type NumericValue = {
+  readonly canonical: string;
+  readonly value: number;
+  readonly decimalPlaces: number;
+};
+
+function numericValue(token: string): NumericValue | undefined {
+  const match = token.replaceAll(",", "").match(/\d+(?:\.(\d+))?/u);
   if (match === null) return undefined;
   const value = Number(match[0]);
-  return Number.isFinite(value) ? String(value) : undefined;
+  return Number.isFinite(value)
+    ? {
+        canonical: String(value),
+        value,
+        decimalPlaces: match[1]?.length ?? 0,
+      }
+    : undefined;
+}
+
+function isGroundedNumber(
+  summary: NumericValue,
+  sources: readonly NumericValue[],
+): boolean {
+  if (sources.some((source) => source.canonical === summary.canonical))
+    return true;
+  const scale = 10 ** summary.decimalPlaces;
+  return sources.some(
+    (source) =>
+      source.decimalPlaces > summary.decimalPlaces &&
+      Math.round((source.value + Number.EPSILON) * scale) / scale ===
+        summary.value,
+  );
 }
 
 function hasOnlyGroundedNumbers(
   summary: string,
   sources: readonly string[],
 ): boolean {
-  const groundedValues = new Set(
-    (sources.join(" ").match(NUMERIC_TOKEN) ?? [])
-      .map(numericValue)
-      .filter((value): value is string => value !== undefined),
-  );
+  const groundedValues = (sources.join(" ").match(NUMERIC_TOKEN) ?? [])
+    .map(numericValue)
+    .filter((value): value is NumericValue => value !== undefined);
   return (summary.match(NUMERIC_TOKEN) ?? []).every((token) => {
     const value = numericValue(token);
-    return value !== undefined && groundedValues.has(value);
+    return value !== undefined && isGroundedNumber(value, groundedValues);
   });
 }
 
@@ -50,22 +75,39 @@ export function publicTextIsValid(
   text: PublicText,
   sentences: readonly SourceText[],
   maxLength: number,
+  expectedLocale?: "en" | "ko",
 ): boolean {
-  const normalizedEn = normalizeEditorialText(text.en).replace(/\s/gu, "");
-  const normalizedKo = normalizeEditorialText(text.ko).replace(/\s/gu, "");
-  if (normalizedEn === normalizedKo) return false;
+  const singleLocale = text.en.trim() === text.ko.trim();
+  const english = sentences.map((sentence) => sentence.text.en);
+  const korean = sentences.map((sentence) => sentence.text.ko);
+  const bilingualNumbers = [...english, ...korean];
+  if (singleLocale) {
+    if (expectedLocale === undefined) return false;
+    if (
+      (expectedLocale === "en" &&
+        (!/\p{Script=Latin}/u.test(text.en) ||
+          /\p{Script=Hangul}/u.test(text.en))) ||
+      (expectedLocale === "ko" && !/\p{Script=Hangul}/u.test(text.ko))
+    )
+      return false;
+    const source = [...english, ...korean];
+    return (
+      text.en.length <= maxLength &&
+      !/\b(?:buy|sell)\s+now\b/iu.test(text.en) &&
+      !/(?:지금|즉시)\s*(?:매수|매도)/u.test(text.en) &&
+      sharesGroundingLanguage(text.en, source) &&
+      hasOnlyGroundedNumbers(text.en, bilingualNumbers)
+    );
+  }
   if (!/\p{Script=Latin}/u.test(text.en) || !/\p{Script=Hangul}/u.test(text.ko))
     return false;
   if (text.en.length > maxLength || text.ko.length > maxLength) return false;
   if (/\b(?:buy|sell)\s+now\b/iu.test(text.en)) return false;
   if (/(?:지금|즉시)\s*(?:매수|매도)/u.test(text.ko)) return false;
-  const english = sentences.map((sentence) => sentence.text.en);
-  const korean = sentences.map((sentence) => sentence.text.ko);
   // The authenticated bilingual source can express the same monetary value
   // with different units (for example $215.9B vs US$2159억). A translated
   // summary may preserve either representation, so numeric grounding uses the
   // union while language grounding remains locale-specific.
-  const bilingualNumbers = [...english, ...korean];
   return (
     sharesGroundingLanguage(text.en, english) &&
     sharesGroundingLanguage(text.ko, korean) &&

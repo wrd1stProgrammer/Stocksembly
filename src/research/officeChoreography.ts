@@ -6,8 +6,10 @@ export type {
   OfficeCameraTarget,
 } from "./officeChoreographyV7Contract";
 export {
+  DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   OFFICE_BEAT_SCHEDULE,
   OFFICE_CLOCK_CONTRACT,
+  OFFICE_DEPARTMENT_TALK_TIMELINE,
   officeBeatAt,
 } from "./officeChoreographyV7Contract";
 export {

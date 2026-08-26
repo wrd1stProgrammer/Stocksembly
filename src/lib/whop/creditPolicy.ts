@@ -13,6 +13,7 @@ export const CREDIT_COSTS = {
   chatBundle: 5,
   chatBundleSize: 100,
   researchRoomView: 3,
+  researchTranslation: 1,
 } as const;
 
 export function paidCreditGrantDelta(
@@ -26,7 +27,8 @@ export type CreditUsageCode =
   | "full_research"
   | "department_research"
   | "chat_bundle"
-  | "research_room";
+  | "research_room"
+  | "research_translation";
 
 export function researchCreditCost(target: ResearchTarget | undefined): number {
   return target?.kind === "department"

@@ -164,16 +164,7 @@ function SubscriptionOverview({
           ? "활성"
           : "Active";
   const providerManageUrl = billingStatus?.manageUrl;
-  const planChangeUrl =
-    providerManageUrl ?? `/pricing?lang=${encodeURIComponent(locale)}`;
-  const planChangeLabel =
-    billingStatus?.tier === "pro"
-      ? locale === "ko"
-        ? "Ultra로 업그레이드"
-        : "Upgrade to Ultra"
-      : locale === "ko"
-        ? "플랜 관리하기"
-        : "Manage plan";
+  const pricingUrl = `/pricing?lang=${encodeURIComponent(locale)}`;
   const periodCaption = billingStatus?.cancelAtPeriodEnd
     ? locale === "ko"
       ? "플랜 종료 예정"
@@ -262,16 +253,30 @@ function SubscriptionOverview({
         </div>
       </dl>
 
-      <a
-        className="subscription-overview__manage"
-        href={planChangeUrl}
-        {...(providerManageUrl === undefined
-          ? {}
-          : { target: "_blank", rel: "noreferrer" })}
-      >
-        {planChangeLabel}
-        <ExternalLink size={16} aria-hidden="true" />
-      </a>
+      <div className="subscription-overview__actions">
+        {billingStatus?.tier === "pro" ? (
+          <a
+            className="subscription-overview__action subscription-overview__upgrade"
+            href={pricingUrl}
+          >
+            {locale === "ko" ? "Ultra로 업그레이드" : "Upgrade to Ultra"}
+            <ExternalLink size={16} aria-hidden="true" />
+          </a>
+        ) : null}
+        {providerManageUrl === undefined ? null : (
+          <a
+            className="subscription-overview__action subscription-overview__manage"
+            href={providerManageUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {locale === "ko"
+              ? "구독 관리 및 해지"
+              : "Manage or cancel subscription"}
+            <ExternalLink size={16} aria-hidden="true" />
+          </a>
+        )}
+      </div>
     </section>
   );
 }
@@ -298,6 +303,8 @@ function creditActivityLabel(
         return "채팅 100회 사용";
       case "research_room":
         return "리서치룸 열람";
+      case "research_translation":
+        return "리서치 전문 번역";
       case "research_run":
         return "리서치";
       case "consultation":
@@ -321,6 +328,8 @@ function creditActivityLabel(
       return "100 chat messages";
     case "research_room":
       return "Research Room view";
+    case "research_translation":
+      return "Professional research translation";
     case "research_run":
       return "Research run";
     case "consultation":
@@ -661,7 +670,7 @@ export function SubscriptionModal({
             {!isSubscribed && !billingStateUnknown ? (
               <p className="subscription-modal__footnote">
                 {locale === "ko"
-                  ? "결제는 Whop의 보안 결제 페이지에서 진행됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
+                  ? "결제는 Whop의 보안 결제 시스템에서 처리됩니다. 연간 플랜은 연간 총액을 한 번에 결제합니다."
                   : "Checkout is handled securely by Whop. Annual plans are charged as one yearly total."}
               </p>
             ) : null}

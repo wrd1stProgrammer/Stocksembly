@@ -28,6 +28,7 @@ import type {
 } from "./officeSceneManifest";
 import { OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "./officeSimulation";
+import { speechBubbleSegments } from "./researchPresentation";
 
 export type {
   OfficeCameraTransform,
@@ -97,6 +98,10 @@ const seatedActorLayer = {
   left: 3,
   right: 3,
 } as const satisfies Readonly<Record<OfficeFacing, number>>;
+
+function boundedBubbleMessage(message: string, locale: Locale): string {
+  return speechBubbleSegments(message, locale)[0] ?? "";
+}
 
 function legacyAnimationFor(
   pose: OfficeAgentVisualPose,
@@ -174,7 +179,10 @@ export function renderOfficeSnapshot(
   );
   const conversationIds = new Set(input.conversation?.participantIds ?? []);
   const liveBubbles = new Map(
-    input.liveBubbles?.map((bubble) => [bubble.actorId, bubble.message]) ?? [],
+    input.liveBubbles?.map((bubble) => [
+      bubble.actorId,
+      boundedBubbleMessage(bubble.message, input.locale),
+    ]) ?? [],
   );
   const actors = Object.freeze(
     input.snapshot.actors.map((actor) => {
@@ -298,7 +306,13 @@ export function renderOfficeSnapshot(
             : input.liveBubble === undefined
               ? bubbleStateForSnapshot(actor, input.snapshot, input.locale)
               : actor.id === input.liveBubble.actorId
-                ? { visible: true, message: input.liveBubble.message }
+                ? {
+                    visible: true,
+                    message: boundedBubbleMessage(
+                      input.liveBubble.message,
+                      input.locale,
+                    ),
+                  }
                 : { visible: false, message: "" },
         ),
       });

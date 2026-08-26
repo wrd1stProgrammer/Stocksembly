@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { AppLocale } from "../i18n";
 import { localeDetails, locales } from "../i18n";
+import { boundedSeoDescription, boundedSeoTitle } from "./metadataText";
 import {
   US_STOCK_ANALYSIS_PATHS,
   usStockAnalysisContent,
@@ -54,6 +55,8 @@ const metadataCopy: Readonly<
 export function usStockAnalysisMetadata(locale: AppLocale): Metadata {
   const authoredContent = usStockAnalysisContent(locale);
   const content = { ...authoredContent, metadata: metadataCopy[locale] };
+  const title = boundedSeoTitle(content.metadata.title);
+  const description = boundedSeoDescription(content.metadata.description);
   const canonical = US_STOCK_ANALYSIS_PATHS[locale];
   const languageAlternates = Object.fromEntries(
     locales.map((value) => [
@@ -62,8 +65,8 @@ export function usStockAnalysisMetadata(locale: AppLocale): Metadata {
     ]),
   );
   return {
-    title: content.metadata.title,
-    description: content.metadata.description,
+    title: { absolute: title },
+    description,
     alternates: {
       canonical,
       languages: {
@@ -72,8 +75,8 @@ export function usStockAnalysisMetadata(locale: AppLocale): Metadata {
       },
     },
     openGraph: {
-      title: content.metadata.title,
-      description: content.metadata.description,
+      title,
+      description,
       url: canonical,
       siteName: "Stocksembly",
       type: "website",
@@ -83,8 +86,8 @@ export function usStockAnalysisMetadata(locale: AppLocale): Metadata {
     },
     twitter: {
       card: "summary",
-      title: content.metadata.title,
-      description: content.metadata.description,
+      title,
+      description,
     },
   };
 }

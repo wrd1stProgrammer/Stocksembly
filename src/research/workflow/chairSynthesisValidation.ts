@@ -176,7 +176,11 @@ function editorialSummaryIssue(
   section: ModelCandidate["sections"][number],
   priorSections: readonly ModelCandidate["sections"][number][],
 ): string | undefined {
-  for (const locale of ["en", "ko"] as const) {
+  const locales =
+    section.publicSummary.en === section.publicSummary.ko
+      ? ([prompt.mandate.locale] as const)
+      : (["en", "ko"] as const);
+  for (const locale of locales) {
     const text = section.publicSummary[locale];
     if (
       containsCapabilityLeakage(text) ||
@@ -223,6 +227,7 @@ function editorialSummaryIssue(
 function projectedDirectionalText(
   candidate: ModelCandidate["decisionBrief"],
   directional: ReturnType<typeof chairDirectionalBriefAssignment>,
+  locale: "en" | "ko",
 ): Pick<
   ModelCandidate["decisionBrief"],
   "decisiveReason" | "strongestCountercase" | "falsifier"
@@ -241,7 +246,7 @@ function projectedDirectionalText(
     const source = sources[index];
     return (
       source !== undefined &&
-      publicTextIsValid(text, [source], 360) &&
+      publicTextIsValid(text, [source], 360, locale) &&
       !isSymmetricHedge(text)
     );
   });
@@ -298,8 +303,6 @@ export function projectChairAssignments(
     ]),
   ]);
   for (const section of candidate.sections) {
-    const allowedKinds: readonly string[] =
-      CHAIR_SECTION_ALLOWED_KINDS[section.sectionKey];
     for (const sentenceId of section.sentenceIds) {
       const sentence = catalog.get(sentenceId);
       if (sentence === undefined) {
@@ -311,7 +314,6 @@ export function projectChairAssignments(
         continue;
       }
       if (
-        !allowedKinds.includes(sentence.kind) ||
         sentence.claimIds.some(
           (claimId) => !prompt.auditedClaimIds.includes(claimId),
         )
@@ -358,17 +360,22 @@ export function projectChairAssignments(
       )
     )
       return undefined;
+    const allowedKinds: readonly string[] =
+      CHAIR_SECTION_ALLOWED_KINDS[sectionKey];
     const sentenceIds = [
       assignment.primarySentenceId,
       ...(sectionKey === "supported_analysis"
         ? requiredPositionSentenceIds
         : []),
-      ...section.sentenceIds.filter(
-        (sentenceId) =>
-          catalog.has(sentenceId) &&
+      ...section.sentenceIds.filter((sentenceId) => {
+        const sentence = catalog.get(sentenceId);
+        return (
+          sentence !== undefined &&
+          allowedKinds.includes(sentence.kind) &&
           !assignedPrimaryIds.has(sentenceId) &&
-          !conflictOwnedIds.has(sentenceId),
-      ),
+          !conflictOwnedIds.has(sentenceId)
+        );
+      }),
     ].filter(
       (sentenceId, index, values) =>
         values.indexOf(sentenceId) === index &&
@@ -399,7 +406,11 @@ export function projectChairAssignments(
     ...candidate,
     decisionBrief: {
       ...candidate.decisionBrief,
-      ...projectedDirectionalText(candidate.decisionBrief, directional),
+      ...projectedDirectionalText(
+        candidate.decisionBrief,
+        directional,
+        prompt.mandate.locale,
+      ),
       stance: directional.stance,
       confidence: directional.confidence,
       primaryClaimIds: directional.primaryClaimIds,
@@ -519,6 +530,7 @@ function issueForCandidate(
         section.publicSummary,
         grounding,
         section.sectionKey === "ten_second_brief" ? 360 : 4_000,
+        prompt.mandate.locale,
       )
     )
       return {
@@ -626,7 +638,8 @@ function issueForCandidate(
     decisionTexts.some((text, index) => {
       const sentence = roleSentences[index];
       return (
-        sentence === undefined || !publicTextIsValid(text, [sentence], 360)
+        sentence === undefined ||
+        !publicTextIsValid(text, [sentence], 360, prompt.mandate.locale)
       );
     })
   )
@@ -720,6 +733,46 @@ export function validChairCandidate(promptJson: string, raw: unknown): unknown {
     normalizedModelCandidate(raw),
   );
   return candidate.success ? resolvedCandidate(prompt, candidate.data) : {};
+}
+
+export function mergeChairSectionRewrite(
+  raw: unknown,
+  rewriteRaw: unknown,
+): unknown {
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(
+    normalizedModelCandidate(raw),
+  );
+  const rewrite = ChairSectionRewriteSchema.safeParse(rewriteRaw);
+  if (!candidate.success || !rewrite.success) return {};
+  return {
+    ...candidate.data,
+    sections: [
+      ...candidate.data.sections.filter(
+        (section) => section.sectionKey !== rewrite.data.section.sectionKey,
+      ),
+      rewrite.data.section,
+    ],
+  };
+}
+
+export function nextChairSectionRewrite(
+  promptJson: string,
+  raw: unknown,
+  rewriteRaw: unknown,
+):
+  | {
+      readonly originalCandidate: unknown;
+      readonly issue: ChairCandidateIssue;
+    }
+  | undefined {
+  const candidate = ChairSynthesisModelOutputSchema.safeParse(
+    mergeChairSectionRewrite(raw, rewriteRaw),
+  );
+  if (!candidate.success) return undefined;
+  const issue = chairCandidateIssue(promptJson, candidate.data);
+  return issue === undefined
+    ? undefined
+    : { originalCandidate: candidate.data, issue };
 }
 
 function groundedFallbackText(
@@ -830,27 +883,23 @@ export function repairChairCandidate(
     (section) => section.sectionKey === issue.sectionKey,
   );
   const rewrittenSection = PROSE_REWRITE_REASONS.has(issue.reason)
-    ? originalSection !== undefined &&
-      originalSection.primarySentenceId ===
-        rewrite.data.section.primarySentenceId &&
-      JSON.stringify(originalSection.sentenceIds) ===
-        JSON.stringify(rewrite.data.section.sentenceIds) &&
-      JSON.stringify(originalSection.conflictAdjudication) ===
-        JSON.stringify(rewrite.data.section.conflictAdjudication)
-      ? {
+    ? originalSection === undefined
+      ? undefined
+      : {
+          // A prose-only rewrite never gets authority over sentence ownership
+          // or conflict adjudication. Preserve those trusted fields on the
+          // server and consume only the rewritten bilingual leaf.
           ...originalSection,
           publicSummary: rewrite.data.section.publicSummary,
         }
-      : undefined
     : rewrite.data.section;
   if (rewrittenSection === undefined) return {};
-  const sections = candidate.data.sections.filter(
-    (section) => section.sectionKey !== issue.sectionKey,
+  const rewrittenCandidate = ChairSynthesisModelOutputSchema.parse(
+    mergeChairSectionRewrite(candidate.data, {
+      ...rewrite.data,
+      section: rewrittenSection,
+    }),
   );
-  const rewrittenCandidate = {
-    ...candidate.data,
-    sections: [...sections, rewrittenSection],
-  };
   const repaired = resolvedCandidate(prompt, rewrittenCandidate);
   if (
     !PROSE_REWRITE_REASONS.has(issue.reason) ||

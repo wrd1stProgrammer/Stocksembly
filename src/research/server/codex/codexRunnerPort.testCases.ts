@@ -23,15 +23,15 @@ export function registerPortTests(): void {
     it("builds the reserved model and reasoning argv for every stage", () => {
       // Given
       const expected = {
-        memo: "medium",
-        department_consolidation: "medium",
-        blind_challenge: "medium",
-        owner_response_ballot: "medium",
-        follow_up: "medium",
-        semantic_audit: "medium",
-        chair_synthesis: "medium",
+        memo: "low",
+        department_consolidation: "low",
+        blind_challenge: "low",
+        owner_response_ballot: "low",
+        follow_up: "low",
+        semantic_audit: "low",
+        chair_synthesis: "low",
         qa: "low",
-        probe: "medium",
+        probe: "low",
       } as const;
 
       // When
@@ -42,7 +42,7 @@ export function registerPortTests(): void {
 
       // Then
       for (const launch of launches) {
-        expect(CODEX_RUNTIME_POLICY.model).toBe("gpt-5.6-terra");
+        expect(CODEX_RUNTIME_POLICY.model).toBe("gpt-5.6-luna");
         expect(launch.argv).toContain(
           `model_reasoning_effort="${expected[launch.stage]}"`,
         );
@@ -50,15 +50,15 @@ export function registerPortTests(): void {
       }
     });
 
-    it("allows only the QA advanced runtime to select Sol with light reasoning", () => {
+    it("keeps the QA advanced runtime on Luna with light reasoning", () => {
       // When
       const argv = buildCodexArgv("/tmp/schema.json", "qa", {
-        model: "gpt-5.6-sol",
+        model: "gpt-5.6-luna",
         reasoning: "low",
       });
 
       // Then
-      expect(argv).toContain("gpt-5.6-sol");
+      expect(argv).toContain("gpt-5.6-luna");
       expect(argv).toContain('model_reasoning_effort="low"');
     });
 
@@ -361,8 +361,8 @@ export function registerPortTests(): void {
           candidate: { message: "PONG" },
         });
         expect(manifestAtVersion).toMatchObject({
-          model: "gpt-5.6-terra",
-          reasoning: "medium",
+          model: "gpt-5.6-luna",
+          reasoning: "low",
           browsingPolicy: "disabled",
           toolTranscriptHash: expect.stringMatching(/^[0-9a-f]{64}$/),
           plannedBinaryVersion: "codex-cli test-v1",

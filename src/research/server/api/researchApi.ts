@@ -31,6 +31,8 @@ import type {
 import { CREDIT_COSTS } from "../../../lib/whop/creditPolicy";
 import {
   createWhopCheckout,
+  createWhopProMonthlyLiveTestCheckout,
+  getWhopEnvironment,
   type SubscriptionCheckoutState,
   subscriptionCheckoutDecision,
   type WhopWebhookEvent,
@@ -116,10 +118,18 @@ export interface ResearchApi {
     request: Request,
     reportId: string,
   ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
+  readonly consumeResearchTranslationCredit: (
+    request: Request,
+    reportId: string,
+    targetLocale: Locale,
+  ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
   readonly billingStatus: (request: Request) => Promise<WhopBillingStatus>;
   readonly billingCheckout: (
     request: Request,
     planKey: BillingPlanKey,
+  ) => Promise<Response>;
+  readonly adminBillingLiveTestCheckout: (
+    request: Request,
   ) => Promise<Response>;
   readonly handleWhopWebhook: (event: WhopWebhookEvent) => Promise<void>;
   readonly adminAnalyticsOverview: (
@@ -754,6 +764,62 @@ export async function createResearchApi(
         };
       }
     },
+    async consumeResearchTranslationCredit(request, reportId, targetLocale) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return {
+          authenticated: false,
+          allowed: false,
+          remaining: 0,
+          required: CREDIT_COSTS.researchTranslation,
+        };
+      if (options.accountStore === undefined) {
+        const remote = await proxyAuthenticatedRequest(
+          request,
+          `/api/research-room/${encodeURIComponent(reportId)}/translation/credit`,
+          {
+            method: "POST",
+            body: { targetLocale },
+          },
+        );
+        if (remote?.ok === true)
+          return (await remote.json()) as CreditAvailability & {
+            readonly authenticated: boolean;
+          };
+      }
+      if (options.accountStore?.consumeResearchTranslationCredit === undefined)
+        return {
+          authenticated: true,
+          allowed: options.billingRequired !== true,
+          remaining: 0,
+          required:
+            options.billingRequired === true
+              ? CREDIT_COSTS.researchTranslation
+              : 0,
+        };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        return {
+          authenticated: true,
+          ...(await options.accountStore.consumeResearchTranslationCredit(
+            authentication.principal.id,
+            `research-translation:${authentication.principal.id}:${reportId}:${targetLocale}`,
+            reportId,
+            targetLocale,
+          )),
+        };
+      } catch {
+        return {
+          authenticated: true,
+          allowed: false,
+          remaining: 0,
+          required: CREDIT_COSTS.researchTranslation,
+        };
+      }
+    },
     async billingStatus(request) {
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
@@ -854,6 +920,7 @@ export async function createResearchApi(
         }
       }
       const checkoutAttemptId = randomUUID();
+      const returnUrl = billingReturnUrl(request);
       await options.accountStore?.createCheckoutAttempt?.(
         authentication.principal.id,
         planKey,
@@ -864,7 +931,7 @@ export async function createResearchApi(
         checkout = await createWhopCheckout({
           planKey,
           principalId: authentication.principal.id,
-          returnUrl: billingReturnUrl(request),
+          returnUrl,
           idempotencyKey: `stocksembly:checkout:${checkoutAttemptId}`,
           checkoutAttemptId,
         });
@@ -879,8 +946,70 @@ export async function createResearchApi(
         throw error;
       }
       if (request.headers.get("accept")?.includes("application/json"))
-        return apiJson({ purchaseUrl: checkout.purchaseUrl });
+        return apiJson({
+          purchaseUrl: checkout.purchaseUrl,
+          planId: checkout.planId,
+          ...(checkout.checkoutConfigurationId === undefined
+            ? {}
+            : { sessionId: checkout.checkoutConfigurationId }),
+          returnUrl,
+          environment: getWhopEnvironment(),
+        });
       return Response.redirect(checkout.purchaseUrl, 303);
+    },
+    async adminBillingLiveTestCheckout(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return apiError(401, "AUTHENTICATION_REQUIRED");
+      const authorization = authorizeAdmin(authentication);
+      if (authorization.kind !== "authorized")
+        return apiError(403, "REQUEST_FORBIDDEN");
+      if (
+        options.accountStore?.billingStatus === undefined ||
+        options.accountStore.createCheckoutAttempt === undefined
+      )
+        throw new AccountStoreUnavailableError(
+          "ACCOUNT_STORE_REQUIRED_FOR_BILLING",
+        );
+
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      const currentBillingStatus = await options.accountStore.billingStatus(
+        authentication.principal.id,
+      );
+      if (
+        subscriptionCheckoutDecision(currentBillingStatus).kind !== "checkout"
+      )
+        return apiError(409, "BILLING_MANAGE_URL_REQUIRED");
+
+      const checkoutAttemptId = randomUUID();
+      await options.accountStore.createCheckoutAttempt(
+        authentication.principal.id,
+        "pro-monthly",
+        checkoutAttemptId,
+      );
+      try {
+        const checkout = await createWhopProMonthlyLiveTestCheckout({
+          principalId: authentication.principal.id,
+          returnUrl: billingReturnUrl(request),
+          idempotencyKey: `stocksembly:live-test-checkout:${checkoutAttemptId}`,
+          checkoutAttemptId,
+        });
+        await options.accountStore.markCheckoutAttemptReady?.(
+          checkoutAttemptId,
+          checkout.checkoutConfigurationId,
+        );
+        if (request.headers.get("accept")?.includes("application/json"))
+          return apiJson({ purchaseUrl: checkout.purchaseUrl });
+        return Response.redirect(checkout.purchaseUrl, 303);
+      } catch (error) {
+        await options.accountStore.markCheckoutAttemptFailed?.(
+          checkoutAttemptId,
+        );
+        throw error;
+      }
     },
     async handleWhopWebhook(event) {
       if (

@@ -21,6 +21,7 @@ import type {
 } from "../ports/agentOutputCommit";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { StrictArtifactCasFake } from "../ports/test/serviceFakes";
+import { CODEX_RUNTIME_PINS } from "../server/codex/codexPolicy";
 import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
 import { SqliteLeaseEngineStore } from "../worker/leaseEngineSqlite";
@@ -31,8 +32,8 @@ const id = (value: number): string =>
 const hash = (value: string): string => value.repeat(64);
 const sourceBytes = new TextEncoder().encode("verified filing bytes");
 const sourceHash = hashBytes(sourceBytes);
-const trustedBinaryHash =
-  "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e";
+const trustedBinaryHash = CODEX_RUNTIME_PINS.originSha256;
+const trustedCliVersion = CODEX_RUNTIME_PINS.version;
 
 const ids = {
   runId: RunIdSchema.parse(id(1)),
@@ -72,11 +73,11 @@ function binding(overrides: Partial<AgentOutputCommitBinding> = {}) {
     promptHash: hash("d"),
     schemaHash: hash("e"),
     runnerBinaryHash: trustedBinaryHash,
-    runnerCliVersion: "codex-cli 0.146.0-alpha.3.1",
+    runnerCliVersion: trustedCliVersion,
     runnerInputHash: hash("a"),
     runnerStage: "memo",
-    runnerModel: "gpt-5.6-terra",
-    runnerReasoning: "medium",
+    runnerModel: "gpt-5.6-luna",
+    runnerReasoning: "low",
     runnerBrowsingPolicy: "audited_web",
     runnerToolTranscriptHash:
       "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
@@ -155,8 +156,8 @@ function command(candidateValue: unknown = candidate) {
     occurredAt: "2026-07-23T00:00:00.000Z",
     workerProvenance: {
       roleId: "market",
-      model: "gpt-5.6-terra",
-      cliVersion: "codex-cli 0.146.0-alpha.3.1",
+      model: "gpt-5.6-luna",
+      cliVersion: trustedCliVersion,
       cliBinaryHash: hash("c"),
       promptHash: hash("d"),
       schemaHash: hash("e"),
@@ -269,9 +270,9 @@ function createSqliteCommitFixture(
       schemaHash: hash("e"),
       inputHash: hash("a"),
       binaryHash: trustedBinaryHash,
-      cliVersion: "codex-cli 0.146.0-alpha.3.1",
-      model: "gpt-5.6-terra",
-      reasoning: "medium",
+      cliVersion: trustedCliVersion,
+      model: "gpt-5.6-luna",
+      reasoning: "low",
       browsingPolicy: "audited_web",
       toolTranscriptHash: transcriptHash,
     }),
@@ -462,12 +463,12 @@ describe("commitAgentOutput", () => {
       ordinal: 1,
       roleId: "market",
       stage: "memo",
-      model: "gpt-5.6-terra",
-      reasoning: "medium",
+      model: "gpt-5.6-luna",
+      reasoning: "low",
       browsingPolicy: "audited_web",
       toolTranscriptHash:
         "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
-      cliVersion: "codex-cli 0.146.0-alpha.3.1",
+      cliVersion: trustedCliVersion,
       inputHash: hash("a"),
       inputManifestHash: hash("f"),
     });
@@ -582,12 +583,12 @@ describe("commitAgentOutput", () => {
     expect(result).toMatchObject({ kind: "committed" });
   });
 
-  it("rejects dormant Luna low provenance while the experiment is disabled", async () => {
+  it("rejects legacy Terra provenance after the Luna migration", async () => {
     const store = new MemoryCommitStore();
     store.current = binding({
       logicalArtifactId: "memo:valuation",
-      runnerModel: "gpt-5.6-luna",
-      runnerReasoning: "low",
+      runnerModel: "gpt-5.6-terra",
+      runnerReasoning: "medium",
     });
 
     const result = await commitAgentOutput(
@@ -825,9 +826,9 @@ describe("commitAgentOutput", () => {
         schemaHash: hash("e"),
         inputHash: hash("a"),
         binaryHash: trustedBinaryHash,
-        cliVersion: "codex-cli 0.146.0-alpha.3.1",
-        model: "gpt-5.6-terra",
-        reasoning: "medium",
+        cliVersion: trustedCliVersion,
+        model: "gpt-5.6-luna",
+        reasoning: "low",
         browsingPolicy: "audited_web",
         toolTranscriptHash:
           "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
@@ -900,8 +901,8 @@ describe("commitAgentOutput", () => {
               FROM agent_runner_evidence WHERE attempt_id = ?`)
             .get(ids.attemptId),
         ).toEqual({
-          model: "gpt-5.6-terra",
-          reasoning: "medium",
+          model: "gpt-5.6-luna",
+          reasoning: "low",
           browsing_policy: "audited_web",
           tool_transcript_hash:
             "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
@@ -1145,9 +1146,9 @@ describe("commitAgentOutput", () => {
         schemaHash: hash("e"),
         inputHash: hash("a"),
         binaryHash: trustedBinaryHash,
-        cliVersion: "codex-cli 0.146.0-alpha.3.1",
-        model: "gpt-5.6-terra",
-        reasoning: "medium",
+        cliVersion: trustedCliVersion,
+        model: "gpt-5.6-luna",
+        reasoning: "low",
         browsingPolicy: "audited_web",
         toolTranscriptHash:
           "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",

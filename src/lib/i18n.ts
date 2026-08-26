@@ -1,21 +1,14 @@
 import type { ActiveResearchActivityKind } from "../research/domain/activeResearchActivity";
 import type { AgentId } from "../research/types";
+import {
+  type AppLocale,
+  DEFAULT_LOCALE,
+  isLocale,
+  locales,
+} from "./supportedLocales";
 
-export const locales = [
-  "en",
-  "ko",
-  "ja",
-  "zh-TW",
-  "es",
-  "pt-BR",
-  "de",
-  "fr",
-] as const;
-
-export type AppLocale = (typeof locales)[number];
+export { type AppLocale, DEFAULT_LOCALE, isLocale, locales };
 export type Locale = "en" | "ko";
-
-export const DEFAULT_LOCALE: AppLocale = "en";
 
 export const localeDetails: Readonly<
   Record<
@@ -86,12 +79,6 @@ export const localeDetails: Readonly<
     openGraph: "fr_FR",
   },
 };
-
-export function isLocale(value: unknown): value is AppLocale {
-  return (
-    typeof value === "string" && (locales as readonly string[]).includes(value)
-  );
-}
 
 export function localeFromLanguageTag(
   value: string | null | undefined,

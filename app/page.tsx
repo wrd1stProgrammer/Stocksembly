@@ -9,18 +9,7 @@ import {
 
 export const metadata: Metadata = {
   alternates: {
-    canonical: "/",
-    languages: {
-      "en-US": "/en",
-      "ko-KR": "/ko",
-      "ja-JP": "/ja",
-      "zh-TW": "/zh-TW",
-      "es-419": "/es",
-      "pt-BR": "/pt-BR",
-      "de-DE": "/de",
-      "fr-FR": "/fr",
-      "x-default": "/en",
-    },
+    canonical: "/en",
   },
 };
 

@@ -65,7 +65,9 @@ describe("public research report metadata", () => {
 
     // Then
     expect(metadata).toMatchObject({
-      title: "NVDA 미국주식 분석: Is the growth durable?",
+      title: {
+        absolute: "NVDA 미국주식 분석: Is the growth durable? · Stocksembly",
+      },
       description: "한국어 투자 논지",
       robots: { index: true, follow: true },
       alternates: {
@@ -97,7 +99,9 @@ describe("public research report metadata", () => {
 
     // Then
     expect(metadata).toMatchObject({
-      title: "NVDA Stock Analysis: Is the growth durable?",
+      title: {
+        absolute: "NVDA Stock Analysis: Is the growth durable? · Stocksembly",
+      },
       description: "English investment thesis",
       robots: { index: true, follow: true },
       alternates: {
@@ -179,5 +183,24 @@ describe("public research report metadata", () => {
       title: "Research Room",
       robots: { index: false, follow: false },
     });
+  });
+
+  it("bounds user-authored report metadata for search snippets", async () => {
+    const report = publicReport();
+    report.item.question =
+      "Can this unusually long investment question explain every growth driver, valuation assumption, competitive risk, and downside scenario without overflowing a search result?";
+    report.file.thesis.en =
+      "This intentionally long investment thesis contains enough detail to overflow a normal search snippet. It discusses the business model, competitive position, financial quality, valuation, catalysts, risks, and the evidence that could invalidate the conclusion for a cautious investor.";
+    pageState.loadResearchRoomReport.mockResolvedValueOnce(report);
+
+    const metadata = await generateMetadata(metadataProps(REPORT_ID, "en"));
+    const { title } = metadata;
+    if (typeof title !== "object" || title === null || !("absolute" in title))
+      throw new Error("Expected an absolute metadata title");
+
+    expect(title.absolute.length).toBeLessThanOrEqual(60);
+    expect(metadata.description?.length).toBeLessThanOrEqual(160);
+    expect(metadata.openGraph?.title).toBe(title.absolute);
+    expect(metadata.openGraph?.description).toBe(metadata.description);
   });
 });

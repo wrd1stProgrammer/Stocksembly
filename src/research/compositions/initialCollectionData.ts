@@ -5,6 +5,7 @@ import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type { ResearchProfile } from "../domain/researchProfile";
 import { registerValue, type ValueRegistry } from "../domain/valueRegistry";
 import type { ArtifactCasPort, ArtifactDescriptor } from "../ports/artifacts";
+import type { SemanticNewsClassifierUsage } from "../server/data/insightsentry/insightSentrySemanticNewsClassifier";
 import { BLS_SOURCE_URL, createBlsAdapter } from "../server/data/macro/bls";
 import type {
   MacroClock,
@@ -78,6 +79,9 @@ export type InitialCollectionInput = {
   readonly question?: string;
   readonly cas: ArtifactCasPort;
   readonly researchProfile?: ResearchProfile;
+  readonly recordAuxiliaryCodexUsage?: (
+    usage: SemanticNewsClassifierUsage,
+  ) => Promise<void> | void;
 };
 
 export type InitialCollectionResult = {
@@ -546,6 +550,9 @@ export async function collectInitialEvidence(
     },
     requestedComparisonSymbols: input.researchProfile?.comparisonSymbols ?? [],
     ...(input.question === undefined ? {} : { question: input.question }),
+    ...(input.recordAuxiliaryCodexUsage === undefined
+      ? {}
+      : { recordAuxiliaryCodexUsage: input.recordAuxiliaryCodexUsage }),
     ...(input.researchProfile === undefined
       ? {}
       : {

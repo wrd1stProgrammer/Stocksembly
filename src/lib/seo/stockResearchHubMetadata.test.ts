@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { StockSymbolSchema } from "../../research/server/researchRoom/researchRoomPublicCatalog";
 import type { StockResearchHub } from "../../research/server/researchRoom/stockResearchHubCatalog";
+import { locales } from "../i18n";
 import {
   stockResearchHubMetadata,
   unavailableStockResearchHubMetadata,
@@ -23,7 +24,7 @@ describe("stock research hub metadata", () => {
     expect(metadata).toEqual(
       expect.objectContaining({
         title: {
-          absolute: "NVIDIA Corporation(NVDA) 미국주식 분석 | Stocksembly",
+          absolute: "NVIDIA Corporation(NVDA) 미국주식 분석 · Stocksembly",
         },
         robots: { index: true, follow: true },
         alternates: {
@@ -59,7 +60,7 @@ describe("stock research hub metadata", () => {
     expect(metadata).toEqual(
       expect.objectContaining({
         title: {
-          absolute: "NVIDIA Corporation (NVDA) Stock Analysis | Stocksembly",
+          absolute: "NVIDIA Corporation (NVDA) Stock Analysis · Stocksembly",
         },
         alternates: expect.objectContaining({
           canonical: "/en/stocks/nvda",
@@ -78,5 +79,23 @@ describe("stock research hub metadata", () => {
       title: { absolute: "미국주식 분석 | Stocksembly" },
       robots: { index: false, follow: false },
     });
+  });
+
+  it("bounds localized hub metadata even for long company names", () => {
+    const longNameHub = {
+      ...hub,
+      company:
+        "International Advanced Semiconductor Manufacturing Holdings Corporation",
+    };
+
+    for (const locale of locales) {
+      const metadata = stockResearchHubMetadata(locale, longNameHub);
+      const { title } = metadata;
+      if (typeof title !== "object" || title === null || !("absolute" in title))
+        throw new Error("Expected an absolute stock hub title");
+      expect(title.absolute.length).toBeLessThanOrEqual(60);
+      expect(title.absolute).toContain("Stocksembly");
+      expect(metadata.description?.length).toBeLessThanOrEqual(160);
+    }
   });
 });

@@ -6,6 +6,7 @@ import {
 } from "@/src/lib/agent/htmlToMarkdown";
 import {
   MARKDOWN_SOURCE_HEADER,
+  MARKDOWN_SOURCE_ORIGIN_HEADER,
   ORIGINAL_TARGET_HEADER,
 } from "@/src/lib/agent/markdownHeaders";
 
@@ -19,6 +20,21 @@ function sourceTarget(request: Request): string | undefined {
     request.headers.get(ORIGINAL_TARGET_HEADER),
   );
   return parsed.success ? parsed.data : undefined;
+}
+
+function sourceOrigin(request: Request): string | undefined {
+  const parsed = z
+    .url()
+    .max(2_048)
+    .safeParse(request.headers.get(MARKDOWN_SOURCE_ORIGIN_HEADER));
+  if (!parsed.success) return undefined;
+  const origin = new URL(parsed.data);
+  if (origin.origin === "https://stocksembly.com") return origin.origin;
+  const localSameOrigin =
+    origin.origin === new URL(request.url).origin &&
+    (origin.hostname === "localhost" || origin.hostname === "127.0.0.1") &&
+    (origin.protocol === "http:" || origin.protocol === "https:");
+  return localSameOrigin ? origin.origin : undefined;
 }
 
 function sourceRequestHeaders(request: Request): Headers {
@@ -49,13 +65,14 @@ function markdownResponse(source: Response, html: string, sourceUrl: URL) {
 
 export async function GET(request: Request): Promise<Response> {
   const target = sourceTarget(request);
-  if (target === undefined)
+  const origin = sourceOrigin(request);
+  if (target === undefined || origin === undefined)
     return new Response("Bad Request\n", {
       status: 400,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
 
-  const sourceUrl = new URL(target, request.url);
+  const sourceUrl = new URL(target, origin);
 
   try {
     const source = await ky.get(sourceUrl, {

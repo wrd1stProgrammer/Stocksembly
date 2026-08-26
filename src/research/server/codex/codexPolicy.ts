@@ -23,7 +23,7 @@ export type CodexRuntimeOverride = {
 };
 
 export const QA_ADVANCED_RUNTIME = Object.freeze({
-  model: "gpt-5.6-sol",
+  model: "gpt-5.6-luna",
   reasoning: "low",
 } satisfies CodexRuntimeOverride);
 
@@ -70,7 +70,7 @@ export function trustedResearchRuntime(
       logicalArtifactId,
       lunaSupportSpecialistsEnabled,
     ) ?? {
-      model: "gpt-5.6-terra",
+      model: CODEX_RUNTIME_POLICY.model,
       reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[stage],
     }
   );
@@ -91,17 +91,17 @@ export function isAllowedRuntimeOverride(
 }
 
 export const CODEX_RUNTIME_POLICY = Object.freeze({
-  model: "gpt-5.6-terra",
+  model: "gpt-5.6-luna",
   reasoningByStage: Object.freeze({
-    memo: "medium",
-    department_consolidation: "medium",
-    blind_challenge: "medium",
-    owner_response_ballot: "medium",
-    follow_up: "medium",
-    semantic_audit: "medium",
+    memo: "low",
+    department_consolidation: "low",
+    blind_challenge: "low",
+    owner_response_ballot: "low",
+    follow_up: "low",
+    semantic_audit: "low",
     chair_synthesis: "low",
     qa: "low",
-    probe: "medium",
+    probe: "low",
   } satisfies Readonly<Record<CodexStage, CodexReasoning>>),
   browsingByStage: Object.freeze({
     memo: "audited_web",
@@ -132,7 +132,7 @@ export const CODEX_RUNTIME_POLICY = Object.freeze({
 export const CODEX_RUNTIME_PINS = Object.freeze({
   originPath: "/Applications/ChatGPT.app/Contents/Resources/codex",
   originSha256:
-    "e4432c0c085e4a2e5b9cf982e4dd2ebdb44ed33c422827b6e6c64353778e773b",
+    "04ddea2f332bd524bf6cc02f8efcf45f0afa0c7d9b97d77aaef7bb84adf3d4c5",
   version: "codex-cli 0.147.0-alpha.6.5",
   sandboxExecPath: "/usr/bin/sandbox-exec",
   sandboxExecSha256:

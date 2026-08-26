@@ -6,7 +6,8 @@ import type { ReactNode } from "react";
 import { adminAnalyticsWritesEnabled } from "@/src/admin/adminAnalyticsFlags";
 import { AnalyticsConsent } from "@/src/components/analytics/AnalyticsConsent";
 import { AuthSessionBridge } from "@/src/components/auth/AuthSessionBridge";
-import { localeDetails, resolveRequestLocale } from "@/src/lib/i18n";
+import { ROUTE_LOCALE_HEADER } from "@/src/lib/agent/markdownHeaders";
+import { isLocale, localeDetails, resolveRequestLocale } from "@/src/lib/i18n";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/src/styles/tailwind.css";
 import "@/src/styles/tokens.css";
@@ -116,11 +117,14 @@ export default async function RootLayout({ children }: RootLayoutProps) {
     requestHeaders.get("cf-ipcountry") ??
     "";
   const storedLocale = requestCookies.get("stocksembly_locale")?.value;
-  const requestLocale = resolveRequestLocale({
-    storedLocale,
-    acceptLanguage: requestHeaders.get("accept-language"),
-    country,
-  });
+  const pathLocale = requestHeaders.get(ROUTE_LOCALE_HEADER);
+  const requestLocale = isLocale(pathLocale)
+    ? pathLocale
+    : resolveRequestLocale({
+        storedLocale,
+        acceptLanguage: requestHeaders.get("accept-language"),
+        country,
+      });
   return (
     <html
       lang={localeDetails[requestLocale].intl}

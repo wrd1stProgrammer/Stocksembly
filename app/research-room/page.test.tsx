@@ -21,10 +21,15 @@ const pageState = vi.hoisted(() => ({
   } satisfies ResearchRoomAccess,
   researchRoomAccess: vi.fn(),
   listResearchRoomReportPage: vi.fn(),
+  storedLocale: undefined as string | undefined,
 }));
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({
+    get: (name: string) =>
+      name === "stocksembly_locale" && pageState.storedLocale !== undefined
+        ? { value: pageState.storedLocale }
+        : undefined,
     toString: () => "stocksembly_local_session=session",
   }),
   headers: async () => new Headers({ host: "127.0.0.1:3000" }),
@@ -117,6 +122,7 @@ const paginatedReportPage = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  pageState.storedLocale = undefined;
   vi.stubGlobal(
     "fetch",
     vi.fn(() => new Promise<Response>(() => undefined)),
@@ -128,6 +134,19 @@ afterEach(() => {
 });
 
 describe("research room archive page", () => {
+  it("uses the saved profile language when the URL omits lang", async () => {
+    pageState.storedLocale = "ko";
+    pageState.researchRoomAccess.mockResolvedValueOnce(pageState.access);
+    pageState.listResearchRoomReportPage.mockResolvedValueOnce(reportPage);
+
+    await ResearchRoomPage({ searchParams: Promise.resolve({}) });
+
+    expect(pageState.listResearchRoomReportPage).toHaveBeenCalledWith(
+      pageState.access,
+      { limit: 32, locale: "ko", sort: "latest" },
+    );
+  });
+
   it("characterizes the server request and catalog component handoff", async () => {
     // Given
     pageState.researchRoomAccess.mockResolvedValueOnce(pageState.access);
@@ -164,7 +183,7 @@ describe("research room archive page", () => {
     // Then
     expect(pageState.listResearchRoomReportPage).toHaveBeenCalledWith(
       pageState.access,
-      { limit: 32, sort: "latest" },
+      { limit: 32, locale: "en", sort: "latest" },
     );
   });
 
@@ -188,7 +207,7 @@ describe("research room archive page", () => {
     // Then
     expect(pageState.listResearchRoomReportPage).toHaveBeenCalledWith(
       pageState.access,
-      { limit: 32, offset: 32, sort: "latest" },
+      { limit: 32, locale: "en", offset: 32, sort: "latest" },
     );
     expect(catalog.props.initialPage).toBe(2);
   });

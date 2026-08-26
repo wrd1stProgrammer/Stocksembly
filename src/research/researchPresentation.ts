@@ -110,14 +110,15 @@ export function speechBubbleSegments(
   value: string,
   locale: Locale,
 ): readonly string[] {
-  void locale;
+  const characterLimit = locale === "ko" ? 85 : 130;
   const segments = sentenceParts(value).flatMap((sentence) =>
-    boundedWords(sentence.trim(), 58),
+    boundedWords(sentence.trim(), characterLimit),
   );
+  const visibleSegments = segments.filter(Boolean);
   return Object.freeze(
-    segments.filter(Boolean).slice(0, 4).length > 0
-      ? segments.filter(Boolean).slice(0, 4)
-      : [value.trim().slice(0, 58)],
+    visibleSegments.length > 0
+      ? visibleSegments
+      : [value.trim().slice(0, characterLimit)],
   );
 }
 
