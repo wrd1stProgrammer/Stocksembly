@@ -9,7 +9,8 @@ describe("App", () => {
     render(createElement(App));
 
     // When
-    fireEvent.click(screen.getByRole("button", { name: "한국어" }));
+    fireEvent.click(screen.getByRole("button", { name: "Language" }));
+    fireEvent.click(screen.getByRole("option", { name: /^한국어/u }));
 
     // Then
     expect(document.documentElement.lang).toBe("ko");

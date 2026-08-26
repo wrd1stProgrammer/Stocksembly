@@ -14,6 +14,19 @@ type Props = { readonly params: Promise<{ readonly reportId: string }> };
 
 const RequestSchema = z.object({ targetLocale: z.enum(["en", "ko"]) });
 
+function translationFailureDetails(error: unknown) {
+  const record =
+    typeof error === "object" && error !== null
+      ? (error as Record<string, unknown>)
+      : undefined;
+  return {
+    kind: "research_report_translation_failed",
+    errorName: error instanceof Error ? error.name : "Unknown",
+    errorCode: typeof record?.code === "string" ? record.code : null,
+    errorPhase: typeof record?.phase === "string" ? record.phase : null,
+  };
+}
+
 export async function POST(
   request: Request,
   { params }: Props,
@@ -56,13 +69,9 @@ export async function POST(
       body.data.targetLocale,
     );
   } catch (error) {
-    if (process.env.NODE_ENV !== "production")
-      process.stderr.write(
-        `${JSON.stringify({
-          kind: "research_report_translation_failed",
-          errorName: error instanceof Error ? error.name : "Unknown",
-        })}\n`,
-      );
+    process.stderr.write(
+      `${JSON.stringify(translationFailureDetails(error))}\n`,
+    );
     return Response.json({ error: "TRANSLATION_FAILED" }, { status: 502 });
   }
   const credit = await api.consumeResearchTranslationCredit(

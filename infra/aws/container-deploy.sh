@@ -43,6 +43,14 @@ require_environment_key /etc/stocksembly/aws.env STOCKSEMBLY_DATA_DIR
 require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_KEY
 require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_HOST
 
+nginx_config="/etc/nginx/conf.d/stocksembly.conf"
+if [[ -f "$nginx_config" ]] &&
+  ! grep --quiet --fixed-strings "proxy_read_timeout 600s;" "$nginx_config"; then
+  sed -i '/proxy_http_version 1\.1;/a\              proxy_read_timeout 600s;' "$nginx_config"
+  nginx -t
+  systemctl reload nginx
+fi
+
 start_containers() {
   local container_image="$1"
 
