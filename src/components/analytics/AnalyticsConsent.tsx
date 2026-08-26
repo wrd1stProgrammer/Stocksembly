@@ -100,7 +100,7 @@ async function submitPendingAttribution(): Promise<void> {
 
 export function AnalyticsConsent({ enabled, measurementId }: Props) {
   const [consent, setConsent] = useState<Consent>("unset");
-  const activate = useCallback(() => {
+  const captureAttribution = useCallback(() => {
     if (!enabled) return;
     persistPendingAttribution();
     void submitPendingAttribution();
@@ -110,7 +110,9 @@ export function AnalyticsConsent({ enabled, measurementId }: Props) {
     if (!enabled) return;
     const next = currentConsent();
     setConsent(next);
-    if (next === "granted") activate();
+    // Acquisition attribution is first-party signup metadata, so capture it
+    // even when the optional analytics consent is unset or denied.
+    captureAttribution();
     const onSessionReady = () => void submitPendingAttribution();
     window.addEventListener("stocksembly:auth-session-ready", onSessionReady);
     return () =>
@@ -118,15 +120,14 @@ export function AnalyticsConsent({ enabled, measurementId }: Props) {
         "stocksembly:auth-session-ready",
         onSessionReady,
       );
-  }, [activate, enabled]);
+  }, [captureAttribution, enabled]);
 
   if (!enabled) return null;
   const choose = (next: Exclude<Consent, "unset">) => {
     // biome-ignore lint/suspicious/noDocumentCookie: broad browser support is required for the server-readable consent gate.
     document.cookie = `${CONSENT_COOKIE}=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
     setConsent(next);
-    if (next === "granted") activate();
-    else window.localStorage.removeItem(PENDING_KEY);
+    if (next === "granted") captureAttribution();
   };
   return (
     <>
@@ -138,8 +139,8 @@ export function AnalyticsConsent({ enabled, measurementId }: Props) {
           <div>
             <strong>서비스 개선을 위한 분석</strong>
             <p>
-              동의하면 유입 경로와 익명화된 사용 흐름을 저장합니다. 필수 로그인
-              쿠키에는 영향이 없습니다.
+              가입 유입 경로는 출처 확인을 위해 저장되며, 동의하면 익명화된 사용
+              흐름도 분석합니다. 필수 로그인 쿠키에는 영향이 없습니다.
             </p>
           </div>
           <button type="button" onClick={() => choose("denied")}>

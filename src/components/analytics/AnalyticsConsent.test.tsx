@@ -10,6 +10,11 @@ function grantConsent(): void {
   document.cookie = `${CONSENT_COOKIE}=granted; Path=/`;
 }
 
+function denyConsent(): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: jsdom cookie setup for consent behavior.
+  document.cookie = `${CONSENT_COOKIE}=denied; Path=/`;
+}
+
 afterEach(() => {
   // biome-ignore lint/suspicious/noDocumentCookie: jsdom cookie cleanup for consent behavior.
   document.cookie = `${CONSENT_COOKIE}=; Path=/; Max-Age=0`;
@@ -43,6 +48,30 @@ describe("AnalyticsConsent attribution", () => {
       medium: "organic_social",
       campaign: "threads_profile",
       content: "bio_link",
+      landingPath: "/",
+    });
+    expect(window.localStorage.getItem(PENDING_KEY)).not.toBeNull();
+  });
+
+  it("submits the Threads UTM even when analytics consent is denied", async () => {
+    denyConsent();
+    window.history.replaceState({}, "", "/?utm_source=threads&utm_content=bio");
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => ({
+        ok: false,
+        status: 401,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AnalyticsConsent enabled />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)),
+    ).toMatchObject({
+      source: "threads",
+      content: "bio",
       landingPath: "/",
     });
     expect(window.localStorage.getItem(PENDING_KEY)).not.toBeNull();
