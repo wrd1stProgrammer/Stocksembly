@@ -140,12 +140,7 @@ export function chairDirectionalBriefAssignment(
   const falsifierCandidates = prompt.sentences.filter(
     (sentence) =>
       sentence.kind === "change_condition" &&
-      publicTextIsValid(
-        sentence.text,
-        [sentence],
-        360,
-        prompt.mandate.locale,
-      ),
+      publicTextIsValid(sentence.text, [sentence], 360, prompt.mandate.locale),
   );
   const falsifier =
     decisive === undefined || countercase === undefined

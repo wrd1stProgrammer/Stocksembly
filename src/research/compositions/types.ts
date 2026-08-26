@@ -1,5 +1,5 @@
-import type { ResearchLocale } from "../../lib/i18n";
 import type { AnticipatedQuestion } from "../anticipatedQuestions";
+import type { ResearchLocale } from "../application/createMandateContracts";
 import type {
   CompositionOrigin,
   ResearchArtifactFor,

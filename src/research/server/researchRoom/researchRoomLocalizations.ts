@@ -156,12 +156,9 @@ export async function ensurePublishedResearchQuestionLocalizations(
     database.close();
   }
   if (input === undefined) return;
-  await localizedResearchQuestions(
-    databasePath,
-    [input],
-    input.targetLocale,
-    { translateMissing: true },
-  );
+  await localizedResearchQuestions(databasePath, [input], input.targetLocale, {
+    translateMissing: true,
+  });
 }
 
 export async function backfillPublishedResearchQuestionLocalizations(

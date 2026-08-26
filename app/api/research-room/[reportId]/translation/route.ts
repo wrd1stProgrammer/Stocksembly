@@ -56,7 +56,7 @@ export async function POST(
       body.data.targetLocale,
     );
   } catch (error) {
-    if (process.env["NODE_ENV"] !== "production")
+    if (process.env.NODE_ENV !== "production")
       process.stderr.write(
         `${JSON.stringify({
           kind: "research_report_translation_failed",
