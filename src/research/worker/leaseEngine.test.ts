@@ -464,11 +464,57 @@ describe("leased research worker", () => {
         outcome: { kind: "accepted" },
       });
       expect(fixture.runStatus(seed.runId)).toBe("running");
-      expect(fixture.budgets(seed.runId).requestedReplacementCalls).toBe(4);
+      expect(fixture.budgets(seed.runId).requestedReplacementCalls).toBe(12);
       expect(fixture.runtimeStates(seed.runId)).toEqual([
         "waiting",
         "retrying",
       ]);
+    } finally {
+      await engine.shutdown();
+      fixture.cleanup();
+    }
+  });
+
+  it("continues later work after transient retries while actual launches remain below the cap", async () => {
+    const fixture = createLeaseEngineFixture();
+    let firstJobLaunches = 0;
+    const jobs = fixture.seedResearchJobs(2, 118, {
+      remainingBaseCalls: 25,
+      requestedOptionalCalls: 3,
+      requestedReplacementCalls: 12,
+    });
+    const engine = fixture.openEngine(
+      "full-budget-transient-worker",
+      {
+        run: async (attempt) => {
+          if (attempt.jobId === jobs[0]!.jobId && firstJobLaunches < 2) {
+            firstJobLaunches += 1;
+            throw new CodexRunnerError("process_failed");
+          }
+          return { kind: "accepted" };
+        },
+      },
+      { retryRandom: () => 0.5 },
+    );
+
+    try {
+      await engine.poll();
+      fixture.clock.set("2026-07-22T00:00:05.000Z");
+      await engine.poll();
+      fixture.clock.set("2026-07-22T00:00:15.000Z");
+      const firstAccepted = await engine.poll();
+      const laterWork = await engine.poll();
+
+      expect(firstAccepted).toMatchObject({
+        kind: "handled",
+        outcome: { kind: "accepted" },
+      });
+      expect(laterWork).toMatchObject({
+        kind: "handled",
+        outcome: { kind: "accepted" },
+      });
+      expect(fixture.launches(jobs[0]!.runId)).toHaveLength(4);
+      expect(fixture.runStatus(jobs[0]!.runId)).toBe("running");
     } finally {
       await engine.shutdown();
       fixture.cleanup();
@@ -678,7 +724,7 @@ describe("leased research worker", () => {
         outcome: { kind: "accepted" },
       });
       expect(fixture.job(seed.jobId).status).toBe("succeeded");
-      expect(fixture.budgets(seed.runId).requestedReplacementCalls).toBe(4);
+      expect(fixture.budgets(seed.runId).requestedReplacementCalls).toBe(11);
       expect(fixture.runtimeStates(seed.runId)).toEqual([
         "invalid-model-output",
         "retrying",

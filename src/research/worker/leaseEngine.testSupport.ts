@@ -136,8 +136,16 @@ export class LeaseEngineFixture {
     return seed;
   }
 
-  seedResearchJobs(count: number, value = this.#seed++): readonly Seed[] {
-    const first = this.seedResearchJob(value);
+  seedResearchJobs(
+    count: number,
+    value = this.#seed++,
+    budget?: {
+      readonly remainingBaseCalls: number;
+      readonly requestedOptionalCalls: number;
+      readonly requestedReplacementCalls: number;
+    },
+  ): readonly Seed[] {
+    const first = this.seedResearchJob(value, budget);
     const jobs = [first];
     for (let index = 1; index < count; index += 1) {
       jobs.push({

@@ -97,11 +97,6 @@ export function reserveWithinRunBudget(
       FROM runs WHERE runs.run_id = ?`)
       .get(input.claim.logicalKey, input.claim.runId),
   );
-  const required =
-    row.burned +
-    row.remaining_base_calls +
-    row.requested_optional_calls +
-    row.requested_replacement_calls;
   if (
     row.remaining_base_calls > CALL_BUDGET_POLICY.mandatoryFirstAttempts ||
     row.requested_optional_calls > CALL_BUDGET_POLICY.maxOptionalFollowups ||
@@ -129,7 +124,11 @@ export function reserveWithinRunBudget(
         "research_replacement_budget_exhausted",
       );
   }
-  if (required > CALL_BUDGET_POLICY.maxPhysicalLaunches)
+  // Transient retries burn a physical ordinal without consuming logical
+  // rewrite capacity. Bound the launches that actually occurred; summing
+  // those ordinals with all still-available logical capacity would count a
+  // transient retry twice and can strand valid downstream work.
+  if (row.burned >= CALL_BUDGET_POLICY.maxPhysicalLaunches)
     return terminalize(database, input, row);
   const column = budgetColumn(input.claim);
   if (column === undefined) return true;
