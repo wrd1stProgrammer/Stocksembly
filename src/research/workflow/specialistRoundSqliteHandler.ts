@@ -30,6 +30,7 @@ import {
   type SpecialistClaimValidationReason,
   sanitizeSpecialistDecisiveMetricIds,
   sanitizeSpecialistEvidenceTypeBindings,
+  sanitizeSpecialistNumericMetricValues,
   specialistThesisFingerprints,
   validateSpecialistClaimSubmission,
 } from "./specialistRoundInput";
@@ -367,6 +368,10 @@ export function createSpecialistRoundAttemptHandler(
     candidate = sanitizeSpecialistDecisiveMetricIds(
       candidate,
       allowedMetricIds,
+    );
+    candidate = sanitizeSpecialistNumericMetricValues(
+      candidate,
+      promptRequest.request.registeredValues,
     );
     candidate = sanitizeSpecialistEvidenceTypeBindings(
       candidate,

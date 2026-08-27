@@ -517,6 +517,122 @@ export function sanitizeSpecialistDecisiveMetricIds(
   };
 }
 
+function registeredPercentage(record: {
+  readonly value: string;
+}): string | undefined {
+  const numeric = Number(record.value);
+  if (!Number.isFinite(numeric)) return undefined;
+  return String(numeric);
+}
+
+function groundPercentageText(input: {
+  readonly text: string;
+  readonly decisiveMetricIds: readonly string[];
+  readonly registeredValues: NonNullable<
+    ClaimSubmissionRequest["registeredValues"]
+  >;
+}): string | undefined {
+  const families = percentageMetricFamilies(input.text);
+  if (families.length !== 1 || input.decisiveMetricIds.length !== 1)
+    return undefined;
+  const matches = [...input.text.matchAll(PERCENTAGE_TOKEN)].filter((match) => {
+    const start = match.index ?? 0;
+    return !isForwardThresholdPercentage(
+      input.text,
+      start,
+      start + (match[0]?.length ?? 0),
+    );
+  });
+  if (matches.length !== 1) return undefined;
+  const recordsById = new Map(
+    input.registeredValues.map((record) => [record.valueId, record]),
+  );
+  const selected = input.decisiveMetricIds.flatMap((valueId) => {
+    const record = recordsById.get(valueId);
+    if (
+      record === undefined ||
+      !families.some((family) =>
+        family.test(`${record.valueId} ${record.metric}`),
+      )
+    )
+      return [];
+    const percentage = registeredPercentage(record);
+    return percentage === undefined ? [] : [percentage];
+  });
+  if (selected.length !== 1) return undefined;
+  let cursor = 0;
+  let grounded = "";
+  matches.forEach((match, index) => {
+    const start = match.index ?? cursor;
+    grounded += input.text.slice(cursor, start);
+    grounded += `${selected[index]}%`;
+    cursor = start + (match[0]?.length ?? 0);
+  });
+  return grounded + input.text.slice(cursor);
+}
+
+/**
+ * A selected registered metric is the numeric authority for a claim. When the
+ * model preserves that binding but mistypes the displayed percentage, project
+ * the exact registered value into both reader locales instead of spending a
+ * second model call on a deterministic copy correction. Ambiguous bindings
+ * remain untouched and are still rejected by the strict validator.
+ */
+export function sanitizeSpecialistNumericMetricValues(
+  candidate: unknown,
+  registeredValues: NonNullable<ClaimSubmissionRequest["registeredValues"]>,
+): unknown {
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    !("positions" in candidate) ||
+    !Array.isArray(candidate.positions)
+  )
+    return candidate;
+  return {
+    ...candidate,
+    positions: candidate.positions.map((position) => {
+      if (
+        typeof position !== "object" ||
+        position === null ||
+        !("publicSummary" in position) ||
+        typeof position.publicSummary !== "object" ||
+        position.publicSummary === null ||
+        !("en" in position.publicSummary) ||
+        !("ko" in position.publicSummary) ||
+        typeof position.publicSummary.en !== "string" ||
+        typeof position.publicSummary.ko !== "string" ||
+        !("decisiveMetricIds" in position) ||
+        !Array.isArray(position.decisiveMetricIds) ||
+        position.decisiveMetricIds.some(
+          (valueId: unknown) => typeof valueId !== "string",
+        )
+      )
+        return position;
+      const decisiveMetricIds = position.decisiveMetricIds as string[];
+      const en = groundPercentageText({
+        text: position.publicSummary.en,
+        decisiveMetricIds,
+        registeredValues,
+      });
+      const ko = groundPercentageText({
+        text: position.publicSummary.ko,
+        decisiveMetricIds,
+        registeredValues,
+      });
+      if (en === undefined || ko === undefined) return position;
+      return {
+        ...position,
+        publicSummary: {
+          ...position.publicSummary,
+          en,
+          ko,
+        },
+      };
+    }),
+  };
+}
+
 /**
  * Models sometimes append an ownership filing to every claim because it was
  * present in the evidence slice. Remove only that incidental citation when a
