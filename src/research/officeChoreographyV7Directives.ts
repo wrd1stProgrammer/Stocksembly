@@ -44,37 +44,34 @@ function chairMember() {
 }
 const chair = chairMember();
 
-function completeDepartmentOrder(
-  releaseOrder: readonly OfficeDepartmentId[],
-): readonly OfficeDepartmentId[] {
-  return [
-    ...new Set([...releaseOrder, ...DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER]),
-  ];
-}
-
 export function officeEntryCellFor(actorId: OfficeManifestAgentId): {
   readonly x: number;
   readonly y: number;
 } {
-  const specialistIndex = OFFICE_SCENE_MANIFEST.roster
-    .filter((member) => member.departmentId !== "chair")
-    .findIndex((member) => member.id === actorId);
-  if (specialistIndex < 0) return chair.workSeat.cell;
+  if (actorId === "chair") return chair.workSeat.cell;
+  const entryOrder = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER.flatMap(
+    (departmentId) => OFFICE_SCENE_MANIFEST.departments[departmentId].memberIds,
+  );
+  const specialistIndex = entryOrder.indexOf(actorId);
+  if (specialistIndex < 0)
+    throw new RangeError(`Missing office entry position for ${actorId}`);
   return Object.freeze({ x: 21, y: 23 + specialistIndex });
 }
 
-function entryDirectives(
-  tick: number,
-  releaseOrder: readonly OfficeDepartmentId[],
-): readonly OfficeActorDirective[] {
+function entryDirectives(tick: number): readonly OfficeActorDirective[] {
   const directives = new Map<OfficeManifestAgentId, OfficeActorDirective>();
   directives.set(chair.id, {
     ...seatDirective(chair, tick < 40 ? "entry-chair-briefing" : "entry-chair"),
     terminalAction: tick < 40 ? "talk" : "idle",
   });
-  for (const [departmentIndex, departmentId] of completeDepartmentOrder(
-    releaseOrder,
-  ).entries()) {
+  // The arrival line is a fixed product narrative: market, company,
+  // financial, then risk.  Later department discussions may still follow
+  // the order in which durable results arrive, but that must never reshuffle
+  // people who are visibly walking into the office.
+  for (const [
+    departmentIndex,
+    departmentId,
+  ] of DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER.entries()) {
     const department = OFFICE_SCENE_MANIFEST.departments[departmentId];
     for (const [memberIndex, memberId] of department.memberIds.entries()) {
       const member = OFFICE_SCENE_MANIFEST.roster.find(
@@ -329,7 +326,7 @@ export function officeDirectivesAt(
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
 ): readonly OfficeActorDirective[] {
   if (tick <= OFFICE_ENTRY_TIMELINE.endTick) {
-    return entryDirectives(tick, departmentReleaseOrder);
+    return entryDirectives(tick);
   }
   const beat = officeBeatAt(tick);
   switch (beat.id) {

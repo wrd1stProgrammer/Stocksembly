@@ -9,6 +9,7 @@ import {
 import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
 import {
   chairCandidateIssue,
+  mergeChairSectionRewrite,
   nextChairSectionRewrite,
   projectChairAssignments,
   repairChairCandidate,
@@ -65,6 +66,28 @@ describe("chair synthesis directional contract", () => {
     expect(
       chairCandidateIssue(JSON.stringify(prompt), consistent)?.reason,
     ).not.toBe("semantic_repetition");
+  });
+
+  it("keeps rewritten sections in canonical order", () => {
+    const { candidate } = mixedClaimValidationFixture();
+    const target = candidate.sections[1];
+    if (target === undefined) throw new TypeError("missing rewrite fixture");
+    const merged = ChairSynthesisModelOutputSchema.parse(
+      mergeChairSectionRewrite(candidate, {
+        kind: "chair_section_rewrite",
+        section: {
+          sectionKey: target.sectionKey,
+          publicSummary: target.publicSummary,
+          primarySentenceId: target.primarySentenceId,
+          sentenceIds: target.sentenceIds,
+          conflictAdjudication: target.conflictAdjudication ?? null,
+        },
+      }),
+    );
+
+    expect(merged.sections.map((section) => section.sectionKey)).toEqual(
+      candidate.sections.map((section) => section.sectionKey),
+    );
   });
 
   it("publishes a verifiable disjoint sentence ownership ledger", () => {

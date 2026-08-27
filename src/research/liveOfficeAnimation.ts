@@ -5,6 +5,7 @@ import type { ResearchEventWithMode } from "./compositionMode";
 import {
   DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   OFFICE_CLOCK_CONTRACT,
+  OFFICE_ENTRY_TIMELINE,
 } from "./officeChoreography";
 import type { OfficeDepartmentId } from "./officeSceneManifest";
 import {
@@ -65,20 +66,33 @@ export function advanceLiveOfficeFrameForDisplay(
 export function useLiveOfficeAnimation(
   targetTick: number,
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+  playbackReady = true,
+  completeEntrance = false,
 ) {
+  const releaseOrderKey = departmentReleaseOrder.join("\u0000");
+  const displayTargetTick =
+    playbackReady && completeEntrance
+      ? Math.max(targetTick, OFFICE_ENTRY_TIMELINE.endTick + 1)
+      : targetTick;
   const [frame, setFrame] = useState(() =>
-    createLiveOfficeFrame(targetTick, departmentReleaseOrder),
+    createLiveOfficeFrame(
+      playbackReady ? displayTargetTick : 0,
+      departmentReleaseOrder,
+    ),
   );
   const frameRef = useRef(frame);
 
   useEffect(() => {
+    const configuredReleaseOrder = (
+      releaseOrderKey === "" ? [] : releaseOrderKey.split("\u0000")
+    ) as readonly OfficeDepartmentId[];
     const configuredSimulation = setOfficeDepartmentReleaseOrder(
       frameRef.current.simulation,
-      departmentReleaseOrder,
+      configuredReleaseOrder,
     );
     const configuredPreviousSimulation = setOfficeDepartmentReleaseOrder(
       frameRef.current.previousSimulation,
-      departmentReleaseOrder,
+      configuredReleaseOrder,
     );
     if (
       configuredSimulation !== frameRef.current.simulation ||
@@ -91,14 +105,15 @@ export function useLiveOfficeAnimation(
       });
       setFrame(frameRef.current);
     }
-    if (frameRef.current.simulation.tick >= targetTick) return;
+    if (!playbackReady || frameRef.current.simulation.tick >= displayTargetTick)
+      return;
     let animationFrame = 0;
     let previousTimestamp: number | undefined;
     const advance = (timestamp: number): void => {
       if (previousTimestamp !== undefined) {
         const next = advanceLiveOfficeFrameForDisplay(
           frameRef.current,
-          targetTick,
+          displayTargetTick,
           timestamp - previousTimestamp,
         );
         if (next !== frameRef.current) {
@@ -107,12 +122,12 @@ export function useLiveOfficeAnimation(
         }
       }
       previousTimestamp = timestamp;
-      if (frameRef.current.simulation.tick < targetTick)
+      if (frameRef.current.simulation.tick < displayTargetTick)
         animationFrame = window.requestAnimationFrame(advance);
     };
     animationFrame = window.requestAnimationFrame(advance);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [departmentReleaseOrder, targetTick]);
+  }, [displayTargetTick, playbackReady, releaseOrderKey]);
 
   return useMemo(
     () => ({

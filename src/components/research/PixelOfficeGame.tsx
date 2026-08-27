@@ -32,6 +32,7 @@ type Props = {
   readonly renderInterpolationAlpha?: number;
   readonly cameraMode?: "overview" | "focus";
   readonly cameraControlMode?: OfficeCameraControlMode;
+  readonly onReady?: () => void;
 };
 
 type SceneMode =
@@ -163,9 +164,12 @@ export function PixelOfficeGame({
   renderInterpolationAlpha = 1,
   cameraMode = "overview",
   cameraControlMode = "automatic",
+  onReady,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<OfficeGameController | null>(null);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   const speechEvents = useMemo(
     () => concurrentSpeechEvents(currentEvent, events),
     [currentEvent, events],
@@ -391,6 +395,7 @@ export function PixelOfficeGame({
     const host = hostRef.current;
     if (!host) return;
     const abortController = new AbortController();
+    let readyFrame = 0;
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -437,6 +442,22 @@ export function PixelOfficeGame({
           });
         }
         controller.setPaused(pending.isPaused);
+        const notifyWhenPainted = (): void => {
+          if (abortController.signal.aborted) return;
+          if (
+            document.visibilityState === "visible" &&
+            host.getClientRects().length > 0
+          ) {
+            onReadyRef.current?.();
+            return;
+          }
+          readyFrame = window.requestAnimationFrame(notifyWhenPainted);
+        };
+        // One frame commits the Pixi canvas; the second confirms that the
+        // research screen itself has reached a visible browser paint.
+        readyFrame = window.requestAnimationFrame(() => {
+          readyFrame = window.requestAnimationFrame(notifyWhenPainted);
+        });
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError")
@@ -446,6 +467,7 @@ export function PixelOfficeGame({
 
     return () => {
       abortController.abort();
+      window.cancelAnimationFrame(readyFrame);
       controllerRef.current?.destroy();
       controllerRef.current = null;
       setRendererReady(false);

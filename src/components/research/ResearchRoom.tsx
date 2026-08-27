@@ -276,6 +276,12 @@ function RecoveryResearchRoom({ initialLocale, recovery }: RecoveryProps) {
 
 export function ResearchRoom(props: Props) {
   if ("payload" in props) return <FixtureResearchRoom {...props} />;
-  if ("initialSnapshot" in props) return <LiveOfficeResearchRoom {...props} />;
+  if ("initialSnapshot" in props)
+    return (
+      <LiveOfficeResearchRoom
+        key={props.initialSnapshot.run.runId}
+        {...props}
+      />
+    );
   return <RecoveryResearchRoom {...props} />;
 }

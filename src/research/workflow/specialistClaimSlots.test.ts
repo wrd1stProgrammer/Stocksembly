@@ -548,6 +548,68 @@ describe("specialist claim slots", () => {
     ).toEqual({ ok: true });
   });
 
+  it("rebinds an ownership-only non-ownership claim to sealed primary evidence", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "valuation" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const ownership = harness.sources[0];
+    const currentReport = harness.sources[1];
+    if (ownership === undefined || currentReport === undefined)
+      throw new TypeError("source fixtures missing");
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: ownership.artifactId,
+      metricId: "forward_pe",
+      leadSummary: {
+        en: "The current valuation requires faster earnings delivery.",
+        ko: "현재 밸류에이션은 더 빠른 이익 실현을 요구합니다.",
+      },
+    });
+    const evidenceArtifacts = [
+      {
+        evidenceId: ownership.artifactId,
+        dataset: "sec_insider_transactions",
+        form: "4",
+      },
+      {
+        evidenceId: currentReport.artifactId,
+        dataset: "sec_filing",
+        form: "8-K",
+      },
+    ];
+
+    const repaired = sanitizeSpecialistEvidenceTypeBindings(
+      candidate,
+      evidenceArtifacts,
+    );
+
+    expect(repaired).toMatchObject({
+      positions: [
+        { evidenceArtifactIds: [currentReport.artifactId] },
+        { evidenceArtifactIds: [currentReport.artifactId] },
+      ],
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [ownership.artifactId, currentReport.artifactId],
+          allowedMetricIds: ["forward_pe"],
+          evidenceArtifacts,
+        },
+        repaired,
+      ),
+    ).toEqual({ ok: true });
+  });
+
   it("repairs a copied claim-id typo from its unique semantic slot", async () => {
     const harness = await makeSqliteRoundHarness("none");
     const slots = allocateSpecialistClaimSlots({

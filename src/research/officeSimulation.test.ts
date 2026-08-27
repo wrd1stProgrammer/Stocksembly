@@ -114,6 +114,33 @@ describe("office fixed-tick simulation", () => {
     ).toEqual([]);
   });
 
+  it("keeps the entrance order market, company, financial, risk", () => {
+    const expectedIds = [
+      ...OFFICE_SCENE_MANIFEST.departments.market.memberIds,
+      ...OFFICE_SCENE_MANIFEST.departments.company.memberIds,
+      ...OFFICE_SCENE_MANIFEST.departments.financial.memberIds,
+      ...OFFICE_SCENE_MANIFEST.departments.risk.memberIds,
+    ];
+    const initial = createOfficeSimulation({
+      departmentReleaseOrder: ["risk", "financial", "company", "market"],
+    });
+    const specialists = initial.actors.filter(
+      (candidate) => candidate.department !== "chair",
+    );
+
+    expect(specialists.map((candidate) => candidate.id)).toEqual(expectedIds);
+    expect(specialists.map((candidate) => candidate.cell)).toEqual(
+      expectedIds.map((_, index) => ({ x: 21, y: 23 + index })),
+    );
+    expect(actor(stepOfficeSimulation(initial), "market").destination).toEqual(
+      manifestActor("market").workSeat.cell,
+    );
+    expect(actor(stepOfficeSimulation(initial), "risk").destination).toEqual({
+      x: 21,
+      y: 32,
+    });
+  });
+
   it("clamps browser gaps, catches up at most five ticks, and freezes while paused", () => {
     // Given
     const initial = createOfficeFrame(createOfficeSimulation());

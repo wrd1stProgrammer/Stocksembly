@@ -63,6 +63,34 @@ function hasHumanReadablePrecision(summary: string): boolean {
   });
 }
 
+/**
+ * Provider data often contains machine precision (for example 4.7146). Keep
+ * the underlying evidence untouched, but make reader-facing prose stable and
+ * readable before it reaches the quality gate. `hasOnlyGroundedNumbers`
+ * intentionally accepts this rounded representation when the source carries
+ * the higher-precision value.
+ */
+export function normalizeReaderFacingPrecision(value: string): string {
+  return value.replace(NUMERIC_TOKEN, (token) => {
+    const match = token.match(
+      /^([$€£]?[+-]?)(\d{1,3}(?:,\d{3})+|\d+)\.(\d{3,})((?:%|[A-Za-z]+)?)$/u,
+    );
+    if (match === null) return token;
+    const [, prefix = "", integer = "", fraction = "", suffix = ""] =
+      match;
+    const numeric = Number(`${integer.replaceAll(",", "")}.${fraction}`);
+    if (!Number.isFinite(numeric)) return token;
+    const rounded = numeric.toFixed(2).replace(/(?:\.0+|(?<=\.[0-9])0)$/u, "");
+    const [roundedInteger = "0", roundedFraction] = rounded.split(".");
+    const formattedInteger = integer.includes(",")
+      ? roundedInteger.replace(/\B(?=(\d{3})+(?!\d))/gu, ",")
+      : roundedInteger;
+    return `${prefix}${formattedInteger}${
+      roundedFraction === undefined ? "" : `.${roundedFraction}`
+    }${suffix}`;
+  });
+}
+
 function sharesGroundingLanguage(
   summary: string,
   sources: readonly string[],
