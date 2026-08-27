@@ -6,7 +6,11 @@ import type {
   BriefingEditionPayload,
   BriefingRoomState,
 } from "../../briefing/domain/contracts";
-import type { Locale } from "../../lib/i18n";
+import {
+  type AppLocale,
+  type ResearchLocale,
+  researchLocale,
+} from "../../lib/i18n";
 import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { MobileBottomNav } from "../MobileBottomNav";
 import { SignedInSidebar } from "../SignedInSidebar";
@@ -14,26 +18,29 @@ import { BriefingDetail } from "./BriefingDetail";
 import { BriefingFeed } from "./BriefingFeed";
 import { BriefingLocked, BriefingRoomHeader } from "./BriefingRoomHeader";
 import { BriefingWatchlist } from "./BriefingWatchlist";
+import { briefingRoomUiCopy } from "./briefingRoomUiCopy";
 import { useBriefingRoomController } from "./useBriefingRoomController";
 
 type Props = {
   readonly initialState: BriefingRoomState;
-  readonly locale: Locale;
+  readonly locale: AppLocale;
+  readonly contentLocale?: ResearchLocale;
   readonly initialDetails?: Readonly<Record<string, BriefingEditionPayload>>;
 };
 
-const mobileCopy = {
-  ko: { eyebrow: "미국 장 시작 1시간 전", title: "브리핑룸" },
-  en: { eyebrow: "One hour before the US open", title: "Briefing room" },
-} as const;
-
-export function BriefingRoom({ initialState, locale, initialDetails }: Props) {
+export function BriefingRoom({
+  initialState,
+  locale,
+  contentLocale = researchLocale(locale),
+  initialDetails,
+}: Props) {
   const router = useRouter();
+  const ui = briefingRoomUiCopy[locale];
   const [collapsed, setCollapsed] = useState(true);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const controller = useBriefingRoomController({
     initialState,
-    locale,
+    locale: contentLocale,
     initialDetails,
   });
   const { state } = controller;
@@ -52,7 +59,10 @@ export function BriefingRoom({ initialState, locale, initialDetails }: Props) {
         <SignedInSidebar
           locale={locale}
           collapsed={collapsed}
-          mobileContext={mobileCopy[locale]}
+          mobileContext={{
+            eyebrow: ui.header.eyebrow,
+            title: ui.header.title,
+          }}
           activeItem="briefing-room"
           onCollapsedChange={setCollapsed}
           onLocaleChange={(nextLocale) =>
@@ -110,12 +120,12 @@ export function BriefingRoom({ initialState, locale, initialDetails }: Props) {
       <BriefingDetail
         open={controller.detailOpen}
         briefing={controller.selected}
-        locale={locale}
+        locale={contentLocale}
         onClose={() => controller.setDetailOpen(false)}
       />
       <SidebarSubscriptionModal
         open={subscriptionOpen}
-        locale={locale}
+        locale={contentLocale}
         initialTier={
           state.authenticated
             ? state.tier === "free"

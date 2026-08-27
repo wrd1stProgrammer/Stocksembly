@@ -1,7 +1,8 @@
 import { CalendarClock, Plus } from "lucide-react";
 import type { BriefingListItem } from "../../briefing/domain/contracts";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
 import { BriefingCard } from "./BriefingCard";
+import { briefingRoomUiCopy } from "./briefingRoomUiCopy";
 
 type BriefingGroups = {
   readonly latest: readonly BriefingListItem[];
@@ -9,37 +10,12 @@ type BriefingGroups = {
 };
 
 type Props = {
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly watchlistCount: number;
   readonly briefings: readonly BriefingListItem[];
   readonly onAdd: () => void;
   readonly onOpen: (briefing: BriefingListItem) => void;
 };
-
-const copy = {
-  ko: {
-    latest: "최신 브리핑",
-    history: "이전 브리핑",
-    emptyTitle: "첫 브리핑을 준비할 종목을 추가하세요",
-    emptyBody:
-      "직전 발행 이후의 변화와 다음 촉매만 추려서 장 시작 전에 전달합니다.",
-    noEditionTitle: "다음 프리마켓 브리핑부터 시작됩니다",
-    noEditionBody:
-      "관심종목 등록이 끝났습니다. 다음 미국 거래일 장 시작 한 시간 전에 새 브리핑이 도착합니다.",
-    add: "종목 추가",
-  },
-  en: {
-    latest: "Latest briefings",
-    history: "Briefing history",
-    emptyTitle: "Add a stock for its first briefing",
-    emptyBody:
-      "Each edition isolates the changes and catalysts that matter before the open.",
-    noEditionTitle: "Briefings begin at the next pre-market run",
-    noEditionBody:
-      "Your watchlist is ready. A new edition arrives one hour before the next US market open.",
-    add: "Add stock",
-  },
-} as const;
 
 export function groupBriefings(
   briefings: readonly BriefingListItem[],
@@ -79,7 +55,7 @@ function BriefingGroup({
 }: {
   readonly title: string;
   readonly briefings: readonly BriefingListItem[];
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly featured?: boolean;
   readonly onOpen: Props["onOpen"];
 }) {
@@ -112,7 +88,7 @@ export function BriefingFeed({
   onAdd,
   onOpen,
 }: Props) {
-  const labels = copy[locale];
+  const labels = briefingRoomUiCopy[locale].feed;
   if (watchlistCount === 0)
     return (
       <section className="briefing-feed">

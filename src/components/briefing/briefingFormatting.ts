@@ -1,8 +1,8 @@
-import type { Locale } from "../../lib/i18n";
+import { type AppLocale, intlLocale } from "../../lib/i18n";
 
 export function formatBriefingDateInZone(
   value: string,
-  locale: Locale,
+  locale: AppLocale,
   timeZone: string,
   includeTime = false,
 ): string {
@@ -20,6 +20,15 @@ export function formatBriefingDateInZone(
   const day = Number(part("day"));
   const time = includeTime ? ` ${part("hour")}:${part("minute")}` : "";
   if (locale === "ko") return `${month}월 ${day}일${time}`;
+  if (locale !== "en")
+    return new Intl.DateTimeFormat(intlLocale(locale), {
+      timeZone,
+      month: "short",
+      day: "numeric",
+      ...(includeTime
+        ? { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }
+        : {}),
+    }).format(new Date(value));
   const months = [
     "Jan",
     "Feb",
@@ -39,7 +48,7 @@ export function formatBriefingDateInZone(
 
 export function formatBriefingDate(
   value: string,
-  locale: Locale,
+  locale: AppLocale,
   includeTime = false,
 ): string {
   return formatBriefingDateInZone(
