@@ -320,7 +320,6 @@ describe("ResearchReportSchema", () => {
   );
 
   it.each([
-    "BUY",
     "target price $123",
     "OHLCV",
     "entry 123",
@@ -340,6 +339,27 @@ describe("ResearchReportSchema", () => {
       },
     };
     expect(ResearchReportSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it("allows explicit investment-rating language in narrative", () => {
+    const report = validReport();
+    const valid = {
+      ...report,
+      locales: {
+        ...report.locales,
+        en: {
+          ...report.locales.en,
+          sections: [
+            {
+              ...report.locales.en.sections[0],
+              body: "BUY because the cited operating evidence supports expansion.",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(ResearchReportSchema.safeParse(valid).success).toBe(true);
   });
 
   it("allows ordinary lowercase buy language that is not an investment rating", () => {

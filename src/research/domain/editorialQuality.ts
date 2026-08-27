@@ -72,8 +72,6 @@ const ENGLISH_STOP_WORDS = new Set([
   "with",
 ]);
 const FORBIDDEN_PUBLIC_PHRASES = [
-  "buy now",
-  "sell now",
   "guaranteed return",
   "system message",
   "prompt injection",
@@ -83,8 +81,6 @@ const FORBIDDEN_PUBLIC_PHRASES = [
   "licensing restriction",
   "licensing limitation",
   "licensing constraint",
-  "지금 매수",
-  "지금 매도",
   "수익 보장",
   "시스템 메시지",
   "프롬프트 인젝션",

@@ -95,7 +95,6 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "observed_coverage",
     ],
     forbiddenOutputs: [
-      "direct_trade_instruction",
       "guaranteed_return",
       "valuation_analysis",
       "fundamental_analysis",
@@ -143,7 +142,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "competing_hypothesis",
       "observed_coverage",
     ],
-    forbiddenOutputs: ["direct_trade_instruction", "guaranteed_return"],
+    forbiddenOutputs: ["guaranteed_return"],
   },
   {
     roleId: "company",
@@ -272,7 +271,6 @@ export const ROLE_ASSIGNMENT_POLICIES = [
       "observed_coverage",
     ],
     forbiddenOutputs: [
-      "direct_trade_instruction",
       "guaranteed_return",
       "chart_technical_analysis",
       "news_summary",

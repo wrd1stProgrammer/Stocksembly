@@ -52,6 +52,7 @@ function sharesGroundingLanguage(summary: string, sources: readonly string[]) {
 
 type ChairValidationInput = {
   readonly chair: z.infer<typeof ChairSynthesisOutputSchema>;
+  readonly locale: "en" | "ko" | undefined;
   readonly sentences: readonly {
     readonly sentenceId: string;
     readonly claimIds: readonly string[];
@@ -62,6 +63,36 @@ type ChairValidationInput = {
   readonly retainedDissentClaimIds: readonly string[];
   readonly retainedOpenQuestionCount: number;
 };
+
+function validLocalizedSummary(
+  summary: Readonly<{ en: string; ko: string }>,
+  selected: ChairValidationInput["sentences"],
+  locale: ChairValidationInput["locale"],
+  maxLength: number,
+): boolean {
+  const mirrored = summary.en.trim() === summary.ko.trim();
+  if (mirrored) {
+    if (locale === undefined) return false;
+    return (
+      summary[locale].trim().length > 0 &&
+      summary[locale].length <= maxLength &&
+      sharesGroundingLanguage(
+        summary[locale],
+        selected.map((sentence) => sentence.text[locale]),
+      )
+    );
+  }
+  const locales: readonly ("en" | "ko")[] = ["en", "ko"];
+  return locales.every(
+    (current) =>
+      summary[current].trim().length > 0 &&
+      summary[current].length <= maxLength &&
+      sharesGroundingLanguage(
+        summary[current],
+        selected.map((sentence) => sentence.text[current]),
+      ),
+  );
+}
 
 export function chairValidationReason(
   input: ChairValidationInput,
@@ -92,25 +123,14 @@ export function chairValidationReason(
       const sentence = sentences.get(id);
       return sentence === undefined ? [] : [sentence];
     });
-    const groundedInEnglish = sharesGroundingLanguage(
-      section.publicSummary.en,
-      selected.map((sentence) => sentence.text.en),
-    );
-    const groundedInKorean = sharesGroundingLanguage(
-      section.publicSummary.ko,
-      selected.map((sentence) => sentence.text.ko),
-    );
     if (
       selected.length !== section.sentenceIds.length ||
-      section.publicSummary.en.trim().length === 0 ||
-      section.publicSummary.ko.trim().length === 0 ||
-      !groundedInEnglish ||
-      !groundedInKorean ||
-      section.publicSummary.en.toLocaleLowerCase() ===
-        section.publicSummary.ko.toLocaleLowerCase() ||
-      (section.sectionKey === "ten_second_brief" &&
-        (section.publicSummary.en.length > 360 ||
-          section.publicSummary.ko.length > 360)) ||
+      !validLocalizedSummary(
+        section.publicSummary,
+        selected,
+        input.locale,
+        section.sectionKey === "ten_second_brief" ? 360 : 4_000,
+      ) ||
       !sameSet(
         [...new Set(selected.flatMap((sentence) => sentence.claimIds))],
         section.auditedClaimIds,

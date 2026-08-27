@@ -24,8 +24,6 @@ import type {
 } from "./specialistRoundContracts";
 import { SpecialistMemoCandidateSchema } from "./specialistRoundContracts";
 
-const TRADE_INSTRUCTION =
-  /\b(?:buy|sell|hold|long|short)\b|(?:매수|매도|보유|롱|숏)/iu;
 const PRICE_MENTION =
   /(?:[$€£¥₩]|\b(?:price|price target|current price|multiple)\b|(?:가격|주가|목표가|배수))/iu;
 const PRICE_ENABLED_ROLES = new Set<SpecialistRoleId>([
@@ -662,9 +660,8 @@ export function inspectSpecialistCandidate(
       capability.state.availability === "available",
   );
   if (
-    TRADE_INSTRUCTION.test(serialized) ||
-    (PRICE_MENTION.test(serialized) &&
-      (!PRICE_ENABLED_ROLES.has(request.role.id) || !hasMarketData))
+    PRICE_MENTION.test(serialized) &&
+    (!PRICE_ENABLED_ROLES.has(request.role.id) || !hasMarketData)
   )
     return { kind: "invalid" };
   const evidenceHashes = new Map(

@@ -93,8 +93,6 @@ export function publicTextIsValid(
     const source = [...english, ...korean];
     return (
       text.en.length <= maxLength &&
-      !/\b(?:buy|sell)\s+now\b/iu.test(text.en) &&
-      !/(?:지금|즉시)\s*(?:매수|매도)/u.test(text.en) &&
       sharesGroundingLanguage(text.en, source) &&
       hasOnlyGroundedNumbers(text.en, bilingualNumbers)
     );
@@ -102,8 +100,6 @@ export function publicTextIsValid(
   if (!/\p{Script=Latin}/u.test(text.en) || !/\p{Script=Hangul}/u.test(text.ko))
     return false;
   if (text.en.length > maxLength || text.ko.length > maxLength) return false;
-  if (/\b(?:buy|sell)\s+now\b/iu.test(text.en)) return false;
-  if (/(?:지금|즉시)\s*(?:매수|매도)/u.test(text.ko)) return false;
   // The authenticated bilingual source can express the same monetary value
   // with different units (for example $215.9B vs US$2159억). A translated
   // summary may preserve either representation, so numeric grounding uses the
