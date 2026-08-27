@@ -42,9 +42,7 @@ const NON_BLOCKING_AFTER_REWRITE = new Set<string>([
 ]);
 
 function normalizedPublicSummary(raw: unknown): unknown {
-  const parsed = z
-    .object({ en: z.string(), ko: z.string() })
-    .safeParse(raw);
+  const parsed = z.object({ en: z.string(), ko: z.string() }).safeParse(raw);
   return parsed.success
     ? {
         en: normalizeReaderFacingPrecision(parsed.data.en),

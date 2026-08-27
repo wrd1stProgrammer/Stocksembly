@@ -76,8 +76,7 @@ export function normalizeReaderFacingPrecision(value: string): string {
       /^([$€£]?[+-]?)(\d{1,3}(?:,\d{3})+|\d+)\.(\d{3,})((?:%|[A-Za-z]+)?)$/u,
     );
     if (match === null) return token;
-    const [, prefix = "", integer = "", fraction = "", suffix = ""] =
-      match;
+    const [, prefix = "", integer = "", fraction = "", suffix = ""] = match;
     const numeric = Number(`${integer.replaceAll(",", "")}.${fraction}`);
     if (!Number.isFinite(numeric)) return token;
     const rounded = numeric.toFixed(2).replace(/(?:\.0+|(?<=\.[0-9])0)$/u, "");
