@@ -47,35 +47,6 @@ const KO_KIND_LABELS: Readonly<Record<PublicResearchEvent["kind"], string>> = {
   run_cancelled: "리서치 취소 완료",
 };
 
-const RUNTIME_STATUS_SUMMARIES: Readonly<
-  Record<string, { readonly en: string; readonly ko: string }>
-> = {
-  waiting: {
-    en: "Waiting for the next durable retry",
-    ko: "다음 영속 재시도를 기다리고 있습니다",
-  },
-  retrying: {
-    en: "Retrying the interrupted research stage",
-    ko: "중단된 리서치 단계를 다시 시도하고 있습니다",
-  },
-  "blocked-external-dependency": {
-    en: "External dependency needs operator attention",
-    ko: "외부 의존성에 운영자 확인이 필요합니다",
-  },
-  "invalid-model-output": {
-    en: "Model output was invalid and remains repairable",
-    ko: "모델 출력이 유효하지 않아 복구 대기 중입니다",
-  },
-  "publication-failure": {
-    en: "Report publication failed after synthesis",
-    ko: "종합 이후 보고서 발행에 실패했습니다",
-  },
-  "attention-required": {
-    en: "Research is paused for operator attention",
-    ko: "운영자 확인을 위해 리서치가 일시 중지되었습니다",
-  },
-};
-
 function actorId(value: string | undefined): AgentId {
   return value !== undefined && ACTOR_IDS.has(value as AgentId)
     ? (value as AgentId)
@@ -201,10 +172,6 @@ function progressTick(
 }
 
 function summaryFor(event: PublicResearchEvent) {
-  if (event.kind === "runtime_status") {
-    const runtimeSummary = RUNTIME_STATUS_SUMMARIES[event.stateId];
-    if (runtimeSummary !== undefined) return runtimeSummary;
-  }
   if (
     event.summary !== undefined &&
     event.summary.en.trim().length > 0 &&
@@ -275,9 +242,10 @@ export function liveOfficeProjection(snapshot: PublicRunDetail): {
         ].leadId
       : "chair";
   const collectionStartedSeen = new Set<string>();
-  const visibleEvents = snapshot.events.filter((event, index) => {
-    if (event.kind === "runtime_status")
-      return index === snapshot.events.length - 1;
+  const visibleEvents = snapshot.events.filter((event) => {
+    // Retry mechanics remain available in durable server logs, but they are
+    // not research findings and should never appear as chair dialogue.
+    if (event.kind === "runtime_status") return false;
     if (event.kind !== "collection_started") return true;
     const summary = summaryFor(event);
     const fingerprint = `${event.actorId ?? "chair"}|${summary.en}|${summary.ko}`;

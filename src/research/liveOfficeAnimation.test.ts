@@ -114,4 +114,79 @@ describe("live office animation", () => {
     expect(callbacks).toHaveLength(0);
     view.unmount();
   });
+
+  it("keeps the entrance queue still until the rendered office reports ready", () => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    let requestId = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      requestId += 1;
+      callbacks.set(requestId, callback);
+      return requestId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => callbacks.delete(id));
+    const runNextFrame = (timestamp: number) => {
+      const next = callbacks.entries().next().value as
+        | [number, FrameRequestCallback]
+        | undefined;
+      if (next === undefined) throw new TypeError("animation frame missing");
+      callbacks.delete(next[0]);
+      act(() => next[1](timestamp));
+    };
+
+    const view = renderHook(
+      ({ ready }) => useLiveOfficeAnimation(80, undefined, ready),
+      { initialProps: { ready: false } },
+    );
+
+    expect(view.result.current.snapshot.tick).toBe(0);
+    expect(callbacks).toHaveLength(0);
+
+    view.rerender({ ready: true });
+    runNextFrame(0);
+    runNextFrame(OFFICE_CLOCK_CONTRACT.tickMs);
+
+    expect(view.result.current.snapshot.tick).toBe(1);
+    view.unmount();
+  });
+
+  it("finishes seating the entrance even while the research run is still queued", () => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    let requestId = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      requestId += 1;
+      callbacks.set(requestId, callback);
+      return requestId;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => callbacks.delete(id));
+    const runNextFrame = (timestamp: number) => {
+      const next = callbacks.entries().next().value as
+        | [number, FrameRequestCallback]
+        | undefined;
+      if (next === undefined) throw new TypeError("animation frame missing");
+      callbacks.delete(next[0]);
+      act(() => next[1](timestamp));
+    };
+
+    const view = renderHook(
+      ({ ready }) => useLiveOfficeAnimation(0, undefined, ready, true),
+      { initialProps: { ready: false } },
+    );
+
+    view.rerender({ ready: true });
+    runNextFrame(0);
+    for (let tick = 1; tick <= 120; tick += 1) {
+      runNextFrame(tick * OFFICE_CLOCK_CONTRACT.tickMs);
+    }
+
+    expect(view.result.current.snapshot.tick).toBe(120);
+    expect(
+      view.result.current.snapshot.actors
+        .filter((actor) => actor.department !== "chair")
+        .every(
+          (actor) => actor.action === "seated-work" && actor.motion === null,
+        ),
+    ).toBe(true);
+    expect(callbacks).toHaveLength(0);
+    view.unmount();
+  });
 });

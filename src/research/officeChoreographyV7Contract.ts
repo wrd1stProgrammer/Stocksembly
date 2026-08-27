@@ -19,6 +19,13 @@ export const OFFICE_DEPARTMENT_TALK_TIMELINE = Object.freeze({
   memberStaggerTicks: 4,
 });
 
+export const OFFICE_ENTRY_TIMELINE = Object.freeze({
+  firstReleaseTick: 1,
+  teamIntervalTicks: 8,
+  memberStaggerTicks: 2,
+  endTick: 119,
+});
+
 export const DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER: readonly OfficeDepartmentId[] =
   Object.freeze(["market", "company", "financial", "risk"]);
 

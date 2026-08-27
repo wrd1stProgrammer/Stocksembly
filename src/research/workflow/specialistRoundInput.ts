@@ -517,11 +517,144 @@ export function sanitizeSpecialistDecisiveMetricIds(
   };
 }
 
+function registeredPercentage(record: {
+  readonly value: string;
+}): string | undefined {
+  const numeric = Number(record.value);
+  if (!Number.isFinite(numeric)) return undefined;
+  return String(numeric);
+}
+
+function groundPercentageText(input: {
+  readonly text: string;
+  readonly decisiveMetricIds: readonly string[];
+  readonly registeredValues: NonNullable<
+    ClaimSubmissionRequest["registeredValues"]
+  >;
+}): string | undefined {
+  const families = percentageMetricFamilies(input.text);
+  if (families.length !== 1 || input.decisiveMetricIds.length !== 1)
+    return undefined;
+  const matches = [...input.text.matchAll(PERCENTAGE_TOKEN)].filter((match) => {
+    const start = match.index ?? 0;
+    return !isForwardThresholdPercentage(
+      input.text,
+      start,
+      start + (match[0]?.length ?? 0),
+    );
+  });
+  if (matches.length !== 1) return undefined;
+  const recordsById = new Map(
+    input.registeredValues.map((record) => [record.valueId, record]),
+  );
+  const selected = input.decisiveMetricIds.flatMap((valueId) => {
+    const record = recordsById.get(valueId);
+    if (
+      record === undefined ||
+      !families.some((family) =>
+        family.test(`${record.valueId} ${record.metric}`),
+      )
+    )
+      return [];
+    const percentage = registeredPercentage(record);
+    return percentage === undefined ? [] : [percentage];
+  });
+  if (selected.length !== 1) return undefined;
+  let cursor = 0;
+  let grounded = "";
+  matches.forEach((match, index) => {
+    const start = match.index ?? cursor;
+    grounded += input.text.slice(cursor, start);
+    grounded += `${selected[index]}%`;
+    cursor = start + (match[0]?.length ?? 0);
+  });
+  return grounded + input.text.slice(cursor);
+}
+
 /**
- * Models sometimes append an ownership filing to every claim because it was
- * present in the evidence slice. Remove only that incidental citation when a
- * suitable non-ownership source remains; otherwise leave the claim untouched
- * so the strict validator can request a grounded replacement.
+ * A selected registered metric is the numeric authority for a claim. When the
+ * model preserves that binding but mistypes the displayed percentage, project
+ * the exact registered value into both reader locales instead of spending a
+ * second model call on a deterministic copy correction. Ambiguous bindings
+ * remain untouched and are still rejected by the strict validator.
+ */
+export function sanitizeSpecialistNumericMetricValues(
+  candidate: unknown,
+  registeredValues: NonNullable<ClaimSubmissionRequest["registeredValues"]>,
+): unknown {
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    !("positions" in candidate) ||
+    !Array.isArray(candidate.positions)
+  )
+    return candidate;
+  return {
+    ...candidate,
+    positions: candidate.positions.map((position) => {
+      if (
+        typeof position !== "object" ||
+        position === null ||
+        !("publicSummary" in position) ||
+        typeof position.publicSummary !== "object" ||
+        position.publicSummary === null ||
+        !("en" in position.publicSummary) ||
+        !("ko" in position.publicSummary) ||
+        typeof position.publicSummary.en !== "string" ||
+        typeof position.publicSummary.ko !== "string" ||
+        !("decisiveMetricIds" in position) ||
+        !Array.isArray(position.decisiveMetricIds) ||
+        position.decisiveMetricIds.some(
+          (valueId: unknown) => typeof valueId !== "string",
+        )
+      )
+        return position;
+      const decisiveMetricIds = position.decisiveMetricIds as string[];
+      const en = groundPercentageText({
+        text: position.publicSummary.en,
+        decisiveMetricIds,
+        registeredValues,
+      });
+      const ko = groundPercentageText({
+        text: position.publicSummary.ko,
+        decisiveMetricIds,
+        registeredValues,
+      });
+      if (en === undefined || ko === undefined) return position;
+      return {
+        ...position,
+        publicSummary: {
+          ...position.publicSummary,
+          en,
+          ko,
+        },
+      };
+    }),
+  };
+}
+
+function nonOwnershipEvidencePriority(artifact: {
+  readonly dataset: string;
+  readonly form?: string;
+}): number {
+  const form = artifact.form?.trim().toUpperCase();
+  if (form === "8-K") return 0;
+  if (form === "10-Q") return 1;
+  if (form === "10-K") return 2;
+  if (artifact.dataset === "insightsentry_fundamentals") return 3;
+  if (artifact.dataset === "insightsentry_documents") return 4;
+  if (artifact.dataset === "insightsentry_news_company") return 5;
+  return 20;
+}
+
+/**
+ * Models sometimes attach ownership filings to every claim merely because
+ * those filings were present in the evidence slice. Remove those incidental
+ * citations. If the model selected only ownership filings, bind the claim to
+ * the strongest non-ownership primary/provider artifacts already sealed into
+ * the same specialist request. Later semantic audit still decides whether the
+ * claim itself is publishable; this repair only prevents a citation-type copy
+ * error from killing an otherwise complete eleven-agent run.
  */
 export function sanitizeSpecialistEvidenceTypeBindings(
   candidate: unknown,
@@ -543,6 +676,19 @@ export function sanitizeSpecialistEvidenceTypeBindings(
       )
       .map((artifact) => artifact.evidenceId),
   );
+  const fallbackArtifacts = evidenceArtifacts
+    .filter(
+      (artifact) =>
+        !ownershipArtifacts.has(artifact.evidenceId) &&
+        nonOwnershipEvidencePriority(artifact) < 20,
+    )
+    .sort(
+      (left, right) =>
+        nonOwnershipEvidencePriority(left) -
+        nonOwnershipEvidencePriority(right),
+    )
+    .map((artifact) => artifact.evidenceId)
+    .slice(0, 3);
   return {
     ...candidate,
     positions: candidate.positions.map((position) => {
@@ -566,8 +712,9 @@ export function sanitizeSpecialistEvidenceTypeBindings(
         (artifactId: unknown): artifactId is string =>
           typeof artifactId === "string" && !ownershipArtifacts.has(artifactId),
       );
-      if (permitted.length === 0) return position;
-      return { ...position, evidenceArtifactIds: permitted };
+      const replacement = permitted.length > 0 ? permitted : fallbackArtifacts;
+      if (replacement.length === 0) return position;
+      return { ...position, evidenceArtifactIds: replacement };
     }),
   };
 }

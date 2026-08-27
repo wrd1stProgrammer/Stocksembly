@@ -2,6 +2,7 @@ import {
   assertNeverOffice,
   DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   OFFICE_DEPARTMENT_TALK_TIMELINE,
+  OFFICE_ENTRY_TIMELINE,
   type OfficeActorDirective,
   type OfficeCameraTarget,
   officeBeatAt,
@@ -42,6 +43,68 @@ function chairMember() {
   return member;
 }
 const chair = chairMember();
+
+export function officeEntryCellFor(actorId: OfficeManifestAgentId): {
+  readonly x: number;
+  readonly y: number;
+} {
+  if (actorId === "chair") return chair.workSeat.cell;
+  const entryOrder = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER.flatMap(
+    (departmentId) => OFFICE_SCENE_MANIFEST.departments[departmentId].memberIds,
+  );
+  const specialistIndex = entryOrder.indexOf(actorId);
+  if (specialistIndex < 0)
+    throw new RangeError(`Missing office entry position for ${actorId}`);
+  return Object.freeze({ x: 21, y: 23 + specialistIndex });
+}
+
+function entryDirectives(tick: number): readonly OfficeActorDirective[] {
+  const directives = new Map<OfficeManifestAgentId, OfficeActorDirective>();
+  directives.set(chair.id, {
+    ...seatDirective(chair, tick < 40 ? "entry-chair-briefing" : "entry-chair"),
+    terminalAction: tick < 40 ? "talk" : "idle",
+  });
+  // The arrival line is a fixed product narrative: market, company,
+  // financial, then risk.  Later department discussions may still follow
+  // the order in which durable results arrive, but that must never reshuffle
+  // people who are visibly walking into the office.
+  for (const [
+    departmentIndex,
+    departmentId,
+  ] of DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER.entries()) {
+    const department = OFFICE_SCENE_MANIFEST.departments[departmentId];
+    for (const [memberIndex, memberId] of department.memberIds.entries()) {
+      const member = OFFICE_SCENE_MANIFEST.roster.find(
+        (candidate) => candidate.id === memberId,
+      );
+      if (!member) throw new RangeError(`Missing entry member ${memberId}`);
+      const releaseTick =
+        OFFICE_ENTRY_TIMELINE.firstReleaseTick +
+        departmentIndex * OFFICE_ENTRY_TIMELINE.teamIntervalTicks +
+        memberIndex * OFFICE_ENTRY_TIMELINE.memberStaggerTicks;
+      directives.set(
+        memberId,
+        tick < releaseTick
+          ? {
+              actorId: memberId,
+              destination: officeEntryCellFor(memberId),
+              facing: "up",
+              terminalAction: "stand",
+              travelAction: "walk",
+              revisionKey: `entry-wait-${departmentId}-${memberId}`,
+            }
+          : {
+              ...seatDirective(
+                member,
+                `entry-seat-${departmentId}-${memberId}`,
+              ),
+              travelAction: "walk",
+            },
+      );
+    }
+  }
+  return ordered(directives);
+}
 
 function seatDirective(
   member: (typeof OFFICE_SCENE_MANIFEST.roster)[number],
@@ -262,6 +325,9 @@ export function officeDirectivesAt(
   tick: number,
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
 ): readonly OfficeActorDirective[] {
+  if (tick <= OFFICE_ENTRY_TIMELINE.endTick) {
+    return entryDirectives(tick);
+  }
   const beat = officeBeatAt(tick);
   switch (beat.id) {
     case "briefing": {
@@ -309,6 +375,7 @@ export function officeCameraTargetAt(
   tick: number,
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
 ): OfficeCameraTarget {
+  if (tick <= OFFICE_ENTRY_TIMELINE.endTick) return { kind: "overview" };
   const beat = officeBeatAt(tick);
   if (beat.id === "briefing") return { kind: "actors", actorIds: [chair.id] };
   if (beat.id === "parallel-work" || beat.id === "department-talk") {

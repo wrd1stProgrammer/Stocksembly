@@ -251,6 +251,7 @@ export function LiveOfficeResearchRoom({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [officeReady, setOfficeReady] = useState(false);
   const [historyRuns, setHistoryRuns] = useState<readonly PublicRun[]>([
     initialSnapshot.run,
   ]);
@@ -265,6 +266,8 @@ export function LiveOfficeResearchRoom({
   const animation = useLiveOfficeAnimation(
     office.tick,
     office.departmentReleaseOrder,
+    officeReady,
+    true,
   );
   const snapshot = scopeOfficeSnapshot(
     animation.snapshot,
@@ -587,6 +590,7 @@ export function LiveOfficeResearchRoom({
           activeAgentIds={activity.active}
           focusedTeam={focusedTeam}
           onReplay={() => window.location.reload()}
+          onOfficeReady={() => setOfficeReady(true)}
         />
         <MeetingMinutes
           current={office.current}

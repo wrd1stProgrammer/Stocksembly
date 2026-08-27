@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { publicTextIsValid } from "./chairSynthesisTextValidation";
+import {
+  normalizeReaderFacingPrecision,
+  publicTextIsValid,
+} from "./chairSynthesisTextValidation";
 
 describe("chair synthesis public text", () => {
   const sources = [
@@ -75,6 +78,14 @@ describe("chair synthesis public text", () => {
         360,
       ),
     ).toBe(false);
+  });
+
+  it("normalizes provider precision without changing financial notation", () => {
+    expect(
+      normalizeReaderFacingPrecision(
+        "EPS was 4.7146, revenue was $1,234.5678 and growth was -17.8962%.",
+      ),
+    ).toBe("EPS was 4.71, revenue was $1,234.57 and growth was -17.9%.");
   });
 
   it("accepts equivalent financial-unit formatting", () => {

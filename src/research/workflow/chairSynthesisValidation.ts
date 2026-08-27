@@ -25,6 +25,7 @@ import {
 import {
   decisionTextsAreDistinct,
   isSymmetricHedge,
+  normalizeReaderFacingPrecision,
   publicTextIsValid,
 } from "./chairSynthesisTextValidation";
 
@@ -39,6 +40,16 @@ const NON_BLOCKING_AFTER_REWRITE = new Set<string>([
   "generic_limitation_language",
   "semantic_repetition",
 ]);
+
+function normalizedPublicSummary(raw: unknown): unknown {
+  const parsed = z.object({ en: z.string(), ko: z.string() }).safeParse(raw);
+  return parsed.success
+    ? {
+        en: normalizeReaderFacingPrecision(parsed.data.en),
+        ko: normalizeReaderFacingPrecision(parsed.data.ko),
+      }
+    : raw;
+}
 
 export type ChairAssignmentProjection = {
   readonly candidate: ModelCandidate;
@@ -67,7 +78,7 @@ function normalizedModelCandidate(raw: unknown): unknown {
       const value = parsedSection.data;
       return {
         sectionKey: value["sectionKey"],
-        publicSummary: value["publicSummary"],
+        publicSummary: normalizedPublicSummary(value["publicSummary"]),
         primarySentenceId: value["primarySentenceId"],
         sentenceIds: value["sentenceIds"],
         conflictAdjudication: value["conflictAdjudication"] ?? null,
@@ -732,7 +743,12 @@ export function validChairCandidate(promptJson: string, raw: unknown): unknown {
   const candidate = ChairSynthesisModelOutputSchema.safeParse(
     normalizedModelCandidate(raw),
   );
-  return candidate.success ? resolvedCandidate(prompt, candidate.data) : {};
+  // Editorial polish must not discard an otherwise grounded report. These
+  // concerns are still observable and can be improved later, while evidence,
+  // source ownership, and structural integrity remain fail-closed above.
+  return candidate.success
+    ? resolvedCandidate(prompt, candidate.data, NON_BLOCKING_AFTER_REWRITE)
+    : {};
 }
 
 export function mergeChairSectionRewrite(
@@ -744,14 +760,16 @@ export function mergeChairSectionRewrite(
   );
   const rewrite = ChairSectionRewriteSchema.safeParse(rewriteRaw);
   if (!candidate.success || !rewrite.success) return {};
+  const sectionsByKey = new Map(
+    candidate.data.sections.map((section) => [section.sectionKey, section]),
+  );
+  sectionsByKey.set(rewrite.data.section.sectionKey, rewrite.data.section);
   return {
     ...candidate.data,
-    sections: [
-      ...candidate.data.sections.filter(
-        (section) => section.sectionKey !== rewrite.data.section.sectionKey,
-      ),
-      rewrite.data.section,
-    ],
+    sections: CHAIR_SECTION_KEYS.flatMap((sectionKey) => {
+      const section = sectionsByKey.get(sectionKey);
+      return section === undefined ? [] : [section];
+    }),
   };
 }
 
@@ -850,13 +868,17 @@ function groundedFallbackSummary(
       ? safeSelection.slice(0, 1)
       : safeSelection;
   return {
-    en: groundedFallbackText(
-      grounded.map((sentence) => sentence.text.en),
-      maxLength,
+    en: normalizeReaderFacingPrecision(
+      groundedFallbackText(
+        grounded.map((sentence) => sentence.text.en),
+        maxLength,
+      ),
     ),
-    ko: groundedFallbackText(
-      grounded.map((sentence) => sentence.text.ko),
-      maxLength,
+    ko: normalizeReaderFacingPrecision(
+      groundedFallbackText(
+        grounded.map((sentence) => sentence.text.ko),
+        maxLength,
+      ),
     ),
   };
 }

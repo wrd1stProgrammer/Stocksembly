@@ -66,6 +66,81 @@ describe("office fixed-tick simulation", () => {
     expect(actual).toEqual(expected);
   });
 
+  it("opens with specialists queued at bottom center and seats them by team", () => {
+    // Given
+    const specialistIds = OFFICE_SCENE_MANIFEST.roster
+      .filter((member) => member.departmentId !== "chair")
+      .map((member) => member.id);
+    const expectedQueue = specialistIds.map((_, index) => ({
+      x: 21,
+      y: 23 + index,
+    }));
+
+    // When
+    const initial = createOfficeSimulation();
+    const firstTeamReleased = runTo(1);
+    const allTeamsReleased = runTo(28);
+    const settled = runTo(120);
+
+    // Then
+    expect(actor(initial, "chair")).toMatchObject({
+      cell: manifestActor("chair").workSeat.cell,
+      action: "talk",
+    });
+    expect(specialistIds.map((id) => actor(initial, id).cell)).toEqual(
+      expectedQueue,
+    );
+    expect(specialistIds.map((id) => actor(initial, id).action)).toEqual(
+      specialistIds.map(() => "stand"),
+    );
+    expect(actor(firstTeamReleased, "market").destination).toEqual(
+      manifestActor("market").workSeat.cell,
+    );
+    expect(actor(firstTeamReleased, "company").destination).toEqual(
+      expectedQueue[3],
+    );
+    expect(actor(allTeamsReleased, "risk_policy").destination).toEqual(
+      manifestActor("risk_policy").workSeat.cell,
+    );
+    for (const id of specialistIds) {
+      expect(actor(settled, id)).toMatchObject({
+        cell: manifestActor(id).workSeat.cell,
+        action: "seated-work",
+        motion: null,
+      });
+    }
+    expect(
+      settled.events.filter((event) => event.kind === "route-failure"),
+    ).toEqual([]);
+  });
+
+  it("keeps the entrance order market, company, financial, risk", () => {
+    const expectedIds = [
+      ...OFFICE_SCENE_MANIFEST.departments.market.memberIds,
+      ...OFFICE_SCENE_MANIFEST.departments.company.memberIds,
+      ...OFFICE_SCENE_MANIFEST.departments.financial.memberIds,
+      ...OFFICE_SCENE_MANIFEST.departments.risk.memberIds,
+    ];
+    const initial = createOfficeSimulation({
+      departmentReleaseOrder: ["risk", "financial", "company", "market"],
+    });
+    const specialists = initial.actors.filter(
+      (candidate) => candidate.department !== "chair",
+    );
+
+    expect(specialists.map((candidate) => candidate.id)).toEqual(expectedIds);
+    expect(specialists.map((candidate) => candidate.cell)).toEqual(
+      expectedIds.map((_, index) => ({ x: 21, y: 23 + index })),
+    );
+    expect(actor(stepOfficeSimulation(initial), "market").destination).toEqual(
+      manifestActor("market").workSeat.cell,
+    );
+    expect(actor(stepOfficeSimulation(initial), "risk").destination).toEqual({
+      x: 21,
+      y: 32,
+    });
+  });
+
   it("clamps browser gaps, catches up at most five ticks, and freezes while paused", () => {
     // Given
     const initial = createOfficeFrame(createOfficeSimulation());

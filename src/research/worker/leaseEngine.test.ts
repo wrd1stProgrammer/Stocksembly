@@ -594,6 +594,50 @@ describe("leased research worker", () => {
     }
   });
 
+  it("reopens a cooling-down research job and resumes it from the same SQLite state", async () => {
+    const fixture = createLeaseEngineFixture();
+    const unavailable = fixture.openEngine(
+      "cooldown-before-restart",
+      {
+        run: async () => {
+          throw new CodexRunnerError("network_unavailable");
+        },
+      },
+      { retryRandom: () => 0.5 },
+    );
+    const seed = fixture.seedResearchJob(116);
+
+    try {
+      await unavailable.poll();
+      fixture.clock.set("2026-07-22T00:00:05.000Z");
+      await unavailable.poll();
+      fixture.clock.set("2026-07-22T00:00:15.000Z");
+      const coolingDown = await unavailable.poll();
+      expect(coolingDown).toMatchObject({
+        kind: "handled",
+        outcome: { kind: "attention" },
+      });
+      await unavailable.shutdown();
+
+      fixture.clock.set("2026-07-22T00:00:40.000Z");
+      const reopened = fixture.openEngine("cooldown-after-restart", {
+        run: async () => ({ kind: "accepted" }),
+      });
+      try {
+        expect(await reopened.poll()).toMatchObject({
+          kind: "handled",
+          outcome: { kind: "accepted" },
+        });
+        expect(fixture.job(seed.jobId).status).toBe("succeeded");
+      } finally {
+        await reopened.shutdown();
+      }
+    } finally {
+      await unavailable.shutdown();
+      fixture.cleanup();
+    }
+  });
+
   it("persists only stable readiness diagnostics for a blocked launch", async () => {
     const fixture = createLeaseEngineFixture();
     const engine = fixture.openEngine("readiness-diagnostic-worker", {

@@ -32,6 +32,7 @@ type Props = {
   readonly focusedTeam?: boolean;
   readonly hideCompleteHeadingLabel?: boolean;
   readonly onReplay: () => void;
+  readonly onOfficeReady?: () => void;
 };
 
 export function OfficeStage({
@@ -52,6 +53,7 @@ export function OfficeStage({
   focusedTeam = false,
   hideCompleteHeadingLabel = false,
   onReplay,
+  onOfficeReady,
 }: Props) {
   const labels = researchCopy[locale];
   const [cameraControlMode, setCameraControlMode] =
@@ -159,6 +161,7 @@ export function OfficeStage({
             activeAgentIds={activeAgentIds}
             cameraMode={focusedTeam ? "focus" : "overview"}
             cameraControlMode={cameraControlMode}
+            {...(onOfficeReady === undefined ? {} : { onReady: onOfficeReady })}
           />
           <p
             className="sr-only"

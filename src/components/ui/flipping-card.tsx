@@ -21,8 +21,9 @@ const FLIP_SPRING = {
 };
 
 /**
- * A 3D flip card driven by spring physics. Hovering previews the reverse side,
- * while clicking pins the card for touch and keyboard users.
+ * A 3D flip card driven by spring physics. Hovering previews the reverse side.
+ * Actionable cards open on the first click; presentation-only cards can still
+ * be pinned for touch and keyboard users.
  */
 export function FlippingCard({
   className,
@@ -45,7 +46,7 @@ export function FlippingCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => {
-        if (flipped && onActivate) {
+        if (onActivate) {
           onActivate();
           return;
         }

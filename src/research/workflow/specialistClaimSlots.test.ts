@@ -11,6 +11,7 @@ import {
   normalizeSpecialistClaimSlotBindings,
   sanitizeSpecialistDecisiveMetricIds,
   sanitizeSpecialistEvidenceTypeBindings,
+  sanitizeSpecialistNumericMetricValues,
   validateSpecialistClaimSubmission,
 } from "./specialistRoundInput";
 import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
@@ -185,6 +186,188 @@ describe("specialist claim slots", () => {
     ).toEqual({ ok: true });
   });
 
+  it("grounds a mismatched percentage from its selected registered metric without a model rewrite", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "financial" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const artifact = harness.sources[0];
+    if (artifact === undefined) throw new TypeError("source fixture missing");
+    const metricId = "revenue_quarter:growth:Q:2026-07-26";
+    const registeredValues = [
+      {
+        valueId: metricId,
+        metric: "revenue_growth",
+        value: "18",
+        unit: "percent",
+        period: "Q:2026-07-26",
+      },
+    ];
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: artifact.artifactId,
+      metricId,
+      leadSummary: {
+        en: "Quarterly revenue increased 106% year over year.",
+        ko: "최근 분기 매출은 전년 대비 106% 증가했습니다.",
+      },
+    });
+
+    const grounded = sanitizeSpecialistNumericMetricValues(
+      candidate,
+      registeredValues,
+    );
+
+    expect(
+      (grounded as { readonly positions: readonly unknown[] }).positions[0],
+    ).toMatchObject({
+      publicSummary: {
+        en: "Quarterly revenue increased 18% year over year.",
+        ko: "최근 분기 매출은 전년 대비 18% 증가했습니다.",
+      },
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [artifact.artifactId],
+          allowedMetricIds: [metricId],
+          registeredValues,
+        },
+        grounded,
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("preserves a sub-one percentage as registered instead of treating it as a ratio", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "market" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const artifact = harness.sources[0];
+    if (artifact === undefined) throw new TypeError("source fixture missing");
+    const metricId = "daily_change_percent:2026-07-26";
+    const registeredValues = [
+      {
+        valueId: metricId,
+        metric: "daily_change_percent",
+        value: "0.5",
+        unit: "percent",
+        period: "2026-07-26",
+      },
+    ];
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: artifact.artifactId,
+      metricId,
+      leadSummary: {
+        en: "The share price increased 50% today.",
+        ko: "주가는 오늘 50% 상승했습니다.",
+      },
+    });
+
+    const grounded = sanitizeSpecialistNumericMetricValues(
+      candidate,
+      registeredValues,
+    );
+
+    expect(
+      (grounded as { readonly positions: readonly unknown[] }).positions[0],
+    ).toMatchObject({
+      publicSummary: {
+        en: "The share price increased 0.5% today.",
+        ko: "주가는 오늘 0.5% 상승했습니다.",
+      },
+    });
+  });
+
+  it("leaves a multi-metric percentage claim untouched for strict repair", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "financial" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const artifact = harness.sources[0];
+    if (artifact === undefined) throw new TypeError("source fixture missing");
+    const revenueMetricId = "revenue_quarter:growth:Q:2026-07-26";
+    const marginMetricId = "operating_margin:Q:2026-07-26";
+    const registeredValues = [
+      {
+        valueId: revenueMetricId,
+        metric: "revenue_growth",
+        value: "18",
+        unit: "percent",
+        period: "Q:2026-07-26",
+      },
+      {
+        valueId: marginMetricId,
+        metric: "operating_margin",
+        value: "55",
+        unit: "percent",
+        period: "Q:2026-07-26",
+      },
+    ];
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: artifact.artifactId,
+      metricId: revenueMetricId,
+      leadSummary: {
+        en: "Revenue increased 106%, while operating margin reached 77%.",
+        ko: "매출은 106% 증가했고 영업이익률은 77%를 기록했습니다.",
+      },
+    });
+    const lead = candidate.positions[0];
+    if (lead === undefined) throw new TypeError("lead claim missing");
+    const ambiguous = {
+      ...candidate,
+      positions: [
+        {
+          ...lead,
+          decisiveMetricIds: [marginMetricId, revenueMetricId],
+        },
+        ...candidate.positions.slice(1),
+      ],
+    };
+
+    const grounded = sanitizeSpecialistNumericMetricValues(
+      ambiguous,
+      registeredValues,
+    );
+
+    expect(grounded).toEqual(ambiguous);
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [artifact.artifactId],
+          allowedMetricIds: [revenueMetricId, marginMetricId],
+          registeredValues,
+        },
+        grounded,
+      ),
+    ).toEqual({
+      ok: false,
+      reason: "specialist_claim_numeric_metric_mismatch",
+    });
+  });
+
   it("does not mistake an explicit future threshold for a reported metric", async () => {
     const harness = await makeSqliteRoundHarness("none");
     const roleId = "financial" as const;
@@ -357,6 +540,68 @@ describe("specialist claim slots", () => {
           roleId,
           claimSlots,
           allowedArtifactIds: [filing.artifactId, ownership.artifactId],
+          allowedMetricIds: ["forward_pe"],
+          evidenceArtifacts,
+        },
+        repaired,
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("rebinds an ownership-only non-ownership claim to sealed primary evidence", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "valuation" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const ownership = harness.sources[0];
+    const currentReport = harness.sources[1];
+    if (ownership === undefined || currentReport === undefined)
+      throw new TypeError("source fixtures missing");
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: ownership.artifactId,
+      metricId: "forward_pe",
+      leadSummary: {
+        en: "The current valuation requires faster earnings delivery.",
+        ko: "현재 밸류에이션은 더 빠른 이익 실현을 요구합니다.",
+      },
+    });
+    const evidenceArtifacts = [
+      {
+        evidenceId: ownership.artifactId,
+        dataset: "sec_insider_transactions",
+        form: "4",
+      },
+      {
+        evidenceId: currentReport.artifactId,
+        dataset: "sec_filing",
+        form: "8-K",
+      },
+    ];
+
+    const repaired = sanitizeSpecialistEvidenceTypeBindings(
+      candidate,
+      evidenceArtifacts,
+    );
+
+    expect(repaired).toMatchObject({
+      positions: [
+        { evidenceArtifactIds: [currentReport.artifactId] },
+        { evidenceArtifactIds: [currentReport.artifactId] },
+      ],
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [ownership.artifactId, currentReport.artifactId],
           allowedMetricIds: ["forward_pe"],
           evidenceArtifacts,
         },

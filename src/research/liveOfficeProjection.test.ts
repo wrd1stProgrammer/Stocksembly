@@ -69,6 +69,38 @@ describe("liveOfficeProjection", () => {
     ).toHaveLength(1);
   });
 
+  it("keeps internal retry diagnostics out of the user meeting transcript", () => {
+    const projection = liveOfficeProjection({
+      run,
+      events: [
+        collectionStarted(1),
+        {
+          ...committed(2, "runtime_status", "chair", []),
+          stateId: "invalid-model-output",
+          summary: {
+            en: "Model output was invalid and remains repairable",
+            ko: "모델 출력이 유효하지 않아 복구 대기 중입니다",
+          },
+        },
+        {
+          ...committed(3, "runtime_status", "chair", []),
+          stateId: "retrying",
+          summary: {
+            en: "Retrying the interrupted research stage",
+            ko: "중단된 리서치 단계를 다시 시도하고 있습니다",
+          },
+        },
+      ],
+    });
+
+    expect(
+      projection.events.some(
+        (event) => event.workflowKind === "runtime_status",
+      ),
+    ).toBe(false);
+    expect(projection.current.workflowKind).toBe("collection_started");
+  });
+
   it("keeps agents at their desks until a committed cross-team exchange exists", () => {
     // Given
     const events: PublicResearchEvent[] = [collectionStarted(1)];
