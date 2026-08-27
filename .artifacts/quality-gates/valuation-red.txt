@@ -1,0 +1,6 @@
+Command: fnm exec --using=20.20.2 pnpm vitest run src/research/domain/universalInvestmentModel.test.ts src/research/domain/metricSnapshot.test.ts
+Result: RED (2 failed, 8 passed)
+
+Failures reproduced:
+- Earnings-power path emitted three synthetic downside/base/upside prices instead of one evidence-only expectation context.
+- Raw provider `relativeValuation` was promoted to `peer_premium:*` even when no comparator qualification existed.

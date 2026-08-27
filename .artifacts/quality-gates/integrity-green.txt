@@ -1,0 +1,7 @@
+Command: fnm exec --using=20.20.2 pnpm vitest run src/research/workflow/specialistClaimSlots.test.ts
+Result: GREEN (18 passed)
+
+Verified behavior:
+- Percentage claims about revenue growth, margin, or price movement must match a selected registered metric for that metric family and period.
+- Forms 3, 4, and 5 cannot support non-ownership claims such as valuation, revenue, margin, or demand.
+- The specialist prompt now names the real `registeredValues[].valueId` field and states both constraints before generation.

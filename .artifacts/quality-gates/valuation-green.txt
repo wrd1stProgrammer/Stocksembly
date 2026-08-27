@@ -1,0 +1,7 @@
+Command: fnm exec --using=20.20.2 pnpm vitest run src/research/domain/universalInvestmentModel.test.ts src/research/domain/metricSnapshot.test.ts src/research/domain/qualifyInsightSentryPeers.test.ts
+Result: GREEN (14 passed)
+
+Verified behavior:
+- Earnings-power reports no longer manufacture downside/base/upside prices from a growth heuristic.
+- They show one current price-implied forward P/E context and explicitly withhold an implied price without qualified historical/peer bounds.
+- Raw provider relative-valuation summaries are ignored unless comparator qualification is eligible.

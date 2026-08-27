@@ -1,0 +1,7 @@
+Command: fnm exec --using=20.20.2 pnpm vitest run src/research/domain/qualifyInsightSentryPeers.test.ts
+Result: GREEN (4 passed)
+
+Verified behavior:
+- NVIDIA semiconductor peers AMD, INTC, and AVGO remain display- and median-eligible.
+- SHIP, HAS, T, and KEY are excluded with `industry_mismatch`.
+- Qualified valuation median uses only the three valid peers (median 28).
