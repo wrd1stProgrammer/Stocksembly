@@ -2,6 +2,7 @@ import {
   assertNeverOffice,
   DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   OFFICE_DEPARTMENT_TALK_TIMELINE,
+  OFFICE_ENTRY_TIMELINE,
   type OfficeActorDirective,
   type OfficeCameraTarget,
   officeBeatAt,
@@ -42,6 +43,71 @@ function chairMember() {
   return member;
 }
 const chair = chairMember();
+
+function completeDepartmentOrder(
+  releaseOrder: readonly OfficeDepartmentId[],
+): readonly OfficeDepartmentId[] {
+  return [
+    ...new Set([...releaseOrder, ...DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER]),
+  ];
+}
+
+export function officeEntryCellFor(actorId: OfficeManifestAgentId): {
+  readonly x: number;
+  readonly y: number;
+} {
+  const specialistIndex = OFFICE_SCENE_MANIFEST.roster
+    .filter((member) => member.departmentId !== "chair")
+    .findIndex((member) => member.id === actorId);
+  if (specialistIndex < 0) return chair.workSeat.cell;
+  return Object.freeze({ x: 21, y: 23 + specialistIndex });
+}
+
+function entryDirectives(
+  tick: number,
+  releaseOrder: readonly OfficeDepartmentId[],
+): readonly OfficeActorDirective[] {
+  const directives = new Map<OfficeManifestAgentId, OfficeActorDirective>();
+  directives.set(chair.id, {
+    ...seatDirective(chair, tick < 40 ? "entry-chair-briefing" : "entry-chair"),
+    terminalAction: tick < 40 ? "talk" : "idle",
+  });
+  for (const [departmentIndex, departmentId] of completeDepartmentOrder(
+    releaseOrder,
+  ).entries()) {
+    const department = OFFICE_SCENE_MANIFEST.departments[departmentId];
+    for (const [memberIndex, memberId] of department.memberIds.entries()) {
+      const member = OFFICE_SCENE_MANIFEST.roster.find(
+        (candidate) => candidate.id === memberId,
+      );
+      if (!member) throw new RangeError(`Missing entry member ${memberId}`);
+      const releaseTick =
+        OFFICE_ENTRY_TIMELINE.firstReleaseTick +
+        departmentIndex * OFFICE_ENTRY_TIMELINE.teamIntervalTicks +
+        memberIndex * OFFICE_ENTRY_TIMELINE.memberStaggerTicks;
+      directives.set(
+        memberId,
+        tick < releaseTick
+          ? {
+              actorId: memberId,
+              destination: officeEntryCellFor(memberId),
+              facing: "up",
+              terminalAction: "stand",
+              travelAction: "walk",
+              revisionKey: `entry-wait-${departmentId}-${memberId}`,
+            }
+          : {
+              ...seatDirective(
+                member,
+                `entry-seat-${departmentId}-${memberId}`,
+              ),
+              travelAction: "walk",
+            },
+      );
+    }
+  }
+  return ordered(directives);
+}
 
 function seatDirective(
   member: (typeof OFFICE_SCENE_MANIFEST.roster)[number],
@@ -262,6 +328,9 @@ export function officeDirectivesAt(
   tick: number,
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
 ): readonly OfficeActorDirective[] {
+  if (tick <= OFFICE_ENTRY_TIMELINE.endTick) {
+    return entryDirectives(tick, departmentReleaseOrder);
+  }
   const beat = officeBeatAt(tick);
   switch (beat.id) {
     case "briefing": {
@@ -309,6 +378,7 @@ export function officeCameraTargetAt(
   tick: number,
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
 ): OfficeCameraTarget {
+  if (tick <= OFFICE_ENTRY_TIMELINE.endTick) return { kind: "overview" };
   const beat = officeBeatAt(tick);
   if (beat.id === "briefing") return { kind: "actors", actorIds: [chair.id] };
   if (beat.id === "parallel-work" || beat.id === "department-talk") {

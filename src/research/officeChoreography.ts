@@ -10,11 +10,13 @@ export {
   OFFICE_BEAT_SCHEDULE,
   OFFICE_CLOCK_CONTRACT,
   OFFICE_DEPARTMENT_TALK_TIMELINE,
+  OFFICE_ENTRY_TIMELINE,
   officeBeatAt,
 } from "./officeChoreographyV7Contract";
 export {
   officeCameraTargetAt,
   officeDirectivesAt,
+  officeEntryCellFor,
 } from "./officeChoreographyV7Directives";
 export type {
   OfficeChoreographyEvent,

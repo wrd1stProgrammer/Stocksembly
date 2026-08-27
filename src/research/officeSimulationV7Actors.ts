@@ -3,6 +3,7 @@ import {
   DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   OFFICE_CLOCK_CONTRACT,
   officeDirectivesAt,
+  officeEntryCellFor,
 } from "./officeChoreography";
 import {
   findOfficeRoute,
@@ -60,14 +61,18 @@ export function createInitialOfficeActors(
   return Object.freeze(
     OFFICE_SCENE_MANIFEST.roster.map((member, priority) => {
       const directive = directiveFor(directives, member.id);
+      const initialCell =
+        member.departmentId === "chair"
+          ? member.workSeat.cell
+          : officeEntryCellFor(member.id);
       return Object.freeze({
         id: member.id,
         department: member.departmentId,
         priority,
-        cell: member.workSeat.cell,
+        cell: initialCell,
         destination: directive.destination,
         originalDestination: null,
-        route: Object.freeze([member.workSeat.cell]),
+        route: Object.freeze([initialCell]),
         routeIndex: 0,
         waitTicks: 0,
         failedReplans: 0,
@@ -226,10 +231,27 @@ function reconcileDirective(
     routeRequest,
     preferredDoorWaypoints(routeOrigin, directive.destination),
   );
-  const route =
+  const directRoute =
     preferredRoute.kind === "found"
       ? preferredRoute
       : findOfficeRoute(input.grid, routeRequest);
+  // Other actors are temporary traffic, not permanent walls. Keep an authored
+  // route available when a team is still queued in the corridor and let the
+  // reservation layer serialize each step instead of emitting a false route
+  // failure during the opening entrance.
+  const staticRouteRequest = { ...routeRequest, blockedCells: [] };
+  const staticPreferredRoute =
+    directRoute.kind === "found"
+      ? directRoute
+      : findOfficeRouteVia(
+          input.grid,
+          staticRouteRequest,
+          preferredDoorWaypoints(routeOrigin, directive.destination),
+        );
+  const route =
+    staticPreferredRoute.kind === "found"
+      ? staticPreferredRoute
+      : findOfficeRoute(input.grid, staticRouteRequest);
   if (route.kind === "unreachable") {
     return {
       actor: {
