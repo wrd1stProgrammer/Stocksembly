@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildResearchMetricSnapshot } from "./metricSnapshot";
 
 describe("research metric snapshot", () => {
-  it("preserves the raw peer input while serializing the existing relative valuation metric", () => {
+  it("does not promote an unqualified provider peer summary into a research metric", () => {
     // Given
     const peers = {
       providerUpdatedAt: "2026-07-30T00:00:00.000Z",
@@ -27,12 +27,7 @@ describe("research metric snapshot", () => {
     });
 
     // Then
-    expect(snapshot?.metrics).toContainEqual(
-      expect.objectContaining({
-        id: "peer_premium:price_earnings_ttm",
-        value: 12.5,
-      }),
-    );
+    expect(snapshot).toBeUndefined();
     expect(peers).toEqual(before);
     expect(peers.peers).toHaveLength(1);
   });

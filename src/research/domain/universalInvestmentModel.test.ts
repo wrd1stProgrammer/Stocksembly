@@ -93,7 +93,7 @@ describe("universal investment model", () => {
     expect(model.scenarios[1]?.requiredMetric.en).toBe("EV/Revenue");
   });
 
-  it("derives the current forward P/E when the provider omits the ratio", () => {
+  it("does not manufacture an earnings price range from growth and current P/E", () => {
     const model = buildUniversalInvestmentModel({
       metrics: [
         point("current_price", 300, "USD_per_share"),
@@ -104,8 +104,14 @@ describe("universal investment model", () => {
     });
 
     expect(model.primaryMethod).toBe("earnings_power");
-    expect(model.scenarios[1]?.requiredValue).toBeGreaterThan(20);
-    expect(model.scenarios[1]?.requiredValue).toBeLessThan(30);
+    expect(model.scenarios).toHaveLength(1);
+    expect(model.scenarios[0]).toMatchObject({
+      id: "base",
+      requiredMetric: { en: "Current implied forward P/E" },
+      requiredValue: 30,
+    });
+    expect(model.scenarios[0]?.impliedPrice).toBeUndefined();
+    expect(model.summary.en).toContain("withheld");
   });
 
   it("withholds a synthetic target when no valuation anchor is available", () => {

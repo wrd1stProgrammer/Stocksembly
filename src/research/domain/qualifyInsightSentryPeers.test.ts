@@ -153,3 +153,64 @@ it("qualifies a filing-verified direct competitor with aligned market metrics", 
     ],
   });
 });
+
+it("excludes filing-mentioned companies outside NVIDIA's industry from valuation", () => {
+  const peers = {
+    providerUpdatedAt: "2026-08-27T00:00:00.000Z",
+    sector: "Electronic Technology",
+    subject: {
+      symbol: "NASDAQ:NVDA",
+      name: "NVIDIA",
+      sector: "Electronic Technology",
+      priceEarningsTtm: 32,
+      revenueGrowthTtm: 65,
+      operatingMarginTtm: 61,
+    },
+    peers: [
+      ["AMD", "Advanced Micro Devices", "Electronic Technology", 24, 32, 22],
+      ["INTC", "Intel", "Electronic Technology", 30, 8, 5],
+      ["AVGO", "Broadcom", "Electronic Technology", 28, 21, 46],
+      ["SHIP", "Seanergy Maritime", "Transportation", 3, 18, 44],
+      ["HAS", "Hasbro", "Consumer Durables", 14, 9, 12],
+      ["T", "AT&T", "Communications", 7, 2, 19],
+      ["KEY", "KeyCorp", "Finance", 9, 6, 31],
+    ].map(([symbol, name, sector, pe, growth, margin]) => ({
+      symbol: `NASDAQ:${symbol}`,
+      name,
+      sector,
+      classification: "direct_competitor" as const,
+      selectionReasons: [
+        "issuer filing names the company near competition language",
+      ],
+      marketOverlapVerified: true,
+      priceEarningsTtm: pe,
+      revenueGrowthTtm: growth,
+      operatingMarginTtm: margin,
+    })),
+  };
+
+  const result = qualifyInsightSentryPeers({
+    rawPeerArtifactId: "peer-artifact",
+    peers,
+  });
+
+  expect(result?.valuation).toMatchObject({
+    status: "eligible",
+    eligibleCompanyCount: 3,
+    peerMedian: 28,
+  });
+  for (const symbol of ["AMD", "INTC", "AVGO"]) {
+    expect(
+      result?.rows.find((row) => row.comparatorId === `NASDAQ:${symbol}`),
+    ).toMatchObject({ displayEligibility: true, medianEligibility: true });
+  }
+  for (const symbol of ["SHIP", "HAS", "T", "KEY"]) {
+    expect(
+      result?.rows.find((row) => row.comparatorId === `NASDAQ:${symbol}`),
+    ).toMatchObject({
+      displayEligibility: false,
+      medianEligibility: false,
+      exclusionReasons: expect.arrayContaining(["industry_mismatch"]),
+    });
+  }
+});

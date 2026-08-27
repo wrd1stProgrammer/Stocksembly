@@ -10,6 +10,7 @@ import {
   allocateSpecialistClaimSlots,
   normalizeSpecialistClaimSlotBindings,
   sanitizeSpecialistDecisiveMetricIds,
+  sanitizeSpecialistEvidenceTypeBindings,
   validateSpecialistClaimSubmission,
 } from "./specialistRoundInput";
 import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
@@ -32,6 +33,47 @@ const expectedDimensions = {
   risk: ["downside_path", "leading_indicator", "downside_path"],
   risk_policy: ["mitigant", "leading_indicator", "mitigant"],
 } as const;
+
+function quantifiedCandidate(input: {
+  readonly roleId: "financial" | "valuation";
+  readonly claimSlots: ReturnType<typeof allocateSpecialistClaimSlots>;
+  readonly artifactId: string;
+  readonly metricId: string;
+  readonly leadSummary: { readonly en: string; readonly ko: string };
+}) {
+  return {
+    kind: "memo" as const,
+    sourceArtifactIds: [input.artifactId],
+    positions: input.claimSlots
+      .filter((slot) => !slot.optional)
+      .map((slot, index) => ({
+        claimId: slot.claimId,
+        decisionDimension: slot.decisionDimension,
+        roleOwner: input.roleId,
+        stance: "supports" as const,
+        materiality: slot.materiality,
+        publicSummary:
+          index === 0
+            ? input.leadSummary
+            : {
+                en: `Distinct grounded observation ${index + 1}.`,
+                ko: `서로 다른 근거 관찰 ${index + 1}입니다.`,
+              },
+        evidenceArtifactIds: [input.artifactId],
+        decisiveMetricIds: index === 0 ? [input.metricId] : [],
+        strongestContraryObservation: {
+          en: `Contrary evidence ${index + 1} remains relevant.`,
+          ko: `반대 근거 ${index + 1}도 여전히 중요합니다.`,
+        },
+        falsifier: {
+          en: `The observable condition ${index + 1} reverses.`,
+          ko: `관찰 조건 ${index + 1}이 반전됩니다.`,
+        },
+      })),
+    dissent: [],
+    unknowns: [],
+  };
+}
 
 describe("specialist claim slots", () => {
   it("reserves runner headroom before inlining evidence", () => {
@@ -58,6 +100,269 @@ describe("specialist claim slots", () => {
     ).toMatchObject({
       positions: [{ decisiveMetricIds: ["registered-value"] }],
     });
+  });
+
+  it("rejects a revenue-growth percentage that does not match its decisive metric", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "financial" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const artifact = harness.sources[0];
+    if (artifact === undefined) throw new TypeError("source fixture missing");
+    const artifactId = artifact.artifactId;
+    const metricId = "revenue_quarter:growth:Q:2026-07-26";
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId,
+      metricId,
+      leadSummary: {
+        en: "Quarterly revenue increased 106% year over year.",
+        ko: "최근 분기 매출은 전년 대비 106% 증가했습니다.",
+      },
+    });
+
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [artifactId],
+          allowedMetricIds: [metricId],
+          registeredValues: [
+            {
+              valueId: metricId,
+              metric: "revenue_growth",
+              value: "18",
+              unit: "percent",
+              period: "Q:2026-07-26",
+            },
+          ],
+        },
+        candidate,
+      ),
+    ).toEqual({
+      ok: false,
+      reason: "specialist_claim_numeric_metric_mismatch",
+    });
+
+    const repaired = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId,
+      metricId,
+      leadSummary: {
+        en: "Quarterly revenue increased 18% year over year.",
+        ko: "최근 분기 매출은 전년 대비 18% 증가했습니다.",
+      },
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [artifactId],
+          allowedMetricIds: [metricId],
+          registeredValues: [
+            {
+              valueId: metricId,
+              metric: "revenue_growth",
+              value: "18",
+              unit: "percent",
+              period: "Q:2026-07-26",
+            },
+          ],
+        },
+        repaired,
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("does not mistake an explicit future threshold for a reported metric", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "financial" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const artifact = harness.sources[0];
+    if (artifact === undefined) throw new TypeError("source fixture missing");
+    const firstMarginId = "operating_margin:Q:2026-04-27";
+    const secondMarginId = "operating_margin:Q:2026-07-26";
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: artifact.artifactId,
+      metricId: secondMarginId,
+      leadSummary: {
+        en: "Operating margin improved from 65.6% to 66.2%; treat a fall below 60% next quarter as a warning threshold.",
+        ko: "영업이익률은 65.6%에서 66.2%로 개선됐으며, 다음 분기 60% 아래로 하락하면 경고 조건입니다.",
+      },
+    });
+    const lead = candidate.positions[0];
+    if (lead === undefined) throw new TypeError("lead claim missing");
+    const withBothMargins = {
+      ...candidate,
+      positions: [
+        {
+          ...lead,
+          decisiveMetricIds: [firstMarginId, secondMarginId],
+        },
+        ...candidate.positions.slice(1),
+      ],
+    };
+
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [artifact.artifactId],
+          allowedMetricIds: [firstMarginId, secondMarginId],
+          registeredValues: [
+            {
+              valueId: firstMarginId,
+              metric: "operating_margin",
+              value: "65.6",
+              unit: "percent",
+              period: "Q:2026-04-27",
+            },
+            {
+              valueId: secondMarginId,
+              metric: "operating_margin",
+              value: "66.2",
+              unit: "percent",
+              period: "Q:2026-07-26",
+            },
+          ],
+        },
+        withBothMargins,
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("rejects ownership filings cited for a non-ownership valuation claim", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "valuation" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const artifact = harness.sources[0];
+    if (artifact === undefined) throw new TypeError("source fixture missing");
+    const artifactId = artifact.artifactId;
+    const metricId = "forward_pe";
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId,
+      metricId,
+      leadSummary: {
+        en: "The current valuation requires faster earnings delivery.",
+        ko: "현재 밸류에이션은 더 빠른 이익 실현을 요구합니다.",
+      },
+    });
+
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [artifactId],
+          allowedMetricIds: [metricId],
+          evidenceArtifacts: [
+            { evidenceId: artifactId, dataset: "sec_filings", form: "4" },
+          ],
+        },
+        candidate,
+      ),
+    ).toEqual({
+      ok: false,
+      reason: "specialist_claim_evidence_type_mismatch",
+    });
+  });
+
+  it("removes an incidental ownership filing when a suitable source remains", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "valuation" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const filing = harness.sources[0];
+    const ownership = harness.sources[1];
+    if (filing === undefined || ownership === undefined)
+      throw new TypeError("source fixtures missing");
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: filing.artifactId,
+      metricId: "forward_pe",
+      leadSummary: {
+        en: "The current valuation requires faster earnings delivery.",
+        ko: "현재 밸류에이션은 더 빠른 이익 실현을 요구합니다.",
+      },
+    });
+    const mixed = {
+      ...candidate,
+      sourceArtifactIds: [filing.artifactId, ownership.artifactId],
+      positions: candidate.positions.map((position) => ({
+        ...position,
+        evidenceArtifactIds: [filing.artifactId, ownership.artifactId],
+      })),
+    };
+
+    const evidenceArtifacts = [
+      {
+        evidenceId: filing.artifactId,
+        dataset: "sec_filings",
+        form: "10-Q",
+      },
+      {
+        evidenceId: ownership.artifactId,
+        dataset: "sec_filings",
+        form: "4",
+      },
+    ];
+    const repaired = sanitizeSpecialistEvidenceTypeBindings(
+      mixed,
+      evidenceArtifacts,
+    );
+
+    expect(repaired).toMatchObject({
+      positions: [
+        { evidenceArtifactIds: [filing.artifactId] },
+        { evidenceArtifactIds: [filing.artifactId] },
+      ],
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [filing.artifactId, ownership.artifactId],
+          allowedMetricIds: ["forward_pe"],
+          evidenceArtifacts,
+        },
+        repaired,
+      ),
+    ).toEqual({ ok: true });
   });
 
   it("repairs a copied claim-id typo from its unique semantic slot", async () => {

@@ -115,6 +115,7 @@ export function qualifyInsightSentryPeers(input: {
     subject: {
       comparatorId: parsed.data.subject.symbol,
       name: parsed.data.subject.name,
+      sector: parsed.data.subject.sector,
       primaryProductMarket:
         parsed.data.subject.primaryProductMarket ??
         (hasVerifiedOverlap
@@ -135,6 +136,7 @@ export function qualifyInsightSentryPeers(input: {
       return {
         comparatorId: peer.symbol,
         name: peer.name,
+        sector: peer.sector,
         // A user choice establishes comparison intent, not verified product-market
         // overlap. Keep it visible as a valuation proxy until overlap evidence exists.
         role: userSelected ? ("valuation_proxy" as const) : peer.classification,

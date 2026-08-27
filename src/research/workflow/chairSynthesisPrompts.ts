@@ -459,6 +459,7 @@ export function chairSynthesisModelPrompt(
         "For position_sizing, state which asymmetry or concentration condition argues for adding, maintaining, or reducing exposure.",
         "For earnings, distinguish what is known before the release, the decisive reported metric, and the post-release interpretation using the calendar, estimates, and filing evidence supplied to specialists.",
         "When counterargumentIntensity is strong, make the countercase concrete and material; the final stance must still favor the better-supported side.",
+        "Round reader-facing percentages, per-share values, and valuation multiples to at most two decimal places. Never expose raw provider precision.",
         ...(prompt.investmentModel === undefined
           ? []
           : [

@@ -56,6 +56,13 @@ function hasOnlyGroundedNumbers(
   });
 }
 
+function hasHumanReadablePrecision(summary: string): boolean {
+  return (summary.match(NUMERIC_TOKEN) ?? []).every((token) => {
+    const value = numericValue(token);
+    return value === undefined || value.decimalPlaces <= 2;
+  });
+}
+
 function sharesGroundingLanguage(
   summary: string,
   sources: readonly string[],
@@ -94,6 +101,7 @@ export function publicTextIsValid(
     return (
       text.en.length <= maxLength &&
       sharesGroundingLanguage(text.en, source) &&
+      hasHumanReadablePrecision(text.en) &&
       hasOnlyGroundedNumbers(text.en, bilingualNumbers)
     );
   }
@@ -107,6 +115,8 @@ export function publicTextIsValid(
   return (
     sharesGroundingLanguage(text.en, english) &&
     sharesGroundingLanguage(text.ko, korean) &&
+    hasHumanReadablePrecision(text.en) &&
+    hasHumanReadablePrecision(text.ko) &&
     hasOnlyGroundedNumbers(text.en, bilingualNumbers) &&
     hasOnlyGroundedNumbers(text.ko, bilingualNumbers)
   );

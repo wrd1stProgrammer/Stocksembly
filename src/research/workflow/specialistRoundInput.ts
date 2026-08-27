@@ -343,6 +343,18 @@ type ClaimSubmissionRequest = {
   readonly claimSlots: readonly SpecialistClaimSlot[];
   readonly allowedArtifactIds: readonly string[];
   readonly allowedMetricIds: readonly string[];
+  readonly registeredValues?: readonly {
+    readonly valueId: string;
+    readonly metric: string;
+    readonly value: string;
+    readonly unit: string;
+    readonly period: string;
+  }[];
+  readonly evidenceArtifacts?: readonly {
+    readonly evidenceId: string;
+    readonly dataset: string;
+    readonly form?: string;
+  }[];
   readonly validateEvidence?: boolean;
   readonly existingDepartmentTheses?: readonly {
     readonly en: string;
@@ -358,8 +370,111 @@ export type SpecialistClaimValidationReason =
   | "specialist_claim_too_many_decisive_metrics"
   | "specialist_claim_unknown_metric"
   | "specialist_claim_unknown_evidence"
+  | "specialist_claim_numeric_metric_mismatch"
+  | "specialist_claim_evidence_type_mismatch"
   | "specialist_claim_duplicate_thesis"
   | "specialist_claim_required_slot_unused";
+
+const PERCENTAGE_TOKEN = /-?\d+(?:,\d{3})*(?:\.\d+)?\s*%/gu;
+const OWNERSHIP_CLAIM =
+  /\b(?:insider|officer|director|beneficial owner)\b|내부자|임원|이사|대주주|보유\s*지분/iu;
+
+function isForwardThresholdPercentage(
+  text: string,
+  start: number,
+  end: number,
+): boolean {
+  const before = text.slice(Math.max(0, start - 72), start);
+  const after = text.slice(end, Math.min(text.length, end + 56));
+  return (
+    /(?:\b(?:if|when|unless|whether|threshold|trigger|warning|watch|treat)\b|(?:fall|drop|decline|rise|move|remain|stay|hold)\s+(?:below|above|under|over)|다음\s*(?:분기|실적)|향후|만약|경우|여부|기준|임계|경고|확인할)/iu.test(
+      before,
+    ) ||
+    /(?:\b(?:threshold|trigger|warning|next\s+quarter)\b|(?:아래|이하|미만|위|이상|초과|밑돌|넘어서).{0,28}(?:경우|조건|경고|하락|상승|유지|확인|판단|반전))/iu.test(
+      after,
+    )
+  );
+}
+
+function percentageMetricFamilies(text: string): readonly RegExp[] {
+  const families: RegExp[] = [];
+  if (
+    /(?:revenue|sales).{0,40}(?:growth|grew|increase|decrease)|(?:growth|grew|increase|decrease).{0,40}(?:revenue|sales)|매출.{0,40}(?:성장|증가|감소)|(?:성장|증가|감소).{0,40}매출/iu.test(
+      text,
+    )
+  )
+    families.push(/revenue.*growth|growth.*revenue|sales.*growth/iu);
+  if (/margin|마진|이익률/iu.test(text)) families.push(/margin/iu);
+  if (
+    /(?:stock|share price|price).{0,40}(?:rose|fell|up|down|increase|decrease)|주가.{0,40}(?:상승|하락|증가|감소)/iu.test(
+      text,
+    )
+  )
+    families.push(/change|return|performance|price.*percent/iu);
+  return families;
+}
+
+function percentageClaimMatchesRegisteredMetrics(input: {
+  readonly text: string;
+  readonly decisiveMetricIds: readonly string[];
+  readonly registeredValues: NonNullable<
+    ClaimSubmissionRequest["registeredValues"]
+  >;
+}): boolean {
+  const families = percentageMetricFamilies(input.text);
+  if (families.length === 0) return true;
+  const percentages = [
+    ...new Set(
+      [...input.text.matchAll(PERCENTAGE_TOKEN)]
+        .filter((match) => {
+          const start = match.index ?? 0;
+          return !isForwardThresholdPercentage(
+            input.text,
+            start,
+            start + (match[0]?.length ?? 0),
+          );
+        })
+        .map((match) =>
+          Math.abs(Number((match[0] ?? "").replace(/[,%\s]/gu, ""))),
+        ),
+    ),
+  ].filter(Number.isFinite);
+  if (percentages.length === 0) return true;
+  const selected = input.registeredValues.filter(
+    (record) =>
+      input.decisiveMetricIds.includes(record.valueId) &&
+      families.some((family) =>
+        family.test(`${record.valueId} ${record.metric}`),
+      ),
+  );
+  return percentages.every((percentage) =>
+    selected.some((record) => {
+      const value = Math.abs(Number(record.value));
+      if (!Number.isFinite(value)) return false;
+      return (
+        Math.abs(value - percentage) <= 0.2 ||
+        (value <= 1 && Math.abs(value * 100 - percentage) <= 0.2)
+      );
+    }),
+  );
+}
+
+function evidenceTypesSuitClaim(input: {
+  readonly text: string;
+  readonly evidenceArtifactIds: readonly string[];
+  readonly evidenceArtifacts: NonNullable<
+    ClaimSubmissionRequest["evidenceArtifacts"]
+  >;
+}): boolean {
+  if (OWNERSHIP_CLAIM.test(input.text)) return true;
+  const cited = new Set(input.evidenceArtifactIds);
+  return !input.evidenceArtifacts.some(
+    (artifact) =>
+      cited.has(artifact.evidenceId) &&
+      artifact.form !== undefined &&
+      /^(?:3|4|5)(?:\/A)?$/iu.test(artifact.form.trim()),
+  );
+}
 
 /**
  * Metric references are presentation aids, not the evidence authority. A model
@@ -398,6 +513,61 @@ export function sanitizeSpecialistDecisiveMetricIds(
           )
           .slice(0, 3),
       };
+    }),
+  };
+}
+
+/**
+ * Models sometimes append an ownership filing to every claim because it was
+ * present in the evidence slice. Remove only that incidental citation when a
+ * suitable non-ownership source remains; otherwise leave the claim untouched
+ * so the strict validator can request a grounded replacement.
+ */
+export function sanitizeSpecialistEvidenceTypeBindings(
+  candidate: unknown,
+  evidenceArtifacts: NonNullable<ClaimSubmissionRequest["evidenceArtifacts"]>,
+): unknown {
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    !("positions" in candidate) ||
+    !Array.isArray(candidate.positions)
+  )
+    return candidate;
+  const ownershipArtifacts = new Set(
+    evidenceArtifacts
+      .filter(
+        (artifact) =>
+          artifact.form !== undefined &&
+          /^(?:3|4|5)(?:\/A)?$/iu.test(artifact.form.trim()),
+      )
+      .map((artifact) => artifact.evidenceId),
+  );
+  return {
+    ...candidate,
+    positions: candidate.positions.map((position) => {
+      if (
+        typeof position !== "object" ||
+        position === null ||
+        !("publicSummary" in position) ||
+        typeof position.publicSummary !== "object" ||
+        position.publicSummary === null ||
+        !("en" in position.publicSummary) ||
+        !("ko" in position.publicSummary) ||
+        typeof position.publicSummary.en !== "string" ||
+        typeof position.publicSummary.ko !== "string" ||
+        !("evidenceArtifactIds" in position) ||
+        !Array.isArray(position.evidenceArtifactIds)
+      )
+        return position;
+      const text = `${position.publicSummary.en}\n${position.publicSummary.ko}`;
+      if (OWNERSHIP_CLAIM.test(text)) return position;
+      const permitted = position.evidenceArtifactIds.filter(
+        (artifactId: unknown): artifactId is string =>
+          typeof artifactId === "string" && !ownershipArtifacts.has(artifactId),
+      );
+      if (permitted.length === 0) return position;
+      return { ...position, evidenceArtifactIds: permitted };
     }),
   };
 }
@@ -613,9 +783,36 @@ export function validateSpecialistClaimSubmission(
       typeof claim.falsifier.ko !== "string"
     )
       return { ok: false, reason: "specialist_claim_malformed" };
-    const fingerprint = normalizedSpecialistThesis(
-      claim.publicSummary as { readonly en: string; readonly ko: string },
-    );
+    const publicSummary = claim.publicSummary as {
+      readonly en: string;
+      readonly ko: string;
+    };
+    const publicText = `${publicSummary.en}\n${publicSummary.ko}`;
+    if (
+      request.registeredValues !== undefined &&
+      !percentageClaimMatchesRegisteredMetrics({
+        text: publicText,
+        decisiveMetricIds: claim.decisiveMetricIds as readonly string[],
+        registeredValues: request.registeredValues,
+      })
+    )
+      return {
+        ok: false,
+        reason: "specialist_claim_numeric_metric_mismatch",
+      };
+    if (
+      request.evidenceArtifacts !== undefined &&
+      !evidenceTypesSuitClaim({
+        text: publicText,
+        evidenceArtifactIds: claim.evidenceArtifactIds as readonly string[],
+        evidenceArtifacts: request.evidenceArtifacts,
+      })
+    )
+      return {
+        ok: false,
+        reason: "specialist_claim_evidence_type_mismatch",
+      };
+    const fingerprint = normalizedSpecialistThesis(publicSummary);
     if (fingerprints.has(fingerprint))
       return { ok: false, reason: "specialist_claim_duplicate_thesis" };
     fingerprints.add(fingerprint);

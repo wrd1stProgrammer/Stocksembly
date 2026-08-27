@@ -1,0 +1,6 @@
+Command: fnm exec --using=20.20.2 pnpm vitest run src/research/workflow/specialistClaimSlots.test.ts
+Result: RED (2 failed, 16 passed)
+
+Failures reproduced:
+- A 106% quarterly revenue-growth claim passed while its selected registered metric was 18% for the same quarter.
+- A valuation claim passed while citing a Form 4 ownership filing as evidence.

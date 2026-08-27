@@ -100,6 +100,12 @@ export function qualifyComparators(
       ...metricReasons,
     ];
     if (comparator.role === "direct_competitor") {
+      const industryCompatible =
+        input.subject.sector === undefined ||
+        comparator.sector === undefined ||
+        normalizedText(input.subject.sector) ===
+          normalizedText(comparator.sector);
+      if (!industryCompatible) reasons.push("industry_mismatch");
       const marketOverlap =
         normalizedText(comparator.primaryProductMarket) ===
           normalizedText(input.subject.primaryProductMarket) &&
