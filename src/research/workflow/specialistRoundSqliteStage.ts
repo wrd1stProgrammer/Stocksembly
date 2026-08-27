@@ -258,7 +258,8 @@ export function prepareSpecialistJobs(
           ]
         : []),
       "Connect the role's most material claim directly to the user's question, selected horizon, and decision purpose. End that claim with the concrete investor implication: what should be watched, what evidence justifies waiting, or what observable result would strengthen or weaken the case. Do not repeat the question verbatim.",
-      "Use only exact request.registeredValues[].id values in decisiveMetricIds. If no registered value directly supports the claim, return decisiveMetricIds as an empty array.",
+      "Use only exact request.registeredValues[].valueId values in decisiveMetricIds. If no registered value directly supports the claim, return decisiveMetricIds as an empty array.",
+      "Every percentage in publicSummary must equal a selected registered value for the same metric and period. Never infer a growth rate from an unrelated total, a different period, or prose context; omit the percentage when no matching registered value exists.",
       `TEAM DATA CONTRACT ${JSON.stringify(teamData)}`,
       "Use the available team datasets and metrics in that contract as the team's decision board. Check all inlined evidence before deciding a contracted metric is absent; when it is absent, name the concrete observable trigger that would resolve the claim.",
       "Licensed news is an event input, not a summary assignment. State what changed, connect it to this role's owned metric or mechanism, and give the next observable confirmation. Never restate a headline as analysis.",
@@ -303,6 +304,7 @@ export function prepareSpecialistJobs(
       )
         ? [
             "For SEC ownership evidence, separate open-market insider purchases or sales from grants, exercises, tax withholding, and planned dispositions. Treat Schedule 13D/G as material beneficial-owner disclosure, not as a complete institutional-flow feed; focus on changes that alter incentives, concentration, or governance risk.",
+            "Forms 3, 4, and 5 may support only explicit insider-ownership or insider-transaction claims. Never cite them for revenue, margin, cash flow, valuation, demand, competition, or price-performance claims.",
           ]
         : []),
       `ROLE-OWNED DECISION DIMENSIONS ${JSON.stringify(request.claimSlots.map((slot) => slot.decisionDimension))}`,

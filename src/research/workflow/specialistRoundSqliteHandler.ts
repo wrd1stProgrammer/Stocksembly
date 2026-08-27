@@ -29,6 +29,7 @@ import {
   normalizeSpecialistClaimSlotBindings,
   type SpecialistClaimValidationReason,
   sanitizeSpecialistDecisiveMetricIds,
+  sanitizeSpecialistEvidenceTypeBindings,
   specialistThesisFingerprints,
   validateSpecialistClaimSubmission,
 } from "./specialistRoundInput";
@@ -78,9 +79,14 @@ export function isSpecialistAttemptReadableSource(
 function correctivePrompt(
   prompt: string,
   correction: CitationCorrection | undefined,
+  validationCode?: string,
 ): string {
-  if (correction === undefined) return prompt;
-  return `${prompt}
+  const validationPrompt = specialistValidationCorrectivePrompt(
+    prompt,
+    validationCode,
+  );
+  if (correction === undefined) return validationPrompt;
+  return `${validationPrompt}
 
 CORRECTIVE RETRY — INVALID CITATION IDS
 Your previous output cited artifact IDs that were not supplied to this attempt:
@@ -90,6 +96,63 @@ Cite only artifact IDs from this allowlist:
 ${correction.allowedArtifactIds.join("\n")}
 
 Do not cite or convert contentHash, rawHash, or normalizedHash values. Do not invent, transform, or copy any other artifact ID. Rebuild the memo using only the available evidence.`;
+}
+
+export function specialistValidationCorrectivePrompt(
+  prompt: string,
+  validationCode?: string,
+): string {
+  if (validationCode === "specialist_claim_numeric_metric_mismatch")
+    return `${prompt}
+
+CORRECTIVE RETRY — NUMERIC GROUNDING
+Your previous publicSummary used one or more percentages without binding each percentage to an exact registered metric for the same concept and period.
+For every percentage in publicSummary, copy the matching request.registeredValues[].valueId into that claim's decisiveMetricIds. If no exact matching registered value exists for the same metric and period, omit the percentage and state the directional observation without a number. Do not calculate or infer a replacement percentage.`;
+  if (validationCode === "specialist_claim_evidence_type_mismatch")
+    return `${prompt}
+
+CORRECTIVE RETRY — EVIDENCE TYPE
+Your previous non-ownership claim cited an insider ownership filing. Forms 3, 4, and 5 may be cited only for an explicit insider transaction or ownership claim.
+For revenue, margin, cash flow, valuation, competition, demand, or price-performance claims, remove every Form 3/4/5 citation and cite the supplied 10-K, 10-Q, 8-K, market, or licensed-provider artifact that directly supports the claim. If no suitable artifact exists, rewrite the claim without that assertion.`;
+  return prompt;
+}
+
+const SPECIALIST_VALIDATION_REPAIR_CODES = [
+  "specialist_claim_numeric_metric_mismatch",
+  "specialist_claim_evidence_type_mismatch",
+] as const;
+
+export function specialistPromptForDurableInput(
+  basePrompt: string,
+  inputHash: string,
+  requestedValidationCode?: string,
+): { readonly prompt: string; readonly validationCode?: string } {
+  for (const validationCode of SPECIALIST_VALIDATION_REPAIR_CODES) {
+    const prompt = specialistValidationCorrectivePrompt(
+      basePrompt,
+      validationCode,
+    );
+    if (
+      codexInputHash({
+        stage: "memo",
+        prompt,
+        outputSchema: SpecialistMemoOutputSchema,
+      }) === inputHash
+    )
+      return { prompt, validationCode };
+  }
+  if (
+    requestedValidationCode !== undefined &&
+    requestedValidationCode.startsWith("specialist_claim_")
+  )
+    return {
+      prompt: specialistValidationCorrectivePrompt(
+        basePrompt,
+        requestedValidationCode,
+      ),
+      validationCode: requestedValidationCode,
+    };
+  return { prompt: basePrompt };
 }
 
 function generatedIds() {
@@ -158,7 +221,7 @@ export function createSpecialistRoundAttemptHandler(
       `memo:${attemptRole(attempt, context.authority)}`,
     );
     const claim = context.authority.claimForAttempt(attempt.attemptId);
-    const attemptInputHash = context.authority.inputHashForAttempt(
+    let attemptInputHash = context.authority.inputHashForAttempt(
       attempt.attemptId,
     );
     if (
@@ -175,7 +238,47 @@ export function createSpecialistRoundAttemptHandler(
     };
     let candidate: unknown;
     let runnerEvidence: SafeCodexEvidence;
-    const prompt = correctivePrompt(job.prompt, correction);
+    const durablePrompt =
+      context.authority.repairPromptForInput(attempt.jobId, attemptInputHash) ??
+      specialistPromptForDurableInput(
+        job.prompt,
+        attemptInputHash,
+        context.authority.retryCodeForJob(attempt.jobId),
+      );
+    const validationCode = durablePrompt.validationCode;
+    const prompt =
+      correction === undefined
+        ? durablePrompt.prompt
+        : correctivePrompt(job.prompt, correction, validationCode);
+    if (
+      correction === undefined &&
+      validationCode?.startsWith("specialist_claim_") === true
+    ) {
+      const correctedInputHash = codexInputHash({
+        stage: "memo",
+        prompt,
+        outputSchema: SpecialistMemoOutputSchema,
+      });
+      if (
+        !context.authority.persistRepairPrompt({
+          jobId: attempt.jobId,
+          inputHash: correctedInputHash,
+          prompt,
+          validationCode,
+          at: now(),
+        })
+      )
+        return "incomplete";
+      if (
+        correctedInputHash !== attemptInputHash &&
+        !context.authority.rebindReplacementInput(
+          attempt.attemptId,
+          correctedInputHash,
+        )
+      )
+        return "incomplete";
+      attemptInputHash = correctedInputHash;
+    }
     try {
       const attemptDir = join(context.options.attemptRoot, attempt.attemptId);
       mkdirSync(attemptDir, { recursive: true });
@@ -255,9 +358,19 @@ export function createSpecialistRoundAttemptHandler(
     const allowedMetricIds = promptRequest.request.registeredValues.map(
       (value) => value.valueId,
     );
+    const evidenceArtifacts = promptRequest.request.evidenceSlice.artifacts.map(
+      (artifact, index) => ({
+        ...artifact,
+        evidenceId: job.sourceArtifactIds[index] ?? artifact.evidenceId,
+      }),
+    );
     candidate = sanitizeSpecialistDecisiveMetricIds(
       candidate,
       allowedMetricIds,
+    );
+    candidate = sanitizeSpecialistEvidenceTypeBindings(
+      candidate,
+      evidenceArtifacts,
     );
     candidate = normalizeSpecialistClaimSlotBindings(
       {
@@ -274,6 +387,8 @@ export function createSpecialistRoundAttemptHandler(
         claimSlots: promptRequest.request.claimSlots,
         allowedArtifactIds: job.sourceArtifactIds,
         allowedMetricIds,
+        registeredValues: promptRequest.request.registeredValues,
+        evidenceArtifacts,
         validateEvidence: false,
       },
       candidate,
@@ -317,11 +432,26 @@ export function createSpecialistRoundAttemptHandler(
         invalidArtifactIds: committed.invalidArtifactIds,
         allowedArtifactIds: committed.allowedArtifactIds,
       };
+      const replacementPrompt = correctivePrompt(
+        job.prompt,
+        nextCorrection,
+        validationCode,
+      );
       const replacementInputHash = codexInputHash({
         stage: "memo",
-        prompt: correctivePrompt(job.prompt, nextCorrection),
+        prompt: replacementPrompt,
         outputSchema: SpecialistMemoOutputSchema,
       });
+      if (
+        !context.authority.persistRepairPrompt({
+          jobId: attempt.jobId,
+          inputHash: replacementInputHash,
+          prompt: replacementPrompt,
+          ...(validationCode === undefined ? {} : { validationCode }),
+          at: now(),
+        })
+      )
+        return "incomplete";
       if (
         !context.authority.rebindReplacementInput(
           ids.replacementAttemptId,

@@ -63,7 +63,7 @@ const SEARCH_STOP_WORDS = new Set([
   "would",
 ]);
 
-function evidenceWindow(
+export function semanticEvidenceWindow(
   exactText: string,
   claimText: string,
 ): { readonly start: number; readonly text: string } {
@@ -73,7 +73,7 @@ function evidenceWindow(
     ...new Set(
       claimText
         .toLowerCase()
-        .match(/[a-z0-9][a-z0-9.$%'-]{2,}/gu)
+        .match(/[\p{L}\p{N}][\p{L}\p{N}.$%'-]{2,}/gu)
         ?.filter((token) => !SEARCH_STOP_WORDS.has(token)) ?? [],
     ),
   ];
@@ -312,7 +312,10 @@ export async function loadSemanticPrompt(
   const boundedSlices = slices.map((slice) => ({
     ...slice,
     evidence: slice.evidence.map((evidence) => {
-      const selected = evidenceWindow(evidence.exactText, slice.text.en);
+      const selected = semanticEvidenceWindow(
+        evidence.exactText,
+        `${slice.text.en}\n${slice.text.ko}`,
+      );
       return {
         ...evidence,
         span: {

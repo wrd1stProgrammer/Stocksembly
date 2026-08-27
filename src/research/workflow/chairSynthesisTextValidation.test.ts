@@ -57,6 +57,26 @@ describe("chair synthesis public text", () => {
     ).toBe(true);
   });
 
+  it("rejects raw provider precision from reader-facing prose", () => {
+    expect(
+      publicTextIsValid(
+        {
+          en: "Revenue growth is 17.896220057587453%.",
+          ko: "매출 성장률은 17.896220057587453%입니다.",
+        },
+        [
+          {
+            text: {
+              en: "Revenue growth is 17.896220057587453%.",
+              ko: "매출 성장률은 17.896220057587453%입니다.",
+            },
+          },
+        ],
+        360,
+      ),
+    ).toBe(false);
+  });
+
   it("accepts equivalent financial-unit formatting", () => {
     expect(
       publicTextIsValid(

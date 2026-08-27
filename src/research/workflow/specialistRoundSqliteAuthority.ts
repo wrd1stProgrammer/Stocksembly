@@ -44,6 +44,10 @@ const SourceArtifactRowSchema = z.object({
   content_hash: z.string().regex(/^[a-f0-9]{64}$/),
   media_type: z.string().min(1),
 });
+const RepairPromptSchema = z.object({
+  prompt: z.string().min(1),
+  validationCode: z.string().min(1).optional(),
+});
 
 export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
   readonly #database: Database.Database;
@@ -321,6 +325,74 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
     }
   }
 
+  persistRepairPrompt(input: {
+    readonly jobId: string;
+    readonly inputHash: string;
+    readonly prompt: string;
+    readonly validationCode?: string;
+    readonly at: string;
+  }): boolean {
+    if (!/^[0-9a-f]{64}$/u.test(input.inputHash) || input.prompt.length === 0)
+      return false;
+    const key = `${input.jobId}:${input.inputHash}`;
+    const value = {
+      prompt: input.prompt,
+      ...(input.validationCode === undefined
+        ? {}
+        : { validationCode: input.validationCode }),
+    };
+    const requestHash = hashCanonical(value);
+    try {
+      return this.#database
+        .transaction(() => {
+          this.#database
+            .prepare(`INSERT OR IGNORE INTO idempotency_records(
+              scope, idempotency_key, request_hash, result_json, created_at
+            ) VALUES ('specialist-repair-prompt', ?, ?, ?, ?) `)
+            .run(key, requestHash, JSON.stringify(value), input.at);
+          const stored = this.#database
+            .prepare(`SELECT request_hash AS requestHash, result_json AS resultJson
+              FROM idempotency_records
+              WHERE scope = 'specialist-repair-prompt'
+                AND idempotency_key = ?`)
+            .get(key) as
+            | { readonly requestHash: string; readonly resultJson: string }
+            | undefined;
+          if (stored?.requestHash !== requestHash) return false;
+          const parsed = RepairPromptSchema.safeParse(
+            parseSafeJson(stored.resultJson),
+          );
+          return parsed.success && hashCanonical(parsed.data) === requestHash;
+        })
+        .immediate();
+    } catch (error) {
+      if (error instanceof Error) return false;
+      throw error;
+    }
+  }
+
+  repairPromptForInput(
+    jobId: string,
+    inputHash: string,
+  ): { readonly prompt: string; readonly validationCode?: string } | undefined {
+    const row = this.#database
+      .prepare(`SELECT result_json AS resultJson FROM idempotency_records
+        WHERE scope = 'specialist-repair-prompt'
+          AND idempotency_key = ?`)
+      .get(`${jobId}:${inputHash}`) as
+      | { readonly resultJson: string }
+      | undefined;
+    if (row === undefined) return undefined;
+    const parsed = RepairPromptSchema.safeParse(parseSafeJson(row.resultJson));
+    if (!parsed.success) return undefined;
+    return parsed.data.validationCode === undefined
+      ? { prompt: parsed.data.prompt }
+      : {
+          prompt: parsed.data.prompt,
+          validationCode: parsed.data.validationCode,
+        };
+  }
+
   consumeReplacementBudget(runId: string): void {
     const changed = this.#database
       .prepare(`UPDATE runs SET requested_replacement_calls =
@@ -329,6 +401,18 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
       .run(runId).changes;
     if (changed !== 1)
       throw new TypeError("durable replacement budget is exhausted");
+  }
+
+  retryCodeForJob(jobId: string): string | undefined {
+    const row = this.#database
+      .prepare(`SELECT result_json FROM idempotency_records
+        WHERE scope = 'worker-retry' AND idempotency_key = ?`)
+      .get(jobId) as { readonly result_json: string } | undefined;
+    if (row === undefined) return undefined;
+    const parsed = z
+      .object({ code: z.string().min(1).optional() })
+      .safeParse(parseSafeJson(row.result_json));
+    return parsed.success ? parsed.data.code : undefined;
   }
 
   replay(runId: string): {
