@@ -488,7 +488,6 @@ export function ResearchRoomCatalog({
                     <Link
                       className="research-room-catalog__card"
                       href={`/research-room/${report.reportId}?lang=${locale}`}
-                      prefetch={false}
                       aria-label={`${report.symbol} ${report.question}`}
                     >
                       {card}
