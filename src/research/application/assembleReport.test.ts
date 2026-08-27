@@ -24,6 +24,7 @@ import {
 } from "../workflow/chairSynthesis.testSupport";
 import { loadChairPrompt } from "../workflow/chairSynthesisInput";
 import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
+import { assembleReport } from "./assembleReport";
 import {
   CountingArtifactCasFake,
   makeAuthoritativeReportInput,
@@ -33,6 +34,27 @@ import {
 import { persistAuthoritativeReport } from "./assembleReportPersistence";
 
 describe("persistAuthoritativeReport", () => {
+  it.each(["en", "ko"] as const)(
+    "accepts a grounded mirrored %s chair summary for single-locale publication",
+    (locale) => {
+      const input = makeAuthoritativeReportInput();
+      const chair = {
+        ...input.chair,
+        sections: input.chair.sections.map((section) => ({
+          ...section,
+          publicSummary: {
+            en: section.publicSummary[locale],
+            ko: section.publicSummary[locale],
+          },
+        })),
+      };
+
+      const result = assembleReport({ ...input, locale, chair });
+
+      expect(result.kind, JSON.stringify(result)).toBe("assembled");
+    },
+  );
+
   it("stores a valid authoritative report in CAS and saves contiguous version one", async () => {
     // Given
     const cas = new CountingArtifactCasFake();

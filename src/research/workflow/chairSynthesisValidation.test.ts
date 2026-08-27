@@ -575,8 +575,8 @@ describe("chair synthesis directional contract", () => {
           return {
             ...section,
             publicSummary: {
-              en: "Buy now.",
-              ko: "지금 매수.",
+              en: "Zyzzyva remains ungrounded.",
+              ko: "외계문장은 근거가 없습니다.",
             },
           };
         return section;

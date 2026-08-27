@@ -160,7 +160,7 @@ function claimStrength(
 }
 
 function isCapabilityDisclaimer(value: string): boolean {
-  return /(?:provided|sealed|licensed|provider|consensus|recommendation|report scope|not replace|cannot (?:quantify|assess|verify)|제공된|봉인된|라이선스|컨센서스|제공사|추천|매수[·/]?매도|대체하지|정량화할 수 없|평가할 수 없|검증할 수 없)/iu.test(
+  return /(?:provided|sealed|licensed|provider|consensus|report scope|not replace|cannot (?:quantify|assess|verify)|제공된|봉인된|라이선스|컨센서스|제공사|대체하지|정량화할 수 없|평가할 수 없|검증할 수 없)/iu.test(
     value,
   );
 }

@@ -106,6 +106,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   ]);
   const chairReason = chairValidationReason({
     chair: chair.data,
+    locale: input.locale,
     sentences: input.chairSentences,
     auditedClaimIds: chairClaimIds,
     retainedDissentClaimIds,

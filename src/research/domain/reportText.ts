@@ -8,11 +8,11 @@ export const PUBLICATION_STATUSES = [
 export const PublicationStatusSchema = z.enum(PUBLICATION_STATUSES);
 export type PublicationStatus = z.infer<typeof PublicationStatusSchema>;
 
-const forbiddenStandaloneMarketLabel = /\b(?:BUY|SELL|HOLD|OHLCV)\b/;
+const forbiddenStandaloneMarketLabel = /\bOHLCV\b/;
 const forbiddenMarketContent =
-  /(?:target|entry|stop|implied)\s+price|consensus\s+(?:target|recommendation)|(?:entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d/i;
+  /(?:target|entry|stop|implied)\s+price|consensus\s+target|(?:entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d/i;
 const replaceableMarketContent =
-  /(?:target|entry|stop|implied)\s+price(?:\s*[$€£₩]?\d+(?:[,.]\d+)*)?|consensus\s+(?:target|recommendation)|(?:entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d+(?:[,.]\d+)*(?:\s*%)?/gi;
+  /(?:target|entry|stop|implied)\s+price(?:\s*[$€£₩]?\d+(?:[,.]\d+)*)?|consensus\s+target|(?:entry|stop|target|position(?:\s+size)?)\s*(?:is|=|:|at)?\s*[$€£₩]?\d+(?:[,.]\d+)*(?:\s*%)?/gi;
 export const ReportNarrativeTextSchema = z
   .string()
   .trim()
@@ -23,7 +23,7 @@ export const ReportNarrativeTextSchema = z
       !forbiddenStandaloneMarketLabel.test(value) &&
       !forbiddenMarketContent.test(value),
     {
-      message: "guessed market data or recommendation is forbidden",
+      message: "guessed market data is forbidden",
     },
   );
 
@@ -32,7 +32,7 @@ export function normalizeReportNarrativeText(
   fallback: string,
 ): string {
   const normalized = value
-    .replace(/\b(?:BUY|SELL|HOLD|OHLCV)\b/g, "market assessment")
+    .replace(/\bOHLCV\b/g, "market assessment")
     .replace(replaceableMarketContent, "cited market level")
     .replace(/\s+/g, " ")
     .trim();

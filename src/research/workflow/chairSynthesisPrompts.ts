@@ -456,7 +456,7 @@ export function chairSynthesisModelPrompt(
         "For long horizon, prioritize durable demand, competitive advantage, reinvestment economics, balance-sheet endurance, and the conditions that would erode compounding.",
         "For new_entry, state entry prerequisites and the valuation or proof the investor is being asked to accept.",
         "For holding_review, separate thesis intact, thesis weakened, and exit/reassess conditions.",
-        "For position_sizing, state which asymmetry or concentration condition argues for adding, maintaining, or reducing exposure without issuing a personalized trade command.",
+        "For position_sizing, state which asymmetry or concentration condition argues for adding, maintaining, or reducing exposure.",
         "For earnings, distinguish what is known before the release, the decisive reported metric, and the post-release interpretation using the calendar, estimates, and filing evidence supplied to specialists.",
         "When counterargumentIntensity is strong, make the countercase concrete and material; the final stance must still favor the better-supported side.",
         ...(prompt.investmentModel === undefined

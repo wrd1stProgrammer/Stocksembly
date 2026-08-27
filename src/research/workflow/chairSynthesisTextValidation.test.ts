@@ -91,6 +91,19 @@ describe("chair synthesis public text", () => {
     ).toBe(true);
   });
 
+  it("does not reject a grounded direct trade conclusion", () => {
+    expect(
+      publicTextIsValid(
+        {
+          en: "Buy now because the operating margin reached 46.8.",
+          ko: "영업이익률이 46.8에 도달했으므로 지금 매수합니다.",
+        },
+        sources,
+        360,
+      ),
+    ).toBe(true);
+  });
+
   it("rejects a Korean mirror when English was requested", () => {
     expect(
       publicTextIsValid(

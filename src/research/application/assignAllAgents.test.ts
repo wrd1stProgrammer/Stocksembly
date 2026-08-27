@@ -128,7 +128,6 @@ describe("immutable all-agent assignments", () => {
     );
     expect(sofia?.focusAreas).toEqual(EXPECTED_FOCUS.valuation);
     expect(sofia?.forbiddenOutputs).toEqual([
-      "direct_trade_instruction",
       "guaranteed_return",
       "chart_technical_analysis",
       "news_summary",

@@ -179,10 +179,7 @@ function containsInternalMetadataLeakage(text: string): boolean {
 }
 
 function containsUnsafePublicClaim(text: string): boolean {
-  return (
-    /\b(?:buy|sell)\s+now\b|guaranteed return/iu.test(text) ||
-    /(?:지금|즉시)\s*(?:매수|매도)|수익\s*보장/u.test(text)
-  );
+  return /guaranteed return/iu.test(text) || /수익\s*보장/u.test(text);
 }
 
 function localeViolations(
@@ -519,9 +516,7 @@ export function deterministicMetadataRewrite(
         permittedNumbers.has(token.replaceAll(",", "")) ? token : "",
       )
       .replace(/\$(?=\s|[,.!?]|$)/gu, "")
-      .replace(/\b(?:buy|sell)\s+now\b/giu, "review the position")
       .replace(/guaranteed return/giu, "defined return assumption")
-      .replace(/(?:지금|즉시)\s*(?:매수|매도)/gu, "포지션 재검토")
       .replace(/수익\s*보장/gu, "수익 가정")
       .replace(/\s+([,.!?])/gu, "$1")
       .replace(/\s+/gu, " ")

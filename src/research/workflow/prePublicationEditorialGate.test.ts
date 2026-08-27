@@ -325,7 +325,7 @@ describe("pre-publication editorial quality gate", () => {
     ],
     [
       "forbidden vocabulary",
-      "Buy now for a guaranteed return.",
+      "A guaranteed return follows from expansion.",
       "forbidden_public_vocabulary",
       "sections[0].text.en",
     ],
@@ -390,6 +390,44 @@ describe("pre-publication editorial quality gate", () => {
       );
     },
   );
+
+  it("preserves a direct buy conclusion when its evidence is otherwise valid", () => {
+    const candidate = cleanCandidate();
+    const text =
+      "Buy now because enterprise adoption broadened across customer cohorts.";
+    const result = evaluatePrePublicationEditorialGate({
+      ...candidate,
+      sections: candidate.sections.map((section, index) =>
+        index === 0
+          ? { ...section, text: { ...section.text, en: text } }
+          : section,
+      ),
+    });
+
+    expect(result.violations).not.toContainEqual(
+      expect.objectContaining({ code: "forbidden_public_vocabulary" }),
+    );
+    expect(result.violations).not.toContainEqual(
+      expect.objectContaining({ code: "unsafe_public_claim" }),
+    );
+    expect(
+      deterministicMetadataRewrite(
+        {
+          ...candidate,
+          position: { ...candidate.position, en: text },
+        },
+        {
+          attempt: 1,
+          fieldPaths: ["position.en"],
+          violations: [],
+          permittedClaimIds: candidate.permittedClaimIds,
+          permittedEvidenceArtifactIds: candidate.permittedEvidenceArtifactIds,
+          permittedNumbers: candidate.supportedNumbers,
+          untrustedCandidateJson: JSON.stringify(candidate),
+        },
+      ).position.en,
+    ).toBe(text);
+  });
 
   it("does not disguise weak prose with publication-boundary synonym replacement", async () => {
     const candidate = cleanCandidate();

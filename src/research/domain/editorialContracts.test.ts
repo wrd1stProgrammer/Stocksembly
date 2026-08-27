@@ -355,7 +355,7 @@ describe("deterministic editorial quality", () => {
   it("flags forbidden public vocabulary and dense supported number dumps separately", () => {
     const result = evaluateEditorialQuality({
       locale: "en",
-      position: "Buy now 10 20 30 40",
+      position: "Guaranteed return 10 20 30 40",
       rationale: "The filing does not justify a personalized instruction.",
       supportedNumbers: ["10", "20", "30", "40"],
       sections: [],
@@ -370,6 +370,21 @@ describe("deterministic editorial quality", () => {
       ]),
     );
     expect(result.reasons).not.toContain("unsupported_number");
+  });
+
+  it("does not classify a direct trade conclusion as forbidden vocabulary", () => {
+    const result = evaluateEditorialQuality({
+      locale: "en",
+      position: "Buy now because demand evidence supports expansion.",
+      rationale:
+        "Cash conversion improved while reinvestment stayed disciplined.",
+      supportedNumbers: [],
+      sections: [],
+      comparators: [],
+      anticipatedQuestions: [],
+    });
+
+    expect(result.reasons).not.toContain("forbidden_public_vocabulary");
   });
 
   it("derives confidence from evidence facts and never rewrite prose", () => {
