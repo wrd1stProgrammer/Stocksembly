@@ -43,6 +43,14 @@ require_environment_key /etc/stocksembly/aws.env STOCKSEMBLY_DATA_DIR
 require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_KEY
 require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_HOST
 
+prune_unused_docker_images() {
+  # The application image is large and production deploys can happen many times
+  # per day. Running images are protected by Docker, so removing only unused
+  # images is safe while preventing recent deploys from filling
+  # the host disk before the seven-day age filter would have applied.
+  docker image prune --all --force >/dev/null
+}
+
 nginx_config="/etc/nginx/conf.d/stocksembly.conf"
 if [[ -f "$nginx_config" ]] &&
   ! grep --quiet --fixed-strings "proxy_read_timeout 600s;" "$nginx_config"; then
@@ -91,6 +99,10 @@ start_containers() {
     node research-worker/worker.mjs serve >/dev/null
 }
 
+# Recover disk space before pulling the next image. The currently running web
+# and worker containers keep the rollback image referenced and therefore safe.
+prune_unused_docker_images
+
 aws ecr get-login-password --region "$region" |
   docker login --username AWS --password-stdin "$registry"
 docker pull "$image"
@@ -108,7 +120,7 @@ for attempt in {1..30}; do
       [[ "$(docker inspect --format '{{.State.Running}}' stocksembly-worker 2>/dev/null)" == "true" ]] &&
       docker exec stocksembly-worker node research-worker/worker.mjs health >/dev/null 2>&1; then
       systemctl disable stocksembly-web stocksembly-worker >/dev/null
-      docker image prune --force --filter "until=168h" >/dev/null
+      prune_unused_docker_images
       exit 0
     fi
   fi
