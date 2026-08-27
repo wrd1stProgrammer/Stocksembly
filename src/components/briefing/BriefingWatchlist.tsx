@@ -1,8 +1,9 @@
 import { Minus, Plus, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { BriefingWatchlistItem } from "../../briefing/domain/contracts";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
 import { CompanyLogo } from "../research/ResearchSidebar";
+import { briefingRoomUiCopy } from "./briefingRoomUiCopy";
 
 export type TickerResult = {
   readonly symbol: string;
@@ -12,7 +13,7 @@ export type TickerResult = {
 };
 
 type Props = {
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly items: readonly BriefingWatchlistItem[];
   readonly limit: number;
   readonly changesRemaining: number;
@@ -29,29 +30,8 @@ type Props = {
   readonly onRemove: (item: BriefingWatchlistItem) => void;
 };
 
-const copy = {
-  ko: {
-    title: "관심종목",
-    add: "종목 추가",
-    search: "티커 또는 기업 검색",
-    remaining: "남은 변경 횟수",
-    times: "회",
-    all: "전체",
-    remove: "관심종목에서 삭제",
-  },
-  en: {
-    title: "Watchlist",
-    add: "Add stock",
-    search: "Search ticker or company",
-    remaining: "Changes remaining",
-    times: "",
-    all: "All",
-    remove: "Remove from watchlist",
-  },
-} as const;
-
 export function BriefingWatchlist(props: Props) {
-  const labels = copy[props.locale];
+  const labels = briefingRoomUiCopy[props.locale].watchlist;
   const searchRef = useRef<HTMLInputElement>(null);
   const canChange = props.changesRemaining > 0;
   useEffect(() => {

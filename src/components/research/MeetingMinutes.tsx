@@ -16,6 +16,7 @@ import type {
 } from "../../research/domain/activeResearchActivity";
 import { activityCopy } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
+import { agentUiName, agentUiRole } from "./agentUiProfile";
 import { researchMeetingUiCopy } from "./researchMeetingUiCopy";
 import { TeamQuestionPanel } from "./TeamQuestionPanel";
 import { TextShimmerWave } from "./TextShimmerWave";
@@ -210,13 +211,11 @@ function inferredActivity(
 function ConversationHistory({
   agents,
   conversation,
-  locale,
   uiLocale,
   originalQuestion,
 }: {
   readonly agents: readonly AgentProfile[];
   readonly conversation: readonly ResearchConversationEntry[];
-  readonly locale: ResearchLocale;
   readonly uiLocale: AppLocale;
   readonly originalQuestion?: string;
 }) {
@@ -251,7 +250,11 @@ function ConversationHistory({
                 <Image src={agent.image} alt="" width={24} height={58} />
               )}
               <div>
-                <span>{agent?.name[locale] ?? ui.researchChair}</span>
+                <span>
+                  {agent === undefined
+                    ? ui.researchChair
+                    : agentUiName(agent, uiLocale)}
+                </span>
                 <p>{exchange.answer}</p>
               </div>
             </article>
@@ -399,14 +402,14 @@ export function MeetingMinutes({
         <Image src={agent.image} alt="" width={24} height={58} />
         <div>
           <header>
-            <strong>{agent.name[locale]}</strong>
-            <span>{agent.role[locale]}</span>
+            <strong>{agentUiName(agent, uiLocale)}</strong>
+            <span>{agentUiRole(agent, uiLocale)}</span>
           </header>
           <p
             className="meeting-minutes__thinking"
             role="status"
             aria-live="polite"
-            aria-label={`${agent.name[locale]}: ${
+            aria-label={`${agentUiName(agent, uiLocale)}: ${
               individualizedPendingCopy || activity === "data_collection"
                 ? researchCopy[locale].agentThinking[agent.id]
                 : researchCopy[locale].activityStatus[activity]
@@ -585,13 +588,13 @@ export function MeetingMinutes({
                   <header>
                     <strong>
                       {(collaborative ? participants : [agent])
-                        .map((profile) => profile.name[locale])
+                        .map((profile) => agentUiName(profile, uiLocale))
                         .join(" × ")}
                     </strong>
                     <span>
                       {collaborative
                         ? conversationLabel(group, uiLocale)
-                        : agent.role[locale]}
+                        : agentUiRole(agent, uiLocale)}
                     </span>
                   </header>
                   <TypedNarrative
@@ -681,7 +684,6 @@ export function MeetingMinutes({
             <ConversationHistory
               agents={agents}
               conversation={conversation}
-              locale={locale}
               uiLocale={uiLocale}
               {...(originalQuestion === undefined ? {} : { originalQuestion })}
             />

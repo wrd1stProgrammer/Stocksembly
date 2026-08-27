@@ -1,49 +1,21 @@
 import { ArrowUpRight, BellRing, Clock3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { BriefingRoomState } from "../../briefing/domain/contracts";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
 import { HeaderAuthAction } from "../auth/HeaderAuthAction";
 import { Brand } from "../Brand";
 import {
   formatBriefingDate,
   formatBriefingDateInZone,
 } from "./briefingFormatting";
+import { briefingRoomUiCopy } from "./briefingRoomUiCopy";
 
 type HeaderProps = {
   readonly state: BriefingRoomState;
-  readonly locale: Locale;
+  readonly locale: AppLocale;
 };
 
-const copy = {
-  ko: {
-    title: "브리핑룸",
-    eyebrow: "미국 장 시작 1시간 전",
-    latest: "최신 발행",
-    next: "다음 발행",
-    eastern: "미 동부시간",
-    local: "한국시간",
-    countdown: "남은 시간",
-    lockedTitle: "매일의 변화만 빠르게 확인하세요",
-    lockedBody:
-      "Pro는 3개, Ultra는 10개 관심종목에 대해 거래일마다 프리마켓 브리핑을 제공합니다.",
-    plan: "플랜 확인하기",
-  },
-  en: {
-    title: "Briefing room",
-    eyebrow: "One hour before the US open",
-    latest: "Latest edition",
-    next: "Next edition",
-    eastern: "America/New_York",
-    local: "Your time",
-    countdown: "Time remaining",
-    lockedTitle: "See only what changed before the open",
-    lockedBody:
-      "Pro includes 3 watchlist names and Ultra includes 10, with a briefing every US trading day.",
-    plan: "View plans",
-  },
-} as const;
-
-function countdownLabel(milliseconds: number, locale: Locale): string {
+function countdownLabel(milliseconds: number, locale: AppLocale): string {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1_000));
   const days = Math.floor(totalSeconds / 86_400);
   const hours = Math.floor((totalSeconds % 86_400) / 3_600);
@@ -56,7 +28,7 @@ function countdownLabel(milliseconds: number, locale: Locale): string {
 }
 
 export function BriefingRoomHeader({ state, locale }: HeaderProps) {
-  const labels = copy[locale];
+  const labels = briefingRoomUiCopy[locale].header;
   const [now, setNow] = useState<number>();
   const [localTimeZone, setLocalTimeZone] = useState(
     locale === "ko" ? "Asia/Seoul" : "UTC",
@@ -64,10 +36,11 @@ export function BriefingRoomHeader({ state, locale }: HeaderProps) {
   useEffect(() => {
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    if (locale === "en")
-      setLocalTimeZone(
-        Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      );
+    setLocalTimeZone(
+      locale === "ko"
+        ? "Asia/Seoul"
+        : Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    );
     return () => window.clearInterval(timer);
   }, [locale]);
   const latestPublishedAt = useMemo(
@@ -94,10 +67,7 @@ export function BriefingRoomHeader({ state, locale }: HeaderProps) {
           <h1>{labels.title}</h1>
         </div>
         {state.authenticated ? null : (
-          <HeaderAuthAction
-            label={locale === "ko" ? "시작하기" : "Get started"}
-            locale={locale}
-          />
+          <HeaderAuthAction label={labels.getStarted} locale={locale} />
         )}
       </div>
       <div className="briefing-room__publishing">
@@ -141,10 +111,10 @@ export function BriefingLocked({
   locale,
   onOpenPlans,
 }: {
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly onOpenPlans: () => void;
 }) {
-  const labels = copy[locale];
+  const labels = briefingRoomUiCopy[locale].header;
   return (
     <section className="briefing-room__locked">
       <BellRing size={30} />

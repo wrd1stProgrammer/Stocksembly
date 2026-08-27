@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import {
   loadLocalBriefingOverlay,
   mergeLocalBriefingOverlay,
 } from "@/src/briefing/server/localBriefingPreviewStore";
 import { BriefingRoom } from "@/src/components/briefing/BriefingRoom";
-import type { Locale } from "@/src/lib/i18n";
-import { researchLocaleFromValue } from "@/src/lib/i18n";
+import {
+  type AppLocale,
+  appLocaleFromValue,
+  isLocale,
+  researchLocale,
+} from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +26,7 @@ export const metadata: Metadata = {
 
 type Props = { readonly searchParams: Promise<{ readonly lang?: string }> };
 
-async function requestFromPage(locale: Locale) {
+async function requestFromPage(locale: AppLocale) {
   const [incomingHeaders, incomingCookies] = await Promise.all([
     headers(),
     cookies(),
@@ -38,19 +43,31 @@ async function requestFromPage(locale: Locale) {
 
 export default async function BriefingRoomPage({ searchParams }: Props) {
   const query = await searchParams;
-  const locale: Locale = researchLocaleFromValue(query.lang);
+  const storedLocale = (await cookies()).get("stocksembly_locale")?.value;
+  const requestedLocale = isLocale(query.lang) ? query.lang : undefined;
+  const requestLocale =
+    requestedLocale ??
+    (isLocale(storedLocale) ? storedLocale : appLocaleFromValue(undefined));
+  const request = await requestFromPage(requestLocale);
+  const api = await getLiveResearchApi();
+  const preference = await api.preferredLocale(request);
+  const locale: AppLocale =
+    requestedLocale ??
+    preference.locale ??
+    (isLocale(storedLocale) ? storedLocale : appLocaleFromValue(undefined));
+  if (preference.authenticated && query.lang !== locale)
+    redirect(`/briefing-room?lang=${locale}`);
+  const contentLocale = researchLocale(locale);
   const [state, overlay] = await Promise.all([
-    (await getLiveResearchApi()).briefingRoom(
-      await requestFromPage(locale),
-      locale,
-    ),
-    loadLocalBriefingOverlay(locale),
+    api.briefingRoom(request, contentLocale),
+    loadLocalBriefingOverlay(contentLocale),
   ]);
   return (
     <BriefingRoom
       initialState={mergeLocalBriefingOverlay(state, overlay)}
       initialDetails={overlay.details}
       locale={locale}
+      contentLocale={contentLocale}
     />
   );
 }

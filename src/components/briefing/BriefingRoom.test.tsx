@@ -261,6 +261,24 @@ describe("BriefingRoom editorial hierarchy", () => {
     expect(beam).not.toHaveTextContent("NVDA previous headline");
   });
 
+  it("keeps the selected application language in the briefing room", () => {
+    render(
+      <BriefingRoom
+        initialState={roomState()}
+        locale="ja"
+        contentLocale="ko"
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "ブリーフィング" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "最新ブリーフィング" }),
+    ).toBeVisible();
+    expect(screen.getAllByText("次回決算")).toHaveLength(2);
+  });
+
   it("restores top-right next earnings and shows pending when no date exists", () => {
     // Given / When
     render(<BriefingRoom initialState={roomState()} locale="ko" />);

@@ -30,6 +30,7 @@ type Props = {
   readonly reportId?: string;
   readonly activeAgentIds: readonly AgentId[];
   readonly focusedTeam?: boolean;
+  readonly hideCompleteHeadingLabel?: boolean;
   readonly onReplay: () => void;
 };
 
@@ -49,6 +50,7 @@ export function OfficeStage({
   reportId,
   activeAgentIds,
   focusedTeam = false,
+  hideCompleteHeadingLabel = false,
   onReplay,
 }: Props) {
   const labels = researchCopy[locale];
@@ -77,29 +79,31 @@ export function OfficeStage({
         <h2 id="office-stage-title" className="sr-only">
           {labels.aria.stage}
         </h2>
-        <span className="office-heading__label">
-          {isComplete
-            ? uiMessage(uiLocale, {
-                en: "FINAL RESEARCH REPORT",
-                ko: "최종 리서치 리포트",
-                ja: "最終リサーチレポート",
-                "zh-TW": "最終研究報告",
-                es: "INFORME FINAL",
-                "pt-BR": "RELATÓRIO FINAL",
-                de: "FINALER RESEARCH-BERICHT",
-                fr: "RAPPORT FINAL",
-              })
-            : uiMessage(uiLocale, {
-                en: "LIVE RESEARCH ROOM",
-                ko: "실시간 리서치 룸",
-                ja: "ライブリサーチルーム",
-                "zh-TW": "即時研究室",
-                es: "SALA DE INVESTIGACIÓN EN VIVO",
-                "pt-BR": "SALA DE PESQUISA AO VIVO",
-                de: "LIVE RESEARCH-RAUM",
-                fr: "SALLE DE RECHERCHE EN DIRECT",
-              })}
-        </span>
+        {isComplete && hideCompleteHeadingLabel ? null : (
+          <span className="office-heading__label">
+            {isComplete
+              ? uiMessage(uiLocale, {
+                  en: "FINAL RESEARCH REPORT",
+                  ko: "최종 리서치 리포트",
+                  ja: "最終リサーチレポート",
+                  "zh-TW": "最終研究報告",
+                  es: "INFORME FINAL",
+                  "pt-BR": "RELATÓRIO FINAL",
+                  de: "FINALER RESEARCH-BERICHT",
+                  fr: "RAPPORT FINAL",
+                })
+              : uiMessage(uiLocale, {
+                  en: "LIVE RESEARCH ROOM",
+                  ko: "실시간 리서치 룸",
+                  ja: "ライブリサーチルーム",
+                  "zh-TW": "即時研究室",
+                  es: "SALA DE INVESTIGACIÓN EN VIVO",
+                  "pt-BR": "SALA DE PESQUISA AO VIVO",
+                  de: "LIVE RESEARCH-RAUM",
+                  fr: "SALLE DE RECHERCHE EN DIRECT",
+                })}
+          </span>
+        )}
         {isComplete ? null : (
           <fieldset className="office-camera-modes">
             <legend className="sr-only">

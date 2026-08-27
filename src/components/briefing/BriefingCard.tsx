@@ -1,38 +1,20 @@
 import { BorderBeam } from "border-beam";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import type { BriefingListItem } from "../../briefing/domain/contracts";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale } from "../../lib/i18n";
 import { CompanyLogo } from "../research/ResearchSidebar";
 import { formatBriefingDate, formatBriefingPrice } from "./briefingFormatting";
+import { briefingRoomUiCopy } from "./briefingRoomUiCopy";
 
 type Props = {
   readonly briefing: BriefingListItem;
-  readonly locale: Locale;
+  readonly locale: AppLocale;
   readonly featured?: boolean;
   readonly onOpen: (briefing: BriefingListItem) => void;
 };
 
-const copy = {
-  ko: {
-    earnings: "다음 실적",
-    confirmed: "확정",
-    estimated: "예상",
-    pending: "미정",
-    unread: "안 읽음",
-    attention: { low: "낮음", medium: "주목", high: "높음" },
-  },
-  en: {
-    earnings: "Next earnings",
-    confirmed: "Confirmed",
-    estimated: "Estimated",
-    pending: "Pending",
-    unread: "Unread",
-    attention: { low: "Low", medium: "Watch", high: "High" },
-  },
-} as const;
-
 export function BriefingCard({ briefing, locale, featured, onOpen }: Props) {
-  const labels = copy[locale];
+  const labels = briefingRoomUiCopy[locale].card;
   const earnings = briefing.nextEarnings;
   const change = briefing.price.changePercent;
 

@@ -85,6 +85,26 @@ describe("MeetingMinutes", () => {
     expect(conversation).toHaveTextContent("반론");
   });
 
+  it("uses the interface locale for agent names and roles", () => {
+    const active = event(0);
+
+    render(
+      <MeetingMinutes
+        current={active}
+        agents={agents}
+        events={[active]}
+        locale="ko"
+        uiLocale="ja"
+        isComplete={false}
+        reportVersion={1}
+      />,
+    );
+
+    expect(screen.getByText("マヤ")).toBeVisible();
+    expect(screen.getByText("市場分析責任者")).toBeVisible();
+    expect(screen.queryByText("마야")).not.toBeInTheDocument();
+  });
+
   it("keeps the completed-panel tabs visible while research is active and locks chat", () => {
     const active = event(1);
 

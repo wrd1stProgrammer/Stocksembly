@@ -200,6 +200,7 @@ export function PublishedResearchWorkspace({
           reportVersion={version}
           reportId={reportId}
           activeAgentIds={[]}
+          hideCompleteHeadingLabel
           onReplay={() => {
             window.location.assign(`/research-room?lang=${locale}`);
           }}

@@ -128,10 +128,13 @@ export function LandingResearchRoomPreview({
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/research-room?limit=5&sort=latest", {
-      credentials: "same-origin",
-      cache: "no-store",
-    })
+    void fetch(
+      `/api/research-room?limit=5&sort=latest&lang=${encodeURIComponent(locale)}`,
+      {
+        credentials: "same-origin",
+        cache: "no-store",
+      },
+    )
       .then(async (response) =>
         response.ok
           ? ((await response.json()) as {
@@ -185,7 +188,7 @@ export function LandingResearchRoomPreview({
     return () => {
       active = false;
     };
-  }, []);
+  }, [locale]);
 
   if (reports.length === 0) return null;
   return (
