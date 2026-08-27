@@ -150,6 +150,39 @@ describe("specialist claim slots", () => {
       ok: false,
       reason: "specialist_claim_numeric_metric_mismatch",
     });
+
+    const repaired = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId,
+      metricId,
+      leadSummary: {
+        en: "Quarterly revenue increased 18% year over year.",
+        ko: "최근 분기 매출은 전년 대비 18% 증가했습니다.",
+      },
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [artifactId],
+          allowedMetricIds: [metricId],
+          registeredValues: [
+            {
+              valueId: metricId,
+              metric: "revenue_growth",
+              value: "18",
+              unit: "percent",
+              period: "Q:2026-07-26",
+            },
+          ],
+        },
+        repaired,
+      ),
+    ).toEqual({ ok: true });
   });
 
   it("does not mistake an explicit future threshold for a reported metric", async () => {
@@ -293,25 +326,43 @@ describe("specialist claim slots", () => {
       })),
     };
 
-    expect(
-      sanitizeSpecialistEvidenceTypeBindings(mixed, [
-        {
-          evidenceId: filing.artifactId,
-          dataset: "sec_filings",
-          form: "10-Q",
-        },
-        {
-          evidenceId: ownership.artifactId,
-          dataset: "sec_filings",
-          form: "4",
-        },
-      ]),
-    ).toMatchObject({
+    const evidenceArtifacts = [
+      {
+        evidenceId: filing.artifactId,
+        dataset: "sec_filings",
+        form: "10-Q",
+      },
+      {
+        evidenceId: ownership.artifactId,
+        dataset: "sec_filings",
+        form: "4",
+      },
+    ];
+    const repaired = sanitizeSpecialistEvidenceTypeBindings(
+      mixed,
+      evidenceArtifacts,
+    );
+
+    expect(repaired).toMatchObject({
       positions: [
         { evidenceArtifactIds: [filing.artifactId] },
         { evidenceArtifactIds: [filing.artifactId] },
       ],
     });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId,
+          claimSlots,
+          allowedArtifactIds: [filing.artifactId, ownership.artifactId],
+          allowedMetricIds: ["forward_pe"],
+          evidenceArtifacts,
+        },
+        repaired,
+      ),
+    ).toEqual({ ok: true });
   });
 
   it("repairs a copied claim-id typo from its unique semantic slot", async () => {
