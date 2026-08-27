@@ -37,6 +37,7 @@ export const ComparableMetricSchema = z
 const ProfileShape = {
   comparatorId: z.string().trim().min(1).max(120),
   name: z.string().trim().min(1).max(200),
+  sector: z.string().trim().min(1).optional(),
   primaryProductMarket: z.string().trim().min(1),
   primaryCustomerMarket: z.string().trim().min(1),
   metrics: z.array(ComparableMetricSchema).min(1).max(32).readonly(),
@@ -55,6 +56,7 @@ export const ComparatorQualificationInputSchema = z
   .readonly();
 export const ExclusionReasonSchema = z.enum([
   "duplicate_comparator",
+  "industry_mismatch",
   "market_overlap_required",
   "insufficient_aligned_metrics",
   "operating_metric_required",

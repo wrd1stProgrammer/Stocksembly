@@ -198,10 +198,10 @@ const METHOD_LABELS: Readonly<
   >
 > = {
   earnings_power: {
-    label: { en: "Forward earnings power", ko: "선행 이익가치" },
+    label: { en: "Forward earnings expectations", ko: "선행 이익 기대" },
     note: {
-      en: "Forward EPS is tested across explicit valuation multiples; this is a sensitivity range, not a single price target.",
-      ko: "선행 EPS에 서로 다른 멀티플을 적용한 민감도 범위이며 단일 목표주가가 아닙니다.",
+      en: "Current forward EPS and the price-implied P/E are shown as expectation context. A price range is withheld until a qualified historical or peer multiple range is available.",
+      ko: "선행 EPS와 현재 주가에 내재된 선행 PER을 기대 수준으로 보여줍니다. 적격 과거·비교기업 배수 범위가 확보되기 전에는 가격 범위를 만들지 않습니다.",
     },
   },
   book_value: {
@@ -268,68 +268,33 @@ function earningsScenarios(input: {
   readonly price: number;
   readonly forwardEps: number;
   readonly forwardPe?: number;
-  readonly trailingEps?: number;
-  readonly revenueGrowth?: number;
 }): UniversalInvestmentModel["scenarios"] {
-  const forwardEpsGrowth =
-    input.trailingEps !== undefined && input.trailingEps > 0
-      ? (input.forwardEps / input.trailingEps - 1) * 100
-      : undefined;
-  const growthAnchor = forwardEpsGrowth ?? input.revenueGrowth;
-  const growthBasedMultiple = Math.min(
-    40,
-    Math.max(12, 12 + Math.max(0, growthAnchor ?? 0) * 0.65),
-  );
-  const observedMultiple =
+  const impliedForwardPe =
     input.forwardPe !== undefined && input.forwardPe > 0
-      ? Math.min(60, Math.max(8, input.forwardPe))
-      : undefined;
-  const baseMultiple =
-    observedMultiple === undefined
-      ? growthBasedMultiple
-      : observedMultiple * 0.45 + growthBasedMultiple * 0.55;
-  const multiples = [
-    Math.max(8, baseMultiple * 0.72),
-    baseMultiple,
-    Math.min(60, baseMultiple * 1.28),
-  ];
-  return (["downside", "base", "upside"] as const).map((id, index) => {
-    const multiple = rounded(multiples[index] ?? baseMultiple, 1);
-    const impliedPrice = rounded(input.forwardEps * multiple);
-    const assumptions = [
-      {
-        en: `Forward EPS $${rounded(input.forwardEps)} × ${multiple}x`,
-        ko: `선행 EPS $${rounded(input.forwardEps)} × ${multiple}배`,
+      ? input.forwardPe
+      : input.price / input.forwardEps;
+  return [
+    {
+      id: "base",
+      label: scenarioLabel("base"),
+      requiredMetric: {
+        en: "Current implied forward P/E",
+        ko: "현재 내재 선행 PER",
       },
-    ];
-    if (forwardEpsGrowth !== undefined) {
-      assumptions.push({
-        en: `Forward EPS growth versus trailing EPS: ${rounded(forwardEpsGrowth, 1)}%`,
-        ko: `최근 EPS 대비 선행 EPS 증가율 ${rounded(forwardEpsGrowth, 1)}%`,
-      });
-    } else if (input.revenueGrowth !== undefined) {
-      assumptions.push({
-        en: `Latest revenue growth: ${rounded(input.revenueGrowth, 1)}%`,
-        ko: `최근 매출 성장률 ${rounded(input.revenueGrowth, 1)}%`,
-      });
-    }
-    if (input.forwardPe !== undefined && input.forwardPe > 0) {
-      assumptions.push({
-        en: `Current implied forward P/E: ${rounded(input.forwardPe, 1)}x`,
-        ko: `현재 주가 기준 선행 PER ${rounded(input.forwardPe, 1)}배`,
-      });
-    }
-    return {
-      id,
-      label: scenarioLabel(id),
-      impliedPrice,
-      returnPercent: rounded((impliedPrice / input.price - 1) * 100, 1),
-      requiredMetric: { en: "Forward P/E", ko: "선행 PER" },
-      requiredValue: multiple,
+      requiredValue: rounded(impliedForwardPe, 1),
       requiredUnit: "multiple" as const,
-      assumptions,
-    };
-  });
+      assumptions: [
+        {
+          en: `Current price $${rounded(input.price)} and forward EPS $${rounded(input.forwardEps)} imply ${rounded(impliedForwardPe, 1)}x forward P/E.`,
+          ko: `현재가 $${rounded(input.price)}와 선행 EPS $${rounded(input.forwardEps)}는 선행 PER ${rounded(impliedForwardPe, 1)}배를 내포합니다.`,
+        },
+        {
+          en: "No historical or qualified-peer multiple range is available, so no implied price is calculated.",
+          ko: "과거 또는 적격 비교기업 배수 범위가 없어 내재 가격을 계산하지 않습니다.",
+        },
+      ],
+    },
+  ];
 }
 
 function cashFlowScenarios(input: {
@@ -510,7 +475,6 @@ export function buildUniversalInvestmentModel(input: {
   const marketCap = metric(metrics, "market_cap");
   const forwardEps = metric(metrics, "forward_eps");
   const reportedForwardPe = metric(metrics, "forward_pe");
-  const trailingEps = metric(metrics, "eps_ttm");
   const reportedRevenueGrowth = metric(metrics, "revenue_growth");
   const freeCashFlow = metric(metrics, "free_cash_flow");
   const dilutedShares = metric(metrics, "diluted_shares");
@@ -593,8 +557,6 @@ export function buildUniversalInvestmentModel(input: {
       price,
       forwardEps,
       ...(forwardPe === undefined ? {} : { forwardPe }),
-      ...(trailingEps === undefined ? {} : { trailingEps }),
-      ...(revenueGrowth === undefined ? {} : { revenueGrowth }),
     });
   else if (
     primaryMethod === "revenue_multiple" &&

@@ -576,6 +576,13 @@ export function buildResearchMetricSnapshot(input: {
   }
 
   const peers = PeersSchema.safeParse(input.peers);
+  const comparatorQualification =
+    input.peers === undefined || input.peerEvidenceArtifactId === undefined
+      ? undefined
+      : qualifyInsightSentryPeers({
+          peers: input.peers,
+          rawPeerArtifactId: input.peerEvidenceArtifactId,
+        });
   if (peers.success) {
     const addPerformance = (
       id: string,
@@ -604,16 +611,16 @@ export function buildResearchMetricSnapshot(input: {
       { en: "1-year performance", ko: "1년 수익률" },
       peers.data.subject.performance1Year,
     );
-    for (const item of peers.data.relativeValuation) {
-      if (item.premiumDiscountPercent === undefined) continue;
+    if (comparatorQualification?.valuation.status === "eligible") {
+      const valuation = comparatorQualification.valuation;
       points.push({
-        id: `peer_premium:${item.metric}`,
+        id: `peer_premium:${valuation.metricKey}`,
         label: {
-          en: `${item.metric.replaceAll("_", " ")} vs peers`,
-          ko: `${item.metric.replaceAll("_", " ")} 동종업계 대비`,
+          en: `${valuation.metricKey.replaceAll("_", " ")} vs qualified peers`,
+          ko: `${valuation.metricKey.replaceAll("_", " ")} 적격 비교기업 대비`,
         },
         category: "market",
-        value: item.premiumDiscountPercent,
+        value: valuation.premiumDiscountPercent,
         unit: "percent",
         observedAt: peers.data.providerUpdatedAt,
         source: "insightsentry",
@@ -712,13 +719,6 @@ export function buildResearchMetricSnapshot(input: {
     );
   }
 
-  const comparatorQualification =
-    input.peers === undefined || input.peerEvidenceArtifactId === undefined
-      ? undefined
-      : qualifyInsightSentryPeers({
-          peers: input.peers,
-          rawPeerArtifactId: input.peerEvidenceArtifactId,
-        });
   if (points.length === 0 && comparatorQualification === undefined)
     return undefined;
   const unique = [
