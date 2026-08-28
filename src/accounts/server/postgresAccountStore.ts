@@ -40,6 +40,7 @@ import type {
 } from "../../lib/whop/contracts";
 import {
   CREDIT_COSTS,
+  effectivePaidCreditAllowance,
   isSuccessfulResearchStatus,
   paidCreditGrantDelta,
   researchCreditCost,
@@ -52,6 +53,7 @@ import {
   billingTierForPlanKey,
   FREE_SIGNUP_CREDIT_ALLOWANCE,
   getWhopEnvironment,
+  getWhopMembershipManageUrl,
   MONTHLY_CREDIT_ALLOWANCE,
 } from "../../lib/whop/server";
 import type {
@@ -230,12 +232,7 @@ async function creditPeriodContext(
   const tier = paidStatus ? rawTier : "free";
   const isFree = tier === "free";
   const bounds = periodBounds(now);
-  const configuredAllowance = Number(entitlement?.monthly_credit_limit ?? 0);
-  const allowance = isFree
-    ? 0
-    : configuredAllowance > 0
-      ? configuredAllowance
-      : MONTHLY_CREDIT_ALLOWANCE[tier];
+  const allowance = isFree ? 0 : MONTHLY_CREDIT_ALLOWANCE[tier];
   return {
     tier,
     status: rawStatus,
@@ -401,7 +398,10 @@ async function grantedCredits(
       context.bounds.end.toISOString(),
     ],
   );
-  return Math.max(0, Number(result.rows[0]?.granted ?? 0));
+  return effectivePaidCreditAllowance(
+    Number(result.rows[0]?.granted ?? 0),
+    context.allowance,
+  );
 }
 
 async function latestFreeGrantNotice(
@@ -1357,13 +1357,15 @@ export class PostgresAccountStore implements AccountStore {
         const remaining = Math.max(0, allowance - used - reserved);
         const creditAllowance = allowance;
         const entitlementResult = await client.query<{
+          whop_membership_id: string | null;
           whop_plan_id: string | null;
           current_period_start: string | null;
           current_period_end: string | null;
           cancel_at_period_end: boolean;
           manage_url: string | null;
         }>(
-          `SELECT whop_plan_id, current_period_start, current_period_end,
+          `SELECT whop_membership_id, whop_plan_id,
+                  current_period_start, current_period_end,
                   cancel_at_period_end, manage_url
            FROM entitlements
            WHERE principal_id = $1
@@ -1412,10 +1414,33 @@ export class PostgresAccountStore implements AccountStore {
           currentPeriodStart: entitlement?.current_period_start ?? undefined,
           currentPeriodEnd: entitlement?.current_period_end ?? undefined,
         });
-        const manageUrl = manageUrlForCurrentWhopEnvironment(
+        let manageUrl = manageUrlForCurrentWhopEnvironment(
           entitlement?.manage_url,
           principalId,
         );
+        if (
+          manageUrl === undefined &&
+          entitlement?.whop_membership_id !== null &&
+          entitlement?.whop_membership_id !== undefined
+        ) {
+          try {
+            manageUrl = manageUrlForCurrentWhopEnvironment(
+              await getWhopMembershipManageUrl(entitlement.whop_membership_id),
+              principalId,
+            );
+            if (manageUrl !== undefined)
+              await client.query(
+                `UPDATE entitlements
+                 SET manage_url = $2, updated_at = now()
+                 WHERE principal_id = $1`,
+                [principalId, manageUrl],
+              );
+          } catch (error) {
+            console.warn("Whop billing portal URL could not be refreshed", {
+              errorName: error instanceof Error ? error.name : "Unknown",
+            });
+          }
+        }
         const tier = context.tier;
         return {
           tier,

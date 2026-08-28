@@ -125,9 +125,9 @@ describe("SubscriptionModal pricing", () => {
       ".subscription-overview__manage",
     );
 
-    expect(balance).toHaveTextContent("100");
+    expect(balance).toHaveTextContent("34");
     expect(price).toHaveTextContent("$190");
-    expect(allowance).toHaveTextContent("216");
+    expect(allowance).toHaveTextContent("150");
     expect(planUpgrade).toHaveTextContent("Ultra로 업그레이드");
     expect(planUpgrade).toHaveAttribute("href", "/pricing?lang=ko");
     expect(planManage).toHaveTextContent("구독 취소");
@@ -181,5 +181,77 @@ describe("SubscriptionModal pricing", () => {
       "href",
       "https://sandbox.whop.com/billing/manage/mber_ultra/",
     );
+  });
+
+  it("keeps the cancellation action visible while a legacy manage URL is refreshed", () => {
+    const { container } = render(
+      <SubscriptionModal
+        open
+        locale="ko"
+        subscriptionTier="paid"
+        plans={plans}
+        billingStatus={{
+          authenticated: true,
+          tier: "ultra",
+          status: "active",
+          planKey: "ultra-monthly",
+          credits: {
+            remaining: 400,
+            allowance: 400,
+            used: 0,
+            usedPercent: 0,
+            periodStart: "2026-08-01T00:00:00.000Z",
+            periodEnd: "2026-09-01T00:00:00.000Z",
+          },
+          recentActivity: [],
+        }}
+        loading={false}
+        error={false}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(
+      container.querySelector(".subscription-overview__manage"),
+    ).toHaveAttribute("href", "https://whop.com/orders/products/");
+  });
+
+  it("caps a legacy Ultra allowance at the current 400-credit policy", () => {
+    const { container } = render(
+      <SubscriptionModal
+        open
+        locale="ko"
+        subscriptionTier="paid"
+        plans={plans}
+        billingStatus={{
+          authenticated: true,
+          tier: "ultra",
+          status: "active",
+          planKey: "ultra-monthly",
+          credits: {
+            remaining: 204,
+            allowance: 500,
+            used: 296,
+            usedPercent: 59.2,
+            periodStart: "2026-08-01T00:00:00.000Z",
+            periodEnd: "2026-09-01T00:00:00.000Z",
+          },
+          recentActivity: [],
+        }}
+        loading={false}
+        error={false}
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(
+      container.querySelector(".subscription-credit-meter__value"),
+    ).toHaveTextContent("104");
+    expect(
+      container.querySelector(".subscription-credit-meter"),
+    ).toHaveTextContent("74% 사용함");
+    expect(
+      container.querySelector(".subscription-overview__facts"),
+    ).toHaveTextContent("400");
   });
 });

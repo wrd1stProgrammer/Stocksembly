@@ -282,6 +282,15 @@ export async function createWhopProMonthlyLiveTestCheckout(input: {
   };
 }
 
+export async function getWhopMembershipManageUrl(
+  membershipId: string,
+): Promise<string | undefined> {
+  const membership = await whopClient(whopConfiguration()).memberships.retrieve(
+    membershipId,
+  );
+  return membership.manage_url ?? undefined;
+}
+
 export type WhopWebhookEvent = {
   readonly id?: string;
   readonly type: string;

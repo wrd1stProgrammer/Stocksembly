@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { billingCheckoutPath } from "./contracts";
 import {
   CREDIT_COSTS,
+  effectivePaidCreditAllowance,
   MONTHLY_CREDIT_ALLOWANCE,
   paidCreditGrantDelta,
 } from "./creditPolicy";
@@ -119,5 +120,10 @@ describe("Whop billing contracts", () => {
 
     // Then
     expect(delta).toBe(0);
+  });
+
+  it("caps a legacy paid grant at the current plan allowance", () => {
+    expect(effectivePaidCreditAllowance(500, 400)).toBe(400);
+    expect(effectivePaidCreditAllowance(100, 400)).toBe(100);
   });
 });

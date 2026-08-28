@@ -27,6 +27,41 @@ type SubscriptionModalProps = {
   readonly onClose: () => void;
 };
 
+const WHOP_ORDERS_URL = "https://whop.com/orders/products/";
+
+function billingStatusForCurrentPolicy(
+  billingStatus: WhopBillingStatus | undefined,
+): WhopBillingStatus | undefined {
+  if (
+    billingStatus === undefined ||
+    (billingStatus.tier !== "pro" && billingStatus.tier !== "ultra")
+  )
+    return billingStatus;
+  const policyAllowance = MONTHLY_CREDIT_ALLOWANCE[billingStatus.tier];
+  if (billingStatus.credits.allowance <= policyAllowance) return billingStatus;
+  const policyRemaining = Math.max(
+    0,
+    policyAllowance - billingStatus.credits.used,
+  );
+  return {
+    ...billingStatus,
+    credits: {
+      ...billingStatus.credits,
+      allowance: policyAllowance,
+      remaining: Math.min(billingStatus.credits.remaining, policyRemaining),
+      usedPercent:
+        policyAllowance === 0
+          ? 0
+          : Math.min(
+              100,
+              Math.round(
+                (billingStatus.credits.used / policyAllowance) * 1000,
+              ) / 10,
+            ),
+    },
+  };
+}
+
 function CreditMeter({
   locale,
   billingStatus,
@@ -164,6 +199,16 @@ function SubscriptionOverview({
           ? "활성"
           : "Active";
   const providerManageUrl = billingStatus?.manageUrl;
+  const managePlanKey =
+    billingStatus?.planKey ??
+    (billingStatus?.tier === "ultra"
+      ? "ultra-monthly"
+      : billingStatus?.tier === "pro"
+        ? "pro-monthly"
+        : undefined);
+  const subscriptionManageUrl =
+    providerManageUrl ??
+    (managePlanKey === undefined ? undefined : WHOP_ORDERS_URL);
   const pricingUrl = `/pricing?lang=${encodeURIComponent(locale)}`;
   const periodCaption = billingStatus?.cancelAtPeriodEnd
     ? locale === "ko"
@@ -190,10 +235,10 @@ function SubscriptionOverview({
             <CheckCircle2 size={15} aria-hidden="true" />
             {statusCopy}
           </span>
-          {providerManageUrl === undefined ? null : (
+          {subscriptionManageUrl === undefined ? null : (
             <a
               className="subscription-overview__manage"
-              href={providerManageUrl}
+              href={subscriptionManageUrl}
               target="_blank"
               rel="noreferrer"
             >
@@ -539,6 +584,10 @@ export function SubscriptionModal({
     () => planCards(plans, locale),
     [locale, plans],
   );
+  const currentBillingStatus = useMemo(
+    () => billingStatusForCurrentPolicy(billingStatus),
+    [billingStatus],
+  );
 
   function handleDialogScroll() {
     const dialog = dialogRef.current;
@@ -622,7 +671,7 @@ export function SubscriptionModal({
           </div>
         ) : (
           <>
-            <CreditMeter locale={locale} billingStatus={billingStatus} />
+            <CreditMeter locale={locale} billingStatus={currentBillingStatus} />
             {error && !isSubscribed && !billingStateUnknown ? (
               <p className="subscription-modal__notice is-error" role="alert">
                 {locale === "ko"
@@ -633,7 +682,7 @@ export function SubscriptionModal({
 
             {isSubscribed ? (
               <CreditActivity
-                activities={billingStatus?.recentActivity ?? []}
+                activities={currentBillingStatus?.recentActivity ?? []}
                 loading={loading}
                 locale={locale}
                 title={locale === "ko" ? "크레딧 사용 내역" : "Credit activity"}
@@ -650,7 +699,7 @@ export function SubscriptionModal({
               <SubscriptionOverview
                 locale={locale}
                 plans={plans}
-                billingStatus={billingStatus}
+                billingStatus={currentBillingStatus}
               />
             ) : (
               <PricingPlansGrid
@@ -662,7 +711,7 @@ export function SubscriptionModal({
             )}
             {!isSubscribed && !billingStateUnknown ? (
               <CreditActivity
-                activities={billingStatus?.recentActivity ?? []}
+                activities={currentBillingStatus?.recentActivity ?? []}
                 loading={loading}
                 locale={locale}
               />

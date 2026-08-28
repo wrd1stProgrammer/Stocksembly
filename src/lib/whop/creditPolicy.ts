@@ -23,6 +23,13 @@ export function paidCreditGrantDelta(
   return Math.max(0, targetAllowance - grantedThisPeriod);
 }
 
+export function effectivePaidCreditAllowance(
+  grantedThisPeriod: number,
+  targetAllowance: number,
+): number {
+  return Math.min(Math.max(0, grantedThisPeriod), Math.max(0, targetAllowance));
+}
+
 export type CreditUsageCode =
   | "full_research"
   | "department_research"
