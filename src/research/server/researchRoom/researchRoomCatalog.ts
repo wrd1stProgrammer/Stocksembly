@@ -150,7 +150,7 @@ function targetFor(row: z.infer<typeof CatalogRowSchema>): ResearchTarget {
 
 function locked(publishedAt: string, access: ResearchRoomAccess, now: Date) {
   return (
-    access.tier !== "paid" && !isResearchRoomPublicationMature(publishedAt, now)
+    !access.authenticated && !isResearchRoomPublicationMature(publishedAt, now)
   );
 }
 

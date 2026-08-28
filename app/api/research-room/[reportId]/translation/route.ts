@@ -7,6 +7,7 @@ import {
   prepareLiveResearchRuntime,
 } from "@/src/research/server/api/liveResearchApi";
 import { loadResearchRoomReport } from "@/src/research/server/researchRoom/researchRoomCatalog";
+import { requiresResearchRoomViewCredit } from "@/src/research/server/researchRoom/researchRoomIndexability";
 import { translatedResearchProjection } from "@/src/research/server/researchRoom/researchRoomLocalizations";
 import { RESEARCH_TRANSLATION_LOCALES } from "@/src/research/server/researchRoom/researchTranslationLocales";
 
@@ -47,16 +48,29 @@ export async function POST(
   const access = await api.researchRoomAccess(request);
   if (!access.authenticated)
     return Response.json({ error: "AUTHENTICATION_REQUIRED" }, { status: 401 });
+  const now = new Date();
   const report = await loadResearchRoomReport(
     reportId,
     access,
-    new Date(),
+    now,
     body.data.targetLocale,
   );
   if (report === undefined)
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   if (report === "locked")
     return Response.json({ error: "MEMBERSHIP_REQUIRED" }, { status: 403 });
+  if (requiresResearchRoomViewCredit(report.item.publishedAt, now)) {
+    const viewCredit = await api.consumeResearchRoomCredit(request, reportId);
+    if (!viewCredit.allowed)
+      return Response.json(
+        {
+          error: "INSUFFICIENT_CREDITS",
+          remaining: viewCredit.remaining,
+          required: viewCredit.required,
+        },
+        { status: 402 },
+      );
+  }
   if (report.item.locale === body.data.targetLocale)
     return Response.json(
       {
@@ -69,7 +83,6 @@ export async function POST(
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
-
   let projection: {
     readonly file: ResearchFileData;
     readonly question: string;
