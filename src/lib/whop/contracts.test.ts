@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { billingCheckoutPath } from "./contracts";
-import { paidCreditGrantDelta } from "./creditPolicy";
+import {
+  CREDIT_COSTS,
+  MONTHLY_CREDIT_ALLOWANCE,
+  paidCreditGrantDelta,
+} from "./creditPolicy";
 import {
   billingPlanKeyForWhopPlanId,
+  FREE_DAILY_CREDIT_ALLOWANCE,
+  FREE_SIGNUP_CREDIT_ALLOWANCE,
   isWhopProMonthlyLiveTestPlan,
   subscriptionCheckoutDecision,
 } from "./server";
@@ -12,6 +18,15 @@ afterEach(() => {
 });
 
 describe("Whop billing contracts", () => {
+  it("uses the final plan and free-credit policy", () => {
+    expect(MONTHLY_CREDIT_ALLOWANCE.pro).toBe(150);
+    expect(MONTHLY_CREDIT_ALLOWANCE.ultra).toBe(400);
+    expect(FREE_SIGNUP_CREDIT_ALLOWANCE).toBe(4);
+    expect(FREE_DAILY_CREDIT_ALLOWANCE).toBe(0);
+    expect(CREDIT_COSTS.researchRoomView).toBe(3);
+    expect(CREDIT_COSTS.researchTranslation).toBe(1);
+  });
+
   it("routes plan changes through the Stocksembly checkout session", () => {
     expect(billingCheckoutPath("ultra-annual")).toBe(
       "/api/billing/checkout?plan=ultra-annual",
@@ -92,15 +107,15 @@ describe("Whop billing contracts", () => {
 
   it("grants only the monthly allowance difference on upgrade", () => {
     // Given / When
-    const delta = paidCreditGrantDelta(100, 500);
+    const delta = paidCreditGrantDelta(150, 400);
 
     // Then
-    expect(delta).toBe(400);
+    expect(delta).toBe(250);
   });
 
   it("does not claw back current-period credits on downgrade", () => {
     // Given / When
-    const delta = paidCreditGrantDelta(500, 100);
+    const delta = paidCreditGrantDelta(400, 150);
 
     // Then
     expect(delta).toBe(0);

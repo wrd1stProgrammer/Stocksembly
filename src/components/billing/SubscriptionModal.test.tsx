@@ -67,12 +67,17 @@ describe("SubscriptionModal pricing", () => {
     const proCredits = pro?.querySelector(
       ".subscription-plan-card__credit-value",
     );
+    const free = container.querySelector(
+      '.subscription-plan-card-wrap[data-plan="free"]',
+    );
 
+    expect(free).toHaveTextContent("가입 시4크레딧");
+    expect(free).not.toHaveTextContent("매일");
     expect(proPrice).toHaveTextContent("$15.83");
     expect(proPrice?.childElementCount).toBe(0);
-    expect(proCredits).toHaveTextContent("100");
+    expect(proCredits).toHaveTextContent("150");
     expect(proCredits?.childElementCount).toBe(0);
-    expect(ultra).toHaveTextContent("500");
+    expect(ultra).toHaveTextContent("400");
   });
 
   it("renders the paid overview price, balance, and allowance as stable text", () => {
@@ -125,7 +130,7 @@ describe("SubscriptionModal pricing", () => {
     expect(allowance).toHaveTextContent("216");
     expect(planUpgrade).toHaveTextContent("Ultra로 업그레이드");
     expect(planUpgrade).toHaveAttribute("href", "/pricing?lang=ko");
-    expect(planManage).toHaveTextContent("구독 관리 및 해지");
+    expect(planManage).toHaveTextContent("구독 취소");
     expect(planManage).toHaveAttribute(
       "href",
       "https://sandbox.whop.com/billing/manage/mber_test/",
@@ -134,5 +139,47 @@ describe("SubscriptionModal pricing", () => {
     expect(balance?.childElementCount).toBe(0);
     expect(price?.childElementCount).toBe(0);
     expect(allowance?.childElementCount).toBe(0);
+  });
+
+  it("places the Ultra cancellation action beside the active status", () => {
+    const { container } = render(
+      <SubscriptionModal
+        open
+        locale="ko"
+        subscriptionTier="paid"
+        plans={plans}
+        billingStatus={{
+          authenticated: true,
+          tier: "ultra",
+          status: "active",
+          planKey: "ultra-monthly",
+          manageUrl: "https://sandbox.whop.com/billing/manage/mber_ultra/",
+          credits: {
+            remaining: 400,
+            allowance: 400,
+            used: 0,
+            usedPercent: 0,
+            periodStart: "2026-08-01T00:00:00.000Z",
+            periodEnd: "2026-09-01T00:00:00.000Z",
+          },
+          recentActivity: [],
+        }}
+        loading={false}
+        error={false}
+        onClose={() => undefined}
+      />,
+    );
+
+    const actions = container.querySelector(
+      ".subscription-overview__header-actions",
+    );
+    expect(actions).toHaveTextContent("활성");
+    expect(actions).toHaveTextContent("구독 취소");
+    expect(
+      actions?.querySelector(".subscription-overview__manage"),
+    ).toHaveAttribute(
+      "href",
+      "https://sandbox.whop.com/billing/manage/mber_ultra/",
+    );
   });
 });

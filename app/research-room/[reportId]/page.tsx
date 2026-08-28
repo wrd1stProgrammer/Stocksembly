@@ -25,6 +25,7 @@ import {
   loadResearchRoomReport,
   recordResearchRoomView,
 } from "@/src/research/server/researchRoom/researchRoomCatalog";
+import { requiresResearchRoomViewCredit } from "@/src/research/server/researchRoom/researchRoomIndexability";
 
 export const dynamic = "force-dynamic";
 
@@ -147,12 +148,8 @@ export default async function ResearchRoomReportPage({
     redirect(`/research-room/${reportId}?lang=${encodeURIComponent(locale)}`);
   const roomCopy = researchRoomUiCopy[locale];
   const contentLocale = researchLocale(locale);
-  const report = await loadResearchRoomReport(
-    reportId,
-    access,
-    new Date(),
-    locale,
-  );
+  const now = new Date();
+  const report = await loadResearchRoomReport(reportId, access, now, locale);
   if (report === undefined) notFound();
   if (report === "locked") {
     return (
@@ -173,8 +170,10 @@ export default async function ResearchRoomReportPage({
       </main>
     );
   }
-  const credit = await api.consumeResearchRoomCredit(request, reportId);
-  if (credit.authenticated && !credit.allowed) {
+  const credit = requiresResearchRoomViewCredit(report.item.publishedAt, now)
+    ? await api.consumeResearchRoomCredit(request, reportId)
+    : undefined;
+  if (credit?.authenticated && !credit.allowed) {
     return (
       <main className="research-room-locked" lang={locale}>
         <CreditShortageModal

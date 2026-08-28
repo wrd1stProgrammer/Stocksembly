@@ -181,14 +181,27 @@ function SubscriptionOverview({
           <h3 id={titleId}>{tier}</h3>
           <span className="subscription-overview__period-label">{cycle}</span>
         </div>
-        <span
-          className={`subscription-overview__status${
-            billingStatus?.status === "past_due" ? " is-warning" : ""
-          }`}
-        >
-          <CheckCircle2 size={15} aria-hidden="true" />
-          {statusCopy}
-        </span>
+        <div className="subscription-overview__header-actions">
+          <span
+            className={`subscription-overview__status${
+              billingStatus?.status === "past_due" ? " is-warning" : ""
+            }`}
+          >
+            <CheckCircle2 size={15} aria-hidden="true" />
+            {statusCopy}
+          </span>
+          {providerManageUrl === undefined ? null : (
+            <a
+              className="subscription-overview__manage"
+              href={providerManageUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {locale === "ko" ? "구독 취소" : "Cancel subscription"}
+              <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          )}
+        </div>
       </header>
 
       <div className="subscription-overview__divider" />
@@ -263,19 +276,6 @@ function SubscriptionOverview({
             <ExternalLink size={16} aria-hidden="true" />
           </a>
         ) : null}
-        {providerManageUrl === undefined ? null : (
-          <a
-            className="subscription-overview__action subscription-overview__manage"
-            href={providerManageUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {locale === "ko"
-              ? "구독 관리 및 해지"
-              : "Manage or cancel subscription"}
-            <ExternalLink size={16} aria-hidden="true" />
-          </a>
-        )}
       </div>
     </section>
   );
@@ -429,7 +429,7 @@ function planCards(
     {
       id: "free",
       name: "Free",
-      creditAllowance: 3,
+      creditAllowance: 4,
       description:
         locale === "ko"
           ? "가볍게 시작하고, 필요한 순간에 리서치를 확인하세요."
@@ -440,14 +440,14 @@ function planCards(
       features:
         locale === "ko"
           ? [
-              "가입 시 +5 · 출석체크 +3 크레딧 (월 최대 30)",
-              "지연된 리서치 결과 열람",
+              "가입 시 4크레딧 1회 제공",
+              "최신 리서치 1회 열람 + 전문 번역 1회",
               "기본 리서치 결과",
               "공개 리서치 아카이브",
             ]
           : [
-              "+5 at sign-up · +3 check-in (up to 30/month)",
-              "View delayed research results",
+              "4 credits once at sign-up",
+              "One recent report view + one professional translation",
               "Core research results",
               "Public research archive",
             ],
@@ -473,14 +473,14 @@ function planCards(
         locale === "ko"
           ? [
               "리서치할 때 분석 옵션 선택",
-              "리서치룸 무제한 제공",
+              "7일 지난 리서치 무료 열람",
               "관심종목 3개 매일 AI 브리핑",
               "11개 전문 에이전트 분석",
               "가치평가·촉매·리스크 브리프",
             ]
           : [
               "Choose analysis options for each research run",
-              "Unlimited research-room access",
+              "Free access to research after 7 days",
               "Daily AI briefings for 3 watchlist names",
               "11 specialist-agent analyses",
               "Valuation, catalysts, and risk briefs",

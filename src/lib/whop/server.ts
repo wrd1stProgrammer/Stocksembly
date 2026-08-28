@@ -10,9 +10,8 @@ import type {
 export type { BillingPlanKey, WhopPricingPlan } from "./contracts";
 export { MONTHLY_CREDIT_ALLOWANCE } from "./creditPolicy";
 
-export const FREE_DAILY_CREDIT_ALLOWANCE = 3;
-export const FREE_SIGNUP_CREDIT_ALLOWANCE = 5;
-export const FREE_MONTHLY_CREDIT_CAP = 30;
+export const FREE_DAILY_CREDIT_ALLOWANCE = 0;
+export const FREE_SIGNUP_CREDIT_ALLOWANCE = 4;
 
 const WhopPlanSchema = z.object({
   id: z.string().startsWith("plan_"),

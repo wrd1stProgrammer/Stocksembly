@@ -1580,173 +1580,6 @@ body.subscription-modal-is-open {
   transform: translateY(0);
 }
 
-.credit-grant-modal-is-open {
-  overflow: hidden;
-}
-
-.credit-grant-modal__backdrop {
-  position: fixed;
-  z-index: 130;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgb(0 0 0 / 78%);
-  backdrop-filter: blur(9px);
-  animation: credit-grant-modal-fade-in 180ms ease-out both;
-}
-
-.credit-grant-modal__beam {
-  width: min(400px, 100%);
-  min-width: 0;
-  border-radius: 20px;
-}
-
-.credit-grant-modal__dialog {
-  position: relative;
-  width: 100%;
-  padding: 30px 26px 24px;
-  border: 1px solid color-mix(in srgb, var(--billing-card-rim) 78%, transparent);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 50% 11%, rgb(48 112 255 / 11%), transparent 9rem),
-    var(--billing-surface);
-  box-shadow:
-    0 28px 90px rgb(0 0 0 / 58%),
-    inset 0 1px 0 rgb(255 255 255 / 5%);
-  color: var(--billing-text);
-  text-align: center;
-  animation: credit-grant-modal-rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.credit-grant-modal__close {
-  position: absolute;
-  top: 11px;
-  right: 11px;
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 50%;
-  color: var(--billing-muted);
-  background: transparent;
-  cursor: pointer;
-}
-
-.credit-grant-modal__close:hover,
-.credit-grant-modal__close:focus-visible {
-  border-color: var(--billing-card-rim);
-  color: var(--billing-text);
-  outline: none;
-}
-
-.credit-grant-modal__icon {
-  display: grid;
-  width: 62px;
-  height: 62px;
-  margin: 0 auto 16px;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--billing-accent-bright);
-  background: rgb(31 82 190 / 28%);
-  box-shadow:
-    0 0 0 1px rgb(83 139 255 / 28%),
-    0 10px 26px rgb(0 0 0 / 24%);
-}
-
-.credit-grant-modal__eyebrow {
-  display: block;
-  color: var(--billing-muted);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.credit-grant-modal__dialog h2 {
-  margin: 11px auto 14px;
-  max-width: 320px;
-  color: var(--billing-text);
-  font-size: clamp(1.18rem, 3.4vw, 1.55rem);
-  letter-spacing: -0.045em;
-  line-height: 1.28;
-}
-
-.credit-grant-modal__amount {
-  display: block;
-  color: var(--billing-text);
-  font-size: clamp(2.9rem, 9vw, 4rem);
-  font-weight: 750;
-  letter-spacing: -0.075em;
-  line-height: 0.95;
-}
-
-.credit-grant-modal__amount small {
-  margin-left: 6px;
-  color: var(--billing-muted);
-  font-size: 0.9rem;
-  font-weight: 550;
-  letter-spacing: -0.03em;
-}
-
-.credit-grant-modal__dialog p {
-  max-width: 320px;
-  margin: 15px auto 14px;
-  color: var(--billing-muted);
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-.credit-grant-modal__balance {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-  margin: 0 0 16px;
-  border-radius: 14px;
-  padding: 12px 15px;
-  color: var(--billing-muted);
-  background: rgb(255 255 255 / 4%);
-  font-size: 0.78rem;
-}
-
-.credit-grant-modal__balance strong {
-  color: var(--billing-text);
-  font-size: 1rem;
-}
-
-.credit-grant-modal__balance small {
-  margin-left: 4px;
-  color: var(--billing-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.credit-grant-modal__confirm {
-  display: flex;
-  width: 100%;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 999px;
-  color: #111216;
-  background: #f1f2f4;
-  font-size: 0.84rem;
-  font-weight: 750;
-  cursor: pointer;
-  transition:
-    background 160ms ease,
-    transform 160ms ease;
-}
-
-.credit-grant-modal__confirm:hover,
-.credit-grant-modal__confirm:focus-visible {
-  background: #ffffff;
-  outline: none;
-  transform: translateY(-1px);
-}
-
 @keyframes credit-grant-modal-fade-in {
   from {
     opacity: 0;
@@ -1978,6 +1811,13 @@ body.subscription-modal-is-open {
   gap: 12px;
 }
 
+.subscription-overview__header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .subscription-overview__plan-lockup {
   display: flex;
   min-width: 0;
@@ -2031,15 +1871,10 @@ body.subscription-modal-is-open {
   display: grid;
   grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
   gap: 16px;
-  margin-top: 12px;
-  border: 1px solid color-mix(in srgb, var(--billing-card-rim) 88%, transparent);
-  border-radius: 12px;
-  padding: 13px 15px;
-  background: color-mix(
-    in srgb,
-    var(--billing-card) 78%,
-    var(--billing-surface)
-  );
+  margin-top: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--billing-card-rim) 78%, transparent);
 }
 
 .subscription-overview__price,
@@ -2176,7 +2011,31 @@ body.subscription-modal-is-open {
 }
 
 .subscription-overview__manage {
-  margin-left: auto;
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+  border-radius: var(--radius-pill);
+  padding: 0 11px;
+  color: color-mix(in srgb, var(--color-danger) 88%, white);
+  background: color-mix(in srgb, var(--color-danger) 7%, transparent);
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition:
+    border-color var(--motion-micro),
+    background var(--motion-micro),
+    color var(--motion-micro);
+}
+
+.subscription-overview__manage:hover,
+.subscription-overview__manage:focus-visible {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  outline: none;
 }
 
 .subscription-overview__action:hover,
@@ -2215,6 +2074,11 @@ body.subscription-modal-is-open {
     gap: 10px;
   }
 
+  .subscription-overview__header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
   .subscription-overview__payment {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -2246,6 +2110,11 @@ body.subscription-modal-is-open {
   .subscription-overview__header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .subscription-overview__header-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .subscription-overview__facts {
