@@ -4,7 +4,7 @@ import {
   evaluateResearchQuality,
   type ResearchQualityFixture,
   ResearchQualityFixtureSchema,
-} from "../src/research/domain/researchQualityEvaluator";
+} from "../domain/researchQualityEvaluator";
 
 type Options = {
   readonly fixturePaths: readonly string[];

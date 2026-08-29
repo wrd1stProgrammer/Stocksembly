@@ -89,8 +89,6 @@ export async function POST(
       report.conversation,
       report.item.locale,
       body.data.targetLocale,
-      report.version,
-      report.sourceContentHash,
     );
   } catch (error) {
     process.stderr.write(

@@ -40,6 +40,13 @@ async function translationDatabase() {
   database.exec(`
     PRAGMA foreign_keys = ON;
     CREATE TABLE reports(report_id TEXT PRIMARY KEY);
+    CREATE TABLE artifacts(
+      artifact_id TEXT PRIMARY KEY, content_hash TEXT NOT NULL
+    );
+    CREATE TABLE report_versions(
+      report_id TEXT NOT NULL, run_id TEXT NOT NULL, version INTEGER NOT NULL,
+      artifact_id TEXT NOT NULL REFERENCES artifacts(artifact_id)
+    );
     CREATE TABLE research_requests(run_id TEXT PRIMARY KEY);
     CREATE TABLE research_question_localizations(
       run_id TEXT NOT NULL REFERENCES research_requests(run_id) ON DELETE CASCADE,
@@ -68,6 +75,10 @@ async function translationDatabase() {
     );
     INSERT INTO reports(report_id) VALUES ('${reportId}');
     INSERT INTO research_requests(run_id) VALUES ('${runId}');
+    INSERT INTO artifacts(artifact_id, content_hash)
+      VALUES ('artifact-a', '${hashA}');
+    INSERT INTO report_versions(report_id, run_id, version, artifact_id)
+      VALUES ('${reportId}', '${runId}', 1, 'artifact-a');
   `);
   database.close();
   return path;
@@ -168,8 +179,6 @@ describe("versioned research translation projections", () => {
       source.conversation,
       "en",
       "ja",
-      1,
-      hashA,
       { invokeBatch: instrumentedInvoke },
     );
     const afterFirstRows = researchTranslationModelCalls(
@@ -188,8 +197,6 @@ describe("versioned research translation projections", () => {
       source.conversation,
       "en",
       "ja",
-      1,
-      hashA,
       { invokeBatch: instrumentedInvoke },
     );
     const afterSecond = researchTranslationModelCalls(
@@ -271,12 +278,17 @@ describe("versioned research translation projections", () => {
       source.conversation,
       "en",
       "ja",
-      1,
-      hashA,
       { invokeBatch: captureInvoke },
     );
     const firstPlan = planResearchTranslationBatches(capturedItems);
     capturedItems = [];
+    const database = new Database(databasePath);
+    database
+      .prepare(
+        `UPDATE artifacts SET content_hash = ? WHERE artifact_id = 'artifact-a'`,
+      )
+      .run(hashB);
+    database.close();
     await translatedResearchProjection(
       databasePath,
       reportId,
@@ -287,8 +299,6 @@ describe("versioned research translation projections", () => {
       source.conversation,
       "en",
       "ja",
-      1,
-      hashB,
       { invokeBatch: captureInvoke },
     );
     const changedHashRows = researchTranslationModelCalls(
@@ -311,8 +321,6 @@ describe("versioned research translation projections", () => {
       source.conversation,
       "en",
       "ja",
-      1,
-      hashB,
       {
         translationSchemaVersion: RESEARCH_TRANSLATION_SCHEMA_VERSION + 1,
         modelVersion: `${RESEARCH_TRANSLATION_MODEL_VERSION}-next`,

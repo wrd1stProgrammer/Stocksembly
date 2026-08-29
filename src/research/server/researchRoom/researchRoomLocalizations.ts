@@ -409,6 +409,41 @@ type TranslatedResearchProjectionOptions = {
   readonly invokeBatch?: ResearchTranslationExecutionOptions["invokeBatch"];
 };
 
+function translationSourceVersion(
+  databasePath: string,
+  reportId: string,
+  runId: string,
+): Pick<ResearchTranslationCacheKey, "reportVersion" | "sourceContentHash"> {
+  const database = openDatabase(databasePath, true);
+  try {
+    const row = database
+      .prepare(`SELECT report_versions.version, artifacts.content_hash
+        FROM report_versions
+        JOIN artifacts ON artifacts.artifact_id = report_versions.artifact_id
+        WHERE report_versions.report_id = ? AND report_versions.run_id = ?
+        ORDER BY report_versions.version DESC
+        LIMIT 1`)
+      .get(reportId, runId) as
+      | { readonly version?: unknown; readonly content_hash?: unknown }
+      | undefined;
+    const version = row?.version;
+    const contentHash = row?.content_hash;
+    if (
+      typeof version !== "number" ||
+      !Number.isSafeInteger(version) ||
+      typeof contentHash !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(contentHash)
+    )
+      throw new TypeError("research_translation_source_version_missing");
+    return {
+      reportVersion: version,
+      sourceContentHash: contentHash,
+    };
+  } finally {
+    database.close();
+  }
+}
+
 function recordTranslationInvocation(
   databasePath: string,
   key: ResearchTranslationCacheKey,
@@ -500,8 +535,6 @@ export async function translatedResearchProjection(
   conversation: readonly ResearchTranslationConversation[],
   sourceLocale: ResearchLocale,
   targetLocale: ResearchTranslationLocale,
-  reportVersion: number,
-  sourceContentHash: string,
   options: TranslatedResearchProjectionOptions = {},
 ): Promise<TranslatedResearchProjection> {
   const renderLocale = translatedRenderLocale(targetLocale);
@@ -513,10 +546,10 @@ export async function translatedResearchProjection(
       conversation,
       renderLocale: sourceLocale,
     };
+  const sourceVersion = translationSourceVersion(databasePath, reportId, runId);
   const cacheKey: ResearchTranslationCacheKey = {
     reportId,
-    reportVersion,
-    sourceContentHash,
+    ...sourceVersion,
     sourceLocale,
     targetLocale,
     translationSchemaVersion:
@@ -533,8 +566,8 @@ export async function translatedResearchProjection(
           AND translation_schema_version = ? AND model_version = ?`)
       .get(
         reportId,
-        reportVersion,
-        sourceContentHash,
+        cacheKey.reportVersion,
+        cacheKey.sourceContentHash,
         sourceLocale,
         targetLocale,
         cacheKey.translationSchemaVersion,
@@ -613,8 +646,8 @@ export async function translatedResearchProjection(
         reportId,
         targetLocale,
         sourceLocale,
-        reportVersion,
-        sourceContentHash,
+        cacheKey.reportVersion,
+        cacheKey.sourceContentHash,
         cacheKey.translationSchemaVersion,
         cacheKey.modelVersion,
         JSON.stringify({

@@ -37,7 +37,10 @@ function updateActor(
 describe("office snapshot furniture", () => {
   it("keeps the chair in the world while its occupancy state changes", () => {
     // Given
-    const seated = snapshotAt(40);
+    // Tick 40 is now the beginning of the visible team entrance.  Use the
+    // settled parallel-work beat so this test exercises an occupied seat,
+    // rather than an actor still walking in from the entry corridor.
+    const seated = snapshotAt(200);
     const standing = updateActor(seated, "market", (actor) => ({
       ...actor,
       action: "stand",

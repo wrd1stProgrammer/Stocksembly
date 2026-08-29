@@ -671,11 +671,14 @@ describe("specialist claim slots", () => {
       expect(manifest).toMatchObject({
         request: { comparatorQualification: { status: "not_available" } },
       });
-      const expectedSlots = allocateSpecialistClaimSlots({
-        runId: harness.input.mandate.runId,
-        snapshotId: harness.input.snapshot.snapshotId,
-        roleId: manifest.request.role.id,
-      });
+      const expectedSlots = allocateSpecialistClaimSlots(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId: manifest.request.role.id,
+        },
+        harness.input.mandate.researchProfile,
+      );
       expect(manifest.request.claimSlots).toEqual(expectedSlots);
       expect(manifest.request.claimSlots.length).toBeGreaterThanOrEqual(1);
       expect(manifest.request.claimSlots.length).toBeLessThanOrEqual(3);
