@@ -19,6 +19,10 @@ import {
   evaluatePrePublicationEditorialGate,
   type PrePublicationEditorialEnvelope,
 } from "../../../workflow/prePublicationEditorialGate";
+import {
+  persistResearchQualityObservation,
+  qualityMetricsForPublication,
+} from "./researchQualityObservations";
 import { serializeSafeJson } from "./safeJson";
 
 const REPORT_PARENT_COUNT = REQUIRED_REPORT_ARTIFACT_ROLES.length + 2;
@@ -39,6 +43,7 @@ const RunRowSchema = z.object({
   status: z.literal("running"),
   version: z.number().int().nonnegative(),
   report_id: z.null(),
+  created_at: z.string().datetime(),
 });
 const ParentRowSchema = z.object({
   artifact_id: ArtifactIdSchema,
@@ -176,7 +181,7 @@ export function publishReportAtomically(
           throw new TypeError("accepted chair fence mismatch");
         const run = RunRowSchema.parse(
           database
-            .prepare(`SELECT snapshot_id, status, version, report_id
+            .prepare(`SELECT snapshot_id, status, version, report_id, created_at
           FROM runs WHERE run_id = ?`)
             .get(identity.runId),
         );
@@ -297,6 +302,36 @@ export function publishReportAtomically(
               limitationIds: input.commit.version.publicPayload.limitationIds,
             }),
           );
+        const recoveryMetadata = publicPayload["recoveryMetadata"];
+        const metrics = qualityMetricsForPublication({
+          claims: input.commit.report.claims,
+          recoveryMetadata,
+          createdAt: run.created_at,
+          publishedAt: input.commit.version.publishedAt,
+        });
+        const reasonCodes = z
+          .object({
+            omissions: z
+              .array(z.object({ reason: z.string() }).passthrough())
+              .default([]),
+          })
+          .passthrough()
+          .parse(recoveryMetadata ?? {})
+          .omissions.map((omission) => omission.reason);
+        persistResearchQualityObservation(database, {
+          runId: identity.runId,
+          workflowVersion: input.commit.report.schemaVersion,
+          reportVersion: identity.version.versionId,
+          outcome:
+            input.commit.version.status === "complete"
+              ? reasonCodes.length === 0
+                ? "complete"
+                : "item_omitted"
+              : "quality_degraded",
+          observedAt: input.commit.version.publishedAt,
+          metrics,
+          reasonCodes,
+        });
         return 1;
       })
       .immediate();

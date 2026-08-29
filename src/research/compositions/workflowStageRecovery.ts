@@ -1,8 +1,9 @@
-import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { z } from "zod";
-import { EventIdSchema, RunIdSchema } from "../domain/ids";
-import { appendRunEvent } from "../server/persistence/sqlite/runRepository";
+import {
+  EMPTY_RESEARCH_QUALITY_METRICS,
+  persistResearchQualityObservation,
+} from "../server/persistence/sqlite/researchQualityObservations";
 
 const StageRecoveryRowSchema = z.object({
   failure_count: z.number().int().nonnegative(),
@@ -15,8 +16,9 @@ const RETRY_DELAYS_MS = [5_000, 30_000, 120_000, 300_000] as const;
 
 export type StageRecoveryState = "ready" | "waiting" | "exhausted";
 export type WorkflowFailureDisposition =
-  | "degrade"
-  | "content_terminal"
+  | "item_omitted"
+  | "quality_degraded"
+  | "run_failed"
   | "retry"
   | "terminalize";
 
@@ -29,14 +31,17 @@ const CONTENT_TERMINAL_FAILURES = new Set([
 export function workflowFailureDisposition(
   reason: string,
 ): WorkflowFailureDisposition {
-  if (CONTENT_TERMINAL_FAILURES.has(reason)) return "content_terminal";
+  if (CONTENT_TERMINAL_FAILURES.has(reason)) return "run_failed";
   if (
     reason === "scenario_invalid" ||
+    reason.startsWith("quality_failed:item_")
+  )
+    return "item_omitted";
+  if (
     reason.startsWith("editorial_v2_invalid:style_only") ||
-    reason.startsWith("quality_failed:item_") ||
     reason.startsWith("quality_failed:local_")
   )
-    return "degrade";
+    return "quality_degraded";
   return isRecoverableWorkflowFailure(reason) ? "retry" : "terminalize";
 }
 
@@ -112,27 +117,41 @@ export function scheduleStageRecovery(input: {
           exhausted ? 1 : 0,
           input.now,
         );
-      if (!exhausted)
-        appendRunEvent(database, {
-          runId: RunIdSchema.parse(input.runId),
-          event: {
-            eventId: EventIdSchema.parse(randomUUID()),
-            type: "runtime_status",
-            stateId: "retrying",
-            occurredAt: input.now,
-            payload: {
-              code: `${input.stage}:automatic_recovery`,
-              attempt: failureCount,
-              nextRetryAt,
-              summary: {
-                en: "The completed research stages were preserved. The affected stage will resume automatically.",
-                ko: "완료된 조사 단계는 보존했습니다. 문제가 생긴 단계만 자동으로 다시 진행합니다.",
-              },
-            },
-          },
-        });
       return exhausted ? "exhausted" : "scheduled";
     })();
+  } finally {
+    database.close();
+  }
+}
+
+export function persistWorkflowQualityOutcome(input: {
+  readonly databasePath: string;
+  readonly runId: string;
+  readonly outcome: "item_omitted" | "quality_degraded" | "run_failed";
+  readonly reason: string;
+  readonly observedAt: string;
+}): void {
+  const database = new Database(input.databasePath);
+  try {
+    persistResearchQualityObservation(database, {
+      runId: input.runId,
+      workflowVersion: "workflow-v3",
+      reportVersion: "unpublished",
+      outcome: input.outcome,
+      observedAt: input.observedAt,
+      metrics: {
+        ...EMPTY_RESEARCH_QUALITY_METRICS,
+        omittedClaims:
+          input.outcome === "item_omitted" &&
+          !/(?:source|peer|scenario)/u.test(input.reason)
+            ? 1
+            : 0,
+        omittedSources: /source/u.test(input.reason) ? 1 : 0,
+        omittedPeers: /peer/u.test(input.reason) ? 1 : 0,
+        omittedScenarios: /scenario/u.test(input.reason) ? 1 : 0,
+      },
+      reasonCodes: [input.reason],
+    });
   } finally {
     database.close();
   }

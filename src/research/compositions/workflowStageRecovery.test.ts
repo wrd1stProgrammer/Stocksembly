@@ -20,13 +20,16 @@ describe("workflow stage recovery classification", () => {
     expect(isRecoverableWorkflowFailure("replacement_exhausted")).toBe(false);
   });
 
-  it("degrades item-local content failures without changing operational routing", () => {
-    expect(workflowFailureDisposition("scenario_invalid")).toBe("degrade");
+  it("separates item omission and quality degradation without changing operational routing", () => {
+    expect(workflowFailureDisposition("scenario_invalid")).toBe("item_omitted");
     expect(workflowFailureDisposition("editorial_v2_invalid:style_only")).toBe(
-      "degrade",
+      "quality_degraded",
     );
     expect(workflowFailureDisposition("quality_failed:item_omitted")).toBe(
-      "degrade",
+      "item_omitted",
+    );
+    expect(workflowFailureDisposition("quality_failed:local_style")).toBe(
+      "quality_degraded",
     );
     expect(workflowFailureDisposition("provider_timeout")).toBe("retry");
     expect(workflowFailureDisposition("authentication_failed")).toBe(
@@ -37,15 +40,15 @@ describe("workflow stage recovery classification", () => {
     );
   });
 
-  it("reserves content no-charge terminalization for the three genuine blockers", () => {
+  it("reserves content no-charge failure for the three genuine blockers", () => {
     expect(workflowFailureDisposition("issuer_identity_unresolved")).toBe(
-      "content_terminal",
+      "run_failed",
     );
     expect(workflowFailureDisposition("whole_envelope_integrity_failure")).toBe(
-      "content_terminal",
+      "run_failed",
     );
     expect(workflowFailureDisposition("no_grounded_core_answer")).toBe(
-      "content_terminal",
+      "run_failed",
     );
   });
 });

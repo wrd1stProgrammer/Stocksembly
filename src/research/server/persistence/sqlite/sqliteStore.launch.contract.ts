@@ -133,27 +133,26 @@ describe("SQLite launch reservations", () => {
     expect(thirdLease).toBeDefined();
     if (thirdLease === undefined)
       throw new RangeError("missing replacement lease");
-    expect(() =>
-      recovered.reserveResearchLaunch({
-        runId: ids.runId,
-        jobId: ids.jobId,
-        attemptId: ids.thirdAttemptId,
-        replacementOfAttemptId: ids.nextAttemptId,
-        logicalArtifactKey: "memo:valuation",
-        inputHash: jobInputHash,
-        ownerId: thirdLease.ownerId,
-        token: thirdLease.token,
-        now: at(5),
-        reservedAt: at(5),
-        event: {
-          eventId: ids.thirdEventId,
-          type: "spawn_reserved",
-          stateId: "spawn-reserved",
-          occurredAt: at(5),
-        },
-      }),
-    ).toThrow();
-    expect(recovered.researchOrdinals(ids.runId)).toEqual([1, 2]);
+    const third = recovered.reserveResearchLaunch({
+      runId: ids.runId,
+      jobId: ids.jobId,
+      attemptId: ids.thirdAttemptId,
+      replacementOfAttemptId: ids.nextAttemptId,
+      logicalArtifactKey: "memo:valuation",
+      inputHash: jobInputHash,
+      ownerId: thirdLease.ownerId,
+      token: thirdLease.token,
+      now: at(5),
+      reservedAt: at(5),
+      event: {
+        eventId: ids.thirdEventId,
+        type: "spawn_reserved",
+        stateId: "spawn-reserved",
+        occurredAt: at(5),
+      },
+    });
+    expect(third.ordinal).toBe(3);
+    expect(recovered.researchOrdinals(ids.runId)).toEqual([1, 2, 3]);
   });
 
   it("allows one job lease winner and fences the stale token after reclaim", () => {

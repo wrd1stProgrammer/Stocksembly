@@ -69,7 +69,9 @@ export function chairScenarioSentences(
 export function recoverChairScenarioSentences(
   inputs: readonly { readonly field: string; readonly value: string }[],
 ) {
-  const sentences: NonNullable<ReturnType<typeof chairScenarioSentences>> = [];
+  const sentences: NonNullable<
+    ReturnType<typeof chairScenarioSentences>
+  >[number][] = [];
   const repairAttempts: { readonly itemId: string; readonly attempts: 1 }[] =
     [];
   const omissions: {

@@ -32,6 +32,7 @@ import { buildOfficialStructuralAuditInput } from "./officialStructuralAuditInpu
 import {
   clearStageRecovery,
   isRecoverableWorkflowFailure,
+  persistWorkflowQualityOutcome,
   scheduleStageRecovery,
   stageRecoveryState,
   workflowFailureDisposition,
@@ -158,16 +159,28 @@ function recoverOrTerminalize(
   occurredAt: string,
 ): void {
   const disposition = workflowFailureDisposition(reason);
-  if (disposition === "degrade") {
+  if (disposition === "item_omitted" || disposition === "quality_degraded") {
+    persistWorkflowQualityOutcome({
+      databasePath,
+      runId,
+      outcome: disposition,
+      reason,
+      observedAt: occurredAt,
+    });
     process.stderr.write(
       `${JSON.stringify({ kind: "workflow_stage_degraded", stage, reason })}\n`,
     );
     return;
   }
-  if (
-    disposition === "content_terminal" ||
-    !isRecoverableWorkflowFailure(reason)
-  ) {
+  if (disposition === "run_failed" || !isRecoverableWorkflowFailure(reason)) {
+    if (disposition === "run_failed")
+      persistWorkflowQualityOutcome({
+        databasePath,
+        runId,
+        outcome: disposition,
+        reason,
+        observedAt: occurredAt,
+      });
     terminalizeWorkflowFailure(databasePath, runId, stage, reason, occurredAt);
     return;
   }

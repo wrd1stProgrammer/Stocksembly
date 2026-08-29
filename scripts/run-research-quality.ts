@@ -2,8 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   evaluateResearchQuality,
-  ResearchQualityFixtureSchema,
   type ResearchQualityFixture,
+  ResearchQualityFixtureSchema,
 } from "../src/research/domain/researchQualityEvaluator";
 
 type Options = {
@@ -21,10 +21,10 @@ function parseOptions(args: readonly string[]): Options {
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--") {
-      continue;
     } else if (argument === "--fixture") {
       const value = args[index + 1];
-      if (value === undefined) throw new CliUsageError("--fixture requires a path");
+      if (value === undefined)
+        throw new CliUsageError("--fixture requires a path");
       fixturePaths.push(value);
       index += 1;
     } else if (argument === "--fixtures") {
@@ -37,7 +37,8 @@ function parseOptions(args: readonly string[]): Options {
       index = next - 1;
     } else if (argument === "--output") {
       outputBase = args[index + 1];
-      if (outputBase === undefined) throw new CliUsageError("--output requires a path");
+      if (outputBase === undefined)
+        throw new CliUsageError("--output requires a path");
       index += 1;
     } else if (argument === "--assert-embedded-expectations") {
       assertEmbeddedExpectations = true;
@@ -45,14 +46,30 @@ function parseOptions(args: readonly string[]): Options {
       throw new CliUsageError(`unknown argument: ${argument}`);
     }
   }
-  if (fixturePaths.length === 0) throw new CliUsageError("at least one fixture is required");
-  return { fixturePaths, ...(outputBase === undefined ? {} : { outputBase }), assertEmbeddedExpectations };
+  if (fixturePaths.length === 0)
+    fixturePaths.push(
+      "src/research/testFixtures/quality/qualified-peer-profitable-tech.green.json",
+      "src/research/testFixtures/quality/capital-intensive-auto.green.json",
+      "src/research/testFixtures/quality/loss-making-biotech.green.json",
+      "src/research/testFixtures/quality/financial-institution.green.json",
+      "src/research/testFixtures/quality/sparse-no-valid-peer.green.json",
+    );
+  return {
+    fixturePaths,
+    ...(outputBase === undefined ? {} : { outputBase }),
+    assertEmbeddedExpectations,
+  };
 }
 
-function exactExpectationsMatch(fixture: ResearchQualityFixture, result: ReturnType<typeof evaluateResearchQuality>): boolean {
+function exactExpectationsMatch(
+  fixture: ResearchQualityFixture,
+  result: ReturnType<typeof evaluateResearchQuality>,
+): boolean {
   return (
-    JSON.stringify(result.fatalReasons) === JSON.stringify(fixture.expectedFatalReasons) &&
-    JSON.stringify(result.scoreComponents) === JSON.stringify(fixture.expectedScoreComponents) &&
+    JSON.stringify(result.fatalReasons) ===
+      JSON.stringify(fixture.expectedFatalReasons) &&
+    JSON.stringify(result.scoreComponents) ===
+      JSON.stringify(fixture.expectedScoreComponents) &&
     result.runtimeDisposition === fixture.expectedRuntimeDisposition
   );
 }
@@ -65,17 +82,27 @@ const reports = await Promise.all(
     );
     const result = evaluateResearchQuality(fixture);
     const expectationsMatch = exactExpectationsMatch(fixture, result);
-    return { fixture: fixturePath, id: fixture.id, expectationsMatch, ...result };
+    return {
+      fixture: fixturePath,
+      id: fixture.id,
+      expectationsMatch,
+      ...result,
+    };
   }),
 );
 const passed = options.assertEmbeddedExpectations
   ? reports.every((report) => report.expectationsMatch)
   : reports.every(
-      (report) => report.expectationsMatch && report.fatalReasons.length === 0 && report.totalScore >= 8,
+      (report) =>
+        report.expectationsMatch &&
+        report.fatalReasons.length === 0 &&
+        report.totalScore >= 8,
     );
 const output = {
   schemaVersion: 1,
-  mode: options.assertEmbeddedExpectations ? "assert_embedded_expectations" : "gate",
+  mode: options.assertEmbeddedExpectations
+    ? "assert_embedded_expectations"
+    : "gate",
   passed,
   thresholds: { minimumSecondaryScore: 8, maximumWaitPostures: 1 },
   reports,
@@ -83,7 +110,11 @@ const output = {
 if (options.outputBase !== undefined) {
   const base = path.resolve(options.outputBase);
   await mkdir(path.dirname(base), { recursive: true });
-  await writeFile(`${base}.json`, `${JSON.stringify(output, null, 2)}\n`, "utf8");
+  await writeFile(
+    `${base}.json`,
+    `${JSON.stringify(output, null, 2)}\n`,
+    "utf8",
+  );
   const markdown = [
     "# Research quality gate",
     "",
@@ -93,14 +124,23 @@ if (options.outputBase !== undefined) {
     "",
     "| Fixture | Score | Reasons | Disposition | Expectations |",
     "| --- | ---: | --- | --- | --- |",
-    ...reports.map((report) =>
-      `| ${report.id} | ${report.totalScore.toFixed(2)} | ${report.fatalReasons.join(", ") || "none"} | ${report.runtimeDisposition} | ${report.expectationsMatch ? "match" : "mismatch"} |`,
+    ...reports.map(
+      (report) =>
+        `| ${report.id} | ${report.totalScore.toFixed(2)} | ${report.fatalReasons.join(", ") || "none"} | ${report.runtimeDisposition} | ${report.expectationsMatch ? "match" : "mismatch"} |`,
     ),
     "",
     "## Predicate outcomes and component points",
     "",
     "```json",
-    JSON.stringify(reports.map(({ id, predicates, scoreComponents }) => ({ id, predicates, scoreComponents })), null, 2),
+    JSON.stringify(
+      reports.map(({ id, predicates, scoreComponents }) => ({
+        id,
+        predicates,
+        scoreComponents,
+      })),
+      null,
+      2,
+    ),
     "```",
     "",
   ].join("\n");

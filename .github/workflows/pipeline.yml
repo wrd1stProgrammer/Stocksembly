@@ -30,6 +30,13 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify deterministic research quality fixtures
+        run: pnpm research:quality
+      - name: Verify focused research contracts
+        run: pnpm research:quality:contracts
+      - name: Verify Bash 3 changed-file lint portability
+        run: /bin/bash scripts/ci-lint-changed.test.sh
+      - run: pnpm typecheck
       - name: Lint changed files
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}

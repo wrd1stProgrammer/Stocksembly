@@ -34,6 +34,7 @@ const migrationFiles = [
   "027_research_localizations.sql",
   "028_research_localization_languages.sql",
   "029_research_translation_cache_versions.sql",
+  "030_research_quality_observations.sql",
 ] as const;
 
 export type OrderedMigration = {
