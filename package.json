@@ -28,6 +28,8 @@
     "health": "pnpm research:worker:health",
     "research:worker:probe": "pnpm research:worker:build && node .stocksembly-verification/research-worker/runtimeProbe.js runtime-probe",
     "research:quality": "vite build --config vite.worker.config.ts --ssr scripts/run-research-quality.ts --outDir .stocksembly-verification/research-quality && node .stocksembly-verification/research-quality/run-research-quality.js",
+    "research:quality:live:build": "vite build --config vite.worker.config.ts --ssr scripts/run-research-quality-live.ts --outDir .stocksembly-verification/research-quality-live",
+    "research:quality:live": "pnpm research:quality:live:build && node .stocksembly-verification/research-quality-live/run-research-quality-live.js",
     "research:quality:contracts": "vitest run src/research/workflow/publicEvents.test.ts src/research/workflow/publicEventsProgress.test.ts src/research/compositions/workflowStageRecovery.test.ts src/research/compositions/officialWorkflowCoordinator.test.ts src/research/worker/leaseEngineFailureRouting.test.ts src/research/worker/leaseEngine.test.ts src/research/server/persistence/sqlite/researchQualityObservations.test.ts src/research/server/persistence/sqlite/publishDepartmentReportForRun.test.ts src/research/server/persistence/sqlite/sqliteStore.contract.test.ts app/api/research/researchRoutes.test.ts",
     "briefing:worker:typecheck": "tsc -p tsconfig.briefing-worker.json --noEmit --pretty false",
     "briefing:worker:build": "pnpm briefing:worker:typecheck && vite build --config vite.worker.config.ts --ssr src/briefing/worker/briefingWorker.ts --outDir .stocksembly-verification/briefing-worker",
