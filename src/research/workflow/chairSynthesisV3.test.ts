@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
+import { describe, expect, it } from "vitest";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { createSqliteChairSynthesis } from "./chairSynthesis";
 import { createPreparedChairRound } from "./chairSynthesis.testSupport";
@@ -38,15 +38,13 @@ const sections = (narrative: string) =>
     lineage: canonicalLineage,
   }));
 const teamViews = (narrative: string) =>
-  (["market", "company", "financial", "risk"] as const).map(
-    (departmentId) => ({
-      departmentId,
-      position: narrative,
-      rationale: narrative,
-      vote: "support_with_reservations" as const,
-      lineage: canonicalLineage,
-    }),
-  );
+  (["market", "company", "financial", "risk"] as const).map((departmentId) => ({
+    departmentId,
+    position: narrative,
+    rationale: narrative,
+    vote: "support_with_reservations" as const,
+    lineage: canonicalLineage,
+  }));
 
 describe("workflow-v3 canonical chair synthesis", () => {
   it.each(["en", "ko"] as const)(
@@ -79,7 +77,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
             ? "Invalidate the view if the next filing shows margin contraction."
             : "다음 공시에서 마진이 축소되면 이 판단을 무효화합니다.",
         teamViews: teamViews(
-          sourceLocale === "en" ? "Evidence supports the view." : "근거가 판단을 지지합니다.",
+          sourceLocale === "en"
+            ? "Evidence supports the view."
+            : "근거가 판단을 지지합니다.",
         ),
         sections: sections(
           sourceLocale === "en"
@@ -191,46 +191,55 @@ describe("workflow-v3 canonical chair synthesis", () => {
   it.each(["en", "ko"] as const)(
     "routes the production chair through the trusted %s mandate locale and stores canonical v3 output",
     async (sourceLocale) => {
-    const prepared = await createPreparedChairRound("none", sourceLocale);
-    try {
-      const chair = createSqliteChairSynthesis({
-        ...prepared.options,
-        workflowVersion: "workflow-v3",
-      });
-      expect(await chair.stage({ runId: prepared.runId })).toEqual({ kind: "staged" });
-      const replay = await chair.drain(prepared.runId);
-      await chair.close();
-      expect(replay.publishable, JSON.stringify(replay)).toBe(true);
-      expect(prepared.codex.chairPrompts[0]).toContain(
-        '"kind":"chair_synthesis_input_v3"',
-      );
-      expect(prepared.codex.chairPrompts[0]).toContain(
-        `"sourceLocale":"${sourceLocale}"`,
-      );
-      const database = new Database(prepared.options.databasePath, { readonly: true });
-      const row = database
-        .prepare(`SELECT artifacts.content_hash FROM artifacts
+      const prepared = await createPreparedChairRound("none", sourceLocale);
+      try {
+        const chair = createSqliteChairSynthesis({
+          ...prepared.options,
+          workflowVersion: "workflow-v3",
+        });
+        expect(await chair.stage({ runId: prepared.runId })).toEqual({
+          kind: "staged",
+        });
+        const replay = await chair.drain(prepared.runId);
+        await chair.close();
+        expect(replay.publishable, JSON.stringify(replay)).toBe(true);
+        expect(prepared.codex.chairPrompts[0]).toContain(
+          '"kind":"chair_synthesis_input_v3"',
+        );
+        expect(prepared.codex.chairPrompts[0]).toContain(
+          `"sourceLocale":"${sourceLocale}"`,
+        );
+        const database = new Database(prepared.options.databasePath, {
+          readonly: true,
+        });
+        const row = database
+          .prepare(`SELECT artifacts.content_hash FROM artifacts
           WHERE artifacts.artifact_id = ?`)
-        .get(replay.artifactIds[0]) as { readonly content_hash: string };
-      database.close();
-      const stored = await prepared.options.cas.get(
-        ArtifactDigestSchema.parse(row.content_hash),
-      );
-      const envelope = JSON.parse(new TextDecoder().decode(stored?.bytes));
-      expect(envelope.payload.canonicalNarrativeV3.sourceLocale).toBe(
-        sourceLocale,
-      );
-      expect(envelope.payload.canonicalNarrativeV3).not.toHaveProperty("locales");
-      expect(envelope.payload.canonicalNarrativeV3.sections).toHaveLength(6);
-    } finally {
-      prepared.cleanup();
-    }
+          .get(replay.artifactIds[0]) as { readonly content_hash: string };
+        database.close();
+        const stored = await prepared.options.cas.get(
+          ArtifactDigestSchema.parse(row.content_hash),
+        );
+        const envelope = JSON.parse(new TextDecoder().decode(stored?.bytes));
+        expect(envelope.payload.canonicalNarrativeV3.sourceLocale).toBe(
+          sourceLocale,
+        );
+        expect(envelope.payload.canonicalNarrativeV3).not.toHaveProperty(
+          "locales",
+        );
+        expect(envelope.payload.canonicalNarrativeV3.sections).toHaveLength(6);
+      } finally {
+        prepared.cleanup();
+      }
     },
   );
 
   it.each([
     ["invent_recommendation", "Verified evidence supports a balanced view."],
-    ["v3_imperative_twice", "The accepted filing supports the material finding."],
+    [
+      "v3_imperative_twice",
+      "The accepted filing supports the material finding.",
+    ],
   ] as const)(
     "completes the production run after bounded recovery for %s",
     async (fault, expectedText) => {
@@ -249,7 +258,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
           readonly: true,
         });
         const row = database
-          .prepare("SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?")
+          .prepare(
+            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+          )
           .get(replay.artifactIds[0]) as { readonly envelope_json: string };
         database.close();
         const canonical = JSON.parse(row.envelope_json).payload
@@ -282,15 +293,18 @@ describe("workflow-v3 canonical chair synthesis", () => {
           readonly: true,
         });
         const row = database
-          .prepare("SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?")
+          .prepare(
+            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+          )
           .get(replay.artifactIds[0]) as { readonly envelope_json: string };
         database.close();
         const canonical = JSON.parse(row.envelope_json).payload
           .canonicalNarrativeV3;
         expect(JSON.stringify(canonical)).not.toMatch(forbidden);
         expect(canonical.stance).toBe("balanced");
-        expect(canonical.decisionLineage.decisiveReason.sourceArtifactIds)
-          .not.toHaveLength(0);
+        expect(
+          canonical.decisionLineage.decisiveReason.sourceArtifactIds,
+        ).not.toHaveLength(0);
       } finally {
         prepared.cleanup();
       }
@@ -331,7 +345,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
         readonly: true,
       });
       const row = database
-        .prepare("SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?")
+        .prepare(
+          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+        )
         .get(replay.artifactIds[0]) as { readonly envelope_json: string };
       database.close();
       const canonical = JSON.parse(row.envelope_json).payload
@@ -345,8 +361,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
           )
           .map((section: { readonly narrative: string }) => section.narrative),
       ].join(" ");
-      expect(publishedCore.match(/wait|conditional|confirmation/giu) ?? [])
-        .toHaveLength(0);
+      expect(
+        publishedCore.match(/wait|conditional|confirmation/giu) ?? [],
+      ).toHaveLength(0);
     } finally {
       prepared.cleanup();
     }

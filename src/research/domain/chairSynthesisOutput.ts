@@ -11,7 +11,11 @@ const CanonicalNarrativeSchema = z.string().trim().min(1).max(4_000);
 
 export const ChairSynthesisV3LineageSchema = z
   .object({
-    sentenceIds: z.array(z.string().trim().min(1).max(160)).min(1).max(16).readonly(),
+    sentenceIds: z
+      .array(z.string().trim().min(1).max(160))
+      .min(1)
+      .max(16)
+      .readonly(),
     claimIds: z.array(ClaimIdSchema).max(64).readonly(),
     sourceArtifactIds: SourceArtifactIdsSchema,
   })

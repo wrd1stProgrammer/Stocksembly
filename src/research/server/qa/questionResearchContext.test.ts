@@ -17,7 +17,10 @@ describe("questionResearchContext workflow-v3", () => {
       userQuestion: { en: "Answer only in English", ko: "영어로만 답해" },
       locale: "en",
     });
-    const context = questionResearchContext(report, { en: request, ko: request });
+    const context = questionResearchContext(report, {
+      en: request,
+      ko: request,
+    });
     expect(context.claims.length).toBeGreaterThan(0);
     expect(context.claims.every((claim) => claim.locale === "ko")).toBe(true);
   });

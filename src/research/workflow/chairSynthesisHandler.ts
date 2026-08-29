@@ -23,8 +23,8 @@ import {
   ChairSynthesisV3RawModelOutputSchema,
   type SqliteChairSynthesisOptions,
 } from "./chairSynthesisContracts";
-import { projectChairV3ForCommit, synthesizeChairV3 } from "./chairSynthesisV3";
 import { chairSectionRewritePrompt } from "./chairSynthesisPrompts";
+import { projectChairV3ForCommit, synthesizeChairV3 } from "./chairSynthesisV3";
 import {
   type ChairCandidateIssue,
   chairCandidateIssue,
@@ -140,7 +140,8 @@ export function createChairSynthesisAttemptHandler(
         return "incomplete";
       let v3RunnerEvidence: SafeCodexEvidence | undefined;
       const v3Candidate =
-        rewrite === undefined && context.options.workflowVersion === "workflow-v3"
+        rewrite === undefined &&
+        context.options.workflowVersion === "workflow-v3"
           ? await synthesizeChairV3({
               sourceLocale: prompt.mandate.locale,
               evidenceCatalog: validationPrompt,
@@ -164,42 +165,42 @@ export function createChairSynthesisAttemptHandler(
         v3Candidate !== undefined
           ? undefined
           : rewrite === undefined
-          ? await context.options.codex.run({
-              attemptDir,
-              reservation: { key, fence: claim },
-              stage: "chair_synthesis",
-              prompt: runnerPrompt,
-              outputSchema: ChairSynthesisModelOutputSchema,
-              signal,
-              onActivity: activity,
-            })
-          : await context.options.codex.run({
-              attemptDir,
-              reservation: { key, fence: claim },
-              stage: "chair_synthesis",
-              prompt: runnerPrompt,
-              outputSchema: ChairSectionRewriteSchema,
-              signal,
-              onActivity: activity,
-            });
+            ? await context.options.codex.run({
+                attemptDir,
+                reservation: { key, fence: claim },
+                stage: "chair_synthesis",
+                prompt: runnerPrompt,
+                outputSchema: ChairSynthesisModelOutputSchema,
+                signal,
+                onActivity: activity,
+              })
+            : await context.options.codex.run({
+                attemptDir,
+                reservation: { key, fence: claim },
+                stage: "chair_synthesis",
+                prompt: runnerPrompt,
+                outputSchema: ChairSectionRewriteSchema,
+                signal,
+                onActivity: activity,
+              });
       const projection =
         v3Candidate !== undefined
           ? undefined
           : rewrite === undefined
-          ? projectChairAssignments(validationPrompt, result?.candidate ?? {})
-          : undefined;
+            ? projectChairAssignments(validationPrompt, result?.candidate ?? {})
+            : undefined;
       candidate =
         v3Candidate !== undefined
           ? projectChairV3ForCommit(validationPrompt, v3Candidate)
           : rewrite === undefined
-          ? projection === undefined
-            ? {}
-            : validChairCandidate(validationPrompt, projection.candidate)
-          : repairChairCandidate(
-              validationPrompt,
-              rewrite.originalCandidate,
-              result?.candidate ?? {},
-            );
+            ? projection === undefined
+              ? {}
+              : validChairCandidate(validationPrompt, projection.candidate)
+            : repairChairCandidate(
+                validationPrompt,
+                rewrite.originalCandidate,
+                result?.candidate ?? {},
+              );
       if (
         projection !== undefined &&
         typeof candidate === "object" &&

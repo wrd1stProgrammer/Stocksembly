@@ -212,16 +212,16 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
           this.fault === "invent_recommendation" && this.chairLaunches === 1
             ? "Buy now."
             : this.fault === "v3_invented_number"
-            ? "Verified revenue reaches 777% and supports the view."
-            : this.fault === "v3_hedge_twice"
-            ? "Wait conditionally because the thesis needs confirmation."
-            : narrative,
+              ? "Verified revenue reaches 777% and supports the view."
+              : this.fault === "v3_hedge_twice"
+                ? "Wait conditionally because the thesis needs confirmation."
+                : narrative,
         strongestCountercase:
           this.fault === "v3_imperative_twice"
             ? "Buy now."
             : sourceLocale === "ko"
-            ? "실행 약화가 가장 강한 반대 논거입니다."
-            : "Execution weakness is the strongest countercase.",
+              ? "실행 약화가 가장 강한 반대 논거입니다."
+              : "Execution weakness is the strongest countercase.",
         invalidationCheckpoint:
           sourceLocale === "ko"
             ? "다음 공시에서 실행이 약화되면 재검토합니다."
@@ -651,7 +651,10 @@ export async function createPreparedChairRound(
     };
     request.request.mandate.locale = sourceLocale;
     updateSpecialistJob.run(
-      JSON.stringify({ ...job, prompt: [JSON.stringify(request), ...rest].join("\n") }),
+      JSON.stringify({
+        ...job,
+        prompt: [JSON.stringify(request), ...rest].join("\n"),
+      }),
       row.idempotency_key,
     );
   }

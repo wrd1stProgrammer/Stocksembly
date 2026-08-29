@@ -671,10 +671,12 @@ function compatibilityNarrativeLineage(
       sectionKey: section.id,
       lineage: lineage(`legacy:section:${section.id}`, section.claimIds),
     })),
-    anticipatedQuestions: report.anticipatedQuestions.map((question, index) => ({
-      index,
-      lineage: lineage(`legacy:question:${index}`, question.primaryClaimIds),
-    })),
+    anticipatedQuestions: report.anticipatedQuestions.map(
+      (question, index) => ({
+        index,
+        lineage: lineage(`legacy:question:${index}`, question.primaryClaimIds),
+      }),
+    ),
   };
 }
 
@@ -859,11 +861,15 @@ export function workflowV3ReportFromCanonicalNarrative(
   canonicalInput: z.infer<typeof ChairSynthesisV3CanonicalNarrativeSchema>,
   sectionClaimIds: ReadonlyMap<string, readonly string[]> = new Map(),
 ): WorkflowV3ResearchReport {
-  const canonical = ChairSynthesisV3CanonicalNarrativeSchema.parse(canonicalInput);
+  const canonical =
+    ChairSynthesisV3CanonicalNarrativeSchema.parse(canonicalInput);
   const sourceLocale = canonical.sourceLocale;
   const { locales: _locales, ...common } = report;
   const sections: ReadonlyMap<string, string> = new Map(
-    canonical.sections.map((section) => [section.sectionKey, section.narrative]),
+    canonical.sections.map((section) => [
+      section.sectionKey,
+      section.narrative,
+    ]),
   );
   const teamViews = new Map(
     canonical.teamViews.map((view) => [view.departmentId, view]),
@@ -940,7 +946,13 @@ export function workflowV3ReportFromCanonicalNarrative(
         const generated = canonical.anticipatedQuestions[index];
         return generated === undefined
           ? []
-          : [{ ...question, question: generated.question, answer: generated.answer }];
+          : [
+              {
+                ...question,
+                question: generated.question,
+                answer: generated.answer,
+              },
+            ];
       },
     ),
   });

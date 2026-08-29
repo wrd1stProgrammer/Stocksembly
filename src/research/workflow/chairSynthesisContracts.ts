@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { resolveEditorialItemDefect } from "../domain/editorialStance";
 import {
   ChairConflictAdjudicationSchema,
   ChairDecisionBriefSchema,
@@ -10,6 +9,7 @@ import {
   ChairRecoveryMetadataSchema,
   ChairSynthesisV3CanonicalNarrativeSchema,
 } from "../domain/chairSynthesisOutput";
+import { resolveEditorialItemDefect } from "../domain/editorialStance";
 import {
   ArtifactIdSchema,
   ClaimIdSchema,
@@ -246,8 +246,7 @@ export const ChairSynthesisV3ModelOutputSchema =
         path: ["decisiveReason"],
         message: "generic_posture_repeated",
       });
-  })
-  .readonly();
+  }).readonly();
 
 export function chairSynthesisV3Prompt(
   input: Readonly<{

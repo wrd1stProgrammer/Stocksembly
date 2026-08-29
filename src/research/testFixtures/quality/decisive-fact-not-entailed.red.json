@@ -1,1 +1,15 @@
-{"id":"decisive-fact-not-entailed","decisiveFacts":[{"verdict":"partial","exactSourceUrl":"https://example.com/source"}],"expectedFatalReasons":["decisive_fact_not_entailed"],"expectedScoreComponents":{"decisionUsefulness":2,"evidenceTraceability":1.25,"comparatorValuationDiscipline":2,"editorialClarity":2,"reliability":2},"expectedRuntimeDisposition":"complete_with_limitations"}
+{
+  "id": "decisive-fact-not-entailed",
+  "decisiveFacts": [
+    { "verdict": "partial", "exactSourceUrl": "https://example.com/source" }
+  ],
+  "expectedFatalReasons": ["decisive_fact_not_entailed"],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 1.25,
+    "comparatorValuationDiscipline": 2,
+    "editorialClarity": 2,
+    "reliability": 2
+  },
+  "expectedRuntimeDisposition": "complete_with_limitations"
+}

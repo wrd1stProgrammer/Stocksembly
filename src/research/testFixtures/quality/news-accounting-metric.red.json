@@ -1,1 +1,13 @@
-{"id":"news-accounting-metric","sources":[{"kind":"news","purpose":"accounting_metric"}],"expectedFatalReasons":["source_purpose_mismatch"],"expectedScoreComponents":{"decisionUsefulness":2,"evidenceTraceability":2,"comparatorValuationDiscipline":2,"editorialClarity":2,"reliability":2},"expectedRuntimeDisposition":"omit_item"}
+{
+  "id": "news-accounting-metric",
+  "sources": [{ "kind": "news", "purpose": "accounting_metric" }],
+  "expectedFatalReasons": ["source_purpose_mismatch"],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 2,
+    "comparatorValuationDiscipline": 2,
+    "editorialClarity": 2,
+    "reliability": 2
+  },
+  "expectedRuntimeDisposition": "omit_item"
+}

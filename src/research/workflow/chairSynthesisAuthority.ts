@@ -11,9 +11,9 @@ import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisModelOutputSchema,
+  type ChairSynthesisReplay,
   ChairSynthesisV3RawModelOutputSchema,
   chairSynthesisV3Prompt,
-  type ChairSynthesisReplay,
   type PersistedChairJob,
   PersistedChairJobSchema,
 } from "./chairSynthesisContracts";

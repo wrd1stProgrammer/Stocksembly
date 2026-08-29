@@ -1,1 +1,17 @@
-{"id":"raw-precision","precisionSamples":[{"kind":"currency","text":"$100.123"},{"kind":"percentage","text":"12.34%"},{"kind":"ratio","text":"8.765x"}],"expectedFatalReasons":["raw_public_precision"],"expectedScoreComponents":{"decisionUsefulness":2,"evidenceTraceability":2,"comparatorValuationDiscipline":2,"editorialClarity":1.75,"reliability":2},"expectedRuntimeDisposition":"complete_with_limitations"}
+{
+  "id": "raw-precision",
+  "precisionSamples": [
+    { "kind": "currency", "text": "$100.123" },
+    { "kind": "percentage", "text": "12.34%" },
+    { "kind": "ratio", "text": "8.765x" }
+  ],
+  "expectedFatalReasons": ["raw_public_precision"],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 2,
+    "comparatorValuationDiscipline": 2,
+    "editorialClarity": 1.75,
+    "reliability": 2
+  },
+  "expectedRuntimeDisposition": "complete_with_limitations"
+}

@@ -12,11 +12,11 @@ import {
   chairDirectionalBriefAssignment,
   chairSectionPrimaryAssignments,
 } from "./chairSynthesisPrompts";
+import { publicTextIsValid } from "./chairSynthesisTextValidation";
 import {
   projectChairAssignments,
   validChairCandidate,
 } from "./chairSynthesisValidation";
-import { publicTextIsValid } from "./chairSynthesisTextValidation";
 
 type RawOutput = z.infer<typeof ChairSynthesisV3RawModelOutputSchema>;
 type CatalogSentence = Readonly<{
@@ -26,19 +26,30 @@ type CatalogSentence = Readonly<{
   text: Readonly<{ en: string; ko: string }>;
 }>;
 
-export function canonicalNarrativeV3IsGrounded(input: Readonly<{
-  canonical: RawOutput;
-  sentences: readonly CatalogSentence[];
-  auditedClaimIds: readonly string[];
-  sourceArtifactIds: readonly string[];
-}>): boolean {
+export function canonicalNarrativeV3IsGrounded(
+  input: Readonly<{
+    canonical: RawOutput;
+    sentences: readonly CatalogSentence[];
+    auditedClaimIds: readonly string[];
+    sourceArtifactIds: readonly string[];
+  }>,
+): boolean {
   const catalog = new Map(
     input.sentences.map((sentence) => [sentence.sentenceId, sentence]),
   );
   const units = [
-    [input.canonical.decisiveReason, input.canonical.decisionLineage.decisiveReason],
-    [input.canonical.strongestCountercase, input.canonical.decisionLineage.strongestCountercase],
-    [input.canonical.invalidationCheckpoint, input.canonical.decisionLineage.invalidationCheckpoint],
+    [
+      input.canonical.decisiveReason,
+      input.canonical.decisionLineage.decisiveReason,
+    ],
+    [
+      input.canonical.strongestCountercase,
+      input.canonical.decisionLineage.strongestCountercase,
+    ],
+    [
+      input.canonical.invalidationCheckpoint,
+      input.canonical.decisionLineage.invalidationCheckpoint,
+    ],
     ...input.canonical.teamViews.flatMap((view) => [
       [view.position, view.lineage] as const,
       [view.rationale, view.lineage] as const,
@@ -54,9 +65,13 @@ export function canonicalNarrativeV3IsGrounded(input: Readonly<{
   return units.every(([text, lineage]) => {
     const sentences = lineage.sentenceIds
       .map((sentenceId) => catalog.get(sentenceId))
-      .filter((sentence): sentence is CatalogSentence => sentence !== undefined);
+      .filter(
+        (sentence): sentence is CatalogSentence => sentence !== undefined,
+      );
     if (sentences.length !== lineage.sentenceIds.length) return false;
-    const claimIds = new Set(sentences.flatMap((sentence) => sentence.claimIds));
+    const claimIds = new Set(
+      sentences.flatMap((sentence) => sentence.claimIds),
+    );
     const sourceArtifactIds = new Set(
       sentences.flatMap((sentence) => sentence.sourceArtifactIds),
     );
@@ -169,11 +184,13 @@ function locallyDegrade(output: RawOutput): RawOutput | undefined {
   };
 }
 
-export async function synthesizeChairV3(input: Readonly<{
-  sourceLocale: "en" | "ko";
-  evidenceCatalog: string;
-  runModel: (prompt: string) => Promise<unknown>;
-}>): Promise<z.infer<typeof ChairSynthesisV3ModelOutputSchema>> {
+export async function synthesizeChairV3(
+  input: Readonly<{
+    sourceLocale: "en" | "ko";
+    evidenceCatalog: string;
+    runModel: (prompt: string) => Promise<unknown>;
+  }>,
+): Promise<z.infer<typeof ChairSynthesisV3ModelOutputSchema>> {
   const initialPrompt = chairSynthesisV3Prompt(input);
   const initial = ChairSynthesisV3RawModelOutputSchema.parse(
     await input.runModel(initialPrompt),
@@ -194,7 +211,8 @@ export async function synthesizeChairV3(input: Readonly<{
   );
   if (repaired.sourceLocale !== input.sourceLocale)
     throw new TypeError("chair_v3_source_locale_mismatch");
-  const repairedAccepted = ChairSynthesisV3ModelOutputSchema.safeParse(repaired);
+  const repairedAccepted =
+    ChairSynthesisV3ModelOutputSchema.safeParse(repaired);
   if (repairedAccepted.success) return repairedAccepted.data;
   const degraded = locallyDegrade(repaired);
   if (degraded === undefined)
@@ -227,7 +245,9 @@ export function projectChairV3ForCommit(
     );
     return {
       sentenceIds: lineage.sentenceIds,
-      claimIds: [...new Set(authenticated.flatMap((sentence) => sentence.claimIds))],
+      claimIds: [
+        ...new Set(authenticated.flatMap((sentence) => sentence.claimIds)),
+      ],
       sourceArtifactIds: [
         ...new Set(
           authenticated.flatMap((sentence) => sentence.sourceArtifactIds),
@@ -261,7 +281,9 @@ export function projectChairV3ForCommit(
       lineage: authenticatedLineage(item.lineage),
     })),
   };
-  const lineageFor = (sentence: (typeof prompt.sentences)[number]): Lineage => ({
+  const lineageFor = (
+    sentence: (typeof prompt.sentences)[number],
+  ): Lineage => ({
     sentenceIds: [sentence.sentenceId],
     claimIds: sentence.claimIds,
     sourceArtifactIds: sentence.sourceArtifactIds,
@@ -276,7 +298,9 @@ export function projectChairV3ForCommit(
       (sentence): sentence is (typeof prompt.sentences)[number] =>
         sentence !== undefined,
     );
-    const claimIds = new Set(sentences.flatMap((sentence) => sentence.claimIds));
+    const claimIds = new Set(
+      sentences.flatMap((sentence) => sentence.claimIds),
+    );
     const sourceArtifactIds = new Set(
       sentences.flatMap((sentence) => sentence.sourceArtifactIds),
     );
@@ -302,12 +326,10 @@ export function projectChairV3ForCommit(
       canonical.sourceLocale,
     )
       ? text
-      : sentences[0]?.text[canonical.sourceLocale] ?? text;
+      : (sentences[0]?.text[canonical.sourceLocale] ?? text);
   };
   const authoritativeStance =
-    directional.stance === "wait_for_proof"
-      ? "balanced"
-      : directional.stance;
+    directional.stance === "wait_for_proof" ? "balanced" : directional.stance;
   const stanceConflict = canonical.stance !== authoritativeStance;
   const normalizedCanonical: RawOutput = {
     ...canonicalWithAuthenticatedLineage,
@@ -341,11 +363,12 @@ export function projectChairV3ForCommit(
       ...section,
       narrative: grounded(section.narrative, section.lineage),
     })),
-    anticipatedQuestions: canonicalWithAuthenticatedLineage.anticipatedQuestions.map((item) => ({
-      ...item,
-      question: grounded(item.question, item.lineage),
-      answer: grounded(item.answer, item.lineage),
-    })),
+    anticipatedQuestions:
+      canonicalWithAuthenticatedLineage.anticipatedQuestions.map((item) => ({
+        ...item,
+        question: grounded(item.question, item.lineage),
+        answer: grounded(item.answer, item.lineage),
+      })),
   };
   const raw = ChairSynthesisModelOutputSchema.parse({
     kind: "chair_synthesis",

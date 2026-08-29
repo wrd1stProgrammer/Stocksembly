@@ -1,1 +1,13 @@
-{"id":"no-grounded-core-answer","groundedCoreAnswer":false,"expectedFatalReasons":["no_grounded_core_answer"],"expectedScoreComponents":{"decisionUsefulness":2,"evidenceTraceability":2,"comparatorValuationDiscipline":2,"editorialClarity":2,"reliability":2},"expectedRuntimeDisposition":"run_failed_no_charge"}
+{
+  "id": "no-grounded-core-answer",
+  "groundedCoreAnswer": false,
+  "expectedFatalReasons": ["no_grounded_core_answer"],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 2,
+    "comparatorValuationDiscipline": 2,
+    "editorialClarity": 2,
+    "reliability": 2
+  },
+  "expectedRuntimeDisposition": "run_failed_no_charge"
+}
