@@ -157,8 +157,7 @@ export const TranslationProofSchema = z
       ({ ordinal, inputHash }) => `${ordinal}:${inputHash}`,
     );
     const durableKeys = proof.durableRows.map(
-      ({ batchOrdinal, batchInputHash }) =>
-        `${batchOrdinal}:${batchInputHash}`,
+      ({ batchOrdinal, batchInputHash }) => `${batchOrdinal}:${batchInputHash}`,
     );
     const expectedOrdinals = Array.from(
       { length: proof.expectedBatchCount },
@@ -168,8 +167,7 @@ export const TranslationProofSchema = z
     const sortedPlannedKeys = [...plannedKeys].sort();
     const sortedDurableKeys = [...durableKeys].sort();
     const countersMatch =
-      proof.counterSnapshots.afterFirst -
-          proof.counterSnapshots.beforeFirst ===
+      proof.counterSnapshots.afterFirst - proof.counterSnapshots.beforeFirst ===
         proof.expectedBatchCount &&
       proof.counterSnapshots.beforeSecond ===
         proof.counterSnapshots.afterFirst &&

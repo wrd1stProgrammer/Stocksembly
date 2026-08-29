@@ -4,8 +4,8 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   LiveLedgerSchema,
-  TranslationProofSchema,
   publishedLedgerEntries,
+  TranslationProofSchema,
 } from "../../scripts/run-research-quality-live";
 
 const BOUNDED_FAILURE_LEDGER_INPUT = {

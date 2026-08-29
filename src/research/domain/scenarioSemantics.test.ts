@@ -161,8 +161,19 @@ describe("evaluateScenarioSemantics", () => {
     // Given
     const candidate = input([
       {
-        id: "downside",
-        operatingAssumption: { value: Number.POSITIVE_INFINITY },
+        ...scenario({
+          id: "downside",
+          value: Number.POSITIVE_INFINITY,
+          consequence: "negative",
+        }),
+        operatingAssumption: {
+          metricId: "revenue_growth",
+          value: Number.POSITIVE_INFINITY,
+          unit: "percent",
+          referenceValue: 10,
+          referenceAsOf: asOf,
+          description: "Revenue growth is invalid",
+        },
       },
       {
         ...scenario({ id: "base", value: 10, consequence: "neutral" }),
@@ -211,8 +222,19 @@ describe("evaluateScenarioSemantics", () => {
     // Given
     const candidate = input([
       {
-        id: "downside",
-        operatingAssumption: { value: Number.POSITIVE_INFINITY },
+        ...scenario({
+          id: "downside",
+          value: Number.POSITIVE_INFINITY,
+          consequence: "negative",
+        }),
+        operatingAssumption: {
+          metricId: "revenue_growth",
+          value: Number.POSITIVE_INFINITY,
+          unit: "percent",
+          referenceValue: 10,
+          referenceAsOf: asOf,
+          description: "Revenue growth is invalid",
+        },
       },
       scenario({ id: "base", value: 10, consequence: "neutral" }),
       scenario({ id: "upside", value: 20, consequence: "positive" }),
