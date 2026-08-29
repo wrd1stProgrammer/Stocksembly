@@ -5,6 +5,7 @@ import { SemanticAuditOutputSchema } from "../domain/agentOutputs";
 import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, JobIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { evaluatePublicClaimEligibilityReport } from "../domain/publicClaimEligibility";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { codexInputHash } from "../server/codex/codexRunner";
 import { applyOrderedMigrations } from "../server/persistence/sqlite/migrations";
@@ -56,16 +57,15 @@ export function semanticPublicationBlockers(
   const materialClaims = claims.filter((claim) =>
     materialClaimIds.has(claim.claimId),
   );
-  if (materialClaims.some((claim) => claim.verdict !== "contradicted"))
-    return [];
-  return [
-    ...materialClaims.flatMap((claim) =>
-      claim.verdict === "contradicted" &&
-      claim.contradictionSeverity === "severe"
-        ? [`material_claim_contradicted:${claim.claimId}`]
-        : [],
-    ),
-  ];
+  if (materialClaims.length === 0) return [];
+  return evaluatePublicClaimEligibilityReport({
+    claims: materialClaims.map((claim) => ({
+      claimId: claim.claimId,
+      kind: "factual_claim",
+      materiality: "material",
+      semanticVerdict: claim.verdict,
+    })),
+  }).blockers;
 }
 
 export class SemanticAuditSqliteAuthority {

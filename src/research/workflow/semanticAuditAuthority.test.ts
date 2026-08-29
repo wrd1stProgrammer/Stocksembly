@@ -3,7 +3,7 @@ import { semanticPublicationBlockers } from "./semanticAuditAuthority";
 
 describe("semantic publication policy", () => {
   it.each(["partial", "not_assessable"] as const)(
-    "retains a %s material claim as a disclosed limitation",
+    "does not let a sole %s material claim stand in for a grounded answer",
     (verdict) => {
       // Given
       const material = new Set(["claim-1"]);
@@ -16,7 +16,7 @@ describe("semantic publication policy", () => {
       );
 
       // Then
-      expect(blockers).toEqual([]);
+      expect(blockers).toEqual(["no_grounded_core_answer"]);
     },
   );
 
@@ -38,7 +38,7 @@ describe("semantic publication policy", () => {
     );
 
     // Then
-    expect(blockers).toEqual(["material_claim_contradicted:claim-1"]);
+    expect(blockers).toEqual(["no_grounded_core_answer"]);
   });
 
   it("removes one contradicted material claim without terminating surviving research", () => {
@@ -67,7 +67,7 @@ describe("semantic publication policy", () => {
     expect(blockers).toEqual([]);
   });
 
-  it("removes a limited contradiction without terminating the report", () => {
+  it("blocks when a limited contradiction leaves no grounded core answer", () => {
     // Given
     const material = new Set(["claim-1"]);
 
@@ -85,7 +85,7 @@ describe("semantic publication policy", () => {
     );
 
     // Then
-    expect(blockers).toEqual([]);
+    expect(blockers).toEqual(["no_grounded_core_answer"]);
   });
 
   it("keeps an uncovered question as a disclosed limitation", () => {
@@ -101,6 +101,6 @@ describe("semantic publication policy", () => {
       [{ questionId: "question-1", status: "uncovered" }],
     );
 
-    expect(blockers).toEqual([]);
+    expect(blockers).toEqual(["no_grounded_core_answer"]);
   });
 });

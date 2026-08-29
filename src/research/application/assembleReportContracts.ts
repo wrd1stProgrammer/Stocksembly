@@ -6,6 +6,10 @@ import type {
 } from "../domain/report";
 import type { ResearchProfile } from "../domain/researchProfile";
 import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
+import type {
+  RecoverablePublicClaim,
+  RecoverablePublicScenario,
+} from "./publicationRecovery";
 
 export type AssemblyInput = {
   readonly locale?: "en" | "ko";
@@ -33,6 +37,15 @@ export type AssemblyInput = {
     typeof AtomicEditorialClaimSchema
   >[];
   readonly researchProfile?: ResearchProfile;
+  /** Optional workflow-v3 publication metadata. Legacy workflows are adapted
+   * to factual claims at the publication recovery boundary. */
+  readonly publicationClaims?: readonly RecoverablePublicClaim[];
+  readonly repairPublicClaim?: (
+    claim: RecoverablePublicClaim,
+  ) => RecoverablePublicClaim | undefined;
+  readonly repairPublicScenario?: (
+    scenario: RecoverablePublicScenario,
+  ) => RecoverablePublicScenario | undefined;
 };
 
 export type AssembleReportResult =

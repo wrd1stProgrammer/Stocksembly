@@ -112,7 +112,17 @@ describe("researchReportToFile presentation version boundary", () => {
         (claim) => claim.disposition === "accepted",
       ),
     ).toBe(true);
-    expect(model.structuredClaims).toHaveLength(report.editorialClaims.length);
+    const structuredClaims = model.structuredClaims;
+    if (structuredClaims === undefined)
+      throw new TypeError("workflow-v2 structured claims missing");
+    expect(structuredClaims.length).toBeGreaterThan(0);
+    expect(
+      structuredClaims.every((claim) =>
+        file.structuredEditorial?.claims.some(
+          (published) => published.claimId === claim.claimId,
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("omits v2 scenarios and prose modules when their owned inputs are absent", () => {

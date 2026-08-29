@@ -14,6 +14,31 @@ const MAX_STAGE_FAILURES = 4;
 const RETRY_DELAYS_MS = [5_000, 30_000, 120_000, 300_000] as const;
 
 export type StageRecoveryState = "ready" | "waiting" | "exhausted";
+export type WorkflowFailureDisposition =
+  | "degrade"
+  | "content_terminal"
+  | "retry"
+  | "terminalize";
+
+const CONTENT_TERMINAL_FAILURES = new Set([
+  "issuer_identity_unresolved",
+  "whole_envelope_integrity_failure",
+  "no_grounded_core_answer",
+]);
+
+export function workflowFailureDisposition(
+  reason: string,
+): WorkflowFailureDisposition {
+  if (CONTENT_TERMINAL_FAILURES.has(reason)) return "content_terminal";
+  if (
+    reason === "scenario_invalid" ||
+    reason.startsWith("editorial_v2_invalid:style_only") ||
+    reason.startsWith("quality_failed:item_") ||
+    reason.startsWith("quality_failed:local_")
+  )
+    return "degrade";
+  return isRecoverableWorkflowFailure(reason) ? "retry" : "terminalize";
+}
 
 export function isRecoverableWorkflowFailure(reason: string): boolean {
   return !/(?:auth|rights|policy_violation|origin_untrusted|link_untrusted|symbol_unsupported|identity_missing|sec_(?:primary_filing|10k)_missing|workflow_version_superseded|content_mismatch|lineage_mismatch|fence_mismatch|sections_incomplete|retention_mismatch|claim_invented|scenario_invalid|role_set_incomplete|semantic_chair_or_prompt_invalid|team_view_set_incomplete|replacement_exhausted)/iu.test(

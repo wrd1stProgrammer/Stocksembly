@@ -117,7 +117,7 @@ describe("persistAuthoritativeReport", () => {
       anticipatedQuestions: expect.any(Array),
       editorialPublication: {
         gateVersion: "editorial-quality-v1",
-        candidate: { confidence: result.report.editorialDecision!.confidence },
+        candidate: { confidence: result.report.editorialDecision?.confidence },
         fieldLineage: expect.objectContaining({ "position.en": "synthesis" }),
       },
     });
@@ -255,7 +255,7 @@ describe("persistAuthoritativeReport", () => {
     expect(result.kind, JSON.stringify(result)).toBe("published");
   });
 
-  it("publishes partial claims without inventing a capability limitation", async () => {
+  it("does not let a partial-only report drive a core conclusion", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
     const valid = makeAuthoritativeReportInput();
@@ -287,12 +287,11 @@ describe("persistAuthoritativeReport", () => {
       input,
     );
 
-    expect(result.kind, JSON.stringify(result)).toBe("published");
-    if (result.kind !== "published") return;
-    expect(result.report.status).toBe("complete_with_limitations");
-    expect(result.report.limitations).toContainEqual(
-      expect.objectContaining({ capability: "claim_evidence" }),
-    );
+    expect(result).toEqual({
+      kind: "blocked",
+      reason: "no_grounded_core_answer",
+    });
+    expect(persistence.saved).toHaveLength(0);
   });
 
   it("recovers a numeric revenue scenario from an abbreviated chair sentence", async () => {
@@ -407,7 +406,10 @@ describe("persistAuthoritativeReport", () => {
       input,
     );
 
-    expect(result).toEqual({ kind: "blocked", reason: "report_invalid" });
+    expect(result).toEqual({
+      kind: "blocked",
+      reason: "no_grounded_core_answer",
+    });
     expect(persistence.saved).toHaveLength(0);
   });
 
@@ -945,7 +947,7 @@ describe("persistAuthoritativeReport", () => {
           moduleMinimum: 5,
           supportedCount: report.anticipatedQuestions.length,
         },
-        candidate: { confidence: report.editorialDecision!.confidence },
+        candidate: { confidence: report.editorialDecision?.confidence },
       },
     });
     expect(publicationPayload).toEqual({
