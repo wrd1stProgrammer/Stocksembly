@@ -26,6 +26,38 @@ export type PreSynthesisComparatorQualification = z.infer<
   typeof PreSynthesisComparatorQualificationSchema
 >;
 
+export function sealComparatorContextForChair(
+  prepared: PreSynthesisComparatorQualification,
+) {
+  if (prepared.status === "not_available")
+    return {
+      mode: "qualitative_only" as const,
+      rows: [],
+      normalizationAttemptCount: 0,
+      omissionReason: prepared.reason,
+    };
+  const rows = prepared.qualification.rows.filter(
+    (row) => row.displayEligibility,
+  );
+  const normalizationAttemptCount = rows.reduce(
+    (count, row) => count + (row.normalizationAttemptCount ?? 0),
+    0,
+  );
+  return prepared.qualification.valuation.status === "eligible"
+    ? {
+        mode: "numeric_valuation" as const,
+        rows,
+        valuation: prepared.qualification.valuation,
+        normalizationAttemptCount,
+      }
+    : {
+        mode: "qualitative_only" as const,
+        rows,
+        normalizationAttemptCount,
+        omissionReason: prepared.qualification.valuation.reason,
+      };
+}
+
 export function qualifyComparatorsBeforeSynthesis(
   sources: readonly {
     readonly evidenceId: string;

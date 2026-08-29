@@ -293,6 +293,7 @@ export async function persistAuthoritativeReport(
         ),
         anticipatedQuestions: publicationReport.anticipatedQuestions,
         editorialPublication,
+        recoveryMetadata: assembled.recoveryMetadata,
         ...(options.repairMetadata === undefined
           ? {}
           : { repairMetadata: options.repairMetadata }),

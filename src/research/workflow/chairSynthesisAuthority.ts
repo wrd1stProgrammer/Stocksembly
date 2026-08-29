@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
-import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, JobIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type { ArtifactCasPort } from "../ports/artifacts";
@@ -241,7 +240,7 @@ export class ChairSynthesisSqliteAuthority {
       output === undefined
         ? retryPending
           ? "retry_pending"
-          : receipts.length >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
+          : receipts.length >= 2
             ? "replacement_exhausted"
             : "chair_artifact_missing"
         : null;

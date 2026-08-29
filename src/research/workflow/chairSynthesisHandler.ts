@@ -26,7 +26,6 @@ import { chairSectionRewritePrompt } from "./chairSynthesisPrompts";
 import {
   type ChairCandidateIssue,
   chairCandidateIssue,
-  nextChairSectionRewrite,
   projectChairAssignments,
   repairChairCandidate,
   validChairCandidate,
@@ -166,14 +165,6 @@ export function createChairSynthesisAttemptHandler(
               rewrite.originalCandidate,
               result.candidate,
             );
-      const subsequentRewrite =
-        rewrite === undefined
-          ? undefined
-          : nextChairSectionRewrite(
-              validationPrompt,
-              rewrite.originalCandidate,
-              result.candidate,
-            );
       if (
         projection !== undefined &&
         typeof candidate === "object" &&
@@ -196,9 +187,9 @@ export function createChairSynthesisAttemptHandler(
       ) {
         incompleteCodes.set(
           attempt.runId,
-          `chair_targeted_rewrite_failed:${subsequentRewrite?.issue.reason ?? rewrite.issue.reason}`,
+          `chair_targeted_rewrite_failed:${rewrite.issue.reason}`,
         );
-        if (subsequentRewrite !== undefined) nextRewrite = subsequentRewrite;
+        nextRewrite = undefined;
       }
       if (rewrite === undefined)
         nextRewrite = {
@@ -239,6 +230,13 @@ export function createChairSynthesisAttemptHandler(
       runnerEvidence,
     );
     if (!recorded) return "incomplete";
+    if (
+      rewrite !== undefined &&
+      typeof candidate === "object" &&
+      candidate !== null &&
+      Object.keys(candidate).length === 0
+    )
+      return "incomplete";
     const ids = {
       artifactId: ArtifactIdSchema.parse(randomUUID()),
       eventId: EventIdSchema.parse(randomUUID()),

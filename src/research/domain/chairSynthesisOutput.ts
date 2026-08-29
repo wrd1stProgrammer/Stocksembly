@@ -7,6 +7,37 @@ import {
 } from "./agentOutputsShared";
 import { ArtifactIdSchema, ClaimIdSchema, QuestionIdSchema } from "./ids";
 
+export const ChairRecoveryMetadataSchema = z
+  .object({
+    comparatorNormalizationAttemptCount: z.number().int().nonnegative(),
+    scenarioRepairAttempts: z
+      .array(
+        z
+          .object({ itemId: z.string().min(1), attempts: z.literal(1) })
+          .strict(),
+      )
+      .readonly(),
+    omissions: z
+      .array(
+        z
+          .object({
+            itemId: z.string().min(1),
+            reason: z.enum([
+              "peer_evidence_absent",
+              "peer_evidence_malformed",
+              "valuation_metric_unavailable",
+              "insufficient_eligible_companies",
+              "scenario_invalid_after_repair",
+              "scenario_limit_exceeded",
+            ]),
+          })
+          .strict(),
+      )
+      .readonly(),
+  })
+  .strict()
+  .readonly();
+
 export const ChairConflictAdjudicationSchema = z
   .object({
     departmentDecisionSentenceIds: z
@@ -88,6 +119,7 @@ export const ChairSynthesisOutputSchema = z
     dissentClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
     selectedUnknownIds: z.array(QuestionIdSchema).max(2).readonly(),
     unknowns: UnknownListSchema,
+    recoveryMetadata: ChairRecoveryMetadataSchema.optional(),
   })
   .strict()
   .superRefine((output, context) => {

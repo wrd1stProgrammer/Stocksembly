@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { chairScenarioSentences } from "./chairSynthesisScenarios";
+import {
+  chairScenarioSentences,
+  recoverChairScenarioSentences,
+} from "./chairSynthesisScenarios";
 
 describe("chairScenarioSentences", () => {
   it("renders large revenue scenarios as readable magnitudes", () => {
@@ -37,6 +40,26 @@ describe("chairScenarioSentences", () => {
           ko: "영업이익률: -1.8%",
         },
       },
+    ]);
+  });
+
+  it("repairs one reversed scenario once, omits one malformed scenario, and keeps two valid scenarios", () => {
+    const recovered = recoverChairScenarioSentences([
+      { field: "100", value: "revenue" },
+      { field: "not-a-field", value: "not-a-value" },
+      { field: "operating_margin", value: "12" },
+    ]);
+
+    expect(recovered.sentences.map((sentence) => sentence.id)).toEqual([
+      "scenario:1:revenue",
+      "scenario:3:operating_margin",
+    ]);
+    expect(recovered.repairAttempts).toEqual([
+      { itemId: "scenario:1", attempts: 1 },
+      { itemId: "scenario:2", attempts: 1 },
+    ]);
+    expect(recovered.omissions).toEqual([
+      { itemId: "scenario:2", reason: "scenario_invalid_after_repair" },
     ]);
   });
 });

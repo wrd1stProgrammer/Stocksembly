@@ -393,8 +393,24 @@ export function projectChairAssignments(
         !projectedSentenceIds.has(sentenceId),
     );
     for (const sentenceId of sentenceIds) projectedSentenceIds.add(sentenceId);
+    const selected = sentenceIds.flatMap((sentenceId) => {
+      const sentence = catalog.get(sentenceId);
+      return sentence === undefined ? [] : [sentence];
+    });
+    const grounding =
+      sectionKey === "valuation_comparison"
+        ? [...selected, ...investmentModelGrounding(prompt)]
+        : selected;
     return {
       ...section,
+      publicSummary: publicTextIsValid(
+        section.publicSummary,
+        grounding,
+        sectionKey === "ten_second_brief" ? 360 : 4_000,
+        prompt.mandate.locale,
+      )
+        ? section.publicSummary
+        : primary.text,
       primarySentenceId: assignment.primarySentenceId,
       sentenceIds,
       conflictAdjudication:
@@ -722,6 +738,9 @@ function resolvedCandidate(
     dissentClaimIds: prompt.dissentClaimIds,
     selectedUnknownIds: candidate.selectedUnknownIds,
     unknowns: selectedUnknowns,
+    ...(prompt.recoveryMetadata === undefined
+      ? {}
+      : { recoveryMetadata: prompt.recoveryMetadata }),
   });
 }
 
@@ -922,7 +941,11 @@ export function repairChairCandidate(
       section: rewrittenSection,
     }),
   );
-  const repaired = resolvedCandidate(prompt, rewrittenCandidate);
+  const repaired = resolvedCandidate(
+    prompt,
+    rewrittenCandidate,
+    NON_BLOCKING_AFTER_REWRITE,
+  );
   if (
     !PROSE_REWRITE_REASONS.has(issue.reason) ||
     typeof repaired !== "object" ||

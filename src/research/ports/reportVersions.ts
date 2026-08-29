@@ -33,6 +33,7 @@ export type ReportVersionWrite = {
     readonly limitationIds: readonly string[];
     readonly anticipatedQuestions?: readonly PublicJson[];
     readonly editorialPublication?: PublicJson;
+    readonly recoveryMetadata?: PublicJson;
   };
   readonly expectedVersion?: number;
   readonly priorVersionId?: ReportVersionId | null;

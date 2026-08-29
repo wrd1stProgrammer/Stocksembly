@@ -257,6 +257,7 @@ describe("Dr. Park constrained chair synthesis", () => {
         cas: fixture.options.cas,
         codex: fixture.codex,
         now: fixture.options.now,
+        ensurePublishedLocalizations: async () => {},
       },
     );
     const engine = createLeaseEngine({

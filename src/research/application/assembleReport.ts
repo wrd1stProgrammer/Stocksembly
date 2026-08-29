@@ -68,6 +68,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   const chair = ChairSynthesisOutputSchema.safeParse(input.chair);
   if (!structural.success || !semantic.success || !chair.success)
     return { kind: "blocked", reason: "invalid_input" };
+  const chairRecovery = chair.data.recoveryMetadata;
   const audit = structural.data.result;
   if (
     input.version !== (input.priorReport?.version ?? 0) + 1 ||
@@ -482,6 +483,30 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       kind: "assembled",
       report: composed.report,
       editorialPublication: composed.envelope,
+      recoveryMetadata: {
+        ...(chairRecovery === undefined
+          ? {}
+          : {
+              comparatorNormalizationAttemptCount:
+                chairRecovery.comparatorNormalizationAttemptCount,
+            }),
+        omissions: [
+          ...new Map(
+            [...(chairRecovery?.omissions ?? []), ...publication.omissions].map(
+              (omission) => [JSON.stringify(omission), omission],
+            ),
+          ).values(),
+        ],
+        repairAttempts: publication.repairAttempts,
+        scenarioRepairAttempts: [
+          ...new Map(
+            [
+              ...(chairRecovery?.scenarioRepairAttempts ?? []),
+              ...publication.scenarioRepairAttempts,
+            ].map((attempt) => [attempt.itemId, attempt]),
+          ).values(),
+        ],
+      },
     };
   } catch (error) {
     if (error instanceof Error)

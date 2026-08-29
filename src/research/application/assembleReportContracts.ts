@@ -53,5 +53,14 @@ export type AssembleReportResult =
       readonly kind: "assembled";
       readonly report: WorkflowV2ResearchReport;
       readonly editorialPublication: PrePublicationEditorialEnvelope;
+      readonly recoveryMetadata: {
+        readonly comparatorNormalizationAttemptCount?: number;
+        readonly omissions: readonly (
+          | import("./publicationRecovery").PublicationRecoveryOmission
+          | { readonly itemId: string; readonly reason: string }
+        )[];
+        readonly repairAttempts: import("./publicationRecovery").PublicPublicationRecovery["repairAttempts"];
+        readonly scenarioRepairAttempts: import("./publicationRecovery").PublicPublicationRecovery["scenarioRepairAttempts"];
+      };
     }
   | { readonly kind: "blocked"; readonly reason: string };

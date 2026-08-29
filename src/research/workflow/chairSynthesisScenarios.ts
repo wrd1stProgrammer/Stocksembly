@@ -65,3 +65,41 @@ export function chairScenarioSentences(
   });
   return scenarios.length === inputs.length ? scenarios : undefined;
 }
+
+export function recoverChairScenarioSentences(
+  inputs: readonly { readonly field: string; readonly value: string }[],
+) {
+  const sentences: NonNullable<ReturnType<typeof chairScenarioSentences>> = [];
+  const repairAttempts: { readonly itemId: string; readonly attempts: 1 }[] =
+    [];
+  const omissions: {
+    readonly itemId: string;
+    readonly reason:
+      | "scenario_invalid_after_repair"
+      | "scenario_limit_exceeded";
+  }[] = [];
+  for (const [index, initial] of inputs.entries()) {
+    const itemId = `scenario:${index + 1}`;
+    if (sentences.length >= 2) {
+      omissions.push({ itemId, reason: "scenario_limit_exceeded" });
+      continue;
+    }
+    const direct = chairScenarioSentences([initial]);
+    if (direct !== undefined) {
+      const sentence = direct[0];
+      if (sentence !== undefined)
+        sentences.push({ ...sentence, id: `${itemId}:${initial.field}` });
+      continue;
+    }
+    repairAttempts.push({ itemId, attempts: 1 });
+    const repaired = { field: initial.value, value: initial.field };
+    const recovered = chairScenarioSentences([repaired]);
+    const sentence = recovered?.[0];
+    if (sentence === undefined) {
+      omissions.push({ itemId, reason: "scenario_invalid_after_repair" });
+      continue;
+    }
+    sentences.push({ ...sentence, id: `${itemId}:${repaired.field}` });
+  }
+  return { sentences, repairAttempts, omissions };
+}
