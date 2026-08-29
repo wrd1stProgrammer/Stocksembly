@@ -13,6 +13,7 @@ import { sha256Value } from "../server/codex/codexArtifacts";
 import {
   CODEX_RUNTIME_PINS,
   CODEX_RUNTIME_POLICY,
+  LINUX_CODEX_RUNTIME_PINS,
 } from "../server/codex/codexPolicy";
 import type {
   CodexPort,
@@ -74,6 +75,10 @@ class FakeCodexPort implements CodexPort {
   async run<Candidate>(
     input: CodexRunInput<Candidate>,
   ): Promise<CodexRunResult<Candidate>> {
+    const runtimePins =
+      process.platform === "linux"
+        ? LINUX_CODEX_RUNTIME_PINS
+        : CODEX_RUNTIME_PINS;
     this.active += 1;
     this.launches += 1;
     this.prompts.push(input.prompt);
@@ -138,8 +143,8 @@ class FakeCodexPort implements CodexPort {
         reasoning: CODEX_RUNTIME_POLICY.reasoningByStage.memo,
         browsingPolicy: CODEX_RUNTIME_POLICY.browsingByStage.memo,
         toolTranscriptHash: sha256Value([]),
-        binaryVersion: CODEX_RUNTIME_PINS.version,
-        binaryHash: CODEX_RUNTIME_PINS.originSha256,
+        binaryVersion: runtimePins.version,
+        binaryHash: runtimePins.originSha256,
         originDevice: "1",
         originInode: "1",
         linkDevice: "1",
