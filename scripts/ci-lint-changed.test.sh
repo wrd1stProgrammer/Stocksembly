@@ -27,6 +27,7 @@ chmod +x "${fake_bin}/pnpm"
 
 PATH="${fake_bin}:${PATH}" \
   CI_LINT_CAPTURE_FILE="${capture_file}" \
+  GITHUB_SHA="" \
   /bin/bash "${repository_root}/scripts/ci-lint-changed.sh" HEAD
 
 matches="$(grep -Fxc "${fixture_path}" "${capture_file}")"
