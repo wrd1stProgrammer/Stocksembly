@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ComparatorQualificationInputSchema,
   qualifyComparators,
@@ -264,6 +264,106 @@ describe("comparator qualification", () => {
         ]),
       }),
     ]);
+  });
+
+  it("locally normalizes harmless aliases exactly once without relaxing identity", () => {
+    const normalizedProxy = {
+      ...peer("proxy", "valuation_proxy", 22),
+      metrics: [metric("forward_pe", 22, "trailing twelve months", "x")],
+    };
+    const invalidSecurity = {
+      ...peer("fund", "valuation_proxy", 18),
+      canonicalIdentity: {
+        cik: "0000000001",
+        ticker: "FUND",
+        exchange: "NASDAQ",
+        securityClass: "fund",
+        sector: "Funds",
+        primaryProductMarket: "pooled investment vehicle",
+        primaryCustomerMarket: "fund investors",
+        sourcePurposes: ["issuer_identity", "business_overlap"],
+      },
+      securityQualification: "not_eligible",
+      metrics: [
+        {
+          ...metric("forward_pe", 18, "TTM", "multiple"),
+          sourcePurpose: "valuation_metric",
+        },
+      ],
+    };
+
+    const result = qualifyComparators(
+      ComparatorQualificationInputSchema.parse({
+        rawPeerArtifactId: evidenceId,
+        subject: {
+          ...subject,
+          metrics: [metric("forward_pe", 40, "TTM", "multiple")],
+        },
+        comparators: [normalizedProxy, invalidSecurity],
+      }),
+    );
+
+    expect(result.rows[0]).toMatchObject({
+      displayEligibility: true,
+      normalizationAttemptCount: 1,
+      normalizedMetrics: [
+        expect.objectContaining({ period: "TTM", unit: "multiple" }),
+      ],
+    });
+    expect(result.rows[1]).toMatchObject({
+      displayEligibility: false,
+      medianEligibility: false,
+      normalizationAttemptCount: 1,
+      exclusionReasons: expect.arrayContaining(["security_class_mismatch"]),
+    });
+  });
+
+  it("repairs harmless resolved ticker and exchange aliases locally with zero provider calls", () => {
+    const provider = vi.fn();
+    const aliased = {
+      ...peer("NYSE-AMERICAN:amd", "valuation_proxy", 22),
+      canonicalIdentity: {
+        cik: "0000002488",
+        ticker: "nyse_american:amd",
+        exchange: "NYSE American",
+        securityClass: "common_stock",
+        sector: "accelerated computing",
+        primaryProductMarket: "accelerated computing",
+        primaryCustomerMarket: "data center operators",
+        sourcePurposes: ["issuer_identity", "business_overlap"],
+      },
+      securityQualification: "eligible",
+      metrics: [
+        {
+          ...metric("forward_pe", 22),
+          sourcePurpose: "valuation_metric",
+        },
+      ],
+    };
+
+    const before = provider.mock.calls.length;
+    const result = qualifyComparators(
+      ComparatorQualificationInputSchema.parse({
+        rawPeerArtifactId: evidenceId,
+        subject: {
+          ...subject,
+          metrics: [metric("forward_pe", 40)],
+        },
+        comparators: [aliased],
+      }),
+    );
+
+    expect(result.rows[0]).toMatchObject({
+      displayEligibility: true,
+      normalizationAttemptCount: 1,
+      normalizedIdentity: {
+        cik: "0000002488",
+        ticker: "AMD",
+        exchange: "NYSE_AMERICAN",
+        securityClass: "common_stock",
+      },
+    });
+    expect(provider).toHaveBeenCalledTimes(before);
   });
 
   it("shows one labeled proxy individually but never calculates a peer median", () => {

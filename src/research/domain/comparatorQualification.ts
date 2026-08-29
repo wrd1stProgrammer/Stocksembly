@@ -45,6 +45,85 @@ function effectiveMetric(metric: ComparableMetric): NormalizedMetric {
   };
 }
 
+function periodAlias(value: string): string {
+  const normalized = normalizedText(value).replaceAll(/[._-]/gu, " ");
+  return /^(?:ttm|trailing (?:twelve|12) months?)$/u.test(normalized)
+    ? "TTM"
+    : value;
+}
+
+function unitAlias(value: string): string {
+  const normalized = normalizedText(value);
+  return /^(?:x|times?|ratio|multiple)$/u.test(normalized) ? "multiple" : value;
+}
+
+function tickerAlias(value: string): string | undefined {
+  const normalized = value.normalize("NFKC").trim().toUpperCase();
+  const separator = normalized.lastIndexOf(":");
+  const ticker = (separator < 0 ? normalized : normalized.slice(separator + 1))
+    .trim()
+    .replaceAll("/", "-");
+  return /^[A-Z][A-Z0-9.-]{0,9}$/u.test(ticker) ? ticker : undefined;
+}
+
+function exchangeAlias(
+  value: string,
+): "NASDAQ" | "NYSE" | "NYSE_AMERICAN" | undefined {
+  const normalized = value
+    .normalize("NFKC")
+    .trim()
+    .toUpperCase()
+    .replaceAll(/[^A-Z0-9]+/gu, "");
+  if (
+    normalized === "NASDAQ" ||
+    normalized === "NASDAQGS" ||
+    normalized === "NASDAQGLOBALSELECT"
+  )
+    return "NASDAQ";
+  if (normalized === "NYSE") return "NYSE";
+  if (
+    normalized === "NYSEAMERICAN" ||
+    normalized === "NYSEMKT" ||
+    normalized === "AMEX"
+  )
+    return "NYSE_AMERICAN";
+  return undefined;
+}
+
+function locallyNormalizeMetric(
+  subjectMetric: NormalizedMetric,
+  peerMetric: NormalizedMetric,
+): { readonly metric: NormalizedMetric; readonly attempted: boolean } {
+  if (mismatchReasons(subjectMetric, peerMetric).length === 0)
+    return { metric: peerMetric, attempted: false };
+  const period = periodAlias(peerMetric.period);
+  const unit = unitAlias(peerMetric.unit);
+  const currency = peerMetric.currency?.toUpperCase();
+  const subjectPeriod = periodAlias(subjectMetric.period);
+  const subjectUnit = unitAlias(subjectMetric.unit);
+  const subjectCurrency = subjectMetric.currency?.toUpperCase();
+  const equivalent =
+    periodAlias(period) === subjectPeriod &&
+    unitAlias(unit) === subjectUnit &&
+    (currency ?? "unitless") === (subjectCurrency ?? "unitless");
+  return {
+    attempted: true,
+    metric: equivalent
+      ? {
+          ...peerMetric,
+          period: subjectMetric.period,
+          unit: subjectMetric.unit,
+          ...(subjectMetric.currency === undefined
+            ? {}
+            : { currency: subjectMetric.currency }),
+          normalizationNote:
+            peerMetric.normalizationNote ??
+            "Local alias normalization from resolved comparator evidence.",
+        }
+      : peerMetric,
+  };
+}
+
 function mismatchReasons(
   subjectMetric: NormalizedMetric,
   peerMetric: NormalizedMetric,
@@ -80,13 +159,23 @@ export function qualifyComparators(
   );
   const seen = new Set<string>();
   const rows = input.comparators.map((comparator) => {
-    const duplicate = seen.has(comparator.comparatorId);
-    seen.add(comparator.comparatorId);
+    const identityKey =
+      comparator.canonicalIdentity?.cik ??
+      comparator.canonicalIdentity?.ticker ??
+      comparator.comparatorId;
+    const duplicate = seen.has(identityKey);
+    seen.add(identityKey);
     const metricReasons: ExclusionReason[] = [];
+    let metricNormalizationAttempted = false;
     const aligned = comparator.metrics.flatMap((metric) => {
       const subjectMetric = subjectMetrics.get(metric.key);
       if (subjectMetric === undefined) return [];
-      const peerMetric = effectiveMetric(metric);
+      const normalized = locallyNormalizeMetric(
+        subjectMetric,
+        effectiveMetric(metric),
+      );
+      if (normalized.attempted) metricNormalizationAttempted = true;
+      const peerMetric = normalized.metric;
       const reasons = mismatchReasons(subjectMetric, peerMetric);
       metricReasons.push(...reasons);
       return reasons.length === 0 ? [peerMetric] : [];
@@ -99,6 +188,51 @@ export function qualifyComparators(
       ...(duplicate ? (["duplicate_comparator"] as const) : []),
       ...metricReasons,
     ];
+    const normalizedTicker =
+      comparator.canonicalIdentity === undefined
+        ? undefined
+        : tickerAlias(comparator.canonicalIdentity.ticker);
+    const normalizedExchange =
+      comparator.canonicalIdentity === undefined
+        ? undefined
+        : exchangeAlias(comparator.canonicalIdentity.exchange);
+    const identityAliasAttempted =
+      comparator.canonicalIdentity !== undefined &&
+      (normalizedTicker !== comparator.canonicalIdentity.ticker ||
+        normalizedExchange !== comparator.canonicalIdentity.exchange);
+    if (comparator.canonicalIdentity !== undefined) {
+      if (
+        comparator.securityQualification !== "eligible" ||
+        normalizedTicker === undefined ||
+        normalizedExchange === undefined
+      )
+        reasons.push("issuer_identity_unresolved");
+      if (comparator.canonicalIdentity.securityClass !== "common_stock")
+        reasons.push("security_class_mismatch");
+      const hasTrustedIdentityPurpose =
+        comparator.canonicalIdentity.sourcePurposes.includes("issuer_identity");
+      const hasTrustedBusinessPurpose =
+        comparator.canonicalIdentity.sourcePurposes.includes(
+          "business_overlap",
+        );
+      if (!hasTrustedIdentityPurpose || !hasTrustedBusinessPurpose)
+        reasons.push("source_purpose_mismatch");
+      const identityMarketMatch =
+        normalizedText(comparator.canonicalIdentity.primaryProductMarket) ===
+          normalizedText(input.subject.primaryProductMarket) &&
+        normalizedText(comparator.canonicalIdentity.primaryCustomerMarket) ===
+          normalizedText(input.subject.primaryCustomerMarket);
+      if (!identityMarketMatch) reasons.push("business_mismatch");
+      if (
+        valuation !== undefined &&
+        !comparator.metrics.some(
+          (metric) =>
+            metric.key === valuation.key &&
+            metric.sourcePurpose === "valuation_metric",
+        )
+      )
+        reasons.push("source_purpose_mismatch");
+    }
     if (comparator.role === "direct_competitor") {
       const industryCompatible =
         input.subject.sector === undefined ||
@@ -121,6 +255,12 @@ export function qualifyComparators(
     }
     if (comparator.role === "valuation_proxy" && valuation === undefined)
       reasons.push("valuation_metric_required");
+    const normalizationAttemptCount =
+      metricNormalizationAttempted ||
+      identityAliasAttempted ||
+      reasons.length > 0
+        ? 1
+        : 0;
     const blocking = reasons.some(
       (reason) =>
         reason !== "operating_valuation_normalization_required" &&
@@ -159,6 +299,18 @@ export function qualifyComparators(
       rationale: comparator.rationale,
       comparableMetricKeys: comparableMetrics.map((metric) => metric.key),
       normalizedMetrics: comparableMetrics,
+      ...(comparator.canonicalIdentity === undefined ||
+      normalizedTicker === undefined ||
+      normalizedExchange === undefined
+        ? {}
+        : {
+            normalizedIdentity: {
+              cik: comparator.canonicalIdentity.cik,
+              ticker: normalizedTicker,
+              exchange: normalizedExchange,
+              securityClass: comparator.canonicalIdentity.securityClass,
+            },
+          }),
       ...(!comparableMetrics.some(
         (metric) => metric.normalizationNote !== undefined,
       )
@@ -172,6 +324,7 @@ export function qualifyComparators(
               )
               .join("; "),
           }),
+      normalizationAttemptCount,
       evidenceArtifactIds,
       displayEligibility,
       medianEligibility,

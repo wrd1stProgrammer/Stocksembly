@@ -30,6 +30,7 @@ export const ComparableMetricSchema = z
     unit: z.string().trim().min(1),
     currency: z.string().trim().min(3).max(8).optional(),
     evidenceArtifactIds: z.array(z.string().trim().min(1)).min(1).readonly(),
+    sourcePurpose: z.enum(["valuation_metric", "operating_metric"]).optional(),
     normalization: NormalizationSchema.optional(),
   })
   .strict()
@@ -41,6 +42,33 @@ const ProfileShape = {
   primaryProductMarket: z.string().trim().min(1),
   primaryCustomerMarket: z.string().trim().min(1),
   metrics: z.array(ComparableMetricSchema).min(1).max(32).readonly(),
+  canonicalIdentity: z
+    .object({
+      cik: z.string().trim().min(1),
+      ticker: z.string().trim().min(1),
+      exchange: z.string().trim().min(1).max(80),
+      securityClass: z.enum([
+        "common_stock",
+        "fund",
+        "adr",
+        "preferred",
+        "unit",
+        "warrant",
+        "debt",
+        "unknown",
+      ]),
+      sector: z.string().trim().min(1),
+      industry: z.string().trim().min(1).optional(),
+      primaryProductMarket: z.string().trim().min(1),
+      primaryCustomerMarket: z.string().trim().min(1),
+      sourcePurposes: z
+        .array(z.enum(["issuer_identity", "business_overlap"]))
+        .readonly(),
+    })
+    .strict()
+    .readonly()
+    .optional(),
+  securityQualification: z.enum(["eligible", "not_eligible"]).optional(),
 } as const;
 const ComparatorProfileSchema = z
   .object({ ...ProfileShape, role: RoleSchema, rationale: RationaleSchema })
@@ -65,6 +93,10 @@ export const ExclusionReasonSchema = z.enum([
   "period_mismatch",
   "unit_mismatch",
   "currency_mismatch",
+  "issuer_identity_unresolved",
+  "security_class_mismatch",
+  "business_mismatch",
+  "source_purpose_mismatch",
 ]);
 export const NormalizedMetricSchema = z
   .object({
@@ -86,7 +118,27 @@ const RowSchema = z
     rationale: RationaleSchema,
     comparableMetricKeys: z.array(z.string().min(1)).readonly(),
     normalizedMetrics: z.array(NormalizedMetricSchema).readonly(),
+    normalizedIdentity: z
+      .object({
+        cik: z.string().min(1),
+        ticker: z.string().min(1),
+        exchange: z.enum(["NASDAQ", "NYSE", "NYSE_AMERICAN"]),
+        securityClass: z.enum([
+          "common_stock",
+          "fund",
+          "adr",
+          "preferred",
+          "unit",
+          "warrant",
+          "debt",
+          "unknown",
+        ]),
+      })
+      .strict()
+      .readonly()
+      .optional(),
     normalizationNote: z.string().min(1).optional(),
+    normalizationAttemptCount: z.number().int().min(0).max(1).optional(),
     evidenceArtifactIds: z.array(z.string().min(1)).readonly(),
     displayEligibility: z.boolean(),
     medianEligibility: z.boolean(),

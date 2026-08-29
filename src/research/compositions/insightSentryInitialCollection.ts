@@ -40,6 +40,11 @@ import type { SemanticNewsClassifierUsage } from "../server/data/insightsentry/i
 import { createSemanticNewsClassifier } from "../server/data/insightsentry/insightSentrySemanticNewsClassifier";
 import { deriveInsightSentryTechnicalAnalysis } from "../server/data/insightsentry/insightSentryTechnical";
 import type { InsightSentryWireAdapter } from "../server/data/insightsentry/insightSentryTransport";
+import {
+  canonicalPeerTicker,
+  createPeerIssuerIdentityResolver,
+  type PeerIssuerIdentityResolver,
+} from "../server/data/insightsentry/peerIssuerIdentityResolver";
 import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
 
 const encoder = new TextEncoder();
@@ -493,6 +498,103 @@ async function enrichPeersWithCachedHistory(input: {
   });
 }
 
+export async function resolvePeerIssuerIdentities(input: {
+  readonly dataset: PeersDataset;
+  readonly resolver: PeerIssuerIdentityResolver;
+}): Promise<PeersDataset> {
+  const unique = new Map<string, (typeof input.dataset.peers)[number]>();
+  for (const peer of input.dataset.peers) {
+    const ticker = canonicalPeerTicker(peer.symbol);
+    if (ticker !== undefined && !unique.has(ticker)) unique.set(ticker, peer);
+    if (unique.size === 8) break;
+  }
+  const resolved = await Promise.all(
+    [...unique.entries()].map(async ([ticker, peer]) => ({
+      ticker,
+      peer,
+      resolution: await input.resolver(ticker),
+    })),
+  );
+  const seenCiks = new Set<string>();
+  const overlapKey = `issuer-verified-competition:${input.dataset.symbol}`;
+  const peers = resolved.flatMap(({ ticker, peer, resolution }) => {
+    if (resolution.status === "eligible") {
+      if (seenCiks.has(resolution.identity.cik)) return [];
+      seenCiks.add(resolution.identity.cik);
+    }
+    const businessEligible = peer.marketOverlapVerified === true;
+    const hasValuationMetric = [
+      peer.priceEarningsTtm,
+      peer.enterpriseValueEbitdaTtm,
+      peer.enterpriseValueRevenueTtm,
+    ].some((value) => value !== undefined && value > 0);
+    const securityEligible = resolution.status === "eligible";
+    const valuationEligible =
+      securityEligible && businessEligible && hasValuationMetric;
+    return [
+      Object.freeze({
+        ...peer,
+        symbol: ticker,
+        ...(resolution.status === "not_eligible"
+          ? {}
+          : {
+              canonicalIdentity: Object.freeze({
+                ...resolution.identity,
+                sector: peer.sector,
+                ...(peer.industry === undefined
+                  ? {}
+                  : { industry: peer.industry }),
+                ...(businessEligible
+                  ? {
+                      primaryProductMarket: overlapKey,
+                      primaryCustomerMarket: overlapKey,
+                    }
+                  : {}),
+              }),
+            }),
+        securityQualification: Object.freeze({
+          status: securityEligible
+            ? ("eligible" as const)
+            : ("not_eligible" as const),
+          sourcePurpose: "issuer_identity" as const,
+          ...(resolution.status === "eligible"
+            ? { identityEvidenceHash: resolution.evidence.identityHash }
+            : { reason: resolution.reason }),
+        }),
+        businessQualification: Object.freeze({
+          status: businessEligible
+            ? ("eligible" as const)
+            : ("not_eligible" as const),
+          sourcePurpose: "business_overlap" as const,
+          ...(businessEligible ? {} : { reason: "market_overlap_unverified" }),
+        }),
+        valuationQualification: Object.freeze({
+          status: valuationEligible
+            ? ("eligible" as const)
+            : ("not_eligible" as const),
+          sourcePurpose: "valuation_metric" as const,
+          period: "TTM" as const,
+          unit: "multiple" as const,
+          ...(valuationEligible
+            ? {}
+            : {
+                reason: !securityEligible
+                  ? "issuer_identity_unresolved"
+                  : !businessEligible
+                    ? "business_mismatch"
+                    : "valuation_metric_unavailable",
+              }),
+        }),
+      }),
+    ];
+  });
+  return Object.freeze({
+    ...input.dataset,
+    relativeValuation: Object.freeze([]),
+    peers: Object.freeze(peers),
+  });
+}
+
 async function marketFamily<T>(
   operation: () => Promise<T>,
   required = false,
@@ -595,6 +697,7 @@ export async function collectInsightSentryInitialEvidence(input: {
   readonly recordAuxiliaryCodexUsage?: (
     usage: SemanticNewsClassifierUsage,
   ) => Promise<void> | void;
+  readonly peerIssuerIdentityResolver?: PeerIssuerIdentityResolver;
 }): Promise<InsightSentryInitialCollection> {
   const requests = new Map<string, InsightSentryRequestLedgerEntry>();
   const responses = new Map<string, CapturedResponse>();
@@ -775,11 +878,32 @@ export async function collectInsightSentryInitialEvidence(input: {
     technical.status === "available"
       ? technical.data.bars.find((candidate) => candidate.timeframe === "1d")
       : undefined;
-  const peers = await enrichPeersWithCachedHistory({
+  const enrichedPeers = await enrichPeersWithCachedHistory({
     result: collectedPeers,
     market,
     ...(subjectDaily === undefined ? {} : { subjectDaily }),
   });
+  const peers =
+    enrichedPeers.status !== "available"
+      ? enrichedPeers
+      : {
+          status: "available" as const,
+          data: await resolvePeerIssuerIdentities({
+            dataset: enrichedPeers.data,
+            resolver:
+              input.peerIssuerIdentityResolver ??
+              (input.adapter === undefined
+                ? createPeerIssuerIdentityResolver({
+                    dataRoot: input.dataRoot,
+                    cutoffAt: input.asOf,
+                  })
+                : async (ticker) => ({
+                    status: "not_eligible" as const,
+                    canonicalTicker: ticker,
+                    reason: "identity_resolver_not_injected",
+                  })),
+          }),
+        };
   const captured = [...responses.values()];
   const evidence: SnapshotEvidence[] = [];
   const sources: SpecialistSourceArtifact[] = [];
