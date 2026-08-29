@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluatePublicationQuality,
   PublicationQualityInputSchema,
+  PublicClaimPublicationActionSchema,
 } from "./qualityPolicy";
 
 const base = {
@@ -24,6 +25,27 @@ const base = {
 } as const;
 
 describe("publication quality policy", () => {
+  it("defines the three public-claim publication actions", () => {
+    expect(PublicClaimPublicationActionSchema.options).toEqual([
+      "publish",
+      "limitations_only",
+      "omit",
+    ]);
+  });
+
+  it("keeps an otherwise grounded report complete_with_limitations for a stale capability", () => {
+    const result = evaluatePublicationQuality({
+      ...base,
+      capabilities: [{ key: "current_market_data", availability: "stale" }],
+    });
+
+    expect(result).toEqual({
+      publishable: true,
+      status: "complete_with_limitations",
+      blockers: [],
+    });
+  });
+
   it("returns complete_with_limitations for twelve artifacts and unavailable market data", () => {
     expect(evaluatePublicationQuality(base)).toEqual({
       publishable: true,

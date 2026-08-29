@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { PublicationStatusSchema, StructuralMetricSchema } from "./report";
 
+export const PublicClaimPublicationActionSchema = z.enum([
+  "publish",
+  "limitations_only",
+  "omit",
+]);
+export type PublicClaimPublicationAction = z.infer<
+  typeof PublicClaimPublicationActionSchema
+>;
+
 const QualityCapabilitySchema = z
   .object({
     key: z.string().min(1).max(80),
