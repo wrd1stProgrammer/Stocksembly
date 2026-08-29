@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { ArtifactIdSchema, EventIdSchema, JobIdSchema } from "../domain/ids";
-import { ResearchReportSchema } from "../domain/report";
+import {
+  type ResearchReport,
+  ResearchReportSchema,
+  type WorkflowV2ResearchReport,
+  type WorkflowV3ResearchReport,
+} from "../domain/report";
 import { reportTestIds, validReport } from "../domain/report.testSupport";
 import { StrictArtifactCasFake } from "../ports/test/serviceFakes";
 import type {
@@ -183,12 +188,16 @@ export async function createQuestionAnswerFixture(
     readonly externalQuestion?: boolean;
     readonly marketApiEvidence?: boolean;
     readonly reportIdMismatch?: boolean;
+    readonly report?:
+      | ResearchReport
+      | WorkflowV2ResearchReport
+      | WorkflowV3ResearchReport;
   } = {},
 ) {
   const root = mkdtempSync(join(tmpdir(), "stocksembly-question-answer-"));
   const databasePath = join(root, "workflow.sqlite");
   const cas = new StrictArtifactCasFake();
-  const report = ResearchReportSchema.parse(validReport());
+  const report = options.report ?? ResearchReportSchema.parse(validReport());
   const specialistQuestion = {
     kind: "specialist_consultation_v1",
     evidenceScope: "intent_routed",
@@ -320,7 +329,7 @@ export async function createQuestionAnswerFixture(
     cas,
     codex: options.codex ?? new QuestionCodexFake(),
     questionId: ids.question,
-    report,
+    report: report as ResearchReport,
     now: () => now,
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };

@@ -6,6 +6,7 @@ import {
   type ResearchReport,
   ResearchReportSchema,
   type WorkflowV2ResearchReport,
+  type WorkflowV3ResearchReport,
 } from "../../domain/report";
 import { parseStoredResearchReportVersioned } from "../../domain/reportStorage";
 import { ArtifactDigestSchema } from "../../ports/artifacts";
@@ -19,7 +20,7 @@ import type { PublicReport } from "./researchApiContracts";
 
 const PublicationPointerSchema = z
   .object({
-    schemaVersion: z.enum(["workflow-v1", "workflow-v2"]),
+    schemaVersion: z.enum(["workflow-v1", "workflow-v2", "workflow-v3"]),
     reportArtifactDigest: ArtifactDigestSchema,
     version: z.number().int().positive(),
     priorVersionId: z.string().uuid().nullable(),
@@ -121,7 +122,12 @@ async function restoreDepartmentMarketSnapshot(
 export async function loadPublicResearchReport(
   options: ResearchReportReaderOptions,
   publication: PublicReport,
-): Promise<ResearchReport | WorkflowV2ResearchReport | undefined> {
+): Promise<
+  | ResearchReport
+  | WorkflowV2ResearchReport
+  | WorkflowV3ResearchReport
+  | undefined
+> {
   const pointer = PublicationPointerSchema.parse(publication.payload);
   if (pointer.reportArtifactDigest !== publication.artifactDigest)
     return undefined;

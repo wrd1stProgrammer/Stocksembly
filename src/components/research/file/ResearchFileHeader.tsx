@@ -3,6 +3,10 @@ import type { RefObject } from "react";
 import type { Locale } from "../../../lib/i18n";
 import type { ResearchFileData } from "../../../research/compositions/types";
 import { RESEARCH_DEPARTMENT_COPY } from "../../../research/domain/researchTarget";
+import {
+  PUBLIC_STANCE_LABELS,
+  publicStanceLabel,
+} from "../../../research/publicStanceLabels";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 import type { ResearchCompany } from "../../../research/types";
 import { ResearchTermHelp } from "./ResearchFilePrimitives";
@@ -23,18 +27,12 @@ type Props = {
   }[];
 };
 
-const PUBLIC_STANCE_LABELS = {
-  upside_skewed: { en: "Upside case leads", ko: "상방 논지 우세" },
-  wait_for_proof: { en: "Wait for proof", ko: "추가 확인 필요" },
-  downside_skewed: { en: "Downside case leads", ko: "하방 논지 우세" },
-} as const;
-
 function publicConclusionLabel(
   model: ResearchFileEditorialModel,
   locale: Locale,
 ): string {
   const stance = model.structuredDecision?.stance;
-  if (stance !== undefined) return PUBLIC_STANCE_LABELS[stance][locale];
+  if (stance !== undefined) return publicStanceLabel(stance, locale);
   if (model.conclusionLabel in PUBLIC_STANCE_LABELS) {
     return PUBLIC_STANCE_LABELS[
       model.conclusionLabel as keyof typeof PUBLIC_STANCE_LABELS

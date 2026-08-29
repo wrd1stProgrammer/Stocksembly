@@ -3,6 +3,7 @@ import { z } from "zod";
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
+  WorkflowV3ResearchReport,
 } from "../../domain/report";
 import { parseStoredResearchReportVersioned } from "../../domain/reportStorage";
 import type { ArtifactCasPort } from "../../ports/artifacts";
@@ -27,7 +28,10 @@ export type QuestionAttemptContext = {
   readonly reportArtifactDigest: string;
   readonly inputHash: string;
   readonly question: { readonly en: string; readonly ko: string };
-  readonly report: ResearchReport | WorkflowV2ResearchReport;
+  readonly report:
+    | ResearchReport
+    | WorkflowV2ResearchReport
+    | WorkflowV3ResearchReport;
 };
 
 export class QuestionAnswerSqliteAuthority {

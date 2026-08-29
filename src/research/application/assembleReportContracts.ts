@@ -3,6 +3,7 @@ import type { AtomicEditorialClaimSchema } from "../domain/agentOutputs";
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
+  WorkflowV3ResearchReport,
 } from "../domain/report";
 import type { ResearchProfile } from "../domain/researchProfile";
 import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
@@ -16,7 +17,10 @@ export type AssemblyInput = {
   readonly reportId: string;
   readonly versionId: string;
   readonly version: number;
-  readonly priorReport?: ResearchReport | WorkflowV2ResearchReport;
+  readonly priorReport?:
+    | ResearchReport
+    | WorkflowV2ResearchReport
+    | WorkflowV3ResearchReport;
   readonly researchDirection?: string | undefined;
   readonly teamViews: ResearchReport["teamViews"];
   readonly artifacts: readonly unknown[];

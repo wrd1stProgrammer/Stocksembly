@@ -1,3 +1,4 @@
+import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { canonicalJson, hashCanonical } from "../domain/contractHelpers";
 import {
   ArtifactIdSchema,
@@ -5,17 +6,19 @@ import {
   ReportVersionIdSchema,
 } from "../domain/ids";
 import {
+  type ResearchReport,
   type WorkflowV2ResearchReport,
-  WorkflowV2ResearchReportSchema,
+  type WorkflowV3ResearchReport,
+  workflowV3ReportFromCanonicalNarrative,
 } from "../domain/report";
 import { singleLocaleReportForStorage } from "../domain/reportStorage";
-import { normalizeReportNarrativeText } from "../domain/reportText";
 import {
   type ArtifactCasPort,
   type ArtifactDescriptor,
   ArtifactDigestSchema,
 } from "../ports/artifacts";
 import type { ReportVersionWrite } from "../ports/reportVersions";
+import { canonicalNarrativeV3IsGrounded } from "../workflow/chairSynthesisV3";
 import {
   deterministicMetadataRewrite,
   evaluatePrePublicationEditorialGate,
@@ -26,6 +29,10 @@ import { assembleReport } from "./assembleReport";
 import type { AssemblyInput } from "./assembleReportContracts";
 
 export type AuthoritativeReportCommit = {
+  readonly report:
+    | ResearchReport
+    | WorkflowV2ResearchReport
+    | import("../domain/report").WorkflowV3ResearchReport;
   readonly version: ReportVersionWrite;
   readonly descriptor: ArtifactDescriptor;
   readonly parentArtifactIds: readonly string[];
@@ -61,7 +68,7 @@ type AuthoritativeReportInput = AssemblyInput & {
 export type PersistAuthoritativeReportResult =
   | {
       readonly kind: "published";
-      readonly report: WorkflowV2ResearchReport;
+      readonly report: WorkflowV3ResearchReport;
       readonly descriptor: ArtifactDescriptor;
     }
   | { readonly kind: "blocked"; readonly reason: string };
@@ -70,6 +77,30 @@ export async function persistAuthoritativeReport(
   options: PersistenceOptions,
   input: AuthoritativeReportInput,
 ): Promise<PersistAuthoritativeReportResult> {
+  const canonicalChair = ChairSynthesisOutputSchema.safeParse(input.chair);
+  if (
+    !canonicalChair.success ||
+    canonicalChair.data.canonicalNarrativeV3 === undefined
+  )
+    return { kind: "blocked", reason: "workflow_v3_chair_required" };
+  if (
+    !canonicalNarrativeV3IsGrounded({
+      canonical: canonicalChair.data.canonicalNarrativeV3,
+      sentences: input.chairSentences,
+      auditedClaimIds: [
+        ...new Set(
+          canonicalChair.data.sections.flatMap(
+            (section) => section.auditedClaimIds,
+          ),
+        ),
+      ],
+      sourceArtifactIds: canonicalChair.data.sourceArtifactIds,
+    })
+  )
+    return {
+      kind: "blocked",
+      reason: "workflow_v3_canonical_grounding_invalid",
+    };
   const assembled = assembleReport(input);
   if (assembled.kind === "blocked") return assembled;
   const recomputedGate = await gateWithOneTargetedRewrite(
@@ -119,94 +150,34 @@ export async function persistAuthoritativeReport(
     candidate: gated.candidate,
     fieldLineage: gated.fieldLineage,
   };
-  const retainedSectionKeys = new Set(
-    gated.candidate.sections.map((section) => section.sectionKey),
-  );
-  const gatedSections = new Map(
-    gated.candidate.sections.map((section) => [section.sectionKey, section]),
-  );
-  const localizedSections = (locale: "en" | "ko") =>
-    assembled.report.locales[locale].sections
-      .filter((section) => retainedSectionKeys.has(section.id))
-      .map((section) => {
-        const gatedSection = gatedSections.get(section.id);
-        return gatedSection === undefined
-          ? section
-          : {
-              ...section,
-              body: normalizeReportNarrativeText(
-                gatedSection.text[locale],
-                section.body,
-              ),
-              claimIds: gatedSection.claimIds,
-            };
-      });
-  const publicationQuestions = gated.candidate.anticipatedQuestions.map(
-    (question) => ({
-      ...question,
-      question: {
-        en: normalizeReportNarrativeText(
-          question.question.en,
-          "Which evidence would change the current assessment?",
-        ),
-        ko: normalizeReportNarrativeText(
-          question.question.ko,
-          "현재 판단을 바꿀 근거는 무엇입니까?",
-        ),
-      },
-      answer: {
-        en: normalizeReportNarrativeText(
-          question.answer.en,
-          "The assessment changes when the cited evidence no longer supports its primary claim.",
-        ),
-        ko: normalizeReportNarrativeText(
-          question.answer.ko,
-          "인용된 근거가 핵심 주장을 더 이상 지지하지 않으면 현재 판단을 다시 검토합니다.",
-        ),
-      },
-    }),
-  );
-  const publicationReport = WorkflowV2ResearchReportSchema.parse({
-    ...assembled.report,
-    teamViews: assembled.report.teamViews.map((teamView, index) =>
-      index === 0
-        ? {
-            ...teamView,
-            position: {
-              en: normalizeReportNarrativeText(
-                gated.candidate.position.en,
-                teamView.position.en,
-              ),
-              ko: normalizeReportNarrativeText(
-                gated.candidate.position.ko,
-                teamView.position.ko,
-              ),
-            },
-            rationale: {
-              en: normalizeReportNarrativeText(
-                gated.candidate.rationale.en,
-                teamView.rationale.en,
-              ),
-              ko: normalizeReportNarrativeText(
-                gated.candidate.rationale.ko,
-                teamView.rationale.ko,
-              ),
-            },
-          }
-        : teamView,
+  const publicationReport = workflowV3ReportFromCanonicalNarrative(
+    assembled.report,
+    canonicalChair.data.canonicalNarrativeV3,
+    new Map(
+      gated.candidate.sections.map((section) => [
+        section.sectionKey,
+        section.claimIds,
+      ]),
     ),
-    locales: {
-      en: {
-        ...assembled.report.locales.en,
-        sections: localizedSections("en"),
-      },
-      ko: {
-        ...assembled.report.locales.ko,
-        sections: localizedSections("ko"),
-      },
+  );
+  const canonicalQuestionCount = publicationReport.anticipatedQuestions.length;
+  const canonicalEditorialPublication = {
+    ...editorialPublication,
+    candidate: {
+      ...editorialPublication.candidate,
+      anticipatedQuestions:
+        editorialPublication.candidate.anticipatedQuestions.slice(
+          0,
+          canonicalQuestionCount,
+        ),
     },
-    anticipatedQuestions: publicationQuestions,
-  });
+    qaPolicy: {
+      ...editorialPublication.qaPolicy,
+      supportedCount: canonicalQuestionCount,
+      moduleVisible:
+        canonicalQuestionCount >= editorialPublication.qaPolicy.moduleMinimum,
+    },
+  };
   const reportArtifactId = ArtifactIdSchema.safeParse(input.reportArtifactId);
   const reportId = ReportIdSchema.safeParse(input.reportId);
   const versionId = ReportVersionIdSchema.safeParse(input.versionId);
@@ -270,6 +241,7 @@ export async function persistAuthoritativeReport(
     bytes,
   });
   options.persistence.save({
+    report: publicationReport,
     descriptor,
     parentArtifactIds: input.parentArtifacts.map((parent) => parent.artifactId),
     version: {
@@ -282,6 +254,8 @@ export async function persistAuthoritativeReport(
       publishedAt: options.now?.() ?? new Date().toISOString(),
       publicPayload: {
         schemaVersion: publicationReport.schemaVersion,
+        sourceLocale: publicationReport.sourceLocale,
+        narrativeLineage: publicationReport.narrativeLineage,
         reportArtifactDigest: descriptor.digest,
         version: publicationReport.version,
         priorVersionId: publicationReport.versionDelta.priorVersionId,
@@ -292,7 +266,7 @@ export async function persistAuthoritativeReport(
           (limitation) => limitation.id,
         ),
         anticipatedQuestions: publicationReport.anticipatedQuestions,
-        editorialPublication,
+        editorialPublication: canonicalEditorialPublication,
         recoveryMetadata: assembled.recoveryMetadata,
         ...(options.repairMetadata === undefined
           ? {}

@@ -3,7 +3,13 @@ import { ClaimIdSchema, SourceIdSchema } from "../../domain/ids";
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
+  WorkflowV3ResearchReport,
 } from "../../domain/report";
+
+type QuestionResearchReport =
+  | ResearchReport
+  | WorkflowV2ResearchReport
+  | WorkflowV3ResearchReport;
 
 const ConversationEntrySchema = z.looseObject({
   role: z.enum(["user", "assistant"]),
@@ -78,9 +84,17 @@ export function consultationRequest(question: {
 }
 
 function claimText(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: QuestionResearchReport,
   claimId: string,
-): { readonly en: string; readonly ko: string } | undefined {
+): Partial<Readonly<Record<"en" | "ko", string>>> | undefined {
+  if (report.schemaVersion === "workflow-v3") {
+    const text =
+      report.claims.find((claim) => claim.claimId === claimId)?.text ??
+      report.narrative.sections.find((section) =>
+        section.claimIds.includes(ClaimIdSchema.parse(claimId)),
+      )?.body;
+    return text === undefined ? undefined : { [report.sourceLocale]: text };
+  }
   const registered = report.claims.find(
     (claim) => claim.claimId === claimId,
   )?.text;
@@ -146,7 +160,7 @@ function overlapScore(
 }
 
 function selectedClaimIds(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: QuestionResearchReport,
   request: z.infer<typeof SpecialistConsultationSchema> | undefined,
   locale: "en" | "ko",
 ): readonly string[] {
@@ -200,13 +214,16 @@ function selectedClaimIds(
 }
 
 export function questionResearchContext(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: QuestionResearchReport,
   question: { readonly en: string; readonly ko: string },
 ): QuestionResearchContext {
   const unknownRequest = consultationRequest(question);
   const parsed = SpecialistConsultationSchema.safeParse(unknownRequest);
   const request = parsed.success ? parsed.data : undefined;
-  const locale = request?.locale ?? "ko";
+  const locale =
+    report.schemaVersion === "workflow-v3"
+      ? report.sourceLocale
+      : (request?.locale ?? "ko");
   const claimIds = selectedClaimIds(report, request, locale);
   const claims = claimIds.flatMap((claimId) => {
     const claim = report.claims.find((item) => item.claimId === claimId);

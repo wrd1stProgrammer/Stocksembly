@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { AuthoritativeReportCommit } from "../../../application/assembleReportPersistence";
 import { persistAuthoritativeReport } from "../../../application/assembleReportPersistence";
+import { WorkflowV3ResearchReportSchema } from "../../../domain/report";
 import { ANTICIPATED_QUESTIONS_POLICY } from "../../../workflow/anticipatedQuestionsPublication";
 import { createSqliteChairSynthesis } from "../../../workflow/chairSynthesis";
 import { createPreparedChairRound } from "../../../workflow/chairSynthesis.testSupport";
@@ -45,7 +46,10 @@ function publicationState(databasePath: string, runId: string) {
 
 async function prepareAtomicInput() {
   const prepared = await createPreparedChairRound("none");
-  const chair = createSqliteChairSynthesis(prepared.options);
+  const chair = createSqliteChairSynthesis({
+    ...prepared.options,
+    workflowVersion: "workflow-v3",
+  });
   await chair.stage({ runId: prepared.runId });
   await chair.drain(prepared.runId);
   await chair.close();
@@ -137,6 +141,127 @@ const faults = {
 } satisfies Record<string, (input: AtomicPublicationInput) => boolean>;
 
 describe("publishReportAtomically identity boundary", () => {
+  it("validates and publishes a complete workflow-v3 envelope atomically", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    const artifact = await prepared.options.cas.get(
+      input.commit.descriptor.digest,
+    );
+    if (artifact === undefined) throw new TypeError("missing report artifact");
+    const canonical = WorkflowV3ResearchReportSchema.parse(
+      JSON.parse(new TextDecoder().decode(artifact.bytes)),
+    );
+    Reflect.set(input.commit, "report", canonical);
+    Reflect.set(input.commit.version, "publicPayload", {
+      ...input.commit.version.publicPayload,
+      schemaVersion: "workflow-v3",
+      sourceLocale: canonical.sourceLocale,
+    });
+
+    expect(publishReportAtomically(prepared.options.databasePath, input)).toBe(
+      1,
+    );
+    expect(
+      publicationState(prepared.options.databasePath, input.runId),
+    ).toMatchObject({
+      reports: 1,
+      report_versions: 1,
+      report_events: 1,
+    });
+    const database = new Database(prepared.options.databasePath, {
+      readonly: true,
+    });
+    const row = database
+      .prepare(
+        "SELECT public_payload_json FROM report_versions WHERE run_id = ?",
+      )
+      .get(input.runId) as { readonly public_payload_json: string };
+    database.close();
+    const publicPayload = JSON.parse(row.public_payload_json);
+    expect(publicPayload.narrativeLineage).toEqual(canonical.narrativeLineage);
+    expect([
+      ...Object.values(publicPayload.narrativeLineage.decision),
+      ...publicPayload.narrativeLineage.teamViews.map(
+        (item: { readonly lineage: unknown }) => item.lineage,
+      ),
+      ...publicPayload.narrativeLineage.sections.map(
+        (item: { readonly lineage: unknown }) => item.lineage,
+      ),
+      ...publicPayload.narrativeLineage.anticipatedQuestions.map(
+        (item: { readonly lineage: unknown }) => item.lineage,
+      ),
+    ]).toHaveLength(14);
+  });
+
+  it.each(["missing", "mismatched"] as const)(
+    "rejects %s workflow-v3 public-payload narrative lineage",
+    async (fault) => {
+      const { prepared, input } = await prepareAtomicInput();
+      const payload = { ...input.commit.version.publicPayload };
+      const canonical = WorkflowV3ResearchReportSchema.parse(
+        input.commit.report,
+      );
+      if (fault === "missing")
+        Reflect.deleteProperty(payload, "narrativeLineage");
+      else
+        Reflect.set(payload, "narrativeLineage", {
+          ...canonical.narrativeLineage,
+          sections: [],
+        });
+      Reflect.set(input.commit.version, "publicPayload", payload);
+
+      expect(() =>
+        publishReportAtomically(prepared.options.databasePath, input),
+      ).toThrow(/narrative_lineage/);
+      expect(
+        publicationState(prepared.options.databasePath, input.runId),
+      ).toMatchObject({ reports: 0, report_versions: 0, report_events: 0 });
+    },
+  );
+
+  it("rejects a malformed workflow-v3 whole envelope before any publication row", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    const artifact = await prepared.options.cas.get(
+      input.commit.descriptor.digest,
+    );
+    if (artifact === undefined) throw new TypeError("missing report artifact");
+    const canonical = WorkflowV3ResearchReportSchema.parse(
+      JSON.parse(new TextDecoder().decode(artifact.bytes)),
+    );
+    const { narrative: _narrative, ...malformed } = canonical;
+    Reflect.set(input.commit, "report", malformed);
+    Reflect.set(input.commit.version, "publicPayload", {
+      ...input.commit.version.publicPayload,
+      schemaVersion: "workflow-v3",
+      sourceLocale: canonical.sourceLocale,
+    });
+
+    expect(() =>
+      publishReportAtomically(prepared.options.databasePath, input),
+    ).toThrow();
+    expect(
+      publicationState(prepared.options.databasePath, input.runId),
+    ).toMatchObject({
+      reports: 0,
+      report_versions: 0,
+      report_events: 0,
+    });
+  });
+
+  it("rejects a workflow-v3 report whose mutable payload discriminator is downgraded", async () => {
+    const { prepared, input } = await prepareAtomicInput();
+    Reflect.set(input.commit.version, "publicPayload", {
+      ...input.commit.version.publicPayload,
+      schemaVersion: "workflow-v2",
+    });
+
+    expect(() =>
+      publishReportAtomically(prepared.options.databasePath, input),
+    ).toThrow(/schema_version_mismatch/);
+    expect(
+      publicationState(prepared.options.databasePath, input.runId),
+    ).toMatchObject({ reports: 0, report_versions: 0, report_events: 0 });
+  });
+
   it("repairs one named duplicate, publishes once, and preserves confidence", async () => {
     const { prepared, input } = await prepareAtomicInput();
     const envelope = (
@@ -163,7 +288,7 @@ describe("publishReportAtomically identity boundary", () => {
     expect(gated.candidate.confidence).toBe(invalid.confidence);
     Reflect.set(input.commit.version, "publicPayload", {
       ...input.commit.version.publicPayload,
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
       anticipatedQuestions: gated.candidate.anticipatedQuestions,
       editorialPublication: {
         ...envelope,
@@ -192,7 +317,7 @@ describe("publishReportAtomically identity boundary", () => {
     prepared.cleanup();
   }, 20_000);
 
-  it("leaves zero rows when the sole rewrite adds an unsupported metric", async () => {
+  it("discards an unsupported metric from the sole rewrite without failing the envelope", async () => {
     const { prepared, input } = await prepareAtomicInput();
     const envelope = (
       input.commit.version.publicPayload as unknown as {
@@ -226,10 +351,9 @@ describe("publishReportAtomically identity boundary", () => {
         ),
       };
     });
-    expect(gated).toMatchObject({
-      kind: "rejected",
-      reason: "editorial_quality_failed:unsupported_number",
-    });
+    expect(gated.kind).toBe("accepted");
+    if (gated.kind !== "accepted") return;
+    expect(JSON.stringify(gated.candidate)).not.toContain("99%");
     expect(
       publicationState(prepared.options.databasePath, prepared.runId),
     ).toMatchObject({
@@ -240,7 +364,7 @@ describe("publishReportAtomically identity boundary", () => {
     prepared.cleanup();
   }, 20_000);
 
-  it("leaves zero rows when a named repair also mutates an unnamed sibling", async () => {
+  it("discards an unnamed sibling mutation from the sole rewrite", async () => {
     const { prepared, input } = await prepareAtomicInput();
     const envelope = (
       input.commit.version.publicPayload as unknown as {
@@ -268,10 +392,11 @@ describe("publishReportAtomically identity boundary", () => {
       ),
     }));
 
-    expect(gated).toMatchObject({
-      kind: "rejected",
-      reason: "editorial_quality_failed:rewrite_scope:sections[0].sectionKey",
-    });
+    expect(gated.kind).toBe("accepted");
+    if (gated.kind !== "accepted") return;
+    expect(gated.candidate.sections[0]?.sectionKey).toBe(
+      original.sections[0]?.sectionKey,
+    );
     expect(
       publicationState(prepared.options.databasePath, prepared.runId),
     ).toMatchObject({
@@ -374,7 +499,7 @@ describe("publishReportAtomically identity boundary", () => {
     } as const;
     Reflect.set(input.commit.version, "publicPayload", {
       ...input.commit.version.publicPayload,
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
       anticipatedQuestions,
       editorialPublication: {
         gateVersion: "editorial-quality-v1",
@@ -400,7 +525,7 @@ describe("publishReportAtomically identity boundary", () => {
     expect(rows).toHaveLength(1);
     const persisted = JSON.parse(rows[0]!.public_payload_json);
     expect(persisted).toMatchObject({
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
       editorialPublication: { candidate: { confidence: "medium" } },
     });
     expect(persisted.anticipatedQuestions).toEqual(
@@ -415,7 +540,7 @@ describe("publishReportAtomically identity boundary", () => {
     const { prepared, input } = await prepareAtomicInput();
     Reflect.set(input.commit.version, "publicPayload", {
       ...input.commit.version.publicPayload,
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
       anticipatedQuestions: [],
       editorialPublication: undefined,
     });

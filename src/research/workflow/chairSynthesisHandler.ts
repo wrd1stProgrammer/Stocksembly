@@ -20,8 +20,10 @@ import {
   ChairSectionRewriteSchema,
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
+  ChairSynthesisV3RawModelOutputSchema,
   type SqliteChairSynthesisOptions,
 } from "./chairSynthesisContracts";
+import { projectChairV3ForCommit, synthesizeChairV3 } from "./chairSynthesisV3";
 import { chairSectionRewritePrompt } from "./chairSynthesisPrompts";
 import {
   type ChairCandidateIssue,
@@ -36,7 +38,12 @@ import type { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuth
 type Context = {
   readonly options: Pick<
     SqliteChairSynthesisOptions,
-    "attemptRoot" | "cas" | "codex" | "now" | "publishReport"
+    | "attemptRoot"
+    | "cas"
+    | "codex"
+    | "now"
+    | "publishReport"
+    | "workflowVersion"
   >;
   readonly authority: ChairSynthesisSqliteAuthority;
   readonly workflowAuthority: SpecialistRoundSqliteAuthority;
@@ -131,8 +138,32 @@ export function createChairSynthesisAttemptHandler(
         )
       )
         return "incomplete";
+      let v3RunnerEvidence: SafeCodexEvidence | undefined;
+      const v3Candidate =
+        rewrite === undefined && context.options.workflowVersion === "workflow-v3"
+          ? await synthesizeChairV3({
+              sourceLocale: prompt.mandate.locale,
+              evidenceCatalog: validationPrompt,
+              runModel: async (v3Prompt) => {
+                runnerPrompt = v3Prompt;
+                const result = await context.options.codex.run({
+                  attemptDir,
+                  reservation: { key, fence: claim },
+                  stage: "chair_synthesis",
+                  prompt: v3Prompt,
+                  outputSchema: ChairSynthesisV3RawModelOutputSchema,
+                  signal,
+                  onActivity: activity,
+                });
+                v3RunnerEvidence = result.evidence;
+                return result.candidate;
+              },
+            })
+          : undefined;
       const result =
-        rewrite === undefined
+        v3Candidate !== undefined
+          ? undefined
+          : rewrite === undefined
           ? await context.options.codex.run({
               attemptDir,
               reservation: { key, fence: claim },
@@ -152,18 +183,22 @@ export function createChairSynthesisAttemptHandler(
               onActivity: activity,
             });
       const projection =
-        rewrite === undefined
-          ? projectChairAssignments(validationPrompt, result.candidate)
+        v3Candidate !== undefined
+          ? undefined
+          : rewrite === undefined
+          ? projectChairAssignments(validationPrompt, result?.candidate ?? {})
           : undefined;
       candidate =
-        rewrite === undefined
+        v3Candidate !== undefined
+          ? projectChairV3ForCommit(validationPrompt, v3Candidate)
+          : rewrite === undefined
           ? projection === undefined
             ? {}
             : validChairCandidate(validationPrompt, projection.candidate)
           : repairChairCandidate(
               validationPrompt,
               rewrite.originalCandidate,
-              result.candidate,
+              result?.candidate ?? {},
             );
       if (
         projection !== undefined &&
@@ -191,18 +226,26 @@ export function createChairSynthesisAttemptHandler(
         );
         nextRewrite = undefined;
       }
-      if (rewrite === undefined)
+      if (rewrite === undefined && v3Candidate === undefined)
         nextRewrite = {
-          originalCandidate: projection?.candidate ?? result.candidate,
+          originalCandidate: projection?.candidate ?? result?.candidate ?? {},
           issue: chairCandidateIssue(
             validationPrompt,
-            projection?.candidate ?? result.candidate,
+            projection?.candidate ?? result?.candidate ?? {},
           ) ?? {
             sectionKey: "ten_second_brief",
             reason: "invalid_model_output",
           },
         };
-      runnerEvidence = result.evidence;
+      if (v3Candidate !== undefined) {
+        if (v3RunnerEvidence === undefined)
+          throw new TypeError("chair_v3_runner_evidence_missing");
+        runnerEvidence = v3RunnerEvidence;
+      } else {
+        if (result === undefined)
+          throw new TypeError("chair_runner_result_missing");
+        runnerEvidence = result.evidence;
+      }
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;
       if (!(error instanceof Error)) throw error;

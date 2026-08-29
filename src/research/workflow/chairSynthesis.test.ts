@@ -194,7 +194,10 @@ describe("Dr. Park constrained chair synthesis", () => {
     // Given
     const fixture = await createPreparedChairRound("none");
     let publishedChairArtifactId: string | undefined;
-    const stagedChair = createOfficialChairSynthesis(fixture.options);
+    const stagedChair = createOfficialChairSynthesis({
+      ...fixture.options,
+      workflowVersion: "workflow-v3",
+    });
     await stagedChair.stage({ runId: fixture.runId });
     await stagedChair.close();
     const official = await createOfficialAttemptHandler(
@@ -225,7 +228,10 @@ describe("Dr. Park constrained chair synthesis", () => {
       const result = await engine.poll();
       if (result.kind === "idle") break;
     }
-    const replayReader = createOfficialChairSynthesis(fixture.options);
+    const replayReader = createOfficialChairSynthesis({
+      ...fixture.options,
+      workflowVersion: "workflow-v3",
+    });
     const replay = replayReader.replay(fixture.runId);
 
     // Then
@@ -244,7 +250,10 @@ describe("Dr. Park constrained chair synthesis", () => {
   it("publishes the accepted chair through the official worker's production callback", async () => {
     // Given
     const fixture = await createPreparedChairRound("none");
-    const stagedChair = createOfficialChairSynthesis(fixture.options);
+    const stagedChair = createOfficialChairSynthesis({
+      ...fixture.options,
+      workflowVersion: "workflow-v3",
+    });
     await stagedChair.stage({ runId: fixture.runId });
     await stagedChair.close();
     const official = await createOfficialAttemptHandler(

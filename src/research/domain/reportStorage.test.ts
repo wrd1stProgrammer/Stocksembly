@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { workflowV3PresentationFixture } from "../workflowV3Presentation.testSupport";
 import { validReport } from "./report.testSupport";
 import {
   parseStoredResearchReport,
@@ -124,4 +125,33 @@ describe("single-locale report storage", () => {
     expect(JSON.stringify(v1)).toBe(beforeV1);
     expect(JSON.stringify(v2)).toBe(beforeV2);
   });
+
+  it("keeps serialized workflow-v1 and workflow-v2 fixtures byte-stable at the presentation boundary", () => {
+    const fixtures = [structuredClone(validReport()), validV2Report()];
+    const before = fixtures.map((fixture) => JSON.stringify(fixture));
+
+    for (const fixture of fixtures)
+      parseStoredResearchReportForPresentation(fixture);
+
+    expect(fixtures.map((fixture) => JSON.stringify(fixture))).toEqual(before);
+  });
+
+  it.each(["en", "ko"] as const)(
+    "stores workflow-v3 as one canonical %s narrative",
+    (sourceLocale) => {
+      const report = workflowV3PresentationFixture(sourceLocale);
+      const stored = singleLocaleReportForStorage(report, sourceLocale);
+      const serialized = JSON.stringify(stored);
+
+      expect(stored).toEqual(report);
+      expect(stored).toHaveProperty("sourceLocale", sourceLocale);
+      expect(stored).toHaveProperty("narrative");
+      expect(stored).not.toHaveProperty("locales");
+      expect(serialized).not.toContain('"en":{"sections"');
+      expect(serialized).not.toContain('"ko":{"sections"');
+      expect(parseStoredResearchReportForPresentation(stored).kind).toBe(
+        "workflow-v3",
+      );
+    },
+  );
 });

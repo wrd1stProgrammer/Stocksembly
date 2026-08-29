@@ -235,9 +235,19 @@ function actionablePublicThesis(input: {
 
 function contraryContribution(
   departmentId: WorkflowDepartmentId,
-  stance: "upside_skewed" | "downside_skewed" | "wait_for_proof",
+  stance:
+    | "upside_skewed"
+    | "downside_skewed"
+    | "wait_for_proof"
+    | "balanced"
+    | "insufficient_evidence",
 ): "supports" | "opposes" | undefined {
-  if (stance === "wait_for_proof") return undefined;
+  if (
+    stance === "wait_for_proof" ||
+    stance === "balanced" ||
+    stance === "insufficient_evidence"
+  )
+    return undefined;
   if (departmentId === "risk")
     return stance === "downside_skewed" ? "opposes" : "supports";
   return stance === "upside_skewed" ? "opposes" : "supports";

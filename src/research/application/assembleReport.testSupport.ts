@@ -93,6 +93,15 @@ export function makeAuthoritativeReportInput() {
       ko: "후속 공시는 기록된 결론을 변경할 수 있습니다.",
     },
   } as const;
+  const canonicalLineage = (sectionKey: (typeof sections)[number]) => ({
+    sentenceIds: [
+      sectionKey === "operational_scenarios"
+        ? "scenario:revenue"
+        : `sentence:${sectionKey}`,
+    ],
+    claimIds: result.claims.map((claim) => claim.claimId),
+    sourceArtifactIds: [uuid(305)],
+  });
   return {
     reportId: uuid(300),
     reportArtifactId: uuid(302),
@@ -234,7 +243,7 @@ export function makeAuthoritativeReportInput() {
     })),
     chair: {
       kind: "chair_synthesis" as const,
-      sourceArtifactIds: [uuid(303)],
+      sourceArtifactIds: [uuid(305)],
       decisionBrief: {
         stance: "wait_for_proof" as const,
         confidence: "medium" as const,
@@ -294,6 +303,40 @@ export function makeAuthoritativeReportInput() {
       unknowns: result.retainedOpenQuestions
         .slice(0, 2)
         .map((question) => question.text),
+      canonicalNarrativeV3: {
+        kind: "chair_synthesis_v3" as const,
+        sourceLocale: "en" as const,
+        stance: "balanced" as const,
+        decisiveReason: sectionText.ten_second_brief.en,
+        strongestCountercase: sectionText.dissent_unknowns.en,
+        invalidationCheckpoint: sectionText.change_conditions.en,
+        decisionLineage: {
+          decisiveReason: canonicalLineage("ten_second_brief"),
+          strongestCountercase: canonicalLineage("dissent_unknowns"),
+          invalidationCheckpoint: canonicalLineage("change_conditions"),
+        },
+        teamViews: (["market", "company", "financial", "risk"] as const).map(
+          (departmentId) => ({
+            departmentId,
+            position: sectionText.ten_second_brief.en,
+            rationale: sectionText.ten_second_brief.en,
+            vote: "support_with_reservations" as const,
+            lineage: canonicalLineage("ten_second_brief"),
+          }),
+        ),
+        sections: sections.map((sectionKey) => ({
+          sectionKey,
+          narrative: sectionText[sectionKey].en,
+          lineage: canonicalLineage(sectionKey),
+        })),
+        anticipatedQuestions: [
+          {
+            question: sectionText.change_conditions.en,
+            answer: sectionText.change_conditions.en,
+            lineage: canonicalLineage("change_conditions"),
+          },
+        ],
+      },
     },
   };
 }

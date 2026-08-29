@@ -1,7 +1,12 @@
 import { buildAnticipatedQuestions } from "./anticipatedQuestions";
 import type { ResearchFileData } from "./compositions/types";
 import { sanitizePublicEditorialText } from "./domain/editorialQuality";
-import type { ResearchReport, WorkflowV2ResearchReport } from "./domain/report";
+import {
+  type ResearchReport,
+  type WorkflowV2ResearchReport,
+  type WorkflowV3ResearchReport,
+  workflowV3ReportForPresentation,
+} from "./domain/report";
 import type { ResearchComparison } from "./domain/researchComparison";
 import { workflowRoleById } from "./domain/roleRegistry";
 import { publicDecisionDimensionLabel } from "./publicPresentation";
@@ -544,10 +549,16 @@ function workflowV2ReportToFile(
 }
 
 export function researchReportToFile(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport | WorkflowV3ResearchReport,
   createdAt: string,
   comparison?: ResearchComparison,
 ): ResearchFileData {
+  if (report.schemaVersion === "workflow-v3")
+    return workflowV2ReportToFile(
+      workflowV3ReportForPresentation(report),
+      createdAt,
+      comparison,
+    );
   if (report.schemaVersion === "workflow-v2")
     return workflowV2ReportToFile(report, createdAt, comparison);
   const en = report.locales.en;

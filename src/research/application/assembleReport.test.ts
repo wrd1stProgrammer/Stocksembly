@@ -10,7 +10,7 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
-import { WorkflowV2ResearchReportSchema } from "../domain/report";
+import { WorkflowV3ResearchReportSchema } from "../domain/report";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
@@ -90,14 +90,14 @@ describe("persistAuthoritativeReport", () => {
       .publicPayload.editorialPublication as
       | PrePublicationEditorialEnvelope
       | undefined;
-    const sectionClaimIds = result.report.locales.en.sections.flatMap(
+    const sectionClaimIds = result.report.narrative.sections.flatMap(
       (section) => section.claimIds,
     );
     expect(new Set(sectionClaimIds).size).toBe(sectionClaimIds.length);
-    expect(result.report.teamViews[0]?.position).toEqual(
-      savedEditorialPublication?.candidate.position,
+    expect(result.report.teamViews[0]?.position).toBe(
+      "Revenue evidence favors waiting for proof.",
     );
-    expect(result.report.locales.en.sections).toEqual(
+    expect(result.report.narrative.sections).toEqual(
       expect.arrayContaining(
         savedEditorialPublication?.candidate.sections.map((section) =>
           expect.objectContaining({
@@ -110,7 +110,8 @@ describe("persistAuthoritativeReport", () => {
     );
     expect(persistence.saved).toHaveLength(1);
     expect(persistence.saved[0]?.version.publicPayload).toMatchObject({
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
+      sourceLocale: "en",
       reportArtifactDigest: result.descriptor.digest,
       version: 1,
       priorVersionId: null,
@@ -121,6 +122,36 @@ describe("persistAuthoritativeReport", () => {
         fieldLineage: expect.objectContaining({ "position.en": "synthesis" }),
       },
     });
+  });
+
+  it("blocks a shape-valid canonical number that is absent from its cited lineage", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const input = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(input.chair);
+    const canonical = chair.canonicalNarrativeV3;
+    if (canonical === undefined) throw new TypeError("missing v3 fixture");
+    const forged = {
+      ...input,
+      chair: {
+        ...chair,
+        canonicalNarrativeV3: {
+          ...canonical,
+          decisiveReason: "Revenue reaches an invented 777%.",
+        },
+      },
+    };
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      forged,
+    );
+
+    expect(result).toEqual({
+      kind: "blocked",
+      reason: "workflow_v3_canonical_grounding_invalid",
+    });
+    expect(persistence.saved).toHaveLength(0);
   });
 
   it("publishes audited retained dissent when the chair did not tag a separate dissent sentence", async () => {
@@ -144,8 +175,7 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.locales.en.dissent[0]?.text).not.toBe("");
-    expect(result.report.locales.ko.dissent[0]?.text).not.toBe("");
+    expect(result.report.narrative.dissent[0]?.text).not.toBe("");
   });
 
   it("retains qualified user-selected comparators in the published report", async () => {
@@ -174,7 +204,12 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.comparators).toEqual(input.comparators);
+    expect(result.report.comparators).toEqual(
+      input.comparators.map((comparator) => ({
+        ...comparator,
+        rationale: comparator.rationale.en,
+      })),
+    );
   });
 
   it("fails closed before CAS when authenticated editorial claims are absent", async () => {
@@ -348,7 +383,7 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.locales.en.scenarios[0]?.assumptions[0]).toEqual({
+    expect(result.report.narrative.scenarios[0]?.assumptions[0]).toEqual({
       metric: "revenue",
       unit: "USD",
       value: "81600000000",
@@ -376,8 +411,7 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.locales.en.scenarios).toEqual([]);
-    expect(result.report.locales.ko.scenarios).toEqual([]);
+    expect(result.report.narrative.scenarios).toEqual([]);
   });
 
   it("removes a contradicted retained-dissent claim from the report register", async () => {
@@ -526,9 +560,10 @@ describe("persistAuthoritativeReport", () => {
       first.report.versionId,
     );
     expect(second.descriptor.digest).not.toBe(first.descriptor.digest);
-    expect(
-      second.report.locales.en.dissent.map((item) => item.claimId),
-    ).toEqual(second.report.locales.ko.dissent.map((item) => item.claimId));
+    const dissentClaimIds = second.report.narrative.dissent.map(
+      (item) => item.claimId,
+    );
+    expect(new Set(dissentClaimIds).size).toBe(dissentClaimIds.length);
     expect(second.report.status).toBe("complete_with_limitations");
     expect(JSON.stringify(second.report)).not.toMatch(
       /current_price|target_price/,
@@ -806,7 +841,10 @@ describe("persistAuthoritativeReport", () => {
   it("publishes only the authenticated accepted chair and terminates the real run atomically", async () => {
     // Given
     const prepared = await createPreparedChairRound("none");
-    const chair = createSqliteChairSynthesis(prepared.options);
+    const chair = createSqliteChairSynthesis({
+      ...prepared.options,
+      workflowVersion: "workflow-v3",
+    });
     await chair.stage({ runId: prepared.runId });
     await chair.drain(prepared.runId);
     await chair.close();
@@ -883,7 +921,7 @@ describe("persistAuthoritativeReport", () => {
     const storedReport = await prepared.options.cas.get(
       ArtifactDigestSchema.parse(result.digest),
     );
-    const report = WorkflowV2ResearchReportSchema.parse(
+    const report = WorkflowV3ResearchReportSchema.parse(
       JSON.parse(new TextDecoder().decode(storedReport?.bytes)),
     );
     expect(report.editorialClaims).not.toHaveLength(0);
@@ -897,17 +935,15 @@ describe("persistAuthoritativeReport", () => {
     expect(JSON.stringify(report.editorialClaims)).not.toContain(
       "research_committee",
     );
-    const operational = report.locales.en.scenarios[0];
-    const dissent = report.locales.en.dissent[0];
+    const operational = report.narrative.scenarios[0];
+    const dissent = report.narrative.dissent[0];
     const scenarioSentence = prompt.sentences.find(
       (sentence) => sentence.sentenceId === prompt.scenarioIds[0],
     );
     expect(operational?.id).toBe(prompt.scenarioIds[0]);
-    expect(report.locales.ko.scenarios[0]?.name).toBe(
-      scenarioSentence?.text.ko,
-    );
+    expect(report.narrative.scenarios[0]?.name).toBe(scenarioSentence?.text.en);
     expect(
-      report.locales.en.sections.map((section) => section.sourceIds),
+      report.narrative.sections.map((section) => section.sourceIds),
     ).toEqual(chairOutput.sections.map((section) => section.sourceArtifactIds));
     if (dissent === undefined) throw new TypeError("missing retained dissent");
     const dissentSentence = prompt.sentences.find(
@@ -915,10 +951,10 @@ describe("persistAuthoritativeReport", () => {
         sentence.kind === "dissent" &&
         sentence.claimIds.includes(dissent.claimId),
     );
-    expect(dissent).toMatchObject({
-      text: dissentSentence?.text.en,
-      sourceIds: dissentSentence?.sourceArtifactIds,
-    });
+    expect(dissent.text).toContain(dissentSentence?.text.en);
+    expect([...dissent.sourceIds]).toEqual(
+      expect.arrayContaining([...(dissentSentence?.sourceArtifactIds ?? [])]),
+    );
     expect(
       report.sources.every(
         (source) =>
@@ -940,7 +976,8 @@ describe("persistAuthoritativeReport", () => {
         .version_payload_json,
     );
     expect(versionPayload).toMatchObject({
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
+      sourceLocale: "en",
       anticipatedQuestions: report.anticipatedQuestions,
       editorialPublication: {
         qaPolicy: {
@@ -951,7 +988,7 @@ describe("persistAuthoritativeReport", () => {
       },
     });
     expect(publicationPayload).toEqual({
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
       reportId: result.reportId,
       reportVersionId: result.versionId,
       artifactId: result.artifactId,

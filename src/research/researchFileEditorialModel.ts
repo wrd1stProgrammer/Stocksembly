@@ -1412,9 +1412,11 @@ function buildWorkflowV2EditorialModel(
   const conclusionIndex =
     structured.decision.stance === "upside_skewed"
       ? 75
-      : structured.decision.stance === "wait_for_proof"
-        ? 50
-        : 25;
+      : structured.decision.stance === "downside_skewed"
+        ? 25
+        : structured.decision.stance === "insufficient_evidence"
+          ? 35
+          : 50;
   const evidenceReliability = reliability(file);
   const directAnswer = text(structured.decision.decisiveReason);
   const tenSecondBrief = narrativeById("ten_second_brief").trim();

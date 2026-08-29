@@ -11,6 +11,8 @@ import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
 import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisModelOutputSchema,
+  ChairSynthesisV3RawModelOutputSchema,
+  chairSynthesisV3Prompt,
   type ChairSynthesisReplay,
   type PersistedChairJob,
   PersistedChairJobSchema,
@@ -39,6 +41,7 @@ export class ChairSynthesisSqliteAuthority {
     path: string,
     private readonly options: {
       readonly cas: ArtifactCasPort;
+      readonly workflowVersion?: "workflow-v2" | "workflow-v3";
       readonly migrationsDirectory?: string;
     },
   ) {
@@ -95,11 +98,20 @@ export class ChairSynthesisSqliteAuthority {
     );
     if (prompt === undefined) return "audited_inputs_incomplete";
     const validationPrompt = JSON.stringify(prompt);
-    const promptJson = chairSynthesisModelPrompt(prompt);
+    const promptJson =
+      this.options.workflowVersion === "workflow-v3"
+        ? chairSynthesisV3Prompt({
+            sourceLocale: prompt.mandate.locale,
+            evidenceCatalog: validationPrompt,
+          })
+        : chairSynthesisModelPrompt(prompt);
     const inputHash = codexInputHash({
       stage: "chair_synthesis",
       prompt: promptJson,
-      outputSchema: ChairSynthesisModelOutputSchema,
+      outputSchema:
+        this.options.workflowVersion === "workflow-v3"
+          ? ChairSynthesisV3RawModelOutputSchema
+          : ChairSynthesisModelOutputSchema,
     });
     const existing = this.loadJob(runId);
     if (existing !== undefined) {

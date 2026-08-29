@@ -20,6 +20,7 @@ import type {
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
+  WorkflowV3ResearchReport,
 } from "../../research/domain/report";
 import { parseStoredResearchReportVersioned } from "../../research/domain/reportStorage";
 import {
@@ -192,7 +193,10 @@ export async function loadReport(
   reportId: string,
   reloadSequence: number,
 ): Promise<{
-  readonly report: ResearchReport | WorkflowV2ResearchReport;
+  readonly report:
+    | ResearchReport
+    | WorkflowV2ResearchReport
+    | WorkflowV3ResearchReport;
   readonly comparison?: ResearchComparison;
 }> {
   let lastError: Error = new Error("Published report is unavailable");
@@ -239,7 +243,7 @@ export function LiveOfficeResearchRoom({
 }: Props) {
   const [locale, setLocale] = useState(initialLocale);
   const [report, setReport] = useState<
-    ResearchReport | WorkflowV2ResearchReport
+    ResearchReport | WorkflowV2ResearchReport | WorkflowV3ResearchReport
   >();
   const [comparison, setComparison] = useState<ResearchComparison>();
   const [reportLoadState, setReportLoadState] = useState<

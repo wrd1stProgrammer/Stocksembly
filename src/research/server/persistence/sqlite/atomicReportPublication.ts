@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { z } from "zod";
 import type { AuthoritativeReportCommit } from "../../../application/assembleReportPersistence";
 import type { AcceptedChairFence } from "../../../application/authoritativeReportPublisherContracts";
+import { hashCanonical } from "../../../domain/contractHelpers";
 import {
   ArtifactIdSchema,
   AttemptIdSchema,
@@ -12,6 +13,7 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../../../domain/ids";
+import { WorkflowV3ResearchReportSchema } from "../../../domain/report";
 import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
 import {
   evaluatePrePublicationEditorialGate,
@@ -94,7 +96,28 @@ export function publishReportAtomically(
       string,
       unknown
     >;
-    if (publicPayload["schemaVersion"] === "workflow-v2") {
+    if (publicPayload["schemaVersion"] !== input.commit.report.schemaVersion)
+      throw new TypeError("workflow_report_payload_schema_version_mismatch");
+    if (publicPayload["schemaVersion"] === "workflow-v3") {
+      const canonical = WorkflowV3ResearchReportSchema.parse(
+        input.commit.report,
+      );
+      if (
+        canonical.reportId !== input.commit.version.reportId ||
+        canonical.versionId !== input.commit.version.versionId ||
+        canonical.runId !== input.commit.version.runId ||
+        canonical.snapshotId !== input.commit.version.snapshotId ||
+        canonical.sourceLocale !== publicPayload["sourceLocale"] ||
+        publicPayload["narrativeLineage"] === undefined ||
+        hashCanonical(publicPayload["narrativeLineage"]) !==
+          hashCanonical(canonical.narrativeLineage)
+      )
+        throw new TypeError("workflow_v3_narrative_lineage_mismatch");
+    }
+    if (
+      publicPayload["schemaVersion"] === "workflow-v2" ||
+      publicPayload["schemaVersion"] === "workflow-v3"
+    ) {
       const envelope = publicPayload["editorialPublication"] as
         | PrePublicationEditorialEnvelope
         | undefined;

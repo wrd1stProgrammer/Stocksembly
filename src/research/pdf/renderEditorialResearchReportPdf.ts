@@ -13,13 +13,18 @@ import type { NormalizedMetric } from "../domain/comparatorQualificationContract
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
+  WorkflowV3ResearchReport,
 } from "../domain/report";
 import { formatPercent, publicPdfEvidenceSource } from "../publicPresentation";
+import { publicStanceLabel } from "../publicStanceLabels";
 import { buildResearchFileEditorialModel } from "../researchFileEditorialModel";
 import { researchReportToFile } from "../researchReportToFile";
 
 type PdfProps = {
-  readonly report: ResearchReport | WorkflowV2ResearchReport;
+  readonly report:
+    | ResearchReport
+    | WorkflowV2ResearchReport
+    | WorkflowV3ResearchReport;
   readonly symbol: string;
   readonly locale: Locale;
   readonly createdAt: string;
@@ -1058,12 +1063,6 @@ type EditorialClaim = NonNullable<
   ResearchFileData["structuredEditorial"]
 >["claims"][number];
 
-const stanceLabels = {
-  upside_skewed: { en: "Upside skewed", ko: "상방 우위" },
-  wait_for_proof: { en: "Wait for proof", ko: "확인 대기" },
-  downside_skewed: { en: "Downside skewed", ko: "하방 우위" },
-} as const;
-
 const confidenceLabels = {
   high: { en: "High confidence", ko: "높은 확신" },
   medium: { en: "Medium confidence", ko: "중간 확신" },
@@ -1398,7 +1397,7 @@ function v2FirstPage(
     stack: [
       ...v2Header(symbol, title, version),
       {
-        text: localize(stanceLabels[decision.stance], locale),
+        text: publicStanceLabel(decision.stance, locale),
         style: "stance",
       },
       {

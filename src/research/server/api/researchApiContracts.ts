@@ -122,5 +122,6 @@ export type PublicReportLoader = (
 ) => Promise<
   | import("../../domain/report").ResearchReport
   | import("../../domain/report").WorkflowV2ResearchReport
+  | import("../../domain/report").WorkflowV3ResearchReport
   | undefined
 >;
