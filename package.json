@@ -27,6 +27,7 @@
     "readiness": "pnpm research:worker:readiness",
     "health": "pnpm research:worker:health",
     "research:worker:probe": "pnpm research:worker:build && node .stocksembly-verification/research-worker/runtimeProbe.js runtime-probe",
+    "research:quality": "vite build --config vite.worker.config.ts --ssr scripts/run-research-quality.ts --outDir .stocksembly-verification/research-quality && node .stocksembly-verification/research-quality/run-research-quality.js",
     "briefing:worker:typecheck": "tsc -p tsconfig.briefing-worker.json --noEmit --pretty false",
     "briefing:worker:build": "pnpm briefing:worker:typecheck && vite build --config vite.worker.config.ts --ssr src/briefing/worker/briefingWorker.ts --outDir .stocksembly-verification/briefing-worker",
     "briefing:preview:generate": "vite build --config vite.worker.config.ts --ssr src/briefing/worker/localBriefingPreview.ts --outDir .stocksembly-verification/briefing-preview && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 NODE_ENV=development node --env-file-if-exists=.env.local .stocksembly-verification/briefing-preview/localBriefingPreview.js NVDA AAPL",

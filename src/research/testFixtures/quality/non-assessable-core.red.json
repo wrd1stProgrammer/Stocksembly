@@ -1,0 +1,1 @@
+{"id":"non-assessable-core","coreClaims":[{"assessable":false}],"expectedFatalReasons":["non_assessable_core_claim"],"expectedScoreComponents":{"decisionUsefulness":2,"evidenceTraceability":2,"comparatorValuationDiscipline":2,"editorialClarity":2,"reliability":2},"expectedRuntimeDisposition":"omit_item"}

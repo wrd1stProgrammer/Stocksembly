@@ -1,0 +1,1 @@
+{"id":"polluted-peer-median","peerResult":{"emitted":true,"rows":[{"qualified":true},{"qualified":false},{"qualified":true}]},"expectedFatalReasons":["unqualified_numeric_peer"],"expectedScoreComponents":{"decisionUsefulness":2,"evidenceTraceability":2,"comparatorValuationDiscipline":0.75,"editorialClarity":2,"reliability":2},"expectedRuntimeDisposition":"omit_item"}

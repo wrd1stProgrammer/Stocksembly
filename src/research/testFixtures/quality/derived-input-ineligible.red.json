@@ -1,0 +1,1 @@
+{"id":"derived-input-ineligible","decisiveAnalyses":[{"verdict":"derived_supported","inputIds":["fact-2"],"eligibleInputIds":["fact-1"]}],"expectedFatalReasons":["derived_input_ineligible"],"expectedScoreComponents":{"decisionUsefulness":2,"evidenceTraceability":1.25,"comparatorValuationDiscipline":2,"editorialClarity":2,"reliability":2},"expectedRuntimeDisposition":"omit_item"}
