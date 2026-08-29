@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MemoOutputSchema } from "../domain/agentOutputs";
+import type { SpecialistRoleId } from "../domain/roleRegistry";
 import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import { codexInputHash } from "../server/codex/codexRunner";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
@@ -36,7 +37,7 @@ const expectedDimensions = {
 } as const;
 
 function quantifiedCandidate(input: {
-  readonly roleId: "financial" | "valuation";
+  readonly roleId: SpecialistRoleId;
   readonly claimSlots: ReturnType<typeof allocateSpecialistClaimSlots>;
   readonly artifactId: string;
   readonly metricId: string;

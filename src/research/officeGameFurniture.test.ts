@@ -109,9 +109,6 @@ describe("office snapshot furniture", () => {
     )) {
       const state = states.find((candidate) => candidate.id === furniture.id);
       if (!state) throw new Error(`Missing furniture state ${furniture.id}`);
-      if (!("memberId" in furniture)) {
-        throw new Error(`Missing workstation owner ${furniture.id}`);
-      }
       const member = OFFICE_SCENE_MANIFEST.roster.find(
         (candidate) => candidate.id === furniture.memberId,
       );
