@@ -8,6 +8,9 @@ import {
   type ResearchTranslationLocale,
 } from "./researchTranslationLocales";
 import {
+  RESEARCH_TRANSLATION_MODEL_VERSION,
+  type ResearchTranslationBatchInvocation,
+  type ResearchTranslationExecutionOptions,
   type ResearchTranslationItem,
   translateResearchText,
 } from "./researchTranslationRunner";
@@ -224,9 +227,22 @@ function isLocalizedText(
 
 function excludedTranslationPath(path: readonly string[]): boolean {
   return path.some((part) =>
-    /^(?:evidenceIndex|coverage|sources?|sourceRefs|sourceArtifactIds|evidenceArtifactIds|counterevidenceArtifactIds|citations?)$/u.test(
+    /^(?:evidenceIndex|coverage|sources?|sourceRefs|sourceArtifactIds|evidenceArtifactIds|counterevidenceArtifactIds|citations?|sourceUrl|url|exactQuote|quote|quotation|excerpt|sourceExcerpt|identifiers?|ticker|symbol)$/u.test(
       part,
     ),
+  );
+}
+
+function protectedTranslationLiteral(text: string): boolean {
+  const trimmed = text.trim();
+  if (/^https?:\/\/\S+$/u.test(trimmed)) return true;
+  if (/^[A-Z0-9][A-Z0-9._:/-]*$/u.test(trimmed)) return true;
+  return (
+    (/^"[\s\S]*"$/u.test(trimmed) ||
+      /^'[\s\S]*'$/u.test(trimmed) ||
+      /^“[\s\S]*”$/u.test(trimmed) ||
+      /^‘[\s\S]*’$/u.test(trimmed)) &&
+    trimmed.length >= 2
   );
 }
 
@@ -301,8 +317,9 @@ export type ResearchTranslationConversation = {
 };
 
 type TranslationCacheEnvelope = {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly file: ResearchFileData;
+  readonly question: string;
   readonly runDetail: PublicRunDetail;
   readonly conversation: readonly ResearchTranslationConversation[];
 };
@@ -313,9 +330,11 @@ function translationCacheEnvelope(
   if (typeof value !== "object" || value === null) return undefined;
   const record = value as MutableRecord;
   if (
-    record["schemaVersion"] !== 1 ||
+    record["schemaVersion"] !== 2 ||
     typeof record["file"] !== "object" ||
     record["file"] === null ||
+    typeof record["question"] !== "string" ||
+    record["question"].trim() === "" ||
     typeof record["runDetail"] !== "object" ||
     record["runDetail"] === null ||
     !Array.isArray(record["conversation"])
@@ -324,10 +343,151 @@ function translationCacheEnvelope(
   return value as TranslationCacheEnvelope;
 }
 
+export const RESEARCH_TRANSLATION_SCHEMA_VERSION = 2;
+
+export type ResearchTranslationCacheKey = {
+  readonly reportId: string;
+  readonly reportVersion: number;
+  readonly sourceContentHash: string;
+  readonly sourceLocale: ResearchLocale;
+  readonly targetLocale: ResearchTranslationLocale;
+  readonly translationSchemaVersion: number;
+  readonly modelVersion: string;
+};
+
+export type ResearchTranslationModelCall = {
+  readonly invocationId: string;
+  readonly batchOrdinal: number;
+  readonly batchInputHash: string;
+  readonly outcome: "started" | "succeeded" | "failed";
+};
+
+const TranslationModelCallRowSchema = z.object({
+  invocation_id: z.string().uuid(),
+  batch_ordinal: z.number().int().positive(),
+  batch_input_hash: z.string().regex(/^[a-f0-9]{64}$/u),
+  outcome: z.enum(["started", "succeeded", "failed"]),
+});
+
+export function researchTranslationModelCalls(
+  databasePath: string,
+  key: ResearchTranslationCacheKey,
+): readonly ResearchTranslationModelCall[] {
+  const database = openDatabase(databasePath, true);
+  try {
+    return database
+      .prepare(`SELECT invocation_id, batch_ordinal, batch_input_hash, outcome
+        FROM research_translation_model_calls
+        WHERE report_id = ? AND report_version = ? AND source_content_hash = ?
+          AND source_locale = ? AND target_locale = ?
+          AND translation_schema_version = ? AND model_version = ?
+        ORDER BY batch_ordinal, invocation_id`)
+      .all(
+        key.reportId,
+        key.reportVersion,
+        key.sourceContentHash,
+        key.sourceLocale,
+        key.targetLocale,
+        key.translationSchemaVersion,
+        key.modelVersion,
+      )
+      .map((value) => TranslationModelCallRowSchema.parse(value))
+      .map((row) => ({
+        invocationId: row.invocation_id,
+        batchOrdinal: row.batch_ordinal,
+        batchInputHash: row.batch_input_hash,
+        outcome: row.outcome,
+      }));
+  } finally {
+    database.close();
+  }
+}
+
+type TranslatedResearchProjectionOptions = {
+  readonly translationSchemaVersion?: number;
+  readonly modelVersion?: string;
+  readonly invokeBatch?: ResearchTranslationExecutionOptions["invokeBatch"];
+};
+
+function recordTranslationInvocation(
+  databasePath: string,
+  key: ResearchTranslationCacheKey,
+  batch: ResearchTranslationBatchInvocation,
+): void {
+  const database = openDatabase(databasePath);
+  try {
+    database
+      .prepare(`INSERT INTO research_translation_model_calls(
+        invocation_id, report_id, report_version, source_content_hash,
+        source_locale, target_locale, translation_schema_version, model_version,
+        batch_ordinal, batch_input_hash, outcome, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'started',
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
+      .run(
+        batch.invocationId,
+        key.reportId,
+        key.reportVersion,
+        key.sourceContentHash,
+        key.sourceLocale,
+        key.targetLocale,
+        key.translationSchemaVersion,
+        key.modelVersion,
+        batch.ordinal,
+        batch.inputHash,
+      );
+  } finally {
+    database.close();
+  }
+}
+
+function completeTranslationInvocation(
+  databasePath: string,
+  invocationId: string,
+  outcome: "succeeded" | "failed",
+): void {
+  const database = openDatabase(databasePath);
+  try {
+    database
+      .prepare(`UPDATE research_translation_model_calls SET outcome = ?
+        WHERE invocation_id = ? AND outcome = 'started'`)
+      .run(outcome, invocationId);
+  } finally {
+    database.close();
+  }
+}
+
 function translatedRenderLocale(
   targetLocale: ResearchTranslationLocale,
 ): ResearchLocale {
   return targetLocale === "ko" ? "ko" : "en";
+}
+
+export function publicResearchTranslationItems(
+  file: ResearchFileData,
+  question: string,
+  runDetail: PublicRunDetail,
+  conversation: readonly ResearchTranslationConversation[],
+  sourceLocale: ResearchLocale,
+): readonly ResearchTranslationItem[] {
+  const source = new Map(collectLocalizedText(file, sourceLocale));
+  collectLocalizedText(runDetail, sourceLocale, ["__runDetail__"], source);
+  conversation.forEach((exchange, index) => {
+    if (
+      exchange.question.trim().length > 0 &&
+      !protectedTranslationLiteral(exchange.question)
+    )
+      source.set(`__conversation__:${index}:question`, exchange.question);
+    if (
+      exchange.answer.trim().length > 0 &&
+      !protectedTranslationLiteral(exchange.answer)
+    )
+      source.set(`__conversation__:${index}:answer`, exchange.answer);
+  });
+  if (question.trim().length > 0 && !protectedTranslationLiteral(question))
+    source.set("__question__", question.trim());
+  return Object.freeze(
+    [...source.entries()].map(([id, text]) => Object.freeze({ id, text })),
+  );
 }
 
 export async function translatedResearchProjection(
@@ -340,6 +500,9 @@ export async function translatedResearchProjection(
   conversation: readonly ResearchTranslationConversation[],
   sourceLocale: ResearchLocale,
   targetLocale: ResearchTranslationLocale,
+  reportVersion: number,
+  sourceContentHash: string,
+  options: TranslatedResearchProjectionOptions = {},
 ): Promise<TranslatedResearchProjection> {
   const renderLocale = translatedRenderLocale(targetLocale);
   if (sourceLocale === targetLocale)
@@ -350,60 +513,68 @@ export async function translatedResearchProjection(
       conversation,
       renderLocale: sourceLocale,
     };
+  const cacheKey: ResearchTranslationCacheKey = {
+    reportId,
+    reportVersion,
+    sourceContentHash,
+    sourceLocale,
+    targetLocale,
+    translationSchemaVersion:
+      options.translationSchemaVersion ?? RESEARCH_TRANSLATION_SCHEMA_VERSION,
+    modelVersion: options.modelVersion ?? RESEARCH_TRANSLATION_MODEL_VERSION,
+  };
   const cachedDatabase = openDatabase(databasePath, true);
-  let cachedFile: ResearchFileData | undefined;
   let cachedEnvelope: TranslationCacheEnvelope | undefined;
-  let cachedQuestion: string | undefined;
   try {
     const fileRow = cachedDatabase
       .prepare(`SELECT file_json FROM research_report_translations
-        WHERE report_id = ? AND locale = ?`)
-      .get(reportId, targetLocale) as
-      | { readonly file_json?: unknown }
-      | undefined;
+        WHERE report_id = ? AND report_version = ? AND source_content_hash = ?
+          AND source_locale = ? AND locale = ?
+          AND translation_schema_version = ? AND model_version = ?`)
+      .get(
+        reportId,
+        reportVersion,
+        sourceContentHash,
+        sourceLocale,
+        targetLocale,
+        cacheKey.translationSchemaVersion,
+        cacheKey.modelVersion,
+      ) as { readonly file_json?: unknown } | undefined;
     if (typeof fileRow?.file_json === "string") {
       const parsed: unknown = JSON.parse(fileRow.file_json);
       cachedEnvelope = translationCacheEnvelope(parsed);
-      cachedFile = cachedEnvelope?.file ?? (parsed as ResearchFileData);
     }
-    const questionRow = cachedDatabase
-      .prepare(`SELECT question FROM research_question_localizations
-        WHERE run_id = ? AND locale = ?`)
-      .get(runId, targetLocale) as { readonly question?: unknown } | undefined;
-    if (typeof questionRow?.question === "string")
-      cachedQuestion = questionRow.question;
   } finally {
     cachedDatabase.close();
   }
 
-  if (cachedEnvelope !== undefined && cachedQuestion !== undefined)
+  if (cachedEnvelope !== undefined)
     return {
       file: cachedEnvelope.file,
-      question: cachedQuestion,
+      question: cachedEnvelope.question,
       runDetail: cachedEnvelope.runDetail,
       conversation: cachedEnvelope.conversation,
       renderLocale,
     };
 
-  const source =
-    cachedFile === undefined
-      ? new Map(collectLocalizedText(file, sourceLocale))
-      : new Map<string, string>();
-  collectLocalizedText(runDetail, sourceLocale, ["__runDetail__"], source);
-  conversation.forEach((exchange, index) => {
-    if (exchange.question.trim().length > 0)
-      source.set(`__conversation__:${index}:question`, exchange.question);
-    if (exchange.answer.trim().length > 0)
-      source.set(`__conversation__:${index}:answer`, exchange.answer);
-  });
-  if (cachedQuestion === undefined) source.set("__question__", question.trim());
-  const items: ResearchTranslationItem[] = [...source.entries()].map(
-    ([id, text]) => ({ id, text }),
+  const items = publicResearchTranslationItems(
+    file,
+    question,
+    runDetail,
+    conversation,
+    sourceLocale,
   );
-  const translated = await translateResearchText(items, targetLocale);
-  const output = cachedFile ?? (structuredClone(file) as ResearchFileData);
-  if (cachedFile === undefined)
-    applyTranslations(output, renderLocale, translated);
+  const translated = await translateResearchText(items, targetLocale, {
+    beforeBatchInvocation: async (batch) =>
+      recordTranslationInvocation(databasePath, cacheKey, batch),
+    afterBatchInvocation: async (batch, outcome) =>
+      completeTranslationInvocation(databasePath, batch.invocationId, outcome),
+    ...(options.invokeBatch === undefined
+      ? {}
+      : { invokeBatch: options.invokeBatch }),
+  });
+  const output = structuredClone(file) as ResearchFileData;
+  applyTranslations(output, renderLocale, translated);
   const translatedRunDetail = structuredClone(runDetail) as PublicRunDetail;
   applyTranslations(translatedRunDetail, renderLocale, translated, [
     "__runDetail__",
@@ -415,16 +586,21 @@ export async function translatedResearchProjection(
     answer:
       translated.get(`__conversation__:${index}:answer`) ?? exchange.answer,
   }));
-  const translatedQuestion =
-    cachedQuestion ?? translated.get("__question__")?.trim();
+  const translatedQuestion = protectedTranslationLiteral(question)
+    ? question.trim()
+    : translated.get("__question__")?.trim();
   if (translatedQuestion === undefined || translatedQuestion.length === 0)
     throw new TypeError("research_question_translation_incomplete");
   const database = openDatabase(databasePath);
   try {
     const saveFile = database.prepare(`INSERT INTO research_report_translations(
-      report_id, locale, file_json, created_at
-    ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    ON CONFLICT(report_id, locale) DO UPDATE SET
+      report_id, locale, source_locale, report_version, source_content_hash,
+      translation_schema_version, model_version, file_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ON CONFLICT(
+      report_id, report_version, source_content_hash, source_locale, locale,
+      translation_schema_version, model_version
+    ) DO UPDATE SET
       file_json = excluded.file_json, created_at = excluded.created_at`);
     const saveQuestion =
       database.prepare(`INSERT INTO research_question_localizations(
@@ -436,15 +612,20 @@ export async function translatedResearchProjection(
       saveFile.run(
         reportId,
         targetLocale,
+        sourceLocale,
+        reportVersion,
+        sourceContentHash,
+        cacheKey.translationSchemaVersion,
+        cacheKey.modelVersion,
         JSON.stringify({
-          schemaVersion: 1,
+          schemaVersion: 2,
           file: output,
+          question: translatedQuestion,
           runDetail: translatedRunDetail,
           conversation: translatedConversation,
         } satisfies TranslationCacheEnvelope),
       );
-      if (cachedQuestion === undefined)
-        saveQuestion.run(runId, targetLocale, translatedQuestion);
+      saveQuestion.run(runId, targetLocale, translatedQuestion);
     })();
   } finally {
     database.close();
