@@ -37,6 +37,14 @@ const snapshot: BriefingSourceSnapshot = {
   limitations: [],
 };
 
+function requiredAt<T>(values: readonly T[], index: number): T {
+  const value = values[index];
+  if (value === undefined) {
+    throw new Error(`Missing fixture at index ${index}`);
+  }
+  return value;
+}
+
 function draft(): BriefingDraft {
   return {
     headline:
@@ -165,14 +173,14 @@ describe("briefing estimated-language policy", () => {
         ...draft(),
         todayChecks: [
           {
-            ...draft().todayChecks[0],
+            ...requiredAt(draft().todayChecks, 0),
             horizon: "next_catalyst",
             timing: "2026-10-29",
           },
         ],
         upcomingEvents: [
           {
-            ...draft().upcomingEvents[0],
+            ...requiredAt(draft().upcomingEvents, 0),
             name: "JPM 실적 발표 (예상) (예상)",
           },
           {
@@ -211,7 +219,7 @@ describe("briefing estimated-language policy", () => {
         summary: "추정된 2026-10-29 (예상)에 실적을 확인합니다.",
         todayChecks: [
           {
-            ...draft().todayChecks[0],
+            ...requiredAt(draft().todayChecks, 0),
             horizon: "today",
             timing: "추정된 2026-10-29 (예상)",
           },
@@ -244,7 +252,7 @@ describe("briefing estimated-language policy", () => {
         ...draft(),
         materialChanges: [
           {
-            ...draft().materialChanges[0],
+            ...requiredAt(draft().materialChanges, 0),
             detail: "예상 (예상) 실적 발표를 확인합니다.",
           },
         ],
@@ -275,7 +283,7 @@ describe("briefing estimated-language policy", () => {
       ...snapshot,
       upcomingEvents: [
         {
-          ...snapshot.upcomingEvents[0],
+          ...requiredAt(snapshot.upcomingEvents, 0),
           scheduledAt: "2026-10-27T20:00:00.000Z",
         },
       ],
@@ -308,7 +316,7 @@ describe("briefing estimated-language policy", () => {
       ...snapshot,
       upcomingEvents: [
         {
-          ...snapshot.upcomingEvents[0],
+          ...requiredAt(snapshot.upcomingEvents, 0),
           scheduledAt: "2026-10-22T20:00:00.000Z",
         },
       ],
@@ -339,10 +347,10 @@ describe("briefing estimated-language policy", () => {
       ...snapshot,
       upcomingEvents: [
         {
-          ...snapshot.upcomingEvents[0],
+          ...requiredAt(snapshot.upcomingEvents, 0),
           scheduledAt: "2026-10-22T20:00:00.000Z",
         },
-        snapshot.upcomingEvents[1],
+        requiredAt(snapshot.upcomingEvents, 1),
       ],
     };
     const localized = localizeBriefingDraft(

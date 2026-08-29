@@ -114,7 +114,9 @@ describe("briefing decision policy", () => {
           resistance: 350,
         },
       },
-    ];
+    ] satisfies readonly (BriefingSourceSnapshot & {
+      marketReference: { previousHigh: number; previousLow: number };
+    })[];
 
     for (const fixture of fixtures) {
       // When

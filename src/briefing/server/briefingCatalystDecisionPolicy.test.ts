@@ -6,6 +6,14 @@ import type {
 import { sourceBackedDecisionChecks } from "./briefingDecisionPolicy";
 import { fallbackDecisionChecks } from "./briefingFallbackChecks";
 
+function requiredAt<T>(values: readonly T[], index: number): T {
+  const value = values[index];
+  if (value === undefined) {
+    throw new Error(`Missing fixture at index ${index}`);
+  }
+  return value;
+}
+
 function snapshot(
   symbol: string,
   certainty: "confirmed" | "estimated",
@@ -88,7 +96,10 @@ describe("deterministic catalyst decision policy", () => {
     for (const symbol of ["AAPL", "MSFT", "AMZN", "JPM"]) {
       const evidence = snapshot(symbol, "confirmed");
       const fallback = fallbackDecisionChecks("en", evidence, []);
-      const today = { ...fallback[0], title: `${symbol} current price range` };
+      const today = {
+        ...requiredAt(fallback, 0),
+        title: `${symbol} current price range`,
+      };
 
       // When
       const selected = sourceBackedDecisionChecks({
