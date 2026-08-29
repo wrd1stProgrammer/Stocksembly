@@ -57,6 +57,7 @@ export type ChairFault =
   | "invent_recommendation"
   | "v3_imperative_twice"
   | "v3_invented_number"
+  | "v3_lineage_metadata_mismatch"
   | "v3_stance_conflict"
   | "v3_hedge_twice"
   | "drop_position"
@@ -188,6 +189,14 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
         claimIds: sentence.claimIds,
         sourceArtifactIds: sentence.sourceArtifactIds,
       });
+      const decisiveLineage =
+        this.fault === "v3_lineage_metadata_mismatch"
+          ? {
+              sentenceIds: [decisive.sentenceId],
+              claimIds: [],
+              sourceArtifactIds: countercase.sourceArtifactIds,
+            }
+          : lineage(decisive);
       const narrative =
         sourceLocale === "ko"
           ? "검증된 근거는 균형 잡힌 판단을 지지합니다."
@@ -218,7 +227,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
             ? "다음 공시에서 실행이 약화되면 재검토합니다."
             : "Reassess if execution weakens in the next filing.",
         decisionLineage: {
-          decisiveReason: lineage(decisive),
+          decisiveReason: decisiveLineage,
           strongestCountercase: lineage(countercase),
           invalidationCheckpoint: lineage(invalidation),
         },

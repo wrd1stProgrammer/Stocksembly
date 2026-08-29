@@ -297,6 +297,24 @@ describe("workflow-v3 canonical chair synthesis", () => {
     },
   );
 
+  it("binds model lineage metadata to authenticated catalog sentence IDs", async () => {
+    const prepared = await createPreparedChairRound(
+      "v3_lineage_metadata_mismatch",
+    );
+    try {
+      const chair = createSqliteChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+      });
+      await chair.stage({ runId: prepared.runId });
+      const replay = await chair.drain(prepared.runId);
+      await chair.close();
+      expect(replay.publishable, JSON.stringify(replay)).toBe(true);
+    } finally {
+      prepared.cleanup();
+    }
+  });
+
   it("repairs repeated generic posture once and then degrades locally", async () => {
     const prepared = await createPreparedChairRound("v3_hedge_twice");
     try {

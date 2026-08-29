@@ -215,6 +215,52 @@ export function projectChairV3ForCommit(
     prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]),
   );
   type Lineage = RawOutput["decisionLineage"]["decisiveReason"];
+  const authenticatedLineage = (lineage: Lineage): Lineage => {
+    const sentences = lineage.sentenceIds.map((sentenceId) =>
+      catalog.get(sentenceId),
+    );
+    if (sentences.some((sentence) => sentence === undefined))
+      throw new TypeError("chair_v3_lineage_sentence_missing");
+    const authenticated = sentences.filter(
+      (sentence): sentence is (typeof prompt.sentences)[number] =>
+        sentence !== undefined,
+    );
+    return {
+      sentenceIds: lineage.sentenceIds,
+      claimIds: [...new Set(authenticated.flatMap((sentence) => sentence.claimIds))],
+      sourceArtifactIds: [
+        ...new Set(
+          authenticated.flatMap((sentence) => sentence.sourceArtifactIds),
+        ),
+      ],
+    };
+  };
+  const canonicalWithAuthenticatedLineage: RawOutput = {
+    ...canonical,
+    decisionLineage: {
+      decisiveReason: authenticatedLineage(
+        canonical.decisionLineage.decisiveReason,
+      ),
+      strongestCountercase: authenticatedLineage(
+        canonical.decisionLineage.strongestCountercase,
+      ),
+      invalidationCheckpoint: authenticatedLineage(
+        canonical.decisionLineage.invalidationCheckpoint,
+      ),
+    },
+    teamViews: canonical.teamViews.map((view) => ({
+      ...view,
+      lineage: authenticatedLineage(view.lineage),
+    })),
+    sections: canonical.sections.map((section) => ({
+      ...section,
+      lineage: authenticatedLineage(section.lineage),
+    })),
+    anticipatedQuestions: canonical.anticipatedQuestions.map((item) => ({
+      ...item,
+      lineage: authenticatedLineage(item.lineage),
+    })),
+  };
   const lineageFor = (sentence: (typeof prompt.sentences)[number]): Lineage => ({
     sentenceIds: [sentence.sentenceId],
     claimIds: sentence.claimIds,
@@ -264,38 +310,38 @@ export function projectChairV3ForCommit(
       : directional.stance;
   const stanceConflict = canonical.stance !== authoritativeStance;
   const normalizedCanonical: RawOutput = {
-    ...canonical,
+    ...canonicalWithAuthenticatedLineage,
     stance: authoritativeStance,
     decisiveReason: stanceConflict
       ? directional.decisive.text[canonical.sourceLocale]
       : grounded(
           canonical.decisiveReason,
-          canonical.decisionLineage.decisiveReason,
+          canonicalWithAuthenticatedLineage.decisionLineage.decisiveReason,
         ),
     decisionLineage: {
-      ...canonical.decisionLineage,
+      ...canonicalWithAuthenticatedLineage.decisionLineage,
       decisiveReason: stanceConflict
         ? lineageFor(directional.decisive)
-        : canonical.decisionLineage.decisiveReason,
+        : canonicalWithAuthenticatedLineage.decisionLineage.decisiveReason,
     },
     strongestCountercase: grounded(
       canonical.strongestCountercase,
-      canonical.decisionLineage.strongestCountercase,
+      canonicalWithAuthenticatedLineage.decisionLineage.strongestCountercase,
     ),
     invalidationCheckpoint: grounded(
       canonical.invalidationCheckpoint,
-      canonical.decisionLineage.invalidationCheckpoint,
+      canonicalWithAuthenticatedLineage.decisionLineage.invalidationCheckpoint,
     ),
-    teamViews: canonical.teamViews.map((view) => ({
+    teamViews: canonicalWithAuthenticatedLineage.teamViews.map((view) => ({
       ...view,
       position: grounded(view.position, view.lineage),
       rationale: grounded(view.rationale, view.lineage),
     })),
-    sections: canonical.sections.map((section) => ({
+    sections: canonicalWithAuthenticatedLineage.sections.map((section) => ({
       ...section,
       narrative: grounded(section.narrative, section.lineage),
     })),
-    anticipatedQuestions: canonical.anticipatedQuestions.map((item) => ({
+    anticipatedQuestions: canonicalWithAuthenticatedLineage.anticipatedQuestions.map((item) => ({
       ...item,
       question: grounded(item.question, item.lineage),
       answer: grounded(item.answer, item.lineage),
