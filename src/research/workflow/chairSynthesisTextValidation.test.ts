@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveEditorialItemDefect } from "../domain/editorialStance";
 import {
   normalizeReaderFacingPrecision,
   publicTextIsValid,
@@ -122,18 +123,29 @@ describe("chair synthesis public text", () => {
     ).toBe(true);
   });
 
-  it("does not reject a grounded direct trade conclusion", () => {
-    expect(
-      publicTextIsValid(
-        {
-          en: "Buy now because the operating margin reached 46.8.",
-          ko: "영업이익률이 46.8에 도달했으므로 지금 매수합니다.",
-        },
-        sources,
-        360,
-      ),
-    ).toBe(true);
-  });
+  it.each([
+    ["bUy NoW because the operating margin reached 46.8.", "upside"],
+    ["SeLl NoW because the operating margin reached 46.8.", "downside"],
+    ["영업이익률이 46.8에 도달했으므로 지금 매수합니다.", "upside"],
+    ["영업이익률이 46.8에 도달했으므로 즉시 매도합니다.", "downside"],
+  ] as const)(
+    "requests one evidence-language rewrite for %s",
+    (text, direction) => {
+      expect(
+        resolveEditorialItemDefect({ text, direction, repairAttempt: 0 }),
+      ).toEqual(
+        expect.objectContaining({ kind: "rewrite_required", attempt: 1 }),
+      );
+      expect(
+        resolveEditorialItemDefect({ text, direction, repairAttempt: 1 }),
+      ).toEqual(
+        expect.objectContaining({
+          kind: "omitted",
+          reportDisposition: "complete_with_limitations",
+        }),
+      );
+    },
+  );
 
   it("rejects a Korean mirror when English was requested", () => {
     expect(
