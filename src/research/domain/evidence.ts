@@ -34,11 +34,6 @@ export {
   type SourceLocator,
   SourceLocatorSchema,
 } from "./evidenceSchemas";
-export {
-  reconcileLicensedProviderValue,
-  type ComparableProviderValue,
-  type ProviderValueReconciliation,
-} from "./providerValueReconciliation";
 export { sealMandate, sealSnapshot } from "./evidenceSealing";
 export {
   type AcquisitionLedger,
@@ -54,3 +49,17 @@ export {
   type EvidenceChain,
   type EvidenceChainContext,
 } from "./evidenceVersioning";
+export {
+  type ComparableProviderValue,
+  type ProviderValueReconciliation,
+  reconcileLicensedProviderValue,
+} from "./providerValueReconciliation";
+export {
+  SOURCE_PURPOSES,
+  type SourcePurpose,
+  type SourcePurposeBinding,
+  type SourcePurposeBindingResult,
+  SourcePurposeBindingSchema,
+  sourcePurposesFor,
+  validateSourcePurposeBinding,
+} from "./sourcePurpose";

@@ -54,6 +54,16 @@ export const EVIDENCE_DATASETS = [
 ] as const;
 export type EvidenceDataset = (typeof EVIDENCE_DATASETS)[number];
 
+export const SOURCE_PURPOSES = [
+  "ownership",
+  "event_catalyst",
+  "accounting_metric",
+  "valuation_metric",
+  "market_price_technical",
+  "macro",
+] as const;
+export type SourcePurpose = (typeof SOURCE_PURPOSES)[number];
+
 const SecLocatorSchema = z
   .object({
     kind: z.literal("sec_filing"),

@@ -16,6 +16,12 @@ export {
   type LocalizedClaimText,
   LocalizedClaimTextSchema,
 } from "./claimsSchema";
+export {
+  type SourcePurpose,
+  type SourcePurposeBinding,
+  type SourcePurposeBindingResult,
+  validateSourcePurposeBinding,
+} from "./sourcePurpose";
 
 export type AtomicClaimDraft = Omit<
   AtomicClaim,
