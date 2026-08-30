@@ -173,7 +173,11 @@ export async function persistAuthoritativeReport(
     ),
     normalizedCanonical.anticipatedQuestionIndexes,
   );
-  const publicationReport = normalizedCanonical.reduced
+  const canonicalWasReduced =
+    normalizedCanonical.reduced ||
+    (normalizedCanonical.canonical.publicationReductionReasons?.length ?? 0) >
+      0;
+  const publicationReport = canonicalWasReduced
     ? WorkflowV3ResearchReportSchema.parse({
         ...projectedPublicationReport,
         status: "complete_with_limitations",

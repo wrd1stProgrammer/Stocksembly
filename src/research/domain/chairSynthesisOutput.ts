@@ -99,6 +99,20 @@ export const ChairSynthesisV3CanonicalNarrativeSchema = z
           .strict(),
       )
       .max(32),
+    publicationReductionReasons: z
+      .array(
+        z.enum([
+          "direct_order_rewrite",
+          "repeated_posture_rewrite",
+          "anticipated_question_omission",
+          "grounding_rewrite",
+          "stance_reconciliation",
+          "deterministic_fallback",
+          "projection_fallback",
+        ]),
+      )
+      .max(7)
+      .optional(),
   })
   .strict()
   .readonly();

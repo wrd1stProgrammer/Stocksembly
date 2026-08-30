@@ -220,10 +220,13 @@ export function createChairSynthesisAttemptHandler(
           // because its prose or lineage projection is imperfect. Rebuild the
           // public narrative from the already audited sentence catalog while
           // keeping the successful runner evidence for the trusted commit.
-          candidate = projectChairV3ForCommit(
-            validationPrompt,
-            deterministicChairV3Fallback(validationPrompt),
-          );
+          candidate = projectChairV3ForCommit(validationPrompt, {
+            ...deterministicChairV3Fallback(validationPrompt),
+            publicationReductionReasons: [
+              "deterministic_fallback",
+              "projection_fallback",
+            ],
+          });
           process.stdout.write(
             `${JSON.stringify({
               kind: "chair_projection_recovered",

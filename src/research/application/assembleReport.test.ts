@@ -246,6 +246,38 @@ describe("persistAuthoritativeReport", () => {
     expect(persistence.saved).toHaveLength(1);
   });
 
+  it("discloses an upstream local prose reduction on an otherwise grounded report", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const input = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(input.chair);
+    const canonical = chair.canonicalNarrativeV3;
+    if (canonical === undefined) throw new TypeError("missing v3 fixture");
+    await seedAuthoritativeParents(cas, input);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      {
+        ...input,
+        chair: {
+          ...chair,
+          canonicalNarrativeV3: {
+            ...canonical,
+            publicationReductionReasons: ["direct_order_rewrite"],
+          },
+        },
+      },
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.status).toBe("complete_with_limitations");
+    expect(result.report.limitations).toContainEqual({
+      id: "limitation:canonical_publication_reduction",
+      capability: "canonical_optional_content",
+    });
+  });
+
   it("publishes the audited subset when optional canonical content includes unaudited claims", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();

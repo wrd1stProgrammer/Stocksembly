@@ -149,6 +149,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
     });
     expect(prompts).toHaveLength(1);
     expect(result.decisiveReason).toBe("Evidence supports upside.");
+    expect(result.publicationReductionReasons).toContain(
+      "direct_order_rewrite",
+    );
   });
 
   it("omits only an imperative optional sentence without another model launch", async () => {
@@ -184,6 +187,12 @@ describe("workflow-v3 canonical chair synthesis", () => {
       "No grounded countercase was retained.",
     );
     expect(result.anticipatedQuestions).toEqual([]);
+    expect(result.publicationReductionReasons).toEqual(
+      expect.arrayContaining([
+        "direct_order_rewrite",
+        "anticipated_question_omission",
+      ]),
+    );
   });
 
   it.each(["en", "ko"] as const)(

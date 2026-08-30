@@ -153,16 +153,16 @@ test("renders both bounded live quality reports with working sources", async ({
     const context = await browser.newContext({
       baseURL: baseUrl,
       viewport: { width: 1440, height: 900 },
-      extraHTTPHeaders: { authorization: `Bearer ${token}` },
     });
+    const sessionResponse = await context.request.get("/api/research/session", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(sessionResponse.status()).toBe(204);
     await context.tracing.start({
       screenshots: true,
       snapshots: true,
       sources: true,
     });
-    expect((await context.request.get("/api/research/session")).status()).toBe(
-      204,
-    );
     const page = await context.newPage();
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
@@ -192,11 +192,12 @@ test("renders both bounded live quality reports with working sources", async ({
           sourceUrl,
         );
       expect(renderedLinkCount).toBeGreaterThan(0);
-      const response = await context.request.get(sourceUrl, {
-        timeout: 30_000,
+      const response = await fetch(sourceUrl, {
+        redirect: "follow",
+        signal: AbortSignal.timeout(30_000),
       });
-      expect(response.status()).toBeLessThan(500);
-      sourceResults.push({ url: sourceUrl, status: response.status() });
+      expect(response.status).toBeLessThan(500);
+      sourceResults.push({ url: sourceUrl, status: response.status });
     }
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);

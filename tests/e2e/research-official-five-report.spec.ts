@@ -54,12 +54,10 @@ test("captures and exercises all official decision-report surfaces", async ({
     for (const viewport of viewports) {
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
-        extraHTTPHeaders: {
-          authorization,
-        },
       });
       const sessionResponse = await context.request.get(
         "/api/research/session",
+        { headers: { authorization } },
       );
       expect(sessionResponse.status()).toBe(204);
       const page = await context.newPage();

@@ -21,6 +21,9 @@ import {
 } from "./chairSynthesisValidation";
 
 type RawOutput = z.infer<typeof ChairSynthesisV3RawModelOutputSchema>;
+type PublicationReductionReason = NonNullable<
+  RawOutput["publicationReductionReasons"]
+>[number];
 type CatalogSentence = Readonly<{
   sentenceId: string;
   claimIds: readonly string[];
@@ -318,16 +321,24 @@ function degradedText(
 }
 
 function locallyDegrade(output: RawOutput): RawOutput {
+  const reductionReasons = new Set<PublicationReductionReason>();
+  const directOrderRewrite = (value: string, replacement: string) => {
+    if (!containsDirectOrderImperative(value)) return value;
+    reductionReasons.add("direct_order_rewrite");
+    return replacement;
+  };
   const originalSafeSections = output.sections.filter(
     (section) => !containsDirectOrderImperative(section.narrative),
   );
   const safeSections = output.sections.map((section) => ({
     ...section,
-    narrative: containsDirectOrderImperative(section.narrative)
-      ? degradedText(output.sourceLocale, "invalidation")
-      : section.narrative,
+    narrative: directOrderRewrite(
+      section.narrative,
+      degradedText(output.sourceLocale, "invalidation"),
+    ),
   }));
   const repeatedPosture = containsRepeatedGenericPosture(output);
+  if (repeatedPosture) reductionReasons.add("repeated_posture_rewrite");
   const genericPosture =
     /\b(?:wait|conditional|needs?\s+confirmation)\b|대기|조건부|확인\s*필요/iu;
   const directEvidenceText =
@@ -347,31 +358,34 @@ function locallyDegrade(output: RawOutput): RawOutput {
             ? "Verified evidence is insufficient."
             : "Verified evidence is balanced.";
   const decisiveReason = containsDirectOrderImperative(output.decisiveReason)
-    ? (originalSafeSections[0]?.narrative ?? directEvidenceText)
+    ? directOrderRewrite(
+        output.decisiveReason,
+        originalSafeSections[0]?.narrative ?? directEvidenceText,
+      )
     : repeatedPosture && genericPosture.test(output.decisiveReason)
       ? directEvidenceText
       : output.decisiveReason;
   return {
     ...output,
     decisiveReason,
-    strongestCountercase: containsDirectOrderImperative(
+    strongestCountercase: directOrderRewrite(
       output.strongestCountercase,
-    )
-      ? degradedText(output.sourceLocale, "countercase")
-      : output.strongestCountercase,
-    invalidationCheckpoint: containsDirectOrderImperative(
+      degradedText(output.sourceLocale, "countercase"),
+    ),
+    invalidationCheckpoint: directOrderRewrite(
       output.invalidationCheckpoint,
-    )
-      ? degradedText(output.sourceLocale, "invalidation")
-      : output.invalidationCheckpoint,
+      degradedText(output.sourceLocale, "invalidation"),
+    ),
     teamViews: output.teamViews.map((view) => ({
       ...view,
-      position: containsDirectOrderImperative(view.position)
-        ? degradedText(output.sourceLocale, "invalidation")
-        : view.position,
-      rationale: containsDirectOrderImperative(view.rationale)
-        ? degradedText(output.sourceLocale, "invalidation")
-        : view.rationale,
+      position: directOrderRewrite(
+        view.position,
+        degradedText(output.sourceLocale, "invalidation"),
+      ),
+      rationale: directOrderRewrite(
+        view.rationale,
+        degradedText(output.sourceLocale, "invalidation"),
+      ),
     })),
     sections: safeSections.map((section) => ({
       ...section,
@@ -382,11 +396,16 @@ function locallyDegrade(output: RawOutput): RawOutput {
           ? directEvidenceText
           : section.narrative,
     })),
-    anticipatedQuestions: output.anticipatedQuestions.filter(
-      (item) =>
+    anticipatedQuestions: output.anticipatedQuestions.filter((item) => {
+      const retained =
         !containsDirectOrderImperative(item.question) &&
-        !containsDirectOrderImperative(item.answer),
-    ),
+        !containsDirectOrderImperative(item.answer);
+      if (!retained) reductionReasons.add("anticipated_question_omission");
+      return retained;
+    }),
+    ...(reductionReasons.size === 0
+      ? { publicationReductionReasons: undefined }
+      : { publicationReductionReasons: [...reductionReasons] }),
   };
 }
 
@@ -474,7 +493,16 @@ export function deterministicChairV3Fallback(
     }),
     anticipatedQuestions: [],
   };
-  return ChairSynthesisV3ModelOutputSchema.parse(locallyDegrade(fallback));
+  const degraded = locallyDegrade(fallback);
+  return ChairSynthesisV3ModelOutputSchema.parse({
+    ...degraded,
+    publicationReductionReasons: [
+      ...new Set([
+        ...(degraded.publicationReductionReasons ?? []),
+        "deterministic_fallback" as const,
+      ]),
+    ],
+  });
 }
 
 export async function synthesizeChairV3(
@@ -516,6 +544,9 @@ export function projectChairV3ForCommit(
   const catalog = new Map(
     prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]),
   );
+  const publicationReductionReasons = new Set<PublicationReductionReason>(
+    canonical.publicationReductionReasons ?? [],
+  );
   type Lineage = RawOutput["decisionLineage"]["decisiveReason"];
   const authenticatedLineage = (
     lineage: Lineage,
@@ -528,6 +559,11 @@ export function projectChairV3ForCommit(
           sentence !== undefined,
       );
     const retained = authenticated.length > 0 ? authenticated : [fallback];
+    if (
+      authenticated.length !== lineage.sentenceIds.length ||
+      retained[0]?.sentenceId !== lineage.sentenceIds[0]
+    )
+      publicationReductionReasons.add("grounding_rewrite");
     return {
       sentenceIds: [
         ...new Set(retained.map((sentence) => sentence.sentenceId)),
@@ -589,9 +625,14 @@ export function projectChairV3ForCommit(
       ),
     })),
     anticipatedQuestions: canonical.anticipatedQuestions
-      .filter((item) =>
-        item.lineage.sentenceIds.some((sentenceId) => catalog.has(sentenceId)),
-      )
+      .filter((item) => {
+        const retained = item.lineage.sentenceIds.some((sentenceId) =>
+          catalog.has(sentenceId),
+        );
+        if (!retained)
+          publicationReductionReasons.add("anticipated_question_omission");
+        return retained;
+      })
       .map((item) => ({
         ...item,
         lineage: authenticatedLineage(item.lineage, directional.falsifier),
@@ -642,11 +683,15 @@ export function projectChairV3ForCommit(
       canonical.sourceLocale,
     )
       ? text
-      : (sentences[0]?.text[canonical.sourceLocale] ?? text);
+      : (() => {
+          publicationReductionReasons.add("grounding_rewrite");
+          return sentences[0]?.text[canonical.sourceLocale] ?? text;
+        })();
   };
   const authoritativeStance =
     directional.stance === "wait_for_proof" ? "balanced" : directional.stance;
   const stanceConflict = canonical.stance !== authoritativeStance;
+  if (stanceConflict) publicationReductionReasons.add("stance_reconciliation");
   const normalizedCanonical: RawOutput = {
     ...canonicalWithAuthenticatedLineage,
     stance: authoritativeStance,
@@ -685,6 +730,7 @@ export function projectChairV3ForCommit(
         question: grounded(item.question, item.lineage),
         answer: grounded(item.answer, item.lineage),
       })),
+    publicationReductionReasons: [...publicationReductionReasons],
   };
   const raw = ChairSynthesisModelOutputSchema.parse({
     kind: "chair_synthesis",
