@@ -213,6 +213,49 @@ describe("persistAuthoritativeReport", () => {
     });
   });
 
+  it("preserves all ten grounded questions when the canonical fallback has none", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const input = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(input.chair);
+    const canonical = chair.canonicalNarrativeV3;
+    if (canonical === undefined) throw new TypeError("missing v3 fixture");
+    await seedAuthoritativeParents(cas, input);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      {
+        ...input,
+        chair: {
+          ...chair,
+          canonicalNarrativeV3: {
+            ...canonical,
+            anticipatedQuestions: [],
+          },
+        },
+      },
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.anticipatedQuestions).toHaveLength(10);
+    expect(result.report.narrativeLineage.anticipatedQuestions).toHaveLength(
+      10,
+    );
+    const publicPayload = persistence.saved[0]?.version.publicPayload as
+      | {
+          anticipatedQuestions?: readonly unknown[];
+          editorialPublication?: {
+            candidate?: { anticipatedQuestions?: readonly unknown[] };
+          };
+        }
+      | undefined;
+    expect(publicPayload?.anticipatedQuestions).toHaveLength(10);
+    expect(
+      publicPayload?.editorialPublication?.candidate?.anticipatedQuestions,
+    ).toHaveLength(10);
+  });
+
   it("publishes an audited fallback when canonical prose is absent from its cited lineage", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -278,7 +321,7 @@ describe("persistAuthoritativeReport", () => {
     });
   });
 
-  it("publishes the audited subset when optional canonical content includes unaudited claims", async () => {
+  it("falls back to audited source questions when canonical Q&A is unaudited", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
     const valid = makeAuthoritativeReportInput();
@@ -339,7 +382,12 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.anticipatedQuestions).toEqual([]);
+    expect(result.report.anticipatedQuestions).toHaveLength(10);
+    expect(
+      result.report.anticipatedQuestions.some(
+        (question) => question.question === unauditedSentence.text.en,
+      ),
+    ).toBe(false);
     expect(
       result.report.narrative.sections.find(
         (section) => section.id === "dissent_unknowns",
@@ -353,7 +401,7 @@ describe("persistAuthoritativeReport", () => {
     expect(persistence.saved).toHaveLength(1);
   });
 
-  it("keeps original Q&A identity when a middle canonical question is removed", () => {
+  it("keeps original Q&A identity when canonical coverage omits a middle question", () => {
     const input = makeAuthoritativeReportInput();
     const assembled = assembleReport(input);
     expect(assembled.kind).toBe("assembled");
@@ -395,12 +443,12 @@ describe("persistAuthoritativeReport", () => {
 
     expect(
       projected.anticipatedQuestions.map((question) => question.questionId),
-    ).toEqual([first.questionId, third.questionId]);
+    ).toEqual([first.questionId, second.questionId, third.questionId]);
     expect(
       projected.anticipatedQuestions.some(
         (question) => question.questionId === second.questionId,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("preserves registered metric identifiers that are not UUIDs", () => {
@@ -430,7 +478,7 @@ describe("persistAuthoritativeReport", () => {
     ]);
   });
 
-  it("keeps canonical Q&A lineage aligned when a source question is absent", () => {
+  it("keeps fallback Q&A lineage aligned when a canonical source index is absent", () => {
     const input = makeAuthoritativeReportInput();
     const assembled = assembleReport(input);
     expect(assembled.kind).toBe("assembled");
@@ -438,20 +486,30 @@ describe("persistAuthoritativeReport", () => {
     const canonical = ChairSynthesisOutputSchema.parse(
       input.chair,
     ).canonicalNarrativeV3;
-    if (canonical === undefined || canonical.anticipatedQuestions.length === 0)
+    const canonicalQuestion = canonical?.anticipatedQuestions[0];
+    if (canonical === undefined || canonicalQuestion === undefined)
       throw new TypeError("missing canonical question fixtures");
 
     const projected = workflowV3ReportFromCanonicalNarrative(
       assembled.report,
       {
         ...canonical,
-        anticipatedQuestions: [canonical.anticipatedQuestions[0]!],
+        anticipatedQuestions: [canonicalQuestion],
       },
       new Map(),
       [999],
     );
 
-    expect(projected.anticipatedQuestions).toEqual([]);
+    expect(projected.anticipatedQuestions).toHaveLength(
+      assembled.report.anticipatedQuestions.length,
+    );
+    expect(
+      projected.anticipatedQuestions.map((question) => question.questionId),
+    ).toEqual(
+      assembled.report.anticipatedQuestions.map(
+        (question) => question.questionId,
+      ),
+    );
     expect(projected.narrativeLineage.anticipatedQuestions).toHaveLength(
       projected.anticipatedQuestions.length,
     );
@@ -1075,11 +1133,28 @@ describe("persistAuthoritativeReport", () => {
         (SELECT COUNT(*) FROM artifact_edges WHERE relation = 'derived-from') AS edges,
         (SELECT version FROM report_versions LIMIT 1) AS version`)
       .get();
+    const storedVersion = database
+      .prepare(
+        "SELECT public_payload_json AS publicPayload FROM report_versions LIMIT 1",
+      )
+      .get() as { readonly publicPayload: string };
+    const publicPayload = JSON.parse(storedVersion.publicPayload) as {
+      readonly anticipatedQuestions: readonly unknown[];
+      readonly editorialPublication: {
+        readonly candidate: {
+          readonly anticipatedQuestions: readonly unknown[];
+        };
+      };
+    };
     database.close();
     store.close();
     rmSync(temporary.directory, { recursive: true, force: true });
     expect(result.kind).toBe("published");
     expect(counts).toEqual({ versions: 1, edges: 14, version: 1 });
+    expect(publicPayload.anticipatedQuestions).toHaveLength(10);
+    expect(
+      publicPayload.editorialPublication.candidate.anticipatedQuestions,
+    ).toHaveLength(10);
   });
 
   it("rolls back SQLite report metadata and version when a parent edge is missing", async () => {

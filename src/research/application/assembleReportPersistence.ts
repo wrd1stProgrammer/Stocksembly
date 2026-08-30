@@ -200,15 +200,7 @@ export async function persistAuthoritativeReport(
   const canonicalQuestionCount = publicationReport.anticipatedQuestions.length;
   const canonicalEditorialPublication = {
     ...editorialPublication,
-    candidate: {
-      ...editorialPublication.candidate,
-      anticipatedQuestions:
-        normalizedCanonical.anticipatedQuestionIndexes.flatMap((index) => {
-          const question =
-            editorialPublication.candidate.anticipatedQuestions[index];
-          return question === undefined ? [] : [question];
-        }),
-    },
+    candidate: editorialPublication.candidate,
     qaPolicy: {
       ...editorialPublication.qaPolicy,
       supportedCount: canonicalQuestionCount,
