@@ -42,6 +42,14 @@ jobs:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/ci-lint-changed.sh "$BASE_SHA"
       - run: pnpm build
+      - name: Verify packaged research worker startup
+        working-directory: .next/standalone
+        env:
+          STOCKSEMBLY_DATA_DIR: ${{ runner.temp }}/stocksembly-worker-smoke
+        run: |
+          mkdir -p "$STOCKSEMBLY_DATA_DIR"
+          node --input-type=module -e "await Promise.all([import('./research-worker/leaseWorker.js'), import('./briefing-worker/briefingWorker.js')])"
+          node research-worker/worker.mjs readiness
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
