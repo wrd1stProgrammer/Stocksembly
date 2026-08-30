@@ -297,6 +297,25 @@ describe("research room catalog access", () => {
     expect(reports[0]?.locked).toBe(true);
   });
 
+  it("lets an authenticated free user unlock a recent report with credits", async () => {
+    const now = new Date("2026-08-10T00:00:00.000Z");
+    await catalogFixture([
+      {
+        version: 1,
+        status: "complete",
+        publishedAt: "2026-08-03T00:00:00.001Z",
+      },
+    ]);
+
+    const reports = await listResearchRoomReports(
+      { authenticated: true, tier: "free" },
+      { now },
+    );
+
+    expect(reports).toHaveLength(1);
+    expect(reports[0]?.locked).toBe(false);
+  });
+
   it("makes report indexability inclusive at the seven-day boundary", () => {
     // Given
     const now = new Date("2026-08-10T00:00:00.000Z");

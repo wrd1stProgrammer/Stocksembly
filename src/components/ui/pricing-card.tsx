@@ -141,8 +141,8 @@ export function PricingCard({
                   <span>
                     {plan.id === "free"
                       ? locale === "ko"
-                        ? "매일"
-                        : "Daily"
+                        ? "가입 시"
+                        : "At sign-up"
                       : locale === "ko"
                         ? "매월"
                         : "Monthly"}

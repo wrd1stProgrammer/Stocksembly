@@ -13,6 +13,13 @@ export function isResearchRoomPublicationMature(
   return Number.isFinite(age) && age >= RESEARCH_ROOM_INDEXING_DELAY_MS;
 }
 
+export function requiresResearchRoomViewCredit(
+  publishedAt: string,
+  now: Date,
+): boolean {
+  return !isResearchRoomPublicationMature(publishedAt, now);
+}
+
 export function isResearchRoomIndexable(
   status: ResearchRoomReportVersionStatus,
   publishedAt: string,

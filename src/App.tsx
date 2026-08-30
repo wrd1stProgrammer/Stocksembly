@@ -10,7 +10,6 @@ import {
   persistAccountLocale,
 } from "./auth/localePreference";
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
-import { CreditGrantModal } from "./components/billing/CreditGrantModal";
 import { SubscriptionModal } from "./components/billing/SubscriptionModal";
 import { Header } from "./components/Header";
 import { LandingOfficePreview } from "./components/LandingOfficePreview";
@@ -39,8 +38,6 @@ import type {
   WhopPricingPlan,
   WhopPricingResponse,
 } from "./lib/whop/contracts";
-
-const CREDIT_NOTICE_SEEN_STORAGE_KEY = "stocksembly:credit-notice-seen";
 
 async function authenticatedFetch(
   input: RequestInfo | URL,
@@ -77,59 +74,15 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
   >();
   const [billingPlansLoading, setBillingPlansLoading] = useState(false);
   const [billingPlansError, setBillingPlansError] = useState(false);
-  const [creditGrantNotice, setCreditGrantNotice] =
-    useState<WhopBillingStatus["creditNotice"]>();
-  const [creditGrantModalOpen, setCreditGrantModalOpen] = useState(false);
-  const [creditNoticeOwnerKey, setCreditNoticeOwnerKey] = useState("anonymous");
   const localeSelectionRevision = useRef(0);
   const content = copy[locale];
 
-  const applyBillingStatus = useCallback(
-    (status: WhopBillingStatus) => {
-      if (status.tier === "free") setSubscriptionTier("free");
-      if (status.tier === "pro" || status.tier === "ultra")
-        setSubscriptionTier("paid");
-      const latestGrant = status.recentActivity.find(
-        (activity) =>
-          activity.kind === "grant" &&
-          (activity.code === "free_signup_grant" ||
-            activity.code === "free_daily_grant"),
-      );
-      const recoveredNotice =
-        latestGrant === undefined
-          ? undefined
-          : {
-              id: latestGrant.id,
-              kind:
-                latestGrant.code === "free_signup_grant"
-                  ? ("signup" as const)
-                  : ("daily" as const),
-              amount: Math.abs(latestGrant.amount),
-              grantedAt: latestGrant.occurredAt,
-              balance: status.credits.remaining,
-            };
-      const notice = status.creditNotice ?? recoveredNotice;
-      if (typeof status.credits?.remaining === "number") {
-        setBillingStatus(status);
-      }
-      if (notice === undefined || typeof window === "undefined") return;
-      const seenNoticeKey = `${CREDIT_NOTICE_SEEN_STORAGE_KEY}:${creditNoticeOwnerKey}`;
-      if (window.localStorage.getItem(seenNoticeKey) === notice.id) return;
-      setCreditGrantNotice(notice);
-      setCreditGrantModalOpen(true);
-    },
-    [creditNoticeOwnerKey],
-  );
-
-  const closeCreditGrantModal = useCallback(() => {
-    const notice = creditGrantNotice;
-    if (notice !== undefined)
-      window.localStorage.setItem(
-        `${CREDIT_NOTICE_SEEN_STORAGE_KEY}:${creditNoticeOwnerKey}`,
-        notice.id,
-      );
-    setCreditGrantModalOpen(false);
-  }, [creditGrantNotice, creditNoticeOwnerKey]);
+  const applyBillingStatus = useCallback((status: WhopBillingStatus) => {
+    if (status.tier === "free") setSubscriptionTier("free");
+    if (status.tier === "pro" || status.tier === "ultra")
+      setSubscriptionTier("paid");
+    if (typeof status.credits?.remaining === "number") setBillingStatus(status);
+  }, []);
 
   const refreshBillingStatus = useCallback(async () => {
     if (!signedIn) return;
@@ -234,8 +187,6 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
       setBillingPlansLoading(false);
       setBillingPlansError(false);
       setSubscriptionModalOpen(false);
-      setCreditGrantNotice(undefined);
-      setCreditGrantModalOpen(false);
       return;
     }
 
@@ -311,11 +262,8 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
     if (!configureAmplifyAuth()) return;
     let active = true;
     void getCurrentUser()
-      .then((user) => {
-        if (active) {
-          setCreditNoticeOwnerKey(user.userId || user.username);
-          setSignedIn(true);
-        }
+      .then(() => {
+        if (active) setSignedIn(true);
       })
       .catch(() => {
         if (active) setSignedIn(false);
@@ -441,13 +389,6 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
         loading={billingPlansLoading}
         error={billingPlansError}
         onClose={closeSubscriptionModal}
-      />
-      <CreditGrantModal
-        locale={researchLocale(locale)}
-        open={creditGrantModalOpen}
-        notice={creditGrantNotice}
-        onClose={closeCreditGrantModal}
-        onOpenMyPage={openSubscriptionModal}
       />
     </div>
   );

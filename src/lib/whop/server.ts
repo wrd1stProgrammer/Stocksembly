@@ -10,9 +10,8 @@ import type {
 export type { BillingPlanKey, WhopPricingPlan } from "./contracts";
 export { MONTHLY_CREDIT_ALLOWANCE } from "./creditPolicy";
 
-export const FREE_DAILY_CREDIT_ALLOWANCE = 3;
-export const FREE_SIGNUP_CREDIT_ALLOWANCE = 5;
-export const FREE_MONTHLY_CREDIT_CAP = 30;
+export const FREE_DAILY_CREDIT_ALLOWANCE = 0;
+export const FREE_SIGNUP_CREDIT_ALLOWANCE = 4;
 
 const WhopPlanSchema = z.object({
   id: z.string().startsWith("plan_"),
@@ -281,6 +280,15 @@ export async function createWhopProMonthlyLiveTestCheckout(input: {
     planId: plan.id,
     purchaseUrl: checkout.purchase_url ?? plan.purchase_url,
   };
+}
+
+export async function getWhopMembershipManageUrl(
+  membershipId: string,
+): Promise<string | undefined> {
+  const membership = await whopClient(whopConfiguration()).memberships.retrieve(
+    membershipId,
+  );
+  return membership.manage_url ?? undefined;
 }
 
 export type WhopWebhookEvent = {

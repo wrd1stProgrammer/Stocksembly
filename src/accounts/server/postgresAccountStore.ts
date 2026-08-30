@@ -40,6 +40,7 @@ import type {
 } from "../../lib/whop/contracts";
 import {
   CREDIT_COSTS,
+  effectivePaidCreditAllowance,
   isSuccessfulResearchStatus,
   paidCreditGrantDelta,
   researchCreditCost,
@@ -50,10 +51,9 @@ import {
   billingPlanKeyForPrice,
   billingPlanKeyForWhopPlanId,
   billingTierForPlanKey,
-  FREE_DAILY_CREDIT_ALLOWANCE,
-  FREE_MONTHLY_CREDIT_CAP,
   FREE_SIGNUP_CREDIT_ALLOWANCE,
   getWhopEnvironment,
+  getWhopMembershipManageUrl,
   MONTHLY_CREDIT_ALLOWANCE,
 } from "../../lib/whop/server";
 import type {
@@ -84,7 +84,6 @@ const SecretSchema = z.object({
   dbname: z.string().min(1).optional(),
 });
 
-const FREE_CREDIT_INTERVAL_MS = 24 * 60 * 60 * 1_000;
 const BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT = 10;
 
 type JsonRecord = Record<string, unknown>;
@@ -233,12 +232,7 @@ async function creditPeriodContext(
   const tier = paidStatus ? rawTier : "free";
   const isFree = tier === "free";
   const bounds = periodBounds(now);
-  const configuredAllowance = Number(entitlement?.monthly_credit_limit ?? 0);
-  const allowance = isFree
-    ? 0
-    : configuredAllowance > 0
-      ? configuredAllowance
-      : MONTHLY_CREDIT_ALLOWANCE[tier];
+  const allowance = isFree ? 0 : MONTHLY_CREDIT_ALLOWANCE[tier];
   return {
     tier,
     status: rawStatus,
@@ -325,80 +319,7 @@ async function ensureCreditGrant(
     };
   }
 
-  const signupAt = Date.parse(signupGrant.created_at);
-  if (!Number.isFinite(signupAt)) return signupGrant;
-
-  const firstDailyEligibleAt = signupAt + FREE_CREDIT_INTERVAL_MS;
-  // Older deployments could issue a daily grant before the sign-up grant was
-  // backfilled. Remove only those impossible rows so the ledger and balance
-  // agree again; valid daily grants remain untouched.
-  await client.query(
-    `DELETE FROM credit_grants
-     WHERE principal_id = $1
-       AND plan_code = 'free_daily'
-       AND created_at < $2::timestamptz`,
-    [principalId, new Date(firstDailyEligibleAt).toISOString()],
-  );
-
-  const validGrants = existing.rows.filter((grant) => {
-    if (grant.plan_code !== "free_daily") return false;
-    const createdAt = Date.parse(grant.created_at);
-    return Number.isFinite(createdAt) && createdAt >= firstDailyEligibleAt;
-  });
-  const newestGrant =
-    [...validGrants, signupGrant]
-      .sort((left, right) => {
-        const byTime =
-          Date.parse(left.created_at) - Date.parse(right.created_at);
-        return byTime !== 0
-          ? byTime
-          : left.grant_key.localeCompare(right.grant_key);
-      })
-      .at(-1) ?? signupGrant;
-  const latestGrantAt = Date.parse(newestGrant.created_at);
-  const nextDailyEligibleAt = Number.isFinite(latestGrantAt)
-    ? latestGrantAt + FREE_CREDIT_INTERVAL_MS
-    : firstDailyEligibleAt;
-  if (
-    now.getTime() < firstDailyEligibleAt ||
-    now.getTime() < nextDailyEligibleAt
-  )
-    return newestGrant;
-
-  const monthTotal = await client.query<{ granted: number }>(
-    `SELECT COALESCE(SUM(credits), 0)::int AS granted
-     FROM credit_grants
-     WHERE principal_id = $1
-       AND plan_code IN ('free_signup', 'free_daily')
-       AND created_at >= $2::timestamptz
-       AND created_at < $3::timestamptz`,
-    [
-      principalId,
-      context.bounds.start.toISOString(),
-      context.bounds.end.toISOString(),
-    ],
-  );
-  const remainingMonthlyCap = Math.max(
-    0,
-    FREE_MONTHLY_CREDIT_CAP - Number(monthTotal.rows[0]?.granted ?? 0),
-  );
-  if (remainingMonthlyCap <= 0) return newestGrant;
-  const inserted = await client.query<CreditGrantRow>(
-    `INSERT INTO credit_grants(
-      grant_key, principal_id, period_key, plan_code, credits,
-      created_at, updated_at
-    ) VALUES ($1, $2, $3, 'free_daily', $4, $5, $5)
-    ON CONFLICT (grant_key) DO NOTHING
-    RETURNING grant_key, plan_code, credits, created_at`,
-    [
-      `free-daily:${principalId}:${now.toISOString()}`,
-      principalId,
-      context.bounds.key,
-      Math.min(FREE_DAILY_CREDIT_ALLOWANCE, remainingMonthlyCap),
-      now.toISOString(),
-    ],
-  );
-  return inserted.rows[0] ?? newestGrant;
+  return signupGrant;
 }
 
 async function usedCredits(
@@ -406,6 +327,15 @@ async function usedCredits(
   principalId: string,
   context: CreditPeriodContext,
 ): Promise<number> {
+  if (context.isFree) {
+    const result = await client.query<{ used: number }>(
+      `SELECT COALESCE(SUM(quantity), 0)::int AS used
+       FROM usage_events
+       WHERE principal_id = $1`,
+      [principalId],
+    );
+    return Math.max(0, Number(result.rows[0]?.used ?? 0));
+  }
   const result = await client.query<{ used: number }>(
     `SELECT COALESCE(SUM(quantity), 0)::int AS used
      FROM usage_events
@@ -445,24 +375,33 @@ async function grantedCredits(
   principalId: string,
   context: CreditPeriodContext,
 ): Promise<number> {
-  const planCodes = context.isFree
-    ? ["free_signup", "free_daily"]
-    : ["pro", "ultra"];
+  if (context.isFree) {
+    const result = await client.query<{ granted: number }>(
+      `SELECT COALESCE(SUM(credits), 0)::int AS granted
+       FROM credit_grants
+       WHERE principal_id = $1
+         AND plan_code IN ('free_signup', 'free_daily')`,
+      [principalId],
+    );
+    return Math.max(0, Number(result.rows[0]?.granted ?? 0));
+  }
   const result = await client.query<{ granted: number }>(
     `SELECT COALESCE(SUM(credits), 0)::int AS granted
-     FROM credit_grants
-     WHERE principal_id = $1
-       AND plan_code = ANY($2::text[])
-       AND created_at >= $3::timestamptz
-       AND created_at < $4::timestamptz`,
+       FROM credit_grants
+       WHERE principal_id = $1
+         AND plan_code IN ('pro', 'ultra')
+       AND created_at >= $2::timestamptz
+       AND created_at < $3::timestamptz`,
     [
       principalId,
-      planCodes,
       context.bounds.start.toISOString(),
       context.bounds.end.toISOString(),
     ],
   );
-  return Math.max(0, Number(result.rows[0]?.granted ?? 0));
+  return effectivePaidCreditAllowance(
+    Number(result.rows[0]?.granted ?? 0),
+    context.allowance,
+  );
 }
 
 async function latestFreeGrantNotice(
@@ -1416,17 +1355,17 @@ export class PostgresAccountStore implements AccountStore {
           now,
         );
         const remaining = Math.max(0, allowance - used - reserved);
-        const creditAllowance = context.isFree
-          ? FREE_MONTHLY_CREDIT_CAP
-          : allowance;
+        const creditAllowance = allowance;
         const entitlementResult = await client.query<{
+          whop_membership_id: string | null;
           whop_plan_id: string | null;
           current_period_start: string | null;
           current_period_end: string | null;
           cancel_at_period_end: boolean;
           manage_url: string | null;
         }>(
-          `SELECT whop_plan_id, current_period_start, current_period_end,
+          `SELECT whop_membership_id, whop_plan_id,
+                  current_period_start, current_period_end,
                   cancel_at_period_end, manage_url
            FROM entitlements
            WHERE principal_id = $1
@@ -1475,10 +1414,33 @@ export class PostgresAccountStore implements AccountStore {
           currentPeriodStart: entitlement?.current_period_start ?? undefined,
           currentPeriodEnd: entitlement?.current_period_end ?? undefined,
         });
-        const manageUrl = manageUrlForCurrentWhopEnvironment(
+        let manageUrl = manageUrlForCurrentWhopEnvironment(
           entitlement?.manage_url,
           principalId,
         );
+        if (
+          manageUrl === undefined &&
+          entitlement?.whop_membership_id !== null &&
+          entitlement?.whop_membership_id !== undefined
+        ) {
+          try {
+            manageUrl = manageUrlForCurrentWhopEnvironment(
+              await getWhopMembershipManageUrl(entitlement.whop_membership_id),
+              principalId,
+            );
+            if (manageUrl !== undefined)
+              await client.query(
+                `UPDATE entitlements
+                 SET manage_url = $2, updated_at = now()
+                 WHERE principal_id = $1`,
+                [principalId, manageUrl],
+              );
+          } catch (error) {
+            console.warn("Whop billing portal URL could not be refreshed", {
+              errorName: error instanceof Error ? error.name : "Unknown",
+            });
+          }
+        }
         const tier = context.tier;
         return {
           tier,
