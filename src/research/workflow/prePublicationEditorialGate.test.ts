@@ -155,10 +155,6 @@ describe("pre-publication editorial quality gate", () => {
           code: "qa_decision_key_conflict",
           path: "anticipatedQuestions[1].decisionKey",
         }),
-        expect.objectContaining({
-          code: "qa_primary_claim_limit",
-          path: "anticipatedQuestions[2].primaryClaimIds",
-        }),
       ]),
     );
   });
@@ -627,7 +623,7 @@ describe("pre-publication editorial quality gate", () => {
 });
 
 describe("persisted anticipated Q&A selection", () => {
-  it("builds ten decision questions without pairing two templates per claim", () => {
+  it("builds ten decision questions from the available claim set", () => {
     const theses = [
       [
         "Enterprise adoption broadens recurring demand.",
@@ -709,18 +705,9 @@ describe("persisted anticipated Q&A selection", () => {
     });
     expect(selected.questions).toHaveLength(10);
     expect(selected.policy.moduleMinimum).toBe(5);
-    expect(
-      Math.max(
-        ...[
-          ...new Set(selected.questions.flatMap((qa) => qa.primaryClaimIds)),
-        ].map(
-          (claimId) =>
-            selected.questions.filter((qa) =>
-              qa.primaryClaimIds.includes(claimId),
-            ).length,
-        ),
-      ),
-    ).toBe(2);
+    expect(selected.questions.every((question) => question.rank <= 10)).toBe(
+      true,
+    );
     expect(selected.questions[0]?.question.en).toBe(
       "What must be true before a new position has a favorable evidence-to-price trade-off?",
     );
@@ -735,7 +722,61 @@ describe("persisted anticipated Q&A selection", () => {
     );
   });
 
-  it("prioritizes earnings and grounded calculations without repeating the decision countercase", () => {
+  it("fills all ten investor questions when only one claim is publishable", () => {
+    const claim = AtomicEditorialClaimSchema.parse({
+      claimId: id(121),
+      decisionDimension: "growth_engine",
+      roleOwner: "growth",
+      stanceContribution: "supports",
+      materiality: "material",
+      publicThesis: {
+        en: "Enterprise adoption is expanding recurring demand.",
+        ko: "기업 도입이 반복 수요를 확대하고 있습니다.",
+      },
+      evidenceArtifactIds: [id(122)],
+      counterevidenceArtifactIds: [],
+      decisiveMetricIds: [],
+      falsifier: {
+        en: "A sustained renewal decline would invalidate the adoption thesis.",
+        ko: "지속적인 갱신율 하락은 도입 논지를 무효화합니다.",
+      },
+    });
+    const decision = TeamEditorialDecisionSchema.parse({
+      stance: "upside_skewed",
+      confidence: "medium",
+      decisiveReason: claim.publicThesis,
+      strongestCountercase: claim.falsifier,
+      falsifier: claim.falsifier,
+      primaryClaimIds: [claim.claimId],
+    });
+
+    const selected = selectGroundedAnticipatedQuestions({
+      runId: id(123),
+      claims: [claim],
+      decision,
+    });
+
+    expect(selected.questions).toHaveLength(10);
+    expect(
+      new Set(selected.questions.map((item) => item.decisionKey)).size,
+    ).toBe(10);
+    expect(
+      new Set(selected.questions.map((item) => item.question.en)).size,
+    ).toBe(10);
+    expect(
+      selected.questions.every(
+        (item) => item.primaryClaimIds[0] === claim.claimId,
+      ),
+    ).toBe(true);
+    expect(
+      selected.questions.every(
+        (item) => item.evidenceArtifactIds[0] === id(122),
+      ),
+    ).toBe(true);
+    expect(selected.moduleVisible).toBe(true);
+  });
+
+  it("prioritizes earnings and grounded calculations across ten questions", () => {
     const dimensions = [
       "embedded_expectations",
       "catalyst",
@@ -824,9 +865,6 @@ describe("persisted anticipated Q&A selection", () => {
     expect(selected.questions[1]?.decisionKey).toBe(
       "implied_forward_earnings_multiple",
     );
-    expect(
-      selected.questions.map((question) => question.decisionKey),
-    ).not.toContain("strongest_countercase");
     expect(
       selected.questions.map((question) => question.decisionKey),
     ).toContain("consensus_price_gap");
