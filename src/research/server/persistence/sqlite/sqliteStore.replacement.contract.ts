@@ -5,7 +5,6 @@ import {
   at,
   createRunFixture,
   fixture,
-  hash,
   temporaryDatabase,
 } from "./sqliteStore.contractFixtures";
 
@@ -19,28 +18,20 @@ afterEach(() => {
 });
 
 describe("SQLite research replacement limits", () => {
-  it("rejects a sixth replacement across distinct logical artifacts", () => {
+  it("allows twelve replacements and rejects the thirteenth", () => {
     // Given
     const temporary = temporaryDatabase();
     directories.push(temporary.directory);
     const store = openSqliteStore(temporary.path);
     stores.push(store);
     const run = fixture(40);
-    const lanes = [
-      { ids: fixture(40), logical: "artifact:a", inputHash: hash(1) },
-      { ids: fixture(41), logical: "artifact:b", inputHash: hash(2) },
-      { ids: fixture(42), logical: "artifact:c", inputHash: hash(3) },
-      { ids: fixture(43), logical: "artifact:d", inputHash: hash(4) },
-      { ids: fixture(44), logical: "artifact:e", inputHash: hash(5) },
-      { ids: fixture(45), logical: "artifact:f", inputHash: hash(6) },
-      { ids: fixture(46), logical: "artifact:a", inputHash: hash(7) },
-      { ids: fixture(47), logical: "artifact:b", inputHash: hash(8) },
-      { ids: fixture(48), logical: "artifact:c", inputHash: hash(9) },
-      { ids: fixture(49), logical: "artifact:d", inputHash: hash(10) },
-      { ids: fixture(50), logical: "artifact:e", inputHash: hash(11) },
-      { ids: fixture(51), logical: "artifact:f", inputHash: hash(12) },
-    ] as const;
+    const lanes = Array.from({ length: 26 }, (_, index) => ({
+      ids: fixture(40 + index),
+      logical: `artifact:${index % 13}`,
+      inputHash: (index + 1).toString(16).padStart(64, "0"),
+    }));
     const first = lanes[0];
+    if (first === undefined) throw new RangeError("missing first lane");
     store.createRun({
       ...createRunFixture(40),
       initialJob: {
@@ -69,7 +60,7 @@ describe("SQLite research replacement limits", () => {
         occurredAt: at(1),
       },
     });
-    for (const lane of lanes.slice(0, 6)) {
+    for (const lane of lanes.slice(0, 13)) {
       const lease = store.leaseJob({
         jobId: lane.ids.jobId,
         ownerId: `base:${lane.logical}`,
@@ -96,13 +87,12 @@ describe("SQLite research replacement limits", () => {
         },
       });
     }
-    const replacementPairs = [
-      { base: lanes[0], replacement: lanes[6] },
-      { base: lanes[1], replacement: lanes[7] },
-      { base: lanes[2], replacement: lanes[8] },
-      { base: lanes[3], replacement: lanes[9] },
-      { base: lanes[4], replacement: lanes[10] },
-    ] as const;
+    const replacementPairs = lanes.slice(0, 12).map((base, index) => {
+      const replacement = lanes[index + 13];
+      if (replacement === undefined)
+        throw new RangeError("missing replacement lane");
+      return { base, replacement };
+    });
     for (const pair of replacementPairs) {
       const lease = store.leaseJob({
         jobId: pair.replacement.ids.jobId,
@@ -132,31 +122,35 @@ describe("SQLite research replacement limits", () => {
         },
       });
     }
-    const sixth = { base: lanes[5], replacement: lanes[11] };
-    const sixthLease = store.leaseJob({
-      jobId: sixth.replacement.ids.jobId,
-      ownerId: "replacement:artifact:f",
+    const finalBase = lanes[12];
+    const thirteenth = lanes[25];
+    if (finalBase === undefined || thirteenth === undefined)
+      throw new RangeError("missing thirteenth replacement lanes");
+    const thirteenthLease = store.leaseJob({
+      jobId: thirteenth.ids.jobId,
+      ownerId: "replacement:artifact:12",
       now: at(6),
       expiresAt: at(30),
     });
-    expect(sixthLease).toBeDefined();
-    if (sixthLease === undefined) throw new RangeError("missing sixth lease");
+    expect(thirteenthLease).toBeDefined();
+    if (thirteenthLease === undefined)
+      throw new RangeError("missing thirteenth lease");
 
     // When
-    const reserveSixth = () =>
+    const reserveThirteenth = () =>
       store.reserveResearchLaunch({
         runId: run.runId,
-        jobId: sixth.replacement.ids.jobId,
-        attemptId: sixth.replacement.ids.attemptId,
-        replacementOfAttemptId: sixth.base.ids.attemptId,
-        logicalArtifactKey: sixth.base.logical,
-        inputHash: sixth.replacement.inputHash,
-        ownerId: sixthLease.ownerId,
-        token: sixthLease.token,
+        jobId: thirteenth.ids.jobId,
+        attemptId: thirteenth.ids.attemptId,
+        replacementOfAttemptId: finalBase.ids.attemptId,
+        logicalArtifactKey: finalBase.logical,
+        inputHash: thirteenth.inputHash,
+        ownerId: thirteenthLease.ownerId,
+        token: thirteenthLease.token,
         now: at(7),
         reservedAt: at(7),
         event: {
-          eventId: sixth.replacement.ids.thirdEventId,
+          eventId: thirteenth.ids.thirdEventId,
           type: "spawn_reserved",
           stateId: "spawn-reserved",
           occurredAt: at(7),
@@ -164,9 +158,9 @@ describe("SQLite research replacement limits", () => {
       });
 
     // Then
-    expect(reserveSixth).toThrow(/replacement budget/i);
-    expect(store.researchOrdinals(run.runId)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-    ]);
+    expect(reserveThirteenth).toThrow(/replacement budget/i);
+    expect(store.researchOrdinals(run.runId)).toEqual(
+      Array.from({ length: 25 }, (_, index) => index + 1),
+    );
   });
 });

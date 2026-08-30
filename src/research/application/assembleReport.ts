@@ -13,9 +13,11 @@ import type {
 import {
   chairValidationReason,
   localizedReport,
+  publishableDissent,
   SECTION_TITLES,
   scenarioMetric,
 } from "./assembleReportValidation";
+import { recoverPublicPublication } from "./publicationRecovery";
 import { StructuralAuditArtifactEnvelopeSchema } from "./structuralAuditPersistenceContracts";
 
 export type {
@@ -67,6 +69,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   const chair = ChairSynthesisOutputSchema.safeParse(input.chair);
   if (!structural.success || !semantic.success || !chair.success)
     return { kind: "blocked", reason: "invalid_input" };
+  const chairRecovery = chair.data.recoveryMetadata;
   const audit = structural.data.result;
   if (
     input.version !== (input.priorReport?.version ?? 0) + 1 ||
@@ -194,6 +197,21 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       });
       registeredClaimIds.add(claimId);
     }
+  const claimRegisterById = new Map(
+    claims.map((claim) => [claim.claimId, claim] as const),
+  );
+  const publicationClaims =
+    input.publicationClaims ??
+    claims.map((claim) => ({
+      claim: {
+        claimId: claim.claimId,
+        kind: "factual_claim" as const,
+        materiality: claim.materiality,
+        semanticVerdict: claim.semanticVerdict,
+      },
+      ...(claim.text === undefined ? {} : { text: claim.text }),
+      sourceIds: claim.sourceIds,
+    }));
   const scenarios = audit.scenarios.flatMap((scenario, index) => {
     const metric = scenarioMetric(scenario.field);
     const scenarioId = input.chairScenarioIds[index];
@@ -215,19 +233,47 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       },
     ];
   });
-  if (
-    input.chairScenarioIds.length !== audit.scenarios.length ||
-    scenarios.length !== audit.scenarios.length
-  )
-    return { kind: "blocked", reason: "scenario_invalid" };
+  const publication = recoverPublicPublication({
+    registeredSourceIds: sources.map((source) => source.sourceId),
+    claims: publicationClaims,
+    scenarios,
+    ...(input.repairPublicClaim === undefined
+      ? {}
+      : { repairClaim: input.repairPublicClaim }),
+    ...(input.repairPublicScenario === undefined
+      ? {}
+      : { repairScenario: input.repairPublicScenario }),
+  });
+  if (publication.blockers.length > 0)
+    return { kind: "blocked", reason: "no_grounded_core_answer" };
+  const recoveredClaimIds = new Set(
+    publication.publishedClaims.map((entry) => entry.claim.claimId),
+  );
+  const recoveredClaims = publication.publishedClaims.flatMap((entry) => {
+    const registered = claimRegisterById.get(entry.claim.claimId);
+    return registered === undefined ? [] : [registered];
+  });
+  const recoveredScenarioIds = new Set(
+    publication.publishedScenarios.map((scenario) => scenario.id),
+  );
+  const recoveredScenarios = scenarios.filter((scenario) =>
+    recoveredScenarioIds.has(scenario.id),
+  );
+  const registeredSourceIds = new Set<string>(
+    sources.map((source) => source.sourceId),
+  );
   const sections = chair.data.sections.map((section) => ({
     id: section.sectionKey,
     title: SECTION_TITLES[section.sectionKey],
     body: section.publicSummary,
-    claimIds: section.auditedClaimIds,
-    sourceIds: section.sourceArtifactIds,
+    claimIds: section.auditedClaimIds.filter((claimId) =>
+      recoveredClaimIds.has(claimId),
+    ),
+    sourceIds: section.sourceArtifactIds.filter((sourceId) =>
+      registeredSourceIds.has(sourceId),
+    ),
   }));
-  const dissent = retainedDissentClaimIds.map((claimId) => {
+  const dissentCandidates = retainedDissentClaimIds.map((claimId) => {
     const sentences = input.chairSentences.filter(
       (sentence) =>
         sentence.kind === "dissent" && sentence.claimIds.includes(claimId),
@@ -250,11 +296,15 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       }),
     };
   });
-  if (dissent.some((entry) => entry.text.en === "" || entry.text.ko === ""))
-    return { kind: "blocked", reason: "retention_mismatch" };
+  const dissent = publishableDissent(
+    dissentCandidates,
+    recoveredClaimIds,
+    registeredSourceIds,
+  );
+  const dissentReduced = dissent.length !== dissentCandidates.length;
   const locales = localizedReport({
     sections,
-    scenarios,
+    scenarios: recoveredScenarios,
     dissent,
     questions: audit.retainedOpenQuestions,
     evidenceByClaim,
@@ -272,16 +322,18 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
         id: `limitation:${capability.key}`,
         capability: capability.key,
       })),
-    ...claims
-      .filter(
-        (claim) =>
-          claim.semanticVerdict === "partial" ||
-          claim.semanticVerdict === "not_assessable",
-      )
-      .map((claim) => ({
-        id: `limitation:claim:${claim.claimId}`,
-        capability: "claim_evidence",
-      })),
+    ...publication.limitations.map((entry) => ({
+      id: `limitation:claim:${entry.claim.claimId}`,
+      capability: "claim_evidence",
+    })),
+    ...(dissentReduced
+      ? [
+          {
+            id: "limitation:dissent_reduction",
+            capability: "retained_dissent",
+          },
+        ]
+      : []),
   ];
   const status =
     limitations.length > 0 ? "complete_with_limitations" : "complete";
@@ -293,7 +345,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       key: capability.key,
       availability: capability.availability,
     })),
-    claims: claims.map((claim) => ({
+    claims: recoveredClaims.map((claim) => ({
       claimId: claim.claimId,
       materiality: claim.materiality,
       semanticVerdict: claim.semanticVerdict,
@@ -389,14 +441,15 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     locales,
     versionDelta: {
       priorVersionId: input.priorReport?.versionId ?? null,
-      addedClaimIds: claims
+      addedClaimIds: recoveredClaims
         .filter((claim) => !priorClaimIds.has(claim.claimId))
         .map((claim) => claim.claimId),
       removedClaimIds: [...priorClaimIds].filter(
-        (claimId) => !claims.some((claim) => claim.claimId === claimId),
+        (claimId) =>
+          !recoveredClaims.some((claim) => claim.claimId === claimId),
       ),
     },
-    claims,
+    claims: recoveredClaims,
     sources,
     dataCoverage,
     providerDisagreements,
@@ -420,6 +473,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     sources.map((source) => source.sourceId),
   );
   const editorialClaims = (input.editorialClaims ?? []).flatMap((claim) => {
+    if (!recoveredClaimIds.has(claim.claimId)) return [];
     const evidenceArtifactIds = (evidenceByClaim.get(claim.claimId) ?? [])
       .filter((artifactId) => publicEvidenceIds.has(artifactId))
       .map((artifactId) => ArtifactIdSchema.parse(artifactId));
@@ -442,6 +496,30 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       kind: "assembled",
       report: composed.report,
       editorialPublication: composed.envelope,
+      recoveryMetadata: {
+        ...(chairRecovery === undefined
+          ? {}
+          : {
+              comparatorNormalizationAttemptCount:
+                chairRecovery.comparatorNormalizationAttemptCount,
+            }),
+        omissions: [
+          ...new Map(
+            [...(chairRecovery?.omissions ?? []), ...publication.omissions].map(
+              (omission) => [JSON.stringify(omission), omission],
+            ),
+          ).values(),
+        ],
+        repairAttempts: publication.repairAttempts,
+        scenarioRepairAttempts: [
+          ...new Map(
+            [
+              ...(chairRecovery?.scenarioRepairAttempts ?? []),
+              ...publication.scenarioRepairAttempts,
+            ].map((attempt) => [attempt.itemId, attempt]),
+          ).values(),
+        ],
+      },
     };
   } catch (error) {
     if (error instanceof Error)

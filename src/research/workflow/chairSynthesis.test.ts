@@ -158,14 +158,14 @@ describe("Dr. Park constrained chair synthesis", () => {
     },
   );
 
-  it("stops after a failed replacement without a third launch or chair bubble", async () => {
+  it("keeps invalid structured output retryable without exhausting the run", async () => {
     // Given / When
     const { fixture, replay } = await runFault("invalid");
 
     // Then
     expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([25, 26]);
     expect(replay.artifactIds).toHaveLength(0);
-    expect(replay.incompleteReason).toBe("replacement_exhausted");
+    expect(replay.incompleteReason).not.toBe("replacement_exhausted");
     expect(replay.characterActorId).toBeNull();
     expect(replay.publishable).toBe(false);
     expect(fixture.codex.chairLaunches).toBe(2);
@@ -194,7 +194,10 @@ describe("Dr. Park constrained chair synthesis", () => {
     // Given
     const fixture = await createPreparedChairRound("none");
     let publishedChairArtifactId: string | undefined;
-    const stagedChair = createOfficialChairSynthesis(fixture.options);
+    const stagedChair = createOfficialChairSynthesis({
+      ...fixture.options,
+      workflowVersion: "workflow-v3",
+    });
     await stagedChair.stage({ runId: fixture.runId });
     await stagedChair.close();
     const official = await createOfficialAttemptHandler(
@@ -225,7 +228,10 @@ describe("Dr. Park constrained chair synthesis", () => {
       const result = await engine.poll();
       if (result.kind === "idle") break;
     }
-    const replayReader = createOfficialChairSynthesis(fixture.options);
+    const replayReader = createOfficialChairSynthesis({
+      ...fixture.options,
+      workflowVersion: "workflow-v3",
+    });
     const replay = replayReader.replay(fixture.runId);
 
     // Then
@@ -244,7 +250,10 @@ describe("Dr. Park constrained chair synthesis", () => {
   it("publishes the accepted chair through the official worker's production callback", async () => {
     // Given
     const fixture = await createPreparedChairRound("none");
-    const stagedChair = createOfficialChairSynthesis(fixture.options);
+    const stagedChair = createOfficialChairSynthesis({
+      ...fixture.options,
+      workflowVersion: "workflow-v3",
+    });
     await stagedChair.stage({ runId: fixture.runId });
     await stagedChair.close();
     const official = await createOfficialAttemptHandler(
@@ -257,6 +266,7 @@ describe("Dr. Park constrained chair synthesis", () => {
         cas: fixture.options.cas,
         codex: fixture.codex,
         now: fixture.options.now,
+        ensurePublishedLocalizations: async () => {},
       },
     );
     const engine = createLeaseEngine({

@@ -19,7 +19,10 @@ import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { sha256Value } from "../server/codex/codexArtifacts";
-import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
+import {
+  CODEX_RUNTIME_PINS,
+  CODEX_RUNTIME_POLICY,
+} from "../server/codex/codexPolicy";
 import type {
   CodexRunInput,
   CodexRunResult,
@@ -52,6 +55,11 @@ export type ChairFault =
   | "invent_source"
   | "invent_probability"
   | "invent_recommendation"
+  | "v3_imperative_twice"
+  | "v3_invented_number"
+  | "v3_lineage_metadata_mismatch"
+  | "v3_stance_conflict"
+  | "v3_hedge_twice"
   | "drop_position"
   | "drop_dissent"
   | "drop_unknown"
@@ -60,6 +68,7 @@ export type ChairFault =
 
 export class ChairCodexFake extends FollowupResponseCodexFake {
   chairLaunches = 0;
+  readonly chairPrompts: string[] = [];
   constructor(private readonly fault: ChairFault) {
     super("none", { eligibleFollowups: 0 });
   }
@@ -121,11 +130,137 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
     }
     if (input.stage !== "chair_synthesis") return await super.run(input);
     this.chairLaunches += 1;
+    this.chairPrompts.push(input.prompt);
     if (this.fault === "isolation_first" && this.chairLaunches === 1)
       throw new CodexIsolationError("probe");
     const promptRecord = z
       .record(z.string(), z.unknown())
       .parse(JSON.parse(input.prompt));
+    if (promptRecord["kind"] === "chair_synthesis_v3_bounded_rewrite") {
+      const candidate = z
+        .object({ sourceLocale: z.enum(["en", "ko"]) })
+        .passthrough()
+        .parse(promptRecord["candidate"]);
+      if (this.fault === "v3_imperative_twice")
+        return this.chairResult(input, candidate);
+      if (this.fault === "v3_hedge_twice")
+        return this.chairResult(input, candidate);
+      return this.chairResult(input, {
+        ...candidate,
+        decisiveReason:
+          candidate.sourceLocale === "ko"
+            ? "검증된 근거는 균형 잡힌 판단을 지지합니다."
+            : "Verified evidence supports a balanced view.",
+        strongestCountercase:
+          candidate.sourceLocale === "ko"
+            ? "실행 약화가 가장 강한 반대 논거입니다."
+            : "Execution weakness is the strongest countercase.",
+      });
+    }
+    if (promptRecord["kind"] === "chair_synthesis_input_v3") {
+      if (this.fault === "invalid") return this.chairResult(input, {});
+      const v3Input = z
+        .object({
+          sourceLocale: z.enum(["en", "ko"]),
+          evidenceCatalog: z.string(),
+        })
+        .parse(promptRecord);
+      const sourceLocale = v3Input.sourceLocale;
+      const validation = ChairSynthesisPromptSchema.parse(
+        JSON.parse(v3Input.evidenceCatalog),
+      );
+      const decisive = validation.sentences.find(
+        (sentence) => sentence.kind === "claim",
+      );
+      const countercase = validation.sentences.find(
+        (sentence) => sentence.kind === "dissent",
+      );
+      const invalidation = validation.sentences.find(
+        (sentence) => sentence.kind === "change_condition",
+      );
+      if (
+        decisive === undefined ||
+        countercase === undefined ||
+        invalidation === undefined
+      )
+        return this.chairResult(input, {});
+      const lineage = (sentence: typeof decisive) => ({
+        sentenceIds: [sentence.sentenceId],
+        claimIds: sentence.claimIds,
+        sourceArtifactIds: sentence.sourceArtifactIds,
+      });
+      const decisiveLineage =
+        this.fault === "v3_lineage_metadata_mismatch"
+          ? {
+              sentenceIds: [decisive.sentenceId],
+              claimIds: [],
+              sourceArtifactIds: countercase.sourceArtifactIds,
+            }
+          : lineage(decisive);
+      const narrative =
+        sourceLocale === "ko"
+          ? "검증된 근거는 균형 잡힌 판단을 지지합니다."
+          : "Verified evidence supports a balanced view.";
+      return this.chairResult(input, {
+        kind: "chair_synthesis_v3",
+        sourceLocale,
+        stance:
+          this.fault === "v3_stance_conflict"
+            ? "insufficient_evidence"
+            : "balanced",
+        decisiveReason:
+          this.fault === "invent_recommendation" && this.chairLaunches === 1
+            ? "Buy now."
+            : this.fault === "v3_invented_number"
+              ? "Verified revenue reaches 777% and supports the view."
+              : this.fault === "v3_hedge_twice"
+                ? "Wait conditionally because the thesis needs confirmation."
+                : narrative,
+        strongestCountercase:
+          this.fault === "v3_imperative_twice"
+            ? "Buy now."
+            : sourceLocale === "ko"
+              ? "실행 약화가 가장 강한 반대 논거입니다."
+              : "Execution weakness is the strongest countercase.",
+        invalidationCheckpoint:
+          sourceLocale === "ko"
+            ? "다음 공시에서 실행이 약화되면 재검토합니다."
+            : "Reassess if execution weakens in the next filing.",
+        decisionLineage: {
+          decisiveReason: decisiveLineage,
+          strongestCountercase: lineage(countercase),
+          invalidationCheckpoint: lineage(invalidation),
+        },
+        teamViews: WORKFLOW_V1_DEPARTMENT_IDS.map((departmentId) => ({
+          departmentId,
+          position: narrative,
+          rationale: narrative,
+          vote: "support_with_reservations",
+          lineage: lineage(decisive),
+        })),
+        sections: CHAIR_SECTION_KEYS.map((sectionKey) => ({
+          sectionKey,
+          narrative:
+            this.fault === "v3_hedge_twice"
+              ? "Wait conditionally because the thesis needs confirmation."
+              : narrative,
+          lineage: lineage(decisive),
+        })),
+        anticipatedQuestions: [
+          {
+            question:
+              sourceLocale === "ko"
+                ? "무엇이 판단을 바꾸나요?"
+                : "What changes the view?",
+            answer:
+              sourceLocale === "ko"
+                ? "다음 검증된 공시가 확인 지점입니다."
+                : "The next verified filing is the checkpoint.",
+            lineage: lineage(invalidation),
+          },
+        ],
+      });
+    }
     if (promptRecord["kind"] === "chair_section_rewrite_request") {
       const rewrite = z
         .object({
@@ -446,8 +581,19 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
     input: CodexRunInput<Candidate>,
     raw: unknown,
   ): CodexRunResult<Candidate> {
+    let transported = raw;
+    try {
+      const kind = z
+        .object({ kind: z.string() })
+        .passthrough()
+        .parse(JSON.parse(input.prompt)).kind;
+      if (kind === "chair_synthesis_input_v3")
+        transported = { candidateJson: JSON.stringify(raw) };
+    } catch {
+      // Non-JSON rewrite and legacy prompts keep their original contracts.
+    }
     return {
-      candidate: input.outputSchema.parse(raw),
+      candidate: input.outputSchema.parse(transported),
       evidence: {
         ordinal: input.reservation.key.ordinal,
         stage: input.stage,
@@ -455,9 +601,8 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
         reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[input.stage],
         browsingPolicy: CODEX_RUNTIME_POLICY.browsingByStage[input.stage],
         toolTranscriptHash: sha256Value([]),
-        binaryVersion: "codex-cli 0.146.0-alpha.3.1",
-        binaryHash:
-          "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e",
+        binaryVersion: CODEX_RUNTIME_PINS.version,
+        binaryHash: CODEX_RUNTIME_PINS.originSha256,
         originDevice: "1",
         originInode: "1",
         linkDevice: "1",
@@ -475,7 +620,10 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
   }
 }
 
-export async function createPreparedChairRound(fault: ChairFault) {
+export async function createPreparedChairRound(
+  fault: ChairFault,
+  sourceLocale: "en" | "ko" = "en",
+) {
   const codex = new ChairCodexFake(fault);
   const root = mkdtempSync(join(tmpdir(), "chair-synthesis-"));
   const prepared = await stageAcceptedDepartments(root, "none", codex);
@@ -484,13 +632,43 @@ export async function createPreparedChairRound(fault: ChairFault) {
   requestDatabase
     .prepare(`INSERT OR IGNORE INTO research_requests(
       run_id, principal_id, symbol, question, locale, request_hash, created_at)
-      VALUES (?, ?, 'TEST', 'Evaluate authenticated committee evidence', 'en', ?, ?)`)
+      VALUES (?, ?, 'TEST', 'Evaluate authenticated committee evidence', ?, ?, ?)`)
     .run(
       runId,
       "a".repeat(64),
+      sourceLocale,
       hashCanonical({ runId, kind: "chair-test-request" }),
       "2026-07-23T00:00:00.000Z",
     );
+  requestDatabase
+    .prepare("UPDATE research_requests SET locale = ? WHERE run_id = ?")
+    .run(sourceLocale, runId);
+  const specialistJobs = requestDatabase
+    .prepare(`SELECT idempotency_key, result_json FROM idempotency_records
+      WHERE scope = 'specialist-round-job' AND idempotency_key LIKE ?`)
+    .all(`${runId}:%`) as readonly {
+    readonly idempotency_key: string;
+    readonly result_json: string;
+  }[];
+  const updateSpecialistJob = requestDatabase.prepare(
+    `UPDATE idempotency_records SET result_json = ?
+      WHERE scope = 'specialist-round-job' AND idempotency_key = ?`,
+  );
+  for (const row of specialistJobs) {
+    const job = JSON.parse(row.result_json) as { prompt: string };
+    const [sealed = "", ...rest] = job.prompt.split("\n");
+    const request = JSON.parse(sealed) as {
+      request: { mandate: { locale: "en" | "ko" } };
+    };
+    request.request.mandate.locale = sourceLocale;
+    updateSpecialistJob.run(
+      JSON.stringify({
+        ...job,
+        prompt: [JSON.stringify(request), ...rest].join("\n"),
+      }),
+      row.idempotency_key,
+    );
+  }
   requestDatabase.close();
   const challenges = createSqliteChallengeRound(prepared.options);
   await challenges.stage({
@@ -685,7 +863,7 @@ export async function createPreparedChairRound(fault: ChairFault) {
     root,
     runId,
     codex,
-    options: prepared.options,
+    options: { ...prepared.options, workflowVersion: "workflow-v2" as const },
     cleanup: () => rmSync(root, { recursive: true, force: true }),
   };
 }

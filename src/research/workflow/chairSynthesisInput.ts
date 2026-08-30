@@ -18,7 +18,8 @@ import {
   ChairSynthesisPromptSchema,
 } from "./chairSynthesisContracts";
 import { loadChairRelations } from "./chairSynthesisRelations";
-import { chairScenarioSentences } from "./chairSynthesisScenarios";
+import { recoverChairScenarioSentences } from "./chairSynthesisScenarios";
+import { sealComparatorContextForChair } from "./preSynthesisComparatorQualification";
 
 const GENERIC_CHANGE_CONDITION_EN =
   "A later official filing or revised macro observation changes the supporting evidence.";
@@ -191,8 +192,17 @@ export async function loadChairPrompt(
     source.claimIds.every((claimId) => auditedClaimIds.includes(claimId)),
   );
   const unknowns = structural.data.result.retainedOpenQuestions;
-  const scenarios = chairScenarioSentences(structural.data.result.scenarios);
-  if (scenarios === undefined) return undefined;
+  const scenarioRecovery = recoverChairScenarioSentences(
+    structural.data.result.scenarios,
+  );
+  const scenarios = scenarioRecovery.sentences;
+  const comparatorQualification =
+    structural.data.result.metricSnapshot?.comparatorQualification;
+  const comparatorContext = sealComparatorContextForChair(
+    comparatorQualification === undefined
+      ? { status: "not_available", reason: "peer_evidence_absent" }
+      : { status: "available", qualification: comparatorQualification },
+  );
   const investmentModel =
     structural.data.result.metricSnapshot?.investmentModel;
   const investmentModelSourceIds = [
@@ -371,6 +381,23 @@ export async function loadChairPrompt(
     kind: "chair_synthesis_input_v1",
     mandate,
     capabilities: structural.data.result.capabilities,
+    comparatorContext,
+    recoveryMetadata: {
+      comparatorNormalizationAttemptCount:
+        comparatorContext.normalizationAttemptCount,
+      scenarioRepairAttempts: scenarioRecovery.repairAttempts,
+      omissions: [
+        ...(comparatorContext.mode === "qualitative_only"
+          ? [
+              {
+                itemId: "comparator_valuation",
+                reason: comparatorContext.omissionReason,
+              },
+            ]
+          : []),
+        ...scenarioRecovery.omissions,
+      ],
+    },
     ...(investmentModel === undefined ? {} : { investmentModel }),
     auditedClaimIds,
     departmentPositions: positions.map(

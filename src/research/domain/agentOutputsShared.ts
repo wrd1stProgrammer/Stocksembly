@@ -145,6 +145,8 @@ export const EditorialStanceSchema = z.enum([
   "upside_skewed",
   "wait_for_proof",
   "downside_skewed",
+  "balanced",
+  "insufficient_evidence",
 ]);
 export const EditorialConfidenceSchema = z.enum(["high", "medium", "low"]);
 

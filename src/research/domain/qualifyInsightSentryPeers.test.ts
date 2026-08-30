@@ -214,3 +214,86 @@ it("excludes filing-mentioned companies outside NVIDIA's industry from valuation
     });
   }
 });
+
+it("rejects polluted security and purpose records and omits a two-peer premium", () => {
+  const qualifiedPeer = (symbol: string, pe: number) => ({
+    symbol: `NASDAQ:${symbol}`,
+    name: symbol,
+    sector: "Semiconductors",
+    classification: "direct_competitor" as const,
+    selectionReasons: [
+      "issuer filing names the company near competition language",
+    ],
+    marketOverlapVerified: true,
+    priceEarningsTtm: pe,
+    operatingMarginTtm: 20,
+    canonicalIdentity: {
+      cik: `cik-${symbol}`,
+      ticker: symbol,
+      exchange: "NASDAQ",
+      legalName: symbol,
+      title: "Common Stock",
+      securityClass: "common_stock",
+      sector: "Semiconductors",
+      primaryProductMarket: "issuer-verified-competition:NASDAQ:SUBJ",
+      primaryCustomerMarket: "issuer-verified-competition:NASDAQ:SUBJ",
+    },
+    securityQualification: {
+      status: "eligible",
+      sourcePurpose: "issuer_identity",
+    },
+    businessQualification: {
+      status: "eligible",
+      sourcePurpose: "business_overlap",
+    },
+    valuationQualification: {
+      status: "eligible",
+      sourcePurpose: "valuation_metric",
+    },
+  });
+  const peers = {
+    providerUpdatedAt: "2026-08-28T00:00:00.000Z",
+    sector: "Semiconductors",
+    subject: {
+      symbol: "NASDAQ:SUBJ",
+      name: "Subject",
+      sector: "Semiconductors",
+      priceEarningsTtm: 30,
+      operatingMarginTtm: 25,
+    },
+    peers: [
+      qualifiedPeer("A", 20),
+      qualifiedPeer("B", 25),
+      {
+        ...qualifiedPeer("ETF", 12),
+        sourcePurpose: "valuation_metric",
+        canonicalIdentity: {
+          ...qualifiedPeer("ETF", 12).canonicalIdentity,
+          securityClass: "fund",
+        },
+        securityQualification: {
+          status: "not_eligible",
+          sourcePurpose: "issuer_identity",
+          reason: "fund",
+        },
+      },
+    ],
+  };
+
+  const result = qualifyInsightSentryPeers({
+    rawPeerArtifactId: "peer-artifact",
+    peers,
+  });
+  expect(result?.valuation).toEqual({
+    status: "not_eligible",
+    reason: "insufficient_eligible_companies",
+    eligibleCompanyCount: 2,
+  });
+  expect(
+    result?.rows.find((row) => row.comparatorId === "cik-ETF"),
+  ).toMatchObject({
+    displayEligibility: false,
+    medianEligibility: false,
+    exclusionReasons: expect.arrayContaining(["security_class_mismatch"]),
+  });
+});

@@ -488,7 +488,14 @@ function comparisonInterpretation(input: {
   readonly teamEvidence: string;
   readonly checkpoint: string;
 }): string {
-  const teamEvidence = compactEditorialText(input.teamEvidence, 1);
+  const withoutGenericHedge = (value: string) =>
+    value.replace(
+      /^(?:조건부로|제한적으로|신중하게|conditionally|cautiously)(?:[,:：-]\s*|\s+)/iu,
+      "",
+    );
+  const teamEvidence = withoutGenericHedge(
+    compactEditorialText(input.teamEvidence, 1),
+  );
   const checkpoint = compactEditorialText(input.checkpoint, 1);
   const dynamicEvidence =
     teamEvidence.length >= 32 &&
@@ -497,7 +504,14 @@ function comparisonInterpretation(input: {
     )
       ? teamEvidence
       : checkpoint;
-  return dedupeEditorialTexts([dynamicEvidence, checkpoint])
+  const concise = dedupeEditorialTexts([dynamicEvidence, checkpoint])
+    .slice(0, 2)
+    .join(" ");
+  if (concise.length > 45) return concise;
+  return dedupeEditorialTexts([
+    withoutGenericHedge(compactEditorialText(input.teamEvidence, 2)),
+    compactEditorialText(input.checkpoint, 2),
+  ])
     .slice(0, 2)
     .join(" ");
 }
@@ -1232,14 +1246,6 @@ function buildWorkflowV2EditorialModel(
     structured.sectionNarratives?.find((section) => section.id === id)?.body[
       locale
     ] ?? "";
-  const sectionFullCopy = (
-    item: ResearchFileData["analysis"][number] | undefined,
-  ) =>
-    item === undefined
-      ? ""
-      : [text(item.summary), text(item.detail)]
-          .filter((value) => value.trim().length > 0)
-          .join(" ");
   const sectionMatching = (pattern: RegExp, fallbackIndex: number) =>
     file.analysis.find((item) => pattern.test(text(item.title))) ??
     file.analysis[fallbackIndex];
@@ -1251,10 +1257,6 @@ function buildWorkflowV2EditorialModel(
   const operatingSection = sectionMatching(
     /operat|scenario|path|실적|운영|시나리오|경로/iu,
     2,
-  );
-  const changeSection = sectionMatching(
-    /change|condition|falsif|변경|조건|무효/iu,
-    Math.max(0, file.analysis.length - 1),
   );
   const distinctCandidate = (
     candidates: readonly (string | undefined)[],
@@ -1284,14 +1286,6 @@ function buildWorkflowV2EditorialModel(
   );
   const opposingClaims = displayClaims.filter(
     (claim) => claim.stanceContribution === "opposes",
-  );
-  const primaryClaims = structured.decision.primaryClaimIds.flatMap(
-    (claimId) => {
-      const claim = displayClaims.find(
-        (candidate) => candidate.claimId === claimId,
-      );
-      return claim === undefined ? [] : [claim];
-    },
   );
   const usedClaimEvidence: string[] = [];
   const usedCounterpoints: string[] = [];
@@ -1377,78 +1371,12 @@ function buildWorkflowV2EditorialModel(
   const valuationClaim = displayClaims.find(
     (claim) => claim.decisionDimension === "embedded_expectations",
   );
-  const growthClaim = displayClaims.find((claim) =>
-    ["growth_engine", "adoption", "moat"].includes(claim.decisionDimension),
-  );
   const financialClaim = displayClaims.find((claim) =>
     ["margin", "margin_durability", "cash_conversion"].includes(
       claim.decisionDimension,
     ),
   );
-  const riskClaim = displayClaims.find((claim) =>
-    ["downside_path", "leading_indicator"].includes(claim.decisionDimension),
-  );
-  const sectionComparisonRow = (input: {
-    readonly label: string;
-    readonly section: ResearchFileData["analysis"][number] | undefined;
-    readonly fallbackClaim: (typeof displayClaims)[number] | undefined;
-    readonly checkpoint: string;
-  }): EditorialComparisonRow | undefined => {
-    const companyView = distinctCandidate(
-      [
-        input.section === undefined ? undefined : text(input.section.summary),
-        input.fallbackClaim === undefined
-          ? undefined
-          : text(input.fallbackClaim.publicThesis),
-      ],
-      [],
-    );
-    const benchmarkLens = distinctCandidate(
-      [
-        input.section === undefined ? undefined : text(input.section.detail),
-        input.fallbackClaim === undefined
-          ? undefined
-          : text(input.fallbackClaim.falsifier),
-      ],
-      [companyView],
-    );
-    if (companyView.length === 0 && benchmarkLens.length === 0)
-      return undefined;
-    return {
-      label: input.label,
-      companyView: companyView || benchmarkLens,
-      benchmarkLens,
-      interpretation: distinctCandidate(
-        [input.checkpoint, text(structured.decision.falsifier)],
-        [companyView, benchmarkLens],
-      ),
-    };
-  };
-  const derivedComparisonRows = [
-    sectionComparisonRow({
-      label: ko ? "밸류에이션 프레임" : "Valuation frame",
-      section: valuationSection,
-      fallbackClaim: valuationClaim ?? financialClaim,
-      checkpoint:
-        valuationClaim === undefined ? "" : text(valuationClaim.falsifier),
-    }),
-    sectionComparisonRow({
-      label: ko ? "사업·실적 전환" : "Operating conversion",
-      section: operatingSection,
-      fallbackClaim: growthClaim ?? financialClaim,
-      checkpoint: growthClaim === undefined ? "" : text(growthClaim.falsifier),
-    }),
-    sectionComparisonRow({
-      label: ko ? "하방 검증선" : "Downside test",
-      section: changeSection,
-      fallbackClaim: riskClaim ?? opposingClaims[0],
-      checkpoint: text(structured.decision.falsifier),
-    }),
-  ].filter((row): row is EditorialComparisonRow => row !== undefined);
-  const comparisonRows =
-    qualifiedComparisonRows.length > 0
-      ? qualifiedComparisonRows
-      : derivedComparisonRows;
+  const comparisonRows = qualifiedComparisonRows;
   const groupedMetrics = metricGroups(file, locale);
   const sourceIndex = file.evidenceIndex.map((source) => ({
     ...source,
@@ -1480,69 +1408,15 @@ function buildWorkflowV2EditorialModel(
         : [],
     ),
   }));
-  const operatingSentences = sentences(sectionFullCopy(operatingSection));
-  const scenarioSeed = (pattern: RegExp, fallback: string) =>
-    operatingSentences.find((sentence) => pattern.test(sentence)) ?? fallback;
-  const fallbackScenarios = [
-    {
-      id: "operating-proof",
-      label: ko ? "실적이 증명해야 할 경로" : "Operating proof path",
-      thesis: scenarioSeed(
-        /favour|favor|construct|positive|긍정|개선|유지/iu,
-        financialClaim === undefined
-          ? text(structured.decision.decisiveReason)
-          : text(financialClaim.publicThesis),
-      ),
-      assumptions: dedupeEditorialTexts([
-        growthClaim === undefined ? "" : text(growthClaim.publicThesis),
-        financialClaim === undefined ? "" : text(financialClaim.falsifier),
-      ]),
-    },
-    {
-      id: "conversion-risk",
-      label: ko ? "전환 실패 경로" : "Conversion risk path",
-      thesis: scenarioSeed(
-        /adverse|downside|slow|하방|부정|둔화/iu,
-        text(structured.decision.strongestCountercase),
-      ),
-      assumptions: dedupeEditorialTexts([
-        riskClaim === undefined ? "" : text(riskClaim.publicThesis),
-        opposingClaims[0] === undefined
-          ? ""
-          : text(opposingClaims[0].falsifier),
-      ]),
-    },
-    {
-      id: "earliest-warning",
-      label: ko ? "가장 이른 경고 신호" : "Earliest warning",
-      thesis: scenarioSeed(
-        /earliest|warning|signal|가장 이른|경고|신호/iu,
-        text(structured.decision.falsifier),
-      ),
-      assumptions: dedupeEditorialTexts([
-        primaryClaims[0] === undefined ? "" : text(primaryClaims[0].falsifier),
-        sectionCopy(changeSection),
-      ]),
-    },
-  ]
-    .map((scenario) => ({
-      ...scenario,
-      assumptions: scenario.assumptions.filter(
-        (assumption) => !editoriallySimilar(assumption, scenario.thesis),
-      ),
-    }))
-    .filter(
-      (scenario) =>
-        scenario.thesis.trim().length > 0 && scenario.assumptions.length > 0,
-    );
-  const scenarios =
-    sourceScenarios.length > 0 ? sourceScenarios : fallbackScenarios;
+  const scenarios = sourceScenarios;
   const conclusionIndex =
     structured.decision.stance === "upside_skewed"
       ? 75
-      : structured.decision.stance === "wait_for_proof"
-        ? 50
-        : 25;
+      : structured.decision.stance === "downside_skewed"
+        ? 25
+        : structured.decision.stance === "insufficient_evidence"
+          ? 35
+          : 50;
   const evidenceReliability = reliability(file);
   const directAnswer = text(structured.decision.decisiveReason);
   const tenSecondBrief = narrativeById("ten_second_brief").trim();

@@ -17,6 +17,7 @@ export function createSqliteChairSynthesis(
       : { migrationsDirectory: options.migrationsDirectory };
   const authority = new ChairSynthesisSqliteAuthority(options.databasePath, {
     cas: options.cas,
+    workflowVersion: options.workflowVersion ?? "workflow-v3",
     ...migrationOptions,
   });
   const workflowAuthority = new SpecialistRoundSqliteAuthority(

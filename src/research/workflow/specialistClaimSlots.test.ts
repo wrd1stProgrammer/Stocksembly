@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MemoOutputSchema } from "../domain/agentOutputs";
+import type { SpecialistRoleId } from "../domain/roleRegistry";
 import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import { codexInputHash } from "../server/codex/codexRunner";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
@@ -36,7 +37,7 @@ const expectedDimensions = {
 } as const;
 
 function quantifiedCandidate(input: {
-  readonly roleId: "financial" | "valuation";
+  readonly roleId: SpecialistRoleId;
   readonly claimSlots: ReturnType<typeof allocateSpecialistClaimSlots>;
   readonly artifactId: string;
   readonly metricId: string;
@@ -292,7 +293,7 @@ describe("specialist claim slots", () => {
     });
   });
 
-  it("leaves a multi-metric percentage claim untouched for strict repair", async () => {
+  it("removes only ambiguous percentage values instead of exhausting replacement retries", async () => {
     const harness = await makeSqliteRoundHarness("none");
     const roleId = "financial" as const;
     const claimSlots = allocateSpecialistClaimSlots({
@@ -348,7 +349,14 @@ describe("specialist claim slots", () => {
       registeredValues,
     );
 
-    expect(grounded).toEqual(ambiguous);
+    expect(
+      (grounded as { readonly positions: readonly unknown[] }).positions[0],
+    ).toMatchObject({
+      publicSummary: {
+        en: "The evidence supports the direction of this claim, but an exact rate is omitted because it could not be matched unambiguously.",
+        ko: "근거는 이 주장의 방향성을 뒷받침하지만, 명확히 연결되지 않은 비율은 표시하지 않았습니다.",
+      },
+    });
     expect(
       validateSpecialistClaimSubmission(
         {
@@ -362,10 +370,7 @@ describe("specialist claim slots", () => {
         },
         grounded,
       ),
-    ).toEqual({
-      ok: false,
-      reason: "specialist_claim_numeric_metric_mismatch",
-    });
+    ).toEqual({ ok: true });
   });
 
   it("does not mistake an explicit future threshold for a reported metric", async () => {
@@ -670,11 +675,14 @@ describe("specialist claim slots", () => {
       expect(manifest).toMatchObject({
         request: { comparatorQualification: { status: "not_available" } },
       });
-      const expectedSlots = allocateSpecialistClaimSlots({
-        runId: harness.input.mandate.runId,
-        snapshotId: harness.input.snapshot.snapshotId,
-        roleId: manifest.request.role.id,
-      });
+      const expectedSlots = allocateSpecialistClaimSlots(
+        {
+          runId: harness.input.mandate.runId,
+          snapshotId: harness.input.snapshot.snapshotId,
+          roleId: manifest.request.role.id,
+        },
+        harness.input.mandate.researchProfile,
+      );
       expect(manifest.request.claimSlots).toEqual(expectedSlots);
       expect(manifest.request.claimSlots.length).toBeGreaterThanOrEqual(1);
       expect(manifest.request.claimSlots.length).toBeLessThanOrEqual(3);

@@ -6,7 +6,11 @@ import {
   evaluateEditorialQuality,
   extractNumericTokens,
 } from "../src/research/domain/editorialQuality";
-import { WorkflowV2ResearchReportSchema } from "../src/research/domain/report";
+import {
+  WorkflowV2ResearchReportSchema,
+  WorkflowV3ResearchReportSchema,
+  workflowV3ReportForPresentation,
+} from "../src/research/domain/report";
 
 type LedgerEntry = {
   readonly surface: "committee" | "market" | "company" | "financial" | "risk";
@@ -76,9 +80,14 @@ for (const entry of ledger.entries) {
   const bytes = await readFile(artifactPath);
   if (createHash("sha256").update(bytes).digest("hex") !== digest)
     throw new Error(`${entry.surface}:ARTIFACT_DIGEST_MISMATCH`);
-  const report = WorkflowV2ResearchReportSchema.parse(
-    JSON.parse(bytes.toString("utf8")),
-  );
+  const decoded: unknown = JSON.parse(bytes.toString("utf8"));
+  const v3 = WorkflowV3ResearchReportSchema.safeParse(decoded);
+  const report = v3.success
+    ? workflowV3ReportForPresentation(v3.data)
+    : WorkflowV2ResearchReportSchema.parse(decoded);
+  const auditLocales = v3.success
+    ? ([v3.data.sourceLocale] as const)
+    : (["en", "ko"] as const);
   const publicationPayload = JSON.parse(String(row.public_payload_json)) as {
     editorialPublication?: { candidate?: { supportedNumbers?: unknown } };
   };
@@ -98,7 +107,7 @@ for (const entry of ledger.entries) {
             ]),
           ),
         ];
-  const localeAudits = (["en", "ko"] as const).map((locale) => {
+  const localeAudits = auditLocales.map((locale) => {
     const team = report.teamViews[0];
     if (team === undefined)
       throw new Error(`${entry.surface}:TEAM_VIEW_MISSING`);
@@ -145,7 +154,8 @@ for (const entry of ledger.entries) {
     versionId: row.version_id,
     artifactDigest: digest,
     artifactBytes: bytes.byteLength,
-    schemaVersion: report.schemaVersion,
+    schemaVersion: v3.success ? "workflow-v3" : report.schemaVersion,
+    sourceLocale: v3.success ? v3.data.sourceLocale : undefined,
     claimCount: report.editorialClaims.length,
     roleOwners: [
       ...new Set(report.editorialClaims.map((claim) => claim.roleOwner)),
@@ -160,6 +170,7 @@ for (const entry of ledger.entries) {
     comparatorCount: report.comparators.length,
     anticipatedQuestionCount: report.anticipatedQuestions.length,
     localeAudits,
+    translationAudits: [],
   });
 }
 

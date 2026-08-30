@@ -10,6 +10,7 @@ import {
   containsForbiddenPublicVocabulary,
   sanitizePublicEditorialText,
 } from "../domain/editorialQuality";
+import { resolveEditorialItemDefect } from "../domain/editorialStance";
 import { TickerSymbolSchema } from "../domain/ids";
 import { selectGroundedAnticipatedQuestions } from "./anticipatedQuestionsPublication";
 import {
@@ -391,42 +392,28 @@ describe("pre-publication editorial quality gate", () => {
     },
   );
 
-  it("preserves a direct buy conclusion when its evidence is otherwise valid", () => {
-    const candidate = cleanCandidate();
-    const text =
-      "Buy now because enterprise adoption broadened across customer cohorts.";
-    const result = evaluatePrePublicationEditorialGate({
-      ...candidate,
-      sections: candidate.sections.map((section, index) =>
-        index === 0
-          ? { ...section, text: { ...section.text, en: text } }
-          : section,
-      ),
+  it("keeps a repeated generic caution as a quality deduction rather than a run failure", () => {
+    const result = resolveEditorialItemDefect({
+      text: "Wait for confirmation before acting; this remains conditional.",
+      direction: "upside",
+      repairAttempt: 0,
     });
 
-    expect(result.violations).not.toContainEqual(
-      expect.objectContaining({ code: "forbidden_public_vocabulary" }),
-    );
-    expect(result.violations).not.toContainEqual(
-      expect.objectContaining({ code: "unsafe_public_claim" }),
+    expect(result).toEqual(
+      expect.objectContaining({ kind: "rewrite_required", attempt: 1 }),
     );
     expect(
-      deterministicMetadataRewrite(
-        {
-          ...candidate,
-          position: { ...candidate.position, en: text },
-        },
-        {
-          attempt: 1,
-          fieldPaths: ["position.en"],
-          violations: [],
-          permittedClaimIds: candidate.permittedClaimIds,
-          permittedEvidenceArtifactIds: candidate.permittedEvidenceArtifactIds,
-          permittedNumbers: candidate.supportedNumbers,
-          untrustedCandidateJson: JSON.stringify(candidate),
-        },
-      ).position.en,
-    ).toBe(text);
+      resolveEditorialItemDefect({
+        text: "Wait for confirmation before acting; this remains conditional.",
+        direction: "upside",
+        repairAttempt: 1,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        kind: "omitted",
+        reportDisposition: "complete_with_limitations",
+      }),
+    );
   });
 
   it("does not disguise weak prose with publication-boundary synonym replacement", async () => {

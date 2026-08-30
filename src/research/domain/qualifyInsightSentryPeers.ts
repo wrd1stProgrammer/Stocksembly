@@ -23,6 +23,27 @@ const SubjectSchema = MetricFieldsSchema.extend({
   primaryProductMarket: z.string().trim().min(1).optional(),
   primaryCustomerMarket: z.string().trim().min(1).optional(),
 }).passthrough();
+const CanonicalIdentitySchema = z
+  .object({
+    cik: z.string().trim().min(1),
+    ticker: z.string().trim().min(1),
+    legalName: z.string().trim().min(1),
+    exchange: z.enum(["NASDAQ", "NYSE", "NYSE_AMERICAN"]),
+    title: z.string().trim().min(1),
+    securityClass: z.string().trim().min(1),
+    sector: z.string().trim().min(1),
+    industry: z.string().trim().min(1).optional(),
+    primaryProductMarket: z.string().trim().min(1).optional(),
+    primaryCustomerMarket: z.string().trim().min(1).optional(),
+  })
+  .strict();
+const QualificationSchema = z
+  .object({
+    status: z.enum(["eligible", "not_eligible"]),
+    sourcePurpose: z.string().trim().min(1),
+    reason: z.string().trim().min(1).optional(),
+  })
+  .passthrough();
 const PeerSchema = SubjectSchema.extend({
   classification: z.enum([
     "direct_competitor",
@@ -31,6 +52,10 @@ const PeerSchema = SubjectSchema.extend({
   ]),
   selectionReasons: z.array(z.string().trim().min(1)).min(1),
   marketOverlapVerified: z.boolean().optional(),
+  canonicalIdentity: CanonicalIdentitySchema.optional(),
+  securityQualification: QualificationSchema.optional(),
+  businessQualification: QualificationSchema.optional(),
+  valuationQualification: QualificationSchema.optional(),
 }).passthrough();
 const PeerEvidenceSchema = z
   .object({
@@ -82,6 +107,7 @@ function koreanRationale(reasons: readonly string[]): string {
 function metrics(
   profile: z.infer<typeof SubjectSchema>,
   evidenceArtifactId: string,
+  sourcePurpose?: "valuation_metric" | "operating_metric",
 ) {
   return METRIC_FIELDS.flatMap(([field, key, unit, period]) => {
     const value = profile[field];
@@ -94,6 +120,16 @@ function metrics(
             period,
             unit,
             ...(unit === "currency" ? { currency: "USD" } : {}),
+            ...(sourcePurpose === undefined
+              ? {}
+              : {
+                  sourcePurpose:
+                    key === "price_earnings_ttm" ||
+                    key === "enterprise_value_ebitda_ttm" ||
+                    key === "enterprise_value_to_revenue_ttm"
+                      ? "valuation_metric"
+                      : "operating_metric",
+                }),
             evidenceArtifactIds: [evidenceArtifactId],
           },
         ];
@@ -133,8 +169,18 @@ export function qualifyInsightSentryPeers(input: {
         (reason) =>
           reason.toLocaleLowerCase("und") === "user-selected comparator",
       );
+      const canonicalIdentity = peer.canonicalIdentity;
+      const sealedQualification =
+        canonicalIdentity !== undefined &&
+        peer.securityQualification !== undefined &&
+        peer.businessQualification !== undefined &&
+        peer.valuationQualification !== undefined;
+      const businessEligible =
+        sealedQualification &&
+        peer.businessQualification?.status === "eligible" &&
+        peer.businessQualification.sourcePurpose === "business_overlap";
       return {
-        comparatorId: peer.symbol,
+        comparatorId: canonicalIdentity?.cik ?? peer.symbol,
         name: peer.name,
         sector: peer.sector,
         // A user choice establishes comparison intent, not verified product-market
@@ -150,16 +196,67 @@ export function qualifyInsightSentryPeers(input: {
               ko: koreanRationale(peer.selectionReasons),
             },
         primaryProductMarket:
+          canonicalIdentity?.primaryProductMarket ??
           peer.primaryProductMarket ??
           (peer.marketOverlapVerified === true
             ? overlapKey
             : `unverified-product:${peer.symbol}`),
         primaryCustomerMarket:
+          canonicalIdentity?.primaryCustomerMarket ??
           peer.primaryCustomerMarket ??
           (peer.marketOverlapVerified === true
             ? overlapKey
             : `unverified-customer:${peer.symbol}`),
-        metrics: metrics(peer, input.rawPeerArtifactId),
+        metrics: metrics(
+          peer,
+          input.rawPeerArtifactId,
+          sealedQualification &&
+            peer.valuationQualification?.sourcePurpose === "valuation_metric"
+            ? "valuation_metric"
+            : undefined,
+        ),
+        ...(canonicalIdentity === undefined || !sealedQualification
+          ? {}
+          : {
+              canonicalIdentity: {
+                cik: canonicalIdentity.cik,
+                ticker: canonicalIdentity.ticker,
+                exchange: canonicalIdentity.exchange,
+                securityClass:
+                  canonicalIdentity.securityClass === "common_stock"
+                    ? ("common_stock" as const)
+                    : canonicalIdentity.securityClass === "fund" ||
+                        canonicalIdentity.securityClass === "adr" ||
+                        canonicalIdentity.securityClass === "preferred" ||
+                        canonicalIdentity.securityClass === "unit" ||
+                        canonicalIdentity.securityClass === "warrant" ||
+                        canonicalIdentity.securityClass === "debt"
+                      ? canonicalIdentity.securityClass
+                      : ("unknown" as const),
+                sector: canonicalIdentity.sector,
+                ...(canonicalIdentity.industry === undefined
+                  ? {}
+                  : { industry: canonicalIdentity.industry }),
+                primaryProductMarket:
+                  canonicalIdentity.primaryProductMarket ??
+                  `unverified-product:${peer.symbol}`,
+                primaryCustomerMarket:
+                  canonicalIdentity.primaryCustomerMarket ??
+                  `unverified-customer:${peer.symbol}`,
+                sourcePurposes: [
+                  ...(peer.securityQualification?.sourcePurpose ===
+                  "issuer_identity"
+                    ? (["issuer_identity"] as const)
+                    : []),
+                  ...(businessEligible ? (["business_overlap"] as const) : []),
+                ],
+              },
+              securityQualification:
+                peer.securityQualification?.status === "eligible" &&
+                peer.securityQualification.sourcePurpose === "issuer_identity"
+                  ? ("eligible" as const)
+                  : ("not_eligible" as const),
+            }),
       };
     }),
   });

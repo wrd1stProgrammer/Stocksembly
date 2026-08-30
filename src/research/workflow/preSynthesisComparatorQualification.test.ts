@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { qualifyComparatorsBeforeSynthesis } from "./preSynthesisComparatorQualification";
+import {
+  qualifyComparatorsBeforeSynthesis,
+  sealComparatorContextForChair,
+} from "./preSynthesisComparatorQualification";
 import { isSpecialistAttemptReadableSource } from "./specialistRoundSqliteHandler";
 import { permittedSpecialistInlineArtifact } from "./specialistRoundSqliteStage";
 
@@ -123,6 +126,50 @@ describe("pre-synthesis comparator qualification", () => {
       status: "not_available",
       reason: "peer_evidence_malformed",
       rawPeerArtifactId: "bad-peer-artifact",
+    });
+  });
+
+  it("seals only eligible rows and withholds numeric valuation below three peers", () => {
+    const prepared = qualifyComparatorsBeforeSynthesis([
+      {
+        evidenceId: "insightsentry:peers",
+        artifactId: "peer-artifact",
+        bytes: new TextEncoder().encode(
+          JSON.stringify({
+            ...peerEvidence,
+            peers: peerEvidence.peers.slice(0, 2),
+          }),
+        ),
+      },
+    ]);
+
+    expect(sealComparatorContextForChair(prepared)).toMatchObject({
+      mode: "qualitative_only",
+      rows: expect.arrayContaining([
+        expect.objectContaining({ displayEligibility: true }),
+      ]),
+      omissionReason: "insufficient_eligible_companies",
+    });
+    expect(sealComparatorContextForChair(prepared)).not.toHaveProperty(
+      "valuation",
+    );
+  });
+
+  it("preserves the sealed eligible median without a second normalization", () => {
+    const prepared = qualifyComparatorsBeforeSynthesis([
+      {
+        evidenceId: "insightsentry:peers",
+        artifactId: "peer-artifact",
+        bytes: new TextEncoder().encode(JSON.stringify(peerEvidence)),
+      },
+    ]);
+
+    expect(sealComparatorContextForChair(prepared)).toMatchObject({
+      mode: "numeric_valuation",
+      valuation: {
+        peerMedian: 25,
+        eligibleCompanyCount: 3,
+      },
     });
   });
 });

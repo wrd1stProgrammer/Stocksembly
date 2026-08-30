@@ -20,13 +20,18 @@ import {
   ChairSectionRewriteSchema,
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
+  ChairSynthesisV3RunnerOutputSchema,
   type SqliteChairSynthesisOptions,
 } from "./chairSynthesisContracts";
 import { chairSectionRewritePrompt } from "./chairSynthesisPrompts";
 import {
+  deterministicChairV3Fallback,
+  projectChairV3ForCommit,
+  synthesizeChairV3,
+} from "./chairSynthesisV3";
+import {
   type ChairCandidateIssue,
   chairCandidateIssue,
-  nextChairSectionRewrite,
   projectChairAssignments,
   repairChairCandidate,
   validChairCandidate,
@@ -37,7 +42,12 @@ import type { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuth
 type Context = {
   readonly options: Pick<
     SqliteChairSynthesisOptions,
-    "attemptRoot" | "cas" | "codex" | "now" | "publishReport"
+    | "attemptRoot"
+    | "cas"
+    | "codex"
+    | "now"
+    | "publishReport"
+    | "workflowVersion"
   >;
   readonly authority: ChairSynthesisSqliteAuthority;
   readonly workflowAuthority: SpecialistRoundSqliteAuthority;
@@ -132,48 +142,114 @@ export function createChairSynthesisAttemptHandler(
         )
       )
         return "incomplete";
+      let v3RunnerEvidence: SafeCodexEvidence | undefined;
+      let v3Candidate:
+        | Awaited<ReturnType<typeof synthesizeChairV3>>
+        | undefined;
+      if (
+        rewrite === undefined &&
+        context.options.workflowVersion === "workflow-v3"
+      ) {
+        try {
+          v3Candidate = await synthesizeChairV3({
+            sourceLocale: prompt.mandate.locale,
+            evidenceCatalog: validationPrompt,
+            runModel: async (v3Prompt) => {
+              runnerPrompt = v3Prompt;
+              const result = await context.options.codex.run({
+                attemptDir,
+                reservation: { key, fence: claim },
+                stage: "chair_synthesis",
+                prompt: v3Prompt,
+                outputSchema: ChairSynthesisV3RunnerOutputSchema,
+                signal,
+                onActivity: activity,
+              });
+              v3RunnerEvidence = result.evidence;
+              return result.candidate;
+            },
+          });
+        } catch (error) {
+          if (v3RunnerEvidence === undefined) throw error;
+          v3Candidate = deterministicChairV3Fallback(validationPrompt);
+          process.stdout.write(
+            `${JSON.stringify({
+              kind: "chair_model_output_recovered",
+              attemptId: attempt.attemptId,
+              reason:
+                error instanceof Error
+                  ? error.message
+                  : "unknown_model_output_error",
+            })}\n`,
+          );
+        }
+      }
       const result =
-        rewrite === undefined
-          ? await context.options.codex.run({
-              attemptDir,
-              reservation: { key, fence: claim },
-              stage: "chair_synthesis",
-              prompt: runnerPrompt,
-              outputSchema: ChairSynthesisModelOutputSchema,
-              signal,
-              onActivity: activity,
-            })
-          : await context.options.codex.run({
-              attemptDir,
-              reservation: { key, fence: claim },
-              stage: "chair_synthesis",
-              prompt: runnerPrompt,
-              outputSchema: ChairSectionRewriteSchema,
-              signal,
-              onActivity: activity,
-            });
-      const projection =
-        rewrite === undefined
-          ? projectChairAssignments(validationPrompt, result.candidate)
-          : undefined;
-      candidate =
-        rewrite === undefined
-          ? projection === undefined
-            ? {}
-            : validChairCandidate(validationPrompt, projection.candidate)
-          : repairChairCandidate(
-              validationPrompt,
-              rewrite.originalCandidate,
-              result.candidate,
-            );
-      const subsequentRewrite =
-        rewrite === undefined
+        v3Candidate !== undefined
           ? undefined
-          : nextChairSectionRewrite(
-              validationPrompt,
-              rewrite.originalCandidate,
-              result.candidate,
-            );
+          : rewrite === undefined
+            ? await context.options.codex.run({
+                attemptDir,
+                reservation: { key, fence: claim },
+                stage: "chair_synthesis",
+                prompt: runnerPrompt,
+                outputSchema: ChairSynthesisModelOutputSchema,
+                signal,
+                onActivity: activity,
+              })
+            : await context.options.codex.run({
+                attemptDir,
+                reservation: { key, fence: claim },
+                stage: "chair_synthesis",
+                prompt: runnerPrompt,
+                outputSchema: ChairSectionRewriteSchema,
+                signal,
+                onActivity: activity,
+              });
+      const projection =
+        v3Candidate !== undefined
+          ? undefined
+          : rewrite === undefined
+            ? projectChairAssignments(validationPrompt, result?.candidate ?? {})
+            : undefined;
+      if (v3Candidate !== undefined) {
+        try {
+          candidate = projectChairV3ForCommit(validationPrompt, v3Candidate);
+        } catch (error) {
+          // A structurally valid model response must not terminate a run only
+          // because its prose or lineage projection is imperfect. Rebuild the
+          // public narrative from the already audited sentence catalog while
+          // keeping the successful runner evidence for the trusted commit.
+          candidate = projectChairV3ForCommit(validationPrompt, {
+            ...deterministicChairV3Fallback(validationPrompt),
+            publicationReductionReasons: [
+              "deterministic_fallback",
+              "projection_fallback",
+            ],
+          });
+          process.stdout.write(
+            `${JSON.stringify({
+              kind: "chair_projection_recovered",
+              attemptId: attempt.attemptId,
+              reason:
+                error instanceof Error
+                  ? error.message
+                  : "unknown_projection_error",
+            })}\n`,
+          );
+        }
+      } else if (rewrite === undefined) {
+        candidate =
+          projection === undefined
+            ? {}
+            : validChairCandidate(validationPrompt, projection.candidate);
+      } else {
+        candidate = repairChairCandidate(
+          validationPrompt,
+          rewrite.originalCandidate,
+          result?.candidate ?? {},
+        );
+      }
       if (
         projection !== undefined &&
         typeof candidate === "object" &&
@@ -196,22 +272,30 @@ export function createChairSynthesisAttemptHandler(
       ) {
         incompleteCodes.set(
           attempt.runId,
-          `chair_targeted_rewrite_failed:${subsequentRewrite?.issue.reason ?? rewrite.issue.reason}`,
+          `chair_targeted_rewrite_failed:${rewrite.issue.reason}`,
         );
-        if (subsequentRewrite !== undefined) nextRewrite = subsequentRewrite;
+        nextRewrite = undefined;
       }
-      if (rewrite === undefined)
+      if (rewrite === undefined && v3Candidate === undefined)
         nextRewrite = {
-          originalCandidate: projection?.candidate ?? result.candidate,
+          originalCandidate: projection?.candidate ?? result?.candidate ?? {},
           issue: chairCandidateIssue(
             validationPrompt,
-            projection?.candidate ?? result.candidate,
+            projection?.candidate ?? result?.candidate ?? {},
           ) ?? {
             sectionKey: "ten_second_brief",
             reason: "invalid_model_output",
           },
         };
-      runnerEvidence = result.evidence;
+      if (v3Candidate !== undefined) {
+        if (v3RunnerEvidence === undefined)
+          throw new TypeError("chair_v3_runner_evidence_missing");
+        runnerEvidence = v3RunnerEvidence;
+      } else {
+        if (result === undefined)
+          throw new TypeError("chair_runner_result_missing");
+        runnerEvidence = result.evidence;
+      }
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;
       if (!(error instanceof Error)) throw error;
@@ -239,6 +323,13 @@ export function createChairSynthesisAttemptHandler(
       runnerEvidence,
     );
     if (!recorded) return "incomplete";
+    if (
+      rewrite !== undefined &&
+      typeof candidate === "object" &&
+      candidate !== null &&
+      Object.keys(candidate).length === 0
+    )
+      return "incomplete";
     const ids = {
       artifactId: ArtifactIdSchema.parse(randomUUID()),
       eventId: EventIdSchema.parse(randomUUID()),

@@ -1,0 +1,12 @@
+{
+  "id": "financial-institution",
+  "expectedFatalReasons": [],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 2,
+    "comparatorValuationDiscipline": 2,
+    "editorialClarity": 2,
+    "reliability": 2
+  },
+  "expectedRuntimeDisposition": "complete"
+}

@@ -10,6 +10,7 @@ import { type ResearchReport, ResearchReportSchema } from "../../domain/report";
 import { validReport } from "../../domain/report.testSupport";
 import { researchReportToFile } from "../../researchReportToFile";
 import { workflowV2PresentationFixture } from "../../workflowV2Presentation.testSupport";
+import { workflowV3PresentationFixture } from "../../workflowV3Presentation.testSupport";
 import { resolveArtifactBlobPath } from "../artifacts/filesystemArtifactPaths";
 import type { PublicReport } from "./researchApiContracts";
 import { loadPublicResearchReport } from "./researchApiReportReader";
@@ -17,7 +18,10 @@ import { loadPublicResearchReport } from "./researchApiReportReader";
 const roots: string[] = [];
 
 async function storedPublication(
-  report: ReturnType<typeof workflowV2PresentationFixture> | ResearchReport,
+  report:
+    | ReturnType<typeof workflowV2PresentationFixture>
+    | ReturnType<typeof workflowV3PresentationFixture>
+    | ResearchReport,
 ) {
   const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-report-reader-"));
   roots.push(dataRoot);
@@ -45,10 +49,14 @@ async function storedPublication(
       claimIds: report.claims.map((claim) => claim.claimId),
       sourceIds: report.sources.map((source) => source.sourceId),
       limitationIds: report.limitations.map((limitation) => limitation.id),
-      ...(report.schemaVersion === "workflow-v2"
+      ...(report.schemaVersion === "workflow-v2" ||
+      report.schemaVersion === "workflow-v3"
         ? {
             anticipatedQuestions: report.anticipatedQuestions,
             editorialPublication: { gateVersion: "editorial-quality-v1" },
+            ...(report.schemaVersion === "workflow-v3"
+              ? { sourceLocale: report.sourceLocale }
+              : {}),
           }
         : {}),
     },
@@ -92,12 +100,34 @@ describe("loadPublicResearchReport versioned presentation path", () => {
       rendered?.container.querySelectorAll(
         ":scope > section > .research-anticipated-qa__grid > article",
       ),
-    ).toHaveLength(5);
-    expect(rendered?.container.querySelector("details")).toHaveAttribute(
-      "data-qa-expandable-count",
-      "5",
-    );
+    ).toHaveLength(10);
+    expect(rendered?.container.querySelector("details")).toBeNull();
   });
+
+  it.each(["en", "ko"] as const)(
+    "loads workflow-v3 %s without requiring a mirrored locale",
+    async (sourceLocale) => {
+      const canonical = workflowV3PresentationFixture(sourceLocale);
+      const stored = await storedPublication(canonical);
+
+      const report = await loadPublicResearchReport(
+        { dataRoot: stored.dataRoot },
+        stored.publication,
+      );
+      const file =
+        report === undefined
+          ? undefined
+          : researchReportToFile(report, stored.publication.publishedAt);
+
+      expect(report).toEqual(canonical);
+      expect(report).not.toHaveProperty("locales");
+      expect(file?.presentationVersion).toBe("workflow-v2");
+      expect(file?.structuredEditorial?.decision.stance).toBe("balanced");
+      expect(
+        file?.structuredEditorial?.decision.decisiveReason[sourceLocale],
+      ).toBe(canonical.editorialDecision.decisiveReason);
+    },
+  );
 
   it("keeps stored workflow-v1 loading read-only before and after v2", async () => {
     // Given

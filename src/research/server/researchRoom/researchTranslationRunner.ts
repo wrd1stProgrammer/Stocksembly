@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -29,8 +29,34 @@ const TranslationResponseSchema = z.object({
   ),
 });
 
-const MAX_TRANSLATION_BATCH_ITEMS = 80;
-const MAX_TRANSLATION_BATCH_TEXT_BYTES = 32 * 1_024;
+export const RESEARCH_TRANSLATION_MODEL_VERSION = "gpt-5.6-luna";
+export const RESEARCH_TRANSLATION_BATCH_ITEM_LIMIT = 80;
+export const RESEARCH_TRANSLATION_BATCH_TEXT_BYTE_LIMIT = 32 * 1_024;
+
+export type ResearchTranslationBatchPlan = {
+  readonly ordinal: number;
+  readonly inputHash: string;
+  readonly items: readonly ResearchTranslationItem[];
+};
+
+export type ResearchTranslationBatchInvocation =
+  ResearchTranslationBatchPlan & {
+    readonly invocationId: string;
+  };
+
+export type ResearchTranslationExecutionOptions = {
+  readonly beforeBatchInvocation?: (
+    batch: ResearchTranslationBatchInvocation,
+  ) => Promise<void> | void;
+  readonly afterBatchInvocation?: (
+    batch: ResearchTranslationBatchInvocation,
+    outcome: "succeeded" | "failed",
+  ) => Promise<void> | void;
+  readonly invokeBatch?: (
+    items: readonly ResearchTranslationItem[],
+    targetLocale: ResearchTranslationLocale,
+  ) => Promise<ReadonlyMap<string, string>>;
+};
 
 export function translationPrompt(
   items: readonly ResearchTranslationItem[],
@@ -55,18 +81,25 @@ export function translationPrompt(
   ].join("\n\n");
 }
 
-function translationBatches(
+/** Pure, deterministic, and shared by execution and cache verification. */
+export function planResearchTranslationBatches(
   items: readonly ResearchTranslationItem[],
-): readonly (readonly ResearchTranslationItem[])[] {
+): readonly ResearchTranslationBatchPlan[] {
+  const seenText = new Set<string>();
+  const deduplicated = items.filter((item) => {
+    if (seenText.has(item.text)) return false;
+    seenText.add(item.text);
+    return true;
+  });
   const batches: ResearchTranslationItem[][] = [];
   let batch: ResearchTranslationItem[] = [];
   let textBytes = 0;
-  for (const item of items) {
+  for (const item of deduplicated) {
     const itemBytes = Buffer.byteLength(item.text, "utf8");
     if (
       batch.length > 0 &&
-      (batch.length >= MAX_TRANSLATION_BATCH_ITEMS ||
-        textBytes + itemBytes > MAX_TRANSLATION_BATCH_TEXT_BYTES)
+      (batch.length >= RESEARCH_TRANSLATION_BATCH_ITEM_LIMIT ||
+        textBytes + itemBytes > RESEARCH_TRANSLATION_BATCH_TEXT_BYTE_LIMIT)
     ) {
       batches.push(batch);
       batch = [];
@@ -76,7 +109,19 @@ function translationBatches(
     textBytes += itemBytes;
   }
   if (batch.length > 0) batches.push(batch);
-  return batches;
+  return batches.map((entries, index) => {
+    const normalized = entries.map((item, itemIndex) => ({
+      id: String(itemIndex),
+      text: item.text,
+    }));
+    return Object.freeze({
+      ordinal: index + 1,
+      inputHash: createHash("sha256")
+        .update(JSON.stringify(normalized))
+        .digest("hex"),
+      items: Object.freeze([...entries]),
+    });
+  });
 }
 
 async function translateResearchBatch(
@@ -125,7 +170,7 @@ async function translateResearchBatch(
       attemptDir,
       reservation,
       stage: "memo",
-      runtime: { model: "gpt-5.6-luna", reasoning: "low" },
+      runtime: { model: RESEARCH_TRANSLATION_MODEL_VERSION, reasoning: "low" },
       prompt,
       outputSchema: TranslationResponseSchema,
     });
@@ -146,6 +191,7 @@ async function translateResearchBatch(
 export async function translateResearchText(
   items: readonly ResearchTranslationItem[],
   targetLocale: ResearchTranslationLocale,
+  options: ResearchTranslationExecutionOptions = {},
 ): Promise<ReadonlyMap<string, string>> {
   if (items.length === 0) return new Map();
   const idsByText = new Map<string, string[]>();
@@ -160,21 +206,36 @@ export async function translateResearchText(
     uniqueItems.push(item);
   }
   const uniqueTranslations = new Map<string, string>();
-  const batches = translationBatches(uniqueItems);
+  const batches = planResearchTranslationBatches(uniqueItems);
   const completedBatches = await Promise.all(
     batches.map(async (batch) => {
-      const originalIds = batch.map((item) => item.id);
-      const normalized = batch.map((item, index) => ({
+      const originalIds = batch.items.map((item) => item.id);
+      const normalized = batch.items.map((item, index) => ({
         id: String(index),
         text: item.text,
       }));
-      const result = await translateResearchBatch(normalized, targetLocale);
-      return originalIds.map((id, index) => {
-        const text = result.get(String(index));
-        if (text === undefined)
-          throw new TypeError("research_translation_incomplete");
-        return [id, text] as const;
-      });
+      const invocation = {
+        ...batch,
+        invocationId: randomUUID(),
+      } satisfies ResearchTranslationBatchInvocation;
+      await options.beforeBatchInvocation?.(invocation);
+      try {
+        const result = await (options.invokeBatch ?? translateResearchBatch)(
+          normalized,
+          targetLocale,
+        );
+        const completed = originalIds.map((id, index) => {
+          const text = result.get(String(index));
+          if (text === undefined)
+            throw new TypeError("research_translation_incomplete");
+          return [id, text] as const;
+        });
+        await options.afterBatchInvocation?.(invocation, "succeeded");
+        return completed;
+      } catch (error) {
+        await options.afterBatchInvocation?.(invocation, "failed");
+        throw error;
+      }
     }),
   );
   for (const batch of completedBatches)

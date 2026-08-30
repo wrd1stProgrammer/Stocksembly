@@ -15,10 +15,22 @@ if ! git cat-file -e "${base_sha}^{commit}" 2>/dev/null; then
   exit 0
 fi
 
-mapfile -t files < <(
-  git diff --name-only --diff-filter=ACMR "${base_sha}" "${GITHUB_SHA:-HEAD}" -- \
-    '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.css'
-)
+files=()
+if [[ -n "${GITHUB_SHA:-}" ]]; then
+  while IFS= read -r -d '' file; do
+    files[${#files[@]}]="${file}"
+  done < <(
+    git diff --name-only -z --diff-filter=ACMR "${base_sha}" "${GITHUB_SHA}" -- \
+      '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.css'
+  )
+else
+  while IFS= read -r -d '' file; do
+    files[${#files[@]}]="${file}"
+  done < <(
+    git diff --name-only -z --diff-filter=ACMR "${base_sha}" -- \
+      '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.json' '*.css'
+  )
+fi
 
 if ((${#files[@]} == 0)); then
   echo "No Biome-supported files changed."

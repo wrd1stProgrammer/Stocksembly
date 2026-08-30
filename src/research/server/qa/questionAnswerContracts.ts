@@ -4,6 +4,7 @@ import { questionLookupPlan } from "../../domain/questionLookupPlan";
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
+  WorkflowV3ResearchReport,
 } from "../../domain/report";
 import {
   type CodexRuntimeOverride,
@@ -50,8 +51,13 @@ export type QuestionSelection = z.infer<typeof QuestionSelectionSchema>;
 export type GroundedQuestionClaim = {
   readonly claimId: z.infer<typeof ClaimIdSchema>;
   readonly sourceIds: readonly string[];
-  readonly text: { readonly en: string; readonly ko: string };
+  readonly text: Partial<Readonly<Record<"en" | "ko", string>>>;
 };
+
+type QuestionResearchReport =
+  | ResearchReport
+  | WorkflowV2ResearchReport
+  | WorkflowV3ResearchReport;
 
 export function questionRuntimeOverride(question: {
   readonly en: string;
@@ -66,9 +72,17 @@ export function questionRuntimeOverride(question: {
 }
 
 function claimText(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: QuestionResearchReport,
   claimId: string,
-): { readonly en: string; readonly ko: string } | undefined {
+): Partial<Readonly<Record<"en" | "ko", string>>> | undefined {
+  if (report.schemaVersion === "workflow-v3") {
+    const text =
+      report.claims.find((claim) => claim.claimId === claimId)?.text ??
+      report.narrative.sections.find((section) =>
+        section.claimIds.includes(ClaimIdSchema.parse(claimId)),
+      )?.body;
+    return text === undefined ? undefined : { [report.sourceLocale]: text };
+  }
   const registered = report.claims.find(
     (claim) => claim.claimId === claimId,
   )?.text;
@@ -83,7 +97,7 @@ function claimText(
 }
 
 export function groundedClaims(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: QuestionResearchReport,
 ): readonly GroundedQuestionClaim[] {
   return report.claims.flatMap((claim) => {
     const text = claimText(report, claim.claimId);
@@ -94,7 +108,7 @@ export function groundedClaims(
 }
 
 export function questionPrompt(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: QuestionResearchReport,
   questionId: string,
   question: { readonly en: string; readonly ko: string },
 ): string {
@@ -114,7 +128,7 @@ export function questionPrompt(
 }
 
 export function questionInputHash(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: QuestionResearchReport,
   questionId: string,
   question: { readonly en: string; readonly ko: string },
 ): string {

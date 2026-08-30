@@ -1,5 +1,5 @@
 import { parseStoredResearchReportVersioned } from "@/src/research/domain/reportStorage";
-import { renderResearchReportPdf } from "@/src/research/pdf/researchReportPdf";
+import { renderEditorialResearchReportPdf } from "@/src/research/pdf/renderEditorialResearchReportPdf";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const runtime = "nodejs";
@@ -49,7 +49,7 @@ export async function GET(
     typeof createdAtValue === "string"
       ? createdAtValue
       : new Date().toISOString();
-  const bytes = await renderResearchReportPdf({
+  const bytes = await renderEditorialResearchReportPdf({
     report,
     symbol,
     locale,

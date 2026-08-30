@@ -5,12 +5,18 @@ import { z } from "zod";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import {
   ArtifactIdSchema,
+  ClaimIdSchema,
   EventIdSchema,
   JobIdSchema,
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
-import { WorkflowV2ResearchReportSchema } from "../domain/report";
+import {
+  ResearchReportSchema,
+  WorkflowV2ResearchReportSchema,
+  WorkflowV3ResearchReportSchema,
+  workflowV3ReportFromCanonicalNarrative,
+} from "../domain/report";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
@@ -24,6 +30,7 @@ import {
 } from "../workflow/chairSynthesis.testSupport";
 import { loadChairPrompt } from "../workflow/chairSynthesisInput";
 import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
+import { composeWorkflowV2Report } from "../workflow/workflowV2PublicationComposer";
 import { assembleReport } from "./assembleReport";
 import {
   CountingArtifactCasFake,
@@ -32,8 +39,90 @@ import {
   seedAuthoritativeParents,
 } from "./assembleReport.testSupport";
 import { persistAuthoritativeReport } from "./assembleReportPersistence";
+import { publishableDissent } from "./assembleReportValidation";
 
 describe("persistAuthoritativeReport", () => {
+  it("drops orphaned dissent instead of blocking an otherwise publishable report", () => {
+    const supportedClaimId = "00000000-0000-4000-8000-000000000001";
+    const orphanedClaimId = "00000000-0000-4000-8000-000000000002";
+    const sourceId = "00000000-0000-4000-8000-000000000003";
+
+    const recovered = publishableDissent(
+      [
+        {
+          claimId: supportedClaimId,
+          sourceIds: [sourceId],
+          text: { en: "Supported dissent.", ko: "근거가 있는 이견입니다." },
+        },
+        {
+          claimId: orphanedClaimId,
+          sourceIds: [sourceId],
+          text: { en: "Orphaned dissent.", ko: "고아 이견입니다." },
+        },
+      ],
+      new Set([supportedClaimId]),
+      new Set([sourceId]),
+    );
+
+    expect(recovered).toEqual([
+      {
+        claimId: supportedClaimId,
+        sourceIds: [sourceId],
+        text: { en: "Supported dissent.", ko: "근거가 있는 이견입니다." },
+      },
+    ]);
+  });
+
+  it("publishes a recovered editorial subset when the chair decision cites a removed claim", () => {
+    const input = makeAuthoritativeReportInput();
+    const baseline = assembleReport(input);
+    expect(baseline.kind).toBe("assembled");
+    if (baseline.kind !== "assembled") return;
+    const publishedClaimId = input.editorialClaims[0]?.claimId;
+    const removedClaimId = ClaimIdSchema.parse(
+      "00000000-0000-4000-8000-000000009997",
+    );
+    if (publishedClaimId === undefined)
+      throw new TypeError("missing claim fixture");
+    const validChair = ChairSynthesisOutputSchema.parse(input.chair);
+    const chair = {
+      ...validChair,
+      decisionBrief: {
+        ...validChair.decisionBrief,
+        primaryClaimIds: [removedClaimId],
+      },
+    };
+    const chairSentences = input.chairSentences.map((sentence, index) =>
+      index === 0 ? { ...sentence, claimIds: [removedClaimId] } : sentence,
+    );
+    const {
+      editorialClaims: _editorialClaims,
+      editorialDecision: _editorialDecision,
+      comparators: _comparators,
+      anticipatedQuestions: _anticipatedQuestions,
+      ...commonReport
+    } = baseline.report;
+    const legacyReport = ResearchReportSchema.parse({
+      ...commonReport,
+      schemaVersion: "workflow-v1",
+    });
+
+    const result = composeWorkflowV2Report({
+      legacyReport,
+      chair,
+      chairSentences,
+      comparators: [],
+      editorialClaims: input.editorialClaims,
+    });
+
+    expect(result.report.editorialDecision.primaryClaimIds).toEqual([
+      publishedClaimId,
+    ]);
+    expect(
+      result.envelope.candidate.sections.flatMap((section) => section.claimIds),
+    ).not.toContain(removedClaimId);
+  });
+
   it.each(["en", "ko"] as const)(
     "accepts a grounded mirrored %s chair summary for single-locale publication",
     (locale) => {
@@ -90,14 +179,14 @@ describe("persistAuthoritativeReport", () => {
       .publicPayload.editorialPublication as
       | PrePublicationEditorialEnvelope
       | undefined;
-    const sectionClaimIds = result.report.locales.en.sections.flatMap(
+    const sectionClaimIds = result.report.narrative.sections.flatMap(
       (section) => section.claimIds,
     );
     expect(new Set(sectionClaimIds).size).toBe(sectionClaimIds.length);
-    expect(result.report.teamViews[0]?.position).toEqual(
-      savedEditorialPublication?.candidate.position,
+    expect(result.report.teamViews[0]?.position).toBe(
+      "Revenue evidence favors waiting for proof.",
     );
-    expect(result.report.locales.en.sections).toEqual(
+    expect(result.report.narrative.sections).toEqual(
       expect.arrayContaining(
         savedEditorialPublication?.candidate.sections.map((section) =>
           expect.objectContaining({
@@ -110,17 +199,262 @@ describe("persistAuthoritativeReport", () => {
     );
     expect(persistence.saved).toHaveLength(1);
     expect(persistence.saved[0]?.version.publicPayload).toMatchObject({
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
+      sourceLocale: "en",
       reportArtifactDigest: result.descriptor.digest,
       version: 1,
       priorVersionId: null,
       anticipatedQuestions: expect.any(Array),
       editorialPublication: {
         gateVersion: "editorial-quality-v1",
-        candidate: { confidence: result.report.editorialDecision!.confidence },
+        candidate: { confidence: result.report.editorialDecision?.confidence },
         fieldLineage: expect.objectContaining({ "position.en": "synthesis" }),
       },
     });
+  });
+
+  it("publishes an audited fallback when canonical prose is absent from its cited lineage", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const input = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(input.chair);
+    const canonical = chair.canonicalNarrativeV3;
+    if (canonical === undefined) throw new TypeError("missing v3 fixture");
+    const forged = {
+      ...input,
+      chair: {
+        ...chair,
+        canonicalNarrativeV3: {
+          ...canonical,
+          decisiveReason: "Revenue reaches an invented 777%.",
+        },
+      },
+    };
+    await seedAuthoritativeParents(cas, input);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      forged,
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.editorialDecision?.decisiveReason).not.toContain(
+      "777%",
+    );
+    expect(result.report.status).toBe("complete_with_limitations");
+    expect(persistence.saved).toHaveLength(1);
+  });
+
+  it("discloses an upstream local prose reduction on an otherwise grounded report", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const input = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(input.chair);
+    const canonical = chair.canonicalNarrativeV3;
+    if (canonical === undefined) throw new TypeError("missing v3 fixture");
+    await seedAuthoritativeParents(cas, input);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      {
+        ...input,
+        chair: {
+          ...chair,
+          canonicalNarrativeV3: {
+            ...canonical,
+            publicationReductionReasons: ["direct_order_rewrite"],
+          },
+        },
+      },
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.status).toBe("complete_with_limitations");
+    expect(result.report.limitations).toContainEqual({
+      id: "limitation:canonical_publication_reduction",
+      capability: "canonical_optional_content",
+    });
+  });
+
+  it("publishes the audited subset when optional canonical content includes unaudited claims", async () => {
+    const cas = new CountingArtifactCasFake();
+    const persistence = reportPersistenceSpy();
+    const valid = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(valid.chair);
+    const canonical = chair.canonicalNarrativeV3;
+    if (canonical === undefined) throw new TypeError("missing v3 fixture");
+    const unauditedClaimId = "00000000-0000-4000-8000-000000009999";
+    const sourceArtifactId = chair.sourceArtifactIds[0];
+    if (sourceArtifactId === undefined)
+      throw new TypeError("missing source artifact fixture");
+    const unauditedSentence = {
+      sentenceId: "sentence:unaudited-optional",
+      kind: "claim" as const,
+      claimIds: [unauditedClaimId],
+      sourceArtifactIds: [sourceArtifactId],
+      text: {
+        en: "An optional unaudited observation should not block publication.",
+        ko: "감사되지 않은 선택 관찰은 발행을 막지 않아야 합니다.",
+      },
+    };
+    const unauditedLineage = {
+      sentenceIds: [unauditedSentence.sentenceId],
+      claimIds: [...unauditedSentence.claimIds],
+      sourceArtifactIds: [...unauditedSentence.sourceArtifactIds],
+    };
+    const input = {
+      ...valid,
+      chairSentences: [...valid.chairSentences, unauditedSentence],
+      chair: {
+        ...chair,
+        canonicalNarrativeV3: {
+          ...canonical,
+          sections: canonical.sections.map((section) =>
+            section.sectionKey === "dissent_unknowns"
+              ? {
+                  ...section,
+                  narrative: unauditedSentence.text.en,
+                  lineage: unauditedLineage,
+                }
+              : section,
+          ),
+          anticipatedQuestions: [
+            {
+              question: unauditedSentence.text.en,
+              answer: unauditedSentence.text.en,
+              lineage: unauditedLineage,
+            },
+          ],
+        },
+      },
+    };
+    await seedAuthoritativeParents(cas, valid);
+
+    const result = await persistAuthoritativeReport(
+      { cas, persistence },
+      input,
+    );
+
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    if (result.kind !== "published") return;
+    expect(result.report.anticipatedQuestions).toEqual([]);
+    expect(
+      result.report.narrative.sections.find(
+        (section) => section.id === "dissent_unknowns",
+      )?.body,
+    ).toBe("The retained dissent identifies unresolved execution risk.");
+    expect(result.report.status).toBe("complete_with_limitations");
+    expect(result.report.limitations).toContainEqual({
+      id: "limitation:canonical_publication_reduction",
+      capability: "canonical_optional_content",
+    });
+    expect(persistence.saved).toHaveLength(1);
+  });
+
+  it("keeps original Q&A identity when a middle canonical question is removed", () => {
+    const input = makeAuthoritativeReportInput();
+    const assembled = assembleReport(input);
+    expect(assembled.kind).toBe("assembled");
+    if (assembled.kind !== "assembled") return;
+    const first = assembled.report.anticipatedQuestions[0];
+    const second = assembled.report.anticipatedQuestions[1];
+    if (first === undefined || second === undefined)
+      throw new TypeError("missing Q&A fixtures");
+    const third = {
+      ...first,
+      questionId: "00000000-0000-4000-8000-000000009998",
+      decisionKey: "third_question",
+      rank: 3,
+    };
+    const report = WorkflowV2ResearchReportSchema.parse({
+      ...assembled.report,
+      anticipatedQuestions: [first, second, third],
+    });
+    const canonical = ChairSynthesisOutputSchema.parse(
+      input.chair,
+    ).canonicalNarrativeV3;
+    if (
+      canonical === undefined ||
+      canonical.anticipatedQuestions[0] === undefined
+    )
+      throw new TypeError("missing canonical Q&A fixture");
+    const projected = workflowV3ReportFromCanonicalNarrative(
+      report,
+      {
+        ...canonical,
+        anticipatedQuestions: [
+          canonical.anticipatedQuestions[0],
+          canonical.anticipatedQuestions[0],
+        ],
+      },
+      new Map(),
+      [0, 2],
+    );
+
+    expect(
+      projected.anticipatedQuestions.map((question) => question.questionId),
+    ).toEqual([first.questionId, third.questionId]);
+    expect(
+      projected.anticipatedQuestions.some(
+        (question) => question.questionId === second.questionId,
+      ),
+    ).toBe(false);
+  });
+
+  it("preserves registered metric identifiers that are not UUIDs", () => {
+    const input = makeAuthoritativeReportInput();
+    const assembled = assembleReport(input);
+    expect(assembled.kind).toBe("assembled");
+    if (assembled.kind !== "assembled") return;
+    const firstClaim = assembled.report.editorialClaims[0];
+    if (firstClaim === undefined) throw new TypeError("missing claim fixture");
+    const report = WorkflowV2ResearchReportSchema.parse({
+      ...assembled.report,
+      editorialClaims: [
+        { ...firstClaim, decisiveMetricIds: ["metric:ev_sales"] },
+        ...assembled.report.editorialClaims.slice(1),
+      ],
+    });
+    const canonical = ChairSynthesisOutputSchema.parse(
+      input.chair,
+    ).canonicalNarrativeV3;
+    if (canonical === undefined)
+      throw new TypeError("missing canonical narrative fixture");
+
+    const projected = workflowV3ReportFromCanonicalNarrative(report, canonical);
+
+    expect(projected.editorialClaims[0]?.decisiveMetricIds).toEqual([
+      "metric:ev_sales",
+    ]);
+  });
+
+  it("keeps canonical Q&A lineage aligned when a source question is absent", () => {
+    const input = makeAuthoritativeReportInput();
+    const assembled = assembleReport(input);
+    expect(assembled.kind).toBe("assembled");
+    if (assembled.kind !== "assembled") return;
+    const canonical = ChairSynthesisOutputSchema.parse(
+      input.chair,
+    ).canonicalNarrativeV3;
+    if (canonical === undefined || canonical.anticipatedQuestions.length === 0)
+      throw new TypeError("missing canonical question fixtures");
+
+    const projected = workflowV3ReportFromCanonicalNarrative(
+      assembled.report,
+      {
+        ...canonical,
+        anticipatedQuestions: [canonical.anticipatedQuestions[0]!],
+      },
+      new Map(),
+      [999],
+    );
+
+    expect(projected.anticipatedQuestions).toEqual([]);
+    expect(projected.narrativeLineage.anticipatedQuestions).toHaveLength(
+      projected.anticipatedQuestions.length,
+    );
   });
 
   it("publishes audited retained dissent when the chair did not tag a separate dissent sentence", async () => {
@@ -144,8 +478,7 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.locales.en.dissent[0]?.text).not.toBe("");
-    expect(result.report.locales.ko.dissent[0]?.text).not.toBe("");
+    expect(result.report.narrative.dissent[0]?.text).not.toBe("");
   });
 
   it("retains qualified user-selected comparators in the published report", async () => {
@@ -174,7 +507,12 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.comparators).toEqual(input.comparators);
+    expect(result.report.comparators).toEqual(
+      input.comparators.map((comparator) => ({
+        ...comparator,
+        rationale: comparator.rationale.en,
+      })),
+    );
   });
 
   it("fails closed before CAS when authenticated editorial claims are absent", async () => {
@@ -255,7 +593,7 @@ describe("persistAuthoritativeReport", () => {
     expect(result.kind, JSON.stringify(result)).toBe("published");
   });
 
-  it("publishes partial claims without inventing a capability limitation", async () => {
+  it("does not let a partial-only report drive a core conclusion", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
     const valid = makeAuthoritativeReportInput();
@@ -287,12 +625,11 @@ describe("persistAuthoritativeReport", () => {
       input,
     );
 
-    expect(result.kind, JSON.stringify(result)).toBe("published");
-    if (result.kind !== "published") return;
-    expect(result.report.status).toBe("complete_with_limitations");
-    expect(result.report.limitations).toContainEqual(
-      expect.objectContaining({ capability: "claim_evidence" }),
-    );
+    expect(result).toEqual({
+      kind: "blocked",
+      reason: "no_grounded_core_answer",
+    });
+    expect(persistence.saved).toHaveLength(0);
   });
 
   it("recovers a numeric revenue scenario from an abbreviated chair sentence", async () => {
@@ -349,7 +686,7 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.locales.en.scenarios[0]?.assumptions[0]).toEqual({
+    expect(result.report.narrative.scenarios[0]?.assumptions[0]).toEqual({
       metric: "revenue",
       unit: "USD",
       value: "81600000000",
@@ -377,8 +714,7 @@ describe("persistAuthoritativeReport", () => {
 
     expect(result.kind, JSON.stringify(result)).toBe("published");
     if (result.kind !== "published") return;
-    expect(result.report.locales.en.scenarios).toEqual([]);
-    expect(result.report.locales.ko.scenarios).toEqual([]);
+    expect(result.report.narrative.scenarios).toEqual([]);
   });
 
   it("removes a contradicted retained-dissent claim from the report register", async () => {
@@ -407,7 +743,10 @@ describe("persistAuthoritativeReport", () => {
       input,
     );
 
-    expect(result).toEqual({ kind: "blocked", reason: "report_invalid" });
+    expect(result).toEqual({
+      kind: "blocked",
+      reason: "no_grounded_core_answer",
+    });
     expect(persistence.saved).toHaveLength(0);
   });
 
@@ -524,9 +863,10 @@ describe("persistAuthoritativeReport", () => {
       first.report.versionId,
     );
     expect(second.descriptor.digest).not.toBe(first.descriptor.digest);
-    expect(
-      second.report.locales.en.dissent.map((item) => item.claimId),
-    ).toEqual(second.report.locales.ko.dissent.map((item) => item.claimId));
+    const dissentClaimIds = second.report.narrative.dissent.map(
+      (item) => item.claimId,
+    );
+    expect(new Set(dissentClaimIds).size).toBe(dissentClaimIds.length);
     expect(second.report.status).toBe("complete_with_limitations");
     expect(JSON.stringify(second.report)).not.toMatch(
       /current_price|target_price/,
@@ -804,7 +1144,10 @@ describe("persistAuthoritativeReport", () => {
   it("publishes only the authenticated accepted chair and terminates the real run atomically", async () => {
     // Given
     const prepared = await createPreparedChairRound("none");
-    const chair = createSqliteChairSynthesis(prepared.options);
+    const chair = createSqliteChairSynthesis({
+      ...prepared.options,
+      workflowVersion: "workflow-v3",
+    });
     await chair.stage({ runId: prepared.runId });
     await chair.drain(prepared.runId);
     await chair.close();
@@ -881,7 +1224,7 @@ describe("persistAuthoritativeReport", () => {
     const storedReport = await prepared.options.cas.get(
       ArtifactDigestSchema.parse(result.digest),
     );
-    const report = WorkflowV2ResearchReportSchema.parse(
+    const report = WorkflowV3ResearchReportSchema.parse(
       JSON.parse(new TextDecoder().decode(storedReport?.bytes)),
     );
     expect(report.editorialClaims).not.toHaveLength(0);
@@ -895,17 +1238,15 @@ describe("persistAuthoritativeReport", () => {
     expect(JSON.stringify(report.editorialClaims)).not.toContain(
       "research_committee",
     );
-    const operational = report.locales.en.scenarios[0];
-    const dissent = report.locales.en.dissent[0];
+    const operational = report.narrative.scenarios[0];
+    const dissent = report.narrative.dissent[0];
     const scenarioSentence = prompt.sentences.find(
       (sentence) => sentence.sentenceId === prompt.scenarioIds[0],
     );
     expect(operational?.id).toBe(prompt.scenarioIds[0]);
-    expect(report.locales.ko.scenarios[0]?.name).toBe(
-      scenarioSentence?.text.ko,
-    );
+    expect(report.narrative.scenarios[0]?.name).toBe(scenarioSentence?.text.en);
     expect(
-      report.locales.en.sections.map((section) => section.sourceIds),
+      report.narrative.sections.map((section) => section.sourceIds),
     ).toEqual(chairOutput.sections.map((section) => section.sourceArtifactIds));
     if (dissent === undefined) throw new TypeError("missing retained dissent");
     const dissentSentence = prompt.sentences.find(
@@ -913,10 +1254,10 @@ describe("persistAuthoritativeReport", () => {
         sentence.kind === "dissent" &&
         sentence.claimIds.includes(dissent.claimId),
     );
-    expect(dissent).toMatchObject({
-      text: dissentSentence?.text.en,
-      sourceIds: dissentSentence?.sourceArtifactIds,
-    });
+    expect(dissent.text).toContain(dissentSentence?.text.en);
+    expect([...dissent.sourceIds]).toEqual(
+      expect.arrayContaining([...(dissentSentence?.sourceArtifactIds ?? [])]),
+    );
     expect(
       report.sources.every(
         (source) =>
@@ -938,18 +1279,19 @@ describe("persistAuthoritativeReport", () => {
         .version_payload_json,
     );
     expect(versionPayload).toMatchObject({
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
+      sourceLocale: "en",
       anticipatedQuestions: report.anticipatedQuestions,
       editorialPublication: {
         qaPolicy: {
           moduleMinimum: 5,
           supportedCount: report.anticipatedQuestions.length,
         },
-        candidate: { confidence: report.editorialDecision!.confidence },
+        candidate: { confidence: report.editorialDecision?.confidence },
       },
     });
     expect(publicationPayload).toEqual({
-      schemaVersion: "workflow-v2",
+      schemaVersion: "workflow-v3",
       reportId: result.reportId,
       reportVersionId: result.versionId,
       artifactId: result.artifactId,

@@ -2,13 +2,9 @@ import type { Locale } from "../../../lib/i18n";
 import type { ResearchFileData } from "../../../research/compositions/types";
 import { workflowRoleById } from "../../../research/domain/roleRegistry";
 import { formatSignedPercent } from "../../../research/publicPresentation";
+import { publicStanceLabel } from "../../../research/publicStanceLabels";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 
-const stanceLabels = {
-  upside_skewed: { en: "Upside skewed", ko: "상방 우위" },
-  wait_for_proof: { en: "Wait for proof", ko: "확인 대기" },
-  downside_skewed: { en: "Downside skewed", ko: "하방 우위" },
-} as const;
 const confidenceLabels = {
   high: { en: "High", ko: "높음" },
   medium: { en: "Medium", ko: "보통" },
@@ -332,7 +328,7 @@ export function buildCommitteeDecisionModel(
         decision.decisiveReason[locale],
         model.qualifiedComparators?.map((item) => item.comparatorId) ?? [],
         locale,
-      ) ?? stanceLabels[decision.stance][locale],
+      ) ?? publicStanceLabel(decision.stance, locale),
     confidence: decision.confidence,
     confidenceLabel: confidenceLabels[decision.confidence][locale],
     reliability,

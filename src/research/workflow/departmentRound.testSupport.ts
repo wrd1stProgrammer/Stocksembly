@@ -1,6 +1,10 @@
 import { hashCanonical } from "../domain/contractHelpers";
 import { sha256Value } from "../server/codex/codexArtifacts";
-import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
+import {
+  CODEX_RUNTIME_PINS,
+  CODEX_RUNTIME_POLICY,
+  LINUX_CODEX_RUNTIME_PINS,
+} from "../server/codex/codexPolicy";
 import type {
   CodexPort,
   CodexRunInput,
@@ -19,6 +23,10 @@ import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
 function evidenceFor<Candidate>(
   input: CodexRunInput<Candidate>,
 ): CodexRunResult<Candidate>["evidence"] {
+  const runtimePins =
+    process.platform === "linux"
+      ? LINUX_CODEX_RUNTIME_PINS
+      : CODEX_RUNTIME_PINS;
   return {
     ordinal: input.reservation.key.ordinal,
     stage: input.stage,
@@ -26,9 +34,8 @@ function evidenceFor<Candidate>(
     reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[input.stage],
     browsingPolicy: CODEX_RUNTIME_POLICY.browsingByStage[input.stage],
     toolTranscriptHash: sha256Value([]),
-    binaryVersion: "codex-cli 0.146.0-alpha.3.1",
-    binaryHash:
-      "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e",
+    binaryVersion: runtimePins.version,
+    binaryHash: runtimePins.originSha256,
     originDevice: "1",
     originInode: "1",
     linkDevice: "1",

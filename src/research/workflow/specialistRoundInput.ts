@@ -571,12 +571,30 @@ function groundPercentageText(input: {
   return grounded + input.text.slice(cursor);
 }
 
+function removeUnsupportedPercentageValues(
+  text: string,
+  replacement: string,
+): string {
+  const matches = [...text.matchAll(PERCENTAGE_TOKEN)].filter((match) => {
+    const start = match.index ?? 0;
+    return !isForwardThresholdPercentage(
+      text,
+      start,
+      start + (match[0]?.length ?? 0),
+    );
+  });
+  if (matches.length === 0) return text;
+  return replacement;
+}
+
 /**
  * A selected registered metric is the numeric authority for a claim. When the
  * model preserves that binding but mistypes the displayed percentage, project
  * the exact registered value into both reader locales instead of spending a
- * second model call on a deterministic copy correction. Ambiguous bindings
- * remain untouched and are still rejected by the strict validator.
+ * second model call on a deterministic copy correction. When several
+ * percentages cannot be unambiguously matched, retain the sourced qualitative
+ * claim but remove only those unsupported displayed values. A presentation
+ * ambiguity must not exhaust the run's replacement budget.
  */
 export function sanitizeSpecialistNumericMetricValues(
   candidate: unknown,
@@ -620,7 +638,37 @@ export function sanitizeSpecialistNumericMetricValues(
         decisiveMetricIds,
         registeredValues,
       });
-      if (en === undefined || ko === undefined) return position;
+      if (en === undefined || ko === undefined) {
+        const enGrounded = percentageClaimMatchesRegisteredMetrics({
+          text: position.publicSummary.en,
+          decisiveMetricIds,
+          registeredValues,
+        });
+        const koGrounded = percentageClaimMatchesRegisteredMetrics({
+          text: position.publicSummary.ko,
+          decisiveMetricIds,
+          registeredValues,
+        });
+        if (enGrounded && koGrounded) return position;
+        return {
+          ...position,
+          publicSummary: {
+            ...position.publicSummary,
+            en: enGrounded
+              ? position.publicSummary.en
+              : removeUnsupportedPercentageValues(
+                  position.publicSummary.en,
+                  "The evidence supports the direction of this claim, but an exact rate is omitted because it could not be matched unambiguously.",
+                ),
+            ko: koGrounded
+              ? position.publicSummary.ko
+              : removeUnsupportedPercentageValues(
+                  position.publicSummary.ko,
+                  "근거는 이 주장의 방향성을 뒷받침하지만, 명확히 연결되지 않은 비율은 표시하지 않았습니다.",
+                ),
+          },
+        };
+      }
       return {
         ...position,
         publicSummary: {

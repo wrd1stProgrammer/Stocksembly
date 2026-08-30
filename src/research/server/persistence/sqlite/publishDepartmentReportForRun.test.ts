@@ -307,6 +307,9 @@ it.each(["market", "company", "financial", "risk"] as const)(
     const report = parseStoredResearchReportVersioned(
       JSON.parse(new TextDecoder().decode(stored?.bytes)),
     );
+    expect(report.schemaVersion).toBe("workflow-v2");
+    if (report.schemaVersion !== "workflow-v2")
+      throw new TypeError("missing v2 report");
     const departmentInput = prepared.codex.departmentInputs.find(
       (input) => input.department.id === departmentId,
     )!;
@@ -416,6 +419,9 @@ it("publishes a revised strongest claim through its origin disposition", async (
   const report = parseStoredResearchReportVersioned(
     JSON.parse(new TextDecoder().decode(stored?.bytes)),
   );
+  expect(report.schemaVersion).toBe("workflow-v2");
+  if (report.schemaVersion !== "workflow-v2")
+    throw new TypeError("missing v2 report");
   const input = prepared.codex.departmentInputs.find(
     (candidate) => candidate.department.id === "market",
   )!;

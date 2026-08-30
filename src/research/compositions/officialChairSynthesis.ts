@@ -21,6 +21,7 @@ type Context = {
 export function createOfficialChairSynthesisRuntime(context: Context) {
   const authority = new ChairSynthesisSqliteAuthority(context.databasePath, {
     cas: context.cas,
+    workflowVersion: "workflow-v3",
     ...(context.migrationsDirectory === undefined
       ? {}
       : { migrationsDirectory: context.migrationsDirectory }),
@@ -30,6 +31,7 @@ export function createOfficialChairSynthesisRuntime(context: Context) {
       attemptRoot: context.attemptRoot,
       cas: context.cas,
       codex: context.codex,
+      workflowVersion: "workflow-v3",
       ...(context.now === undefined ? {} : { now: context.now }),
       ...(context.publishReport === undefined
         ? {}

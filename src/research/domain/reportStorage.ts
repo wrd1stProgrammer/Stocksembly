@@ -4,6 +4,8 @@ import {
   ResearchReportSchema,
   type WorkflowV2ResearchReport,
   WorkflowV2ResearchReportSchema,
+  type WorkflowV3ResearchReport,
+  WorkflowV3ResearchReportSchema,
 } from "./report";
 import { LocalizedReportSchema } from "./reportComponents";
 
@@ -15,9 +17,11 @@ const StoredLocaleSchema = z.enum(["en", "ko"]);
  * persisted unchanged so rollback selection never backfills either artifact.
  */
 export function singleLocaleReportForStorage(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport | WorkflowV3ResearchReport,
   locale: "en" | "ko",
 ): Record<string, unknown> {
+  if (report.schemaVersion === "workflow-v3")
+    return structuredClone(report) as Record<string, unknown>;
   if (report.schemaVersion === "workflow-v2")
     return structuredClone(report) as Record<string, unknown>;
   const { locales, ...reportFields } = report;
@@ -47,6 +51,10 @@ export type PresentationResearchReport =
   | Readonly<{
       kind: "workflow-v2";
       report: Readonly<WorkflowV2ResearchReport>;
+    }>
+  | Readonly<{
+      kind: "workflow-v3";
+      report: Readonly<WorkflowV3ResearchReport>;
     }>;
 
 /** Explicit compatibility boundary. Legacy reports are parsed for presentation only. */
@@ -54,9 +62,11 @@ export function parseStoredResearchReportForPresentation(
   value: unknown,
 ): PresentationResearchReport {
   const report = parseStoredResearchReportVersioned(value);
-  return report.schemaVersion === "workflow-v1"
-    ? { kind: "legacy-v1-read-only", report }
-    : { kind: "workflow-v2", report };
+  if (report.schemaVersion === "workflow-v1")
+    return { kind: "legacy-v1-read-only", report };
+  return report.schemaVersion === "workflow-v2"
+    ? { kind: "workflow-v2", report }
+    : { kind: "workflow-v3", report };
 }
 
 /** Publisher rollback selects an existing artifact and never rewrites either version. */
@@ -78,12 +88,14 @@ export function selectPublisherReportVersion(
 
 export function parseStoredResearchReportVersioned(
   value: unknown,
-): ResearchReport | WorkflowV2ResearchReport {
+): ResearchReport | WorkflowV2ResearchReport | WorkflowV3ResearchReport {
   const candidate = StoredRecordSchema.safeParse(value);
   if (candidate.success) {
     const { schemaVersion } = candidate.data;
     if (schemaVersion === "workflow-v2")
       return WorkflowV2ResearchReportSchema.parse(value);
+    if (schemaVersion === "workflow-v3")
+      return WorkflowV3ResearchReportSchema.parse(value);
   }
   return parseStoredResearchReport(value);
 }

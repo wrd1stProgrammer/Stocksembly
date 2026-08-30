@@ -6,10 +6,15 @@ import {
 } from "../application/createMandate.testSupport";
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema } from "../domain/ids";
+import { DEFAULT_RESEARCH_PROFILE } from "../domain/researchProfile";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { StrictArtifactCasFake } from "../ports/test/serviceFakes";
 import { sha256Value } from "../server/codex/codexArtifacts";
-import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
+import {
+  CODEX_RUNTIME_PINS,
+  CODEX_RUNTIME_POLICY,
+  LINUX_CODEX_RUNTIME_PINS,
+} from "../server/codex/codexPolicy";
 import type {
   CodexPort,
   CodexRunInput,
@@ -70,6 +75,10 @@ class FakeCodexPort implements CodexPort {
   async run<Candidate>(
     input: CodexRunInput<Candidate>,
   ): Promise<CodexRunResult<Candidate>> {
+    const runtimePins =
+      process.platform === "linux"
+        ? LINUX_CODEX_RUNTIME_PINS
+        : CODEX_RUNTIME_PINS;
     this.active += 1;
     this.launches += 1;
     this.prompts.push(input.prompt);
@@ -134,9 +143,8 @@ class FakeCodexPort implements CodexPort {
         reasoning: CODEX_RUNTIME_POLICY.reasoningByStage.memo,
         browsingPolicy: CODEX_RUNTIME_POLICY.browsingByStage.memo,
         toolTranscriptHash: sha256Value([]),
-        binaryVersion: "codex-cli 0.146.0-alpha.3.1",
-        binaryHash:
-          "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e",
+        binaryVersion: runtimePins.version,
+        binaryHash: runtimePins.originSha256,
         originDevice: "1",
         originInode: "1",
         linkDevice: "1",
@@ -155,7 +163,13 @@ class FakeCodexPort implements CodexPort {
 }
 
 export async function makeSqliteRoundHarness(failure: CodexFailure) {
-  const assignmentHarness = await makeAssignmentHarness({ scope: "broad" });
+  const assignmentHarness = await makeAssignmentHarness({
+    scope: "broad",
+    researchProfile: {
+      ...DEFAULT_RESEARCH_PROFILE,
+      analysisDepth: "core",
+    },
+  });
   const assignments = requireAssignments(
     await assignAllAgents(
       assignmentHarness.input,

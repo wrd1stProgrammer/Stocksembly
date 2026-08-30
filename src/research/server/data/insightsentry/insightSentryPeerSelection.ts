@@ -22,6 +22,7 @@ const ScreenerRowSchema = z
     symbol_code: z.string().min(1),
     name: z.string().min(1),
     sector: z.string().min(1).nullish(),
+    industry: z.string().min(1).nullish(),
     market_cap: z.number().finite().positive().nullish(),
     price_earnings_ttm: z.number().finite().nullish(),
     enterprise_value_ebitda_ttm: z.number().finite().nullish(),
@@ -68,6 +69,7 @@ type SelectionCache = z.infer<typeof SelectionCacheSchema>;
 const SCREENER_FIELDS = [
   "market_cap",
   "sector",
+  "industry",
   "price_earnings_ttm",
   "enterprise_value_ebitda_ttm",
   "enterprise_value_to_revenue_ttm",
@@ -412,6 +414,7 @@ function toPeerRecord(
     symbol: row.symbol_code,
     name: row.name,
     sector: row.sector ?? "Unknown",
+    ...(row.industry == null ? {} : { industry: row.industry }),
     classification,
     selectionScore: Number(scored.score.toFixed(4)),
     selectionReasons:
@@ -454,6 +457,7 @@ function toSubjectMetrics(row: ScreenerRow) {
     symbol: row.symbol_code,
     name: row.name,
     sector: row.sector ?? "Unknown",
+    ...(row.industry == null ? {} : { industry: row.industry }),
     ...(row.market_cap == null ? {} : { marketCap: row.market_cap }),
     ...(row.price_earnings_ttm == null
       ? {}

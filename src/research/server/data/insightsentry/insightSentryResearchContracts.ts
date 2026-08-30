@@ -195,10 +195,41 @@ export type PeerRecord = {
   readonly symbol: string;
   readonly name: string;
   readonly sector: string;
+  readonly industry?: string;
   readonly classification: "direct_competitor" | "operating_comparable";
   readonly selectionScore: number;
   readonly selectionReasons: readonly string[];
   readonly marketOverlapVerified?: boolean;
+  readonly canonicalIdentity?: {
+    readonly cik: string;
+    readonly ticker: string;
+    readonly legalName: string;
+    readonly exchange: "NASDAQ" | "NYSE" | "NYSE_AMERICAN";
+    readonly title: string;
+    readonly securityClass: "common_stock";
+    readonly sector: string;
+    readonly industry?: string;
+    readonly primaryProductMarket?: string;
+    readonly primaryCustomerMarket?: string;
+  };
+  readonly securityQualification?: {
+    readonly status: "eligible" | "not_eligible";
+    readonly sourcePurpose: "issuer_identity";
+    readonly reason?: string;
+    readonly identityEvidenceHash?: string;
+  };
+  readonly businessQualification?: {
+    readonly status: "eligible" | "not_eligible";
+    readonly sourcePurpose: "business_overlap";
+    readonly reason?: string;
+  };
+  readonly valuationQualification?: {
+    readonly status: "eligible" | "not_eligible";
+    readonly sourcePurpose: "valuation_metric";
+    readonly period: "TTM";
+    readonly unit: "multiple";
+    readonly reason?: string;
+  };
   readonly marketCap?: number;
   readonly priceEarningsTtm?: number;
   readonly enterpriseValueEbitdaTtm?: number;

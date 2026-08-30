@@ -13,6 +13,14 @@ const forbidden =
   /(?:cutoffAt|volumeRatio20|fundamentalSeries|nextEpsForecast|coverageStart|observedEnd|barCount|marketState|\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b|\bJSON\b|provider|evidence[ -]?window|supplied\s+(?:data|evidence|signals?|window))/u;
 const brokenCopula = /(?:상승|하락|혼조|중립)다(?=\s|[.!?,]|$)/u;
 
+function requiredAt<T>(values: readonly T[], index: number): T {
+  const value = values[index];
+  if (value === undefined) {
+    throw new Error(`Missing fixture at index ${index}`);
+  }
+  return value;
+}
+
 function safeDraft(): BriefingDraft {
   return {
     headline: "엔비디아의 당일 판단 기준을 점검합니다.",
@@ -68,7 +76,7 @@ function unsafeDraft(): BriefingDraft {
     summary: "provider JSON evidence-window와 volumeRatio20를 사용했습니다.",
     materialChanges: [
       {
-        ...draft.materialChanges[0],
+        ...requiredAt(draft.materialChanges, 0),
         title: "fundamentalSeries 상승다",
         detail: "nextEpsForecast 하락다",
         investmentMeaning: "coverageStart 혼조다",
@@ -76,7 +84,7 @@ function unsafeDraft(): BriefingDraft {
     ],
     agentViews: [
       {
-        ...draft.agentViews[0],
+        ...requiredAt(draft.agentViews, 0),
         headline: "observedEnd 상승다",
         detail: "barCount와 marketState를 확인했습니다.",
       },
@@ -85,14 +93,14 @@ function unsafeDraft(): BriefingDraft {
     bearCase: "snake_case 하락다.",
     upcomingEvents: [
       {
-        ...draft.upcomingEvents[0],
+        ...requiredAt(draft.upcomingEvents, 0),
         name: "provider 일정",
         whyItMatters: "evidence window 혼조다",
       },
     ],
     todayChecks: [
       {
-        ...draft.todayChecks[0],
+        ...requiredAt(draft.todayChecks, 0),
         title: "cutoffAt 상승다",
         timing: "volumeRatio20 이후",
         metric: "fundamentalSeries",
@@ -224,7 +232,7 @@ describe("briefing visible-text policy", () => {
       summary: "2.08를 확인합니다.",
       materialChanges: [
         {
-          ...safeDraft().materialChanges[0],
+          ...requiredAt(safeDraft().materialChanges, 0),
           title: "2.02을 확인",
           detail: "1가 기준입니다.",
           investmentMeaning: "2과 3와 비교합니다.",
@@ -232,13 +240,13 @@ describe("briefing visible-text policy", () => {
       ],
       agentViews: [
         {
-          ...safeDraft().agentViews[0],
+          ...requiredAt(safeDraft().agentViews, 0),
           detail: "20기간 이동평균을 확인합니다.",
         },
       ],
       todayChecks: [
         {
-          ...safeDraft().todayChecks[0],
+          ...requiredAt(safeDraft().todayChecks, 0),
           timing: "8는 확인 시점입니다.",
           metric: "0과 9와 비교합니다.",
         },

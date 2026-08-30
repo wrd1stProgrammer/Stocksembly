@@ -56,7 +56,10 @@ function terminalize(
       run_id, code, payload_json, created_at
     ) VALUES (?, ?, json_object(
       'maximum', ?, 'required', ?
-    ), ?)`)
+    ), ?)
+    ON CONFLICT(run_id, code) DO UPDATE SET
+      payload_json = excluded.payload_json,
+      created_at = excluded.created_at`)
     .run(
       input.claim.runId,
       code,

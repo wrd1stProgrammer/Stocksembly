@@ -108,6 +108,7 @@ type MandateHarnessOptions = {
   readonly rosterIds?: readonly string[];
   readonly mismatchCapabilities?: boolean;
   readonly mandateSealedAt?: string;
+  readonly researchProfile?: unknown;
 };
 
 function mismatchedCapabilities(
@@ -154,6 +155,9 @@ export async function makeMandateHarness(
       ...WORKFLOW_V1_SPECIALIST_IDS,
       WORKFLOW_V1_CHAIR_ID,
     ],
+    ...(options.researchProfile === undefined
+      ? {}
+      : { researchProfile: options.researchProfile }),
     ...(options.question === undefined ? {} : { question: options.question }),
   };
   return {
@@ -204,6 +208,9 @@ export async function makeAssignmentHarness(
     ...(options.mandateSealedAt === undefined
       ? {}
       : { mandateSealedAt: options.mandateSealedAt }),
+    ...(options.researchProfile === undefined
+      ? {}
+      : { researchProfile: options.researchProfile }),
   });
   const mandate = await createResearchMandate(
     mandateHarness.input,

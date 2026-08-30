@@ -61,6 +61,7 @@ describe("SQLite ordered migrations", () => {
       "artifacts",
       "attempt_web_evidence",
       "attempts",
+      "auxiliary_codex_usage",
       "idempotency_records",
       "job_input_artifacts",
       "jobs",
@@ -72,11 +73,16 @@ describe("SQLite ordered migrations", () => {
       "report_versions",
       "reports",
       "research_call_ordinals",
+      "research_quality_observations",
+      "research_question_localizations",
+      "research_report_translations",
       "research_requests",
       "research_room_views",
+      "research_translation_model_calls",
       "run_events",
       "run_lineage",
       "run_public_limitations",
+      "run_stage_recoveries",
       "runs",
       "schema_migrations",
       "snapshots",
@@ -121,7 +127,7 @@ describe("SQLite ordered migrations", () => {
     // the current source tree was loaded.
     const path = databasePath();
     const appliedRecoveryMigrationChecksum =
-      "061bd9c629a0d2356b4ae18e5fb5c675dcd8c47393edb8eb70219e1110fec4e5";
+      "8d4d4b7486b0335f37d0f45cbfa29593acc0f580b47a6ff623e754156aa924b3";
     const prior = new Database(path);
     prior.exec(`CREATE TABLE schema_migrations (
       version INTEGER PRIMARY KEY,
@@ -134,8 +140,13 @@ describe("SQLite ordered migrations", () => {
        VALUES (?, ?, ?, ?)`,
     );
     for (const migration of loadOrderedMigrations().slice(0, 21)) {
+      prior.exec(migration.sql);
       insert.run(migration.version, migration.name, migration.checksum, at(0));
     }
+    const recoveryMigration = loadOrderedMigrations()[21];
+    if (recoveryMigration === undefined)
+      throw new RangeError("missing recovery migration fixture");
+    prior.exec(recoveryMigration.sql);
     insert.run(
       22,
       "022_research_recovery.sql",

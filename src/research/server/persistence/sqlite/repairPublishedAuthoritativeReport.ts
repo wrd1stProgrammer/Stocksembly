@@ -316,6 +316,8 @@ export async function repairPublishedAuthoritativeReport(
       new TextDecoder("utf-8", { fatal: true }).decode(sourceArtifact.bytes),
     ),
   );
+  if (priorReport.schemaVersion === "workflow-v3")
+    return { kind: "rejected", reason: "report_repair_version_unsupported" };
   const payload = parseSafeJson(source.public_payload_json) as Record<
     string,
     unknown
@@ -588,6 +590,7 @@ export async function repairPublishedDepartmentReport(
     authorizationHash,
     versionAuthorization,
     {
+      report,
       descriptor,
       parentArtifactIds,
       version: {

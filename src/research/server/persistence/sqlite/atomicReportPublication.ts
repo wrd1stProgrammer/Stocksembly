@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { z } from "zod";
 import type { AuthoritativeReportCommit } from "../../../application/assembleReportPersistence";
 import type { AcceptedChairFence } from "../../../application/authoritativeReportPublisherContracts";
+import { hashCanonical } from "../../../domain/contractHelpers";
 import {
   ArtifactIdSchema,
   AttemptIdSchema,
@@ -12,11 +13,16 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../../../domain/ids";
+import { WorkflowV3ResearchReportSchema } from "../../../domain/report";
 import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
 import {
   evaluatePrePublicationEditorialGate,
   type PrePublicationEditorialEnvelope,
 } from "../../../workflow/prePublicationEditorialGate";
+import {
+  persistResearchQualityObservation,
+  qualityMetricsForPublication,
+} from "./researchQualityObservations";
 import { serializeSafeJson } from "./safeJson";
 
 const REPORT_PARENT_COUNT = REQUIRED_REPORT_ARTIFACT_ROLES.length + 2;
@@ -37,6 +43,7 @@ const RunRowSchema = z.object({
   status: z.literal("running"),
   version: z.number().int().nonnegative(),
   report_id: z.null(),
+  created_at: z.string().datetime(),
 });
 const ParentRowSchema = z.object({
   artifact_id: ArtifactIdSchema,
@@ -94,7 +101,28 @@ export function publishReportAtomically(
       string,
       unknown
     >;
-    if (publicPayload["schemaVersion"] === "workflow-v2") {
+    if (publicPayload["schemaVersion"] !== input.commit.report.schemaVersion)
+      throw new TypeError("workflow_report_payload_schema_version_mismatch");
+    if (publicPayload["schemaVersion"] === "workflow-v3") {
+      const canonical = WorkflowV3ResearchReportSchema.parse(
+        input.commit.report,
+      );
+      if (
+        canonical.reportId !== input.commit.version.reportId ||
+        canonical.versionId !== input.commit.version.versionId ||
+        canonical.runId !== input.commit.version.runId ||
+        canonical.snapshotId !== input.commit.version.snapshotId ||
+        canonical.sourceLocale !== publicPayload["sourceLocale"] ||
+        publicPayload["narrativeLineage"] === undefined ||
+        hashCanonical(publicPayload["narrativeLineage"]) !==
+          hashCanonical(canonical.narrativeLineage)
+      )
+        throw new TypeError("workflow_v3_narrative_lineage_mismatch");
+    }
+    if (
+      publicPayload["schemaVersion"] === "workflow-v2" ||
+      publicPayload["schemaVersion"] === "workflow-v3"
+    ) {
       const envelope = publicPayload["editorialPublication"] as
         | PrePublicationEditorialEnvelope
         | undefined;
@@ -153,7 +181,7 @@ export function publishReportAtomically(
           throw new TypeError("accepted chair fence mismatch");
         const run = RunRowSchema.parse(
           database
-            .prepare(`SELECT snapshot_id, status, version, report_id
+            .prepare(`SELECT snapshot_id, status, version, report_id, created_at
           FROM runs WHERE run_id = ?`)
             .get(identity.runId),
         );
@@ -274,6 +302,36 @@ export function publishReportAtomically(
               limitationIds: input.commit.version.publicPayload.limitationIds,
             }),
           );
+        const recoveryMetadata = publicPayload["recoveryMetadata"];
+        const metrics = qualityMetricsForPublication({
+          claims: input.commit.report.claims,
+          recoveryMetadata,
+          createdAt: run.created_at,
+          publishedAt: input.commit.version.publishedAt,
+        });
+        const reasonCodes = z
+          .object({
+            omissions: z
+              .array(z.object({ reason: z.string() }).passthrough())
+              .default([]),
+          })
+          .passthrough()
+          .parse(recoveryMetadata ?? {})
+          .omissions.map((omission) => omission.reason);
+        persistResearchQualityObservation(database, {
+          runId: identity.runId,
+          workflowVersion: input.commit.report.schemaVersion,
+          reportVersion: identity.version.versionId,
+          outcome:
+            input.commit.version.status === "complete"
+              ? reasonCodes.length === 0
+                ? "complete"
+                : "item_omitted"
+              : "quality_degraded",
+          observedAt: input.commit.version.publishedAt,
+          metrics,
+          reasonCodes,
+        });
         return 1;
       })
       .immediate();

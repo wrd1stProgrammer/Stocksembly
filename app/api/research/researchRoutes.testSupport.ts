@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { AccountStore } from "../../../src/accounts/server/accountStore";
 import type { ResearchApi } from "../../../src/research/server/api/researchApi";
 import { createResearchApi } from "../../../src/research/server/api/researchApi";
 import { loadPublicResearchReport } from "../../../src/research/server/api/researchApiReportReader";
@@ -25,6 +26,7 @@ export async function createApiHarness(
   readiness: () => Promise<boolean> = () => Promise.resolve(true),
   availableDiskBytes: () => Promise<number> = () =>
     Promise.resolve(3 * 1024 * 1024 * 1024),
+  accountStore?: AccountStore,
 ): Promise<ApiHarness> {
   const root = await mkdtemp(join(tmpdir(), "stocksembly-research-api-"));
   const allowedHost = "127.0.0.1:3000";
@@ -47,6 +49,7 @@ export async function createApiHarness(
     allowedOrigin,
     readiness,
     availableDiskBytes,
+    ...(accountStore === undefined ? {} : { accountStore }),
     now: () => "2026-07-23T06:00:00.000Z",
     createId: randomUUID,
     resolveSymbol: (symbol) =>

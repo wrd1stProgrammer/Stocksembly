@@ -140,6 +140,7 @@ export type ResearchRoomReportBundle = {
   readonly conversation: readonly ResearchRoomConversation[];
   readonly runDetail: PublicRunDetail;
   readonly version: number;
+  readonly sourceContentHash: string;
 };
 
 function targetFor(row: z.infer<typeof CatalogRowSchema>): ResearchTarget {
@@ -613,6 +614,7 @@ export async function loadResearchRoomReport(
     conversation,
     runDetail,
     version: result.row.version,
+    sourceContentHash: result.row.artifact_digest,
   };
 }
 

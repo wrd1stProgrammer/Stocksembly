@@ -54,6 +54,7 @@ export type OfficialAttemptHandlerOverrides = {
   readonly codex?: CodexPort;
   readonly now?: () => string;
   readonly publishReport?: SqliteChairSynthesisOptions["publishReport"];
+  readonly ensurePublishedLocalizations?: typeof ensurePublishedResearchQuestionLocalizations;
 };
 
 export type OfficialAttemptHandler = {
@@ -280,10 +281,10 @@ export async function createOfficialAttemptHandler(
     afterCommit: async (attempt, outcome) => {
       if (outcome.kind === "accepted") {
         await coordinator.advance(attempt.runId);
-        await ensurePublishedResearchQuestionLocalizations(
-          options.databasePath,
-          attempt.runId,
-        );
+        await (
+          overrides.ensurePublishedLocalizations ??
+          ensurePublishedResearchQuestionLocalizations
+        )(options.databasePath, attempt.runId);
       }
     },
     reconcile: async () => await coordinator.resumeActiveRuns(),

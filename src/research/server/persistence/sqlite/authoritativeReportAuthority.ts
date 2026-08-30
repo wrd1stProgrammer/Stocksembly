@@ -14,7 +14,6 @@ import {
   hashBytes,
   hashCanonical,
 } from "../../../domain/contractHelpers";
-import { qualifyInsightSentryPeers } from "../../../domain/qualifyInsightSentryPeers";
 import type {
   ResearchReport,
   WorkflowV2ResearchReport,
@@ -208,18 +207,8 @@ export async function loadReportAuthority(
     const prompt = await loadChairPrompt(database, cas, input.runId);
     if (!semantic.success || !chair.success || prompt === undefined)
       return blocked("semantic_chair_or_prompt_invalid");
-    const peerRow = rows.find(
-      (row) => row.logical_key === "evidence:insightsentry:peers",
-    );
-    const peerContent =
-      peerRow === undefined ? undefined : await authenticatedJson(cas, peerRow);
     const comparatorQualification =
-      peerRow === undefined || peerContent === undefined
-        ? undefined
-        : qualifyInsightSentryPeers({
-            rawPeerArtifactId: peerRow.artifact_id,
-            peers: peerContent.parsed,
-          });
+      structural.data.result.metricSnapshot?.comparatorQualification;
     const comparators =
       comparatorQualification?.status !== "qualified"
         ? []

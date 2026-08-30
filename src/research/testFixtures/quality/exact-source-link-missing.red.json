@@ -1,0 +1,13 @@
+{
+  "id": "exact-source-link-missing",
+  "decisiveFacts": [{ "verdict": "entailed", "exactSourceUrl": "" }],
+  "expectedFatalReasons": ["exact_source_link_missing"],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 1.5,
+    "comparatorValuationDiscipline": 2,
+    "editorialClarity": 2,
+    "reliability": 2
+  },
+  "expectedRuntimeDisposition": "complete_with_limitations"
+}

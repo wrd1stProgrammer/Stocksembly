@@ -32,8 +32,10 @@ import { buildOfficialStructuralAuditInput } from "./officialStructuralAuditInpu
 import {
   clearStageRecovery,
   isRecoverableWorkflowFailure,
+  persistWorkflowQualityOutcome,
   scheduleStageRecovery,
   stageRecoveryState,
+  workflowFailureDisposition,
 } from "./workflowStageRecovery";
 
 type CoordinatorOptions = {
@@ -156,7 +158,29 @@ function recoverOrTerminalize(
   reason: string,
   occurredAt: string,
 ): void {
-  if (!isRecoverableWorkflowFailure(reason)) {
+  const disposition = workflowFailureDisposition(reason);
+  if (disposition === "item_omitted" || disposition === "quality_degraded") {
+    persistWorkflowQualityOutcome({
+      databasePath,
+      runId,
+      outcome: disposition,
+      reason,
+      observedAt: occurredAt,
+    });
+    process.stderr.write(
+      `${JSON.stringify({ kind: "workflow_stage_degraded", stage, reason })}\n`,
+    );
+    return;
+  }
+  if (disposition === "run_failed" || !isRecoverableWorkflowFailure(reason)) {
+    if (disposition === "run_failed")
+      persistWorkflowQualityOutcome({
+        databasePath,
+        runId,
+        outcome: disposition,
+        reason,
+        observedAt: occurredAt,
+      });
     terminalizeWorkflowFailure(databasePath, runId, stage, reason, occurredAt);
     return;
   }
@@ -175,6 +199,22 @@ function recoverOrTerminalize(
       "automatic_recovery_exhausted",
       occurredAt,
     );
+}
+
+export function routeOfficialWorkflowFailure(input: {
+  readonly databasePath: string;
+  readonly runId: string;
+  readonly stage: string;
+  readonly reason: string;
+  readonly occurredAt: string;
+}): void {
+  recoverOrTerminalize(
+    input.databasePath,
+    input.runId,
+    input.stage,
+    input.reason,
+    input.occurredAt,
+  );
 }
 
 export function workflowFailureCode(stage: string, reason: string): string {

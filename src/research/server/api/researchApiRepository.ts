@@ -249,12 +249,13 @@ export class ResearchApiRepository {
               : null,
             serializeSafeJson(request.researchProfile),
           );
-        this.#database
-          .prepare(`INSERT INTO research_question_localizations(
-            run_id, locale, question, created_at
-          ) VALUES (?, ?, ?, ?)
-          ON CONFLICT(run_id, locale) DO NOTHING`)
-          .run(runId, request.locale, request.question, now);
+        if (request.question.length > 0)
+          this.#database
+            .prepare(`INSERT INTO research_question_localizations(
+              run_id, locale, question, created_at
+            ) VALUES (?, ?, ?, ?)
+            ON CONFLICT(run_id, locale) DO NOTHING`)
+            .run(runId, request.locale, request.question, now);
         const run = runFromRow(this.runRow(principalId, runId));
         this.#database
           .prepare(`INSERT INTO idempotency_records(

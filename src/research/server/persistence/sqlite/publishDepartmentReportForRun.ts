@@ -57,6 +57,10 @@ import {
   type PrePublicationEditorialEnvelope,
 } from "../../../workflow/prePublicationEditorialGate";
 import { reserveEditorialQualityRewrite } from "../../../workflow/specialistCommitRetry";
+import {
+  persistResearchQualityObservation,
+  qualityMetricsForPublication,
+} from "./researchQualityObservations";
 import { serializeSafeJson } from "./safeJson";
 
 const RunSchema = z.object({
@@ -69,6 +73,7 @@ const RunSchema = z.object({
   locale: z.enum(["en", "ko"]),
   research_kind: z.literal("department"),
   department_id: z.enum(["market", "company", "financial", "risk"]),
+  created_at: z.string().datetime(),
 });
 
 function loadDepartmentResearchProfile(
@@ -235,9 +240,19 @@ function actionablePublicThesis(input: {
 
 function contraryContribution(
   departmentId: WorkflowDepartmentId,
-  stance: "upside_skewed" | "downside_skewed" | "wait_for_proof",
+  stance:
+    | "upside_skewed"
+    | "downside_skewed"
+    | "wait_for_proof"
+    | "balanced"
+    | "insufficient_evidence",
 ): "supports" | "opposes" | undefined {
-  if (stance === "wait_for_proof") return undefined;
+  if (
+    stance === "wait_for_proof" ||
+    stance === "balanced" ||
+    stance === "insufficient_evidence"
+  )
+    return undefined;
   if (departmentId === "risk")
     return stance === "downside_skewed" ? "opposes" : "supports";
   return stance === "upside_skewed" ? "opposes" : "supports";
@@ -1302,7 +1317,7 @@ export async function publishDepartmentReportForRun(
     const run = RunSchema.safeParse(
       database
         .prepare(`SELECT runs.snapshot_id, runs.status, runs.version,
-          runs.report_id, research_requests.symbol, research_requests.question,
+          runs.report_id, runs.created_at, research_requests.symbol, research_requests.question,
           research_requests.locale, research_requests.research_kind,
           research_requests.department_id
           FROM runs JOIN research_requests USING(run_id)
@@ -1355,7 +1370,7 @@ export async function publishDepartmentReportForRun(
         const current = RunSchema.parse(
           database
             .prepare(`SELECT runs.snapshot_id, runs.status, runs.version,
-              runs.report_id, research_requests.symbol,
+              runs.report_id, runs.created_at, research_requests.symbol,
               research_requests.question, research_requests.locale,
               research_requests.research_kind,
               research_requests.department_id
@@ -1461,6 +1476,25 @@ export async function publishDepartmentReportForRun(
               limitationIds: publicPayload.limitationIds,
             }),
           );
+        const rewritten = Object.values(
+          built.editorialPublication.fieldLineage ?? {},
+        ).filter((lineage) => lineage === "targeted_rewrite").length;
+        persistResearchQualityObservation(database, {
+          runId,
+          workflowVersion: built.report.schemaVersion,
+          reportVersion: built.report.versionId,
+          outcome: "quality_degraded",
+          observedAt: publishedAt,
+          metrics: qualityMetricsForPublication({
+            claims: built.report.claims,
+            recoveryMetadata: {
+              repairAttempts: Array.from({ length: rewritten }),
+            },
+            createdAt: run.data.created_at,
+            publishedAt,
+          }),
+          reasonCodes: rewritten === 0 ? [] : ["editorial_targeted_rewrite"],
+        });
       })
       .immediate();
     return {

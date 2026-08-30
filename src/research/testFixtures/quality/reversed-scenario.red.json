@@ -1,0 +1,13 @@
+{
+  "id": "reversed-scenario",
+  "scenarios": [{ "ordered": false, "assumptionsComplete": true }],
+  "expectedFatalReasons": ["scenario_direction_invalid"],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 2,
+    "comparatorValuationDiscipline": 2,
+    "editorialClarity": 2,
+    "reliability": 1.5
+  },
+  "expectedRuntimeDisposition": "omit_item"
+}

@@ -1,7 +1,12 @@
 import { buildAnticipatedQuestions } from "./anticipatedQuestions";
 import type { ResearchFileData } from "./compositions/types";
 import { sanitizePublicEditorialText } from "./domain/editorialQuality";
-import type { ResearchReport, WorkflowV2ResearchReport } from "./domain/report";
+import {
+  type ResearchReport,
+  type WorkflowV2ResearchReport,
+  type WorkflowV3ResearchReport,
+  workflowV3ReportForPresentation,
+} from "./domain/report";
 import type { ResearchComparison } from "./domain/researchComparison";
 import { workflowRoleById } from "./domain/roleRegistry";
 import { publicDecisionDimensionLabel } from "./publicPresentation";
@@ -181,17 +186,32 @@ function workflowV2ReportToFile(
   createdAt: string,
   comparison?: ResearchComparison,
 ): ResearchFileData {
+  const authenticatedSourceIds = new Set(
+    report.sources.map((source) => source.sourceId),
+  );
+  const publishableClaimIds = new Set(
+    report.claims.flatMap((claim) =>
+      claim.semanticVerdict === "entailed" &&
+      claim.sourceIds.length > 0 &&
+      claim.sourceIds.every((sourceId) => authenticatedSourceIds.has(sourceId))
+        ? [claim.claimId]
+        : [],
+    ),
+  );
   const targetDepartmentId =
     report.researchTarget.kind === "department"
       ? report.researchTarget.departmentId
       : undefined;
   const publicEditorialClaims =
     targetDepartmentId === undefined
-      ? report.editorialClaims
+      ? report.editorialClaims.filter((claim) =>
+          publishableClaimIds.has(claim.claimId),
+        )
       : report.editorialClaims.filter(
           (claim) =>
+            publishableClaimIds.has(claim.claimId) &&
             workflowRoleById(claim.roleOwner)?.departmentId ===
-            targetDepartmentId,
+              targetDepartmentId,
         );
   const sanitizedPublicEditorialClaims = publicEditorialClaims.map((claim) => ({
     ...claim,
@@ -278,6 +298,11 @@ function workflowV2ReportToFile(
       (section) =>
         section.id !== "ten_second_brief" && section.id !== "dissent_unknowns",
     )
+    .filter(
+      (section) =>
+        section.claimIds.length === 0 ||
+        section.claimIds.some((claimId) => publishableClaimIds.has(claimId)),
+    )
     .map((section) => {
       // Locales are independent ordered collections. Never pair them by array
       // index: filtering one locale (for example, the brief) shifts every
@@ -326,20 +351,28 @@ function workflowV2ReportToFile(
             : claim,
         ),
       comparators: report.comparators,
-      sectionNarratives: report.locales.en.sections.map((section) => {
-        const korean = koreanSectionsById.get(section.id) ?? section;
-        return {
-          id: section.id,
-          title: localized(
-            sanitizePublicEditorialText(section.title),
-            sanitizePublicEditorialText(korean.title),
-          ),
-          body: localized(
-            sanitizePublicEditorialText(section.body),
-            sanitizePublicEditorialText(korean.body),
-          ),
-        };
-      }),
+      sectionNarratives: report.locales.en.sections
+        .filter(
+          (section) =>
+            section.claimIds.length === 0 ||
+            section.claimIds.some((claimId) =>
+              publishableClaimIds.has(claimId),
+            ),
+        )
+        .map((section) => {
+          const korean = koreanSectionsById.get(section.id) ?? section;
+          return {
+            id: section.id,
+            title: localized(
+              sanitizePublicEditorialText(section.title),
+              sanitizePublicEditorialText(korean.title),
+            ),
+            body: localized(
+              sanitizePublicEditorialText(section.body),
+              sanitizePublicEditorialText(korean.body),
+            ),
+          };
+        }),
       conflicts: publicEditorialClaims.flatMap((claim) =>
         claim.counterevidenceArtifactIds.length === 0
           ? []
@@ -516,10 +549,16 @@ function workflowV2ReportToFile(
 }
 
 export function researchReportToFile(
-  report: ResearchReport | WorkflowV2ResearchReport,
+  report: ResearchReport | WorkflowV2ResearchReport | WorkflowV3ResearchReport,
   createdAt: string,
   comparison?: ResearchComparison,
 ): ResearchFileData {
+  if (report.schemaVersion === "workflow-v3")
+    return workflowV2ReportToFile(
+      workflowV3ReportForPresentation(report),
+      createdAt,
+      comparison,
+    );
   if (report.schemaVersion === "workflow-v2")
     return workflowV2ReportToFile(report, createdAt, comparison);
   const en = report.locales.en;
@@ -626,6 +665,11 @@ export function researchReportToFile(
     /(?:incorporated|headquarter|common stock|trades? on|issuer|설립|본사|보통주|종목코드|발행사)/iu;
   const displayClaims = report.claims.filter(
     (claim) =>
+      claim.semanticVerdict === "entailed" &&
+      claim.sourceIds.length > 0 &&
+      claim.sourceIds.every((sourceId) =>
+        report.sources.some((source) => source.sourceId === sourceId),
+      ) &&
       (report.researchTarget.kind === "department" ||
         claim.materiality === "material") &&
       claim.text !== undefined &&
@@ -952,36 +996,46 @@ export function researchReportToFile(
           detail: localized(enLayers.detail, koLayers.detail),
         };
       }),
-    scenarios: en.scenarios.map((item, index) => ({
-      id: item.id,
-      label: localized(item.name, ko.scenarios[index]?.name ?? item.name),
-      probability: "—",
-      thesis: localized(item.name, ko.scenarios[index]?.name ?? item.name),
-      assumptions:
-        item.claimIds.length === 0
-          ? [
-              {
-                kind: "unverified" as const,
-                note: localized(
-                  "Numeric assumption withheld until claim-level support is linked",
-                  "주장 단위 근거가 연결될 때까지 정량 가정을 표시하지 않음",
+    scenarios: en.scenarios
+      .filter(
+        (item) =>
+          item.claimIds.length > 0 &&
+          item.claimIds.every((claimId) =>
+            displayClaims.some((claim) => claim.claimId === claimId),
+          ) &&
+          item.sourceIds.length > 0 &&
+          item.sourceIds.every((sourceId) => sourceRefById.has(sourceId)),
+      )
+      .map((item, index) => ({
+        id: item.id,
+        label: localized(item.name, ko.scenarios[index]?.name ?? item.name),
+        probability: "—",
+        thesis: localized(item.name, ko.scenarios[index]?.name ?? item.name),
+        assumptions:
+          item.claimIds.length === 0
+            ? [
+                {
+                  kind: "unverified" as const,
+                  note: localized(
+                    "Numeric assumption withheld until claim-level support is linked",
+                    "주장 단위 근거가 연결될 때까지 정량 가정을 표시하지 않음",
+                  ),
+                },
+              ]
+            : item.assumptions.map(({ metric, value, unit }) => ({
+                kind: "metric" as const,
+                metric: scenarioMetricLabel(metric),
+                displayValue: scenarioDisplayValue(value, unit),
+                basis: localized(
+                  `Scenario assumption · report basis ${createdAt.slice(0, 10)}`,
+                  `시나리오 가정 · 보고서 기준 ${createdAt.slice(0, 10)}`,
                 ),
-              },
-            ]
-          : item.assumptions.map(({ metric, value, unit }) => ({
-              kind: "metric" as const,
-              metric: scenarioMetricLabel(metric),
-              displayValue: scenarioDisplayValue(value, unit),
-              basis: localized(
-                `Scenario assumption · report basis ${createdAt.slice(0, 10)}`,
-                `시나리오 가정 · 보고서 기준 ${createdAt.slice(0, 10)}`,
-              ),
-              sourceRefs: item.sourceIds.flatMap((sourceId) => {
-                const reference = sourceRefById.get(sourceId);
-                return reference === undefined ? [] : [reference];
-              }),
-            })),
-    })),
+                sourceRefs: item.sourceIds.flatMap((sourceId) => {
+                  const reference = sourceRefById.get(sourceId);
+                  return reference === undefined ? [] : [reference];
+                }),
+              })),
+      })),
     appendix: [
       {
         title: localized("Preserved dissent", "보존된 이견"),

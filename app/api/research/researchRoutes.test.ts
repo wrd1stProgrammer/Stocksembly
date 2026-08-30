@@ -13,11 +13,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
+import type { AccountStore } from "../../../src/accounts/server/accountStore";
+import { routeOfficialWorkflowFailure } from "../../../src/research/compositions/officialWorkflowCoordinator";
+import { EventIdSchema, RunIdSchema } from "../../../src/research/domain/ids";
 import {
   createLiveResearchApi,
   prepareLiveResearchRuntime,
 } from "../../../src/research/server/api/liveResearchApi";
 import { createResearchApi } from "../../../src/research/server/api/researchApi";
+import { transitionRun } from "../../../src/research/server/persistence/sqlite/runRepository";
 import { prepareWorkerRuntime } from "../../../src/research/worker/runtimeLifecycle";
 import { seedPublishedReport } from "./researchReportRoute.testSupport";
 import {
@@ -50,13 +54,164 @@ afterEach(async () => {
 async function harness(
   readiness?: () => Promise<boolean>,
   disk?: () => Promise<number>,
+  accountStore?: AccountStore,
 ): Promise<ApiHarness> {
-  const value = await createApiHarness(readiness, disk);
+  const value = await createApiHarness(readiness, disk, accountStore);
   harnesses.push(value);
   return value;
 }
 
 describe("secure research routes", () => {
+  it("settles mixed-quality success once and releases each content-fatal reservation without charge", async () => {
+    const reserved = new Set<string>();
+    const settled = new Set<string>();
+    const consumed: string[] = [];
+    const released: string[] = [];
+    const accountStore: AccountStore = {
+      syncUser: () => Promise.resolve(),
+      reserveResearchCredits: (_principalId, runId) => {
+        reserved.add(runId);
+        return Promise.resolve({ allowed: true, remaining: 100, required: 10 });
+      },
+      releaseResearchCredits: (_principalId, runId) => {
+        if (reserved.delete(runId) && !settled.has(runId)) released.push(runId);
+        settled.add(runId);
+        return Promise.resolve();
+      },
+      recordResearchRun: (_principalId, run) => {
+        if (settled.has(run.runId)) return Promise.resolve();
+        if (
+          run.status === "completed" ||
+          run.status === "complete-with-limitations"
+        ) {
+          reserved.delete(run.runId);
+          settled.add(run.runId);
+          consumed.push(run.runId);
+        } else if (
+          run.status === "incomplete" ||
+          run.status === "failed" ||
+          run.status === "cancelled"
+        ) {
+          reserved.delete(run.runId);
+          settled.add(run.runId);
+          released.push(run.runId);
+        }
+        return Promise.resolve();
+      },
+      recordReportOwnership: () => Promise.resolve(),
+      close: () => Promise.resolve(),
+    };
+    const context = await harness(undefined, undefined, accountStore);
+    const createdRunIds: string[] = [];
+    for (const key of [
+      "mixed-quality",
+      "issuer-identity",
+      "envelope-integrity",
+      "no-grounded-core",
+    ]) {
+      const response = await context.api.handle(createRunRequest(context, key));
+      const body = await json(response);
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("run" in body) ||
+        typeof body.run !== "object" ||
+        body.run === null ||
+        !("runId" in body.run) ||
+        typeof body.run.runId !== "string"
+      )
+        throw new TypeError("created run id missing");
+      createdRunIds.push(body.run.runId);
+    }
+    const [mixed, issuerIdentity, envelopeIntegrity, noGroundedCore] =
+      createdRunIds;
+    if (mixed === undefined) throw new TypeError("mixed run missing");
+    if (
+      issuerIdentity === undefined ||
+      envelopeIntegrity === undefined ||
+      noGroundedCore === undefined
+    )
+      throw new TypeError("content-fatal run missing");
+    const contentFatal = [issuerIdentity, envelopeIntegrity, noGroundedCore];
+    const database = new Database(context.databasePath);
+    for (const runId of createdRunIds)
+      transitionRun(database, {
+        runId: RunIdSchema.parse(runId),
+        fromStatus: "queued",
+        toStatus: "running",
+        expectedVersion: 0,
+        nextJobs: [],
+        event: {
+          eventId: EventIdSchema.parse(randomUUID()),
+          type: "run_started",
+          stateId: "running",
+          occurredAt: "2026-07-23T06:00:00.000Z",
+        },
+      });
+    transitionRun(database, {
+      runId: RunIdSchema.parse(mixed),
+      fromStatus: "running",
+      toStatus: "complete-with-limitations",
+      expectedVersion: 1,
+      nextJobs: [],
+      event: {
+        eventId: EventIdSchema.parse(randomUUID()),
+        type: "report_published",
+        stateId: "complete-with-limitations",
+        occurredAt: "2026-07-23T06:00:00.000Z",
+      },
+    });
+    database.close();
+    routeOfficialWorkflowFailure({
+      databasePath: context.databasePath,
+      runId: issuerIdentity,
+      stage: "issuer_resolution",
+      reason: "issuer_identity_unresolved",
+      occurredAt: "2026-07-23T06:00:00.000Z",
+    });
+    routeOfficialWorkflowFailure({
+      databasePath: context.databasePath,
+      runId: envelopeIntegrity,
+      stage: "structural_audit",
+      reason: "whole_envelope_integrity_failure",
+      occurredAt: "2026-07-23T06:00:00.000Z",
+    });
+    routeOfficialWorkflowFailure({
+      databasePath: context.databasePath,
+      runId: noGroundedCore,
+      stage: "report_publication",
+      reason: "no_grounded_core_answer",
+      occurredAt: "2026-07-23T06:00:00.000Z",
+    });
+    const routed = new Database(context.databasePath);
+    const statusFor = routed
+      .prepare("SELECT status FROM runs WHERE run_id = ?")
+      .pluck();
+    const terminalPayloadFor = routed
+      .prepare(
+        "SELECT payload_json FROM run_events WHERE run_id = ? AND event_type = 'run_incomplete'",
+      )
+      .pluck();
+    for (const [runId, reason] of [
+      [issuerIdentity, "issuer_identity_unresolved"],
+      [envelopeIntegrity, "whole_envelope_integrity_failure"],
+      [noGroundedCore, "no_grounded_core_answer"],
+    ] as const) {
+      expect(statusFor.get(runId)).toBe("incomplete");
+      expect(terminalPayloadFor.get(runId)).toContain(reason);
+    }
+    routed.close();
+
+    for (const runId of createdRunIds) {
+      await context.api.handle(context.request(`/api/research/runs/${runId}`));
+      await context.api.handle(context.request(`/api/research/runs/${runId}`));
+    }
+
+    expect(consumed).toEqual([mixed]);
+    expect(released).toEqual(contentFatal);
+    expect(reserved.size).toBe(0);
+  });
+
   it("bootstraps a same-origin local session without authentication", async () => {
     // Given
     const context = await harness();
@@ -612,7 +767,7 @@ describe("secure research routes", () => {
     expect(missingReport.status).toBe(404);
     expect(after).toBe(before);
     expect(JSON.stringify(detailBody)).not.toMatch(
-      /inputHash|lease|principal|question|token|secret/i,
+      /inputHash|lease|principal|token|secret/i,
     );
   });
 

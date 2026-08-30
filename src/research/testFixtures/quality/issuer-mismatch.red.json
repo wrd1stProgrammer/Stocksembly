@@ -1,0 +1,29 @@
+{
+  "id": "issuer-mismatch",
+  "metrics": [
+    {
+      "issuer": "OTHER",
+      "security": "OTHER",
+      "metric": "revenue",
+      "period": "FY2026",
+      "unit": "usd",
+      "currency": "USD",
+      "registeredValue": 100,
+      "displayedValue": 100,
+      "precision": 2,
+      "displayedIssuer": "OTHER",
+      "displayedPeriod": "FY2026",
+      "displayedUnit": "usd",
+      "displayedCurrency": "USD"
+    }
+  ],
+  "expectedFatalReasons": ["issuer_identity_mismatch"],
+  "expectedScoreComponents": {
+    "decisionUsefulness": 2,
+    "evidenceTraceability": 2,
+    "comparatorValuationDiscipline": 1.25,
+    "editorialClarity": 2,
+    "reliability": 2
+  },
+  "expectedRuntimeDisposition": "omit_item"
+}

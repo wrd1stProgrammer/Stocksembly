@@ -269,6 +269,34 @@ describe("MeetingMinutes", () => {
     expect(document.querySelectorAll("[data-agent-thinking]")).toHaveLength(3);
   });
 
+  it("removes stale specialist loading rows after the final committee decision", () => {
+    const committee: ResearchEvent = {
+      ...event(1),
+      phase: "committee",
+      agent: "chair",
+      workflowKind: "committee_classified",
+    };
+
+    render(
+      <MeetingMinutes
+        current={committee}
+        agents={agents}
+        events={[committee]}
+        locale="ko"
+        isComplete={false}
+        pendingActivities={agents
+          .filter((agent) => agent.id !== "chair")
+          .map((agent) => ({
+            actorId: agent.id,
+            activity: inferredActivityForTest(agent.id),
+          }))}
+        reportVersion={1}
+      />,
+    );
+
+    expect(document.querySelectorAll("[data-agent-thinking]")).toHaveLength(0);
+  });
+
   it("shows the actual recovery rejection instead of blaming credits", async () => {
     const active = event(1);
     const onRetry = vi
@@ -304,3 +332,23 @@ describe("MeetingMinutes", () => {
     expect(screen.queryByText(/크레딧과 연결 상태/)).not.toBeInTheDocument();
   });
 });
+
+function inferredActivityForTest(
+  agentId: (typeof agents)[number]["id"],
+):
+  | "news_analysis"
+  | "business_analysis"
+  | "financial_analysis"
+  | "downside_analysis" {
+  if (agentId === "company" || agentId.startsWith("company_"))
+    return "business_analysis";
+  if (
+    agentId === "financial" ||
+    agentId === "valuation" ||
+    agentId === "financial_quality"
+  )
+    return "financial_analysis";
+  if (agentId === "risk" || agentId === "risk_policy")
+    return "downside_analysis";
+  return "news_analysis";
+}

@@ -4,6 +4,7 @@ import {
   type WorkflowDepartmentId,
   workflowRoleById,
 } from "../../../research/domain/roleRegistry";
+import { publicStanceLabel } from "../../../research/publicStanceLabels";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 import styles from "./department-research-desk.module.css";
 
@@ -137,19 +138,20 @@ function departmentClaims(
 }
 
 function stanceLabel(
-  stance: "upside_skewed" | "wait_for_proof" | "downside_skewed" | undefined,
+  stance:
+    | "upside_skewed"
+    | "wait_for_proof"
+    | "downside_skewed"
+    | "balanced"
+    | "insufficient_evidence"
+    | undefined,
   locale: Locale,
 ): string {
-  const labels = {
-    upside_skewed: { en: "Upside skew", ko: "상방 우세" },
-    wait_for_proof: { en: "Wait for proof", ko: "확인 대기" },
-    downside_skewed: { en: "Downside skew", ko: "하방 우세" },
-  } as const;
   return stance === undefined
     ? locale === "ko"
       ? "조건부 판단"
       : "Conditional view"
-    : labels[stance][locale];
+    : publicStanceLabel(stance, locale);
 }
 
 function contributionLabel(
