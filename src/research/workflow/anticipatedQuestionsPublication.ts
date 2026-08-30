@@ -21,7 +21,7 @@ import {
 export const ANTICIPATED_QUESTIONS_POLICY = Object.freeze({
   standardTarget: 10,
   moduleMinimum: 5,
-  maximumPerPrimaryClaim: 2,
+  maximumPerPrimaryClaim: 10,
 });
 
 type Claim = z.infer<typeof AtomicEditorialClaimSchema>;
@@ -124,8 +124,8 @@ function questionFor(
       ko: "현재 가격에는 얼마나 완벽한 실행이 반영돼 있나요?",
     },
     downside_path: {
-      en: "What realistic chain of events could drive a 20–30% drawdown?",
-      ko: "20~30% 하락을 만들 수 있는 현실적인 사건의 연결고리는 무엇인가요?",
+      en: "What realistic chain of events could drive a material drawdown?",
+      ko: "큰 폭의 하락을 만들 수 있는 현실적인 사건의 연결고리는 무엇인가요?",
     },
     leading_indicator: {
       en: "Which warning signal can reveal the problem before earnings do?",
@@ -572,7 +572,41 @@ function purposeQuestion(profile: ResearchProfile): Localized {
   }[profile.decisionPurpose];
 }
 
-/** Selects only answerable questions; it never pads a sparse report. */
+function supplementalCandidates(
+  profile: ResearchProfile,
+  claims: readonly Claim[],
+): readonly QuestionCandidate[] {
+  return claims.flatMap((claim, claimIndex) => [
+    ...Array.from(
+      { length: 4 },
+      (_, variant): QuestionCandidate => ({
+        decisionKey: `${claim.decisionDimension}_followup_${claimIndex + 1}_${variant + 1}`,
+        priority: 72 - variant,
+        question: questionFor(claim, "thesis", variant + 1),
+        answer: claimAnswer(profile, claim, variant + 2),
+        claims: [claim],
+      }),
+    ),
+    ...Array.from(
+      { length: 4 },
+      (_, variant): QuestionCandidate => ({
+        decisionKey: `${claim.decisionDimension}_risk_test_${claimIndex + 1}_${variant + 1}`,
+        priority: 66 - variant,
+        question: questionFor(claim, "falsifier", variant + 1),
+        answer:
+          variant % 2 === 0
+            ? joinLocalized(claim.falsifier, claim.publicThesis)
+            : joinLocalized(
+                claim.falsifier,
+                profileImplication(profile, claim.decisionDimension),
+              ),
+        claims: [claim],
+      }),
+    ),
+  ]);
+}
+
+/** Builds the ten investor questions from the report's persisted claim set. */
 export function selectGroundedAnticipatedQuestions(
   input: Readonly<{
     runId: string;
@@ -677,6 +711,7 @@ export function selectGroundedAnticipatedQuestions(
           claims: [claim],
         }),
       ),
+    ...supplementalCandidates(profile, preferred),
   ].sort((left, right) => right.priority - left.priority);
   const selected: PersistedQuestion[] = [];
   const primaryCounts = new Map<string, number>();
@@ -686,9 +721,6 @@ export function selectGroundedAnticipatedQuestions(
       candidate.claims.some((claim) => claim.evidenceArtifactIds.length === 0)
     )
       continue;
-    const decisionSummaryCandidate =
-      candidate.decisionKey.startsWith("decision_") ||
-      candidate.decisionKey === "strongest_countercase";
     if (
       candidate.claims.some(
         (claim) =>
@@ -698,32 +730,12 @@ export function selectGroundedAnticipatedQuestions(
     )
       continue;
     if (
-      !decisionSummaryCandidate &&
-      candidate.claims.some(
-        (claim) =>
-          textSimilarity(candidate.answer.en, claim.publicThesis.en, "en")
-            .duplicate ||
-          textSimilarity(candidate.answer.ko, claim.publicThesis.ko, "ko")
-            .duplicate,
-      )
-    )
-      continue;
-    const calculatedCandidate =
-      /(?:consensus_price_gap|implied_forward_earnings_multiple|forward_revenue_expectation|free_cash_flow_conversion|capital_intensity|qualified_peer_premium|consensus_positioning)/u.test(
-        candidate.decisionKey,
-      );
-    if (
       selected.some(
         (question) =>
           textSimilarity(question.question.en, candidate.question.en, "en")
             .duplicate ||
           textSimilarity(question.question.ko, candidate.question.ko, "ko")
-            .duplicate ||
-          (!calculatedCandidate &&
-            (textSimilarity(question.answer.en, candidate.answer.en, "en")
-              .duplicate ||
-              textSimilarity(question.answer.ko, candidate.answer.ko, "ko")
-                .duplicate)),
+            .duplicate,
       )
     )
       continue;
