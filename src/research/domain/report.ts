@@ -674,7 +674,11 @@ function compatibilityNarrativeLineage(
     anticipatedQuestions: report.anticipatedQuestions.map(
       (question, index) => ({
         index,
-        lineage: lineage(`legacy:question:${index}`, question.primaryClaimIds),
+        lineage: {
+          sentenceIds: [`legacy:question:${index}`],
+          claimIds: question.primaryClaimIds,
+          sourceArtifactIds: question.evidenceArtifactIds,
+        },
       }),
     ),
   };
@@ -877,11 +881,36 @@ export function workflowV3ReportFromCanonicalNarrative(
   const teamViews = new Map(
     canonical.teamViews.map((view) => [view.departmentId, view]),
   );
-  const publishedQuestions = canonical.anticipatedQuestions.flatMap(
-    (generated, index) => {
-      const question =
-        report.anticipatedQuestions[anticipatedQuestionIndexes[index] ?? index];
-      return question === undefined ? [] : [{ generated, question }];
+  const canonicalQuestionsBySourceIndex = new Map<
+    number,
+    (typeof canonical.anticipatedQuestions)[number]
+  >();
+  canonical.anticipatedQuestions.forEach((generated, index) => {
+    const sourceIndex = anticipatedQuestionIndexes[index] ?? index;
+    if (
+      report.anticipatedQuestions[sourceIndex] !== undefined &&
+      !canonicalQuestionsBySourceIndex.has(sourceIndex)
+    )
+      canonicalQuestionsBySourceIndex.set(sourceIndex, generated);
+  });
+  const compatibilityQuestionLineage = compatibilityNarrativeLineage(
+    report,
+    sourceLocale,
+  ).anticipatedQuestions;
+  const publishedQuestions = report.anticipatedQuestions.map(
+    (question, index) => {
+      const generated = canonicalQuestionsBySourceIndex.get(index);
+      const fallbackLineage = compatibilityQuestionLineage[index]?.lineage;
+      if (fallbackLineage === undefined)
+        throw new TypeError("workflow_v3_question_lineage_required");
+      return {
+        question,
+        generated: generated ?? {
+          question: question.question[sourceLocale],
+          answer: question.answer[sourceLocale],
+          lineage: fallbackLineage,
+        },
+      };
     },
   );
   return WorkflowV3ResearchReportSchema.parse({

@@ -178,7 +178,7 @@ describe("publishReportAtomically identity boundary", () => {
     database.close();
     const publicPayload = JSON.parse(row.public_payload_json);
     expect(publicPayload.narrativeLineage).toEqual(canonical.narrativeLineage);
-    expect([
+    const lineageEntries = [
       ...Object.values(publicPayload.narrativeLineage.decision),
       ...publicPayload.narrativeLineage.teamViews.map(
         (item: { readonly lineage: unknown }) => item.lineage,
@@ -189,7 +189,11 @@ describe("publishReportAtomically identity boundary", () => {
       ...publicPayload.narrativeLineage.anticipatedQuestions.map(
         (item: { readonly lineage: unknown }) => item.lineage,
       ),
-    ]).toHaveLength(14);
+    ];
+    expect(canonical.anticipatedQuestions).toHaveLength(10);
+    expect(lineageEntries).toHaveLength(
+      13 + canonical.anticipatedQuestions.length,
+    );
   });
 
   it.each(["missing", "mismatched"] as const)(
