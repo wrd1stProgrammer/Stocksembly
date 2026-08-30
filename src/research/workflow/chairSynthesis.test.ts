@@ -158,14 +158,14 @@ describe("Dr. Park constrained chair synthesis", () => {
     },
   );
 
-  it("stops after a failed replacement without a third launch or chair bubble", async () => {
+  it("keeps invalid structured output retryable without exhausting the run", async () => {
     // Given / When
     const { fixture, replay } = await runFault("invalid");
 
     // Then
     expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([25, 26]);
     expect(replay.artifactIds).toHaveLength(0);
-    expect(replay.incompleteReason).toBe("replacement_exhausted");
+    expect(replay.incompleteReason).not.toBe("replacement_exhausted");
     expect(replay.characterActorId).toBeNull();
     expect(replay.publishable).toBe(false);
     expect(fixture.codex.chairLaunches).toBe(2);

@@ -13,6 +13,7 @@ import type {
 import {
   chairValidationReason,
   localizedReport,
+  publishableDissent,
   SECTION_TITLES,
   scenarioMetric,
 } from "./assembleReportValidation";
@@ -272,7 +273,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       registeredSourceIds.has(sourceId),
     ),
   }));
-  const dissent = retainedDissentClaimIds.map((claimId) => {
+  const dissentCandidates = retainedDissentClaimIds.map((claimId) => {
     const sentences = input.chairSentences.filter(
       (sentence) =>
         sentence.kind === "dissent" && sentence.claimIds.includes(claimId),
@@ -295,8 +296,12 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       }),
     };
   });
-  if (dissent.some((entry) => entry.text.en === "" || entry.text.ko === ""))
-    return { kind: "blocked", reason: "retention_mismatch" };
+  const dissent = publishableDissent(
+    dissentCandidates,
+    recoveredClaimIds,
+    registeredSourceIds,
+  );
+  const dissentReduced = dissent.length !== dissentCandidates.length;
   const locales = localizedReport({
     sections,
     scenarios: recoveredScenarios,
@@ -321,6 +326,14 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       id: `limitation:claim:${entry.claim.claimId}`,
       capability: "claim_evidence",
     })),
+    ...(dissentReduced
+      ? [
+          {
+            id: "limitation:dissent_reduction",
+            capability: "retained_dissent",
+          },
+        ]
+      : []),
   ];
   const status =
     limitations.length > 0 ? "complete_with_limitations" : "complete";

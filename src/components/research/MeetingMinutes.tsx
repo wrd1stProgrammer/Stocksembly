@@ -309,7 +309,14 @@ export function MeetingMinutes({
     (originalQuestion?.trim().length ?? 0) > 0 || conversation.length > 0;
   const canChat = canAsk || hasConversation;
   const pendingWork = useMemo(() => {
-    if (isComplete || terminalState !== undefined) return [];
+    if (
+      isComplete ||
+      terminalState !== undefined ||
+      current.workflowKind === "committee_classified" ||
+      current.workflowKind === "chair_synthesis_committed" ||
+      current.workflowKind === "report_published"
+    )
+      return [];
     const activitiesByAgent = new Map(
       pendingActivities.map((activity) => [
         activity.actorId,
@@ -325,7 +332,14 @@ export function MeetingMinutes({
           : undefined);
       return activity === undefined ? [] : [{ agent, activity }];
     });
-  }, [agents, isComplete, pendingActivities, pendingAgentIds, terminalState]);
+  }, [
+    agents,
+    current.workflowKind,
+    isComplete,
+    pendingActivities,
+    pendingAgentIds,
+    terminalState,
+  ]);
   const knownIds = useRef(new Set(events.map((event) => event.id)));
   const feedRef = useRef<HTMLDivElement | null>(null);
   const followTail = useRef(true);

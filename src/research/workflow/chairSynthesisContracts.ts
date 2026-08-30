@@ -221,32 +221,23 @@ export const containsRepeatedGenericPosture = (
 export const ChairSynthesisV3RawModelOutputSchema =
   ChairSynthesisV3CanonicalNarrativeSchema;
 
+// Keep the trusted runner contract small and stable. The canonical chair
+// payload travels as JSON text inside this envelope and is validated by the
+// workflow immediately after the runner returns. If the inner JSON is bad,
+// the completed runner evidence can still authenticate a deterministic report
+// rebuilt from the already audited sentence catalog.
+export const ChairSynthesisV3RunnerOutputSchema = z
+  .object({ candidateJson: z.string().min(2) })
+  .strict()
+  .readonly();
+
+// Style defects are repaired locally before commit. They are deliberately not
+// part of the structural model contract: rejecting an otherwise grounded
+// report for hedge-heavy wording used to trigger a second full model launch
+// and could terminate the run. Source ownership and structural validity stay
+// fail-closed in the commit projection.
 export const ChairSynthesisV3ModelOutputSchema =
-  ChairSynthesisV3RawModelOutputSchema.superRefine((output, context) => {
-    const publicNarratives = [
-      output.decisiveReason,
-      output.strongestCountercase,
-      output.invalidationCheckpoint,
-      ...output.teamViews.flatMap((view) => [view.position, view.rationale]),
-      ...output.sections.map((section) => section.narrative),
-      ...output.anticipatedQuestions.flatMap((item) => [
-        item.question,
-        item.answer,
-      ]),
-    ];
-    if (publicNarratives.some(containsDirectOrderImperative))
-      context.addIssue({
-        code: "custom",
-        path: ["decisiveReason"],
-        message: "direct_order_imperative",
-      });
-    if (containsRepeatedGenericPosture(output))
-      context.addIssue({
-        code: "custom",
-        path: ["decisiveReason"],
-        message: "generic_posture_repeated",
-      });
-  }).readonly();
+  ChairSynthesisV3RawModelOutputSchema;
 
 export function chairSynthesisV3Prompt(
   input: Readonly<{
@@ -258,6 +249,11 @@ export function chairSynthesisV3Prompt(
     kind: "chair_synthesis_input_v3",
     sourceLocale: input.sourceLocale,
     outputContract: {
+      transport: {
+        outerKey: "candidateJson",
+        instruction:
+          "Return one JSON object whose candidateJson value is a JSON-encoded string containing the canonical chair response described below.",
+      },
       narrativeLocales: [input.sourceLocale],
       requiredStances: [
         "upside_skewed",

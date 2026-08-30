@@ -88,13 +88,26 @@ export function composeWorkflowV2Report(
     editorialClaims.some((claim) => !registeredOwners.has(claim.roleOwner))
   )
     throw new TypeError("authenticated_editorial_claim_ownership_required");
+  const editorialClaimIds = new Set<string>(
+    editorialClaims.map((claim) => claim.claimId),
+  );
+  const retainedPrimaryClaimIds =
+    input.chair.decisionBrief.primaryClaimIds.filter((claimId) =>
+      editorialClaimIds.has(claimId),
+    );
+  const fallbackPrimaryClaimId = editorialClaims[0]?.claimId;
+  if (fallbackPrimaryClaimId === undefined)
+    throw new TypeError("authenticated_editorial_claim_required");
   const decision = {
     stance: input.chair.decisionBrief.stance,
     confidence: input.chair.decisionBrief.confidence,
     decisiveReason: input.chair.decisionBrief.decisiveReason,
     strongestCountercase: input.chair.decisionBrief.strongestCountercase,
     falsifier: input.chair.decisionBrief.falsifier,
-    primaryClaimIds: input.chair.decisionBrief.primaryClaimIds,
+    primaryClaimIds:
+      retainedPrimaryClaimIds.length > 0
+        ? retainedPrimaryClaimIds
+        : [fallbackPrimaryClaimId],
   } as const;
   const qa = selectGroundedAnticipatedQuestions({
     runId: input.legacyReport.runId,
@@ -130,7 +143,9 @@ export function composeWorkflowV2Report(
     position: leadTeam.position,
     rationale: leadTeam.rationale,
     sections: input.chair.sections.flatMap((section) => {
-      const claimIds = sentenceClaims.get(section.primarySentenceId) ?? [];
+      const claimIds = (
+        sentenceClaims.get(section.primarySentenceId) ?? []
+      ).filter((claimId) => editorialClaimIds.has(claimId));
       const primaryClaim = report.editorialClaims.find((claim) =>
         claimIds.includes(claim.claimId),
       );

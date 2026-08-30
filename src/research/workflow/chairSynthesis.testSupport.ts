@@ -581,8 +581,19 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
     input: CodexRunInput<Candidate>,
     raw: unknown,
   ): CodexRunResult<Candidate> {
+    let transported = raw;
+    try {
+      const kind = z
+        .object({ kind: z.string() })
+        .passthrough()
+        .parse(JSON.parse(input.prompt)).kind;
+      if (kind === "chair_synthesis_input_v3")
+        transported = { candidateJson: JSON.stringify(raw) };
+    } catch {
+      // Non-JSON rewrite and legacy prompts keep their original contracts.
+    }
     return {
-      candidate: input.outputSchema.parse(raw),
+      candidate: input.outputSchema.parse(transported),
       evidence: {
         ordinal: input.reservation.key.ordinal,
         stage: input.stage,

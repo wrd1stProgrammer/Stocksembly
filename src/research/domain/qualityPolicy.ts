@@ -83,7 +83,7 @@ export function evaluatePublicationQuality(
         claim.semanticVerdict === "not_assessable",
     );
   const status = hasLimitations ? "complete_with_limitations" : "complete";
-  if (quality.requestedStatus !== status)
+  if (quality.requestedStatus === "complete" && status !== "complete")
     return {
       publishable: false,
       status: "incomplete",
@@ -91,5 +91,5 @@ export function evaluatePublicationQuality(
         `requested_status_mismatch:${quality.requestedStatus}:${status}`,
       ],
     };
-  return { publishable: true, status, blockers: [] };
+  return { publishable: true, status: quality.requestedStatus, blockers: [] };
 }

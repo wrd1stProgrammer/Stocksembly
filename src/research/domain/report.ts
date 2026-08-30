@@ -87,7 +87,7 @@ const CanonicalEditorialClaimSchema = z
     publicThesis: z.string().trim().min(1),
     evidenceArtifactIds: z.array(z.string().uuid()),
     counterevidenceArtifactIds: z.array(z.string().uuid()),
-    decisiveMetricIds: z.array(z.string().uuid()).max(3),
+    decisiveMetricIds: z.array(z.string().trim().min(1).max(240)).max(3),
     falsifier: z.string().trim().min(1),
   })
   .strict();
@@ -860,6 +860,9 @@ export function workflowV3ReportFromCanonicalNarrative(
   report: WorkflowV2ResearchReport,
   canonicalInput: z.infer<typeof ChairSynthesisV3CanonicalNarrativeSchema>,
   sectionClaimIds: ReadonlyMap<string, readonly string[]> = new Map(),
+  anticipatedQuestionIndexes: readonly number[] = canonicalInput.anticipatedQuestions.map(
+    (_, index) => index,
+  ),
 ): WorkflowV3ResearchReport {
   const canonical =
     ChairSynthesisV3CanonicalNarrativeSchema.parse(canonicalInput);
@@ -873,6 +876,13 @@ export function workflowV3ReportFromCanonicalNarrative(
   );
   const teamViews = new Map(
     canonical.teamViews.map((view) => [view.departmentId, view]),
+  );
+  const publishedQuestions = canonical.anticipatedQuestions.flatMap(
+    (generated, index) => {
+      const question =
+        report.anticipatedQuestions[anticipatedQuestionIndexes[index] ?? index];
+      return question === undefined ? [] : [{ generated, question }];
+    },
   );
   return WorkflowV3ResearchReportSchema.parse({
     ...common,
@@ -888,9 +898,10 @@ export function workflowV3ReportFromCanonicalNarrative(
         sectionKey: section.sectionKey,
         lineage: section.lineage,
       })),
-      anticipatedQuestions: canonical.anticipatedQuestions.map(
-        (question, index) => ({ index, lineage: question.lineage }),
-      ),
+      anticipatedQuestions: publishedQuestions.map(({ generated }, index) => ({
+        index,
+        lineage: generated.lineage,
+      })),
     },
     narrative: {
       ...report.locales[sourceLocale],
@@ -941,19 +952,10 @@ export function workflowV3ReportFromCanonicalNarrative(
       ...comparator,
       rationale: comparator.rationale[sourceLocale],
     })),
-    anticipatedQuestions: report.anticipatedQuestions.flatMap(
-      (question, index) => {
-        const generated = canonical.anticipatedQuestions[index];
-        return generated === undefined
-          ? []
-          : [
-              {
-                ...question,
-                question: generated.question,
-                answer: generated.answer,
-              },
-            ];
-      },
-    ),
+    anticipatedQuestions: publishedQuestions.map(({ generated, question }) => ({
+      ...question,
+      question: generated.question,
+      answer: generated.answer,
+    })),
   });
 }

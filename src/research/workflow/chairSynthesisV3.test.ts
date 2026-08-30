@@ -108,24 +108,24 @@ describe("workflow-v3 canonical chair synthesis", () => {
     },
   );
 
-  it("rejects a direct order imperative in the canonical public narrative", () => {
-    expect(() =>
-      ChairSynthesisV3ModelOutputSchema.parse({
-        kind: "chair_synthesis_v3",
-        sourceLocale: "en",
-        stance: "upside_skewed",
-        ...canonicalDecisionLineage,
-        decisiveReason: "Buy now because earnings are improving.",
-        strongestCountercase: "Margins could contract.",
-        invalidationCheckpoint: "Invalidate if margins contract.",
-        teamViews: teamViews("Evidence supports the view."),
-        sections: sections("Buy now."),
-        anticipatedQuestions: [],
-      }),
-    ).toThrow();
+  it("keeps style defects outside the structural output contract", () => {
+    const parsed = ChairSynthesisV3ModelOutputSchema.parse({
+      kind: "chair_synthesis_v3",
+      sourceLocale: "en",
+      stance: "upside_skewed",
+      ...canonicalDecisionLineage,
+      decisiveReason: "Buy now because earnings are improving.",
+      strongestCountercase: "Margins could contract.",
+      invalidationCheckpoint: "Invalidate if margins contract.",
+      teamViews: teamViews("Evidence supports the view."),
+      sections: sections("Buy now."),
+      anticipatedQuestions: [],
+    });
+
+    expect(parsed.decisiveReason).toContain("Buy now");
   });
 
-  it("invokes the source-locale v3 model and accepts the first bounded repair", async () => {
+  it("repairs a public-writing defect locally without another model launch", async () => {
     const prompts: string[] = [];
     const base = {
       kind: "chair_synthesis_v3" as const,
@@ -144,16 +144,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
       evidenceCatalog: "trusted catalog",
       runModel: async (prompt) => {
         prompts.push(prompt);
-        return prompts.length === 1
-          ? base
-          : { ...base, decisiveReason: "Evidence supports upside." };
+        return base;
       },
     });
-    expect(prompts).toHaveLength(2);
+    expect(prompts).toHaveLength(1);
     expect(result.decisiveReason).toBe("Evidence supports upside.");
   });
 
-  it("omits only a still-imperative optional sentence after one repair", async () => {
+  it("omits only an imperative optional sentence without another model launch", async () => {
     let calls = 0;
     const result = await synthesizeChairV3({
       sourceLocale: "en",
@@ -180,7 +178,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
         };
       },
     });
-    expect(calls).toBe(2);
+    expect(calls).toBe(1);
     expect(result.decisiveReason).toBe("Evidence is balanced.");
     expect(result.strongestCountercase).toBe(
       "No grounded countercase was retained.",
@@ -253,7 +251,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
         const replay = await chair.drain(prepared.runId);
         await chair.close();
         expect(replay.publishable, JSON.stringify(replay)).toBe(true);
-        expect(prepared.codex.chairLaunches).toBe(2);
+        expect(prepared.codex.chairLaunches).toBe(1);
         const database = new Database(prepared.options.databasePath, {
           readonly: true,
         });
@@ -329,7 +327,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     }
   });
 
-  it("repairs repeated generic posture once and then degrades locally", async () => {
+  it("degrades repeated generic posture locally", async () => {
     const prepared = await createPreparedChairRound("v3_hedge_twice");
     try {
       const chair = createSqliteChairSynthesis({
@@ -340,7 +338,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
       const replay = await chair.drain(prepared.runId);
       await chair.close();
       expect(replay.publishable, JSON.stringify(replay)).toBe(true);
-      expect(prepared.codex.chairLaunches).toBe(2);
+      expect(prepared.codex.chairLaunches).toBe(1);
       const database = new Database(prepared.options.databasePath, {
         readonly: true,
       });
@@ -369,7 +367,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     }
   });
 
-  it("keeps invalid source/content fatal instead of publishing an empty core", async () => {
+  it("publishes a grounded deterministic chair fallback when model output is invalid", async () => {
     const prepared = await createPreparedChairRound("invalid");
     try {
       const chair = createSqliteChairSynthesis({
@@ -379,8 +377,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
       await chair.stage({ runId: prepared.runId });
       const replay = await chair.drain(prepared.runId);
       await chair.close();
-      expect(replay.publishable).toBe(false);
-      expect(replay.artifactIds).toEqual([]);
+      expect(replay.publishable, JSON.stringify(replay)).toBe(true);
+      expect(replay.artifactIds).toHaveLength(1);
+      expect(prepared.codex.chairLaunches).toBe(1);
     } finally {
       prepared.cleanup();
     }

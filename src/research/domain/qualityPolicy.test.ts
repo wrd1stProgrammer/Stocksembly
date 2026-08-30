@@ -154,4 +154,20 @@ describe("publication quality policy", () => {
       ],
     });
   });
+
+  it("allows a conservative limitations status when the retained core is complete", () => {
+    expect(
+      evaluatePublicationQuality({
+        ...base,
+        capabilities: [
+          { key: "current_market_data", availability: "available" },
+          { key: "consensus", availability: "available" },
+        ],
+      }),
+    ).toEqual({
+      publishable: true,
+      status: "complete_with_limitations",
+      blockers: [],
+    });
+  });
 });

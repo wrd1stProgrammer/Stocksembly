@@ -293,7 +293,7 @@ describe("specialist claim slots", () => {
     });
   });
 
-  it("leaves a multi-metric percentage claim untouched for strict repair", async () => {
+  it("removes only ambiguous percentage values instead of exhausting replacement retries", async () => {
     const harness = await makeSqliteRoundHarness("none");
     const roleId = "financial" as const;
     const claimSlots = allocateSpecialistClaimSlots({
@@ -349,7 +349,14 @@ describe("specialist claim slots", () => {
       registeredValues,
     );
 
-    expect(grounded).toEqual(ambiguous);
+    expect(
+      (grounded as { readonly positions: readonly unknown[] }).positions[0],
+    ).toMatchObject({
+      publicSummary: {
+        en: "The evidence supports the direction of this claim, but an exact rate is omitted because it could not be matched unambiguously.",
+        ko: "근거는 이 주장의 방향성을 뒷받침하지만, 명확히 연결되지 않은 비율은 표시하지 않았습니다.",
+      },
+    });
     expect(
       validateSpecialistClaimSubmission(
         {
@@ -363,10 +370,7 @@ describe("specialist claim slots", () => {
         },
         grounded,
       ),
-    ).toEqual({
-      ok: false,
-      reason: "specialist_claim_numeric_metric_mismatch",
-    });
+    ).toEqual({ ok: true });
   });
 
   it("does not mistake an explicit future threshold for a reported metric", async () => {

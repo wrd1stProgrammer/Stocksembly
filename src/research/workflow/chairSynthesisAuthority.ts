@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
+import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, JobIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type { ArtifactCasPort } from "../ports/artifacts";
@@ -12,7 +13,7 @@ import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisModelOutputSchema,
   type ChairSynthesisReplay,
-  ChairSynthesisV3RawModelOutputSchema,
+  ChairSynthesisV3RunnerOutputSchema,
   chairSynthesisV3Prompt,
   type PersistedChairJob,
   PersistedChairJobSchema,
@@ -110,7 +111,7 @@ export class ChairSynthesisSqliteAuthority {
       prompt: promptJson,
       outputSchema:
         this.options.workflowVersion === "workflow-v3"
-          ? ChairSynthesisV3RawModelOutputSchema
+          ? ChairSynthesisV3RunnerOutputSchema
           : ChairSynthesisModelOutputSchema,
     });
     const existing = this.loadJob(runId);
@@ -252,7 +253,7 @@ export class ChairSynthesisSqliteAuthority {
       output === undefined
         ? retryPending
           ? "retry_pending"
-          : receipts.length >= 2
+          : receipts.length >= CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact
             ? "replacement_exhausted"
             : "chair_artifact_missing"
         : null;

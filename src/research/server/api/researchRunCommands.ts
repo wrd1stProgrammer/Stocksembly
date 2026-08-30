@@ -37,6 +37,7 @@ const RecoveryEligibilitySchema = z.object({
   total_research_jobs: z.number().int().nonnegative(),
   succeeded_research_jobs: z.number().int().nonnegative(),
   retryable_failed_jobs: z.number().int().nonnegative(),
+  failed_research_jobs: z.number().int().nonnegative(),
 });
 
 type CommandContext = {
@@ -126,7 +127,9 @@ export function retryResearchRun(
                 WHERE retry.scope = 'worker-retry'
                   AND retry.idempotency_key = jobs.job_id
                   AND json_extract(retry.result_json, '$.classification') =
-                    'transient')) AS retryable_failed_jobs
+                    'transient')) AS retryable_failed_jobs,
+            COUNT(*) FILTER (WHERE kind = 'research'
+              AND status = 'failed') AS failed_research_jobs
           FROM jobs WHERE run_id = ?`)
           .get(parentRunId),
       );
@@ -136,6 +139,7 @@ export function retryResearchRun(
       if (
         recovery.resumable_jobs === 0 &&
         recovery.retryable_failed_jobs === 0 &&
+        recovery.failed_research_jobs === 0 &&
         !publicationOnlyRecovery
       )
         return { kind: "illegal_state" };
@@ -149,12 +153,7 @@ export function retryResearchRun(
       database
         .prepare(`UPDATE jobs SET status = 'retry-wait', lease_owner = NULL,
           lease_expires_at = NULL
-          WHERE run_id = @runId AND kind = 'research' AND status = 'failed'
-            AND EXISTS (SELECT 1 FROM idempotency_records retry
-              WHERE retry.scope = 'worker-retry'
-                AND retry.idempotency_key = jobs.job_id
-                AND json_extract(retry.result_json, '$.classification') =
-                  'transient')`)
+          WHERE run_id = @runId AND kind = 'research' AND status = 'failed'`)
         .run({ runId: parentRunId });
       database
         .prepare(`UPDATE idempotency_records SET result_json = json_set(

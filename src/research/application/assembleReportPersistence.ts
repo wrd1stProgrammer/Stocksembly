@@ -9,6 +9,7 @@ import {
   type ResearchReport,
   type WorkflowV2ResearchReport,
   type WorkflowV3ResearchReport,
+  WorkflowV3ResearchReportSchema,
   workflowV3ReportFromCanonicalNarrative,
 } from "../domain/report";
 import { singleLocaleReportForStorage } from "../domain/reportStorage";
@@ -18,7 +19,10 @@ import {
   ArtifactDigestSchema,
 } from "../ports/artifacts";
 import type { ReportVersionWrite } from "../ports/reportVersions";
-import { canonicalNarrativeV3IsGrounded } from "../workflow/chairSynthesisV3";
+import {
+  canonicalNarrativeV3IsGrounded,
+  normalizeCanonicalNarrativeV3ForPublication,
+} from "../workflow/chairSynthesisV3";
 import {
   deterministicMetadataRewrite,
   evaluatePrePublicationEditorialGate,
@@ -83,17 +87,25 @@ export async function persistAuthoritativeReport(
     canonicalChair.data.canonicalNarrativeV3 === undefined
   )
     return { kind: "blocked", reason: "workflow_v3_chair_required" };
+  const auditedClaimIds = [
+    ...new Set(
+      canonicalChair.data.sections.flatMap(
+        (section) => section.auditedClaimIds,
+      ),
+    ),
+  ];
+  const normalizedCanonical = normalizeCanonicalNarrativeV3ForPublication({
+    canonical: canonicalChair.data.canonicalNarrativeV3,
+    sentences: input.chairSentences,
+    auditedClaimIds,
+    sourceArtifactIds: canonicalChair.data.sourceArtifactIds,
+    sections: canonicalChair.data.sections,
+  });
   if (
     !canonicalNarrativeV3IsGrounded({
-      canonical: canonicalChair.data.canonicalNarrativeV3,
+      canonical: normalizedCanonical.canonical,
       sentences: input.chairSentences,
-      auditedClaimIds: [
-        ...new Set(
-          canonicalChair.data.sections.flatMap(
-            (section) => section.auditedClaimIds,
-          ),
-        ),
-      ],
+      auditedClaimIds,
       sourceArtifactIds: canonicalChair.data.sourceArtifactIds,
     })
   )
@@ -150,26 +162,48 @@ export async function persistAuthoritativeReport(
     candidate: gated.candidate,
     fieldLineage: gated.fieldLineage,
   };
-  const publicationReport = workflowV3ReportFromCanonicalNarrative(
+  const projectedPublicationReport = workflowV3ReportFromCanonicalNarrative(
     assembled.report,
-    canonicalChair.data.canonicalNarrativeV3,
+    normalizedCanonical.canonical,
     new Map(
       gated.candidate.sections.map((section) => [
         section.sectionKey,
         section.claimIds,
       ]),
     ),
+    normalizedCanonical.anticipatedQuestionIndexes,
   );
+  const publicationReport = normalizedCanonical.reduced
+    ? WorkflowV3ResearchReportSchema.parse({
+        ...projectedPublicationReport,
+        status: "complete_with_limitations",
+        limitations: [
+          ...projectedPublicationReport.limitations,
+          ...(projectedPublicationReport.limitations.some(
+            (limitation) =>
+              limitation.id === "limitation:canonical_publication_reduction",
+          )
+            ? []
+            : [
+                {
+                  id: "limitation:canonical_publication_reduction",
+                  capability: "canonical_optional_content",
+                },
+              ]),
+        ],
+      })
+    : projectedPublicationReport;
   const canonicalQuestionCount = publicationReport.anticipatedQuestions.length;
   const canonicalEditorialPublication = {
     ...editorialPublication,
     candidate: {
       ...editorialPublication.candidate,
       anticipatedQuestions:
-        editorialPublication.candidate.anticipatedQuestions.slice(
-          0,
-          canonicalQuestionCount,
-        ),
+        normalizedCanonical.anticipatedQuestionIndexes.flatMap((index) => {
+          const question =
+            editorialPublication.candidate.anticipatedQuestions[index];
+          return question === undefined ? [] : [question];
+        }),
     },
     qaPolicy: {
       ...editorialPublication.qaPolicy,

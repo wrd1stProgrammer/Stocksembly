@@ -20,11 +20,15 @@ import {
   ChairSectionRewriteSchema,
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
-  ChairSynthesisV3RawModelOutputSchema,
+  ChairSynthesisV3RunnerOutputSchema,
   type SqliteChairSynthesisOptions,
 } from "./chairSynthesisContracts";
 import { chairSectionRewritePrompt } from "./chairSynthesisPrompts";
-import { projectChairV3ForCommit, synthesizeChairV3 } from "./chairSynthesisV3";
+import {
+  deterministicChairV3Fallback,
+  projectChairV3ForCommit,
+  synthesizeChairV3,
+} from "./chairSynthesisV3";
 import {
   type ChairCandidateIssue,
   chairCandidateIssue,
@@ -139,28 +143,47 @@ export function createChairSynthesisAttemptHandler(
       )
         return "incomplete";
       let v3RunnerEvidence: SafeCodexEvidence | undefined;
-      const v3Candidate =
+      let v3Candidate:
+        | Awaited<ReturnType<typeof synthesizeChairV3>>
+        | undefined;
+      if (
         rewrite === undefined &&
         context.options.workflowVersion === "workflow-v3"
-          ? await synthesizeChairV3({
-              sourceLocale: prompt.mandate.locale,
-              evidenceCatalog: validationPrompt,
-              runModel: async (v3Prompt) => {
-                runnerPrompt = v3Prompt;
-                const result = await context.options.codex.run({
-                  attemptDir,
-                  reservation: { key, fence: claim },
-                  stage: "chair_synthesis",
-                  prompt: v3Prompt,
-                  outputSchema: ChairSynthesisV3RawModelOutputSchema,
-                  signal,
-                  onActivity: activity,
-                });
-                v3RunnerEvidence = result.evidence;
-                return result.candidate;
-              },
-            })
-          : undefined;
+      ) {
+        try {
+          v3Candidate = await synthesizeChairV3({
+            sourceLocale: prompt.mandate.locale,
+            evidenceCatalog: validationPrompt,
+            runModel: async (v3Prompt) => {
+              runnerPrompt = v3Prompt;
+              const result = await context.options.codex.run({
+                attemptDir,
+                reservation: { key, fence: claim },
+                stage: "chair_synthesis",
+                prompt: v3Prompt,
+                outputSchema: ChairSynthesisV3RunnerOutputSchema,
+                signal,
+                onActivity: activity,
+              });
+              v3RunnerEvidence = result.evidence;
+              return result.candidate;
+            },
+          });
+        } catch (error) {
+          if (v3RunnerEvidence === undefined) throw error;
+          v3Candidate = deterministicChairV3Fallback(validationPrompt);
+          process.stdout.write(
+            `${JSON.stringify({
+              kind: "chair_model_output_recovered",
+              attemptId: attempt.attemptId,
+              reason:
+                error instanceof Error
+                  ? error.message
+                  : "unknown_model_output_error",
+            })}\n`,
+          );
+        }
+      }
       const result =
         v3Candidate !== undefined
           ? undefined
@@ -189,18 +212,41 @@ export function createChairSynthesisAttemptHandler(
           : rewrite === undefined
             ? projectChairAssignments(validationPrompt, result?.candidate ?? {})
             : undefined;
-      candidate =
-        v3Candidate !== undefined
-          ? projectChairV3ForCommit(validationPrompt, v3Candidate)
-          : rewrite === undefined
-            ? projection === undefined
-              ? {}
-              : validChairCandidate(validationPrompt, projection.candidate)
-            : repairChairCandidate(
-                validationPrompt,
-                rewrite.originalCandidate,
-                result?.candidate ?? {},
-              );
+      if (v3Candidate !== undefined) {
+        try {
+          candidate = projectChairV3ForCommit(validationPrompt, v3Candidate);
+        } catch (error) {
+          // A structurally valid model response must not terminate a run only
+          // because its prose or lineage projection is imperfect. Rebuild the
+          // public narrative from the already audited sentence catalog while
+          // keeping the successful runner evidence for the trusted commit.
+          candidate = projectChairV3ForCommit(
+            validationPrompt,
+            deterministicChairV3Fallback(validationPrompt),
+          );
+          process.stdout.write(
+            `${JSON.stringify({
+              kind: "chair_projection_recovered",
+              attemptId: attempt.attemptId,
+              reason:
+                error instanceof Error
+                  ? error.message
+                  : "unknown_projection_error",
+            })}\n`,
+          );
+        }
+      } else if (rewrite === undefined) {
+        candidate =
+          projection === undefined
+            ? {}
+            : validChairCandidate(validationPrompt, projection.candidate);
+      } else {
+        candidate = repairChairCandidate(
+          validationPrompt,
+          rewrite.originalCandidate,
+          result?.candidate ?? {},
+        );
+      }
       if (
         projection !== undefined &&
         typeof candidate === "object" &&

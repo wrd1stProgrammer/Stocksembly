@@ -143,7 +143,7 @@ export function registerResearchRunCommandTests(
     expect(results.map((response) => response.status)).toEqual([409, 409]);
   });
 
-  it("rejects a terminal job failure instead of leaving the run stuck", async () => {
+  it("reopens a terminal research job on an explicit user retry", async () => {
     const harness = harnessValue();
     const run = await createRun(harness, "retry-terminal-failure");
     setInitialResearchJobStatus(harness, run.runId, "failed");
@@ -157,17 +157,21 @@ export function registerResearchRunCommandTests(
       ),
     );
 
-    expect(response.status).toBe(409);
-    expect(await json(response)).toEqual({
-      error: { code: "RECOVERY_NOT_AVAILABLE" },
-    });
+    expect(response.status).toBe(202);
     expect(
       databaseScalar(
         harness,
         "SELECT status FROM runs WHERE run_id = ?",
         run.runId,
       ),
-    ).toBe("failed");
+    ).toBe("running");
+    expect(
+      databaseScalar(
+        harness,
+        "SELECT status FROM jobs WHERE run_id = ? AND kind = 'research'",
+        run.runId,
+      ),
+    ).toBe("retry-wait");
   });
 
   it("reopens a failed job when its persisted failure is transient", async () => {

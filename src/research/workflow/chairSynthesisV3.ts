@@ -1,9 +1,11 @@
 import type { z } from "zod";
+import { ArtifactIdSchema, ClaimIdSchema } from "../domain/ids";
 import {
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
   ChairSynthesisV3ModelOutputSchema,
   ChairSynthesisV3RawModelOutputSchema,
+  ChairSynthesisV3RunnerOutputSchema,
   chairSynthesisV3Prompt,
   containsDirectOrderImperative,
   containsRepeatedGenericPosture,
@@ -25,6 +27,234 @@ type CatalogSentence = Readonly<{
   sourceArtifactIds: readonly string[];
   text: Readonly<{ en: string; ko: string }>;
 }>;
+
+type CanonicalLineage = RawOutput["decisionLineage"]["decisiveReason"];
+
+type ChairSectionAuthority = Readonly<{
+  sectionKey: RawOutput["sections"][number]["sectionKey"];
+  primarySentenceId: string;
+}>;
+
+function canonicalUnitMatchesEvidence(
+  input: Readonly<{
+    text: string;
+    lineage: CanonicalLineage;
+    canonical: RawOutput;
+    catalog: ReadonlyMap<string, CatalogSentence>;
+    sourceArtifactIds: readonly string[];
+  }>,
+): boolean {
+  const sentences = input.lineage.sentenceIds
+    .map((sentenceId) => input.catalog.get(sentenceId))
+    .filter((sentence): sentence is CatalogSentence => sentence !== undefined);
+  if (sentences.length !== input.lineage.sentenceIds.length) return false;
+  const claimIds = new Set(sentences.flatMap((sentence) => sentence.claimIds));
+  const sourceArtifactIds = new Set(
+    sentences.flatMap((sentence) => sentence.sourceArtifactIds),
+  );
+  return (
+    claimIds.size === input.lineage.claimIds.length &&
+    sourceArtifactIds.size === input.lineage.sourceArtifactIds.length &&
+    input.lineage.claimIds.every((claimId) => claimIds.has(claimId)) &&
+    input.lineage.sourceArtifactIds.every(
+      (artifactId) =>
+        sourceArtifactIds.has(artifactId) &&
+        input.sourceArtifactIds.includes(artifactId),
+    ) &&
+    publicTextIsValid(
+      { en: input.text, ko: input.text },
+      sentences,
+      4_000,
+      input.canonical.sourceLocale,
+    )
+  );
+}
+
+function canonicalUnitIsGrounded(
+  input: Readonly<{
+    text: string;
+    lineage: CanonicalLineage;
+    canonical: RawOutput;
+    catalog: ReadonlyMap<string, CatalogSentence>;
+    auditedClaimIds: readonly string[];
+    sourceArtifactIds: readonly string[];
+  }>,
+): boolean {
+  return (
+    canonicalUnitMatchesEvidence(input) &&
+    input.lineage.claimIds.every((claimId) =>
+      input.auditedClaimIds.includes(claimId),
+    )
+  );
+}
+
+export function normalizeCanonicalNarrativeV3ForPublication(
+  input: Readonly<{
+    canonical: RawOutput;
+    sentences: readonly CatalogSentence[];
+    auditedClaimIds: readonly string[];
+    sourceArtifactIds: readonly string[];
+    sections: readonly ChairSectionAuthority[];
+  }>,
+): Readonly<{
+  canonical: RawOutput;
+  reduced: boolean;
+  anticipatedQuestionIndexes: readonly number[];
+}> {
+  const catalog = new Map(
+    input.sentences.map((sentence) => [sentence.sentenceId, sentence]),
+  );
+  const authorities = new Map(
+    input.sections.map((section) => [section.sectionKey, section]),
+  );
+  let reduced = false;
+  const lineageFor = (sentence: CatalogSentence): CanonicalLineage => ({
+    sentenceIds: [sentence.sentenceId],
+    claimIds: sentence.claimIds.map((claimId) => ClaimIdSchema.parse(claimId)),
+    sourceArtifactIds: sentence.sourceArtifactIds.map((artifactId) =>
+      ArtifactIdSchema.parse(artifactId),
+    ),
+  });
+  const groundedFallback = (
+    lineage: CanonicalLineage,
+    preferredSectionKey: RawOutput["sections"][number]["sectionKey"],
+  ) => {
+    const preferredSentenceId =
+      authorities.get(preferredSectionKey)?.primarySentenceId;
+    const candidates = [
+      ...lineage.sentenceIds.map((sentenceId) => catalog.get(sentenceId)),
+      preferredSentenceId === undefined
+        ? undefined
+        : catalog.get(preferredSentenceId),
+      ...catalog.values(),
+    ].filter((sentence): sentence is CatalogSentence => sentence !== undefined);
+    for (const sentence of candidates) {
+      const fallbackLineage = lineageFor(sentence);
+      const text = sentence.text[input.canonical.sourceLocale];
+      if (
+        canonicalUnitIsGrounded({
+          text,
+          lineage: fallbackLineage,
+          canonical: input.canonical,
+          catalog,
+          auditedClaimIds: input.auditedClaimIds,
+          sourceArtifactIds: input.sourceArtifactIds,
+        })
+      )
+        return { text, lineage: fallbackLineage };
+    }
+    return undefined;
+  };
+  const normalizeUnit = (
+    text: string,
+    lineage: CanonicalLineage,
+    preferredSectionKey: RawOutput["sections"][number]["sectionKey"],
+  ) => {
+    const unit = {
+      text,
+      lineage,
+      canonical: input.canonical,
+      catalog,
+      auditedClaimIds: input.auditedClaimIds,
+      sourceArtifactIds: input.sourceArtifactIds,
+    };
+    if (canonicalUnitIsGrounded(unit)) return { text, lineage };
+    const fallback = groundedFallback(lineage, preferredSectionKey);
+    if (fallback !== undefined) reduced = true;
+    return fallback ?? { text, lineage };
+  };
+  const decisive = normalizeUnit(
+    input.canonical.decisiveReason,
+    input.canonical.decisionLineage.decisiveReason,
+    "ten_second_brief",
+  );
+  const countercase = normalizeUnit(
+    input.canonical.strongestCountercase,
+    input.canonical.decisionLineage.strongestCountercase,
+    "dissent_unknowns",
+  );
+  const invalidation = normalizeUnit(
+    input.canonical.invalidationCheckpoint,
+    input.canonical.decisionLineage.invalidationCheckpoint,
+    "change_conditions",
+  );
+  const teamViews = input.canonical.teamViews.map((view) => {
+    const shared = {
+      lineage: view.lineage,
+      canonical: input.canonical,
+      catalog,
+      auditedClaimIds: input.auditedClaimIds,
+      sourceArtifactIds: input.sourceArtifactIds,
+    };
+    if (
+      canonicalUnitIsGrounded({ ...shared, text: view.position }) &&
+      canonicalUnitIsGrounded({ ...shared, text: view.rationale })
+    )
+      return view;
+    const fallback = groundedFallback(view.lineage, "supported_analysis");
+    if (fallback === undefined) return view;
+    reduced = true;
+    return {
+      ...view,
+      position: fallback.text,
+      rationale: fallback.text,
+      lineage: fallback.lineage,
+    };
+  });
+  const sections = input.canonical.sections.map((section) => {
+    const normalized = normalizeUnit(
+      section.narrative,
+      section.lineage,
+      section.sectionKey,
+    );
+    return {
+      ...section,
+      narrative: normalized.text,
+      lineage: normalized.lineage,
+    };
+  });
+  const anticipatedQuestionIndexes: number[] = [];
+  const anticipatedQuestions = input.canonical.anticipatedQuestions.flatMap(
+    (item, index) => {
+      const question = {
+        text: item.question,
+        lineage: item.lineage,
+        canonical: input.canonical,
+        catalog,
+        auditedClaimIds: input.auditedClaimIds,
+        sourceArtifactIds: input.sourceArtifactIds,
+      };
+      const answer = { ...question, text: item.answer };
+      if (
+        canonicalUnitIsGrounded(question) &&
+        canonicalUnitIsGrounded(answer)
+      ) {
+        anticipatedQuestionIndexes.push(index);
+        return [item];
+      }
+      reduced = true;
+      return [];
+    },
+  );
+  return {
+    canonical: {
+      ...input.canonical,
+      decisiveReason: decisive.text,
+      strongestCountercase: countercase.text,
+      invalidationCheckpoint: invalidation.text,
+      decisionLineage: {
+        decisiveReason: decisive.lineage,
+        strongestCountercase: countercase.lineage,
+        invalidationCheckpoint: invalidation.lineage,
+      },
+      teamViews,
+      sections,
+      anticipatedQuestions,
+    },
+    reduced,
+    anticipatedQuestionIndexes,
+  };
+}
 
 export function canonicalNarrativeV3IsGrounded(
   input: Readonly<{
@@ -62,39 +292,16 @@ export function canonicalNarrativeV3IsGrounded(
       [item.answer, item.lineage] as const,
     ]),
   ] as const;
-  return units.every(([text, lineage]) => {
-    const sentences = lineage.sentenceIds
-      .map((sentenceId) => catalog.get(sentenceId))
-      .filter(
-        (sentence): sentence is CatalogSentence => sentence !== undefined,
-      );
-    if (sentences.length !== lineage.sentenceIds.length) return false;
-    const claimIds = new Set(
-      sentences.flatMap((sentence) => sentence.claimIds),
-    );
-    const sourceArtifactIds = new Set(
-      sentences.flatMap((sentence) => sentence.sourceArtifactIds),
-    );
-    return (
-      claimIds.size === lineage.claimIds.length &&
-      sourceArtifactIds.size === lineage.sourceArtifactIds.length &&
-      lineage.claimIds.every(
-        (claimId) =>
-          claimIds.has(claimId) && input.auditedClaimIds.includes(claimId),
-      ) &&
-      lineage.sourceArtifactIds.every(
-        (artifactId) =>
-          sourceArtifactIds.has(artifactId) &&
-          input.sourceArtifactIds.includes(artifactId),
-      ) &&
-      publicTextIsValid(
-        { en: text, ko: text },
-        sentences,
-        4_000,
-        input.canonical.sourceLocale,
-      )
-    );
-  });
+  return units.every(([text, lineage]) =>
+    canonicalUnitIsGrounded({
+      text,
+      lineage,
+      canonical: input.canonical,
+      catalog,
+      auditedClaimIds: input.auditedClaimIds,
+      sourceArtifactIds: input.sourceArtifactIds,
+    }),
+  );
 }
 
 function degradedText(
@@ -110,7 +317,7 @@ function degradedText(
     : "Reassess when the verified evidence changes.";
 }
 
-function locallyDegrade(output: RawOutput): RawOutput | undefined {
+function locallyDegrade(output: RawOutput): RawOutput {
   const originalSafeSections = output.sections.filter(
     (section) => !containsDirectOrderImperative(section.narrative),
   );
@@ -140,11 +347,10 @@ function locallyDegrade(output: RawOutput): RawOutput | undefined {
             ? "Verified evidence is insufficient."
             : "Verified evidence is balanced.";
   const decisiveReason = containsDirectOrderImperative(output.decisiveReason)
-    ? originalSafeSections[0]?.narrative
+    ? (originalSafeSections[0]?.narrative ?? directEvidenceText)
     : repeatedPosture && genericPosture.test(output.decisiveReason)
       ? directEvidenceText
       : output.decisiveReason;
-  if (decisiveReason === undefined) return undefined;
   return {
     ...output,
     decisiveReason,
@@ -184,6 +390,93 @@ function locallyDegrade(output: RawOutput): RawOutput | undefined {
   };
 }
 
+export function deterministicChairV3Fallback(
+  validationPrompt: string,
+): z.infer<typeof ChairSynthesisV3ModelOutputSchema> {
+  const prompt = ChairSynthesisPromptSchema.parse(JSON.parse(validationPrompt));
+  const assignments = chairSectionPrimaryAssignments(prompt);
+  const directional = chairDirectionalBriefAssignment(prompt, assignments);
+  const catalog = new Map(
+    prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]),
+  );
+  type Sentence = (typeof prompt.sentences)[number];
+  type Lineage = RawOutput["decisionLineage"]["decisiveReason"];
+  const lineageFor = (sentence: Sentence): Lineage => ({
+    sentenceIds: [sentence.sentenceId],
+    claimIds: sentence.claimIds,
+    sourceArtifactIds: sentence.sourceArtifactIds,
+  });
+  const textFor = (sentence: Sentence) => sentence.text[prompt.mandate.locale];
+  const positionSentences = prompt.sentences.filter(
+    (sentence) => sentence.kind === "position",
+  );
+  const assignedPositionIds = new Set<string>();
+  const positionForDepartment = (
+    departmentId: RawOutput["teamViews"][number]["departmentId"],
+    artifactId: (typeof prompt.departmentPositions)[number]["artifactId"],
+  ) => {
+    const exact = positionSentences.find(
+      (sentence) =>
+        !assignedPositionIds.has(sentence.sentenceId) &&
+        (sentence.sourceArtifactIds.includes(artifactId) ||
+          sentence.sentenceId.toLowerCase().includes(departmentId)),
+    );
+    const available =
+      exact ??
+      positionSentences.find(
+        (sentence) => !assignedPositionIds.has(sentence.sentenceId),
+      ) ??
+      directional.decisive;
+    assignedPositionIds.add(available.sentenceId);
+    return available;
+  };
+  const stance =
+    directional.stance === "wait_for_proof"
+      ? ("balanced" as const)
+      : directional.stance;
+  const fallback: RawOutput = {
+    kind: "chair_synthesis_v3",
+    sourceLocale: prompt.mandate.locale,
+    stance,
+    decisiveReason: textFor(directional.decisive),
+    strongestCountercase: textFor(directional.countercase),
+    invalidationCheckpoint: textFor(directional.falsifier),
+    decisionLineage: {
+      decisiveReason: lineageFor(directional.decisive),
+      strongestCountercase: lineageFor(directional.countercase),
+      invalidationCheckpoint: lineageFor(directional.falsifier),
+    },
+    teamViews: prompt.departmentPositions.map((position) => {
+      const sentence = positionForDepartment(
+        position.departmentId,
+        position.artifactId,
+      );
+      return {
+        departmentId: position.departmentId,
+        position: textFor(sentence),
+        rationale: textFor(sentence),
+        vote:
+          prompt.ballots.find(
+            (ballot) => ballot.departmentId === position.departmentId,
+          )?.vote ?? "abstain",
+        lineage: lineageFor(sentence),
+      };
+    }),
+    sections: assignments.map((assignment) => {
+      const sentence = catalog.get(assignment.primarySentenceId);
+      if (sentence === undefined)
+        throw new TypeError("chair_v3_primary_assignment_missing");
+      return {
+        sectionKey: assignment.sectionKey,
+        narrative: textFor(sentence),
+        lineage: lineageFor(sentence),
+      };
+    }),
+    anticipatedQuestions: [],
+  };
+  return ChairSynthesisV3ModelOutputSchema.parse(locallyDegrade(fallback));
+}
+
 export async function synthesizeChairV3(
   input: Readonly<{
     sourceLocale: "en" | "ko";
@@ -192,32 +485,23 @@ export async function synthesizeChairV3(
   }>,
 ): Promise<z.infer<typeof ChairSynthesisV3ModelOutputSchema>> {
   const initialPrompt = chairSynthesisV3Prompt(input);
-  const initial = ChairSynthesisV3RawModelOutputSchema.parse(
-    await input.runModel(initialPrompt),
-  );
+  const modelOutput = await input.runModel(initialPrompt);
+  const transported = ChairSynthesisV3RunnerOutputSchema.safeParse(modelOutput);
+  let rawModelOutput = modelOutput;
+  if (transported.success) {
+    try {
+      rawModelOutput = JSON.parse(transported.data.candidateJson);
+    } catch {
+      throw new TypeError("chair_v3_transport_json_invalid");
+    }
+  }
+  const initial = ChairSynthesisV3RawModelOutputSchema.parse(rawModelOutput);
   if (initial.sourceLocale !== input.sourceLocale)
     throw new TypeError("chair_v3_source_locale_mismatch");
-  const accepted = ChairSynthesisV3ModelOutputSchema.safeParse(initial);
-  if (accepted.success) return accepted.data;
-  const repairPrompt = JSON.stringify({
-    kind: "chair_synthesis_v3_bounded_rewrite",
-    sourceLocale: input.sourceLocale,
-    instruction:
-      "Rewrite only direct order or hedge-heavy public sentences into direct evidence language. Preserve the schema and grounded meaning.",
-    candidate: initial,
-  });
-  const repaired = ChairSynthesisV3RawModelOutputSchema.parse(
-    await input.runModel(repairPrompt),
-  );
-  if (repaired.sourceLocale !== input.sourceLocale)
-    throw new TypeError("chair_v3_source_locale_mismatch");
-  const repairedAccepted =
-    ChairSynthesisV3ModelOutputSchema.safeParse(repaired);
-  if (repairedAccepted.success) return repairedAccepted.data;
-  const degraded = locallyDegrade(repaired);
-  if (degraded === undefined)
-    throw new TypeError("chair_v3_no_grounded_core_answer");
-  return ChairSynthesisV3ModelOutputSchema.parse(degraded);
+  // Never spend another reserved model launch on a public-writing defect.
+  // Local degradation preserves the grounded structure and removes only the
+  // unsafe or excessively conditional wording.
+  return ChairSynthesisV3ModelOutputSchema.parse(locallyDegrade(initial));
 }
 
 export function projectChairV3ForCommit(
@@ -233,53 +517,85 @@ export function projectChairV3ForCommit(
     prompt.sentences.map((sentence) => [sentence.sentenceId, sentence]),
   );
   type Lineage = RawOutput["decisionLineage"]["decisiveReason"];
-  const authenticatedLineage = (lineage: Lineage): Lineage => {
-    const sentences = lineage.sentenceIds.map((sentenceId) =>
-      catalog.get(sentenceId),
-    );
-    if (sentences.some((sentence) => sentence === undefined))
-      throw new TypeError("chair_v3_lineage_sentence_missing");
-    const authenticated = sentences.filter(
-      (sentence): sentence is (typeof prompt.sentences)[number] =>
-        sentence !== undefined,
-    );
+  const authenticatedLineage = (
+    lineage: Lineage,
+    fallback: (typeof prompt.sentences)[number],
+  ): Lineage => {
+    const authenticated = lineage.sentenceIds
+      .map((sentenceId) => catalog.get(sentenceId))
+      .filter(
+        (sentence): sentence is (typeof prompt.sentences)[number] =>
+          sentence !== undefined,
+      );
+    const retained = authenticated.length > 0 ? authenticated : [fallback];
     return {
-      sentenceIds: lineage.sentenceIds,
-      claimIds: [
-        ...new Set(authenticated.flatMap((sentence) => sentence.claimIds)),
+      sentenceIds: [
+        ...new Set(retained.map((sentence) => sentence.sentenceId)),
       ],
+      claimIds: [...new Set(retained.flatMap((sentence) => sentence.claimIds))],
       sourceArtifactIds: [
-        ...new Set(
-          authenticated.flatMap((sentence) => sentence.sourceArtifactIds),
-        ),
+        ...new Set(retained.flatMap((sentence) => sentence.sourceArtifactIds)),
       ],
     };
   };
+  const assignmentBySection = new Map(
+    assignments.map((assignment) => [assignment.sectionKey, assignment]),
+  );
+  const fallbackForSection = (
+    sectionKey: RawOutput["sections"][number]["sectionKey"],
+  ) => {
+    const sentenceId = assignmentBySection.get(sectionKey)?.primarySentenceId;
+    return (
+      (sentenceId === undefined ? undefined : catalog.get(sentenceId)) ??
+      directional.decisive
+    );
+  };
+  const fallbackForDepartment = (
+    departmentId: RawOutput["teamViews"][number]["departmentId"],
+  ) =>
+    prompt.sentences.find(
+      (sentence) =>
+        sentence.kind === "position" &&
+        sentence.sentenceId.toLowerCase().includes(departmentId),
+    ) ?? directional.decisive;
   const canonicalWithAuthenticatedLineage: RawOutput = {
     ...canonical,
     decisionLineage: {
       decisiveReason: authenticatedLineage(
         canonical.decisionLineage.decisiveReason,
+        directional.decisive,
       ),
       strongestCountercase: authenticatedLineage(
         canonical.decisionLineage.strongestCountercase,
+        directional.countercase,
       ),
       invalidationCheckpoint: authenticatedLineage(
         canonical.decisionLineage.invalidationCheckpoint,
+        directional.falsifier,
       ),
     },
     teamViews: canonical.teamViews.map((view) => ({
       ...view,
-      lineage: authenticatedLineage(view.lineage),
+      lineage: authenticatedLineage(
+        view.lineage,
+        fallbackForDepartment(view.departmentId),
+      ),
     })),
     sections: canonical.sections.map((section) => ({
       ...section,
-      lineage: authenticatedLineage(section.lineage),
+      lineage: authenticatedLineage(
+        section.lineage,
+        fallbackForSection(section.sectionKey),
+      ),
     })),
-    anticipatedQuestions: canonical.anticipatedQuestions.map((item) => ({
-      ...item,
-      lineage: authenticatedLineage(item.lineage),
-    })),
+    anticipatedQuestions: canonical.anticipatedQuestions
+      .filter((item) =>
+        item.lineage.sentenceIds.some((sentenceId) => catalog.has(sentenceId)),
+      )
+      .map((item) => ({
+        ...item,
+        lineage: authenticatedLineage(item.lineage, directional.falsifier),
+      })),
   };
   const lineageFor = (
     sentence: (typeof prompt.sentences)[number],

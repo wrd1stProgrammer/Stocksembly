@@ -181,6 +181,22 @@ type LocalizedProjectionInput = {
   readonly evidenceByClaim: ReadonlyMap<string, readonly string[]>;
 };
 
+type PublicationDissent = LocalizedProjectionInput["dissent"][number];
+
+export function publishableDissent(
+  dissent: readonly PublicationDissent[],
+  publishedClaimIds: ReadonlySet<string>,
+  registeredSourceIds: ReadonlySet<string>,
+): readonly PublicationDissent[] {
+  return dissent.filter(
+    (entry) =>
+      publishedClaimIds.has(entry.claimId) &&
+      entry.sourceIds.every((sourceId) => registeredSourceIds.has(sourceId)) &&
+      entry.text.en.trim().length > 0 &&
+      entry.text.ko.trim().length > 0,
+  );
+}
+
 export function localizedReport(input: LocalizedProjectionInput) {
   const project = (locale: "en" | "ko") => ({
     sections: input.sections.map((section) => ({
