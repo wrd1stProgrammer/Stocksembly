@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { editorialDefinitions } from "../../editorial/catalog";
 import { EditorialArticlePage } from "./EditorialArticlePage";
@@ -6,12 +6,6 @@ import { EditorialArticlePage } from "./EditorialArticlePage";
 vi.mock("next/image", () => ({
   default: (props: { readonly alt: string }) => (
     <span aria-label={props.alt} role="img" />
-  ),
-}));
-
-vi.mock("../LandingOfficePreview", () => ({
-  LandingOfficePreview: (props: { readonly locale: string }) => (
-    <section data-locale={props.locale} data-testid="landing-office-preview" />
   ),
 }));
 
@@ -24,26 +18,24 @@ vi.mock("./EditorialCard", () => ({
 }));
 
 describe("EditorialArticlePage", () => {
-  it("places the localized home office preview between the article CTA and related reading", () => {
+  it("keeps the article CTA ahead of related reading without a live office embed", () => {
     const { container } = render(
       <EditorialArticlePage locale="ko" definition={editorialDefinitions[0]} />,
     );
 
     const cta = container.querySelector(".editorial-cta");
-    const preview = screen.getByTestId("landing-office-preview");
     const related = container.querySelector(".editorial-related");
 
     expect(cta).not.toBeNull();
     expect(related).not.toBeNull();
     if (!cta || !related)
       throw new Error("Expected article sections to render");
-    expect(preview).toHaveAttribute("data-locale", "ko");
+    // The oversized live office used to sit here; the text CTA is the only handoff now.
+    expect(container.querySelector(".landing-office-live")).toBeNull();
+    expect(container.querySelectorAll("canvas")).toHaveLength(0);
+    expect(cta.querySelector("a")).toHaveAttribute("href", "/ko#product");
     expect(
-      cta.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      preview.compareDocumentPosition(related) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      cta.compareDocumentPosition(related) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 });
