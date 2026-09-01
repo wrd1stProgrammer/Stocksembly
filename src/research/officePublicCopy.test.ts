@@ -3,11 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { PixelOfficeGame } from "../components/research/PixelOfficeGame";
 import { copy } from "../lib/i18n";
-import {
-  agents,
-  phaseLabels,
-  researchEvents,
-} from "./mockResearch";
+import { agents, phaseLabels, researchEvents } from "./mockResearch";
 import { AGENT_IDS, OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 
 const expectedIdentity = {
