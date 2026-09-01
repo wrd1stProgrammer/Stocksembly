@@ -1631,8 +1631,17 @@
     overflow-y: auto;
   }
 
+  /* The 220px sidebar cannot fit the quote beside the name: stack it. */
+  .research-sidebar .company-brief {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 4px;
+  }
+
   .research-sidebar .company-brief__quote {
-    display: block;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
   }
 
   .office-workbench {

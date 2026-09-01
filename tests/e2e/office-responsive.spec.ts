@@ -182,6 +182,43 @@ test.describe("Todo 7 responsive research room contract", () => {
     expect(metrics.officeTop).toBeGreaterThanOrEqual(metrics.railTop);
   });
 
+  test("keeps the sidebar quote visible below the company name on tablets", async ({
+    page,
+  }) => {
+    for (const [width, height] of [
+      [820, 1180],
+      [1180, 820],
+    ] as const) {
+      await openResearch(page, width, height, "ko");
+      const sidebar = page.locator(".research-sidebar");
+      const name = page.locator(".company-brief > div").first();
+      const quote = page.locator(".company-brief__quote");
+      await expect(sidebar).toBeVisible();
+      await expect(quote).toBeVisible();
+      await expect(quote.locator("strong")).toHaveText(/\$/u);
+      const [sidebarBox, nameBox, quoteBox] = await Promise.all([
+        sidebar.boundingBox(),
+        name.boundingBox(),
+        quote.boundingBox(),
+      ]);
+      if (!sidebarBox || !nameBox || !quoteBox) {
+        throw new Error(`Sidebar quote is not laid out at ${width}x${height}`);
+      }
+      // The 220px tablet sidebar stacks the quote under the name instead of
+      // squeezing the name into an ellipsis or hiding the quote.
+      expect(quoteBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+      expect(quoteBox.x + quoteBox.width).toBeLessThanOrEqual(
+        sidebarBox.x + sidebarBox.width + 1,
+      );
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(false);
+    }
+  });
+
   test("keeps mobile on a stable overview without camera controls", async ({
     page,
   }) => {
