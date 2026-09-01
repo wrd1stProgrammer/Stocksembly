@@ -64,7 +64,6 @@
     "cheerio": "1.2.0",
     "clsx": "^2.1.1",
     "decimal.js": "10.6.0",
-    "framer-motion": "^12.42.2",
     "ky": "^1.14.2",
     "lucide-react": "^1.25.0",
     "motion": "^12.42.2",

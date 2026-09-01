@@ -2,7 +2,7 @@
 
 import "../styles/landing.css";
 import "../styles/office-game.css";
-import { domAnimation, LazyMotion, m } from "framer-motion";
+import { domAnimation, LazyMotion, m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { AppLocale } from "../lib/i18n";
 import { copy, researchLocale } from "../lib/i18n";

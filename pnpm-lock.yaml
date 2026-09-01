@@ -62,9 +62,6 @@ importers:
       decimal.js:
         specifier: 10.6.0
         version: 10.6.0
-      framer-motion:
-        specifier: ^12.42.2
-        version: 12.42.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       ky:
         specifier: ^1.14.2
         version: 1.14.3
