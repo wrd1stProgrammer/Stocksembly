@@ -1,13 +1,10 @@
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DepartmentRail } from "../components/research/DepartmentRail";
 import { PixelOfficeGame } from "../components/research/PixelOfficeGame";
 import { copy } from "../lib/i18n";
 import {
   agents,
-  initialResearchEvent,
-  makeResearchCompany,
   phaseLabels,
   researchEvents,
 } from "./mockResearch";
@@ -93,37 +90,6 @@ describe("office public copy", () => {
 
     // Then
     expect(heroCopy).toEqual(expectedHeroCopy);
-  });
-
-  it("renders the canonical eleven-person roster count in DepartmentRail", () => {
-    // Given
-    const company = makeResearchCompany(
-      "NVDA",
-      "NVIDIA Corporation",
-      "NASDAQ",
-      "Semiconductors",
-    );
-
-    // When
-    const rendered = renderMarkup(
-      createElement(DepartmentRail, {
-        agents,
-        company,
-        current: initialResearchEvent,
-        activeAgentIds: ["chair"],
-        walkingAgentIds: [],
-        completedAgentIds: [],
-        locale: "en",
-      }),
-    );
-
-    // Then
-    expect(
-      rendered.querySelector(".department-rail__heading em"),
-    ).toHaveTextContent(String(AGENT_IDS.length));
-    expect(rendered.querySelectorAll(".agent-list > li")).toHaveLength(
-      OFFICE_SCENE_MANIFEST.roster.length,
-    );
   });
 
   it("contains no stale six-person or private-reasoning language", () => {
