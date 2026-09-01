@@ -615,13 +615,10 @@ type Copy = {
   readonly a11y: {
     readonly home: string;
     readonly language: string;
-    readonly navigation: string;
     readonly results: string;
   };
   readonly nav: {
-    readonly product: string;
     readonly getStarted: string;
-    readonly pricing: string;
   };
   readonly hero: {
     readonly eyebrow: string;
@@ -699,11 +696,6 @@ type Copy = {
     readonly questionPlaceholder: string;
     readonly action: string;
     readonly loading: string;
-    readonly popular: string;
-    readonly clear: string;
-    readonly noResults: string;
-    readonly matchHint: string;
-    readonly queued: (symbol: string) => string;
   };
 };
 
@@ -712,13 +704,10 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     a11y: {
       home: "Stocksembly home",
       language: "Language",
-      navigation: "Primary navigation",
       results: "Search results",
     },
     nav: {
-      product: "Product",
       getStarted: "Get started",
-      pricing: "Plans",
     },
     hero: {
       eyebrow: "AI research team for US stocks",
@@ -817,24 +806,16 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       questionPlaceholder: "e.g. Can growth justify today's valuation?",
       action: "Build research",
       loading: "Opening research room",
-      popular: "Popular tickers",
-      clear: "Clear search",
-      noResults: "No supported US company found. Try another ticker.",
-      matchHint: "Select a company or start the research directly.",
-      queued: (symbol) => `${symbol} research room is ready.`,
     },
   },
   ko: {
     a11y: {
       home: "Stocksembly 홈",
       language: "언어",
-      navigation: "주요 탐색",
       results: "검색 결과",
     },
     nav: {
-      product: "제품",
       getStarted: "시작하기",
-      pricing: "요금제",
     },
     hero: {
       eyebrow: "미국주식 AI 리서치 팀",
@@ -931,22 +912,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       questionPlaceholder: "예: 성장률이 현재 밸류에이션을 정당화할까?",
       action: "팀 리서치 시작",
       loading: "리서치 룸을 준비하고 있습니다",
-      popular: "인기 티커",
-      clear: "검색어 지우기",
-      noResults:
-        "지원 대상인 미국 기업을 찾지 못했습니다. 다른 티커를 입력하세요.",
-      matchHint: "기업을 선택하거나 바로 리서치를 시작하세요.",
-      queued: (symbol) => `${symbol} 리서치 룸이 준비됐습니다.`,
     },
   },
   ja: {
     a11y: {
       home: "Stocksembly ホーム",
       language: "言語",
-      navigation: "メインナビゲーション",
       results: "検索結果",
     },
-    nav: { product: "製品", getStarted: "始める", pricing: "料金プラン" },
+    nav: { getStarted: "始める" },
     hero: {
       eyebrow: "米国株AIリサーチチーム",
       titleLead: "11人のAIアナリストが",
@@ -1043,22 +1017,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         "例：成長率は現在のバリュエーションを正当化できるか？",
       action: "チームリサーチを開始",
       loading: "リサーチルームを準備中",
-      popular: "人気のティッカー",
-      clear: "検索をクリア",
-      noResults:
-        "対応する米国企業が見つかりません。別のティッカーを入力してください。",
-      matchHint: "企業を選択するか、そのままリサーチを開始してください。",
-      queued: (symbol) => `${symbol} のリサーチルームを用意しました。`,
     },
   },
   "zh-TW": {
     a11y: {
       home: "Stocksembly 首頁",
       language: "語言",
-      navigation: "主要導覽",
       results: "搜尋結果",
     },
-    nav: { product: "產品", getStarted: "開始使用", pricing: "方案" },
+    nav: { getStarted: "開始使用" },
     hero: {
       eyebrow: "美股 AI 研究團隊",
       titleLead: "11 位 AI 分析師",
@@ -1152,21 +1119,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       questionPlaceholder: "例如：成長能否合理化目前估值？",
       action: "開始團隊研究",
       loading: "正在準備研究室",
-      popular: "熱門股票",
-      clear: "清除搜尋",
-      noResults: "找不到支援的美國公司，請嘗試其他股票代號。",
-      matchHint: "選擇公司，或直接開始研究。",
-      queued: (symbol) => `${symbol} 研究室已準備完成。`,
     },
   },
   es: {
     a11y: {
       home: "Inicio de Stocksembly",
       language: "Idioma",
-      navigation: "Navegación principal",
       results: "Resultados de búsqueda",
     },
-    nav: { product: "Producto", getStarted: "Comenzar", pricing: "Planes" },
+    nav: { getStarted: "Comenzar" },
     hero: {
       eyebrow: "Investigación con IA de acciones de EE. UU.",
       titleLead: "Once analistas de IA",
@@ -1265,22 +1226,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         "Ej.: ¿El crecimiento justifica la valoración actual?",
       action: "Iniciar análisis en equipo",
       loading: "Preparando la sala de análisis",
-      popular: "Tickers populares",
-      clear: "Borrar búsqueda",
-      noResults:
-        "No encontramos una empresa estadounidense compatible. Prueba otro ticker.",
-      matchHint: "Selecciona una empresa o inicia el análisis directamente.",
-      queued: (symbol) => `La sala de análisis de ${symbol} está lista.`,
     },
   },
   "pt-BR": {
     a11y: {
       home: "Início da Stocksembly",
       language: "Idioma",
-      navigation: "Navegação principal",
       results: "Resultados da busca",
     },
-    nav: { product: "Produto", getStarted: "Começar", pricing: "Planos" },
+    nav: { getStarted: "Começar" },
     hero: {
       eyebrow: "Pesquisa com IA para ações dos EUA",
       titleLead: "Onze analistas de IA",
@@ -1379,22 +1333,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       questionPlaceholder: "Ex.: o crescimento justifica o valuation atual?",
       action: "Iniciar research em equipe",
       loading: "Preparando a sala de research",
-      popular: "Tickers populares",
-      clear: "Limpar busca",
-      noResults:
-        "Nenhuma empresa americana compatível foi encontrada. Tente outro ticker.",
-      matchHint: "Selecione uma empresa ou inicie o research diretamente.",
-      queued: (symbol) => `A sala de research de ${symbol} está pronta.`,
     },
   },
   de: {
     a11y: {
       home: "Stocksembly Startseite",
       language: "Sprache",
-      navigation: "Hauptnavigation",
       results: "Suchergebnisse",
     },
-    nav: { product: "Produkt", getStarted: "Loslegen", pricing: "Tarife" },
+    nav: { getStarted: "Loslegen" },
     hero: {
       eyebrow: "KI-Researchteam für US-Aktien",
       titleLead: "Elf KI-Analysten",
@@ -1493,22 +1440,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         "Z. B.: Rechtfertigt das Wachstum die aktuelle Bewertung?",
       action: "Team-Research starten",
       loading: "Research-Raum wird vorbereitet",
-      popular: "Beliebte Ticker",
-      clear: "Suche löschen",
-      noResults:
-        "Kein unterstütztes US-Unternehmen gefunden. Versuchen Sie einen anderen Ticker.",
-      matchHint: "Unternehmen auswählen oder Research direkt starten.",
-      queued: (symbol) => `Der Research-Raum für ${symbol} ist bereit.`,
     },
   },
   fr: {
     a11y: {
       home: "Accueil Stocksembly",
       language: "Langue",
-      navigation: "Navigation principale",
       results: "Résultats de recherche",
     },
-    nav: { product: "Produit", getStarted: "Commencer", pricing: "Offres" },
+    nav: { getStarted: "Commencer" },
     hero: {
       eyebrow: "Recherche IA sur les actions américaines",
       titleLead: "Onze analystes IA",
@@ -1607,13 +1547,6 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         "Ex. : la croissance justifie-t-elle la valorisation actuelle ?",
       action: "Lancer la recherche en équipe",
       loading: "Préparation de la salle de recherche",
-      popular: "Tickers populaires",
-      clear: "Effacer la recherche",
-      noResults:
-        "Aucune entreprise américaine prise en charge n’a été trouvée. Essayez un autre ticker.",
-      matchHint:
-        "Sélectionnez une entreprise ou lancez directement la recherche.",
-      queued: (symbol) => `La salle de recherche ${symbol} est prête.`,
     },
   },
 };
