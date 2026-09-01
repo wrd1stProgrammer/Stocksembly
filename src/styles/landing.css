@@ -442,3 +442,13 @@
     text-align: left;
   }
 }
+
+.landing-research-flip__question-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--color-text-subtle);
+  font-size: 0.6rem;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

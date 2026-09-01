@@ -650,6 +650,7 @@ type Copy = {
       readonly error: string;
     };
     readonly researchRoom: {
+      readonly questionLabel: string;
       readonly eyebrow: string;
       readonly title: string;
       readonly description: string;
@@ -759,6 +760,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "The research office could not be loaded.",
       },
       researchRoom: {
+        questionLabel: "Question asked",
         eyebrow: "RESEARCH ROOM · LATEST FIVE",
         title: "Flip through questions investors already asked.",
         description:
@@ -873,6 +875,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "리서치 오피스를 불러오지 못했습니다.",
       },
       researchRoom: {
+        questionLabel: "받은 질문",
         eyebrow: "RESEARCH ROOM · 최근 5개",
         title: "다른 투자자의 질문을 뒤집어 보세요.",
         description:
@@ -984,6 +987,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "リサーチオフィスを読み込めませんでした。",
       },
       researchRoom: {
+        questionLabel: "受け取った質問",
         eyebrow: "RESEARCH ROOM · 最新5件",
         title: "投資家がすでに尋ねた論点をめくってみましょう。",
         description: "裏面で質問を確認し、完成したリサーチを開けます。",
@@ -1094,6 +1098,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "無法載入研究辦公室。",
       },
       researchRoom: {
+        questionLabel: "收到的問題",
         eyebrow: "RESEARCH ROOM · 最新 5 份",
         title: "翻閱其他投資人已經提出的問題。",
         description: "翻到背面查看問題，再開啟完整研究。",
@@ -1202,6 +1207,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "No se pudo cargar la oficina de análisis.",
       },
       researchRoom: {
+        questionLabel: "Pregunta recibida",
         eyebrow: "RESEARCH ROOM · ÚLTIMOS CINCO",
         title: "Descubre las preguntas que otros inversores ya hicieron.",
         description:
@@ -1316,6 +1322,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "Não foi possível carregar o escritório de research.",
       },
       researchRoom: {
+        questionLabel: "Pergunta recebida",
         eyebrow: "RESEARCH ROOM · CINCO MAIS RECENTES",
         title: "Veja as perguntas que outros investidores já fizeram.",
         description:
@@ -1428,6 +1435,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "Das Research-Office konnte nicht geladen werden.",
       },
       researchRoom: {
+        questionLabel: "Gestellte Frage",
         eyebrow: "RESEARCH ROOM · NEUESTE FÜNF",
         title: "Entdecken Sie Fragen, die Anleger bereits gestellt haben.",
         description:
@@ -1541,6 +1549,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "Impossible de charger le bureau de recherche.",
       },
       researchRoom: {
+        questionLabel: "Question posée",
         eyebrow: "RESEARCH ROOM · CINQ DERNIÈRES",
         title: "Découvrez les questions déjà posées par les investisseurs.",
         description:

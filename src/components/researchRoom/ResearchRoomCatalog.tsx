@@ -193,6 +193,22 @@ export function ResearchRoomCatalog({
   }, [access.authenticated]);
 
   useEffect(() => {
+    // The server already rendered the first page with default filters, so
+    // reuse it instead of fetching the same list again on mount (or when the
+    // filters return to their defaults).
+    const defaultQuery =
+      page === initialPage &&
+      scope === "all" &&
+      company === "all" &&
+      sort === "latest" &&
+      query.trim().length === 0;
+    if (defaultQuery) {
+      setReports(initialReports);
+      setTotal(initialTotal);
+      setCompanies(initialCompanies);
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     const timer = window.setTimeout(
       () => {
@@ -236,7 +252,18 @@ export function ResearchRoomCatalog({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [company, locale, page, query, scope, sort]);
+  }, [
+    company,
+    locale,
+    page,
+    query,
+    scope,
+    sort,
+    initialCompanies,
+    initialPage,
+    initialReports,
+    initialTotal,
+  ]);
 
   const selectedCompany = company === "all" ? undefined : company;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -432,10 +459,14 @@ export function ResearchRoomCatalog({
                         <ArrowUpRight size={17} aria-hidden="true" />
                       )}
                     </header>
-                    <h2>
-                      {report.question ||
-                        roomCopy.thesisFallback(report.symbol)}
-                    </h2>
+                    <h2>{roomCopy.fileTitle(teamLabel(report, locale))}</h2>
+                    <p className="research-room-catalog__question">
+                      <span>{roomCopy.questionLabel}</span>
+                      <span>
+                        {report.question ||
+                          roomCopy.thesisFallback(report.symbol)}
+                      </span>
+                    </p>
                     <footer>
                       <time dateTime={report.publishedAt}>
                         <Clock3 size={14} aria-hidden="true" />
