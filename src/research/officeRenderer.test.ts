@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { ACTOR_ATLAS } from "./officeActorAtlas";
 import { officeAgentAssetPath } from "./officeAgentAssets";
 import type { OfficeActorAction } from "./officeChoreography";
+import { facingToward } from "./officeFacingV7";
 import { workstationSeatVisualPosition } from "./officeGameFurniture";
 import {
   type OfficeRenderSnapshot,
@@ -113,9 +114,13 @@ describe("manifest-derived office snapshot renderer", () => {
   it("applies a destination revision immediately within the same beat", () => {
     // Given
     const base = snapshotAt(360);
+    // Keep Maya off her seat so the orient renders as a standing pose.
+    const corridor = Object.freeze({ x: 20, y: 18 });
     const before = updateActor(base, "market", (actor) => ({
       ...actor,
       action: "walk",
+      cell: corridor,
+      world: cellWorld(corridor),
       destination: Object.freeze({ x: 38, y: 7 }),
       revision: 10,
     }));
@@ -217,7 +222,11 @@ describe("manifest-derived office snapshot renderer", () => {
 
   it("uses the target-facing row for orient even after opposite movement", () => {
     // Given
-    const base = snapshotAt(360);
+    const base = updateActor(snapshotAt(360), "market", (actor) => ({
+      ...actor,
+      // Off-seat so the orient renders as a standing pose.
+      cell: Object.freeze({ x: 12, y: 12 }),
+    }));
     const previous = movedActorSnapshot(base, { x: 360, y: 400 }, "right");
     const orient = movedActorSnapshot(
       base,
@@ -660,5 +669,133 @@ describe("manifest-derived office snapshot renderer", () => {
       expect(
         contained(companyLayout.bodyBounds, viewport.width, viewport.height),
       ).toBe(true);
+  });
+});
+
+function cellWorld(cell: {
+  readonly x: number;
+  readonly y: number;
+}): WorldPoint {
+  const size = OFFICE_SCENE_MANIFEST.world.cellSize;
+  return Object.freeze({ x: cell.x * size + size / 2, y: (cell.y + 1) * size });
+}
+
+function rosterMemberOrThrow(id: "market" | "market_news") {
+  const member = OFFICE_SCENE_MANIFEST.roster.find((entry) => entry.id === id);
+  if (member === undefined) throw new TypeError(`Roster has no ${id}`);
+  return member;
+}
+
+describe("walking and seated facing", () => {
+  const viewport = { width: 1376, height: 1145 };
+
+  it("keeps a walking actor facing its travel direction while a conversation counterpart shares the room", () => {
+    // Given: June sits at her desk; Maya walks past two rows above, heading right.
+    const base = snapshotAt(360);
+    const counterpartSeat = rosterMemberOrThrow("market_news").workSeat.cell;
+    const from = Object.freeze({
+      x: counterpartSeat.x + 1,
+      y: counterpartSeat.y - 2,
+    });
+    const to = Object.freeze({
+      x: counterpartSeat.x + 2,
+      y: counterpartSeat.y - 2,
+    });
+    const seated = updateActor(base, "market_news", (actor) => ({
+      ...actor,
+      action: "seated-work",
+      cell: counterpartSeat,
+      world: cellWorld(counterpartSeat),
+      facing: "down",
+    }));
+    const previous = updateActor(seated, "market", (actor) => ({
+      ...actor,
+      action: "walk",
+      cell: from,
+      world: cellWorld(from),
+      facing: "right",
+    }));
+    const moved = updateActor(previous, "market", (actor) => ({
+      ...actor,
+      cell: to,
+      world: cellWorld(to),
+    }));
+    const conversation = {
+      speakerId: "market_news",
+      participantIds: ["market", "market_news"],
+    } as const;
+    const render = (
+      snapshot: OfficeSimulationSnapshot,
+      previousSnapshot: OfficeSimulationSnapshot,
+    ) =>
+      renderOfficeSnapshot({
+        snapshot,
+        previousSnapshot,
+        interpolation: 1,
+        reducedMotion: false,
+        cameraMode: "overview",
+        viewport,
+        locale: "en",
+        conversation,
+      }).actors.find((actor) => actor.id === "market");
+
+    // When: the cell changes on one tick and holds on the next.
+    const onArrival = render(moved, previous);
+    const betweenCells = render(moved, moved);
+
+    // Then: both ticks keep the travel direction instead of turning to June.
+    expect(onArrival).toMatchObject({
+      animation: "walk",
+      facing: "right",
+      frame: { row: 1, columns: [0, 1, 2, 1] },
+    });
+    expect(betweenCells).toMatchObject({
+      animation: "walk",
+      facing: "right",
+      frame: { row: 1, columns: [0, 1, 2, 1] },
+    });
+
+    // And: once the feet stop, the counterpart override applies again.
+    const stopped = updateActor(moved, "market", (actor) => ({
+      ...actor,
+      action: "idle",
+    }));
+    expect(render(stopped, moved)?.facing).toBe(
+      facingToward(to, counterpartSeat),
+    );
+  });
+
+  it("renders the seat facing on the tick an actor arrives at its seat", () => {
+    // Given: Maya reaches her own work seat from the left, still facing right.
+    const base = snapshotAt(360);
+    const seat = rosterMemberOrThrow("market").workSeat;
+    const approach = Object.freeze({ x: seat.cell.x - 1, y: seat.cell.y });
+    const previous = updateActor(base, "market", (actor) => ({
+      ...actor,
+      action: "walk",
+      cell: approach,
+      world: cellWorld(approach),
+      facing: "right",
+    }));
+    const arrived = updateActor(previous, "market", (actor) => ({
+      ...actor,
+      action: "orient",
+      cell: seat.cell,
+      world: cellWorld(seat.cell),
+      facing: "right",
+    }));
+
+    // When
+    const maya = project(arrived, previous).actors.find(
+      (actor) => actor.id === "market",
+    );
+
+    // Then: no sideways seated frame while the simulation catches up.
+    expect(seat.facing).toBe("down");
+    expect(maya).toMatchObject({
+      animation: "sit",
+      facing: "down",
+      frame: { row: 0, columns: [3] },
+    });
   });
 });

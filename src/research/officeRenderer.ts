@@ -263,16 +263,34 @@ export function renderOfficeSnapshot(
       // A directive's final facing is a semantic state, not necessarily the
       // direction of the current step.  Prefer the authoritative adjacent
       // cell transition while a walk is being rendered so the sprite never
-      // faces one way while its feet travel the other way.
+      // faces one way while its feet travel the other way.  A walking actor
+      // also never turns toward a conversation counterpart: cells change only
+      // every other tick, so mixing the counterpart direction into the walk
+      // made the sprite alternate between two facings on consecutive ticks.
       const movementFacing =
-        animation === "walk" &&
-        previous !== undefined &&
-        (previous.cell.x !== actor.cell.x || previous.cell.y !== actor.cell.y)
-          ? (directionBetweenCells(previous.cell, actor.cell) ?? facing)
-          : facing;
-      const renderFacing = animation === "walk" ? movementFacing : facing;
+        animation !== "walk"
+          ? facing
+          : previous !== undefined &&
+              (previous.cell.x !== actor.cell.x ||
+                previous.cell.y !== actor.cell.y)
+            ? (directionBetweenCells(previous.cell, actor.cell) ?? actor.facing)
+            : actor.facing;
+      // Chairs only exist facing up or down and the simulation applies the
+      // seat's facing one tick after arrival, so a seated frame rendered with
+      // the last walking direction shows a sideways seated pose for one tick.
+      // Seated frames therefore always take the seat's own facing.
+      const seatFacing = [member.workSeat, member.meetingSeat].find(
+        (seat) => actor.cell.x === seat.cell.x && actor.cell.y === seat.cell.y,
+      )?.facing;
+      const seatedFacing = seatFacing ?? facing;
+      const renderFacing =
+        animation === "walk"
+          ? movementFacing
+          : animation === "sit"
+            ? seatedFacing
+            : facing;
       const frame = actorFrame(animation, renderFacing, 0);
-      const layer = animation === "sit" ? seatedActorLayer[facing] : 2;
+      const layer = animation === "sit" ? seatedActorLayer[seatedFacing] : 2;
       const liveBubbleMessage = liveBubbles.get(actor.id);
       const liveBubbleVisible =
         liveBubbleMessage !== undefined && isActorReadyForSpeech(actor);
