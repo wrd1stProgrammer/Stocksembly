@@ -8,7 +8,7 @@
 |---|---|
 | fixture 모드 | `RESEARCH_MODE=fixture pnpm dev` → `/research/<symbol>`이 `app/research-fixture/[symbol]`로 rewrite. 지원 심볼 NVDA·AAPL·MSFT·TSLA·AMZN. 진행은 클라이언트 로컬 재생(외부 요청 0), `?view=report`로 완료 상태, `?lang=`으로 로케일. |
 | fixture가 없는 화면 | `/research-room`(카탈로그·발행 리포트), `/briefing-room`, 인증, 크레딧/결제 — 로컬 DB 또는 스테이징 데이터 필요. |
-| e2e 실행 | `pnpm test:e2e`(프로덕션 빌드 후 4174 기동). `playwright.config.ts`의 `fixture` 프로젝트는 `research-composition-fixture.spec.ts` 하나만 매칭하므로, 스모크 스펙을 fixture 프로젝트에 넣으려면 `testMatch` 확장이 필요하다. |
+| e2e 실행 | `pnpm test:e2e`(프로덕션 빌드 후 4174 기동). `fixture` 프로젝트는 `research-composition-fixture`·`home`·`smoke-*` 스펙을 실행한다. **주의**: `app/research-fixture/[symbol]/page.tsx`는 `NODE_ENV=production`이면 `notFound()`를 반환하므로 기본 webServer 커맨드(프로덕션 빌드)로는 fixture 화면이 404가 될 수 있다. 확실한 방법은 dev 서버를 띄운 뒤 재사용: `RESEARCH_MODE=fixture OFFICE_CALIBRATION=1 PORT=4174 HOSTNAME=127.0.0.1 pnpm dev` + `PLAYWRIGHT_REUSE_SERVER=1 pnpm test:e2e --project=fixture`. (`research-composition-fixture.spec.ts`는 `127.0.0.1:4174` 외 요청을 차단하므로 baseURL은 127.0.0.1이어야 한다.) |
 | CI | `.github/workflows/pipeline.yml`은 e2e·vitest 전체를 돌리지 않는다(typecheck·build·변경 파일 lint·research:quality만). 스모크는 런칭 전 **수동 실행**이 전제이며, CI 편입은 §5 열린 질문. |
 
 ## 2. 런칭 필수 시나리오 (제안)
@@ -61,3 +61,4 @@
 2. fixture 스모크를 CI(PR)에 넣을지, 넣는다면 어느 프로젝트까지(빌드 시간 수 분).
 3. 스테이징 환경·테스트 계정(`provision-test-account.yml`, 100 크레딧) 사용 절차와 S5/S7 담당.
 4. 필수(✅)/선택(☐) 구분 확정과 9/12 점검 당일 실행 담당.
+5. fixture 페이지의 프로덕션 `notFound()` 게이트와 기본 webServer(프로덕션 빌드) 조합이 실제로 통과하는지 — 통과하지 않으면 `playwright.config.ts`의 서버 커맨드를 dev 서버로 바꾸거나 페이지 게이트를 `RESEARCH_MODE` 기준으로 바꿔야 한다(스크립트·설정은 채민식 확인).
