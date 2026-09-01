@@ -12,6 +12,7 @@ import type {
 } from "../../research/compositions/types";
 import type { ResearchCompany } from "../../research/types";
 import { useResearchPlayback } from "../../research/useResearchPlayback";
+import { useIsMobileViewport } from "../useMediaQuery";
 import { LiveOfficeResearchRoom } from "./LiveOfficeResearchRoom";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
@@ -72,15 +73,11 @@ function FixtureResearchRoom({
     document.documentElement.lang = locale;
   }, [locale]);
 
+  // Re-evaluated on rotation and resize, not only on mount.
+  const mobileViewport = useIsMobileViewport();
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    // Re-evaluate on rotation and resize, not only on mount.
-    const media = window.matchMedia("(max-width: 767px)");
-    const apply = () => setSidebarOpen(!media.matches);
-    apply();
-    media.addEventListener?.("change", apply);
-    return () => media.removeEventListener?.("change", apply);
-  }, []);
+    setSidebarOpen(!mobileViewport);
+  }, [mobileViewport]);
 
   useEffect(() => {
     if (payload.mode !== "fixture") return;
@@ -102,23 +99,13 @@ function FixtureResearchRoom({
   const handleSidebarCollapsedChange = (collapsed: boolean): void => {
     const nextOpen = !collapsed;
     setSidebarOpen(nextOpen);
-    if (
-      nextOpen &&
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 767px)").matches
-    )
-      setTranscriptOpen(false);
+    if (nextOpen && mobileViewport) setTranscriptOpen(false);
   };
 
   const handleTranscriptToggle = (): void => {
     setTranscriptOpen((open) => {
       const nextOpen = !open;
-      if (
-        nextOpen &&
-        typeof window !== "undefined" &&
-        window.matchMedia("(max-width: 767px)").matches
-      )
-        setSidebarOpen(false);
+      if (nextOpen && mobileViewport) setSidebarOpen(false);
       return nextOpen;
     });
   };

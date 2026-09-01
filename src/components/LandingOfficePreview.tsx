@@ -12,6 +12,7 @@ import {
   stepLandingOfficeState,
 } from "../research/landingOfficeSimulation";
 import type { OfficeGameController } from "../research/officeGame";
+import { prefersReducedMotion } from "../research/officeReducedMotion";
 import { OFFICE_SCENE_MANIFEST } from "../research/officeSceneManifest";
 import type { AgentId } from "../research/types";
 import { OfficeAgentInfoPanel } from "./research/OfficeAgentInfoPanel";
@@ -77,8 +78,7 @@ export function LandingOfficePreview({
     const host = hostRef.current;
     if (!host) return;
     const abortController = new AbortController();
-    const reducedMotion =
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const reducedMotion = prefersReducedMotion();
     let controller: OfficeGameController | undefined;
     let stopObserving: () => void = () => undefined;
     let animationFrame: number | undefined;

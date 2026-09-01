@@ -16,6 +16,7 @@ import type {
 } from "../../research/domain/activeResearchActivity";
 import { activityCopy } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
+import { useIsMobileViewport } from "../useMediaQuery";
 import { agentUiName, agentUiRole } from "./agentUiProfile";
 import { researchMeetingUiCopy } from "./researchMeetingUiCopy";
 import { TeamQuestionPanel } from "./TeamQuestionPanel";
@@ -344,7 +345,7 @@ export function MeetingMinutes({
   const feedRef = useRef<HTMLDivElement | null>(null);
   const followTail = useRef(true);
   const mobileStackRef = useRef(false);
-  const [mobileStack, setMobileStack] = useState(false);
+  const mobileStack = useIsMobileViewport();
   const displayedEvents = useMemo(
     () => (mobileStack ? [...events].reverse() : events),
     [events, mobileStack],
@@ -352,16 +353,8 @@ export function MeetingMinutes({
   const mounted = useRef(false);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const media = window.matchMedia("(max-width: 767px)");
-    const update = () => {
-      mobileStackRef.current = media.matches;
-      setMobileStack(media.matches);
-    };
-    update();
-    media.addEventListener?.("change", update);
-    return () => media.removeEventListener?.("change", update);
-  }, []);
+    mobileStackRef.current = mobileStack;
+  }, [mobileStack]);
   useEffect(() => {
     const added = events
       .filter((event) => !knownIds.current.has(event.id))

@@ -40,6 +40,7 @@ import { formatSignedPercent } from "../../research/publicPresentation";
 import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
 import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
+import { useIsMobileViewport } from "../useMediaQuery";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
 import { ResearchSidebar } from "./ResearchSidebar";
@@ -387,16 +388,12 @@ export function LiveOfficeResearchRoom({
     window.history.replaceState(null, "", url);
   }, [locale]);
 
+  // Re-evaluated on rotation and resize, not only on mount, so a tablet
+  // turned from portrait to landscape gets the layout for its new width.
+  const mobileViewport = useIsMobileViewport();
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    // Re-evaluate on rotation and resize, not only on mount, so a tablet
-    // turned from portrait to landscape gets the layout for its new width.
-    const media = window.matchMedia("(max-width: 767px)");
-    const apply = () => setSidebarOpen(!media.matches);
-    apply();
-    media.addEventListener?.("change", apply);
-    return () => media.removeEventListener?.("change", apply);
-  }, []);
+    setSidebarOpen(!mobileViewport);
+  }, [mobileViewport]);
 
   useEffect(() => {
     if (!completed && !terminal) setTranscriptOpen(true);
@@ -492,11 +489,7 @@ export function LiveOfficeResearchRoom({
   const handleSidebarCollapsedChange = (collapsed: boolean): void => {
     const nextOpen = !collapsed;
     setSidebarOpen(nextOpen);
-    if (
-      typeof window === "undefined" ||
-      !window.matchMedia("(max-width: 767px)").matches
-    )
-      return;
+    if (!mobileViewport) return;
     if (nextOpen) setTranscriptOpen(false);
     else if (!completed && !terminal) setTranscriptOpen(true);
   };
@@ -504,12 +497,7 @@ export function LiveOfficeResearchRoom({
   const handleTranscriptToggle = (): void => {
     setTranscriptOpen((open) => {
       const nextOpen = !open;
-      if (
-        nextOpen &&
-        typeof window !== "undefined" &&
-        window.matchMedia("(max-width: 767px)").matches
-      )
-        setSidebarOpen(false);
+      if (nextOpen && mobileViewport) setSidebarOpen(false);
       return nextOpen;
     });
   };

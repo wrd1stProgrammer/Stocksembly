@@ -7,6 +7,7 @@ import {
   type OfficeGameController,
   type OfficeGameInspection,
 } from "../../research/officeGame";
+import { prefersReducedMotion } from "../../research/officeReducedMotion";
 import type { OfficeRendererCameraMode } from "../../research/officeRenderer";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import {
@@ -61,9 +62,7 @@ export function OfficeCalibration() {
     let cancelled = false;
     let controller: OfficeGameController | null = null;
     const abortController = new AbortController();
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reducedMotion = prefersReducedMotion();
     let simulation = createOfficeSimulation({ reducedMotion });
     let cameraMode: OfficeRendererCameraMode = "overview";
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/src/lib/cn";
+import { prefersReducedMotion } from "@/src/research/officeReducedMotion";
 
 const GLOW_SPRITE_SIZE = 64;
 
@@ -249,8 +250,7 @@ export function StarfallFieldBackground({
     const host = hostRef.current;
     const resizeObserver = new ResizeObserver(resizeCanvas);
     if (host) resizeObserver.observe(host);
-    const reducedMotion =
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const reducedMotion = prefersReducedMotion();
 
     // The loop only runs while the field is on screen and the tab is visible;
     // otherwise no frame is scheduled at all.
