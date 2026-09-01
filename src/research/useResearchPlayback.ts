@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ResearchCompositionPayload } from "./compositions/types";
+import {
+  advanceLiveOfficeFrame,
+  durablePublicEventTargetTick,
+} from "./liveOfficeAnimation";
 import { OFFICE_CLOCK_CONTRACT } from "./officeChoreography";
-import { durablePublicEventTargetTick, advanceLiveOfficeFrame } from "./liveOfficeAnimation";
 import {
   activeIdsForSnapshot,
   currentResearchEvent,
@@ -13,6 +16,7 @@ import {
   progressAtTick,
   visitAnnotations,
 } from "./officePlaybackView";
+import { prefersReducedMotion } from "./officeReducedMotion";
 import {
   createOfficeFrame,
   createOfficeSimulation,
@@ -28,7 +32,12 @@ export function useResearchPlayback(
   initialComplete = false,
 ): ResearchPlayback {
   const [frame, setFrame] = useState(() => {
-    const simulation = createOfficeSimulation();
+    // The simulation owns reduced motion: with it set, actors snap to their
+    // destinations instead of walking cell by cell, while ticks, events and
+    // final ownership stay identical.
+    const simulation = createOfficeSimulation({
+      reducedMotion: prefersReducedMotion(),
+    });
     return createOfficeFrame(
       initialComplete ? skipOfficeSimulation(simulation) : simulation,
     );
