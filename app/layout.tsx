@@ -13,12 +13,6 @@ import "@/src/styles/tailwind.css";
 import "@/src/styles/tokens.css";
 import "@/src/styles/global.css";
 import "@/src/styles/layout.css";
-import "@/src/styles/research-shell.css";
-import "@/src/styles/research-rail.css";
-import "@/src/styles/research-activity.css";
-import "@/src/styles/research-office.css";
-import "@/src/styles/research-workspace-v2.css";
-import "@/src/styles/research-room.css";
 
 const inter = localFont({
   src: "./fonts/inter-latin-variable.woff2",

@@ -1,5 +1,7 @@
 "use client";
 
+import "../../styles/researchWorkspace";
+import "../../styles/research-room.css";
 import Link from "next/link";
 import type { ResearchFileData } from "../../research/compositions/types";
 import type { WorkflowDepartmentId } from "../../research/domain/roleRegistry";

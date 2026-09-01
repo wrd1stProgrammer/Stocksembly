@@ -1,3 +1,4 @@
+import "@/src/styles/research-room.css";
 import { notFound } from "next/navigation";
 import { ResearchRoomCatalog } from "@/src/components/researchRoom/ResearchRoomCatalog";
 import type { ResearchRoomCatalogItem } from "@/src/research/server/researchRoom/researchRoomCatalog";

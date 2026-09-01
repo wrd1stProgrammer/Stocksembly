@@ -1,3 +1,4 @@
+import "@/src/styles/research-room.css";
 import { LockKeyhole } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";

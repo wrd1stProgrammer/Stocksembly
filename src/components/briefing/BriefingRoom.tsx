@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/research-room.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type {

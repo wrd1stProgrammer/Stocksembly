@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/research-room.css";
 import { ArrowUpRight, LockKeyhole } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";

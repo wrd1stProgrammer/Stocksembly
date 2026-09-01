@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/research-room.css";
 import { BorderBeam } from "border-beam";
 import {
   ArrowUpRight,
