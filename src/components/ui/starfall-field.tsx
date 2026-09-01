@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/src/lib/cn";
 
+const GLOW_SPRITE_SIZE = 64;
+
 interface Star {
   x: number;
   y: number;
@@ -64,6 +66,7 @@ export function StarfallFieldBackground({
   const capRef = useRef(Math.max(80, starsCount));
   const [dpr, setDpr] = useState(1);
   const sizeRef = useRef({ width: 800, height: 600 });
+  const spriteRef = useRef<HTMLCanvasElement | null>(null);
 
   const makeStar = useCallback(
     (x: number, y: number, speed: number, glow = 1): Star => {
@@ -174,28 +177,65 @@ export function StarfallFieldBackground({
     }
   }, [glowAnimation, gravityStrength, mouseGravity, mouseInfluence]);
 
+  // One radial glow sprite replaces a per-star `shadowBlur`, which is the most
+  // expensive 2D canvas operation and used to run 220 times per frame.
+  const glowSprite = useCallback(() => {
+    if (spriteRef.current) return spriteRef.current;
+    const sprite = document.createElement("canvas");
+    sprite.width = GLOW_SPRITE_SIZE;
+    sprite.height = GLOW_SPRITE_SIZE;
+    const context = sprite.getContext("2d");
+    if (!context) return null;
+    const half = GLOW_SPRITE_SIZE / 2;
+    const gradient = context.createRadialGradient(
+      half,
+      half,
+      0,
+      half,
+      half,
+      half,
+    );
+    gradient.addColorStop(0, starsColor);
+    gradient.addColorStop(0.18, starsColor);
+    gradient.addColorStop(
+      0.45,
+      `color-mix(in srgb, ${starsColor} 28%, transparent)`,
+    );
+    gradient.addColorStop(
+      1,
+      `color-mix(in srgb, ${starsColor} 0%, transparent)`,
+    );
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, GLOW_SPRITE_SIZE, GLOW_SPRITE_SIZE);
+    spriteRef.current = sprite;
+    return sprite;
+  }, [starsColor]);
+
+  useEffect(() => {
+    spriteRef.current = null;
+  }, [glowSprite]);
+
   const draw = useCallback(
     (context: CanvasRenderingContext2D) => {
       context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+      const sprite = glowSprite();
+      if (!sprite) return;
       for (const star of starsRef.current) {
-        context.save();
-        context.shadowColor = starsColor;
-        context.shadowBlur = glowIntensity * star.glow * 2;
+        // The sprite's core matches the old solid dot; its halo scales with the
+        // former blur radius so hover glow still swells.
+        const radius = (star.size + glowIntensity * star.glow * 0.35) * dpr;
         context.globalAlpha = star.opacity;
-        context.fillStyle = starsColor;
-        context.beginPath();
-        context.arc(
-          star.x * dpr,
-          star.y * dpr,
-          star.size * dpr,
-          0,
-          Math.PI * 2,
+        context.drawImage(
+          sprite,
+          star.x * dpr - radius,
+          star.y * dpr - radius,
+          radius * 2,
+          radius * 2,
         );
-        context.fill();
-        context.restore();
       }
+      context.globalAlpha = 1;
     },
-    [dpr, glowIntensity, starsColor],
+    [dpr, glowIntensity, glowSprite],
   );
 
   useEffect(() => {
@@ -209,28 +249,42 @@ export function StarfallFieldBackground({
     const host = hostRef.current;
     const resizeObserver = new ResizeObserver(resizeCanvas);
     if (host) resizeObserver.observe(host);
+    const reducedMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    // The loop only runs while the field is on screen and the tab is visible;
+    // otherwise no frame is scheduled at all.
+    const loop = () => {
+      rafRef.current = null;
+      const context = canvasRef.current?.getContext("2d");
+      if (!context || !visibleRef.current || document.hidden) return;
+      step();
+      draw(context);
+      if (!reducedMotion) rafRef.current = requestAnimationFrame(loop);
+    };
+    const schedule = () => {
+      if (rafRef.current === null) rafRef.current = requestAnimationFrame(loop);
+    };
     const intersectionObserver = new IntersectionObserver(
       ([entry]) => {
         visibleRef.current = entry?.isIntersecting ?? false;
+        if (visibleRef.current) schedule();
       },
       { threshold: 0 },
     );
     if (host) intersectionObserver.observe(host);
-
-    const loop = () => {
-      const context = canvasRef.current?.getContext("2d");
-      if (context && visibleRef.current) {
-        step();
-        draw(context);
-      }
-      rafRef.current = requestAnimationFrame(loop);
+    const handleVisibility = () => {
+      if (!document.hidden) schedule();
     };
-    rafRef.current = requestAnimationFrame(loop);
+    document.addEventListener("visibilitychange", handleVisibility);
+    schedule();
 
     return () => {
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
   }, [draw, resizeCanvas, step]);
 
