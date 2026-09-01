@@ -65,6 +65,8 @@ function sidebarPriceFormatter(currency: string): Intl.NumberFormat {
   return formatter;
 }
 
+const NO_ACTIVITIES: readonly never[] = [];
+
 const pendingReport: ResearchFileData = {
   teamViews: [],
   evidenceIndex: [],
@@ -276,15 +278,18 @@ export function LiveOfficeResearchRoom({
     officeReady,
     true,
   );
-  const snapshot = scopeOfficeSnapshot(
-    animation.snapshot,
-    projection.snapshot.run,
+  // The room re-renders on every animation frame while the office catches up,
+  // so everything derived from the snapshot is memoized on its inputs.
+  const snapshot = useMemo(
+    () => scopeOfficeSnapshot(animation.snapshot, projection.snapshot.run),
+    [animation.snapshot, projection.snapshot.run],
   );
-  const previousSnapshot = scopeOfficeSnapshot(
-    animation.previousSnapshot,
-    projection.snapshot.run,
+  const previousSnapshot = useMemo(
+    () =>
+      scopeOfficeSnapshot(animation.previousSnapshot, projection.snapshot.run),
+    [animation.previousSnapshot, projection.snapshot.run],
   );
-  const activity = activeIdsForSnapshot(snapshot);
+  const activity = useMemo(() => activeIdsForSnapshot(snapshot), [snapshot]);
   const visibleAgents = useMemo(() => {
     const target = projection.snapshot.run.researchTarget;
     if (target === undefined || target.kind === "committee") return agents;
@@ -295,10 +300,11 @@ export function LiveOfficeResearchRoom({
   }, [projection.snapshot.run.researchTarget]);
   const focusedTeam =
     projection.snapshot.run.researchTarget?.kind === "department";
-  const company = companyFor(
-    projection.snapshot.run.symbol,
-    catalogTicker,
-    report?.marketSnapshot ?? liveQuote,
+  const marketSnapshot = report?.marketSnapshot ?? liveQuote;
+  const company = useMemo(
+    () =>
+      companyFor(projection.snapshot.run.symbol, catalogTicker, marketSnapshot),
+    [catalogTicker, marketSnapshot, projection.snapshot.run.symbol],
   );
   const history = useMemo<readonly ResearchHistoryGroup[]>(() => {
     return [...new Set(historyRuns.map((run) => run.symbol))].map((symbol) => {
@@ -372,14 +378,17 @@ export function LiveOfficeResearchRoom({
     terminal,
     visibleAgents,
   ]);
-  const reportFile =
-    report === undefined
-      ? pendingReport
-      : researchReportToFile(
-          report,
-          projection.snapshot.run.createdAt,
-          comparison,
-        );
+  const reportFile = useMemo(
+    () =>
+      report === undefined
+        ? pendingReport
+        : researchReportToFile(
+            report,
+            projection.snapshot.run.createdAt,
+            comparison,
+          ),
+    [comparison, projection.snapshot.run.createdAt, report],
+  );
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -605,7 +614,9 @@ export function LiveOfficeResearchRoom({
           individualizedPendingCopy={focusedTeam}
           showLaunchStatus={projection.snapshot.events.length <= 2}
           pendingAgentIds={pendingAgentIds}
-          pendingActivities={projection.snapshot.activeActivities ?? []}
+          pendingActivities={
+            projection.snapshot.activeActivities ?? NO_ACTIVITIES
+          }
           panelOpen={transcriptOpen}
           onPanelToggle={handleTranscriptToggle}
           onRetry={async () => {

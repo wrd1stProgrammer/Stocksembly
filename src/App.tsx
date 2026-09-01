@@ -268,7 +268,10 @@ export function App({
     window.addEventListener(BILLING_CHANGED_EVENT, handleBillingChanged);
     window.addEventListener("focus", handleBillingChanged);
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    const interval = window.setInterval(refreshIfActive, 15_000);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void refreshIfActive();
+    }, 15_000);
     return () => {
       active = false;
       window.clearInterval(interval);
