@@ -1,3 +1,5 @@
+import "../styles/search-controls.css";
+import "../styles/search-states.css";
 import {
   ChevronDown,
   LockKeyhole,

@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/billing.css";
 import { BorderBeam } from "border-beam";
 import { ArrowUpRight, CreditCard, X } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";

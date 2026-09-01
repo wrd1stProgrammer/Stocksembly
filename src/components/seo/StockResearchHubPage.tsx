@@ -1,3 +1,5 @@
+import "../../styles/stock-research-hub.css";
+import "../../styles/stock-research-hub-responsive.css";
 import { ArrowRight, CalendarDays, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { AppLocale } from "../../lib/i18n";

@@ -1,5 +1,6 @@
 "use client";
 
+import "../styles/showcase.css";
 import { useState } from "react";
 import type { Locale } from "../lib/i18n";
 import { copy } from "../lib/i18n";

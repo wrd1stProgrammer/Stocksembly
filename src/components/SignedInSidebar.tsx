@@ -1,5 +1,6 @@
 "use client";
 
+import "../styles/signed-in-sidebar.css";
 import {
   fetchAuthSession,
   fetchUserAttributes,

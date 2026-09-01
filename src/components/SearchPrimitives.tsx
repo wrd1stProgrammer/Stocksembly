@@ -1,3 +1,5 @@
+import "../styles/search-controls.css";
+import "../styles/search-states.css";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import type { KeyboardEventHandler, ReactNode } from "react";
 import { useId } from "react";

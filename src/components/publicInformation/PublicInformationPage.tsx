@@ -1,3 +1,4 @@
+import "../../styles/public-information.css";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import type { Locale } from "../../lib/i18n";

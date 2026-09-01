@@ -145,3 +145,32 @@
 .hero__proof svg {
   color: var(--color-accent-bright);
 }
+
+/* Search results responsive overrides (moved from responsive.css). */
+@media (max-width: 768px) {
+  .search-results {
+    top: calc(100% + var(--space-2));
+    left: 0;
+    width: 100%;
+    max-height: min(296px, 52vh);
+  }
+  .search-results button {
+    grid-template-columns: minmax(56px, auto) minmax(0, 1fr) auto;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+  .search-results__company {
+    display: block;
+  }
+  .search-results__company small {
+    display: block;
+    margin-top: var(--space-1);
+  }
+  .search-results__meta {
+    padding: var(--space-2);
+  }
+  .hero__proof {
+    margin-top: var(--space-8);
+    font-size: var(--type-label);
+  }
+}

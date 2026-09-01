@@ -1,3 +1,5 @@
+import "../../styles/seo-analysis.css";
+import "../../styles/seo-analysis-responsive.css";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import type { AppLocale } from "../../lib/i18n";
