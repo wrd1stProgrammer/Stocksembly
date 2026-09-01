@@ -49,6 +49,7 @@ import {
   type SignedInSidebarActiveItem,
   SignedInSidebarNavigation,
 } from "./SignedInSidebarNavigation";
+import { useDismissableMenu } from "./useDismissableMenu";
 
 type SignedInSidebarProps = {
   readonly locale: AppLocale;
@@ -409,28 +410,17 @@ export function SignedInSidebar({
     return () => window.removeEventListener(BRIEFINGS_READ_EVENT, clearUnread);
   }, []);
 
-  useEffect(() => {
-    if (!profileOpen) return;
-    const closeFromOutside = (event: PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !profileWrapRef.current?.contains(event.target)
-      ) {
-        setProfileOpen(false);
-      }
-    };
-    const closeFromKeyboard = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (languageOpen) setLanguageOpen(false);
-      else setProfileOpen(false);
-    };
-    window.addEventListener("pointerdown", closeFromOutside);
-    window.addEventListener("keydown", closeFromKeyboard);
-    return () => {
-      window.removeEventListener("pointerdown", closeFromOutside);
-      window.removeEventListener("keydown", closeFromKeyboard);
-    };
-  }, [languageOpen, profileOpen]);
+  useDismissableMenu(
+    profileOpen,
+    () => setProfileOpen(false),
+    [profileWrapRef],
+    {
+      onEscape: () => {
+        if (languageOpen) setLanguageOpen(false);
+        else setProfileOpen(false);
+      },
+    },
+  );
 
   useEffect(() => {
     if (!profileOpen) setLanguageOpen(false);

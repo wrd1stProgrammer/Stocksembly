@@ -8,10 +8,11 @@ export function useDismissableMenu(
   open: boolean,
   onDismiss: () => void,
   insideRefs: readonly RefObject<HTMLElement | null>[],
+  options: { readonly onEscape?: () => void } = {},
 ): void {
-  const latest = useRef({ onDismiss, insideRefs });
+  const latest = useRef({ onDismiss, insideRefs, options });
   useEffect(() => {
-    latest.current = { onDismiss, insideRefs };
+    latest.current = { onDismiss, insideRefs, options };
   });
   useEffect(() => {
     if (!open) return;
@@ -24,7 +25,8 @@ export function useDismissableMenu(
       if (!inside) latest.current.onDismiss();
     };
     const closeFromKeyboard = (event: KeyboardEvent) => {
-      if (event.key === "Escape") latest.current.onDismiss();
+      if (event.key !== "Escape") return;
+      (latest.current.options.onEscape ?? latest.current.onDismiss)();
     };
     document.addEventListener("pointerdown", closeFromOutside);
     document.addEventListener("keydown", closeFromKeyboard);
