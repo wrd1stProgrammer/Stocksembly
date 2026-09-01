@@ -2,6 +2,7 @@
 
 import { getCurrentUser } from "aws-amplify/auth";
 import { ShieldCheck } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { configureAmplifyAuth } from "./auth/amplifyClient";
 import {
@@ -10,7 +11,6 @@ import {
   persistAccountLocale,
 } from "./auth/localePreference";
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
-import { SubscriptionModal } from "./components/billing/SubscriptionModal";
 import { Header } from "./components/Header";
 import { LandingOfficePreview } from "./components/LandingOfficePreview";
 import { LandingFooter, LandingSections } from "./components/LandingSections";
@@ -38,6 +38,16 @@ import type {
   WhopPricingPlan,
   WhopPricingResponse,
 } from "./lib/whop/contracts";
+
+// The subscription modal carries the Whop checkout SDK. It loads only when a
+// visitor opens it, so the landing page does not ship that code up front.
+const SubscriptionModal = dynamic(
+  () =>
+    import("./components/billing/SubscriptionModal").then(
+      (module) => module.SubscriptionModal,
+    ),
+  { ssr: false },
+);
 
 async function authenticatedFetch(
   input: RequestInfo | URL,
@@ -380,16 +390,18 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
         locale={locale}
         hidden={signedIn && !sidebarCollapsed}
       />
-      <SubscriptionModal
-        open={subscriptionModalOpen}
-        locale={researchLocale(locale)}
-        subscriptionTier={subscriptionTier}
-        plans={billingPlans}
-        billingStatus={billingStatus}
-        loading={billingPlansLoading}
-        error={billingPlansError}
-        onClose={closeSubscriptionModal}
-      />
+      {subscriptionModalOpen ? (
+        <SubscriptionModal
+          open
+          locale={researchLocale(locale)}
+          subscriptionTier={subscriptionTier}
+          plans={billingPlans}
+          billingStatus={billingStatus}
+          loading={billingPlansLoading}
+          error={billingPlansError}
+          onClose={closeSubscriptionModal}
+        />
+      ) : null}
     </div>
   );
 }

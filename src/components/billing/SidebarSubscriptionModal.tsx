@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -12,7 +13,14 @@ import type {
   WhopPricingPlan,
   WhopPricingResponse,
 } from "../../lib/whop/contracts";
-import { SubscriptionModal } from "./SubscriptionModal";
+
+// Loaded on first open so shells that only might show plans do not bundle the
+// Whop checkout SDK.
+const SubscriptionModal = dynamic(
+  () =>
+    import("./SubscriptionModal").then((module) => module.SubscriptionModal),
+  { ssr: false },
+);
 
 type Props = {
   readonly open: boolean;
