@@ -71,6 +71,9 @@ export function ResearchExplanationModeControl(props: {
   return (
     <fieldset className="research-explanation-mode" title={labels.note}>
       <legend className="sr-only">{labels.label}</legend>
+      <span className="research-explanation-mode__label" aria-hidden="true">
+        {labels.label}
+      </span>
       {(["easy", "professional"] as const).map((mode) => (
         <button
           key={mode}

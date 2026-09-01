@@ -71,6 +71,43 @@ describe("SearchConsole durable research launch", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("explains what each research team investigates in the mode menu", () => {
+    render(<SearchConsole locale="ko" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "전체 에이전트 위원회" }),
+    );
+
+    const menu = screen.getByRole("menu");
+    expect(menu).toHaveTextContent("시장 국면·뉴스·가격 흐름·금리 민감도");
+    expect(menu).toHaveTextContent("사업 모델·제품·고객·경쟁 우위");
+    expect(menu).toHaveTextContent("실적·현금흐름·재무 품질·밸류에이션");
+    expect(menu).toHaveTextContent("하방 시나리오·규제·경고 신호");
+    expect(screen.getByText("설명 방식", { selector: "span" })).toBeVisible();
+  });
+
+  it("confirms the single selected stock from an accessible results list", () => {
+    render(<SearchConsole locale="en" />);
+
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "NVDA" },
+    });
+    const option = screen.getByRole("option", { name: /NVDA/u });
+    expect(screen.getByRole("listbox")).toContainElement(option);
+
+    fireEvent.click(option);
+
+    const selection = screen.getByRole("status");
+    expect(selection).toHaveTextContent("Selected · one stock at a time");
+    expect(selection).toHaveTextContent("NVDA");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear selected stock" }),
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("explains that custom settings are subscriber-only for free users", async () => {
     render(
       <SearchConsole
