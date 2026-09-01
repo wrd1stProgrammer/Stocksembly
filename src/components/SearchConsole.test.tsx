@@ -86,6 +86,41 @@ describe("SearchConsole durable research launch", () => {
     expect(screen.getByText("설명 방식", { selector: "span" })).toBeVisible();
   });
 
+  it("closes the customize panel from an outside pointer or Escape", () => {
+    render(<SearchConsole locale="ko" />);
+
+    const customize = screen.getByRole("button", { name: "맞춤 설정" });
+    fireEvent.click(customize);
+    const panel = screen.getByRole("region", { name: "맞춤 설정" });
+    fireEvent.pointerDown(panel);
+    expect(
+      screen.getByRole("region", { name: "맞춤 설정" }),
+    ).toBeInTheDocument();
+
+    fireEvent.pointerDown(document.body);
+    expect(
+      screen.queryByRole("region", { name: "맞춤 설정" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(customize);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("region", { name: "맞춤 설정" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes the research-mode menu from an outside pointer", () => {
+    render(<SearchConsole locale="ko" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "전체 에이전트 위원회" }),
+    );
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
   it("confirms the single selected stock from an accessible results list", () => {
     render(<SearchConsole locale="en" />);
 
