@@ -28,6 +28,7 @@ Primary personas:
 - Global self-directed investor researching a US company before making an independent decision.
 - Korean bilingual investor who needs English issuer context without losing Korean comprehension.
 - Time-constrained returning user who reaches a known ticker through keyboard-first interaction.
+- Stock-market newcomer who needs plain-language framing, a one-line explanation of what each research team investigates, and an explicit statement that the product is research rather than a recommendation.
 
 ## 2. Color
 
@@ -164,11 +165,11 @@ Base unit: 4px.
 - Layout: one divided two-field composer row on desktop; the two fields stack inside the same uninterrupted surface on mobile. No nested decorative cards.
 - Result slot: a detached, scrollable list opens directly below the console. Each compact row aligns ticker, company/sector, and exchange metadata; the open slot overlays the live office instead of changing page layout or being painted beneath later hero content.
 
-### Product Proof Rail
+### Research File Explainer
 
-- A compact source-coverage rail follows the hero and names evidence classes, not partner endorsements.
-- Motion is a single slow transform-only ledger drift that communicates continuous evidence intake and stops under reduced motion.
-- The public landing page ends after this rail and hands directly to the footer. Detailed debate and Research File explanations live inside the product instead of extending the acquisition page.
+- The live office carries a one-line headline and a two-line description stating that the eleven agents investigate independently and challenge one another, and that the same office runs the visitor's research.
+- One explainer section follows the hero: an eyebrow, a title that names the deliverable (a Research File, not a tip), and exactly three cards — sources attached, disagreement preserved, easy mode for beginners. Cards are static; no motion, no counters, no partner logos.
+- The public landing page ends after this section and hands directly to the footer. Deeper methodology stays inside the product and the `/us-stock-analysis` landing.
 
 ### Briefing Card
 

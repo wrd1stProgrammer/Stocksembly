@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { LandingFooter } from "./LandingSections";
+import { LandingFooter, LandingSections } from "./LandingSections";
 
 const informationPaths = [
   "/about",
@@ -55,5 +55,38 @@ describe("landing footer public information links", () => {
     expect(
       screen.getByRole("heading", { name: "Legal", level: 2 }),
     ).toBeVisible();
+  });
+});
+
+describe("landing explainer", () => {
+  it("names the research file deliverable and its three guarantees in English", () => {
+    render(<LandingSections locale="en" />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "A research file, not a tip.",
+        level: 2,
+      }),
+    ).toBeVisible();
+    for (const title of [
+      "Sources attached",
+      "Disagreement stays visible",
+      "Easy mode for beginners",
+    ])
+      expect(
+        screen.getByRole("heading", { name: title, level: 3 }),
+      ).toBeVisible();
+  });
+
+  it("keeps the same three cards in Korean", () => {
+    render(<LandingSections locale="ko" />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "추천이 아니라 리서치 파일입니다.",
+        level: 2,
+      }),
+    ).toBeVisible();
+    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
   });
 });
