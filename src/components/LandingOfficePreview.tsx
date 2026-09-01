@@ -144,37 +144,48 @@ export function LandingOfficePreview({
       });
     };
 
-    void initialize()
-      .then((createdController) => {
-        if (abortController.signal.aborted) {
-          createdController.destroy();
-          return;
-        }
-        controller = createdController;
-        const mobileCamera =
-          window.matchMedia?.("(max-width: 767px)").matches ?? false;
-        createdController.setCameraControlMode(
-          mobileCamera ? "free" : "overview",
-        );
-        controller.renderSnapshot(currentSnapshot, { cameraMode: "overview" });
-        host.setAttribute("data-visible-bubble-count", "0");
-        host.setAttribute("data-office-ready", "true");
-        setRendererReady(true);
-        if (reducedMotion) {
-          controller.setPaused(true);
-          return;
-        }
-        stopObserving = observeVisibility(host, (isVisible) => {
-          if (isVisible) start();
-          else stop();
+    // Nothing downloads until the office scrolls near the viewport: the Pixi
+    // runtime, the 2.4MB floor image, and twelve sprite sheets all wait here.
+    let initializing = false;
+    const initializeOnce = () => {
+      if (initializing) return;
+      initializing = true;
+      void initialize()
+        .then((createdController) => {
+          if (abortController.signal.aborted) {
+            createdController.destroy();
+            return;
+          }
+          controller = createdController;
+          const mobileCamera =
+            window.matchMedia?.("(max-width: 767px)").matches ?? false;
+          createdController.setCameraControlMode(
+            mobileCamera ? "free" : "overview",
+          );
+          controller.renderSnapshot(currentSnapshot, {
+            cameraMode: "overview",
+          });
+          host.setAttribute("data-visible-bubble-count", "0");
+          host.setAttribute("data-office-ready", "true");
+          setRendererReady(true);
+          if (reducedMotion) controller.setPaused(true);
+          else start();
+        })
+        .catch(() => {
+          if (!abortController.signal.aborted) {
+            setRendererFailed(true);
+            setRendererReady(false);
+          }
         });
-      })
-      .catch(() => {
-        if (!abortController.signal.aborted) {
-          setRendererFailed(true);
-          setRendererReady(false);
-        }
-      });
+    };
+    stopObserving = observeVisibility(host, (isVisible) => {
+      if (!isVisible) {
+        stop();
+        return;
+      }
+      if (controller === undefined) initializeOnce();
+      else start();
+    });
 
     return () => {
       abortController.abort();
