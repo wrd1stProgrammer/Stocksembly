@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/office-game.css";
 import { useEffect, useRef, useState } from "react";
 import {
   createOfficeSnapshotRenderer,

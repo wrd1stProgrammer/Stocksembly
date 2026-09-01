@@ -1226,13 +1226,6 @@
   background: var(--research-bg-deep);
 }
 
-.office-game--world {
-  position: absolute;
-  inset: 0;
-  background: var(--research-bg-deep);
-  isolation: isolate;
-}
-
 .office-agent-info {
   position: absolute;
   z-index: 12;

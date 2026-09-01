@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/office-game.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../../lib/i18n";
 import type {

@@ -1,5 +1,6 @@
 "use client";
 
+import "../styles/office-game.css";
 import { domAnimation, LazyMotion, m } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { AppLocale } from "../lib/i18n";
