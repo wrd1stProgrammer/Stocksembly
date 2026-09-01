@@ -6,6 +6,7 @@ import {
   homeStructuredData,
   serializeStructuredData,
 } from "@/src/lib/seo/homeStructuredData";
+import { loadLandingResearchRoomPreview } from "./_lib/landingResearchRoomPreview";
 
 export const metadata: Metadata = {
   alternates: {
@@ -33,9 +34,10 @@ export default async function HomePage({ searchParams }: Props) {
           requestHeaders.get("cloudfront-viewer-country") ??
           requestHeaders.get("cf-ipcountry"),
       });
+  const researchRoomPreview = await loadLandingResearchRoomPreview(locale);
   return (
     <>
-      <App initialLocale={locale} />
+      <App initialLocale={locale} researchRoomPreview={researchRoomPreview} />
       <script type="application/ld+json">
         {serializeStructuredData(homeStructuredData(locale))}
       </script>

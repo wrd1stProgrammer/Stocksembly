@@ -15,15 +15,11 @@ import {
 import type { ResearchRoomCatalogItem } from "../../research/server/researchRoom/researchRoomCatalog";
 import { MembershipAccessModal } from "../billing/MembershipAccessModal";
 import { FlippingCard } from "../ui/flipping-card";
-
-const COMPANY_NAME_FALLBACKS: Readonly<Record<string, string>> = {
-  AAPL: "Apple Inc.",
-  AMZN: "Amazon.com, Inc.",
-  MSFT: "Microsoft Corporation",
-  MU: "Micron Technology, Inc.",
-  NVDA: "NVIDIA Corporation",
-  TSLA: "Tesla, Inc.",
-};
+import {
+  LANDING_COMPANY_NAME_FALLBACKS,
+  type LandingResearchRoomPreviewData,
+  selectLandingResearchRoomPreview,
+} from "./landingResearchRoomPreviewSelection";
 
 function CompanyWatermark({ symbol }: { readonly symbol: string }) {
   const [failed, setFailed] = useState(false);
@@ -77,47 +73,20 @@ function publishedTimeLabel(value: string, locale: AppLocale, now: number) {
   );
 }
 
-function previewReports(
-  reports: readonly ResearchRoomCatalogItem[],
-): readonly ResearchRoomCatalogItem[] {
-  const selected: ResearchRoomCatalogItem[] = [];
-  const symbols = new Set<string>();
-  for (const report of reports) {
-    if (symbols.has(report.symbol)) continue;
-    selected.push(report);
-    symbols.add(report.symbol);
-    if (selected.length === 5) break;
-  }
-  for (const report of reports) {
-    if (selected.length === 5) break;
-    if (selected.some((item) => item.reportId === report.reportId)) continue;
-    selected.push(report);
-  }
-  const firstOpen = reports.find((report) => !report.locked);
-  if (
-    firstOpen !== undefined &&
-    selected.every((report) => report.locked) &&
-    !selected.some((report) => report.reportId === firstOpen.reportId)
-  ) {
-    selected.splice(Math.min(4, selected.length), 1, firstOpen);
-  }
-  return selected.slice(0, 5);
-}
-
 export function LandingResearchRoomPreview({
   locale,
+  initialLocale,
+  initialPreview,
   onOpenPlans,
 }: {
   readonly locale: AppLocale;
+  readonly initialLocale: AppLocale;
+  readonly initialPreview: LandingResearchRoomPreviewData;
   readonly onOpenPlans?: () => void;
 }) {
   const router = useRouter();
-  const [reports, setReports] = useState<readonly ResearchRoomCatalogItem[]>(
-    [],
-  );
-  const [companyNames, setCompanyNames] = useState<
-    Readonly<Record<string, string>>
-  >(COMPANY_NAME_FALLBACKS);
+  const [preview, setPreview] = useState(initialPreview);
+  const { reports, companyNames } = preview;
   const [now, setNow] = useState(() => Date.now());
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const labels = copy[locale].landing.researchRoom;
@@ -127,14 +96,17 @@ export function LandingResearchRoomPreview({
     return () => window.clearInterval(timer);
   }, []);
 
+  // The server page delivers the deck for the initial locale. Only a
+  // client-side language switch needs to refetch it in the new locale.
   useEffect(() => {
+    if (locale === initialLocale) {
+      setPreview(initialPreview);
+      return;
+    }
     let active = true;
     void fetch(
       `/api/research-room?limit=5&sort=latest&lang=${encodeURIComponent(locale)}`,
-      {
-        credentials: "same-origin",
-        cache: "no-store",
-      },
+      { credentials: "same-origin", cache: "no-store" },
     )
       .then(async (response) =>
         response.ok
@@ -144,52 +116,51 @@ export function LandingResearchRoomPreview({
           : undefined,
       )
       .then(async (value) => {
-        if (active) {
-          const all = value?.reports ?? [];
-          const selected = previewReports(all);
-          setReports(selected);
-          const metadata = await Promise.all(
-            [...new Set(selected.map((report) => report.symbol))].map(
-              async (symbol) => {
-                try {
-                  const response = await fetch(
-                    `/api/research/tickers?q=${encodeURIComponent(symbol)}`,
-                    { credentials: "same-origin" },
-                  );
-                  if (!response.ok) return undefined;
-                  const payload = (await response.json()) as {
-                    readonly tickers?: readonly {
-                      readonly symbol: string;
-                      readonly company: string;
-                    }[];
-                  };
-                  const match = payload.tickers?.find(
-                    (ticker) => ticker.symbol === symbol,
-                  );
-                  return match === undefined
-                    ? undefined
-                    : ([symbol, match.company] as const);
-                } catch {
-                  return undefined;
-                }
-              },
+        if (!active) return;
+        const selected = selectLandingResearchRoomPreview(value?.reports ?? []);
+        const metadata = await Promise.all(
+          [...new Set(selected.map((report) => report.symbol))].map(
+            async (symbol) => {
+              try {
+                const response = await fetch(
+                  `/api/research/tickers?q=${encodeURIComponent(symbol)}`,
+                  { credentials: "same-origin" },
+                );
+                if (!response.ok) return undefined;
+                const payload = (await response.json()) as {
+                  readonly tickers?: readonly {
+                    readonly symbol: string;
+                    readonly company: string;
+                  }[];
+                };
+                const match = payload.tickers?.find(
+                  (ticker) => ticker.symbol === symbol,
+                );
+                return match === undefined
+                  ? undefined
+                  : ([symbol, match.company] as const);
+              } catch {
+                return undefined;
+              }
+            },
+          ),
+        );
+        if (!active) return;
+        setPreview({
+          reports: selected,
+          companyNames: {
+            ...LANDING_COMPANY_NAME_FALLBACKS,
+            ...Object.fromEntries(
+              metadata.filter((item) => item !== undefined),
             ),
-          );
-          if (active) {
-            setCompanyNames((current) => ({
-              ...current,
-              ...Object.fromEntries(
-                metadata.filter((item) => item !== undefined),
-              ),
-            }));
-          }
-        }
+          },
+        });
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
-  }, [locale]);
+  }, [initialLocale, initialPreview, locale]);
 
   if (reports.length === 0) return null;
   return (

@@ -17,6 +17,10 @@ import { LandingFooter, LandingSections } from "./components/LandingSections";
 import { MobileBottomNav } from "./components/MobileBottomNav";
 import { PrismRevealText } from "./components/PrismRevealText";
 import { LandingResearchRoomPreview } from "./components/researchRoom/LandingResearchRoomPreview";
+import {
+  EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
+  type LandingResearchRoomPreviewData,
+} from "./components/researchRoom/landingResearchRoomPreviewSelection";
 import { SearchConsole } from "./components/SearchConsole";
 import {
   SIGNED_IN_SIDEBAR_STORAGE_KEY,
@@ -66,9 +70,15 @@ async function authenticatedFetch(
   });
 }
 
-type AppProps = { readonly initialLocale?: AppLocale };
+type AppProps = {
+  readonly initialLocale?: AppLocale;
+  readonly researchRoomPreview?: LandingResearchRoomPreviewData;
+};
 
-export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
+export function App({
+  initialLocale = DEFAULT_LOCALE,
+  researchRoomPreview = EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
+}: AppProps) {
   const [locale, setLocale] = useState<AppLocale>(initialLocale);
   const [signedIn, setSignedIn] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -375,6 +385,8 @@ export function App({ initialLocale = DEFAULT_LOCALE }: AppProps) {
           <LandingOfficePreview locale={locale} />
           <LandingResearchRoomPreview
             locale={locale}
+            initialLocale={initialLocale}
+            initialPreview={researchRoomPreview}
             onOpenPlans={openSubscriptionModal}
           />
           <p className="hero__proof">

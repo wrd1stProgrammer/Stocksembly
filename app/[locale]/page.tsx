@@ -6,6 +6,7 @@ import {
   boundedSeoDescription,
   brandedSeoTitle,
 } from "@/src/lib/seo/metadataText";
+import { loadLandingResearchRoomPreview } from "../_lib/landingResearchRoomPreview";
 
 type Props = Readonly<{ params: Promise<{ readonly locale: string }> }>;
 
@@ -46,5 +47,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LocalizedHomePage({ params }: Props) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <App initialLocale={locale} />;
+  const researchRoomPreview = await loadLandingResearchRoomPreview(locale);
+  return (
+    <App initialLocale={locale} researchRoomPreview={researchRoomPreview} />
+  );
 }
