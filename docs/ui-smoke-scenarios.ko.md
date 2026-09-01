@@ -34,7 +34,7 @@
 
 | 스펙 | 모드 | 커버 | 상태 |
 |---|---|---|---|
-| `home.spec.ts` | fixture | S1 | **stale** — 삭제된 랜딩 섹션 문구·`#methodology` 앵커·구 버튼 라벨 단언. B-1 이후 재작성 필요 |
+| `home.spec.ts` | fixture 프로젝트 | S1·S11 | 재작성됨(2026-09-01): 랜딩 서사 en/ko·언어 전환·단일 종목 선택→질문 입력→버튼 활성화·모바일 결과 순서·앵커·빈 결과·룸 진입. 하이드레이션 전 입력을 재시도하는 `searchTicker` 헬퍼 사용 |
 | `research-composition-fixture.spec.ts` | fixture 프로젝트 | S2 | 유효(외부 요청 0, 캔버스 페인트, 테스트 브리지) |
 | `research-redesign-visual.spec.ts` | fixture | S2·S11 | 유효(스크린샷 증거, 하드코딩 가격 `$181.46`) |
 | `office-visual.spec.ts` | fixture(+`OFFICE_CALIBRATION=1`) | S2 | 유효 |
@@ -42,14 +42,18 @@
 | `office-v7.spec.ts` | fixture | S2 | 유효(결정적 리플레이) |
 | `research-room-published-responsive.spec.ts` | 백엔드 필요 | S4·S11 | fixture 없음 → 로컬에서 실행 불가 |
 | `research-official-five-report.spec.ts` | official + 토큰 | S3b | 스테이징/프로덕션 전용 |
+| `smoke-landing.spec.ts` | fixture 프로젝트 | S8·S10 | 신규: 로케일 쿠키 저장·재방문 유지, `/ko/glossary`·`/about`·`/terms` 200 + h1 |
+| `smoke-research-flow.spec.ts` | fixture 프로젝트 | S2·S3 | 신규: 오피스 틱 진행·공개 ledger·에러 0, `?view=report` ko/en 출처 표·푸터 |
+| `smoke-auth-pages.spec.ts` | fixture 프로젝트 | S5(렌더) | 신규: `/login`·`/signup` 200 + 폼·비밀번호 입력. Cognito 환경변수가 없는 환경에서는 폼 대신 안내가 렌더될 수 있음 |
 | `research-quality-live.spec.ts` | live 옵트인 | 품질 ledger | 스테이징 전용 |
 
 ## 4. 자동화 계획 (fixture)
 
-- 신규 스펙: `tests/e2e/smoke-landing.spec.ts`(S1·S8·S10), `tests/e2e/smoke-research-flow.spec.ts`(S2 진행률·S3), `tests/e2e/smoke-auth-pages.spec.ts`(S5 렌더). `home.spec.ts`는 S1로 흡수.
-- 클라이언트 `fetch` 표면(`/api/research-room?limit=5`, `/api/research/tickers`)은 스펙 안에서 `page.route()`로 응답을 고정한다 — 앱 코드·API 변경 없음.
-- `CreditShortageModal`·`MembershipAccessModal`은 props 주도 컴포넌트라 vitest로 렌더 검증(S6).
-- `playwright.config.ts`의 `fixture` 프로젝트 `testMatch`를 `/(research-composition-fixture|smoke-.*)\.spec\.ts/`로 확장한다.
+- 구현됨(2026-09-01): `home.spec.ts`(S1·S11), `smoke-landing.spec.ts`(S8·S10), `smoke-research-flow.spec.ts`(S2·S3), `smoke-auth-pages.spec.ts`(S5 렌더). `playwright.config.ts`의 `fixture` 프로젝트가 `home|smoke-*` 스펙을 함께 실행한다 → `pnpm test:e2e --project=fixture`.
+- S1의 "리서치 시작" 클릭 이후(인증 → `startRun` API → 룸 이동)는 fixture로 재현되지 않으므로 **스테이징 수동** 항목이다. fixture 스펙은 선택→질문 입력→버튼 활성화까지 검증하고 룸은 직접 URL로 연다.
+- `CreditShortageModal`·`MembershipAccessModal`은 props 주도 컴포넌트라 vitest로 렌더 검증(S6) — 미작성.
+- 클라이언트 `fetch` 표면(`/api/research-room?limit=5`, `/api/research/tickers`)이 필요한 시나리오는 `page.route()`로 응답을 고정할 수 있다 — 아직 사용하지 않음.
+- 로컬에 Google Chrome이 없으면(`channel: "chrome"`) 번들 Chromium 설정으로 실행: `.stocksembly-verification/playwright.local.config.ts`(gitignore) 참고, 또는 `pnpm exec playwright install chrome`.
 
 ## 5. 열린 질문 (팀)
 

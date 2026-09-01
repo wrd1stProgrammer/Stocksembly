@@ -24,7 +24,7 @@ export default defineConfig({
     {
       name: "fixture",
       use: { ...devices["Desktop Chrome"], channel: "chrome" },
-      testMatch: /research-composition-fixture\.spec\.ts/,
+      testMatch: /(research-composition-fixture|home|smoke-[a-z-]+)\.spec\.ts/,
       ...(researchMode === "fixture" ? {} : { testIgnore: /./ }),
     },
     {
