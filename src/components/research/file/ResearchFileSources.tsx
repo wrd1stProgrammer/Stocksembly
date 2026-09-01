@@ -31,6 +31,28 @@ function sourceDate(observedAt: string | undefined, locale: Locale): string {
   }).format(date);
 }
 
+function dateKindLabel(sourceClass: string, locale: Locale): string {
+  const labels: Readonly<
+    Record<string, { readonly en: string; readonly ko: string }>
+  > = {
+    sec_primary_filing: { en: "Filing date", ko: "공시 제출일" },
+    sec_company_facts: { en: "Reporting period end", ko: "보고 기준일" },
+    insightsentry_rapidapi: {
+      en: "Market observation date",
+      ko: "시세 관측일",
+    },
+    treasury_yield: { en: "Data as of", ko: "데이터 기준일" },
+    company_filing: { en: "Filing date", ko: "공시 제출일" },
+    official_filing: { en: "Filing date", ko: "공시 제출일" },
+    company_transcript: { en: "Call date", ko: "발표일" },
+    market_data: { en: "Market observation date", ko: "시세 관측일" },
+  };
+  return (
+    labels[sourceClass]?.[locale] ??
+    (locale === "ko" ? "발행·기준일" : "Published or observed")
+  );
+}
+
 function freshnessLabel(freshness: string | undefined, locale: Locale): string {
   const labels: Readonly<
     Record<string, { readonly en: string; readonly ko: string }>
@@ -84,8 +106,8 @@ export function ResearchFileSources({
             <h2>{ko ? "출처·근거 등록부" : "Sources & evidence register"}</h2>
             <p>
               {ko
-                ? "각 장의 판단에 실제로 연결된 자료를 발행처, 기준일, 자료 유형과 함께 정리했습니다."
-                : "Sources are grouped by the report chapter they support, with publisher, observation date, and evidence class."}
+                ? "각 장의 판단에 실제로 연결된 자료를 발행처, 발행·기준일, 자료 유형과 함께 정리했습니다. 공시는 제출일, 시세는 관측일입니다."
+                : "Sources are grouped by the report chapter they support, with publisher, publication or observation date, and evidence class. Filings show their filing date; market data shows its observation date."}
             </p>
           </div>
           <strong>
@@ -114,7 +136,7 @@ export function ResearchFileSources({
                 <div className="research-source-table__head" aria-hidden="true">
                   <span>{ko ? "발행처" : "Publisher"}</span>
                   <span>{ko ? "자료·연결" : "Source & link"}</span>
-                  <span>{ko ? "기준일" : "Observed"}</span>
+                  <span>{ko ? "발행·기준일" : "Published / observed"}</span>
                   <span>{ko ? "유형·상태" : "Class & status"}</span>
                 </div>
                 <ol>
@@ -145,7 +167,10 @@ export function ResearchFileSources({
                             </a>
                           )}
                         </p>
-                        <time dateTime={source.observedAt}>
+                        <time
+                          dateTime={source.observedAt}
+                          title={dateKindLabel(source.sourceClass, locale)}
+                        >
                           {sourceDate(source.observedAt, locale)}
                         </time>
                         <em>
