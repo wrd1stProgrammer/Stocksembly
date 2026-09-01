@@ -67,7 +67,10 @@ export function StarfallFieldBackground({
   const capRef = useRef(Math.max(80, starsCount));
   const [dpr, setDpr] = useState(1);
   const sizeRef = useRef({ width: 800, height: 600 });
-  const spriteRef = useRef<HTMLCanvasElement | null>(null);
+  const spriteRef = useRef<{
+    color: string;
+    canvas: HTMLCanvasElement;
+  } | null>(null);
 
   const makeStar = useCallback(
     (x: number, y: number, speed: number, glow = 1): Star => {
@@ -181,7 +184,8 @@ export function StarfallFieldBackground({
   // One radial glow sprite replaces a per-star `shadowBlur`, which is the most
   // expensive 2D canvas operation and used to run 220 times per frame.
   const glowSprite = useCallback(() => {
-    if (spriteRef.current) return spriteRef.current;
+    if (spriteRef.current?.color === starsColor)
+      return spriteRef.current.canvas;
     const sprite = document.createElement("canvas");
     sprite.width = GLOW_SPRITE_SIZE;
     sprite.height = GLOW_SPRITE_SIZE;
@@ -208,13 +212,9 @@ export function StarfallFieldBackground({
     );
     context.fillStyle = gradient;
     context.fillRect(0, 0, GLOW_SPRITE_SIZE, GLOW_SPRITE_SIZE);
-    spriteRef.current = sprite;
+    spriteRef.current = { color: starsColor, canvas: sprite };
     return sprite;
   }, [starsColor]);
-
-  useEffect(() => {
-    spriteRef.current = null;
-  }, [glowSprite]);
 
   const draw = useCallback(
     (context: CanvasRenderingContext2D) => {
