@@ -2847,7 +2847,31 @@
 @media (max-width: 1279px) {
   .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
     .research-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 28%);
+  }
+}
+
+/* Portrait tablets: stack the minutes under the report (no sidebar here). */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
+    .research-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 40%);
+  }
+
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
+    .office-workbench {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+  }
+
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
+    .meeting-minutes {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    border-top: 1px solid var(--research-line-soft);
   }
 }
 

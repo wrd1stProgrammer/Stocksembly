@@ -387,8 +387,13 @@ export function LiveOfficeResearchRoom({
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    const mobile = window.matchMedia("(max-width: 767px)").matches;
-    setSidebarOpen(!mobile);
+    // Re-evaluate on rotation and resize, not only on mount, so a tablet
+    // turned from portrait to landscape gets the layout for its new width.
+    const media = window.matchMedia("(max-width: 767px)");
+    const apply = () => setSidebarOpen(!media.matches);
+    apply();
+    media.addEventListener?.("change", apply);
+    return () => media.removeEventListener?.("change", apply);
   }, []);
 
   useEffect(() => {

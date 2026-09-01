@@ -1573,7 +1573,8 @@
     height: auto;
     min-height: 100dvh;
     grid-template-columns: 220px minmax(0, 1fr) 48px;
-    grid-template-rows: auto 390px;
+    grid-template-rows: auto clamp(390px, 48dvh, 680px);
+    align-content: start;
     overflow: visible;
   }
 
@@ -1589,14 +1590,14 @@
 
   .research-shell[data-transcript-open="true"] .research-layout {
     height: 100dvh;
-    grid-template-columns: 200px minmax(0, 1fr) minmax(300px, 340px);
+    grid-template-columns: 200px minmax(0, 1fr) minmax(280px, 28%);
     grid-template-rows: minmax(0, 1fr);
     overflow: hidden;
   }
 
   .research-shell[data-research-state="published"][data-transcript-open="true"]
     .research-layout {
-    grid-template-columns: 200px minmax(0, 1fr) minmax(300px, 340px);
+    grid-template-columns: 200px minmax(0, 1fr) minmax(280px, 28%);
   }
 
   .research-shell[data-transcript-open="true"] .research-sidebar {
@@ -1658,6 +1659,43 @@
   .meeting-minutes {
     grid-column: 2;
     grid-row: 2;
+  }
+}
+
+/* Portrait tablets cannot fit a sidebar, the office and a minutes column
+   side by side: keep the sidebar, and stack the minutes under the office
+   (or the report) so the main content keeps its full width. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .research-shell[data-transcript-open="true"] .research-layout,
+  .research-shell[data-research-state="published"][data-transcript-open="true"]
+    .research-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 40%);
+  }
+
+  .research-shell[data-transcript-open="true"][data-sidebar-open="false"]
+    .research-layout,
+  .research-shell[data-research-state="published"][data-transcript-open="true"][data-sidebar-open="false"]
+    .research-layout {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .research-shell[data-transcript-open="true"] .research-sidebar {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
+
+  .research-shell[data-transcript-open="true"] .office-workbench {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 0;
+  }
+
+  .research-shell[data-transcript-open="true"] .meeting-minutes {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
+    border-top: 1px solid var(--research-line-soft);
   }
 }
 
