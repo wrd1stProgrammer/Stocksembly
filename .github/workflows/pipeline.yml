@@ -18,10 +18,17 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      production_change: ${{ steps.production_change.outputs.required }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Detect production changes
+        id: production_change
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: echo "required=$(bash scripts/ci-production-change.sh "$BASE_SHA")" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v6
         with:
           version: 10.34.1
@@ -36,6 +43,8 @@ jobs:
         run: pnpm research:quality:contracts
       - name: Verify Bash 3 changed-file lint portability
         run: /bin/bash scripts/ci-lint-changed.test.sh
+      - name: Verify production change classification
+        run: /bin/bash scripts/ci-production-change.test.sh
       - run: pnpm typecheck
       - name: Lint changed files
         env:
@@ -52,7 +61,7 @@ jobs:
           node research-worker/worker.mjs readiness
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.quality.outputs.production_change == 'true'
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
