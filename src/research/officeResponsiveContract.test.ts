@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 
 describe("responsive office contract source guard", () => {
   it("does not reintroduce the retired 4:3 research contract", () => {
+    // research-responsive.css was retired with the legacy rail components;
+    // the live layout engine is research-workspace-v2.css.
     const responsiveCss = readFileSync(
-      resolve(process.cwd(), "src/styles/research-responsive.css"),
+      resolve(process.cwd(), "src/styles/research-workspace-v2.css"),
       "utf8",
     );
     const visualSpec = readFileSync(

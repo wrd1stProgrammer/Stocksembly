@@ -182,6 +182,110 @@ test.describe("Todo 7 responsive research room contract", () => {
     expect(metrics.officeTop).toBeGreaterThanOrEqual(metrics.railTop);
   });
 
+  test("keeps the sidebar quote visible below the company name on tablets", async ({
+    page,
+  }) => {
+    for (const [width, height] of [
+      [820, 1180],
+      [1180, 820],
+    ] as const) {
+      await openResearch(page, width, height, "ko");
+      const sidebar = page.locator(".research-sidebar");
+      const name = page.locator(".company-brief > div").first();
+      const quote = page.locator(".company-brief__quote");
+      await expect(sidebar).toBeVisible();
+      await expect(quote).toBeVisible();
+      await expect(quote.locator("strong")).toHaveText(/\$/u);
+      const [sidebarBox, nameBox, quoteBox] = await Promise.all([
+        sidebar.boundingBox(),
+        name.boundingBox(),
+        quote.boundingBox(),
+      ]);
+      if (!sidebarBox || !nameBox || !quoteBox) {
+        throw new Error(`Sidebar quote is not laid out at ${width}x${height}`);
+      }
+      // The 220px tablet sidebar stacks the quote under the name instead of
+      // squeezing the name into an ellipsis or hiding the quote.
+      expect(quoteBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+      expect(quoteBox.x + quoteBox.width).toBeLessThanOrEqual(
+        sidebarBox.x + sidebarBox.width + 1,
+      );
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(false);
+    }
+  });
+
+  test("stacks the minutes under the report on portrait tablets and keeps a proportional column on landscape", async ({
+    page,
+  }) => {
+    // Portrait: the report keeps the full main column and the minutes sit below it.
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await page.goto(`${researchPath}?lang=ko&view=report`);
+    await expect(page.locator(".research-shell")).toHaveAttribute(
+      "data-transcript-open",
+      "true",
+    );
+    const portrait = await page.evaluate(() => {
+      const office = document
+        .querySelector(".office-workbench")
+        ?.getBoundingClientRect();
+      const minutes = document
+        .querySelector(".meeting-minutes")
+        ?.getBoundingClientRect();
+      const sidebar = document
+        .querySelector(".research-sidebar")
+        ?.getBoundingClientRect();
+      return office && minutes && sidebar
+        ? {
+            officeWidth: office.width,
+            officeBottom: office.bottom,
+            minutesTop: minutes.top,
+            minutesWidth: minutes.width,
+            sidebarWidth: sidebar.width,
+            viewportWidth: window.innerWidth,
+          }
+        : null;
+    });
+    if (!portrait) throw new Error("Portrait tablet layout did not render");
+    expect(portrait.sidebarWidth).toBeGreaterThan(150);
+    expect(portrait.officeWidth).toBeGreaterThanOrEqual(
+      (portrait.viewportWidth - portrait.sidebarWidth) * 0.9,
+    );
+    expect(portrait.minutesWidth).toBeCloseTo(portrait.officeWidth, 0);
+    expect(portrait.minutesTop).toBeGreaterThanOrEqual(portrait.officeBottom);
+
+    // Landscape: three columns, minutes no wider than 30% of the viewport.
+    await page.setViewportSize({ width: 1180, height: 820 });
+    await page.waitForTimeout(300);
+    const landscape = await page.evaluate(() => {
+      const office = document
+        .querySelector(".office-workbench")
+        ?.getBoundingClientRect();
+      const minutes = document
+        .querySelector(".meeting-minutes")
+        ?.getBoundingClientRect();
+      return office && minutes
+        ? {
+            officeWidth: office.width,
+            minutesWidth: minutes.width,
+            minutesLeft: minutes.left,
+            officeRight: office.right,
+            viewportWidth: window.innerWidth,
+          }
+        : null;
+    });
+    if (!landscape) throw new Error("Landscape tablet layout did not render");
+    expect(landscape.minutesLeft).toBeGreaterThanOrEqual(landscape.officeRight);
+    expect(landscape.minutesWidth).toBeLessThanOrEqual(
+      landscape.viewportWidth * 0.3,
+    );
+    expect(landscape.officeWidth).toBeGreaterThan(landscape.minutesWidth);
+  });
+
   test("keeps mobile on a stable overview without camera controls", async ({
     page,
   }) => {

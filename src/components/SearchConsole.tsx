@@ -53,7 +53,11 @@ type SearchConsoleProps = {
 type DetailCopy = {
   readonly committee: string;
   readonly committeeNote: string;
-  readonly teamNote: string;
+  readonly teamNotes: Readonly<
+    Record<"market" | "company" | "financial" | "risk", string>
+  >;
+  readonly selectedLabel: string;
+  readonly clearSelection: string;
   readonly mode: string;
   readonly auto: string;
   readonly close: string;
@@ -89,7 +93,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
   en: {
     committee: "Full research committee",
     committeeNote: "All 11 specialists, rebuttal, and final decision",
-    teamNote: "Focused review by this team only",
+    teamNotes: {
+      market: "Market regime, news, price context, rate sensitivity",
+      company: "Business model, products, customers, competitive edge",
+      financial: "Earnings, cash flow, financial quality, valuation",
+      risk: "Downside scenarios, regulation, warning signals",
+    },
+    selectedLabel: "Selected · one stock at a time",
+    clearSelection: "Clear selected stock",
     mode: "Research mode",
     auto: "Use question-based recommendation",
     close: "Close",
@@ -104,8 +115,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "Evidence breadth and report length",
     purpose: "Decision purpose",
     purposeNote: "The action the report should help decide",
-    peers: "Comparisons",
-    peersNote: "Stocksembly relative view · up to 5",
+    peers: "Comparisons (optional)",
+    peersNote: "Compared against the main stock · up to 5",
     peerPlaceholder: "Add ticker (e.g. AMD)",
     noPeers: "None",
     horizonOptions: { short: "Short", medium: "Medium", long: "Long" },
@@ -121,7 +132,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
   ko: {
     committee: "전체 에이전트 위원회",
     committeeNote: "11명 전체 분석과 반론·최종 판단",
-    teamNote: "해당 팀만 참여하는 심층 검토",
+    teamNotes: {
+      market: "시장 국면·뉴스·가격 흐름·금리 민감도",
+      company: "사업 모델·제품·고객·경쟁 우위",
+      financial: "실적·현금흐름·재무 품질·밸류에이션",
+      risk: "하방 시나리오·규제·경고 신호",
+    },
+    selectedLabel: "선택된 종목 · 한 번에 하나",
+    clearSelection: "선택 종목 지우기",
     mode: "리서치 방식",
     auto: "질문에 맞춰 다시 추천",
     close: "닫기",
@@ -136,8 +154,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "에이전트별 논거와 리포트 분량",
     purpose: "의사결정 목적",
     purposeNote: "결론을 실제 행동 조건으로 바꾸는 기준",
-    peers: "비교기업",
-    peersNote: "Stocksembly 상대 비교 · 최대 5개",
+    peers: "비교 대상 (선택 사항)",
+    peersNote: "주 종목과 상대 비교 · 최대 5개",
     peerPlaceholder: "티커 입력 (예: AMD)",
     noPeers: "미포함",
     horizonOptions: { short: "단기", medium: "중기", long: "장기" },
@@ -153,7 +171,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
   ja: {
     committee: "全エージェント委員会",
     committeeNote: "11人の分析、反対論、最終判断",
-    teamNote: "このチームだけによる詳細検証",
+    teamNotes: {
+      market: "市場局面・ニュース・価格動向・金利感応度",
+      company: "ビジネスモデル・製品・顧客・競争優位",
+      financial: "業績・キャッシュフロー・財務品質・バリュエーション",
+      risk: "下振れシナリオ・規制・警告シグナル",
+    },
+    selectedLabel: "選択中の銘柄 · 一度に1銘柄",
+    clearSelection: "選択を解除",
     mode: "リサーチ方式",
     auto: "質問に合わせて再推薦",
     close: "閉じる",
@@ -168,8 +193,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "根拠の範囲とレポート量",
     purpose: "判断目的",
     purposeNote: "レポートで決めたい行動",
-    peers: "比較企業",
-    peersNote: "Stocksembly相対比較 · 最大5社",
+    peers: "比較対象（任意）",
+    peersNote: "メイン銘柄との相対比較 · 最大5社",
     peerPlaceholder: "ティッカーを追加（例：AMD）",
     noPeers: "なし",
     horizonOptions: { short: "短期", medium: "中期", long: "長期" },
@@ -185,7 +210,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
   "zh-TW": {
     committee: "全體代理委員會",
     committeeNote: "11 位專家分析、反方論點與最終判斷",
-    teamNote: "僅由該團隊進行深入檢視",
+    teamNotes: {
+      market: "市場局勢、新聞、價格走勢、利率敏感度",
+      company: "商業模式、產品、客戶、競爭優勢",
+      financial: "獲利、現金流、財務品質、估值",
+      risk: "下行情境、法規、警訊",
+    },
+    selectedLabel: "已選股票 · 一次一檔",
+    clearSelection: "清除已選股票",
     mode: "研究模式",
     auto: "依問題重新推薦",
     close: "關閉",
@@ -200,8 +232,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "證據範圍與報告篇幅",
     purpose: "決策目的",
     purposeNote: "本報告要協助做出的行動",
-    peers: "比較公司",
-    peersNote: "Stocksembly 相對比較 · 最多 5 家",
+    peers: "比較對象（選填）",
+    peersNote: "與主要股票相對比較 · 最多 5 家",
     peerPlaceholder: "輸入代號（例如 AMD）",
     noPeers: "不納入",
     horizonOptions: { short: "短期", medium: "中期", long: "長期" },
@@ -218,7 +250,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     committee: "Comité completo de agentes",
     committeeNote:
       "Los 11 especialistas, la tesis contraria y la decisión final",
-    teamNote: "Revisión profunda solo por este equipo",
+    teamNotes: {
+      market: "Contexto de mercado, noticias, precio y sensibilidad a tipos",
+      company: "Modelo de negocio, productos, clientes y ventaja competitiva",
+      financial: "Resultados, flujo de caja, calidad financiera y valoración",
+      risk: "Escenarios adversos, regulación y señales de alerta",
+    },
+    selectedLabel: "Seleccionada · una acción a la vez",
+    clearSelection: "Quitar la acción seleccionada",
     mode: "Modo de análisis",
     auto: "Volver a recomendar según la pregunta",
     close: "Cerrar",
@@ -233,8 +272,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "Alcance de la evidencia y extensión del informe",
     purpose: "Objetivo de la decisión",
     purposeNote: "La acción que el informe debe ayudar a decidir",
-    peers: "Comparables",
-    peersNote: "Comparación relativa de Stocksembly · hasta 5",
+    peers: "Comparables (opcional)",
+    peersNote: "Comparadas con la acción principal · hasta 5",
     peerPlaceholder: "Agregar ticker (p. ej., AMD)",
     noPeers: "Sin comparables",
     horizonOptions: {
@@ -254,7 +293,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
   "pt-BR": {
     committee: "Comitê completo de agentes",
     committeeNote: "Os 11 especialistas, contrapontos e decisão final",
-    teamNote: "Revisão aprofundada apenas por esta equipe",
+    teamNotes: {
+      market: "Contexto de mercado, notícias, preço e sensibilidade a juros",
+      company: "Modelo de negócio, produtos, clientes e vantagem competitiva",
+      financial: "Resultados, fluxo de caixa, qualidade financeira e valuation",
+      risk: "Cenários adversos, regulação e sinais de alerta",
+    },
+    selectedLabel: "Selecionada · uma ação por vez",
+    clearSelection: "Limpar ação selecionada",
     mode: "Modo de research",
     auto: "Recomendar novamente pela pergunta",
     close: "Fechar",
@@ -269,8 +315,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "Amplitude das evidências e tamanho do relatório",
     purpose: "Objetivo da decisão",
     purposeNote: "A ação que o relatório deve ajudar a decidir",
-    peers: "Comparáveis",
-    peersNote: "Visão relativa Stocksembly · até 5",
+    peers: "Comparáveis (opcional)",
+    peersNote: "Comparadas com a ação principal · até 5",
     peerPlaceholder: "Adicionar ticker (ex.: AMD)",
     noPeers: "Nenhum",
     horizonOptions: {
@@ -290,7 +336,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
   de: {
     committee: "Gesamtes Agentenkomitee",
     committeeNote: "Alle 11 Fachrollen, Gegenposition und Schlussurteil",
-    teamNote: "Vertiefte Prüfung nur durch dieses Team",
+    teamNotes: {
+      market: "Marktlage, Nachrichten, Kursumfeld, Zinssensitivität",
+      company: "Geschäftsmodell, Produkte, Kunden, Wettbewerbsvorteil",
+      financial: "Ergebnis, Cashflow, Finanzqualität, Bewertung",
+      risk: "Abwärtsszenarien, Regulierung, Warnsignale",
+    },
+    selectedLabel: "Ausgewählt · eine Aktie auf einmal",
+    clearSelection: "Auswahl aufheben",
     mode: "Research-Modus",
     auto: "Anhand der Frage neu empfehlen",
     close: "Schließen",
@@ -306,8 +359,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "Umfang der Belege und Berichtslänge",
     purpose: "Entscheidungsziel",
     purposeNote: "Welche Handlung der Bericht unterstützen soll",
-    peers: "Vergleichsunternehmen",
-    peersNote: "Stocksembly-Relativvergleich · bis zu 5",
+    peers: "Vergleichswerte (optional)",
+    peersNote: "Vergleich mit der Hauptaktie · bis zu 5",
     peerPlaceholder: "Ticker hinzufügen (z. B. AMD)",
     noPeers: "Keine",
     horizonOptions: {
@@ -332,7 +385,14 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     committee: "Comité complet d’agents",
     committeeNote:
       "Les 11 spécialistes, la thèse opposée et la décision finale",
-    teamNote: "Examen approfondi par cette équipe uniquement",
+    teamNotes: {
+      market: "Contexte de marché, actualités, prix, sensibilité aux taux",
+      company: "Modèle économique, produits, clients, avantage concurrentiel",
+      financial: "Résultats, trésorerie, qualité financière, valorisation",
+      risk: "Scénarios baissiers, réglementation, signaux d'alerte",
+    },
+    selectedLabel: "Sélectionnée · une action à la fois",
+    clearSelection: "Retirer l'action sélectionnée",
     mode: "Mode de recherche",
     auto: "Recommander selon la question",
     close: "Fermer",
@@ -347,8 +407,8 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
     depthNote: "Étendue des preuves et longueur du rapport",
     purpose: "Objectif de décision",
     purposeNote: "L’action que le rapport doit aider à décider",
-    peers: "Comparables",
-    peersNote: "Comparaison relative Stocksembly · jusqu’à 5",
+    peers: "Comparables (facultatif)",
+    peersNote: "Comparées à l'action principale · jusqu'à 5",
     peerPlaceholder: "Ajouter un ticker (ex. AMD)",
     noPeers: "Aucun",
     horizonOptions: {
@@ -600,6 +660,21 @@ export function SearchConsole({
             />
           </div>
 
+          {selectedTicker === undefined ? null : (
+            <p className="search-console__selection" role="status">
+              <span>{detailCopy.selectedLabel}</span>
+              <strong>{selectedTicker.symbol}</strong>
+              <span>{selectedTicker.company}</span>
+              <button
+                type="button"
+                aria-label={detailCopy.clearSelection}
+                onClick={clearSearch}
+              >
+                <X aria-hidden="true" size={12} />
+              </button>
+            </p>
+          )}
+
           {profileOpen ? (
             <section
               className="research-profile"
@@ -790,7 +865,7 @@ export function SearchConsole({
                         RESEARCH_DEPARTMENT_COPY[departmentId][
                           researchLocale(locale)
                         ],
-                      note: detailCopy.teamNote,
+                      note: detailCopy.teamNotes[departmentId],
                     })),
                   ].map((option) => {
                     const selected =
@@ -848,14 +923,17 @@ export function SearchConsole({
           )}
 
           {hasQuery && hasResults && resultsOpen ? (
-            <section
+            <div
               className="search-results"
+              role="listbox"
               aria-label={copy[locale].a11y.results}
             >
               {matches.map((ticker) => (
                 <button
                   key={ticker.symbol}
                   type="button"
+                  role="option"
+                  aria-selected={selectedTicker?.symbol === ticker.symbol}
                   onClick={() => selectTicker(ticker)}
                 >
                   <strong className="search-results__symbol">
@@ -870,7 +948,7 @@ export function SearchConsole({
                   </span>
                 </button>
               ))}
-            </section>
+            </div>
           ) : null}
         </form>
       </BorderBeam>

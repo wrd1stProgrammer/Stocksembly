@@ -7,6 +7,7 @@ import {
   OFFICE_CLOCK_CONTRACT,
   OFFICE_ENTRY_TIMELINE,
 } from "./officeChoreography";
+import { prefersReducedMotion } from "./officeReducedMotion";
 import type { OfficeDepartmentId } from "./officeSceneManifest";
 import {
   advanceOfficeFrame,
@@ -33,8 +34,12 @@ export function durablePublicEventTargetTick(
 export function createLiveOfficeFrame(
   targetTick: number,
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
+  reducedMotion = false,
 ): OfficeFrame {
-  let simulation = createOfficeSimulation({ departmentReleaseOrder });
+  let simulation = createOfficeSimulation({
+    departmentReleaseOrder,
+    reducedMotion,
+  });
   while (simulation.tick < targetTick)
     simulation = stepOfficeSimulation(simulation);
   return createOfficeFrame(simulation);
@@ -78,6 +83,7 @@ export function useLiveOfficeAnimation(
     createLiveOfficeFrame(
       playbackReady ? displayTargetTick : 0,
       departmentReleaseOrder,
+      prefersReducedMotion(),
     ),
   );
   const frameRef = useRef(frame);

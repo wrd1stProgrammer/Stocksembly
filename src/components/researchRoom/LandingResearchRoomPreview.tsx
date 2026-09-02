@@ -253,6 +253,9 @@ export function LandingResearchRoomPreview({
                       <span>{report.symbol}</span>
                       <span>{researchTargetLabel(report, locale)}</span>
                     </div>
+                    <span className="landing-research-flip__question-label">
+                      {labels.questionLabel}
+                    </span>
                     <h3>{report.question}</h3>
                     <div className="landing-research-flip__action">
                       {report.locked ? (

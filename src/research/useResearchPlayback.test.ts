@@ -153,3 +153,49 @@ describe("useResearchPlayback", () => {
     expect(Object.isFrozen(result.current.snapshot)).toBe(true);
   });
 });
+
+describe("useResearchPlayback reduced motion", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("walks actors in when the viewer has no motion preference", () => {
+    // Given
+    const raf = installRafDriver();
+    const { result } = renderHook(() => useResearchPlayback(fixturePayload));
+
+    // When
+    raf.advanceBy(0);
+    raf.advanceTicks(50);
+
+    // Then
+    expect(result.current.tick).toBe(50);
+    expect(result.current.walkingAgentIds.length).toBeGreaterThan(0);
+  });
+
+  it("snaps actors to their destinations when the viewer prefers reduced motion", () => {
+    // Given
+    const raf = installRafDriver();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const { result } = renderHook(() => useResearchPlayback(fixturePayload));
+
+    // When
+    raf.advanceBy(0);
+    raf.advanceTicks(50);
+
+    // Then: same clock, no walking frames.
+    expect(result.current.tick).toBe(50);
+    expect(result.current.walkingAgentIds).toEqual([]);
+    expect(
+      result.current.snapshot.actors.every((actor) => actor.motion === null),
+    ).toBe(true);
+  });
+});

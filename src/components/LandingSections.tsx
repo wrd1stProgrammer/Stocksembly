@@ -7,8 +7,25 @@ type LandingSectionsProps = {
   readonly locale: AppLocale;
 };
 
-export function LandingSections(_props: LandingSectionsProps) {
-  return null;
+export function LandingSections({ locale }: LandingSectionsProps) {
+  const content = copy[locale].landing.explainer;
+  return (
+    <section
+      className="landing-explainer"
+      aria-labelledby="landing-explainer-title"
+    >
+      <p className="landing-explainer__eyebrow">{content.eyebrow}</p>
+      <h2 id="landing-explainer-title">{content.title}</h2>
+      <ul className="landing-explainer__cards">
+        {content.cards.map((card) => (
+          <li key={card.title}>
+            <h3>{card.title}</h3>
+            <p>{card.body}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export function LandingFooter({ locale }: LandingSectionsProps) {

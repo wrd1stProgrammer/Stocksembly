@@ -445,15 +445,38 @@
 }
 .research-room-catalog__card h2 {
   display: -webkit-box;
-  margin: 30px 0 24px;
+  margin: 22px 0 10px;
   overflow: hidden;
   color: #e7e9ed;
-  font-size: 1.04rem;
-  line-height: 1.48;
-  letter-spacing: -0.025em;
+  font-size: 0.96rem;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
   text-wrap: pretty;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 2;
+}
+.research-room-catalog__question {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 20px;
+  color: #9aa1ad;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.research-room-catalog__question > span:first-child {
+  color: #636a76;
+  font-size: 0.62rem;
+  font-weight: 680;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.research-room-catalog__question > span:last-child {
+  display: -webkit-box;
+  overflow: hidden;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 .research-room-catalog__card article > footer {
   justify-content: space-between;
@@ -2847,7 +2870,31 @@
 @media (max-width: 1279px) {
   .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
     .research-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 28%);
+  }
+}
+
+/* Portrait tablets: stack the minutes under the report (no sidebar here). */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
+    .research-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 40%);
+  }
+
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
+    .office-workbench {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+  }
+
+  .research-shell.public-research-workspace[data-research-state="published"][data-sidebar-open="false"][data-transcript-open="true"]
+    .meeting-minutes {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    border-top: 1px solid var(--research-line-soft);
   }
 }
 

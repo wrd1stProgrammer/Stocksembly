@@ -72,7 +72,12 @@ function FixtureResearchRoom({
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
+    // Re-evaluate on rotation and resize, not only on mount.
+    const media = window.matchMedia("(max-width: 767px)");
+    const apply = () => setSidebarOpen(!media.matches);
+    apply();
+    media.addEventListener?.("change", apply);
+    return () => media.removeEventListener?.("change", apply);
   }, []);
 
   useEffect(() => {

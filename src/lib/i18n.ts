@@ -632,9 +632,17 @@ type Copy = {
     readonly proof: string;
   };
   readonly landing: {
-    readonly sourcesLabel: string;
-    readonly sources: readonly string[];
+    readonly explainer: {
+      readonly eyebrow: string;
+      readonly title: string;
+      readonly cards: readonly {
+        readonly title: string;
+        readonly body: string;
+      }[];
+    };
     readonly office: {
+      readonly headline: string;
+      readonly description: string;
       readonly live: string;
       readonly active: (count: number) => string;
       readonly loading: string;
@@ -642,6 +650,7 @@ type Copy = {
       readonly error: string;
     };
     readonly researchRoom: {
+      readonly questionLabel: string;
       readonly eyebrow: string;
       readonly title: string;
       readonly description: string;
@@ -712,25 +721,38 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       pricing: "Plans",
     },
     hero: {
-      eyebrow: "Multi-agent research for US equities",
-      titleLead: "Test the",
-      titleTail: "investment debate.",
+      eyebrow: "AI research team for US stocks",
+      titleLead: "Eleven AI analysts",
+      titleTail: "debate one stock.",
       descriptionLead:
-        "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind every US stock.",
-      descriptionTail:
-        "One independent chair turns the debate into an evidence-linked judgment.",
-      proof: "See the evidence — and the disagreement — behind the conclusion.",
+        "They investigate independently, challenge each other's findings, and hand you a research file with every source linked.",
+      descriptionTail: "No buy or sell calls. No price targets.",
+      proof: "Watch the debate, follow the sources, decide for yourself.",
     },
     landing: {
-      sourcesLabel: "Research coverage",
-      sources: [
-        "SEC filings",
-        "Earnings calls",
-        "Market data",
-        "Company releases",
-        "Trusted news",
-      ],
+      explainer: {
+        eyebrow: "WHAT YOU GET",
+        title: "A research file, not a tip.",
+        cards: [
+          {
+            title: "Sources attached",
+            body: "Every claim links to the filing, call, or data it came from, so you can check it yourself.",
+          },
+          {
+            title: "Disagreement stays visible",
+            body: "When analysts don't agree, the file keeps both sides and says what would settle it.",
+          },
+          {
+            title: "Easy mode for beginners",
+            body: "Switch to plain-language explanations any time. The depth and the evidence stay the same.",
+          },
+        ],
+      },
       office: {
+        headline:
+          "Watch eleven analysts and the chair work — and disagree — in real time",
+        description:
+          "Each analyst researches at their own desk, then the teams meet to challenge one another. Your research runs in this same office.",
         live: "Live research office",
         active: (count) => `${count} agents active`,
         loading: "Preparing the research office",
@@ -738,6 +760,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "The research office could not be loaded.",
       },
       researchRoom: {
+        questionLabel: "Question asked",
         eyebrow: "RESEARCH ROOM · LATEST FIVE",
         title: "Flip through questions investors already asked.",
         description:
@@ -814,25 +837,37 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       pricing: "요금제",
     },
     hero: {
-      eyebrow: "미국주식 AI 에이전트 팀 리서치",
-      titleLead: "핵심 투자 쟁점을",
-      titleTail: "검증하세요.",
+      eyebrow: "미국주식 AI 리서치 팀",
+      titleLead: "AI 분석가 11명이",
+      titleTail: "한 종목을 토론합니다.",
       descriptionLead:
-        "11명의 AI 에이전트가 사업·실적·밸류에이션·촉매와 리스크를 함께 조사합니다.",
-      descriptionTail:
-        "독립 리서치 의장이 반론을 검토해 근거가 연결된 최종 판단으로 정리합니다.",
-      proof: "결론만 보지 말고, 근거와 반론까지 확인하세요.",
+        "각자 조사한 결과를 서로 반박하고, 출처가 링크된 리서치 파일로 정리합니다.",
+      descriptionTail: "매매 추천도, 목표가도 없습니다.",
+      proof: "토론을 지켜보고, 출처를 따라가고, 판단은 직접 하세요.",
     },
     landing: {
-      sourcesLabel: "리서치 범위",
-      sources: [
-        "SEC 공시",
-        "실적 발표",
-        "시장 데이터",
-        "기업 발표",
-        "검증된 뉴스",
-      ],
+      explainer: {
+        eyebrow: "무엇을 받게 되나요",
+        title: "추천이 아니라 리서치 파일입니다.",
+        cards: [
+          {
+            title: "출처가 붙어 있습니다",
+            body: "모든 주장은 근거가 된 공시·실적 발표·데이터로 연결돼 직접 확인할 수 있습니다.",
+          },
+          {
+            title: "반론이 그대로 남습니다",
+            body: "분석가들의 의견이 갈리면 양쪽 주장과 무엇으로 판가름 나는지를 함께 기록합니다.",
+          },
+          {
+            title: "초보자용 쉬운 설명",
+            body: "언제든 쉬운 말로 바꿔 볼 수 있습니다. 분석 깊이와 근거는 그대로입니다.",
+          },
+        ],
+      },
       office: {
+        headline: "분석가 11명과 의장이 조사하고 반박하는 과정을 그대로 봅니다",
+        description:
+          "각자 자리에서 조사한 뒤 팀 테이블에 모여 서로의 결론에 반론을 제기합니다. 실제 리서치도 이 오피스에서 똑같이 진행됩니다.",
         live: "실시간 리서치 오피스",
         active: (count) => `${count}개 에이전트 활동 중`,
         loading: "리서치 오피스를 준비하고 있습니다",
@@ -840,6 +875,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "리서치 오피스를 불러오지 못했습니다.",
       },
       researchRoom: {
+        questionLabel: "받은 질문",
         eyebrow: "RESEARCH ROOM · 최근 5개",
         title: "다른 투자자의 질문을 뒤집어 보세요.",
         description:
@@ -912,25 +948,38 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     },
     nav: { product: "製品", getStarted: "始める", pricing: "料金プラン" },
     hero: {
-      eyebrow: "米国株のマルチエージェント・リサーチ",
-      titleLead: "投資論点を",
-      titleTail: "検証する。",
+      eyebrow: "米国株AIリサーチチーム",
+      titleLead: "11人のAIアナリストが",
+      titleTail: "1銘柄を討論します。",
       descriptionLead:
-        "11人のAI専門家が、事業・業績・バリュエーション・カタリスト・リスクを調査します。",
-      descriptionTail:
-        "独立したリサーチ議長が反対論を検討し、根拠と結び付いた最終判断にまとめます。",
-      proof: "結論だけでなく、根拠と意見の相違まで確認できます。",
+        "それぞれが独自に調査し、互いの結論に反論し、出典がリンクされたリサーチファイルにまとめます。",
+      descriptionTail: "売買の推奨も目標株価もありません。",
+      proof: "議論を見て、出典をたどり、判断はご自身で。",
     },
     landing: {
-      sourcesLabel: "リサーチ対象",
-      sources: [
-        "SEC提出書類",
-        "決算発表",
-        "市場データ",
-        "企業発表",
-        "信頼できるニュース",
-      ],
+      explainer: {
+        eyebrow: "得られるもの",
+        title: "推奨ではなく、リサーチファイル。",
+        cards: [
+          {
+            title: "出典が付いています",
+            body: "すべての主張は根拠となった開示・決算説明・データにリンクされ、ご自身で確認できます。",
+          },
+          {
+            title: "反論がそのまま残ります",
+            body: "アナリストの意見が分かれた場合、両方の主張と決着の条件を記録します。",
+          },
+          {
+            title: "初心者向けのやさしい説明",
+            body: "いつでも平易な説明に切り替えられます。分析の深さと根拠は変わりません。",
+          },
+        ],
+      },
       office: {
+        headline:
+          "11人のアナリストと議長が調査し、反論し合う様子をリアルタイムで",
+        description:
+          "各自の席で調査した後、チームで集まって互いの結論を検証します。実際のリサーチもこのオフィスで同じように進みます。",
         live: "リアルタイム・リサーチオフィス",
         active: (count) => `${count}人のエージェントが稼働中`,
         loading: "リサーチオフィスを準備しています",
@@ -938,6 +987,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "リサーチオフィスを読み込めませんでした。",
       },
       researchRoom: {
+        questionLabel: "受け取った質問",
         eyebrow: "RESEARCH ROOM · 最新5件",
         title: "投資家がすでに尋ねた論点をめくってみましょう。",
         description: "裏面で質問を確認し、完成したリサーチを開けます。",
@@ -1010,17 +1060,37 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     },
     nav: { product: "產品", getStarted: "開始使用", pricing: "方案" },
     hero: {
-      eyebrow: "美股多代理研究",
-      titleLead: "驗證核心",
-      titleTail: "投資爭點。",
-      descriptionLead: "11 位 AI 專家共同研究企業、財報、估值、催化劑與風險。",
-      descriptionTail: "獨立研究主席檢視反方論點，彙整為連結證據的最終判斷。",
-      proof: "不只看結論，也能檢視證據與分歧。",
+      eyebrow: "美股 AI 研究團隊",
+      titleLead: "11 位 AI 分析師",
+      titleTail: "討論同一檔股票。",
+      descriptionLead:
+        "他們各自獨立調查、互相質疑結論，並交付每項來源皆附連結的研究檔案。",
+      descriptionTail: "沒有買賣建議，也沒有目標價。",
+      proof: "看完辯論、追蹤來源，再自行判斷。",
     },
     landing: {
-      sourcesLabel: "研究範圍",
-      sources: ["SEC 申報文件", "財報發布", "市場資料", "公司公告", "可信新聞"],
+      explainer: {
+        eyebrow: "您會得到什麼",
+        title: "是研究檔案，不是明牌。",
+        cards: [
+          {
+            title: "附上來源",
+            body: "每項主張都連結到其依據的申報文件、法說會或資料，您可以自行查證。",
+          },
+          {
+            title: "保留分歧",
+            body: "分析師意見不一致時，檔案會同時保留雙方主張，並說明如何判定。",
+          },
+          {
+            title: "新手友善的簡易模式",
+            body: "隨時可切換為淺白說明，分析深度與證據維持不變。",
+          },
+        ],
+      },
       office: {
+        headline: "即時觀看 11 位分析師與主席調查與交鋒",
+        description:
+          "每位分析師先在自己的座位調查，再由團隊集合互相質疑結論。您的研究也在同一間辦公室進行。",
         live: "即時研究辦公室",
         active: (count) => `${count} 位代理正在運作`,
         loading: "正在準備研究辦公室",
@@ -1028,6 +1098,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "無法載入研究辦公室。",
       },
       researchRoom: {
+        questionLabel: "收到的問題",
         eyebrow: "RESEARCH ROOM · 最新 5 份",
         title: "翻閱其他投資人已經提出的問題。",
         description: "翻到背面查看問題，再開啟完整研究。",
@@ -1097,25 +1168,38 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     },
     nav: { product: "Producto", getStarted: "Comenzar", pricing: "Planes" },
     hero: {
-      eyebrow: "Análisis multiagente de acciones de EE. UU.",
-      titleLead: "Pon a prueba",
-      titleTail: "la tesis de inversión.",
+      eyebrow: "Investigación con IA de acciones de EE. UU.",
+      titleLead: "Once analistas de IA",
+      titleTail: "debaten una acción.",
       descriptionLead:
-        "Once especialistas de IA investigan el negocio, los resultados, la valoración, los catalizadores y los riesgos.",
-      descriptionTail:
-        "Un presidente de investigación independiente examina la tesis contraria y presenta una conclusión vinculada a la evidencia.",
-      proof: "Consulta la evidencia y los desacuerdos detrás de la conclusión.",
+        "Investigan por separado, cuestionan sus hallazgos y te entregan un archivo de investigación con cada fuente enlazada.",
+      descriptionTail: "Sin recomendaciones ni precios objetivo.",
+      proof: "Sigue el debate, revisa las fuentes y decide por tu cuenta.",
     },
     landing: {
-      sourcesLabel: "Cobertura de investigación",
-      sources: [
-        "Documentos de la SEC",
-        "Resultados",
-        "Datos de mercado",
-        "Comunicados corporativos",
-        "Noticias verificadas",
-      ],
+      explainer: {
+        eyebrow: "QUÉ OBTIENES",
+        title: "Un archivo de investigación, no un consejo.",
+        cards: [
+          {
+            title: "Fuentes adjuntas",
+            body: "Cada afirmación enlaza al informe, la conferencia o los datos de origen para que puedas comprobarla.",
+          },
+          {
+            title: "El desacuerdo queda visible",
+            body: "Si los analistas no coinciden, el archivo conserva ambas posturas e indica qué lo resolvería.",
+          },
+          {
+            title: "Modo sencillo para principiantes",
+            body: "Cambia a explicaciones en lenguaje claro cuando quieras. La profundidad y la evidencia no cambian.",
+          },
+        ],
+      },
       office: {
+        headline:
+          "Mira a once analistas y al presidente trabajar, y discrepar, en tiempo real",
+        description:
+          "Cada analista investiga en su escritorio y luego los equipos se reúnen para cuestionarse. Tu investigación se realiza en esta misma oficina.",
         live: "Oficina de análisis en vivo",
         active: (count) => `${count} agentes activos`,
         loading: "Preparando la oficina de análisis",
@@ -1123,6 +1207,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "No se pudo cargar la oficina de análisis.",
       },
       researchRoom: {
+        questionLabel: "Pregunta recibida",
         eyebrow: "RESEARCH ROOM · ÚLTIMOS CINCO",
         title: "Descubre las preguntas que otros inversores ya hicieron.",
         description:
@@ -1197,25 +1282,39 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     },
     nav: { product: "Produto", getStarted: "Começar", pricing: "Planos" },
     hero: {
-      eyebrow: "Research multiagente para ações dos EUA",
-      titleLead: "Teste a",
-      titleTail: "tese de investimento.",
+      eyebrow: "Pesquisa com IA para ações dos EUA",
+      titleLead: "Onze analistas de IA",
+      titleTail: "debatem uma ação.",
       descriptionLead:
-        "Onze especialistas de IA pesquisam o negócio, resultados, valuation, catalisadores e riscos.",
-      descriptionTail:
-        "Um chair independente analisa a tese contrária e consolida uma conclusão ligada às evidências.",
-      proof: "Veja as evidências e as divergências por trás da conclusão.",
+        "Eles investigam separadamente, contestam uns aos outros e entregam um arquivo de pesquisa com todas as fontes ligadas.",
+      descriptionTail: "Sem recomendações nem preços-alvo.",
+      proof:
+        "Acompanhe o debate, confira as fontes e decida por conta própria.",
     },
     landing: {
-      sourcesLabel: "Cobertura da pesquisa",
-      sources: [
-        "Documentos da SEC",
-        "Resultados",
-        "Dados de mercado",
-        "Comunicados da empresa",
-        "Notícias verificadas",
-      ],
+      explainer: {
+        eyebrow: "O QUE VOCÊ RECEBE",
+        title: "Um arquivo de pesquisa, não uma dica.",
+        cards: [
+          {
+            title: "Fontes anexadas",
+            body: "Cada afirmação leva ao documento, à teleconferência ou aos dados de origem, para você conferir.",
+          },
+          {
+            title: "A divergência fica visível",
+            body: "Quando os analistas discordam, o arquivo mantém os dois lados e diz o que resolveria a questão.",
+          },
+          {
+            title: "Modo fácil para iniciantes",
+            body: "Troque para explicações em linguagem simples quando quiser. A profundidade e as evidências continuam iguais.",
+          },
+        ],
+      },
       office: {
+        headline:
+          "Veja onze analistas e o presidente trabalhando, e discordando, em tempo real",
+        description:
+          "Cada analista pesquisa em sua mesa e depois as equipes se reúnem para questionar umas às outras. Sua pesquisa roda neste mesmo escritório.",
         live: "Escritório de research ao vivo",
         active: (count) => `${count} agentes ativos`,
         loading: "Preparando o escritório de research",
@@ -1223,6 +1322,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "Não foi possível carregar o escritório de research.",
       },
       researchRoom: {
+        questionLabel: "Pergunta recebida",
         eyebrow: "RESEARCH ROOM · CINCO MAIS RECENTES",
         title: "Veja as perguntas que outros investidores já fizeram.",
         description:
@@ -1296,25 +1396,38 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     },
     nav: { product: "Produkt", getStarted: "Loslegen", pricing: "Tarife" },
     hero: {
-      eyebrow: "Multi-Agent-Research für US-Aktien",
-      titleLead: "Prüfen Sie die",
-      titleTail: "Investmentthese.",
+      eyebrow: "KI-Researchteam für US-Aktien",
+      titleLead: "Elf KI-Analysten",
+      titleTail: "debattieren eine Aktie.",
       descriptionLead:
-        "Elf KI-Spezialisten untersuchen Geschäft, Ergebnisse, Bewertung, Katalysatoren und Risiken.",
-      descriptionTail:
-        "Ein unabhängiger Research-Chair prüft die Gegenthese und fasst alles zu einem evidenzbasierten Urteil zusammen.",
-      proof: "Sehen Sie die Belege und Meinungsunterschiede hinter dem Urteil.",
+        "Sie recherchieren unabhängig, hinterfragen einander und liefern eine Research-Akte mit verlinkten Quellen.",
+      descriptionTail: "Keine Kaufempfehlungen, keine Kursziele.",
+      proof: "Debatte verfolgen, Quellen prüfen, selbst entscheiden.",
     },
     landing: {
-      sourcesLabel: "Research-Abdeckung",
-      sources: [
-        "SEC-Berichte",
-        "Quartalszahlen",
-        "Marktdaten",
-        "Unternehmensmeldungen",
-        "Geprüfte Nachrichten",
-      ],
+      explainer: {
+        eyebrow: "WAS SIE BEKOMMEN",
+        title: "Eine Research-Akte, kein Tipp.",
+        cards: [
+          {
+            title: "Quellen inklusive",
+            body: "Jede Aussage verlinkt auf die Meldung, den Call oder die Daten dahinter – zum Selbstprüfen.",
+          },
+          {
+            title: "Widerspruch bleibt sichtbar",
+            body: "Sind sich die Analysten uneinig, behält die Akte beide Seiten und nennt, was die Frage klären würde.",
+          },
+          {
+            title: "Einfacher Modus für Einsteiger",
+            body: "Jederzeit auf verständliche Erklärungen umschalten. Tiefe und Belege bleiben gleich.",
+          },
+        ],
+      },
       office: {
+        headline:
+          "Elf Analysten und der Vorsitz bei der Arbeit – und im Widerspruch – in Echtzeit",
+        description:
+          "Jeder Analyst recherchiert am eigenen Platz, dann treffen sich die Teams und hinterfragen einander. Ihr Research läuft in genau diesem Büro.",
         live: "Live-Research-Office",
         active: (count) => `${count} Agenten aktiv`,
         loading: "Research-Office wird vorbereitet",
@@ -1322,6 +1435,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "Das Research-Office konnte nicht geladen werden.",
       },
       researchRoom: {
+        questionLabel: "Gestellte Frage",
         eyebrow: "RESEARCH ROOM · NEUESTE FÜNF",
         title: "Entdecken Sie Fragen, die Anleger bereits gestellt haben.",
         description:
@@ -1396,25 +1510,38 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     },
     nav: { product: "Produit", getStarted: "Commencer", pricing: "Offres" },
     hero: {
-      eyebrow: "Recherche multi-agents sur les actions américaines",
-      titleLead: "Mettez à l’épreuve",
-      titleTail: "la thèse d’investissement.",
+      eyebrow: "Recherche IA sur les actions américaines",
+      titleLead: "Onze analystes IA",
+      titleTail: "débattent d'une action.",
       descriptionLead:
-        "Onze spécialistes IA étudient l’activité, les résultats, la valorisation, les catalyseurs et les risques.",
-      descriptionTail:
-        "Un président de recherche indépendant examine la thèse contraire et rend un jugement relié aux preuves.",
-      proof: "Consultez les preuves et les désaccords derrière la conclusion.",
+        "Ils enquêtent séparément, se contredisent et vous remettent un dossier de recherche où chaque source est liée.",
+      descriptionTail: "Ni conseil d'achat, ni objectif de cours.",
+      proof: "Suivez le débat, vérifiez les sources, décidez par vous-même.",
     },
     landing: {
-      sourcesLabel: "Périmètre de recherche",
-      sources: [
-        "Documents SEC",
-        "Résultats financiers",
-        "Données de marché",
-        "Communiqués d’entreprise",
-        "Actualités vérifiées",
-      ],
+      explainer: {
+        eyebrow: "CE QUE VOUS OBTENEZ",
+        title: "Un dossier de recherche, pas un tuyau.",
+        cards: [
+          {
+            title: "Sources jointes",
+            body: "Chaque affirmation renvoie au document, à la conférence ou aux données d'origine, pour vérifier vous-même.",
+          },
+          {
+            title: "Le désaccord reste visible",
+            body: "Quand les analystes divergent, le dossier conserve les deux positions et précise ce qui trancherait.",
+          },
+          {
+            title: "Mode simple pour débutants",
+            body: "Passez à des explications en langage clair à tout moment. La profondeur et les preuves restent identiques.",
+          },
+        ],
+      },
       office: {
+        headline:
+          "Regardez onze analystes et le président travailler, et diverger, en temps réel",
+        description:
+          "Chaque analyste enquête à son bureau, puis les équipes se réunissent pour se contredire. Votre recherche se déroule dans ce même bureau.",
         live: "Bureau de recherche en direct",
         active: (count) => `${count} agents actifs`,
         loading: "Préparation du bureau de recherche",
@@ -1422,6 +1549,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         error: "Impossible de charger le bureau de recherche.",
       },
       researchRoom: {
+        questionLabel: "Question posée",
         eyebrow: "RESEARCH ROOM · CINQ DERNIÈRES",
         title: "Découvrez les questions déjà posées par les investisseurs.",
         description:

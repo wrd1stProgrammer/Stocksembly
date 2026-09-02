@@ -6,7 +6,6 @@ import { editorialContent } from "../../editorial/content";
 import type { EditorialDefinition } from "../../editorial/types";
 import type { AppLocale } from "../../lib/i18n";
 import { intlLocale } from "../../lib/i18n";
-import { LandingOfficePreview } from "../LandingOfficePreview";
 import { LandingFooter } from "../LandingSections";
 import { EditorialCard } from "./EditorialCard";
 
@@ -132,7 +131,6 @@ export function EditorialArticlePage({
               </Link>
             </aside>
           </div>
-          <LandingOfficePreview locale={locale} />
         </article>
         <section
           className="editorial-related"

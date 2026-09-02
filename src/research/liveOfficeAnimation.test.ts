@@ -190,3 +190,41 @@ describe("live office animation", () => {
     view.unmount();
   });
 });
+
+describe("live office reduced motion", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("creates a reduced-motion simulation that never leaves actors mid-step", () => {
+    // When
+    const frame = createLiveOfficeFrame(60, undefined, true);
+
+    // Then
+    expect(frame.simulation.reducedMotion).toBe(true);
+    expect(
+      frame.simulation.actors.every((actor) => actor.motion === null),
+    ).toBe(true);
+    expect(createLiveOfficeFrame(60).simulation.reducedMotion).toBe(false);
+  });
+
+  it("reads the viewer's reduced-motion preference when the hook mounts", () => {
+    // Given
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+
+    // When
+    const { result } = renderHook(() => useLiveOfficeAnimation(60));
+
+    // Then
+    expect(result.current.snapshot.tick).toBe(60);
+    expect(
+      result.current.snapshot.actors.every((actor) => actor.motion === null),
+    ).toBe(true);
+  });
+});
