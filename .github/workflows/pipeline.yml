@@ -88,6 +88,7 @@ jobs:
           COGNITO_DOMAIN: stocksembly-prod-359463332817.auth.us-east-1.amazoncognito.com
           APP_ORIGIN: https://stocksembly.com
           GA_MEASUREMENT_ID: G-YRQDC6R5TL
+          META_PIXEL_ID: "1941324473216410"
         run: |
           image_tag="sha-${GITHUB_SHA}"
           image="${REGISTRY}/${ECR_REPOSITORY}:${image_tag}"
@@ -102,6 +103,7 @@ jobs:
               --build-arg "NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN}" \
               --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
               --build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}" \
+              --build-arg "NEXT_PUBLIC_META_PIXEL_ID=${META_PIXEL_ID}" \
               --tag "$image" .
             if ! push_output="$(docker push "$image" 2>&1)"; then
               echo "$push_output"
@@ -130,6 +132,9 @@ jobs:
           WHOP_PRODUCT_ID: ${{ secrets.WHOP_PRODUCT_ID }}
           WHOP_SANDBOX: ${{ secrets.WHOP_SANDBOX }}
           WHOP_WEBHOOK_SECRET: ${{ secrets.WHOP_WEBHOOK_SECRET }}
+          META_CONVERSIONS_API_ACCESS_TOKEN: ${{ secrets.META_CONVERSIONS_API_ACCESS_TOKEN }}
+          META_GRAPH_API_VERSION: v25.0
+          META_PIXEL_ID: "1941324473216410"
         run: |
           provider_env="$(printf '%s\n' \
             "INSIGHTSENTRY_RAPIDAPI_HOST=$INSIGHTSENTRY_RAPIDAPI_HOST" \
@@ -144,10 +149,13 @@ jobs:
             "WHOP_PLAN_ULTRA_MONTHLY_ID=$WHOP_PLAN_ULTRA_MONTHLY_ID" \
             "WHOP_PRODUCT_ID=$WHOP_PRODUCT_ID" \
             "WHOP_SANDBOX=$WHOP_SANDBOX" \
-            "WHOP_WEBHOOK_SECRET=$WHOP_WEBHOOK_SECRET")"
+            "WHOP_WEBHOOK_SECRET=$WHOP_WEBHOOK_SECRET" \
+            "META_CONVERSIONS_API_ACCESS_TOKEN=$META_CONVERSIONS_API_ACCESS_TOKEN" \
+            "META_GRAPH_API_VERSION=$META_GRAPH_API_VERSION" \
+            "META_PIXEL_ID=$META_PIXEL_ID")"
           encoded_provider_env="$(printf '%s' "$provider_env" | base64 -w 0)"
           parameters="$(jq -nc \
-            --arg command "sudo install -d -m 0700 /etc/stocksembly && sudo touch /etc/stocksembly/app.env && sudo chmod 0600 /etc/stocksembly/app.env && sudo sed -i -e '/^WHOP_/d' -e '/^INSIGHTSENTRY_/d' /etc/stocksembly/app.env && printf '%s' '${encoded_provider_env}' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" \
+            --arg command "sudo install -d -m 0700 /etc/stocksembly && sudo touch /etc/stocksembly/app.env && sudo chmod 0600 /etc/stocksembly/app.env && sudo sed -i -e '/^WHOP_/d' -e '/^INSIGHTSENTRY_/d' -e '/^META_/d' /etc/stocksembly/app.env && printf '%s' '${encoded_provider_env}' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" \
             '{commands:[$command]}')"
           command_id="$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \

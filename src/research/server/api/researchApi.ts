@@ -24,12 +24,17 @@ import type {
 } from "../../../briefing/domain/contracts";
 import { nextUsPremarketBriefingAt } from "../../../briefing/domain/marketCalendar";
 import type { AppLocale, Locale } from "../../../lib/i18n";
+import {
+  metaCheckoutAttribution,
+  sendMetaPurchaseEvent,
+} from "../../../lib/meta/server";
 import type {
   BillingPlanKey,
   WhopBillingStatus,
 } from "../../../lib/whop/contracts";
 import { CREDIT_COSTS } from "../../../lib/whop/creditPolicy";
 import {
+  billingPlanAmount,
   createWhopCheckout,
   createWhopProMonthlyLiveTestCheckout,
   getWhopEnvironment,
@@ -921,6 +926,7 @@ export async function createResearchApi(
       }
       const checkoutAttemptId = randomUUID();
       const returnUrl = billingReturnUrl(request);
+      const metaAttribution = metaCheckoutAttribution(request);
       await options.accountStore?.createCheckoutAttempt?.(
         authentication.principal.id,
         planKey,
@@ -934,6 +940,7 @@ export async function createResearchApi(
           returnUrl,
           idempotencyKey: `stocksembly:checkout:${checkoutAttemptId}`,
           checkoutAttemptId,
+          ...(metaAttribution === undefined ? {} : { metaAttribution }),
         });
         await options.accountStore?.markCheckoutAttemptReady?.(
           checkoutAttemptId,
@@ -954,6 +961,12 @@ export async function createResearchApi(
             : { sessionId: checkout.checkoutConfigurationId }),
           returnUrl,
           environment: getWhopEnvironment(),
+          tracking: {
+            eventId: `checkout:${checkoutAttemptId}`,
+            value: billingPlanAmount(planKey),
+            currency: "USD",
+            contentName: planKey,
+          },
         });
       return Response.redirect(checkout.purchaseUrl, 303);
     },
@@ -1020,6 +1033,7 @@ export async function createResearchApi(
           "ACCOUNT_STORE_REQUIRED_FOR_WEBHOOK",
         );
       await options.accountStore?.handleWhopWebhook?.(event);
+      await sendMetaPurchaseEvent(event);
     },
     async adminAnalyticsOverview(request, query) {
       if (!adminAnalyticsReadsEnabled()) return { kind: "disabled" };

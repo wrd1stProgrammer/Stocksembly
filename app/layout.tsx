@@ -21,8 +21,12 @@ const inter = localFont({
   weight: "100 900",
 });
 
-const { NEXT_PUBLIC_GA_MEASUREMENT_ID } = process.env;
+const { NEXT_PUBLIC_GA_MEASUREMENT_ID, NEXT_PUBLIC_META_PIXEL_ID } =
+  process.env;
 const googleAnalyticsMeasurementId = NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
+const metaPixelId = /^\d+$/u.test(NEXT_PUBLIC_META_PIXEL_ID?.trim() ?? "")
+  ? NEXT_PUBLIC_META_PIXEL_ID?.trim()
+  : undefined;
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stocksembly.com"),
@@ -111,6 +115,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           name="naver-site-verification"
           content="d0550c1445439dad95faf56141ffab5fa14761b3"
         />
+        <meta
+          name="facebook-domain-verification"
+          content="qc2usghqfyisrrvmjjukis41p2zo56"
+        />
         {process.env.NODE_ENV === "development" && (
           <>
             <Script
@@ -134,6 +142,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           {...(googleAnalyticsMeasurementId === undefined
             ? {}
             : { measurementId: googleAnalyticsMeasurementId })}
+          {...(metaPixelId === undefined ? {} : { metaPixelId })}
         />
       </body>
     </html>

@@ -92,4 +92,10 @@ export type WhopCheckoutLaunch = {
   readonly sessionId?: string;
   readonly returnUrl?: string;
   readonly environment?: "sandbox" | "production";
+  readonly tracking?: {
+    readonly eventId: string;
+    readonly value: number;
+    readonly currency: string;
+    readonly contentName: string;
+  };
 };

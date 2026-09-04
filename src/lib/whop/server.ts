@@ -1,5 +1,6 @@
 import Whop from "@whop/sdk";
 import { z } from "zod";
+import type { MetaCheckoutAttribution } from "../meta/contracts";
 import type {
   BillingPlanKey,
   BillingStatus,
@@ -175,6 +176,12 @@ export function billingPlanKeyForPrice(
   )?.key;
 }
 
+export function billingPlanAmount(key: BillingPlanKey): number {
+  return (
+    planDefinitions.find((definition) => definition.key === key)?.amount ?? 0
+  );
+}
+
 export type WhopCheckout = {
   readonly checkoutConfigurationId?: string;
   readonly planId: string;
@@ -190,6 +197,7 @@ function createCheckoutConfiguration(input: {
   readonly idempotencyKey: string;
   readonly checkoutAttemptId?: string;
   readonly liveTest?: boolean;
+  readonly metaAttribution?: MetaCheckoutAttribution;
 }) {
   return whopClient(input.configuration).checkoutConfigurations.create({
     account_id: input.configuration.companyId,
@@ -204,6 +212,17 @@ function createCheckoutConfiguration(input: {
       ...(input.checkoutAttemptId === undefined
         ? {}
         : { stocksembly_checkout_attempt_id: input.checkoutAttemptId }),
+      ...(input.metaAttribution === undefined
+        ? {}
+        : {
+            stocksembly_meta_consent: "granted",
+            ...(input.metaAttribution.fbp === undefined
+              ? {}
+              : { stocksembly_meta_fbp: input.metaAttribution.fbp }),
+            ...(input.metaAttribution.fbc === undefined
+              ? {}
+              : { stocksembly_meta_fbc: input.metaAttribution.fbc }),
+          }),
     },
     redirect_url: input.returnUrl,
     "Idempotency-Key": input.idempotencyKey,
@@ -216,6 +235,7 @@ export async function createWhopCheckout(input: {
   readonly returnUrl: string;
   readonly idempotencyKey: string;
   readonly checkoutAttemptId?: string;
+  readonly metaAttribution?: MetaCheckoutAttribution;
 }): Promise<WhopCheckout> {
   const configuration = whopConfiguration();
   const plan = (await getWhopPricing()).find(
@@ -232,6 +252,9 @@ export async function createWhopCheckout(input: {
     ...(input.checkoutAttemptId === undefined
       ? {}
       : { checkoutAttemptId: input.checkoutAttemptId }),
+    ...(input.metaAttribution === undefined
+      ? {}
+      : { metaAttribution: input.metaAttribution }),
   });
   const purchaseUrl = checkout.purchase_url ?? plan.purchaseUrl;
   return {
