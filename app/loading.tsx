@@ -1,26 +1,34 @@
-export default function WorkspaceLoading() {
+"use client";
+
+import { usePathname } from "next/navigation";
+import { PageSkeleton } from "@/src/components/ui/PageSkeleton";
+
+export default function Loading() {
+  const pathname = usePathname();
+  if (
+    pathname === "/" ||
+    /^\/(en|ko|ja|zh-TW|es|pt-BR|de|fr)\/?$/.test(pathname)
+  ) {
+    return <PageSkeleton variant="home" />;
+  }
   return (
     <main
-      className="min-h-screen bg-[#08090b] px-5 py-6 text-zinc-100"
-      aria-label="Loading workspace"
-      aria-live="polite"
+      className="min-h-dvh bg-[#08090b] p-8"
       role="status"
+      aria-busy="true"
+      aria-label="Loading"
     >
-      <div className="mx-auto flex w-full max-w-[1600px] gap-5">
-        <aside className="hidden h-[calc(100vh-3rem)] w-64 shrink-0 animate-pulse rounded-2xl border border-white/8 bg-white/[0.025] lg:block" />
-        <section className="min-w-0 flex-1">
-          <div className="mb-5 h-16 animate-pulse rounded-2xl border border-white/8 bg-white/[0.035]" />
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {["a", "b", "c", "d", "e", "f"].map((key) => (
-              <div
-                className="h-56 animate-pulse rounded-2xl border border-white/8 bg-white/[0.035]"
-                key={key}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
       <span className="sr-only">Loading…</span>
+      <div
+        aria-hidden="true"
+        className="mx-auto max-w-4xl space-y-8 motion-safe:animate-pulse"
+      >
+        <div className="h-8 w-40 rounded bg-white/[0.06]" />
+        <div className="h-px bg-white/10" />
+        <div className="h-4 w-3/4 rounded bg-white/[0.06]" />
+        <div className="h-4 w-full rounded bg-white/[0.06]" />
+        <div className="h-4 w-2/3 rounded bg-white/[0.06]" />
+      </div>
     </main>
   );
 }
