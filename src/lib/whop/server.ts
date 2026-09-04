@@ -7,12 +7,13 @@ import type {
   BillingTier,
   WhopPricingPlan,
 } from "./contracts";
+import { PAID_PLAN_PRICES } from "./creditPolicy";
 
 export type { BillingPlanKey, WhopPricingPlan } from "./contracts";
 export { MONTHLY_CREDIT_ALLOWANCE } from "./creditPolicy";
 
 export const FREE_DAILY_CREDIT_ALLOWANCE = 0;
-export const FREE_SIGNUP_CREDIT_ALLOWANCE = 4;
+export const FREE_SIGNUP_CREDIT_ALLOWANCE = 5;
 
 const WhopPlanSchema = z.object({
   id: z.string().startsWith("plan_"),
@@ -35,7 +36,7 @@ const planDefinitions = [
     envKey: "WHOP_PLAN_PRO_MONTHLY_ID",
     sandboxEnvKey: "WHOP_SANDBOX_PLAN_PRO_MONTHLY_ID",
     tier: "Pro",
-    amount: 19,
+    amount: PAID_PLAN_PRICES.pro.month,
     interval: "month",
     billingPeriod: 30,
   },
@@ -44,7 +45,7 @@ const planDefinitions = [
     envKey: "WHOP_PLAN_PRO_ANNUAL_ID",
     sandboxEnvKey: "WHOP_SANDBOX_PLAN_PRO_ANNUAL_ID",
     tier: "Pro",
-    amount: 190,
+    amount: PAID_PLAN_PRICES.pro.year,
     interval: "year",
     billingPeriod: 365,
   },
@@ -53,7 +54,7 @@ const planDefinitions = [
     envKey: "WHOP_PLAN_ULTRA_MONTHLY_ID",
     sandboxEnvKey: "WHOP_SANDBOX_PLAN_ULTRA_MONTHLY_ID",
     tier: "Ultra",
-    amount: 39,
+    amount: PAID_PLAN_PRICES.ultra.month,
     interval: "month",
     billingPeriod: 30,
   },
@@ -62,7 +63,7 @@ const planDefinitions = [
     envKey: "WHOP_PLAN_ULTRA_ANNUAL_ID",
     sandboxEnvKey: "WHOP_SANDBOX_PLAN_ULTRA_ANNUAL_ID",
     tier: "Ultra",
-    amount: 390,
+    amount: PAID_PLAN_PRICES.ultra.year,
     interval: "year",
     billingPeriod: 365,
   },

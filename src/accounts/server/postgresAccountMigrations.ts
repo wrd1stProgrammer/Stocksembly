@@ -485,6 +485,43 @@ const migrations = [
         WHERE kind = 'research_translation';
     `,
   },
+  {
+    version: 15,
+    name: "015_account_onboarding",
+    sql: `
+      ALTER TABLE app_users
+        ADD COLUMN onboarding_version INTEGER NOT NULL DEFAULT 1;
+
+      ALTER TABLE app_users
+        ALTER COLUMN onboarding_version SET DEFAULT 0;
+
+      ALTER TABLE app_users
+        ADD CONSTRAINT app_users_onboarding_version_check
+        CHECK (onboarding_version BETWEEN 0 AND 1);
+    `,
+  },
+  {
+    version: 16,
+    name: "016_onboarding_discovery_survey",
+    sql: `
+      ALTER TABLE app_users
+        ADD COLUMN onboarding_discovery_source TEXT;
+
+      UPDATE app_users
+      SET onboarding_version = 0
+      WHERE onboarding_version = 1;
+
+      ALTER TABLE app_users
+        ADD CONSTRAINT app_users_onboarding_discovery_source_check
+        CHECK (
+          onboarding_discovery_source IS NULL OR
+          onboarding_discovery_source IN (
+            'search', 'youtube', 'social', 'community',
+            'recommendation', 'other', 'prefer_not_to_say'
+          )
+        );
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

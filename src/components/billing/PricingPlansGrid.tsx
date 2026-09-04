@@ -16,6 +16,7 @@ type PricingPlansGridProps = {
   readonly locale: Locale;
   readonly initialCycle?: BillingCycle;
   readonly onFreeSelect?: () => void;
+  readonly onPaidSelect?: (plan: PricingCardPlan, cycle: BillingCycle) => void;
 };
 
 function BillingToggle({
@@ -88,6 +89,7 @@ export function PricingPlansGrid({
   locale,
   initialCycle = "annual",
   onFreeSelect,
+  onPaidSelect,
 }: PricingPlansGridProps) {
   const [cycle, setCycle] = useState<BillingCycle>(initialCycle);
   const {
@@ -129,6 +131,10 @@ export function PricingPlansGrid({
                 onCheckout={
                   checkoutUrl
                     ? () => {
+                        if (onPaidSelect) {
+                          onPaidSelect(plan, cycle);
+                          return;
+                        }
                         void startCheckout(checkoutUrl, plan.id, plan.name);
                       }
                     : undefined

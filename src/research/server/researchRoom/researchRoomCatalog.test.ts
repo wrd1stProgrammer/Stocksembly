@@ -154,6 +154,7 @@ describe("research room catalog access", () => {
     const eligibleReportIds = Array.from({ length: 81 }, (_, index) =>
       fixtureId("10000000", index + 1),
     );
+    const recoveredReportId = fixtureId("10000000", 82);
     await catalogFixtures([
       {
         versions: [
@@ -261,9 +262,10 @@ describe("research room catalog access", () => {
     );
 
     // Then
-    expect(entries).toHaveLength(81);
+    expect(entries).toHaveLength(82);
     expect(entries.map((entry) => entry.reportId)).toEqual([
       reportId,
+      recoveredReportId,
       ...eligibleReportIds.slice(1).reverse(),
     ]);
     expect(entries[0]).toEqual({
@@ -349,7 +351,7 @@ describe("research room catalog access", () => {
     expect(invalidPublicationDate).toBe(false);
   });
 
-  it("suppresses a completed report when its absolute latest version is incomplete", async () => {
+  it("keeps the latest publishable report visible when a newer attempt is incomplete", async () => {
     // Given
     await catalogFixture([
       {
@@ -371,7 +373,47 @@ describe("research room catalog access", () => {
     );
 
     // Then
-    expect(reports).toEqual([]);
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toMatchObject({
+      reportId,
+      publishedAt: "2026-08-01T00:00:00.000Z",
+      status: "complete",
+    });
+  });
+
+  it("does not count a report without a stored artifact in company facets", async () => {
+    // Given
+    await catalogFixtures([
+      {
+        versions: [
+          {
+            version: 1,
+            status: "complete",
+            publishedAt: "2026-08-01T00:00:00.000Z",
+          },
+        ],
+      },
+      {
+        missingArtifactVersion: 1,
+        versions: [
+          {
+            version: 1,
+            status: "complete",
+            publishedAt: "2026-08-02T00:00:00.000Z",
+          },
+        ],
+      },
+    ]);
+
+    // When
+    const page = await listResearchRoomReportPage(
+      { authenticated: false, tier: "free" },
+      { now: new Date("2026-08-10T00:00:00.000Z") },
+    );
+
+    // Then
+    expect(page.total).toBe(1);
+    expect(page.companies).toEqual([{ symbol: "S001", count: 1 }]);
   });
 
   it("rejects an invalid persisted published timestamp", async () => {

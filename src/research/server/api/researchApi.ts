@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  CURRENT_ONBOARDING_VERSION,
+  type OnboardingDiscoverySource,
+} from "../../../accounts/onboarding";
+import {
   type AccountStore,
   AccountStoreUnavailableError,
   type CreditAvailability,
@@ -162,6 +166,20 @@ export interface ResearchApi {
     request: Request,
     locale: AppLocale,
   ) => Promise<{ readonly authenticated: boolean; readonly stored: boolean }>;
+  readonly onboardingState: (request: Request) => Promise<{
+    readonly authenticated: boolean;
+    readonly completed: boolean;
+    readonly version: number;
+  }>;
+  readonly completeOnboarding: (
+    request: Request,
+    version: number,
+    discoverySource: OnboardingDiscoverySource,
+  ) => Promise<{
+    readonly authenticated: boolean;
+    readonly stored: boolean;
+    readonly version: number;
+  }>;
   readonly briefingRoom: (
     request: Request,
     locale: Locale,
@@ -1156,6 +1174,78 @@ export async function createResearchApi(
         return { authenticated: true, stored: true };
       } catch {
         return { authenticated: true, stored: false };
+      }
+    },
+    async onboardingState(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return {
+          authenticated: false,
+          completed: true,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
+      if (options.accountStore?.onboardingVersion === undefined)
+        return {
+          authenticated: true,
+          completed: true,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        const version = await options.accountStore.onboardingVersion(
+          authentication.principal.id,
+        );
+        return {
+          authenticated: true,
+          completed: version >= CURRENT_ONBOARDING_VERSION,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
+      } catch {
+        return {
+          authenticated: true,
+          completed: true,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
+      }
+    },
+    async completeOnboarding(request, version, discoverySource) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return {
+          authenticated: false,
+          stored: false,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
+      if (options.accountStore?.completeOnboarding === undefined)
+        return {
+          authenticated: true,
+          stored: false,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
+      try {
+        await options.accountStore.syncUser(
+          authentication.principal,
+          options.now?.() ?? new Date().toISOString(),
+        );
+        await options.accountStore.completeOnboarding(
+          authentication.principal.id,
+          version,
+          discoverySource,
+        );
+        return {
+          authenticated: true,
+          stored: true,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
+      } catch {
+        return {
+          authenticated: true,
+          stored: false,
+          version: CURRENT_ONBOARDING_VERSION,
+        };
       }
     },
     async briefingRoom(request, locale) {

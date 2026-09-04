@@ -31,6 +31,7 @@ import type {
 } from "../../research/server/api/researchApiContracts";
 import type { PublicQuestion } from "../../research/server/api/researchCommandContracts";
 import type { ResearchPrincipal } from "../../research/server/http/researchAuth";
+import type { OnboardingDiscoverySource } from "../onboarding";
 
 export class AccountStoreUnavailableError extends Error {
   readonly name = "AccountStoreUnavailableError";
@@ -146,6 +147,12 @@ export type AccountStore = {
   readonly updatePreferredLocale?: (
     principalId: string,
     locale: AppLocale,
+  ) => Promise<void>;
+  readonly onboardingVersion?: (principalId: string) => Promise<number>;
+  readonly completeOnboarding?: (
+    principalId: string,
+    version: number,
+    discoverySource: OnboardingDiscoverySource,
   ) => Promise<void>;
   readonly briefingAccess?: (principalId: string) => Promise<BriefingAccess>;
   readonly listBriefingWatchlist?: (

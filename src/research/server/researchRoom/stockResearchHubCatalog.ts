@@ -4,7 +4,7 @@ import type { ResearchTarget } from "../../domain/researchTarget";
 import { prepareLiveResearchRuntime } from "../api/liveResearchApi";
 import { isResearchRoomIndexable } from "./researchRoomIndexability";
 import {
-  ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE,
+  LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE,
   type StockSymbol,
   StockSymbolSchema,
 } from "./researchRoomPublicCatalog";
@@ -78,7 +78,7 @@ function selectSql(filterBySymbol: boolean): string {
      ${symbolFilter}
      AND report_versions.status IN ('complete', 'complete_with_limitations')
      AND runs.status IN ('completed', 'complete-with-limitations')
-     AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
+     AND ${LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE}
    ORDER BY report_versions.published_at DESC, reports.report_id DESC`;
 }
 
@@ -93,7 +93,7 @@ function sitemapSelectSql(): string {
    WHERE reports.state = 'published'
      AND report_versions.status IN ('complete', 'complete_with_limitations')
      AND runs.status IN ('completed', 'complete-with-limitations')
-     AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
+     AND ${LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE}
    ORDER BY report_versions.published_at DESC, research_requests.symbol ASC`;
 }
 

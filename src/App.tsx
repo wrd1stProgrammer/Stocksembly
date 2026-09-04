@@ -4,6 +4,7 @@ import { getCurrentUser } from "aws-amplify/auth";
 import { ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { OnboardingDiscoverySource } from "./accounts/onboarding";
 import { configureAmplifyAuth } from "./auth/amplifyClient";
 import {
   applyLocalePreference,
@@ -53,6 +54,14 @@ const SubscriptionModal = dynamic(
   { ssr: false },
 );
 
+const WelcomeOnboardingModal = dynamic(
+  () =>
+    import("./components/onboarding/WelcomeOnboardingModal").then(
+      (module) => module.WelcomeOnboardingModal,
+    ),
+  { ssr: false },
+);
+
 async function authenticatedFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
@@ -94,6 +103,10 @@ export function App({
   >();
   const [billingPlansLoading, setBillingPlansLoading] = useState(false);
   const [billingPlansError, setBillingPlansError] = useState(false);
+  const [onboardingState, setOnboardingState] = useState<
+    "unknown" | "pending" | "complete"
+  >("unknown");
+  const [onboardingPreview, setOnboardingPreview] = useState(false);
   const localeSelectionRevision = useRef(0);
   const content = copy[locale];
 
@@ -137,9 +150,38 @@ export function App({
     setSubscriptionModalOpen(false);
   }, []);
 
+  const completeWelcomeOnboarding = useCallback(
+    async (discoverySource: OnboardingDiscoverySource) => {
+      const response = await authenticatedFetch("/api/account/onboarding", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ version: 1, discoverySource }),
+      });
+      if (!response.ok) throw new Error("ONBOARDING_COMPLETION_FAILED");
+      setOnboardingState("complete");
+    },
+    [],
+  );
+
+  const openPlansFromOnboarding = useCallback(
+    async (discoverySource: OnboardingDiscoverySource) => {
+      await completeWelcomeOnboarding(discoverySource);
+      openSubscriptionModal();
+    },
+    [completeWelcomeOnboarding, openSubscriptionModal],
+  );
+
   useEffect(() => {
     const pathLocale = window.location.pathname.split("/")[1];
     const queryLocale = new URLSearchParams(window.location.search).get("lang");
+    const isLocalPreviewHost = new Set(["localhost", "127.0.0.1"]).has(
+      window.location.hostname,
+    );
+    setOnboardingPreview(
+      isLocalPreviewHost &&
+        new URLSearchParams(window.location.search).get("onboarding") ===
+          "preview",
+    );
     const storedLocale = window.localStorage.getItem(
       PREFERRED_LOCALE_STORAGE_KEY,
     );
@@ -207,6 +249,7 @@ export function App({
       setBillingPlansLoading(false);
       setBillingPlansError(false);
       setSubscriptionModalOpen(false);
+      setOnboardingState("unknown");
       return;
     }
 
@@ -215,6 +258,26 @@ export function App({
     setBillingStatus(undefined);
     setBillingPlansLoading(true);
     setBillingPlansError(false);
+    setOnboardingState("unknown");
+
+    void authenticatedFetch("/api/account/onboarding", { cache: "no-store" })
+      .then(async (onboardingResponse) => {
+        if (!active) return;
+        if (!onboardingResponse.ok) {
+          setOnboardingState("complete");
+          return;
+        }
+        const onboarding = (await onboardingResponse.json()) as {
+          readonly completed?: unknown;
+        };
+        if (active)
+          setOnboardingState(
+            onboarding.completed === false ? "pending" : "complete",
+          );
+      })
+      .catch(() => {
+        if (active) setOnboardingState("complete");
+      });
 
     void syncResearchSession()
       .catch(() => undefined)
@@ -405,6 +468,25 @@ export function App({
         locale={locale}
         hidden={signedIn && !sidebarCollapsed}
       />
+      {onboardingPreview || (signedIn && onboardingState === "pending") ? (
+        <WelcomeOnboardingModal
+          locale={locale}
+          plans={billingPlans}
+          onComplete={
+            onboardingPreview
+              ? () => setOnboardingPreview(false)
+              : completeWelcomeOnboarding
+          }
+          onOpenPlans={
+            onboardingPreview
+              ? () => {
+                  setOnboardingPreview(false);
+                  openSubscriptionModal();
+                }
+              : openPlansFromOnboarding
+          }
+        />
+      ) : null}
       {subscriptionModalOpen ? (
         <SubscriptionModal
           open
