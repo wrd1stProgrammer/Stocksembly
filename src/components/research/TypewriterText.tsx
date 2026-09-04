@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { prefersReducedMotion } from "../../research/officeReducedMotion";
 
 type Props = {
   readonly text: string;
@@ -12,10 +13,7 @@ export function TypewriterText({ text }: Props) {
 
   useEffect(() => {
     const total = Array.from(text).length;
-    if (
-      total === 0 ||
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    ) {
+    if (total === 0 || prefersReducedMotion()) {
       setVisibleGlyphs(total);
       return;
     }

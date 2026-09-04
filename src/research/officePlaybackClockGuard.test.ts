@@ -41,16 +41,10 @@ const ACTIVE_RESEARCH_RUNTIME_FILES = [
 ] as const;
 
 const ACTIVE_RESEARCH_RENDER_FILES = [
-  "ActivityPanel.tsx",
-  "DepartmentRail.tsx",
-  "EvidenceSummary.tsx",
   "OfficeCalibration.tsx",
   "OfficeStage.tsx",
   "PixelOfficeGame.tsx",
-  "ResearchCommandBar.tsx",
-  "ResearchReport.tsx",
   "ResearchRoom.tsx",
-  "departmentRailView.ts",
 ] as const;
 
 const EXPECTED_BROWSER_ACTIONS = [

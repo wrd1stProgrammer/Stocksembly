@@ -545,3 +545,143 @@ html[lang="ko"] .hero__description-tail {
     background-position: 100% center;
   }
 }
+
+/* Header and hero responsive overrides (moved from responsive.css). */
+@media (max-width: 900px) {
+  .site-header {
+    grid-template-columns: 1fr auto;
+  }
+  .site-header nav {
+    display: none;
+  }
+  .hero {
+    padding-top: clamp(64px, 10vh, 96px);
+  }
+}
+
+@media (max-width: 768px) {
+  .site-header {
+    width: calc(100% - 32px);
+    min-height: 72px;
+  }
+  .site-header__actions {
+    gap: var(--space-2);
+  }
+  .header-research-trigger {
+    width: 40px;
+    height: 40px;
+  }
+  .sign-in {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 0.72rem;
+  }
+  .sign-in--signed-in {
+    display: none;
+  }
+  .recent-research-drawer {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    border-radius: 20px;
+  }
+  .hero {
+    width: calc(100% - 32px);
+    padding-top: clamp(56px, 8vh, 80px);
+  }
+  .hero__eyebrow {
+    font-size: 0.75rem;
+  }
+  .hero h1 {
+    letter-spacing: -0.05em;
+  }
+  .hero__description {
+    max-width: 36ch;
+  }
+  html[lang="ko"] .hero__description-lead,
+  html[lang="ko"] .hero__description-tail {
+    white-space: normal;
+  }
+}
+
+/* Analytics consent banner (rendered by the root layout). */
+.analytics-consent {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  display: grid;
+  width: min(560px, calc(100vw - 40px));
+  padding: 16px;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #343b48;
+  border-radius: 12px;
+  color: #eef1f7;
+  background: #111419;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 45%);
+}
+
+.analytics-consent strong {
+  font-size: 12px;
+}
+
+.analytics-consent p {
+  margin: 5px 0 0;
+  color: #98a1b1;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.analytics-consent button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #343b48;
+  border-radius: 7px;
+  color: #d8dde6;
+  background: #1a1f27;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.analytics-consent button.is-primary {
+  border-color: #6e89ff;
+  color: #080a0f;
+  background: #6e89ff;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .analytics-consent {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .analytics-consent > div {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Shared entrance keyframes (used by hero, landing, and search results). */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.99);
+  }
+}
+@keyframes results-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}

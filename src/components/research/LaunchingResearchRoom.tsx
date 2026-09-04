@@ -1,5 +1,7 @@
 "use client";
 
+import "../../styles/researchWorkspace";
+import "../../styles/research-room.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";

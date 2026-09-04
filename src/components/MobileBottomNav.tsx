@@ -1,5 +1,6 @@
 "use client";
 
+import "../styles/mobile-bottom-nav.css";
 import { BellRing, House, LibraryBig } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";

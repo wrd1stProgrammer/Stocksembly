@@ -1,3 +1,4 @@
+import "../../styles/admin-dashboard.css";
 import {
   ArrowLeft,
   CalendarDays,

@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/billing.css";
 import type { Locale } from "../../lib/i18n";
 import {
   billingCheckoutPath,

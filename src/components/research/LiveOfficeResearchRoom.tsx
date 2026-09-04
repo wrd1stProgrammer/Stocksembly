@@ -1,5 +1,7 @@
 "use client";
 
+import "../../styles/researchWorkspace";
+import "../../styles/research-room.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
@@ -38,6 +40,7 @@ import { formatSignedPercent } from "../../research/publicPresentation";
 import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
 import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
+import { useIsMobileViewport } from "../useMediaQuery";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
 import { ResearchSidebar } from "./ResearchSidebar";
@@ -61,6 +64,8 @@ function sidebarPriceFormatter(currency: string): Intl.NumberFormat {
   sidebarPriceFormatters.set(currency, formatter);
   return formatter;
 }
+
+const NO_ACTIVITIES: readonly never[] = [];
 
 const pendingReport: ResearchFileData = {
   teamViews: [],
@@ -273,15 +278,18 @@ export function LiveOfficeResearchRoom({
     officeReady,
     true,
   );
-  const snapshot = scopeOfficeSnapshot(
-    animation.snapshot,
-    projection.snapshot.run,
+  // The room re-renders on every animation frame while the office catches up,
+  // so everything derived from the snapshot is memoized on its inputs.
+  const snapshot = useMemo(
+    () => scopeOfficeSnapshot(animation.snapshot, projection.snapshot.run),
+    [animation.snapshot, projection.snapshot.run],
   );
-  const previousSnapshot = scopeOfficeSnapshot(
-    animation.previousSnapshot,
-    projection.snapshot.run,
+  const previousSnapshot = useMemo(
+    () =>
+      scopeOfficeSnapshot(animation.previousSnapshot, projection.snapshot.run),
+    [animation.previousSnapshot, projection.snapshot.run],
   );
-  const activity = activeIdsForSnapshot(snapshot);
+  const activity = useMemo(() => activeIdsForSnapshot(snapshot), [snapshot]);
   const visibleAgents = useMemo(() => {
     const target = projection.snapshot.run.researchTarget;
     if (target === undefined || target.kind === "committee") return agents;
@@ -292,10 +300,11 @@ export function LiveOfficeResearchRoom({
   }, [projection.snapshot.run.researchTarget]);
   const focusedTeam =
     projection.snapshot.run.researchTarget?.kind === "department";
-  const company = companyFor(
-    projection.snapshot.run.symbol,
-    catalogTicker,
-    report?.marketSnapshot ?? liveQuote,
+  const marketSnapshot = report?.marketSnapshot ?? liveQuote;
+  const company = useMemo(
+    () =>
+      companyFor(projection.snapshot.run.symbol, catalogTicker, marketSnapshot),
+    [catalogTicker, marketSnapshot, projection.snapshot.run.symbol],
   );
   const history = useMemo<readonly ResearchHistoryGroup[]>(() => {
     return [...new Set(historyRuns.map((run) => run.symbol))].map((symbol) => {
@@ -369,14 +378,17 @@ export function LiveOfficeResearchRoom({
     terminal,
     visibleAgents,
   ]);
-  const reportFile =
-    report === undefined
-      ? pendingReport
-      : researchReportToFile(
-          report,
-          projection.snapshot.run.createdAt,
-          comparison,
-        );
+  const reportFile = useMemo(
+    () =>
+      report === undefined
+        ? pendingReport
+        : researchReportToFile(
+            report,
+            projection.snapshot.run.createdAt,
+            comparison,
+          ),
+    [comparison, projection.snapshot.run.createdAt, report],
+  );
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -385,16 +397,12 @@ export function LiveOfficeResearchRoom({
     window.history.replaceState(null, "", url);
   }, [locale]);
 
+  // Re-evaluated on rotation and resize, not only on mount, so a tablet
+  // turned from portrait to landscape gets the layout for its new width.
+  const mobileViewport = useIsMobileViewport();
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    // Re-evaluate on rotation and resize, not only on mount, so a tablet
-    // turned from portrait to landscape gets the layout for its new width.
-    const media = window.matchMedia("(max-width: 767px)");
-    const apply = () => setSidebarOpen(!media.matches);
-    apply();
-    media.addEventListener?.("change", apply);
-    return () => media.removeEventListener?.("change", apply);
-  }, []);
+    setSidebarOpen(!mobileViewport);
+  }, [mobileViewport]);
 
   useEffect(() => {
     if (!completed && !terminal) setTranscriptOpen(true);
@@ -490,11 +498,7 @@ export function LiveOfficeResearchRoom({
   const handleSidebarCollapsedChange = (collapsed: boolean): void => {
     const nextOpen = !collapsed;
     setSidebarOpen(nextOpen);
-    if (
-      typeof window === "undefined" ||
-      !window.matchMedia("(max-width: 767px)").matches
-    )
-      return;
+    if (!mobileViewport) return;
     if (nextOpen) setTranscriptOpen(false);
     else if (!completed && !terminal) setTranscriptOpen(true);
   };
@@ -502,12 +506,7 @@ export function LiveOfficeResearchRoom({
   const handleTranscriptToggle = (): void => {
     setTranscriptOpen((open) => {
       const nextOpen = !open;
-      if (
-        nextOpen &&
-        typeof window !== "undefined" &&
-        window.matchMedia("(max-width: 767px)").matches
-      )
-        setSidebarOpen(false);
+      if (nextOpen && mobileViewport) setSidebarOpen(false);
       return nextOpen;
     });
   };
@@ -615,7 +614,9 @@ export function LiveOfficeResearchRoom({
           individualizedPendingCopy={focusedTeam}
           showLaunchStatus={projection.snapshot.events.length <= 2}
           pendingAgentIds={pendingAgentIds}
-          pendingActivities={projection.snapshot.activeActivities ?? []}
+          pendingActivities={
+            projection.snapshot.activeActivities ?? NO_ACTIVITIES
+          }
           panelOpen={transcriptOpen}
           onPanelToggle={handleTranscriptToggle}
           onRetry={async () => {

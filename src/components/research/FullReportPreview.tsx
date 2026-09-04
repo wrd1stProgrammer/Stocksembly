@@ -1,5 +1,7 @@
 "use client";
 
+import "../../styles/researchWorkspace";
+import "../../styles/research-room.css";
 import Link from "next/link";
 import type { Locale } from "../../lib/i18n";
 import type { ResearchFileData } from "../../research/compositions/types";

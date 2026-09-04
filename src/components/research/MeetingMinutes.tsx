@@ -2,7 +2,7 @@
 
 import { SidebarSimple } from "@phosphor-icons/react";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { ThinkingOrb } from "thinking-orbs";
 import {
   type AppLocale,
@@ -16,6 +16,7 @@ import type {
 } from "../../research/domain/activeResearchActivity";
 import { activityCopy } from "../../research/researchPresentation";
 import type { AgentProfile, ResearchEvent } from "../../research/types";
+import { useIsMobileViewport } from "../useMediaQuery";
 import { agentUiName, agentUiRole } from "./agentUiProfile";
 import { researchMeetingUiCopy } from "./researchMeetingUiCopy";
 import { TeamQuestionPanel } from "./TeamQuestionPanel";
@@ -265,6 +266,90 @@ function ConversationHistory({
   );
 }
 
+type MinuteEntryProps = {
+  readonly event: ResearchEvent;
+  readonly previous: ResearchEvent | undefined;
+  readonly agentsById: ReadonlyMap<string, AgentProfile>;
+  readonly locale: ResearchLocale;
+  readonly uiLocale: AppLocale;
+  readonly animate: boolean;
+};
+
+// Memoized so a frame-driven re-render of the room only re-renders entries
+// whose inputs changed, not the whole transcript.
+const MinuteEntry = memo(function MinuteEntry({
+  event,
+  previous,
+  agentsById,
+  locale,
+  uiLocale,
+  animate,
+}: MinuteEntryProps) {
+  const agent = agentsById.get(event.agent);
+  if (!agent) return null;
+  const copy = activityCopy(event.summary[locale], locale);
+  const group = activityGroup(event);
+  const participants = [
+    ...new Set([event.agent, ...(event.participantIds ?? [])]),
+  ]
+    .map((id) => agentsById.get(id))
+    .filter((profile) => profile !== undefined);
+  const collaborative =
+    participants.length > 1 &&
+    (group === "team" || group === "debate" || group === "committee");
+  const startsGroup =
+    previous === undefined || activityGroup(previous) !== group;
+  return (
+    <div className="meeting-minutes__entry" key={event.id}>
+      {startsGroup ? (
+        <div className="meeting-minutes__group" data-group={group}>
+          <span>{groupLabel(group, uiLocale)}</span>
+        </div>
+      ) : null}
+      <article
+        data-event-id={event.id}
+        data-group={group}
+        data-collaborative={collaborative ? "true" : undefined}
+      >
+        {collaborative ? (
+          <div className="meeting-minutes__avatars" aria-hidden="true">
+            {participants.slice(0, 4).map((profile) => (
+              <Image
+                key={profile.id}
+                src={profile.image}
+                alt=""
+                width={24}
+                height={58}
+              />
+            ))}
+          </div>
+        ) : (
+          <Image src={agent.image} alt="" width={24} height={58} />
+        )}
+        <div>
+          <header>
+            <strong>
+              {(collaborative ? participants : [agent])
+                .map((profile) => agentUiName(profile, uiLocale))
+                .join(" × ")}
+            </strong>
+            <span>
+              {collaborative
+                ? conversationLabel(group, uiLocale)
+                : agentUiRole(agent, uiLocale)}
+            </span>
+          </header>
+          <TypedNarrative
+            headline={copy.headline}
+            body={copy.body}
+            animate={animate}
+          />
+        </div>
+      </article>
+    </div>
+  );
+});
+
 export function MeetingMinutes({
   current,
   agents,
@@ -340,11 +425,15 @@ export function MeetingMinutes({
     pendingAgentIds,
     terminalState,
   ]);
+  const agentsById = useMemo(
+    () => new Map(agents.map((agent) => [agent.id, agent])),
+    [agents],
+  );
   const knownIds = useRef(new Set(events.map((event) => event.id)));
   const feedRef = useRef<HTMLDivElement | null>(null);
   const followTail = useRef(true);
   const mobileStackRef = useRef(false);
-  const [mobileStack, setMobileStack] = useState(false);
+  const mobileStack = useIsMobileViewport();
   const displayedEvents = useMemo(
     () => (mobileStack ? [...events].reverse() : events),
     [events, mobileStack],
@@ -352,16 +441,8 @@ export function MeetingMinutes({
   const mounted = useRef(false);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const media = window.matchMedia("(max-width: 767px)");
-    const update = () => {
-      mobileStackRef.current = media.matches;
-      setMobileStack(media.matches);
-    };
-    update();
-    media.addEventListener?.("change", update);
-    return () => media.removeEventListener?.("change", update);
-  }, []);
+    mobileStackRef.current = mobileStack;
+  }, [mobileStack]);
   useEffect(() => {
     const added = events
       .filter((event) => !knownIds.current.has(event.id))
@@ -554,73 +635,17 @@ export function MeetingMinutes({
             </article>
           </div>
         ) : null}
-        {displayedEvents.map((event, index) => {
-          const agent = agents.find((profile) => profile.id === event.agent);
-          if (!agent) return null;
-          const copy = activityCopy(event.summary[locale], locale);
-          const animate = newEventIds.has(event.id);
-          const group = activityGroup(event);
-          const participants = [
-            ...new Set([event.agent, ...(event.participantIds ?? [])]),
-          ]
-            .map((id) => agents.find((profile) => profile.id === id))
-            .filter((profile) => profile !== undefined);
-          const collaborative =
-            participants.length > 1 &&
-            (group === "team" || group === "debate" || group === "committee");
-          const previous = displayedEvents[index - 1];
-          const startsGroup =
-            previous === undefined || activityGroup(previous) !== group;
-          return (
-            <div className="meeting-minutes__entry" key={event.id}>
-              {startsGroup ? (
-                <div className="meeting-minutes__group" data-group={group}>
-                  <span>{groupLabel(group, uiLocale)}</span>
-                </div>
-              ) : null}
-              <article
-                data-event-id={event.id}
-                data-group={group}
-                data-collaborative={collaborative ? "true" : undefined}
-              >
-                {collaborative ? (
-                  <div className="meeting-minutes__avatars" aria-hidden="true">
-                    {participants.slice(0, 4).map((profile) => (
-                      <Image
-                        key={profile.id}
-                        src={profile.image}
-                        alt=""
-                        width={24}
-                        height={58}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Image src={agent.image} alt="" width={24} height={58} />
-                )}
-                <div>
-                  <header>
-                    <strong>
-                      {(collaborative ? participants : [agent])
-                        .map((profile) => agentUiName(profile, uiLocale))
-                        .join(" × ")}
-                    </strong>
-                    <span>
-                      {collaborative
-                        ? conversationLabel(group, uiLocale)
-                        : agentUiRole(agent, uiLocale)}
-                    </span>
-                  </header>
-                  <TypedNarrative
-                    headline={copy.headline}
-                    body={copy.body}
-                    animate={animate}
-                  />
-                </div>
-              </article>
-            </div>
-          );
-        })}
+        {displayedEvents.map((event, index) => (
+          <MinuteEntry
+            key={event.id}
+            event={event}
+            previous={displayedEvents[index - 1]}
+            agentsById={agentsById}
+            locale={locale}
+            uiLocale={uiLocale}
+            animate={newEventIds.has(event.id)}
+          />
+        ))}
         {mobileStack ? null : pendingAgentEntries}
         {terminalState !== undefined ? (
           <section

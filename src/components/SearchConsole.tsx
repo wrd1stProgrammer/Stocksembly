@@ -1,3 +1,5 @@
+import "../styles/search-controls.css";
+import "../styles/search-states.css";
 import {
   ChevronDown,
   LockKeyhole,
@@ -7,7 +9,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent, KeyboardEvent } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { authIsConfigured } from "../auth/amplifyClient";
 import { createAuthenticatedResearchClient } from "../auth/researchClient";
 import { currentAuthTokens } from "../auth/researchSession";
@@ -38,6 +40,7 @@ import {
   ResearchQuestionField,
   SearchField,
 } from "./SearchPrimitives";
+import { useDismissableMenu } from "./useDismissableMenu";
 
 type SearchConsoleProps = {
   readonly locale: AppLocale;
@@ -454,6 +457,16 @@ export function SearchConsole({
   const [targetOverride, setTargetOverride] = useState<ResearchTarget>();
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const profilePanelRef = useRef<HTMLElement>(null);
+  const profileTriggerRef = useRef<HTMLButtonElement>(null);
+  const targetPickerRef = useRef<HTMLElement>(null);
+  useDismissableMenu(profileOpen, () => setProfileOpen(false), [
+    profilePanelRef,
+    profileTriggerRef,
+  ]);
+  useDismissableMenu(targetPickerOpen, () => setTargetPickerOpen(false), [
+    targetPickerRef,
+  ]);
   const [researchProfile, setResearchProfile] = useState<ResearchProfile>(
     DEFAULT_RESEARCH_PROFILE,
   );
@@ -677,6 +690,7 @@ export function SearchConsole({
 
           {profileOpen ? (
             <section
+              ref={profilePanelRef}
               className="research-profile"
               id="research-profile-panel"
               aria-label={profileCopy.customize}
@@ -802,6 +816,7 @@ export function SearchConsole({
           <div className="search-console__actions">
             <div className="search-console__left-actions">
               <button
+                ref={profileTriggerRef}
                 className="research-profile-trigger"
                 type="button"
                 aria-expanded={profileOpen}
@@ -831,7 +846,11 @@ export function SearchConsole({
                 onChange={(value) => updateProfile("explanationMode", value)}
               />
             </div>
-            <section className="research-target" aria-label={detailCopy.mode}>
+            <section
+              ref={targetPickerRef}
+              className="research-target"
+              aria-label={detailCopy.mode}
+            >
               <button
                 className="research-target__trigger"
                 type="button"

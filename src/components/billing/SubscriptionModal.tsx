@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/billing.css";
 import { CheckCircle2, ExternalLink, X } from "lucide-react";
 import { type CSSProperties, useEffect, useId, useMemo, useRef } from "react";
 import type { Locale } from "../../lib/i18n";

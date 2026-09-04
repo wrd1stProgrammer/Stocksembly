@@ -74,16 +74,18 @@ export function ResearchExplanationModeControl(props: {
       <span className="research-explanation-mode__label" aria-hidden="true">
         {labels.label}
       </span>
-      {(["easy", "professional"] as const).map((mode) => (
-        <button
-          key={mode}
-          type="button"
-          aria-pressed={props.value === mode}
-          onClick={() => props.onChange(mode)}
-        >
-          {labels[mode]}
-        </button>
-      ))}
+      <div className="research-explanation-mode__options">
+        {(["easy", "professional"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={props.value === mode}
+            onClick={() => props.onChange(mode)}
+          >
+            {labels[mode]}
+          </button>
+        ))}
+      </div>
     </fieldset>
   );
 }

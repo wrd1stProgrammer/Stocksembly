@@ -1,6 +1,8 @@
 "use client";
 
-import { domAnimation, LazyMotion, m } from "framer-motion";
+import "../styles/landing.css";
+import "../styles/office-game.css";
+import { domAnimation, LazyMotion, m } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { AppLocale } from "../lib/i18n";
 import { copy, researchLocale } from "../lib/i18n";
@@ -10,6 +12,7 @@ import {
   stepLandingOfficeState,
 } from "../research/landingOfficeSimulation";
 import type { OfficeGameController } from "../research/officeGame";
+import { prefersReducedMotion } from "../research/officeReducedMotion";
 import { OFFICE_SCENE_MANIFEST } from "../research/officeSceneManifest";
 import type { AgentId } from "../research/types";
 import { OfficeAgentInfoPanel } from "./research/OfficeAgentInfoPanel";
@@ -75,8 +78,7 @@ export function LandingOfficePreview({
     const host = hostRef.current;
     if (!host) return;
     const abortController = new AbortController();
-    const reducedMotion =
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const reducedMotion = prefersReducedMotion();
     let controller: OfficeGameController | undefined;
     let stopObserving: () => void = () => undefined;
     let animationFrame: number | undefined;
@@ -142,37 +144,48 @@ export function LandingOfficePreview({
       });
     };
 
-    void initialize()
-      .then((createdController) => {
-        if (abortController.signal.aborted) {
-          createdController.destroy();
-          return;
-        }
-        controller = createdController;
-        const mobileCamera =
-          window.matchMedia?.("(max-width: 767px)").matches ?? false;
-        createdController.setCameraControlMode(
-          mobileCamera ? "free" : "overview",
-        );
-        controller.renderSnapshot(currentSnapshot, { cameraMode: "overview" });
-        host.setAttribute("data-visible-bubble-count", "0");
-        host.setAttribute("data-office-ready", "true");
-        setRendererReady(true);
-        if (reducedMotion) {
-          controller.setPaused(true);
-          return;
-        }
-        stopObserving = observeVisibility(host, (isVisible) => {
-          if (isVisible) start();
-          else stop();
+    // Nothing downloads until the office scrolls near the viewport: the Pixi
+    // runtime, the 2.4MB floor image, and twelve sprite sheets all wait here.
+    let initializing = false;
+    const initializeOnce = () => {
+      if (initializing) return;
+      initializing = true;
+      void initialize()
+        .then((createdController) => {
+          if (abortController.signal.aborted) {
+            createdController.destroy();
+            return;
+          }
+          controller = createdController;
+          const mobileCamera =
+            window.matchMedia?.("(max-width: 767px)").matches ?? false;
+          createdController.setCameraControlMode(
+            mobileCamera ? "free" : "overview",
+          );
+          controller.renderSnapshot(currentSnapshot, {
+            cameraMode: "overview",
+          });
+          host.setAttribute("data-visible-bubble-count", "0");
+          host.setAttribute("data-office-ready", "true");
+          setRendererReady(true);
+          if (reducedMotion) controller.setPaused(true);
+          else start();
+        })
+        .catch(() => {
+          if (!abortController.signal.aborted) {
+            setRendererFailed(true);
+            setRendererReady(false);
+          }
         });
-      })
-      .catch(() => {
-        if (!abortController.signal.aborted) {
-          setRendererFailed(true);
-          setRendererReady(false);
-        }
-      });
+    };
+    stopObserving = observeVisibility(host, (isVisible) => {
+      if (!isVisible) {
+        stop();
+        return;
+      }
+      if (controller === undefined) initializeOnce();
+      else start();
+    });
 
     return () => {
       abortController.abort();

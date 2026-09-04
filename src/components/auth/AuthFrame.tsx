@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/auth.css";
 import {
   Check,
   Eye,

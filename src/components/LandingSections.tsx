@@ -1,3 +1,4 @@
+import "../styles/landing.css";
 import Link from "next/link";
 import type { AppLocale } from "../lib/i18n";
 import { copy, localeDetails, locales } from "../lib/i18n";

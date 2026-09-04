@@ -1,3 +1,4 @@
+import "../../styles/legal.css";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { LegalDocument } from "../../lib/legal/legalDocument";

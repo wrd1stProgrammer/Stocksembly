@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/auth.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { configureAmplifyAuth } from "@/src/auth/amplifyClient";

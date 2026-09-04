@@ -1,3 +1,4 @@
+import "@/src/styles/billing.css";
 import type { Metadata } from "next";
 import { PublicPricingGrid } from "@/src/components/billing/PublicPricingGrid";
 import { researchLocaleFromValue } from "@/src/lib/i18n";

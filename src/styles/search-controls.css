@@ -280,21 +280,27 @@
 .research-explanation-mode {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
   margin: 0;
+  padding: 0 0 0 4px;
+  border: 0;
+}
+.research-explanation-mode__label {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: default;
+}
+.research-explanation-mode__options {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   padding: 3px;
   border: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
   border-radius: 9px;
   background: rgb(255 255 255 / 3%);
-}
-.research-explanation-mode__label {
-  padding: 0 6px 0 7px;
-  color: var(--color-text-subtle);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
 }
 .search-console__selection {
   display: flex;
@@ -829,5 +835,124 @@
   .research-button:hover:not(:disabled) .research-button__lights i,
   .research-button:focus-visible:not(:disabled) .research-button__lights i {
     animation: none;
+  }
+}
+
+/* Search console responsive overrides (moved from responsive.css). */
+@media (max-width: 768px) {
+  .border-beam-card {
+    margin-top: var(--space-10);
+  }
+  .search-console {
+    min-height: 154px;
+    padding: 14px;
+    border-radius: 22px;
+  }
+  .search-console__primary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+  .search-field {
+    gap: var(--space-1);
+    min-height: 44px;
+    padding: 0 0 6px;
+    border-right: 0;
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--color-border) 72%, transparent);
+  }
+  .search-field[data-invalid="true"] {
+    border-right-color: transparent;
+    border-bottom-color: color-mix(
+      in srgb,
+      var(--color-danger) 72%,
+      var(--color-border)
+    );
+  }
+  .search-field input,
+  .research-question-field textarea {
+    font-size: var(--type-body);
+    touch-action: manipulation;
+  }
+  .research-question-field {
+    min-height: 42px;
+  }
+  .research-button {
+    right: 14px;
+    bottom: 18px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+  .search-console__actions {
+    margin-top: 6px;
+  }
+  .research-profile__grid {
+    grid-template-columns: 1fr;
+  }
+  .research-profile__peers {
+    grid-template-columns: 100px minmax(120px, 1fr);
+  }
+  .research-profile__peer-list {
+    grid-column: 1 / -1;
+  }
+  .research-target__trigger {
+    max-width: min(240px, calc(100vw - 96px));
+  }
+  .research-target__options {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(340px, calc(100vw - 48px));
+    max-height: min(360px, 52vh);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .research-explanation-mode button {
+    padding-inline: 6px;
+    font-size: 9px;
+  }
+  .research-profile__choice {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 3px;
+  }
+  .research-profile__choice > div {
+    grid-column: 1;
+    grid-row: 3;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+  .research-profile__peers {
+    grid-template-columns: 1fr;
+  }
+  .research-profile__peer-list {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .search-console__actions {
+    position: relative;
+    min-width: 0;
+  }
+
+  .research-target {
+    position: static;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .research-target__trigger {
+    width: auto;
+    max-width: min(260px, calc(100vw - 104px));
+    min-width: 0;
+  }
+
+  .research-target__options {
+    right: 0;
+    left: 0;
+    width: auto;
+    max-width: none;
   }
 }

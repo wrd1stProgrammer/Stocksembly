@@ -1,5 +1,6 @@
 "use client";
 
+import "../../styles/office-game.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../../lib/i18n";
 import type {
@@ -10,6 +11,7 @@ import {
   bubbleStateForSnapshot,
   isActorReadyForSpeech,
 } from "../../research/officeGameBubbleState";
+import { prefersReducedMotion } from "../../research/officeReducedMotion";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import { speechBubbleSegments } from "../../research/researchPresentation";
@@ -396,10 +398,8 @@ export function PixelOfficeGame({
     if (!host) return;
     const abortController = new AbortController();
     let readyFrame = 0;
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    setReducedMotion(prefersReducedMotion);
+    const reducedMotionPreferred = prefersReducedMotion();
+    setReducedMotion(reducedMotionPreferred);
     setRendererFailed(false);
     setRendererReady(false);
 
@@ -408,7 +408,7 @@ export function PixelOfficeGame({
         createOfficeSnapshotRenderer({
           host,
           locale,
-          reducedMotion: prefersReducedMotion,
+          reducedMotion: reducedMotionPreferred,
           showActorBubbles: true,
           onActorSelect: setSelectedAgentId,
           signal: abortController.signal,

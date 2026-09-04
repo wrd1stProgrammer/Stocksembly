@@ -1,5 +1,6 @@
+import "@/src/styles/research-room.css";
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { ResearchRoomCatalog } from "@/src/components/researchRoom/ResearchRoomCatalog";
 import { researchRoomUiCopy } from "@/src/components/researchRoom/researchRoomCopy";
@@ -16,6 +17,7 @@ import {
   listResearchRoomReportPage,
   RESEARCH_ROOM_PAGE_SIZE,
 } from "@/src/research/server/researchRoom/researchRoomCatalog";
+import { requestFromPage } from "../_lib/pageRequest";
 
 export const dynamic = "force-dynamic";
 
@@ -114,26 +116,11 @@ export async function generateMetadata({
   };
 }
 
-async function requestFromPage() {
-  const [incomingHeaders, incomingCookies] = await Promise.all([
-    headers(),
-    cookies(),
-  ]);
-  const host = incomingHeaders.get("host") ?? "localhost:3000";
-  return new Request(`http://${host}/research-room`, {
-    headers: {
-      host,
-      cookie: incomingCookies.toString(),
-      "sec-fetch-site": "same-origin",
-    },
-  });
-}
-
 export default async function ResearchRoomPage({ searchParams }: Props) {
   const query = await searchParams;
   const page = archivePage(query.page);
   const api = await getLiveResearchApi();
-  const request = await requestFromPage();
+  const request = await requestFromPage("/research-room");
   const storedLocale = (await cookies()).get("stocksembly_locale")?.value;
   const [access, preference] = await Promise.all([
     api.researchRoomAccess(request),

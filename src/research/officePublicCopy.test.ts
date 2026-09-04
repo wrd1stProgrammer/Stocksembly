@@ -1,16 +1,9 @@
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DepartmentRail } from "../components/research/DepartmentRail";
 import { PixelOfficeGame } from "../components/research/PixelOfficeGame";
 import { copy } from "../lib/i18n";
-import {
-  agents,
-  initialResearchEvent,
-  makeResearchCompany,
-  phaseLabels,
-  researchEvents,
-} from "./mockResearch";
+import { agents, phaseLabels, researchEvents } from "./mockResearch";
 import { AGENT_IDS, OFFICE_SCENE_MANIFEST } from "./officeSceneManifest";
 
 const expectedIdentity = {
@@ -64,18 +57,18 @@ describe("office public copy", () => {
     expect(incomplete).toEqual([]);
   });
 
-  it("states the exact ten-specialist plus independent-chair contract in both locales", () => {
+  it("keeps the approved research-file hero description in both locales", () => {
     // Given
     const expectedHeroCopy = {
       en: {
         descriptionLead:
-          "Ten specialists across four departments investigate the evidence.",
-        descriptionTail:
-          "An independent research chair leads challenge and synthesis.",
+          "They investigate independently, challenge each other's findings, and hand you a research file with every source linked.",
+        descriptionTail: "No buy or sell calls. No price targets.",
       },
       ko: {
-        descriptionLead: "4개 부서의 전문가 10명이 근거를 조사합니다.",
-        descriptionTail: "독립 리서치 의장이 반론과 종합을 이끕니다.",
+        descriptionLead:
+          "각자 조사한 결과를 서로 반박하고, 출처가 링크된 리서치 파일로 정리합니다.",
+        descriptionTail: "매매 추천도, 목표가도 없습니다.",
       },
     } as const;
 
@@ -93,37 +86,6 @@ describe("office public copy", () => {
 
     // Then
     expect(heroCopy).toEqual(expectedHeroCopy);
-  });
-
-  it("renders the canonical eleven-person roster count in DepartmentRail", () => {
-    // Given
-    const company = makeResearchCompany(
-      "NVDA",
-      "NVIDIA Corporation",
-      "NASDAQ",
-      "Semiconductors",
-    );
-
-    // When
-    const rendered = renderMarkup(
-      createElement(DepartmentRail, {
-        agents,
-        company,
-        current: initialResearchEvent,
-        activeAgentIds: ["chair"],
-        walkingAgentIds: [],
-        completedAgentIds: [],
-        locale: "en",
-      }),
-    );
-
-    // Then
-    expect(
-      rendered.querySelector(".department-rail__heading em"),
-    ).toHaveTextContent(String(AGENT_IDS.length));
-    expect(rendered.querySelectorAll(".agent-list > li")).toHaveLength(
-      OFFICE_SCENE_MANIFEST.roster.length,
-    );
   });
 
   it("contains no stale six-person or private-reasoning language", () => {

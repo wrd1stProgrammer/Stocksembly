@@ -1,5 +1,7 @@
 "use client";
 
+import "../../styles/researchWorkspace";
+import "../../styles/research-room.css";
 import { ArrowLeft, Languages, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";

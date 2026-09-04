@@ -194,7 +194,12 @@ export function useResearchRun(
 
   useEffect(() => {
     if (stateForRun(snapshot.run.status) !== "live") return;
-    const timer = window.setInterval(() => void refreshSnapshot(false), 5_000);
+    // Polling backs up the event stream; a hidden tab resyncs when it returns
+    // (see the visibility listener below), so it skips the interval work.
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void refreshSnapshot(false);
+    }, 5_000);
     return () => window.clearInterval(timer);
   }, [refreshSnapshot, snapshot.run.status]);
 

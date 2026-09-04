@@ -1,11 +1,12 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { AppLocale } from "../lib/i18n";
 import { copy, localeDetails, locales } from "../lib/i18n";
 import { HeaderAuthAction } from "./auth/HeaderAuthAction";
 import { Brand } from "./Brand";
+import { useDismissableMenu } from "./useDismissableMenu";
 
 type HeaderProps = {
   readonly locale: AppLocale;
@@ -17,22 +18,7 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!languageOpen) return;
-    const closeMenu = (event: PointerEvent) => {
-      if (!languageRef.current?.contains(event.target as Node))
-        setLanguageOpen(false);
-    };
-    const closeFromKeyboard = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setLanguageOpen(false);
-    };
-    document.addEventListener("pointerdown", closeMenu);
-    document.addEventListener("keydown", closeFromKeyboard);
-    return () => {
-      document.removeEventListener("pointerdown", closeMenu);
-      document.removeEventListener("keydown", closeFromKeyboard);
-    };
-  }, [languageOpen]);
+  useDismissableMenu(languageOpen, () => setLanguageOpen(false), [languageRef]);
 
   function selectLocale(nextLocale: AppLocale) {
     onLocaleChange(nextLocale);

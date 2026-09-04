@@ -1,3 +1,4 @@
+import "@/src/styles/research-room.css";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
