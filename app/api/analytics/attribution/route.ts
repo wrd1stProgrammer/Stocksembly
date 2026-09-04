@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
+  const policyRequest = request.clone();
   const contentLength = Number(request.headers.get("content-length") ?? "0");
   if (contentLength > 8_192)
     return Response.json(
@@ -25,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
       { status: 400 },
     );
   return await (await getLiveResearchApi()).recordAcquisitionAttribution(
-    request,
+    policyRequest,
     parsed.data,
   );
 }
