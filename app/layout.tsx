@@ -8,6 +8,7 @@ import { AnalyticsConsent } from "@/src/components/analytics/AnalyticsConsent";
 import { AuthSessionBridge } from "@/src/components/auth/AuthSessionBridge";
 import { ROUTE_LOCALE_HEADER } from "@/src/lib/agent/markdownHeaders";
 import { isLocale, localeDetails, resolveRequestLocale } from "@/src/lib/i18n";
+import { resolveMetaPixelId } from "@/src/lib/meta/config";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/src/styles/tailwind.css";
 import "@/src/styles/tokens.css";
@@ -21,12 +22,9 @@ const inter = localFont({
   weight: "100 900",
 });
 
-const { NEXT_PUBLIC_GA_MEASUREMENT_ID, NEXT_PUBLIC_META_PIXEL_ID } =
-  process.env;
+const { NEXT_PUBLIC_GA_MEASUREMENT_ID } = process.env;
 const googleAnalyticsMeasurementId = NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
-const metaPixelId = /^\d+$/u.test(NEXT_PUBLIC_META_PIXEL_ID?.trim() ?? "")
-  ? NEXT_PUBLIC_META_PIXEL_ID?.trim()
-  : undefined;
+const metaPixelId = resolveMetaPixelId();
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stocksembly.com"),
