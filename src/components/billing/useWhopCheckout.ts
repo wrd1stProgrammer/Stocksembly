@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { currentAuthTokens } from "../../auth/researchSession";
+import { trackMetaEvent } from "../../lib/meta/pixel";
 import type { WhopCheckoutLaunch } from "../../lib/whop/contracts";
 
 export type EmbeddedWhopCheckout = {
@@ -86,6 +87,18 @@ export function useWhopCheckout() {
         }
         if (!response.ok || typeof payload?.purchaseUrl !== "string")
           throw new Error("BILLING_CHECKOUT_UNAVAILABLE");
+
+        if (payload.tracking !== undefined)
+          trackMetaEvent(
+            "InitiateCheckout",
+            {
+              value: payload.tracking.value,
+              currency: payload.tracking.currency,
+              content_name: payload.tracking.contentName,
+              content_type: "product",
+            },
+            payload.tracking.eventId,
+          );
 
         if (!isEmbeddedCheckout(payload)) {
           window.location.assign(payload.purchaseUrl);

@@ -4,7 +4,7 @@ export const privacyDocument: LegalDocument = {
   title: "Privacy Policy",
   description:
     "How SERN collects, uses, stores, and protects personal information when you use Stocksembly.",
-  updated: "July 22, 2026",
+  updated: "September 5, 2026",
   notice:
     "Pre-launch draft. Service providers, overseas transfers, exact retention periods, and cookie vendors must be completed before production collection begins.",
   sections: [
@@ -21,7 +21,7 @@ export const privacyDocument: LegalDocument = {
         "Subscription and transaction information, such as plan, amount, payment status, billing country, and receipts. A payment provider may process card or bank details; SERN does not intend to store complete card numbers.",
         "Research content, including tickers, companies, prompts, research questions, generated reports, saved history, and feedback.",
         "Usage and technical information, including IP address, device and browser information, timestamps, viewed pages, feature interactions, crash data, and security logs.",
-        "Cookie and analytics information used to remember preferences and understand product performance.",
+        "Cookie, analytics, and advertising attribution information used to remember preferences, understand product performance, and measure campaign conversions.",
         "Communications you send to support, privacy, or legal contacts.",
       ],
     },
@@ -33,7 +33,7 @@ export const privacyDocument: LegalDocument = {
         "Process subscriptions, usage charges, cancellations, refunds, and required records.",
         "Operate, troubleshoot, measure, and improve Stocksembly and prevent fraud or misuse.",
         "Respond to requests, communicate service changes, and comply with legal obligations.",
-        "Use analytics or optional cookies where consent or another valid legal basis is required.",
+        "Use analytics or advertising measurement cookies where consent or another valid legal basis is required.",
       ],
     },
     {
@@ -50,15 +50,15 @@ export const privacyDocument: LegalDocument = {
       ],
     },
     {
-      title: "6. Cookies and analytics",
+      title: "6. Cookies, analytics, and advertising measurement",
       paragraphs: [
-        "Stocksembly may use essential cookies for login, security, and preferences, and analytics cookies to understand aggregate usage and product performance. Where required, non-essential cookies will remain off until you consent. You can change browser settings or use the service's cookie controls when available.",
+        "Stocksembly may use essential cookies for login, security, and preferences, analytics cookies to understand aggregate usage and product performance, and Meta Pixel or Conversions API data to measure advertising conversions. Advertising measurement may include pseudonymous identifiers, a hashed account identifier or email address, pages viewed, checkout activity, and purchase value. Where required, these non-essential tools remain off until you consent. You can change browser settings or use the service's cookie controls when available.",
       ],
     },
     {
       title: "7. Service providers and disclosures",
       paragraphs: [
-        "SERN may engage providers for hosting, authentication, AI processing, market and news data, payments, analytics, customer support, and security. The production provider list and each provider's role will be published before those providers process personal information.",
+        "SERN may engage providers for hosting, authentication, AI processing, market and news data, payments, analytics, advertising measurement, customer support, and security. These providers include Meta for consent-based advertising attribution. The production provider list and each provider's role will be published before those providers process personal information.",
         "Information may also be disclosed where required by law, to protect users or the service, in connection with a business transfer, or at your direction. SERN does not sell personal information or share it with brokers for affiliate marketing.",
       ],
     },

@@ -2,6 +2,12 @@ import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsConsent } from "./AnalyticsConsent";
 
+vi.mock("../../lib/meta/pixel", () => ({
+  MetaPixel: ({ pixelId }: { readonly pixelId: string }) => (
+    <i data-meta-pixel={pixelId} />
+  ),
+}));
+
 const CONSENT_COOKIE = "stocksembly_analytics_consent";
 const PENDING_KEY = "stocksembly:pending-acquisition-v1";
 
@@ -24,6 +30,24 @@ afterEach(() => {
 });
 
 describe("AnalyticsConsent attribution", () => {
+  it("loads Meta Pixel only after analytics consent", async () => {
+    grantConsent();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 401 })),
+    );
+
+    const { container } = render(
+      <AnalyticsConsent enabled metaPixelId="1941324473216410" />,
+    );
+
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-meta-pixel="1941324473216410"]'),
+      ).not.toBeNull(),
+    );
+  });
+
   it("submits the Threads UTM and keeps it while authentication is pending", async () => {
     grantConsent();
     window.history.replaceState(
