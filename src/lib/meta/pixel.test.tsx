@@ -3,16 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MetaPixel, trackMetaEvent } from "./pixel";
 
 vi.mock("next/script", () => ({
-  default: ({
-    children,
-    onReady,
-  }: {
-    readonly children: string;
-    readonly onReady?: () => void;
-  }) => {
-    onReady?.();
-    return <script>{children}</script>;
-  },
+  default: ({ children }: { readonly children: string }) => (
+    <script>{children}</script>
+  ),
 }));
 
 function setConsentCookie(value: "" | "granted"): void {
@@ -23,6 +16,7 @@ function setConsentCookie(value: "" | "granted"): void {
 afterEach(() => {
   cleanup();
   delete window.fbq;
+  delete window.stocksemblyFlushMetaEvents;
   setConsentCookie("");
 });
 
@@ -38,7 +32,7 @@ describe("Meta Pixel event delivery", () => {
     const fbq = vi.fn();
     window.fbq = fbq;
 
-    render(<MetaPixel pixelId="123" />);
+    window.stocksemblyFlushMetaEvents?.();
 
     expect(fbq).toHaveBeenCalledWith(
       "track",
@@ -46,6 +40,7 @@ describe("Meta Pixel event delivery", () => {
       { currency: "USD", value: 19 },
       { eventID: "checkout:123" },
     );
+    expect(window.stocksemblyFlushMetaEvents).toBeUndefined();
   });
 
   it("does not retain checkout events without analytics consent", () => {
@@ -54,8 +49,16 @@ describe("Meta Pixel event delivery", () => {
     const fbq = vi.fn();
     window.fbq = fbq;
 
-    render(<MetaPixel pixelId="123" />);
+    window.stocksemblyFlushMetaEvents?.();
 
     expect(fbq).not.toHaveBeenCalled();
+  });
+
+  it("flushes pending events from the inline bootstrap after fbq is created", () => {
+    const { container } = render(<MetaPixel pixelId="123" />);
+
+    expect(container.querySelector("script")?.textContent).toContain(
+      "window.stocksemblyFlushMetaEvents&&window.stocksemblyFlushMetaEvents()",
+    );
   });
 });
