@@ -80,6 +80,9 @@ const fixture: AdminAnalyticsOverview = {
       rate: 10,
     },
   ],
+  onboardingDiscoverySources: [
+    { key: "social", label: "소셜 미디어", count: 42, rate: 35 },
+  ],
   plans: [{ key: "free", label: "Free", count: 101, rate: 84.17 }],
   statuses: [{ key: "active", label: "활성", count: 120, rate: 100 }],
   retention: [{ horizon: "D1", eligible: 100, retained: 30, rate: 30 }],
@@ -111,6 +114,7 @@ const fixture: AdminAnalyticsOverview = {
         displayName: null,
         locale: "ko",
         acquisitionChannel: "social",
+        onboardingDiscoverySource: "social",
         acquisition: {
           source: "threads",
           medium: "organic_social",
@@ -143,6 +147,8 @@ describe("AdminDashboard", () => {
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.getAllByText("threads").length).toBeGreaterThan(0);
     expect(screen.getAllByText("threads_profile").length).toBeGreaterThan(0);
+    expect(screen.getByText("가입 설문 유입 경로")).toBeInTheDocument();
+    expect(screen.getAllByText("소셜 미디어").length).toBeGreaterThan(0);
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 });

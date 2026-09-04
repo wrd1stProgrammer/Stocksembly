@@ -1,5 +1,9 @@
 import type { Pool, PoolClient } from "pg";
 import {
+  isOnboardingDiscoverySource,
+  ONBOARDING_DISCOVERY_SOURCE_LABELS_KO,
+} from "../../accounts/onboarding";
+import {
   type AdminAnalyticsOverview,
   type AdminAnalyticsQuery,
   type AdminBreakdown,
@@ -223,6 +227,11 @@ function mapUser(row: Record<string, unknown>): AdminUserRow {
     ].includes(channel)
       ? channel
       : "unknown") as AdminUserRow["acquisitionChannel"],
+    onboardingDiscoverySource: isOnboardingDiscoverySource(
+      row["onboarding_discovery_source"],
+    )
+      ? row["onboarding_discovery_source"]
+      : null,
     acquisition:
       row["acquisition_captured_at"] === null ||
       row["acquisition_captured_at"] === undefined
@@ -271,7 +280,8 @@ async function listUsersWithClient(
   const rows = await client.query<Record<string, unknown>>(
     `WITH ${CANONICAL_EVENTS_CTE}
      SELECT u.principal_id, u.email, u.display_name, u.preferred_locale,
-       u.acquisition_channel, u.created_at, u.last_seen_at,
+       u.acquisition_channel, u.onboarding_discovery_source,
+       u.created_at, u.last_seen_at,
        a.source AS acquisition_source, a.medium AS acquisition_medium,
        a.campaign AS acquisition_campaign, a.term AS acquisition_term,
        a.content AS acquisition_content,
@@ -506,6 +516,17 @@ export async function queryAdminOverview(
        GROUP BY key ORDER BY count DESC, key`,
       globalValues,
     );
+    const onboardingDiscoveryRows = await client.query<{
+      key: string;
+      count: number;
+    }>(
+      `SELECT COALESCE(u.onboarding_discovery_source, 'unanswered') AS key,
+              COUNT(*)::int AS count
+       FROM app_users u
+       WHERE u.created_at >= $1 AND u.created_at < $2 AND ${global.sql}
+       GROUP BY key ORDER BY count DESC, key`,
+      globalValues,
+    );
     const current = userFilters(query, 1);
     const planRows = await client.query<{ key: string; count: number }>(
       `SELECT CASE WHEN e.plan_code IN ('pro','ultra') THEN e.plan_code
@@ -648,6 +669,10 @@ export async function queryAdminOverview(
       acquisitionCampaigns: breakdown(campaignRows.rows, {
         unattributed: "미기록",
       }),
+      onboardingDiscoverySources: breakdown(onboardingDiscoveryRows.rows, {
+        ...ONBOARDING_DISCOVERY_SOURCE_LABELS_KO,
+        unanswered: "미응답",
+      }),
       plans: breakdown(planRows.rows, PLAN_LABELS),
       statuses: breakdown(statusRows.rows, STATUS_LABELS),
       retention: retentionRows.rows.map(
@@ -693,7 +718,8 @@ export async function queryAdminUser(
     const userResult = await client.query<Record<string, unknown>>(
       `WITH ${CANONICAL_EVENTS_CTE}
        SELECT u.principal_id, u.email, u.display_name, u.preferred_locale,
-         u.acquisition_channel, u.created_at, u.last_seen_at,
+         u.acquisition_channel, u.onboarding_discovery_source,
+         u.created_at, u.last_seen_at,
          a.source AS acquisition_source, a.medium AS acquisition_medium,
          a.campaign AS acquisition_campaign, a.term AS acquisition_term,
          a.content AS acquisition_content,

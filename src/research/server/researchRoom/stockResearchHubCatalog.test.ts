@@ -11,7 +11,7 @@ import {
 afterEach(cleanupStockHubFixtures);
 
 describe("stock research hub catalog", () => {
-  it("returns only mature public reports from each absolute latest version", async () => {
+  it("returns the latest mature publishable version for every public report", async () => {
     // Given
     await createStockHubFixture([
       {
@@ -69,7 +69,7 @@ describe("stock research hub catalog", () => {
         reportId: stockHubFixtureId("20000000", 4),
         symbol: "NVDA",
         company: "NVIDIA Corporation",
-        question: "An older complete version must not leak",
+        question: "Keep the last completed research visible",
         locale: "en",
         researchKind: "committee",
         versions: [
@@ -132,6 +132,14 @@ describe("stock research hub catalog", () => {
             departmentId: "financial",
           },
           publishedAt: "2026-08-02T00:00:00.000Z",
+          status: "complete",
+        },
+        {
+          reportId: stockHubFixtureId("20000000", 4),
+          question: "Keep the last completed research visible",
+          locale: "en",
+          researchTarget: { kind: "committee" },
+          publishedAt: "2026-08-01T00:00:00.000Z",
           status: "complete",
         },
       ],

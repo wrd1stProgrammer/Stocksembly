@@ -22,7 +22,7 @@ describe("Whop billing contracts", () => {
   it("uses the final plan and free-credit policy", () => {
     expect(MONTHLY_CREDIT_ALLOWANCE.pro).toBe(150);
     expect(MONTHLY_CREDIT_ALLOWANCE.ultra).toBe(400);
-    expect(FREE_SIGNUP_CREDIT_ALLOWANCE).toBe(4);
+    expect(FREE_SIGNUP_CREDIT_ALLOWANCE).toBe(5);
     expect(FREE_DAILY_CREDIT_ALLOWANCE).toBe(0);
     expect(CREDIT_COSTS.researchRoomView).toBe(3);
     expect(CREDIT_COSTS.researchTranslation).toBe(1);

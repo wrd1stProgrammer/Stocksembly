@@ -7,6 +7,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import { ONBOARDING_DISCOVERY_SOURCE_LABELS_KO } from "../../accounts/onboarding";
 import type { AdminUserDetail as AdminUserDetailData } from "../../admin/analyticsContracts";
 
 type Props = { readonly data: AdminUserDetailData; readonly backQuery: string };
@@ -47,8 +48,14 @@ export function AdminUserDetail({ data, backQuery }: Props) {
         </article>
         <article>
           <UserRound size={18} />
-          <span>유입 채널</span>
-          <strong>{user.acquisitionChannel}</strong>
+          <span>가입 설문 유입</span>
+          <strong>
+            {user.onboardingDiscoverySource === null
+              ? "미응답"
+              : ONBOARDING_DISCOVERY_SOURCE_LABELS_KO[
+                  user.onboardingDiscoverySource
+                ]}
+          </strong>
         </article>
       </section>
       <section className="admin-panel admin-detail__acquisition">

@@ -26,7 +26,7 @@ import {
   localizedResearchQuestions,
   type ResearchQuestionLocalizationInput,
 } from "./researchRoomLocalizations";
-import { ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE } from "./researchRoomPublicCatalog";
+import { LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE } from "./researchRoomPublicCatalog";
 import type { ResearchTranslationLocale } from "./researchTranslationLocales";
 
 export const RESEARCH_ROOM_PAGE_SIZE = 32;
@@ -213,7 +213,7 @@ function selectSql(where = "") {
     WHERE reports.state = 'published'
       AND report_versions.status IN ('complete', 'complete_with_limitations')
       AND runs.status IN ('completed', 'complete-with-limitations')
-      AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
+      AND ${LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE}
       ${where}`;
 }
 
@@ -226,7 +226,7 @@ function sitemapSelectSql() {
     WHERE reports.state = 'published'
       AND report_versions.status IN ('complete', 'complete_with_limitations')
       AND runs.status IN ('completed', 'complete-with-limitations')
-      AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
+      AND ${LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE}
     ORDER BY report_versions.published_at DESC, reports.report_id DESC`;
 }
 
@@ -386,12 +386,13 @@ export async function listResearchRoomReportPage(
         `SELECT research_requests.symbol AS symbol, COUNT(*) AS count
          FROM reports
          JOIN report_versions USING(report_id)
+         JOIN artifacts USING(artifact_id)
          JOIN research_requests USING(run_id)
          JOIN runs USING(run_id)
          WHERE reports.state = 'published'
            AND report_versions.status IN ('complete', 'complete_with_limitations')
            AND runs.status IN ('completed', 'complete-with-limitations')
-           AND ${ABSOLUTE_LATEST_REPORT_VERSION_PREDICATE}
+           AND ${LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE}
          GROUP BY research_requests.symbol
          ORDER BY count DESC, symbol ASC`,
       )

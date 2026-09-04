@@ -67,6 +67,7 @@ import {
   PublicQuestionSchema,
 } from "../../research/server/api/researchCommandContracts";
 import type { ResearchPrincipal } from "../../research/server/http/researchAuth";
+import type { OnboardingDiscoverySource } from "../onboarding";
 import {
   type AccountBillingStatus,
   type AccountStore,
@@ -2575,6 +2576,48 @@ export class PostgresAccountStore implements AccountStore {
     } catch (error) {
       throw new AccountStoreUnavailableError(
         "ACCOUNT_LOCALE_PREFERENCE_UPDATE_FAILED",
+        { cause: error },
+      );
+    }
+  }
+
+  async onboardingVersion(principalId: string): Promise<number> {
+    try {
+      const result = await this.pool.query<{ onboarding_version: number }>(
+        `SELECT onboarding_version
+         FROM app_users
+         WHERE principal_id = $1`,
+        [principalId],
+      );
+      return result.rows[0]?.onboarding_version ?? 0;
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_ONBOARDING_STATE_READ_FAILED",
+        { cause: error },
+      );
+    }
+  }
+
+  async completeOnboarding(
+    principalId: string,
+    version: number,
+    discoverySource: OnboardingDiscoverySource,
+  ): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE app_users
+         SET onboarding_version = GREATEST(onboarding_version, $2),
+             onboarding_discovery_source = COALESCE(
+               onboarding_discovery_source,
+               $3
+             ),
+             updated_at = now()
+         WHERE principal_id = $1`,
+        [principalId, version, discoverySource],
+      );
+    } catch (error) {
+      throw new AccountStoreUnavailableError(
+        "ACCOUNT_ONBOARDING_STATE_UPDATE_FAILED",
         { cause: error },
       );
     }

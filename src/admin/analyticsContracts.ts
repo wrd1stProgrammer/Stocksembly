@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { OnboardingDiscoverySource } from "../accounts/onboarding";
 
 export const adminRangePresetSchema = z.enum(["7", "30", "90", "custom"]);
 export type AdminRangePreset = z.infer<typeof adminRangePresetSchema>;
@@ -153,6 +154,7 @@ export type AdminUserRow = {
   readonly displayName: string | null;
   readonly locale: string | null;
   readonly acquisitionChannel: Exclude<AcquisitionChannel, "all">;
+  readonly onboardingDiscoverySource: OnboardingDiscoverySource | null;
   readonly acquisition: AdminUserAcquisition | null;
   readonly createdAt: string;
   readonly lastSeenAt: string;
@@ -182,6 +184,7 @@ export type AdminAnalyticsOverview = {
   readonly acquisition: readonly AdminBreakdown[];
   readonly acquisitionSources: readonly AdminBreakdown[];
   readonly acquisitionCampaigns: readonly AdminBreakdown[];
+  readonly onboardingDiscoverySources: readonly AdminBreakdown[];
   readonly plans: readonly AdminBreakdown[];
   readonly statuses: readonly AdminBreakdown[];
   readonly retention: readonly AdminRetention[];

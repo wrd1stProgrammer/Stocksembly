@@ -7,6 +7,11 @@ export const MONTHLY_CREDIT_ALLOWANCE: Readonly<Record<BillingTier, number>> = {
   ultra: 400,
 };
 
+export const PAID_PLAN_PRICES = {
+  pro: { month: 19, year: 190 },
+  ultra: { month: 39, year: 390 },
+} as const;
+
 export const CREDIT_COSTS = {
   committeeResearch: 10,
   departmentResearch: 5,

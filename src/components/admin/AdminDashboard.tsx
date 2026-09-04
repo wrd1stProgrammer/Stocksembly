@@ -12,6 +12,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import Link from "next/link";
+import { ONBOARDING_DISCOVERY_SOURCE_LABELS_KO } from "../../accounts/onboarding";
 import type {
   AdminAnalyticsOverview,
   AdminBreakdown,
@@ -213,12 +214,14 @@ function UserTable({
                 <td>{new Date(user.createdAt).toLocaleDateString("ko-KR")}</td>
                 <td className="admin-acquisition">
                   <strong className="admin-acquisition__source">
-                    {user.acquisition?.source ?? user.acquisitionChannel}
+                    {user.onboardingDiscoverySource === null
+                      ? "미응답"
+                      : ONBOARDING_DISCOVERY_SOURCE_LABELS_KO[
+                          user.onboardingDiscoverySource
+                        ]}
                   </strong>
                   <small className="admin-acquisition__campaign">
-                    {user.acquisition?.campaign ??
-                      user.acquisition?.medium ??
-                      "—"}
+                    {user.acquisition?.source ?? user.acquisitionChannel}
                   </small>
                 </td>
                 <td>
@@ -385,8 +388,14 @@ export function AdminDashboard({ data }: Props) {
             funnel={data.checkoutFunnel}
           />
         </div>
-        <div className="admin-three-column">
-          <Breakdown title="유입 채널" rows={data.acquisition} />
+        <div className="admin-two-column">
+          <Breakdown
+            title="가입 설문 유입 경로"
+            rows={data.onboardingDiscoverySources}
+          />
+          <Breakdown title="자동 감지 유입 채널" rows={data.acquisition} />
+        </div>
+        <div className="admin-two-column">
           <Breakdown title="UTM 소스" rows={data.acquisitionSources} />
           <Breakdown title="UTM 캠페인" rows={data.acquisitionCampaigns} />
         </div>
