@@ -127,7 +127,7 @@ export function LandingOfficePreview({
     host.removeAttribute("data-office-ready");
 
     const initialize = async () => {
-      // Pixi is intentionally loaded after the shell and loader have painted.
+      // Load the shared office renderer after the shell and loader have painted.
       // Keeping the canvas hidden until its first projected frame avoids the
       // transient, unprojected zoomed scene that was visible on first load.
       await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
@@ -136,7 +136,7 @@ export function LandingOfficePreview({
       );
       return createOfficeSnapshotRenderer({
         host,
-        locale: researchLocale(locale),
+        locale,
         reducedMotion,
         showActorUi: false,
         onActorSelect: setSelectedAgentId,
@@ -144,8 +144,7 @@ export function LandingOfficePreview({
       });
     };
 
-    // Nothing downloads until the office scrolls near the viewport: the Pixi
-    // runtime, the 2.4MB floor image, and twelve sprite sheets all wait here.
+    // Load the shared renderer and office assets only near the viewport.
     let initializing = false;
     const initializeOnce = () => {
       if (initializing) return;

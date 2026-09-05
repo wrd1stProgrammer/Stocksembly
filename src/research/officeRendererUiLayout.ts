@@ -45,6 +45,7 @@ export type OfficeUiLayoutInput = {
   readonly projection: OfficeRenderSnapshot;
   readonly viewport: OfficeRendererViewport;
   readonly obstacles?: readonly OfficeScreenRect[];
+  readonly actorDisplayScale?: number;
 };
 
 const EDGE_INSET = 4;
@@ -189,16 +190,19 @@ function contextFor(
   actor: OfficeRenderActor,
   projection: OfficeRenderSnapshot,
   viewport: OfficeRendererViewport,
+  displayScale: number | undefined,
 ): ActorScreenContext {
   const { camera } = projection;
   const x = camera.x + actor.world.x * camera.scale;
   const y = camera.y + actor.world.y * camera.scale;
-  const spriteScale = actorDisplayScale(actor.animation) * camera.scale;
+  const spriteScale =
+    (displayScale ?? actorDisplayScale(actor.animation)) * camera.scale;
   const bodyBounds = Object.freeze({
     left: x - ACTOR_ATLAS.footPivot.x * spriteScale,
     top:
       y +
-      (actorVisualTopInset(actor.animation) - ACTOR_ATLAS.footPivot.y) *
+      ((displayScale === undefined ? actorVisualTopInset(actor.animation) : 0) -
+        ACTOR_ATLAS.footPivot.y) *
         spriteScale,
     right:
       x + (ACTOR_ATLAS.frame.width - ACTOR_ATLAS.footPivot.x) * spriteScale,
@@ -224,7 +228,12 @@ export function layoutOfficeUi(
   input: OfficeUiLayoutInput,
 ): readonly OfficeActorUiLayout[] {
   const contexts = input.projection.actors.map((actor) =>
-    contextFor(actor, input.projection, input.viewport),
+    contextFor(
+      actor,
+      input.projection,
+      input.viewport,
+      input.actorDisplayScale,
+    ),
   );
   const bubbleScale = bubbleScreenScale(input.projection, input.viewport);
   // Dialogue is the primary research signal. Place active speech first, then
