@@ -8,6 +8,7 @@ import {
   uiMessage,
 } from "../../lib/i18n";
 import type { ResearchFileData } from "../../research/compositions/types";
+import type { OfficePresentation } from "../../research/officeDialogue";
 import type { OfficeCameraControlMode } from "../../research/officeGame";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import type { AgentId, ResearchEvent } from "../../research/types";
@@ -16,6 +17,7 @@ import { PixelOfficeGame } from "./PixelOfficeGame";
 
 type Props = {
   readonly current: ResearchEvent;
+  readonly presentation?: OfficePresentation;
   readonly events?: readonly ResearchEvent[];
   readonly snapshot?: OfficeSimulationSnapshot;
   readonly renderPreviousSnapshot?: OfficeSimulationSnapshot;
@@ -37,6 +39,7 @@ type Props = {
 
 export function OfficeStage({
   current,
+  presentation,
   events = [current],
   snapshot,
   renderPreviousSnapshot,
@@ -150,6 +153,7 @@ export function OfficeStage({
           <PixelOfficeGame
             phase={current.phase}
             currentEvent={current}
+            {...(presentation ? { presentation } : {})}
             events={events}
             {...(snapshot ? { snapshot } : {})}
             {...(renderPreviousSnapshot ? { renderPreviousSnapshot } : {})}

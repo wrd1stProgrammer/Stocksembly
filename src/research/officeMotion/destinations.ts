@@ -1,3 +1,4 @@
+import type { OfficeDialogue } from "../officeDialogue";
 import {
   type Cell,
   OFFICE_SCENE_MANIFEST,
@@ -168,4 +169,47 @@ export function destinationFor(actor: OfficeActorSnapshot): LiveDestination {
     facing: actor.facing,
     seated: false,
   };
+}
+
+export function dialogueDestinations(
+  dialogue: OfficeDialogue,
+  seatedTeams: ReadonlySet<string>,
+): ReadonlyMap<ActorId, LiveDestination> {
+  const destinations = new Map<ActorId, LiveDestination>();
+  for (const member of OFFICE_SCENE_MANIFEST.roster) {
+    const forum = dialogue.kind === "forum" && member.finalLocation === "forum";
+    const team = seatedTeams.has(member.departmentId);
+    const anchor = forum
+      ? OFFICE_SCENE_MANIFEST.forum.anchors[
+          member.id as keyof typeof OFFICE_SCENE_MANIFEST.forum.anchors
+        ]
+      : team
+        ? member.meetingSeat
+        : member.workSeat;
+    const destination = anchor && knownDestination(member.id, anchor.cell);
+    if (destination) destinations.set(member.id, destination);
+  }
+  if (dialogue.kind === "visit") {
+    const members = dialogue.participantIds.flatMap((id) => {
+      const member = OFFICE_SCENE_MANIFEST.roster.find(
+        (actor) => actor.id === id,
+      );
+      return member && member.departmentId !== "chair" ? [member] : [];
+    });
+    const host =
+      members.find((member) => member.id !== dialogue.speakerId) ?? members[0];
+    if (host) {
+      const department = OFFICE_SCENE_MANIFEST.departments[host.departmentId];
+      let hostIndex = 0;
+      for (const member of members) {
+        const anchor =
+          member.id === dialogue.speakerId && member.id !== host.id
+            ? department.visitorAnchor
+            : department.talkAnchors[hostIndex++];
+        const destination = anchor && knownDestination(member.id, anchor.cell);
+        if (destination) destinations.set(member.id, destination);
+      }
+    }
+  }
+  return destinations;
 }

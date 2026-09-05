@@ -73,6 +73,7 @@ export function useLiveOfficeAnimation(
   departmentReleaseOrder: readonly OfficeDepartmentId[] = DEFAULT_OFFICE_DEPARTMENT_RELEASE_ORDER,
   playbackReady = true,
   completeEntrance = false,
+  physicalMovement = false,
 ) {
   const releaseOrderKey = departmentReleaseOrder.join("\u0000");
   const displayTargetTick =
@@ -92,6 +93,17 @@ export function useLiveOfficeAnimation(
     const configuredReleaseOrder = (
       releaseOrderKey === "" ? [] : releaseOrderKey.split("\u0000")
     ) as readonly OfficeDepartmentId[];
+    if (
+      physicalMovement &&
+      displayTargetTick < frameRef.current.simulation.tick
+    ) {
+      frameRef.current = createLiveOfficeFrame(
+        playbackReady ? displayTargetTick : 0,
+        configuredReleaseOrder,
+        prefersReducedMotion(),
+      );
+      setFrame(frameRef.current);
+    }
     const configuredSimulation = setOfficeDepartmentReleaseOrder(
       frameRef.current.simulation,
       configuredReleaseOrder,
@@ -117,11 +129,19 @@ export function useLiveOfficeAnimation(
     let previousTimestamp: number | undefined;
     const advance = (timestamp: number): void => {
       if (previousTimestamp !== undefined) {
-        const next = advanceLiveOfficeFrameForDisplay(
-          frameRef.current,
-          displayTargetTick,
-          timestamp - previousTimestamp,
-        );
+        const next =
+          physicalMovement &&
+          frameRef.current.simulation.tick >= OFFICE_ENTRY_TIMELINE.endTick
+            ? createLiveOfficeFrame(
+                displayTargetTick,
+                configuredReleaseOrder,
+                prefersReducedMotion(),
+              )
+            : advanceLiveOfficeFrameForDisplay(
+                frameRef.current,
+                displayTargetTick,
+                (timestamp - previousTimestamp) * (physicalMovement ? 1.5 : 1),
+              );
         if (next !== frameRef.current) {
           frameRef.current = next;
           setFrame((current) => (current === next ? current : next));
@@ -133,7 +153,7 @@ export function useLiveOfficeAnimation(
     };
     animationFrame = window.requestAnimationFrame(advance);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [displayTargetTick, playbackReady, releaseOrderKey]);
+  }, [displayTargetTick, playbackReady, releaseOrderKey, physicalMovement]);
 
   return useMemo(
     () => ({

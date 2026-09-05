@@ -46,6 +46,11 @@ export type OfficeUiLayoutInput = {
   readonly viewport: OfficeRendererViewport;
   readonly obstacles?: readonly OfficeScreenRect[];
   readonly actorDisplayScale?: number;
+  readonly measureBubble?: (
+    message: string,
+    fontSize: number,
+    maxWidth: number,
+  ) => { readonly width: number; readonly height: number };
 };
 
 const EDGE_INSET = 4;
@@ -116,16 +121,18 @@ function bubbleCandidates(
   height: number,
   viewport: OfficeRendererViewport,
 ): readonly OfficeScreenRect[] {
-  const maximumHorizontalTether = Math.min(40, width * 0.2);
+  const maximumHorizontalTether = Math.min(80, width * 0.42);
   return Object.freeze(
-    [0, -0.16, 0.16]
-      .map((horizontalOffset) =>
-        screenRect(
-          context.x + width * horizontalOffset,
-          context.bodyBounds.top - ELEMENT_GAP - height,
-          width,
-          height,
-          viewport,
+    [0, 24, 48, 72, 96, 128]
+      .flatMap((rise) =>
+        [0, -0.16, 0.16, -0.32, 0.32].map((horizontalOffset) =>
+          screenRect(
+            context.x + width * horizontalOffset,
+            context.bodyBounds.top - ELEMENT_GAP - height - rise,
+            width,
+            height,
+            viewport,
+          ),
         ),
       )
       .filter((candidate) => {
@@ -243,12 +250,20 @@ export function layoutOfficeUi(
   const occupiedBubbles: OfficeScreenRect[] = [];
   for (const context of contexts) {
     if (!context.uiVisible || !context.actor.bubble.visible) continue;
-    const dimensions = bubbleDimensions(context.actor.bubble.message);
+    const estimated = bubbleDimensions(context.actor.bubble.message);
+    const dimensions = input.measureBubble?.(
+      context.actor.bubble.message,
+      BUBBLE_FONT_SIZE * bubbleScale,
+      Math.min(212 * bubbleScale, input.viewport.width - EDGE_INSET * 2),
+    ) ?? {
+      width: estimated.width * bubbleScale,
+      height: estimated.height * bubbleScale,
+    };
     const bounds = firstFree(
       bubbleCandidates(
         context,
-        dimensions.width * bubbleScale,
-        dimensions.height * bubbleScale,
+        dimensions.width,
+        dimensions.height,
         input.viewport,
       ),
       [

@@ -167,8 +167,9 @@ function activityGroup(event: ResearchEvent): ActivityGroup {
     case "challenge_committed":
     case "followup_committed":
     case "owner_response_committed":
-    case "department_ballot_committed":
       return "debate";
+    case "department_ballot_committed":
+      return "committee";
     case "structural_audit_completed":
     case "semantic_audit_committed":
       return "audit";

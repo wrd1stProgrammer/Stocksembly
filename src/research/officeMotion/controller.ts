@@ -1,4 +1,5 @@
 import { researchLocale } from "../../lib/i18n";
+import { OfficeDialoguePlayer } from "../officeDialogue";
 import type {
   OfficeCameraControlMode,
   OfficeGameController,
@@ -21,7 +22,7 @@ import { loadAssets } from "./canvasPrimitives";
 import { drawWorld } from "./drawWorld";
 import { motionFurniture } from "./inspection";
 import { LiveOfficeScene } from "./liveScene";
-import type { SceneFrame } from "./types";
+import type { ActorId, SceneFrame } from "./types";
 import { MotionUi } from "./ui";
 
 export async function createOfficeMotionRenderer(
@@ -48,6 +49,8 @@ export async function createOfficeMotionRenderer(
   canvas.style.touchAction = "pan-y";
   host.appendChild(canvas);
   const scene = new LiveOfficeScene();
+  const dialoguePlayer = new OfficeDialoguePlayer();
+  let speech: { speakerId: ActorId; message: string } | null = null;
   let snapshot = officeSimulationSnapshot(
     createOfficeSimulation({ reducedMotion }),
   );
@@ -97,7 +100,38 @@ export async function createOfficeMotionRenderer(
 
   function paint(delta: number): void {
     if (destroyed) return;
-    frame = scene.update(snapshot, semantic, delta, { reducedMotion, paused });
+    const dialogue = renderOptions.dialogue;
+    const sceneOptions = {
+      reducedMotion,
+      paused,
+      ...(dialogue ? { dialogue, speech } : {}),
+    };
+    frame = scene.update(snapshot, semantic, delta, sceneOptions);
+    const playback = dialoguePlayer.update(
+      dialogue,
+      !paused &&
+        !document.hidden &&
+        dialogue !== undefined &&
+        scene.readyForDialogue(dialogue),
+      delta * 1000,
+    );
+    if (dialogue) {
+      const nextSpeech =
+        playback.message === null
+          ? null
+          : { speakerId: dialogue.speakerId, message: playback.message };
+      if (
+        nextSpeech?.message !== speech?.message ||
+        nextSpeech?.speakerId !== speech?.speakerId
+      ) {
+        speech = nextSpeech;
+        frame = scene.update(snapshot, semantic, 0, {
+          ...sceneOptions,
+          speech,
+        });
+      }
+      ui.setBubbleTypingElapsed(playback.elapsed + 12, reducedMotion);
+    }
     const actors = semantic.actors.map((actor) => {
       const physical = frame.actors.find(
         (candidate) => candidate.id === actor.id,
@@ -147,6 +181,20 @@ export async function createOfficeMotionRenderer(
       showActorUi,
       showActorBubbles,
     );
+    host.setAttribute(
+      "data-visible-bubble-count",
+      String(uiLayout.filter((item) => item.bubble.visible).length),
+    );
+    host.setAttribute("data-dialogue-id", dialogue?.id ?? "");
+    host.setAttribute("data-dialogue-text", playback.message ?? "");
+    host.setAttribute(
+      "data-dialogue-status",
+      playback.message !== null
+        ? "speaking"
+        : dialogue && dialoguePlayer.isFinished(dialogue.id)
+          ? "finished"
+          : "waiting",
+    );
     const furniture = motionFurniture(frame);
     const seats = furniture.flatMap((item) => item.seats);
     host.setAttribute("data-render-frame-count", String(++frames));
@@ -167,11 +215,22 @@ export async function createOfficeMotionRenderer(
       "data-motion-actions",
       frame.actors.map((actor) => `${actor.id}:${actor.action}`).join(","),
     );
+    for (const change of playback.changes) {
+      options.onDialogueChange?.(change);
+    }
   }
 
   function animate(now: number): void {
     raf = undefined;
-    if (destroyed || paused || document.hidden || reducedMotion) return;
+    if (
+      destroyed ||
+      paused ||
+      document.hidden ||
+      (reducedMotion &&
+        (!renderOptions.dialogue ||
+          dialoguePlayer.isFinished(renderOptions.dialogue.id)))
+    )
+      return;
     const delta =
       lastTime === undefined ? 0 : Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
@@ -188,7 +247,9 @@ export async function createOfficeMotionRenderer(
       !destroyed &&
       hasSnapshot &&
       !paused &&
-      !reducedMotion &&
+      (!reducedMotion ||
+        (renderOptions.dialogue !== undefined &&
+          !dialoguePlayer.isFinished(renderOptions.dialogue.id))) &&
       !document.hidden &&
       raf === undefined
     )

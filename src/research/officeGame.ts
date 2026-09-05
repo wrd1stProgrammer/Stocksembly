@@ -1,4 +1,5 @@
 import type { AppLocale, Locale } from "../lib/i18n";
+import type { OfficeDialogue, OfficeDialogueChange } from "./officeDialogue";
 import type { OfficeFurnitureRenderState } from "./officeGameFurniture";
 import { createOfficeMotionRenderer } from "./officeMotion/controller";
 import type {
@@ -24,6 +25,7 @@ export type OfficeGameInspection = {
 export type OfficeCameraControlMode = "automatic" | "free" | "overview";
 
 export type OfficeSnapshotRenderOptions = {
+  readonly dialogue?: OfficeDialogue;
   readonly previousSnapshot?: OfficeSimulationSnapshot;
   readonly interpolation?: number;
   readonly cameraMode?: OfficeRendererCameraMode;
@@ -62,6 +64,7 @@ export type OfficeSnapshotRendererOptions = {
   readonly showActorUi?: boolean;
   readonly showActorBubbles?: boolean;
   readonly onActorSelect?: (actorId: AgentId) => void;
+  readonly onDialogueChange?: (change: OfficeDialogueChange) => void;
   readonly signal: AbortSignal;
 };
 

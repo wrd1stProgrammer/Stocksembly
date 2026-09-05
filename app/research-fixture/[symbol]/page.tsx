@@ -14,6 +14,7 @@ type Props = {
     readonly lang?: string;
     readonly view?: string;
     readonly version?: string;
+    readonly scene?: string;
   }>;
 };
 
@@ -49,10 +50,31 @@ export default async function FixtureResearchPage({
       />
     );
   const payload = await fixtureComposition.createPayload();
+  const range =
+    query.scene === "team"
+      ? [240, 359]
+      : query.scene === "visit"
+        ? [360, 999]
+        : query.scene === "forum"
+          ? [1080, 1580]
+          : undefined;
+  const previewPayload = range
+    ? {
+        ...payload,
+        data: {
+          ...payload.data,
+          playbackEvents: payload.data.playbackEvents.filter(
+            (event) =>
+              (event.tick ?? 0) >= (range[0] ?? 0) &&
+              (event.tick ?? 0) <= (range[1] ?? 1580),
+          ),
+        },
+      }
+    : payload;
   return (
     <ResearchRoom
       company={company}
-      payload={payload}
+      payload={previewPayload}
       initialLocale={locale}
       initialComplete={query.view === "report"}
     />

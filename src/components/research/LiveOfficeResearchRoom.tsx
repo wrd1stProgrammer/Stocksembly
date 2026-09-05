@@ -33,12 +33,14 @@ import { RESEARCH_DEPARTMENT_COPY } from "../../research/domain/researchTarget";
 import { useLiveOfficeAnimation } from "../../research/liveOfficeAnimation";
 import { liveOfficeProjection } from "../../research/liveOfficeProjection";
 import { agents } from "../../research/mockResearch";
+import { officeCommitteePresentation } from "../../research/officeCommitteePresentation";
 import { activeIdsForSnapshot } from "../../research/officePlaybackView";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
 import { formatSignedPercent } from "../../research/publicPresentation";
 import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
+import { useOfficePresentation } from "../../research/useOfficePresentation";
 import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { useIsMobileViewport } from "../useMediaQuery";
 import { MeetingMinutes } from "./MeetingMinutes";
@@ -272,10 +274,35 @@ export function LiveOfficeResearchRoom({
     () => liveOfficeProjection(projection.snapshot),
     [projection.snapshot],
   );
+  const reportFile = useMemo(
+    () =>
+      report === undefined
+        ? pendingReport
+        : researchReportToFile(
+            report,
+            projection.snapshot.run.createdAt,
+            comparison,
+          ),
+    [comparison, projection.snapshot.run.createdAt, report],
+  );
+  const presentationEvents = useMemo(
+    () =>
+      officeCommitteePresentation(
+        office.events,
+        report === undefined ? undefined : reportFile.teamViews,
+      ),
+    [office.events, report, reportFile.teamViews],
+  );
+  const presentation = useOfficePresentation(
+    presentationEvents,
+    projection.snapshot.run.runId,
+    initialSnapshot.run.reportId !== undefined,
+  );
   const animation = useLiveOfficeAnimation(
-    office.tick,
+    presentation.tick,
     office.departmentReleaseOrder,
     officeReady,
+    true,
     true,
   );
   // The room re-renders on every animation frame while the office catches up,
@@ -354,7 +381,10 @@ export function LiveOfficeResearchRoom({
     locale,
     projection.snapshot.run.runId,
   ]);
-  const completed = projection.state === "published" && report !== undefined;
+  const completed =
+    projection.state === "published" &&
+    report !== undefined &&
+    presentation.drained;
   const terminal =
     projection.state === "failed" ||
     projection.state === "incomplete" ||
@@ -365,6 +395,7 @@ export function LiveOfficeResearchRoom({
       (agentId) => visibleIds.has(agentId),
     );
     if (
+      projection.state !== "published" &&
       !completed &&
       !terminal &&
       (projection.snapshot.events.length <= 2 || activeVisibleIds.length === 0)
@@ -373,22 +404,12 @@ export function LiveOfficeResearchRoom({
     return activeVisibleIds;
   }, [
     completed,
+    projection.state,
     projection.snapshot.activeAgentIds,
     projection.snapshot.events.length,
     terminal,
     visibleAgents,
   ]);
-  const reportFile = useMemo(
-    () =>
-      report === undefined
-        ? pendingReport
-        : researchReportToFile(
-            report,
-            projection.snapshot.run.createdAt,
-            comparison,
-          ),
-    [comparison, projection.snapshot.run.createdAt, report],
-  );
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -516,7 +537,12 @@ export function LiveOfficeResearchRoom({
       className="research-shell"
       lang={locale}
       data-research-mode="official"
-      data-research-state={projection.state}
+      data-research-state={
+        projection.state === "published" && !completed
+          ? "running"
+          : projection.state
+      }
+      data-research-server-state={projection.state}
       data-sidebar-open={sidebarOpen ? "true" : "false"}
       data-transcript-open={transcriptOpen ? "true" : "false"}
     >
@@ -581,8 +607,10 @@ export function LiveOfficeResearchRoom({
           onLocaleChange={setLocale}
         />
         <OfficeStage
-          current={office.current}
-          events={office.events}
+          key={projection.snapshot.run.runId}
+          presentation={presentation.presentation}
+          current={presentation.current}
+          events={presentation.events}
           snapshot={snapshot}
           renderPreviousSnapshot={previousSnapshot}
           renderInterpolationAlpha={animation.interpolation}
@@ -601,9 +629,9 @@ export function LiveOfficeResearchRoom({
           onOfficeReady={() => setOfficeReady(true)}
         />
         <MeetingMinutes
-          current={office.current}
+          current={presentation.current}
           agents={visibleAgents}
-          events={office.events}
+          events={presentation.events}
           locale={locale}
           isComplete={completed}
           {...(terminal ? { terminalState: projection.state } : {})}
@@ -615,14 +643,16 @@ export function LiveOfficeResearchRoom({
           showLaunchStatus={projection.snapshot.events.length <= 2}
           pendingAgentIds={pendingAgentIds}
           pendingActivities={
-            projection.snapshot.activeActivities ?? NO_ACTIVITIES
+            projection.state === "published"
+              ? NO_ACTIVITIES
+              : (projection.snapshot.activeActivities ?? NO_ACTIVITIES)
           }
           panelOpen={transcriptOpen}
           onPanelToggle={handleTranscriptToggle}
           onRetry={async () => {
             await projection.retry();
           }}
-          {...(terminal
+          {...(terminal || projection.state === "published"
             ? {}
             : {
                 onCancel: async () => {

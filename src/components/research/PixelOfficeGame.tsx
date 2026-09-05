@@ -3,14 +3,15 @@
 import "../../styles/office-game.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../../lib/i18n";
+import {
+  type OfficeDialogue,
+  type OfficePresentation,
+  officeDialogue,
+} from "../../research/officeDialogue";
 import type {
   OfficeCameraControlMode,
   OfficeGameController,
 } from "../../research/officeGame";
-import {
-  bubbleStateForSnapshot,
-  isActorReadyForSpeech,
-} from "../../research/officeGameBubbleState";
 import { prefersReducedMotion } from "../../research/officeReducedMotion";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
 import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
@@ -23,6 +24,7 @@ import type {
 import { OfficeAgentInfoPanel } from "./OfficeAgentInfoPanel";
 
 type Props = {
+  readonly presentation?: OfficePresentation;
   readonly phase?: ResearchPhase;
   readonly currentEvent?: ResearchEvent;
   readonly events?: readonly ResearchEvent[];
@@ -53,19 +55,10 @@ type PendingRender = {
   readonly cameraControlMode: OfficeCameraControlMode;
   readonly cameraActorIds?: readonly AgentId[];
   readonly isPaused: boolean;
-  readonly liveBubbles?: readonly {
-    readonly actorId: AgentId;
-    readonly message: string;
-  }[];
-  readonly conversation?: {
-    readonly speakerId: AgentId;
-    readonly participantIds: readonly AgentId[];
-  };
+  readonly dialogue?: OfficeDialogue;
 };
 
-const EMPTY_RESEARCH_EVENTS: readonly ResearchEvent[] = [];
 const MOBILE_CAMERA_QUERY = "(max-width: 767px)";
-const BUBBLE_TYPING_WINDOW_MS = 1_600;
 
 export function concurrentSpeechEvents(
   currentEvent: ResearchEvent | undefined,
@@ -155,9 +148,9 @@ function semanticStatus(
 }
 
 export function PixelOfficeGame({
+  presentation,
   phase,
   currentEvent,
-  events = EMPTY_RESEARCH_EVENTS,
   locale,
   isPaused,
   activeAgentIds = [],
@@ -172,58 +165,18 @@ export function PixelOfficeGame({
   const controllerRef = useRef<OfficeGameController | null>(null);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
-  const speechEvents = useMemo(
-    () => concurrentSpeechEvents(currentEvent, events),
-    [currentEvent, events],
-  );
-  const speechSegmentsByEvent = useMemo(
-    () =>
-      new Map(
-        speechEvents.map((event) => [
-          event.id,
-          speechBubbleSegments(event.summary[locale], locale),
-        ]),
-      ),
-    [locale, speechEvents],
-  );
-  const conversationParticipantIds = useMemo(
-    () =>
-      currentEvent === undefined
-        ? []
-        : [
-            ...new Set([
-              currentEvent.agent,
-              ...(currentEvent.participantIds ?? []),
-            ]),
-          ],
-    [currentEvent],
-  );
-  const conversationReady = useMemo(
-    () =>
-      currentEvent !== undefined &&
-      snapshot !== undefined &&
-      conversationParticipantIds.every((actorId) => {
-        const actor = snapshot.actors.find(
-          (candidate) => candidate.id === actorId,
-        );
-        return actor !== undefined && isActorReadyForSpeech(actor);
-      }),
-    [conversationParticipantIds, currentEvent, snapshot],
-  );
-  const readySpeechEvents = useMemo(
-    () => (conversationReady ? speechEvents : []),
-    [conversationReady, speechEvents],
-  );
-  const conversation = useMemo(
-    () =>
-      currentEvent === undefined || !conversationReady
-        ? undefined
-        : {
-            speakerId: currentEvent.agent,
-            participantIds: conversationParticipantIds,
-          },
-    [conversationParticipantIds, conversationReady, currentEvent],
-  );
+  const onDialogueChangeRef = useRef(presentation?.onChange);
+  onDialogueChangeRef.current = presentation?.onChange;
+  const dialogue = useMemo(() => {
+    const event =
+      presentation === undefined ? currentEvent : presentation.event;
+    if (!event || event.id === "office-waiting") return undefined;
+    const request = officeDialogue(event, locale);
+    return presentation?.active === false
+      ? { ...request, segments: [] }
+      : request;
+  }, [currentEvent, locale, presentation]);
+  const conversationParticipantIds = dialogue?.participantIds ?? [];
   const pendingRenderRef = useRef<PendingRender>({
     snapshot,
     previousSnapshot: renderPreviousSnapshot,
@@ -231,31 +184,14 @@ export function PixelOfficeGame({
     cameraMode,
     cameraControlMode,
     isPaused,
-    liveBubbles: readySpeechEvents.map((event) => ({
-      actorId: event.agent,
-      message: speechBubbleMessage(event, locale, 0),
-    })),
-    ...(conversation === undefined ? {} : { conversation }),
+    ...(dialogue ? { dialogue } : {}),
   });
   const [rendererFailed, setRendererFailed] = useState(false);
-  const [rendererReady, setRendererReady] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [mobileCameraActive, setMobileCameraActive] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId | null>(null);
   const selectedAgent = OFFICE_SCENE_MANIFEST.roster.find(
     (member) => member.id === selectedAgentId,
-  );
-  const bubbleSequenceKey = `${currentEvent?.id ?? "idle"}:${locale}`;
-  const [bubblePlayback, setBubblePlayback] = useState({
-    key: bubbleSequenceKey,
-    index: 0,
-  });
-  const bubbleSegmentIndex =
-    bubblePlayback.key === bubbleSequenceKey ? bubblePlayback.index : 0;
-  const bubbleSegmentCount = readySpeechEvents.reduce(
-    (maximum, event) =>
-      Math.max(maximum, speechSegmentsByEvent.get(event.id)?.length ?? 0),
-    0,
   );
   const mode = sceneMode(snapshot, phase);
   const effectiveCameraMode =
@@ -276,12 +212,9 @@ export function PixelOfficeGame({
       return focusedTeamIds.filter((actorId) => available.has(actorId));
     }
     const preferred =
-      currentEvent === undefined
+      dialogue === undefined
         ? activeAgentIds
-        : [
-            currentEvent.agent,
-            ...(conversationReady ? conversationParticipantIds : []),
-          ];
+        : [dialogue.speakerId, ...conversationParticipantIds];
     const actorIds = [...new Set(preferred)].filter((actorId) =>
       available.has(actorId),
     );
@@ -295,9 +228,8 @@ export function PixelOfficeGame({
     activeAgentIds,
     cameraMode,
     conversationParticipantIds,
-    conversationReady,
     cameraControlMode,
-    currentEvent,
+    dialogue,
     mobileCameraActive,
     snapshot,
   ]);
@@ -316,51 +248,6 @@ export function PixelOfficeGame({
   const workingActorCount =
     snapshot?.actors.filter((actor) => actor.action === "seated-work").length ??
     0;
-  const liveBubbleStates = useMemo(
-    () =>
-      readySpeechEvents
-        .map((event) => ({
-          actorId: event.agent,
-          message: speechBubbleMessage(event, locale, bubbleSegmentIndex),
-        }))
-        .filter(({ message }) => message !== ""),
-    [bubbleSegmentIndex, locale, readySpeechEvents],
-  );
-  const bubbleTypingKey = liveBubbleStates
-    .map(({ actorId, message }) => `${actorId}:${message}`)
-    .join("\u0000");
-  const visibleBubbleCount =
-    currentEvent !== undefined
-      ? liveBubbleStates.length
-      : (snapshot?.actors.filter(
-          (actor) => bubbleStateForSnapshot(actor, snapshot, locale).visible,
-        ).length ?? 0);
-  useEffect(() => {
-    if (
-      !conversationReady ||
-      bubbleSegmentCount <= 1 ||
-      bubbleSegmentIndex >= bubbleSegmentCount - 1
-    )
-      return;
-    const timer = window.setTimeout(
-      () =>
-        setBubblePlayback((current) => ({
-          key: bubbleSequenceKey,
-          index: Math.min(
-            (current.key === bubbleSequenceKey ? current.index : 0) + 1,
-            bubbleSegmentCount - 1,
-          ),
-        })),
-      3_400,
-    );
-    return () => window.clearTimeout(timer);
-  }, [
-    bubbleSegmentIndex,
-    bubbleSegmentCount,
-    bubbleSequenceKey,
-    conversationReady,
-  ]);
-
   useEffect(() => {
     const media = window.matchMedia(MOBILE_CAMERA_QUERY);
     const update = () => setMobileCameraActive(media.matches);
@@ -378,8 +265,7 @@ export function PixelOfficeGame({
       cameraControlMode,
       ...(cameraActorIds === undefined ? {} : { cameraActorIds }),
       isPaused,
-      liveBubbles: liveBubbleStates,
-      ...(conversation === undefined ? {} : { conversation }),
+      ...(dialogue ? { dialogue } : {}),
     };
   }, [
     effectiveCameraMode,
@@ -388,9 +274,8 @@ export function PixelOfficeGame({
     renderInterpolationAlpha,
     renderPreviousSnapshot,
     snapshot,
-    liveBubbleStates,
+    dialogue,
     cameraActorIds,
-    conversation,
   ]);
 
   useEffect(() => {
@@ -401,7 +286,6 @@ export function PixelOfficeGame({
     const reducedMotionPreferred = prefersReducedMotion();
     setReducedMotion(reducedMotionPreferred);
     setRendererFailed(false);
-    setRendererReady(false);
 
     void import("../../research/officeGame")
       .then(({ createOfficeSnapshotRenderer }) =>
@@ -411,6 +295,7 @@ export function PixelOfficeGame({
           reducedMotion: reducedMotionPreferred,
           showActorBubbles: true,
           onActorSelect: setSelectedAgentId,
+          onDialogueChange: (change) => onDialogueChangeRef.current?.(change),
           signal: abortController.signal,
         }),
       )
@@ -420,7 +305,6 @@ export function PixelOfficeGame({
           return;
         }
         controllerRef.current = controller;
-        setRendererReady(true);
         const pending = pendingRenderRef.current;
         controller.setCameraControlMode(pending.cameraControlMode);
         if (pending.snapshot) {
@@ -433,12 +317,8 @@ export function PixelOfficeGame({
             ...(pending.cameraActorIds === undefined
               ? {}
               : { cameraActorIds: pending.cameraActorIds }),
-            ...(pending.liveBubbles === undefined
-              ? {}
-              : { liveBubbles: pending.liveBubbles }),
-            ...(pending.conversation === undefined
-              ? {}
-              : { conversation: pending.conversation }),
+            liveBubbles: [],
+            ...(pending.dialogue ? { dialogue: pending.dialogue } : {}),
           });
         }
         controller.setPaused(pending.isPaused);
@@ -470,27 +350,8 @@ export function PixelOfficeGame({
       window.cancelAnimationFrame(readyFrame);
       controllerRef.current?.destroy();
       controllerRef.current = null;
-      setRendererReady(false);
     };
   }, [locale]);
-
-  useEffect(() => {
-    if (!rendererReady || bubbleTypingKey.length === 0) return;
-    if (reducedMotion) {
-      controllerRef.current?.setBubbleTypingElapsed(BUBBLE_TYPING_WINDOW_MS);
-      return;
-    }
-    let frameId = 0;
-    const startedAt = performance.now();
-    const type = (now: number) => {
-      const elapsedMs = Math.min(BUBBLE_TYPING_WINDOW_MS, now - startedAt);
-      controllerRef.current?.setBubbleTypingElapsed(elapsedMs);
-      if (elapsedMs < BUBBLE_TYPING_WINDOW_MS)
-        frameId = window.requestAnimationFrame(type);
-    };
-    frameId = window.requestAnimationFrame(type);
-    return () => window.cancelAnimationFrame(frameId);
-  }, [bubbleTypingKey, reducedMotion, rendererReady]);
 
   useEffect(() => {
     const controller = controllerRef.current;
@@ -504,8 +365,8 @@ export function PixelOfficeGame({
         interpolation: renderInterpolationAlpha,
         cameraMode: effectiveCameraMode,
         ...(cameraActorIds === undefined ? {} : { cameraActorIds }),
-        liveBubbles: liveBubbleStates,
-        ...(conversation === undefined ? {} : { conversation }),
+        liveBubbles: [],
+        ...(dialogue ? { dialogue } : {}),
       });
     }
     controller.setPaused(isPaused);
@@ -516,9 +377,8 @@ export function PixelOfficeGame({
     renderInterpolationAlpha,
     renderPreviousSnapshot,
     snapshot,
-    liveBubbleStates,
+    dialogue,
     cameraActorIds,
-    conversation,
   ]);
 
   return (
@@ -534,7 +394,6 @@ export function PixelOfficeGame({
       data-active-agent-count={activeAgentIds.length}
       data-moving-actor-count={movingActorCount}
       data-working-actor-count={workingActorCount}
-      data-visible-bubble-count={visibleBubbleCount}
       data-reduced-motion={reducedMotion ? "true" : "false"}
       data-complete={snapshot?.beatId === "complete" ? "true" : "false"}
       data-render-error={rendererFailed ? "true" : undefined}
