@@ -1,4 +1,4 @@
-/* Pixi office host. Shared by the research room stage, the landing preview,
+/* Canvas office host. Shared by the research room stage, the landing preview,
    and the showcase pages, so it stays independent of the research bundle. */
 .office-game {
   position: absolute;
@@ -39,4 +39,26 @@
 
 .office-stage.is-paused .office-game__canvas {
   opacity: 0.82;
+}
+
+.office-motion__actors {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.office-motion__actor {
+  position: absolute;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.office-motion__actor:focus-visible {
+  border-color: var(--research-accent, #dbb878);
+  outline: 2px solid #182124;
+  outline-offset: 2px;
 }
