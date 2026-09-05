@@ -1,13 +1,16 @@
+import type { OfficeDialogue } from "../officeDialogue";
 import type {
   OfficeRenderActor,
   OfficeRenderSnapshot,
 } from "../officeRenderer";
+import { OFFICE_SCENE_MANIFEST } from "../officeSceneManifest";
 import type {
   OfficeActorSnapshot,
   OfficeSimulationSnapshot,
 } from "../officeSimulation";
 import {
   destinationFor,
+  dialogueDestinations,
   knownDestination,
   type LiveDestination,
   sameCell,
@@ -30,6 +33,11 @@ import type {
 export type LiveSceneOptions = {
   readonly reducedMotion: boolean;
   readonly paused: boolean;
+  readonly dialogue?: OfficeDialogue;
+  readonly speech?: {
+    readonly speakerId: ActorId;
+    readonly message: string;
+  } | null;
 };
 type ActorState = {
   position: Point;
@@ -46,7 +54,7 @@ type ActorState = {
   settledAt: number;
 };
 const TRANSITION_SECONDS = 0.65;
-const WALK_SPEED = 104;
+const WALK_SPEED = 156;
 const COMMITTED_TEAM_HOLD_SECONDS = 0.5;
 
 function distance(left: Point, right: Point): number {
@@ -77,7 +85,7 @@ function stationaryAction(
   speaking: boolean,
 ): { readonly action: Action; readonly progress: number } {
   const progress = ((time + index * 0.71) % 3.5) / 3.5;
-  if (speaking || source.action === "present" || source.action === "talk")
+  if (speaking)
     return { action: source.id === "risk" ? "challenge" : "present", progress };
   if (source.action === "chair-synthesis" || source.action === "summarize")
     return { action: speaking ? "present" : "write", progress };
@@ -104,7 +112,12 @@ function stationaryAction(
       progress: (local - writeEnd) / (duration - writeEnd),
     };
   }
-  if (source.action === "listen") return { action: "listen", progress };
+  if (target.kind === "team" || target.kind === "forum") {
+    const local = (time + index * 1.37) % 8.4;
+    if (local < 4.1) return { action: "read", progress: local / 4.1 };
+    if (local < 6.8) return { action: "write", progress: (local - 4.1) / 2.7 };
+    return { action: "listen", progress: (local - 6.8) / 1.6 };
+  }
   return { action: target.seated ? "read" : "idle", progress };
 }
 
@@ -147,9 +160,30 @@ export class LiveOfficeScene {
   private time = 0;
   private lastTick = -1;
   private lastFrame: SceneFrame | undefined;
+  private forumActive = false;
+  private readonly seatedTeams = new Set<string>();
+  private targets: ReadonlyMap<ActorId, LiveDestination> = new Map();
+
+  readyForDialogue(dialogue: OfficeDialogue): boolean {
+    return dialogue.participantIds.every((id) => {
+      const state = this.states.get(id);
+      const target = this.targets.get(id);
+      // Department-only views can omit the chair and other departments.
+      if (!state) return true;
+      return (
+        state.phase === "ready" &&
+        target?.key === state.destination.key &&
+        distance(state.position, target.position) < 1 &&
+        state.facing === target.facing
+      );
+    });
+  }
 
   reset(): void {
     this.states.clear();
+    this.seatedTeams.clear();
+    this.forumActive = false;
+    this.targets = new Map();
     this.time = 0;
     this.lastTick = -1;
     this.lastFrame = undefined;
@@ -175,11 +209,31 @@ export class LiveOfficeScene {
     const included = new Set(snapshot.actors.map((actor) => actor.id));
     for (const id of this.states.keys())
       if (!included.has(id)) this.states.delete(id);
+    if (options.dialogue?.kind === "team") {
+      const speaker = OFFICE_SCENE_MANIFEST.roster.find(
+        (actor) => actor.id === options.dialogue?.speakerId,
+      );
+      if (speaker) this.seatedTeams.add(speaker.departmentId);
+    }
+    if (options.dialogue?.kind === "forum") this.forumActive = true;
+    const encounter =
+      options.dialogue && this.forumActive && options.dialogue.kind === "work"
+        ? { ...options.dialogue, kind: "forum" as const }
+        : options.dialogue;
+    const targets = new Map(
+      encounter ? dialogueDestinations(encounter, this.seatedTeams) : [],
+    );
+    if (snapshot.tick < 120) {
+      for (const actor of snapshot.actors) {
+        if (destinationFor(actor).kind === "floor") targets.delete(actor.id);
+      }
+    }
+    this.targets = targets;
     const projected = new Map(
       projection?.actors.map((actor) => [actor.id, actor]) ?? [],
     );
     for (const actor of snapshot.actors) {
-      const target = destinationFor(actor);
+      const target = this.targets.get(actor.id) ?? destinationFor(actor);
       let state = this.states.get(actor.id);
       if (!state) {
         state = initialState(actor, target, options.reducedMotion);
@@ -224,6 +278,7 @@ export class LiveOfficeScene {
         state,
         index,
         options.reducedMotion,
+        options.speech,
       );
     });
     const speakers = actors.filter((actor) => actor.speech !== null);
@@ -383,15 +438,22 @@ export class LiveOfficeScene {
     state: ActorState,
     index: number,
     reducedMotion: boolean,
+    liveSpeech: LiveSceneOptions["speech"],
   ): ActorFrame {
     const ready = state.phase === "ready";
-    const settled = reducedMotion || this.time - state.settledAt >= 0.15;
+    const settled =
+      liveSpeech !== undefined ||
+      reducedMotion ||
+      this.time - state.settledAt >= 0.15;
     const speech =
       ready &&
       settled &&
-      state.destination.key === destinationFor(source).key &&
-      projected?.bubble.visible
-        ? projected.bubble.message
+      state.destination.key ===
+        (this.targets.get(source.id) ?? destinationFor(source)).key &&
+      (liveSpeech === undefined
+        ? projected?.bubble.visible
+        : liveSpeech?.speakerId === source.id)
+        ? (liveSpeech?.message ?? projected?.bubble.message ?? null)
         : null;
     const stationary = stationaryAction(
       source,

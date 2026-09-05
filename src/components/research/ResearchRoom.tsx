@@ -10,8 +10,11 @@ import type {
   CompositionViewData,
   ResearchCompositionPayload,
 } from "../../research/compositions/types";
+import { useLiveOfficeAnimation } from "../../research/liveOfficeAnimation";
+import { officeTeamStatement } from "../../research/officeCommitteePresentation";
+import { activeIdsForSnapshot } from "../../research/officePlaybackView";
 import type { ResearchCompany } from "../../research/types";
-import { useResearchPlayback } from "../../research/useResearchPlayback";
+import { useOfficePresentation } from "../../research/useOfficePresentation";
 import { useIsMobileViewport } from "../useMediaQuery";
 import { LiveOfficeResearchRoom } from "./LiveOfficeResearchRoom";
 import { MeetingMinutes } from "./MeetingMinutes";
@@ -67,8 +70,56 @@ function FixtureResearchRoom({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [transcriptOpen, setTranscriptOpen] = useState(true);
   const reportVersion = 1;
-  const playback = useResearchPlayback(payload, initialComplete);
   const { data } = payload;
+  const [skipped, setSkipped] = useState(initialComplete);
+  const [replayId, setReplayId] = useState(0);
+  const [officeReady, setOfficeReady] = useState(false);
+  const fixtureEvents = useMemo(
+    () =>
+      data.playbackEvents.map((event) => {
+        if (event.kind === "synthesis")
+          return { ...event, summary: data.report.thesis };
+        const team =
+          event.kind === "presentation"
+            ? data.report.teamViews.find(
+                (team) => team.representativeId === event.agent,
+              )
+            : undefined;
+        return team ? { ...event, summary: officeTeamStatement(team) } : event;
+      }),
+    [data.playbackEvents, data.report],
+  );
+  const presentation = useOfficePresentation(
+    fixtureEvents,
+    `fixture-${replayId}`,
+    skipped,
+  );
+  const animation = useLiveOfficeAnimation(
+    presentation.tick,
+    undefined,
+    officeReady,
+    true,
+    true,
+  );
+  const isComplete =
+    skipped || (data.events.length > 0 && presentation.drained);
+  const playback = {
+    current: presentation.current,
+    snapshot: animation.snapshot,
+    renderPreviousSnapshot: animation.previousSnapshot,
+    renderInterpolationAlpha: animation.interpolation,
+    activeAgentIds: activeIdsForSnapshot(animation.snapshot).active,
+    isComplete,
+    isPaused: false,
+    publicLedger: presentation.events,
+    tick: animation.snapshot.tick,
+    skip: () => setSkipped(true),
+    replay: () => {
+      setSkipped(false);
+      setReplayId((id) => id + 1);
+      setOfficeReady(false);
+    },
+  };
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
@@ -117,9 +168,7 @@ function FixtureResearchRoom({
       data-research-mode={payload.mode}
       data-research-state={playback.isComplete ? "published" : "running"}
       data-sidebar-open={sidebarOpen ? "true" : "false"}
-      data-transcript-open={
-        playback.isComplete && transcriptOpen ? "true" : "false"
-      }
+      data-transcript-open={transcriptOpen ? "true" : "false"}
     >
       <div className="research-layout">
         <ResearchSidebar
@@ -148,6 +197,9 @@ function FixtureResearchRoom({
           onLocaleChange={setLocale}
         />
         <OfficeStage
+          key={replayId}
+          presentation={presentation.presentation}
+          onOfficeReady={() => setOfficeReady(true)}
           current={playback.current}
           snapshot={playback.snapshot}
           renderPreviousSnapshot={playback.renderPreviousSnapshot}
@@ -165,12 +217,12 @@ function FixtureResearchRoom({
           key={`${reportVersion}-${playback.isComplete ? "complete" : "live"}`}
           current={playback.current}
           agents={data.agents}
-          events={data.events}
+          events={presentation.events}
           locale={locale}
           isComplete={playback.isComplete}
           reportVersion={reportVersion}
           questionsEnabled={false}
-          panelOpen={playback.isComplete ? transcriptOpen : true}
+          panelOpen={transcriptOpen}
           onPanelToggle={handleTranscriptToggle}
         />
       </div>

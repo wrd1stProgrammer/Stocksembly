@@ -74,14 +74,14 @@ function phaseFor(kind: PublicResearchEvent["kind"]): ResearchPhase {
       "challenge_committed",
       "followup_committed",
       "owner_response_committed",
-      "department_ballot_committed",
     ].includes(kind)
   )
     return "challenging";
   if (["structural_audit_completed", "semantic_audit_committed"].includes(kind))
     return "auditing";
   if (kind === "gathering_started") return "gathering";
-  if (kind === "committee_classified") return "committee";
+  if (kind === "committee_classified" || kind === "department_ballot_committed")
+    return "committee";
   if (kind === "runtime_status") return "analyzing";
   if (kind === "report_published") return "complete";
   return kind === "chair_synthesis_committed" ? "committee" : "auditing";

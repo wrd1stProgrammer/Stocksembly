@@ -10,23 +10,41 @@ import {
 import type { AgentId } from "../types";
 import { panel } from "./canvasPrimitives";
 
-function wrap(
-  ctx: CanvasRenderingContext2D,
+export function measureOfficeBubble(
   message: string,
-  width: number,
-): string[] {
+  fontSize: number,
+  maxWidth: number,
+  measure: (text: string) => number,
+) {
+  const width = Math.min(
+    maxWidth,
+    Math.max(104, Math.ceil(measure(message)) + 20),
+  );
   const lines: string[] = [];
   let line = "";
-  for (const word of message.split(
+  for (const token of message.split(
     /(?<=\s)|(?=[\u3000-\u9fff\uac00-\ud7af])/u,
   )) {
-    if (line && ctx.measureText(line + word).width > width) {
-      lines.push(line.trim());
-      line = word;
-    } else line += word;
+    if (line && measure(line + token) > width - 20) {
+      lines.push(line.trimEnd());
+      line = "";
+    }
+    for (const glyph of token) {
+      if (line && measure(line + glyph) > width - 20) {
+        lines.push(line.trimEnd());
+        line = "";
+      }
+      if (line || glyph.trim()) line += glyph;
+    }
   }
-  if (line.trim()) lines.push(line.trim());
-  return lines;
+  if (line.trim()) lines.push(line.trimEnd());
+  const lineHeight = Math.ceil(fontSize * 1.35);
+  return {
+    width,
+    height: Math.max(1, lines.length) * lineHeight + 16,
+    lines,
+    lineHeight,
+  };
 }
 
 export class MotionUi {
@@ -58,6 +76,15 @@ export class MotionUi {
       projection,
       viewport,
       actorDisplayScale: 0.6,
+      measureBubble(message, fontSize, maxWidth) {
+        ctx.font = `600 ${fontSize}px Pretendard, sans-serif`;
+        return measureOfficeBubble(
+          message,
+          fontSize,
+          maxWidth,
+          (text) => ctx.measureText(text).width,
+        );
+      },
     });
     const byId = new Map(projection.actors.map((actor) => [actor.id, actor]));
     for (const [id, button] of this.buttons) {
@@ -91,6 +118,7 @@ export class MotionUi {
       if (!showUi) continue;
       if (layout.label.visible) {
         const b = layout.label.bounds;
+        ctx.textBaseline = "alphabetic";
         ctx.font = "600 12px Pretendard, sans-serif";
         ctx.textAlign = "center";
         ctx.lineWidth = 3;
@@ -120,31 +148,30 @@ export class MotionUi {
         const size = layout.bubble.screenFontSize;
         ctx.font = `600 ${size}px Pretendard, sans-serif`;
         ctx.textAlign = "center";
-        const lines = wrap(ctx, actor.bubble.message, b.right - b.left - 20);
-        const capacity = Math.max(
-          1,
-          Math.floor((b.bottom - b.top - 12) / (size + 3)),
+        const { lines, lineHeight } = measureOfficeBubble(
+          actor.bubble.message,
+          size,
+          b.right - b.left,
+          (text) => ctx.measureText(text).width,
         );
-        const visible = lines.slice(0, capacity);
-        if (lines.length > capacity)
-          visible[capacity - 1] =
-            `${(visible[capacity - 1] ?? "").slice(0, -2)}…`;
+        ctx.textBaseline = "top";
         ctx.fillStyle = "#334247";
         ctx.textAlign = "left";
         let remaining = this.visibleCharacters;
-        visible.forEach((line, index) => {
+        lines.forEach((line, index) => {
           const glyphs = [...line];
           const text = glyphs.slice(0, Math.max(0, remaining)).join("");
-          remaining -= glyphs.length + 1;
+          remaining -= glyphs.length;
           ctx.fillText(
             text,
             (b.left + b.right - ctx.measureText(line).width) / 2,
-            b.top + size + 8 + index * (size + 3),
+            b.top + 8 + index * lineHeight,
           );
         });
       }
     }
     ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
     this.host.setAttribute("data-office-ui-layout", JSON.stringify(layouts));
     return layouts;
   }
