@@ -108,6 +108,7 @@ export function App({
     "unknown" | "pending" | "complete"
   >("unknown");
   const [onboardingPreview, setOnboardingPreview] = useState(false);
+  const [homePreview, setHomePreview] = useState(false);
   const localeSelectionRevision = useRef(0);
   const content = copy[locale];
 
@@ -182,6 +183,12 @@ export function App({
       isLocalPreviewHost &&
         new URLSearchParams(window.location.search).get("onboarding") ===
           "preview",
+    );
+    // Renders the signed-in workspace home with sample runs so the layout can
+    // be reviewed on localhost, where Cognito sign-in is not configured.
+    setHomePreview(
+      isLocalPreviewHost &&
+        new URLSearchParams(window.location.search).get("home") === "preview",
     );
     const storedLocale = window.localStorage.getItem(
       PREFERRED_LOCALE_STORAGE_KEY,
@@ -396,14 +403,16 @@ export function App({
     document.title = `${copy[locale].hero.titleLead} ${copy[locale].hero.titleTail} · Stocksembly`;
   }, [locale]);
 
+  const workspaceHome = signedIn || homePreview;
+
   return (
     <div
-      className={`app-shell${signedIn ? " app-shell--signed-in" : ""}${
+      className={`app-shell${workspaceHome ? " app-shell--signed-in" : ""}${
         sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""
       }`}
     >
       <SiteAtmosphere />
-      {signedIn ? (
+      {workspaceHome ? (
         <SignedInSidebar
           locale={locale}
           collapsed={sidebarCollapsed}
@@ -420,13 +429,14 @@ export function App({
           subscriptionTier={subscriptionTier}
         />
       ) : null}
-      {signedIn ? null : (
+      {workspaceHome ? null : (
         <Header locale={locale} onLocaleChange={selectLocale} />
       )}
       <main>
-        {signedIn ? (
+        {workspaceHome ? (
           <SignedInHome
             locale={locale}
+            preview={homePreview}
             onOpenPlans={openSubscriptionModal}
             subscriptionTier={subscriptionTier}
             creditsRemaining={billingStatus?.credits.remaining}
@@ -476,11 +486,11 @@ export function App({
           </>
         )}
       </main>
-      {signedIn ? null : <LandingFooter locale={locale} />}
+      {workspaceHome ? null : <LandingFooter locale={locale} />}
       <MobileBottomNav
         activeItem="home"
         locale={locale}
-        hidden={signedIn && !sidebarCollapsed}
+        hidden={workspaceHome && !sidebarCollapsed}
       />
       {onboardingPreview || (signedIn && onboardingState === "pending") ? (
         <WelcomeOnboardingModal
