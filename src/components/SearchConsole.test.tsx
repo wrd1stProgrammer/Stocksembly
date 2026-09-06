@@ -83,7 +83,12 @@ describe("SearchConsole durable research launch", () => {
     expect(menu).toHaveTextContent("사업 모델·제품·고객·경쟁 우위");
     expect(menu).toHaveTextContent("실적·현금흐름·재무 품질·밸류에이션");
     expect(menu).toHaveTextContent("하방 시나리오·규제·경고 신호");
-    expect(screen.getByText("설명 방식", { selector: "span" })).toBeVisible();
+    expect(
+      screen.getByRole("group", { name: "설명 방식" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("설명 방식", { selector: "span" }),
+    ).not.toBeInTheDocument();
   });
 
   it("closes the customize panel from an outside pointer or Escape", () => {
