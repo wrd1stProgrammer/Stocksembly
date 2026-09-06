@@ -525,6 +525,7 @@
 .hero__description {
   max-width: 680px;
   margin: var(--space-5) auto 0;
+  word-break: keep-all;
   color: var(--color-text-muted);
   font-size: var(--type-lead);
   line-height: 1.6;

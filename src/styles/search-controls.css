@@ -280,18 +280,10 @@
 .research-explanation-mode {
   display: flex;
   align-items: center;
-  gap: 6px;
   min-width: 0;
   margin: 0;
-  padding: 0 0 0 4px;
+  padding: 0;
   border: 0;
-}
-.research-explanation-mode__label {
-  color: var(--color-text-muted);
-  font-size: 10px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: default;
 }
 .research-explanation-mode__options {
   display: flex;

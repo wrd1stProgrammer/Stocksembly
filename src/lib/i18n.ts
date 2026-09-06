@@ -1,3 +1,4 @@
+import type { PublicRun } from "../research/client/schemas";
 import type { ActiveResearchActivityKind } from "../research/domain/activeResearchActivity";
 import type { AgentId } from "../research/types";
 import {
@@ -620,6 +621,24 @@ type Copy = {
   readonly nav: {
     readonly getStarted: string;
   };
+  readonly home: {
+    readonly title: string;
+    readonly description: string;
+    readonly myEyebrow: string;
+    readonly researchTitle: string;
+    readonly community: {
+      readonly eyebrow: string;
+      readonly title: string;
+      readonly description: string;
+      readonly browse: string;
+    };
+    readonly loading: string;
+    readonly emptyTitle: string;
+    readonly emptyDescription: string;
+    readonly error: string;
+    readonly retry: string;
+    readonly statuses: Readonly<Record<PublicRun["status"], string>>;
+  };
   readonly hero: {
     readonly eyebrow: string;
     readonly titleLead: string;
@@ -629,6 +648,14 @@ type Copy = {
     readonly proof: string;
   };
   readonly landing: {
+    readonly steps: {
+      readonly eyebrow: string;
+      readonly title: string;
+      readonly items: readonly {
+        readonly title: string;
+        readonly body: string;
+      }[];
+    };
     readonly explainer: {
       readonly eyebrow: string;
       readonly title: string;
@@ -673,6 +700,9 @@ type Copy = {
     readonly howItWorks: string;
     readonly research: string;
     readonly stockAnalysis: string;
+    readonly pricing: string;
+    readonly blog: string;
+    readonly glossary: string;
     readonly standardsHeading: string;
     readonly about: string;
     readonly methodology: string;
@@ -701,6 +731,36 @@ type Copy = {
 
 export const copy: Readonly<Record<AppLocale, Copy>> = {
   en: {
+    home: {
+      title: "Which stock shall we investigate today?",
+      description:
+        "Start with a question. Follow the evidence back to its sources.",
+      myEyebrow: "My research",
+      researchTitle: "My research",
+      community: {
+        eyebrow: "Research room",
+        title: "Research rooms from other investors",
+        description:
+          "Open other investors' questions and their finished research files.",
+        browse: "Browse other research",
+      },
+      loading: "Loading your research",
+      emptyTitle: "Your first research starts here.",
+      emptyDescription:
+        "Choose a stock above and ask a question to build a research file with linked sources.",
+      error: "We couldn’t load your research.",
+      retry: "Try again",
+      statuses: {
+        queued: "Queued",
+        running: "Researching",
+        cancelling: "Cancelling",
+        completed: "Complete",
+        "complete-with-limitations": "Complete with limitations",
+        cancelled: "Cancelled",
+        failed: "Failed",
+        incomplete: "Incomplete",
+      },
+    },
     a11y: {
       home: "Stocksembly home",
       language: "Language",
@@ -719,6 +779,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Watch the debate, follow the sources, decide for yourself.",
     },
     landing: {
+      steps: {
+        eyebrow: "How it works",
+        title: "One question starts the research.",
+        items: [
+          {
+            title: "Pick a stock, ask a question",
+            body: "Choose a US stock and write down what you want verified. That single question starts the run.",
+          },
+          {
+            title: "Eleven analysts investigate and debate",
+            body: "Each analyst researches on their own, then challenges the others' conclusions. You can watch it happen live.",
+          },
+          {
+            title: "A research file with linked sources",
+            body: "Every claim ships with its source attached. No buy or sell calls, just the material for your own judgment.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "WHAT YOU GET",
         title: "A research file, not a tip.",
@@ -782,6 +860,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "How it works",
       research: "Start research",
       stockAnalysis: "US stock analysis",
+      pricing: "Pricing",
+      blog: "Blog",
+      glossary: "Glossary",
       standardsHeading: "About & standards",
       about: "About Stocksembly",
       methodology: "Research methodology",
@@ -814,6 +895,34 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       language: "언어",
       results: "검색 결과",
     },
+    home: {
+      title: "오늘은 어떤 종목을 검증해볼까요?",
+      description: "궁금한 점에서 시작해, 근거와 출처를 따라 확인해 보세요.",
+      myEyebrow: "My research",
+      researchTitle: "내 리서치",
+      community: {
+        eyebrow: "Research room",
+        title: "다른 투자자의 리서치룸",
+        description: "다른 투자자의 질문과 완성된 리서치 파일을 열어 보세요.",
+        browse: "다른 리서치 보기",
+      },
+      loading: "내 리서치를 불러오는 중",
+      emptyTitle: "첫 리서치를 시작해 보세요.",
+      emptyDescription:
+        "위에서 종목을 고르고 질문을 입력하면, 출처가 연결된 리서치 파일을 만들 수 있습니다.",
+      error: "리서치를 불러오지 못했습니다.",
+      retry: "다시 시도",
+      statuses: {
+        queued: "대기 중",
+        running: "분석 중",
+        cancelling: "취소 중",
+        completed: "완료",
+        "complete-with-limitations": "일부 제한과 함께 완료",
+        cancelled: "취소됨",
+        failed: "실패",
+        incomplete: "미완료",
+      },
+    },
     nav: {
       getStarted: "시작하기",
     },
@@ -827,6 +936,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "토론을 지켜보고, 출처를 따라가고, 판단은 직접 하세요.",
     },
     landing: {
+      steps: {
+        eyebrow: "진행 방식",
+        title: "질문 하나면 시작됩니다.",
+        items: [
+          {
+            title: "종목과 질문 입력",
+            body: "검증할 미국 주식을 고르고 궁금한 점을 그대로 적으면 리서치가 시작됩니다.",
+          },
+          {
+            title: "11명이 조사하고 토론",
+            body: "분석가들이 각자 조사한 뒤 서로의 결론에 반론을 제기합니다. 그 과정을 실시간으로 지켜볼 수 있습니다.",
+          },
+          {
+            title: "출처가 링크된 리서치 파일",
+            body: "모든 주장에 출처가 붙은 리서치 파일이 발행됩니다. 매매 추천 없이, 판단 재료만 남깁니다.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "무엇을 받게 되나요",
         title: "추천이 아니라 리서치 파일입니다.",
@@ -888,6 +1015,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "작동 방식",
       research: "리서치 시작",
       stockAnalysis: "미국주식 분석",
+      pricing: "요금제",
+      blog: "블로그",
+      glossary: "용어사전",
       standardsHeading: "소개 및 원칙",
       about: "Stocksembly 소개",
       methodology: "리서치 방법론",
@@ -921,6 +1051,36 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "検索結果",
     },
     nav: { getStarted: "始める" },
+    home: {
+      title: "今日はどの銘柄を検証しましょうか？",
+      description:
+        "気になる問いから始めて、根拠と出典をたどって確かめましょう。",
+      myEyebrow: "My research",
+      researchTitle: "マイリサーチ",
+      community: {
+        eyebrow: "Research room",
+        title: "他の投資家のリサーチルーム",
+        description:
+          "他の投資家の質問と完成したリサーチファイルを開いてみましょう。",
+        browse: "他のリサーチを見る",
+      },
+      loading: "リサーチを読み込み中",
+      emptyTitle: "最初のリサーチを始めましょう。",
+      emptyDescription:
+        "上で銘柄を選んで質問を入力すると、出典へのリンク付きリサーチファイルを作成できます。",
+      error: "リサーチを読み込めませんでした。",
+      retry: "再試行",
+      statuses: {
+        queued: "待機中",
+        running: "分析中",
+        cancelling: "キャンセル中",
+        completed: "完了",
+        "complete-with-limitations": "一部制限付きで完了",
+        cancelled: "キャンセル済み",
+        failed: "失敗",
+        incomplete: "未完了",
+      },
+    },
     hero: {
       eyebrow: "米国株AIリサーチチーム",
       titleLead: "11人のAIアナリストが",
@@ -931,6 +1091,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "議論を見て、出典をたどり、判断はご自身で。",
     },
     landing: {
+      steps: {
+        eyebrow: "進め方",
+        title: "質問ひとつでリサーチが始まります。",
+        items: [
+          {
+            title: "銘柄と質問を入力",
+            body: "検証したい米国株を選び、気になる点をそのまま書くとリサーチが始まります。",
+          },
+          {
+            title: "11人が調査して討論",
+            body: "アナリストが各自調査し、互いの結論に反論します。その過程をリアルタイムで見られます。",
+          },
+          {
+            title: "出典リンク付きリサーチファイル",
+            body: "すべての主張に出典が付いたリサーチファイルが発行されます。売買推奨はなく、判断材料だけを残します。",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "得られるもの",
         title: "推奨ではなく、リサーチファイル。",
@@ -992,6 +1170,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "仕組み",
       research: "リサーチを開始",
       stockAnalysis: "米国株分析",
+      pricing: "料金プラン",
+      blog: "ブログ",
+      glossary: "用語集",
       standardsHeading: "会社情報・基準",
       about: "Stocksemblyについて",
       methodology: "リサーチ手法",
@@ -1026,6 +1207,34 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "搜尋結果",
     },
     nav: { getStarted: "開始使用" },
+    home: {
+      title: "今天想驗證哪一檔股票？",
+      description: "從你的問題出發，沿著證據與來源逐一查證。",
+      myEyebrow: "My research",
+      researchTitle: "我的研究",
+      community: {
+        eyebrow: "Research room",
+        title: "其他投資人的研究室",
+        description: "打開其他投資人的問題與完成的研究檔案。",
+        browse: "查看其他研究",
+      },
+      loading: "正在載入你的研究",
+      emptyTitle: "開始你的第一份研究。",
+      emptyDescription:
+        "在上方選擇股票並輸入問題，即可建立附有來源連結的研究檔案。",
+      error: "無法載入你的研究。",
+      retry: "重試",
+      statuses: {
+        queued: "排隊中",
+        running: "分析中",
+        cancelling: "取消中",
+        completed: "已完成",
+        "complete-with-limitations": "已完成，但有部分限制",
+        cancelled: "已取消",
+        failed: "失敗",
+        incomplete: "未完成",
+      },
+    },
     hero: {
       eyebrow: "美股 AI 研究團隊",
       titleLead: "11 位 AI 分析師",
@@ -1036,6 +1245,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "看完辯論、追蹤來源，再自行判斷。",
     },
     landing: {
+      steps: {
+        eyebrow: "運作方式",
+        title: "一個問題就能開始研究。",
+        items: [
+          {
+            title: "選擇股票並提問",
+            body: "挑選想驗證的美股，寫下你的疑問，研究隨即開始。",
+          },
+          {
+            title: "11 位分析師調查並辯論",
+            body: "每位分析師獨立調查後互相質疑結論，整個過程都能即時觀看。",
+          },
+          {
+            title: "附來源連結的研究檔案",
+            body: "每項主張都附上來源。沒有買賣建議，只留下供你判斷的材料。",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "您會得到什麼",
         title: "是研究檔案，不是明牌。",
@@ -1095,6 +1322,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "運作方式",
       research: "開始研究",
       stockAnalysis: "美股分析",
+      pricing: "方案",
+      blog: "部落格",
+      glossary: "詞彙表",
       standardsHeading: "關於與標準",
       about: "關於 Stocksembly",
       methodology: "研究方法",
@@ -1128,6 +1358,36 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Resultados de búsqueda",
     },
     nav: { getStarted: "Comenzar" },
+    home: {
+      title: "¿Qué acción investigamos hoy?",
+      description:
+        "Empieza con una pregunta y sigue la evidencia hasta sus fuentes.",
+      myEyebrow: "My research",
+      researchTitle: "Mis investigaciones",
+      community: {
+        eyebrow: "Research room",
+        title: "Salas de análisis de otros inversores",
+        description:
+          "Abre las preguntas de otros inversores y sus informes terminados.",
+        browse: "Ver otros análisis",
+      },
+      loading: "Cargando tus investigaciones",
+      emptyTitle: "Empieza tu primera investigación.",
+      emptyDescription:
+        "Elige una acción arriba y escribe una pregunta para crear un informe con enlaces a las fuentes.",
+      error: "No pudimos cargar tus investigaciones.",
+      retry: "Volver a intentar",
+      statuses: {
+        queued: "En cola",
+        running: "En análisis",
+        cancelling: "Cancelando",
+        completed: "Completada",
+        "complete-with-limitations": "Completada con limitaciones",
+        cancelled: "Cancelada",
+        failed: "Fallida",
+        incomplete: "Incompleta",
+      },
+    },
     hero: {
       eyebrow: "Investigación con IA de acciones de EE. UU.",
       titleLead: "Once analistas de IA",
@@ -1138,6 +1398,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Sigue el debate, revisa las fuentes y decide por tu cuenta.",
     },
     landing: {
+      steps: {
+        eyebrow: "Cómo funciona",
+        title: "Una pregunta basta para empezar.",
+        items: [
+          {
+            title: "Elige una acción y pregunta",
+            body: "Selecciona una acción de EE. UU. y escribe lo que quieres verificar. Esa pregunta inicia el análisis.",
+          },
+          {
+            title: "Once analistas investigan y debaten",
+            body: "Cada analista investiga por su cuenta y cuestiona las conclusiones de los demás. Puedes verlo en vivo.",
+          },
+          {
+            title: "Un informe con fuentes enlazadas",
+            body: "Cada afirmación llega con su fuente. Sin recomendaciones de compra o venta, solo material para tu propio juicio.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "QUÉ OBTIENES",
         title: "Un archivo de investigación, no un consejo.",
@@ -1201,6 +1479,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "Cómo funciona",
       research: "Iniciar análisis",
       stockAnalysis: "Análisis de acciones de EE. UU.",
+      pricing: "Planes",
+      blog: "Blog",
+      glossary: "Glosario",
       standardsHeading: "Información y estándares",
       about: "Sobre Stocksembly",
       methodology: "Metodología",
@@ -1235,6 +1516,36 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Resultados da busca",
     },
     nav: { getStarted: "Começar" },
+    home: {
+      title: "Qual ação vamos investigar hoje?",
+      description:
+        "Comece com uma pergunta e acompanhe as evidências até suas fontes.",
+      myEyebrow: "My research",
+      researchTitle: "Minhas pesquisas",
+      community: {
+        eyebrow: "Research room",
+        title: "Salas de research de outros investidores",
+        description:
+          "Abra as perguntas de outros investidores e seus researchs concluídos.",
+        browse: "Ver outros researchs",
+      },
+      loading: "Carregando suas pesquisas",
+      emptyTitle: "Comece sua primeira pesquisa.",
+      emptyDescription:
+        "Escolha uma ação acima e faça uma pergunta para criar um relatório com links para as fontes.",
+      error: "Não foi possível carregar suas pesquisas.",
+      retry: "Tentar novamente",
+      statuses: {
+        queued: "Na fila",
+        running: "Em análise",
+        cancelling: "Cancelando",
+        completed: "Concluída",
+        "complete-with-limitations": "Concluída com limitações",
+        cancelled: "Cancelada",
+        failed: "Falhou",
+        incomplete: "Incompleta",
+      },
+    },
     hero: {
       eyebrow: "Pesquisa com IA para ações dos EUA",
       titleLead: "Onze analistas de IA",
@@ -1246,6 +1557,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         "Acompanhe o debate, confira as fontes e decida por conta própria.",
     },
     landing: {
+      steps: {
+        eyebrow: "Como funciona",
+        title: "Uma pergunta já inicia o research.",
+        items: [
+          {
+            title: "Escolha a ação e pergunte",
+            body: "Selecione uma ação dos EUA e escreva o que quer verificar. Essa pergunta inicia a análise.",
+          },
+          {
+            title: "Onze analistas investigam e debatem",
+            body: "Cada analista pesquisa por conta própria e questiona as conclusões dos outros. Você acompanha ao vivo.",
+          },
+          {
+            title: "Um arquivo de research com fontes",
+            body: "Cada afirmação vem com a fonte anexada. Sem recomendações de compra ou venda, só material para o seu julgamento.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "O QUE VOCÊ RECEBE",
         title: "Um arquivo de pesquisa, não uma dica.",
@@ -1309,6 +1638,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "Como funciona",
       research: "Iniciar research",
       stockAnalysis: "Análise de ações dos EUA",
+      pricing: "Planos",
+      blog: "Blog",
+      glossary: "Glossário",
       standardsHeading: "Sobre e padrões",
       about: "Sobre a Stocksembly",
       methodology: "Metodologia",
@@ -1342,6 +1674,36 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Suchergebnisse",
     },
     nav: { getStarted: "Loslegen" },
+    home: {
+      title: "Welche Aktie untersuchen wir heute?",
+      description:
+        "Starte mit einer Frage und verfolge die Belege bis zu ihren Quellen.",
+      myEyebrow: "My research",
+      researchTitle: "Meine Analysen",
+      community: {
+        eyebrow: "Research room",
+        title: "Research-Räume anderer Anleger",
+        description:
+          "Öffne die Fragen anderer Anleger und ihre fertigen Research-Dateien.",
+        browse: "Andere Analysen ansehen",
+      },
+      loading: "Deine Analysen werden geladen",
+      emptyTitle: "Starte deine erste Analyse.",
+      emptyDescription:
+        "Wähle oben eine Aktie und stelle eine Frage, um einen Analysebericht mit verlinkten Quellen zu erstellen.",
+      error: "Deine Analysen konnten nicht geladen werden.",
+      retry: "Erneut versuchen",
+      statuses: {
+        queued: "In der Warteschlange",
+        running: "In Analyse",
+        cancelling: "Wird abgebrochen",
+        completed: "Abgeschlossen",
+        "complete-with-limitations": "Mit Einschränkungen abgeschlossen",
+        cancelled: "Abgebrochen",
+        failed: "Fehlgeschlagen",
+        incomplete: "Unvollständig",
+      },
+    },
     hero: {
       eyebrow: "KI-Researchteam für US-Aktien",
       titleLead: "Elf KI-Analysten",
@@ -1352,6 +1714,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Debatte verfolgen, Quellen prüfen, selbst entscheiden.",
     },
     landing: {
+      steps: {
+        eyebrow: "So funktioniert es",
+        title: "Eine Frage genügt zum Start.",
+        items: [
+          {
+            title: "Aktie wählen, Frage stellen",
+            body: "Wähle eine US-Aktie und schreibe auf, was du prüfen willst. Diese Frage startet die Recherche.",
+          },
+          {
+            title: "Elf Analysten recherchieren und debattieren",
+            body: "Jeder Analyst recherchiert eigenständig und hinterfragt die Schlüsse der anderen. Live mitzuverfolgen.",
+          },
+          {
+            title: "Research-Datei mit verlinkten Quellen",
+            body: "Jede Aussage kommt mit Quelle. Keine Kauf- oder Verkaufsempfehlungen, nur Material für dein eigenes Urteil.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "WAS SIE BEKOMMEN",
         title: "Eine Research-Akte, kein Tipp.",
@@ -1415,6 +1795,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "So funktioniert es",
       research: "Research starten",
       stockAnalysis: "US-Aktienanalyse",
+      pricing: "Tarife",
+      blog: "Blog",
+      glossary: "Glossar",
       standardsHeading: "Über uns & Standards",
       about: "Über Stocksembly",
       methodology: "Research-Methodik",
@@ -1449,6 +1832,36 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Résultats de recherche",
     },
     nav: { getStarted: "Commencer" },
+    home: {
+      title: "Quelle action allons-nous examiner aujourd’hui ?",
+      description:
+        "Partez d’une question et remontez des éléments de preuve à leurs sources.",
+      myEyebrow: "My research",
+      researchTitle: "Mes analyses",
+      community: {
+        eyebrow: "Research room",
+        title: "Salles de recherche d'autres investisseurs",
+        description:
+          "Ouvrez les questions d'autres investisseurs et leurs dossiers terminés.",
+        browse: "Voir d'autres recherches",
+      },
+      loading: "Chargement de vos analyses",
+      emptyTitle: "Lancez votre première analyse.",
+      emptyDescription:
+        "Choisissez une action ci-dessus et posez une question pour créer un dossier d’analyse avec des liens vers les sources.",
+      error: "Impossible de charger vos analyses.",
+      retry: "Réessayer",
+      statuses: {
+        queued: "En attente",
+        running: "En cours d’analyse",
+        cancelling: "Annulation en cours",
+        completed: "Terminée",
+        "complete-with-limitations": "Terminée avec des limites",
+        cancelled: "Annulée",
+        failed: "Échec",
+        incomplete: "Incomplète",
+      },
+    },
     hero: {
       eyebrow: "Recherche IA sur les actions américaines",
       titleLead: "Onze analystes IA",
@@ -1459,6 +1872,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Suivez le débat, vérifiez les sources, décidez par vous-même.",
     },
     landing: {
+      steps: {
+        eyebrow: "Comment ça marche",
+        title: "Une question suffit pour commencer.",
+        items: [
+          {
+            title: "Choisissez une action, posez une question",
+            body: "Sélectionnez une action américaine et écrivez ce que vous voulez vérifier. Cette question lance la recherche.",
+          },
+          {
+            title: "Onze analystes enquêtent et débattent",
+            body: "Chaque analyste enquête de son côté puis conteste les conclusions des autres. Le tout se suit en direct.",
+          },
+          {
+            title: "Un dossier aux sources liées",
+            body: "Chaque affirmation est reliée à sa source. Aucun conseil d'achat ou de vente, seulement de quoi juger par vous-même.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "CE QUE VOUS OBTENEZ",
         title: "Un dossier de recherche, pas un tuyau.",
@@ -1522,6 +1953,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "Fonctionnement",
       research: "Lancer une recherche",
       stockAnalysis: "Analyse d’actions américaines",
+      pricing: "Offres",
+      blog: "Blog",
+      glossary: "Glossaire",
       standardsHeading: "À propos et standards",
       about: "À propos de Stocksembly",
       methodology: "Méthodologie",

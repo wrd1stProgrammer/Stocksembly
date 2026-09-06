@@ -10,22 +10,40 @@ type LandingSectionsProps = {
 
 export function LandingSections({ locale }: LandingSectionsProps) {
   const content = copy[locale].landing.explainer;
+  const steps = copy[locale].landing.steps;
   return (
-    <section
-      className="landing-explainer"
-      aria-labelledby="landing-explainer-title"
-    >
-      <p className="landing-explainer__eyebrow">{content.eyebrow}</p>
-      <h2 id="landing-explainer-title">{content.title}</h2>
-      <ul className="landing-explainer__cards">
-        {content.cards.map((card) => (
-          <li key={card.title}>
-            <h3>{card.title}</h3>
-            <p>{card.body}</p>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <>
+      <section className="landing-steps" aria-labelledby="landing-steps-title">
+        <p className="landing-steps__eyebrow">{steps.eyebrow}</p>
+        <h2 id="landing-steps-title">{steps.title}</h2>
+        <ol className="landing-steps__items">
+          {steps.items.map((item, index) => (
+            <li key={item.title}>
+              <span className="landing-steps__number" aria-hidden="true">
+                {index + 1}
+              </span>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <section
+        className="landing-explainer"
+        aria-labelledby="landing-explainer-title"
+      >
+        <p className="landing-explainer__eyebrow">{content.eyebrow}</p>
+        <h2 id="landing-explainer-title">{content.title}</h2>
+        <ul className="landing-explainer__cards">
+          {content.cards.map((card) => (
+            <li key={card.title}>
+              <h3>{card.title}</h3>
+              <p>{card.body}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }
 
@@ -60,6 +78,9 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
           <Link href={`/${locale}/us-stock-analysis`}>
             {content.stockAnalysis}
           </Link>
+          <Link href={locale === "en" ? "/pricing?lang=en" : "/pricing"}>
+            {content.pricing}
+          </Link>
           <a href="#product">{content.howItWorks}</a>
           <a href="#product">{content.research}</a>
         </nav>
@@ -76,6 +97,8 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
               {link.label}
             </Link>
           ))}
+          <Link href={`/${locale}/blog`}>{content.blog}</Link>
+          <Link href={`/${locale}/glossary`}>{content.glossary}</Link>
         </nav>
         <address className="site-footer__column">
           <h2>{content.contactHeading}</h2>
