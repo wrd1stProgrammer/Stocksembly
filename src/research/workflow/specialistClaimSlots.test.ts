@@ -104,6 +104,70 @@ describe("specialist claim slots", () => {
     });
   });
 
+  it("binds cash conversion to its local metric instead of later receivables growth", async () => {
+    const harness = await makeSqliteRoundHarness("none");
+    const roleId = "financial_quality" as const;
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+    });
+    const artifact = harness.sources[0];
+    if (artifact === undefined) throw new TypeError("source fixture missing");
+    const metricId = "cash_conversion_quarter:Q:2026-07-26";
+    const candidate = quantifiedCandidate({
+      roleId,
+      claimSlots,
+      artifactId: artifact.artifactId,
+      metricId,
+      leadSummary: {
+        en: "Cash conversion was 40.3%. Accounts receivable increased as customers received extended payment terms.",
+        ko: "현금 전환율은 40.3%였다. 매출채권 증가는 고객의 연장 결제조건과 부합한다.",
+      },
+    });
+    const request = {
+      runId: harness.input.mandate.runId,
+      snapshotId: harness.input.snapshot.snapshotId,
+      roleId,
+      claimSlots,
+      allowedArtifactIds: [artifact.artifactId],
+      allowedMetricIds: [metricId],
+      registeredValues: [
+        {
+          valueId: metricId,
+          metric: "cash_conversion_quarter",
+          value: "40.338",
+          unit: "percent",
+          period: "Q:2026-07-26",
+        },
+      ],
+    };
+    expect(validateSpecialistClaimSubmission(request, candidate)).toEqual({
+      ok: true,
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        {
+          ...request,
+          registeredValues: [
+            {
+              ...request.registeredValues[0],
+              valueId: metricId,
+              metric: "cash_conversion_quarter",
+              value: "86.3",
+              unit: "percent",
+              period: "Q:2026-07-26",
+            },
+          ],
+        },
+        candidate,
+      ),
+    ).toEqual({
+      ok: false,
+      reason: "specialist_claim_numeric_metric_mismatch",
+    });
+  });
+
   it("rejects a revenue-growth percentage that does not match its decisive metric", async () => {
     const harness = await makeSqliteRoundHarness("none");
     const roleId = "financial" as const;
@@ -293,7 +357,7 @@ describe("specialist claim slots", () => {
     });
   });
 
-  it("removes only ambiguous percentage values instead of exhausting replacement retries", async () => {
+  it("routes ambiguous numeric claims to the existing corrective retry instead of publishing a placeholder", async () => {
     const harness = await makeSqliteRoundHarness("none");
     const roleId = "financial" as const;
     const claimSlots = allocateSpecialistClaimSlots({
@@ -353,8 +417,8 @@ describe("specialist claim slots", () => {
       (grounded as { readonly positions: readonly unknown[] }).positions[0],
     ).toMatchObject({
       publicSummary: {
-        en: "The evidence supports the direction of this claim, but an exact rate is omitted because it could not be matched unambiguously.",
-        ko: "근거는 이 주장의 방향성을 뒷받침하지만, 명확히 연결되지 않은 비율은 표시하지 않았습니다.",
+        en: "Revenue increased 106%, while operating margin reached 77%.",
+        ko: "매출은 106% 증가했고 영업이익률은 77%를 기록했습니다.",
       },
     });
     expect(
@@ -370,7 +434,10 @@ describe("specialist claim slots", () => {
         },
         grounded,
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({
+      ok: false,
+      reason: "specialist_claim_numeric_metric_mismatch",
+    });
   });
 
   it("does not mistake an explicit future threshold for a reported metric", async () => {

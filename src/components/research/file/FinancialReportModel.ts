@@ -2,6 +2,7 @@ import type { Locale } from "../../../lib/i18n";
 import type { ResearchFileData } from "../../../research/compositions/types";
 import type { ComparatorQualificationResult } from "../../../research/domain/comparatorQualificationContracts";
 import type { ResearchMetricPoint } from "../../../research/domain/metricSnapshot";
+import { metricsSharePeriod } from "../../../research/domain/metricSnapshot";
 
 export const FINANCIAL_BRIDGE_METRIC_IDS = [
   "revenue_ttm",
@@ -114,7 +115,8 @@ export function selectFinancialDiagnostics(
   if (
     revenue !== undefined &&
     revenue.value !== 0 &&
-    freeCashFlow !== undefined
+    freeCashFlow !== undefined &&
+    metricsSharePeriod(revenue, freeCashFlow)
   )
     diagnostics.push({
       id: "free-cash-flow-margin",
@@ -127,11 +129,16 @@ export function selectFinancialDiagnostics(
         ko: "보고 매출이 실제 재량 현금으로 얼마나 남는지 보여줍니다.",
       },
     });
-  if (revenue !== undefined && revenue.value !== 0 && capex !== undefined)
+  if (
+    revenue !== undefined &&
+    revenue.value !== 0 &&
+    capex !== undefined &&
+    metricsSharePeriod(revenue, capex)
+  )
     diagnostics.push({
       id: "capital-intensity",
       label: { en: "Capex / revenue", ko: "매출 대비 설비투자" },
-      value: (capex.value / revenue.value) * 100,
+      value: (Math.abs(capex.value) / revenue.value) * 100,
       unit: "percent",
       sourceIds: [revenue.source, capex.source],
       interpretation: {
@@ -139,7 +146,11 @@ export function selectFinancialDiagnostics(
         ko: "현재 매출 기반을 유지하는 데 필요한 자본 부담입니다.",
       },
     });
-  if (grossMargin !== undefined && operatingMargin !== undefined)
+  if (
+    grossMargin !== undefined &&
+    operatingMargin !== undefined &&
+    metricsSharePeriod(grossMargin, operatingMargin)
+  )
     diagnostics.push({
       id: "operating-capture",
       label: { en: "Gross-to-operating capture", ko: "총마진의 영업이익 전환" },

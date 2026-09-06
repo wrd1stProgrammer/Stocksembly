@@ -25,6 +25,7 @@ export function ResearchMetricStrip({
         <div key={metric.id} data-signal={metric.signal}>
           <dt>{metric.label}</dt>
           <dd>{metric.value}</dd>
+          {metric.period === undefined ? null : <small>{metric.period}</small>}
           {metric.barPercent === undefined ? null : (
             <span
               className="research-metric-strip__bar"

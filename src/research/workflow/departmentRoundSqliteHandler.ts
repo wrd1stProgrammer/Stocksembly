@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { commitAgentOutput } from "../application/commitAgentOutput";
-import { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
 import {
   ArtifactIdSchema,
@@ -15,11 +14,12 @@ import { captureAttemptWebEvidence } from "../server/codex/codexWebCapture";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
-import type { SqliteDepartmentRoundOptions } from "./departmentRoundContracts";
 import {
-  deterministicDepartmentCandidate,
-  inspectDepartmentCandidate,
-} from "./departmentRoundOutput";
+  DepartmentJobPromptSchema,
+  departmentRunnerOutputSchema,
+  type SqliteDepartmentRoundOptions,
+} from "./departmentRoundContracts";
+import { inspectDepartmentCandidate } from "./departmentRoundOutput";
 import type { DepartmentRoundSqliteAuthority } from "./departmentRoundSqliteAuthority";
 import { retryRejectedCommit } from "./specialistCommitRetry";
 import type { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
@@ -77,7 +77,9 @@ export function createDepartmentRoundAttemptHandler(
         reservation: { key, fence: claim },
         stage: "department_consolidation",
         prompt: job.prompt,
-        outputSchema: DepartmentConsolidationOutputSchema,
+        outputSchema: departmentRunnerOutputSchema(
+          DepartmentJobPromptSchema.parse(JSON.parse(job.prompt)),
+        ),
         captureWebEvidence: async (webEvidence) =>
           await captureAttemptWebEvidence(
             context.options.cas,
@@ -89,9 +91,7 @@ export function createDepartmentRoundAttemptHandler(
         signal,
         onActivity: activity,
       });
-      candidate =
-        inspectDepartmentCandidate(job, result.candidate) ??
-        deterministicDepartmentCandidate(job);
+      candidate = inspectDepartmentCandidate(job, result.candidate) ?? {};
       runnerEvidence = result.evidence;
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;

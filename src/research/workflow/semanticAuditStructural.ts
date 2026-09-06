@@ -4,10 +4,19 @@ import {
   type StructuralAuditArtifactEnvelope,
   StructuralAuditArtifactEnvelopeSchema,
 } from "../application/structuralAuditPersistenceContracts";
+import {
+  DepartmentConsolidationOutputSchema,
+  MemoOutputSchema,
+} from "../domain/agentOutputs";
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { type ArtifactCasPort, ArtifactDigestSchema } from "../ports/artifacts";
 import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import {
+  chairAgentPayload,
+  chairArtifactRows,
+  loadChairMandate,
+} from "./chairSynthesisArtifacts";
 import {
   type SemanticAuditPrompt,
   SemanticAuditPromptSchema,
@@ -309,8 +318,53 @@ export async function loadSemanticPrompt(
       );
       if (reason !== undefined) return { kind: "blocked", reason };
     }
+  const mandate = loadChairMandate(database, input.runId);
+  const memoPositions = new Map<
+    string,
+    {
+      readonly strongestContraryObservation?:
+        | { readonly en: string; readonly ko: string }
+        | undefined;
+    }
+  >();
+  const revisions = new Map<
+    string,
+    {
+      readonly publicSummary: { readonly en: string; readonly ko: string };
+      readonly falsifier: { readonly en: string; readonly ko: string };
+    }
+  >();
+  for (const row of chairArtifactRows(database, input.runId).filter((item) =>
+    /^(memo|consolidation):/u.test(item.logical_key),
+  )) {
+    const payload = await chairAgentPayload(cas, row, row.logical_key);
+    if (row.logical_key.startsWith("memo:")) {
+      const memo = MemoOutputSchema.safeParse(payload);
+      if (memo.success)
+        for (const position of memo.data.positions)
+          memoPositions.set(position.claimId, position);
+    } else {
+      const consolidation =
+        DepartmentConsolidationOutputSchema.safeParse(payload);
+      if (consolidation.success)
+        for (const revision of consolidation.data.revisions)
+          revisions.set(revision.originClaimId, revision);
+    }
+  }
   const boundedSlices = slices.map((slice) => ({
     ...slice,
+    text: revisions.get(slice.claimId)?.publicSummary ?? slice.text,
+    falsifier:
+      revisions.get(slice.claimId)?.falsifier ??
+      (() => {
+        const condition = materialClaims.find(
+          (claim) => claim.claimId === slice.claimId,
+        )?.changeCondition;
+        return condition === undefined
+          ? undefined
+          : { en: condition.en, ko: condition.ko };
+      })(),
+    countercase: memoPositions.get(slice.claimId)?.strongestContraryObservation,
     evidence: slice.evidence.map((evidence) => {
       const selected = semanticEvidenceWindow(
         evidence.exactText,
@@ -329,6 +383,8 @@ export async function loadSemanticPrompt(
   }));
   const prompt = SemanticAuditPromptSchema.parse({
     kind: "semantic_audit_input_v1",
+    question: mandate?.question,
+    researchBrief: mandate?.researchBrief,
     structuralAuditHash: parsed.data.auditHash,
     sourceArtifactIds: [
       ...new Set(

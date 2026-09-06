@@ -6,7 +6,11 @@ import {
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
 } from "./chairSynthesisContracts";
-import { chairSynthesisModelPrompt } from "./chairSynthesisPrompts";
+import {
+  chairDirectionalBriefAssignment,
+  chairSectionPrimaryAssignments,
+  chairSynthesisModelPrompt,
+} from "./chairSynthesisPrompts";
 import {
   chairCandidateIssue,
   mergeChairSectionRewrite,
@@ -1258,4 +1262,75 @@ describe("chair synthesis directional contract", () => {
     // Then
     expect(accepted).toEqual({});
   });
+});
+
+it("prioritizes financial claims for long-term sizing and links its own invalidation", () => {
+  const { prompt } = mixedClaimValidationFixture();
+  const financial = prompt.sentences.find(
+    (sentence) =>
+      sentence.kind === "claim" && sentence.text.en === "Valuation C",
+  );
+  const condition = prompt.sentences.find(
+    (sentence) => sentence.kind === "change_condition",
+  );
+  if (financial === undefined || condition === undefined)
+    throw new Error("missing fixture");
+  const focused = {
+    ...prompt,
+    mandate: {
+      ...prompt.mandate,
+      question: "Should I add for the long term?",
+      researchProfile: {
+        ...prompt.mandate.researchProfile,
+        investmentHorizon: "long" as const,
+        decisionPurpose: "position_sizing" as const,
+      },
+    },
+    sentences: [
+      ...prompt.sentences.map((sentence) =>
+        sentence.sentenceId === "position:financial"
+          ? { ...sentence, claimIds: financial.claimIds }
+          : sentence,
+      ),
+      {
+        ...condition,
+        sentenceId: "change:financial",
+        claimIds: financial.claimIds,
+        text: {
+          en: "Reassess if cash generation weakens.",
+          ko: "현금창출이 약해지면 재검토합니다.",
+        },
+      },
+    ],
+  };
+  expect(chairSectionPrimaryAssignments(focused)[0]?.primarySentenceId).toBe(
+    financial.sentenceId,
+  );
+  expect(chairDirectionalBriefAssignment(focused).falsifier.sentenceId).toBe(
+    "change:financial",
+  );
+});
+
+it("prefers the lead claim's recorded contrary observation over a generic challenge", () => {
+  const { prompt } = mixedClaimValidationFixture();
+  const decisive = chairDirectionalBriefAssignment(prompt).decisive;
+  const focused = {
+    ...prompt,
+    sentences: [
+      ...prompt.sentences,
+      {
+        sentenceId: "dissent:counterevidence:lead",
+        kind: "dissent" as const,
+        claimIds: decisive.claimIds,
+        sourceArtifactIds: decisive.sourceArtifactIds,
+        text: {
+          en: "Customer retention remains strong despite weaker earnings.",
+          ko: "이익 약화에도 고객 유지율은 견조합니다.",
+        },
+      },
+    ],
+  };
+  expect(chairDirectionalBriefAssignment(focused).countercase.sentenceId).toBe(
+    "dissent:counterevidence:lead",
+  );
 });

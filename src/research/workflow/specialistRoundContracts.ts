@@ -21,6 +21,7 @@ import {
   type RunId,
   type SnapshotId,
 } from "../domain/ids";
+import type { ResearchBrief } from "../domain/researchBrief";
 import type { ResearchProfile } from "../domain/researchProfile";
 import {
   EVIDENCE_NEEDS,
@@ -139,6 +140,7 @@ export type SpecialistJobRequest = {
   readonly mandate: {
     readonly mandateHash: string;
     readonly question?: string;
+    readonly researchBrief?: ResearchBrief;
     readonly scope: "broad" | "focused";
     readonly locale: "en" | "ko";
     readonly limitations: ResearchMandateV1["limitations"];

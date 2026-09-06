@@ -24,7 +24,7 @@ export const TTM_METRICS = [
 
 export type CoreMetric = (typeof CORE_METRICS)[number];
 export type TtmMetric = (typeof TTM_METRICS)[number];
-export type FactPeriodKind = "annual" | "quarter" | "instant";
+export type FactPeriodKind = "annual" | "quarter" | "ytd" | "instant";
 
 type MetricDefinition = {
   readonly metric: CoreMetric;
@@ -165,6 +165,7 @@ export function periodKind(
   if (start === undefined) return undefined;
   const days = (Date.parse(end) - Date.parse(start)) / 86_400_000 + 1;
   if (days >= 70 && days <= 120) return "quarter";
+  if ((days >= 150 && days <= 210) || (days >= 240 && days < 300)) return "ytd";
   if (days >= 300 && days <= 400) return "annual";
   return undefined;
 }

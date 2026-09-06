@@ -112,9 +112,9 @@ export function registerSandboxTests(): void {
       expect(buildCodexArgv(input.schemaPath, "memo")).toContain(
         'web_search="live"',
       );
-      expect(
-        buildCodexArgv(input.schemaPath, "chair_synthesis"),
-      ).toContain('web_search="disabled"');
+      expect(buildCodexArgv(input.schemaPath, "chair_synthesis")).toContain(
+        'web_search="disabled"',
+      );
       expect(memoProfile).toContain("(allow network-outbound)");
       expect(chairProfile).toContain("(allow network-outbound)");
     });
@@ -192,7 +192,7 @@ export function registerSandboxTests(): void {
       const passwordFile = "/private/etc/passwd";
       const projectSentinel = join(
         process.cwd(),
-        ".omo/evidence/start-work/live-research-office/task-17/sandbox-project-sentinel",
+        `.stocksembly-sandbox-project-sentinel-${process.pid}`,
       );
       const homeSentinel = join(
         homedir(),

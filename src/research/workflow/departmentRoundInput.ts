@@ -1,10 +1,8 @@
 import { z } from "zod";
-import {
-  DepartmentConsolidationOutputSchema,
-  MemoOutputSchema,
-} from "../domain/agentOutputs";
+import { MemoOutputSchema } from "../domain/agentOutputs";
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { JobIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import type { ResearchBrief } from "../domain/researchBrief";
 import {
   WORKFLOW_V1_DEPARTMENT_IDS,
   WORKFLOW_V1_ROLE_REGISTRY,
@@ -20,6 +18,7 @@ import type {
 } from "./departmentRoundContracts";
 import {
   DepartmentJobPromptSchema,
+  departmentRunnerOutputSchema,
   PersistedDepartmentJobSchema,
 } from "./departmentRoundContracts";
 import type { AcceptedMemoRow } from "./departmentRoundSqliteAuthority";
@@ -178,13 +177,25 @@ export async function authenticatedMemoPrompts(
               memberIds: department.memberIds,
             },
             memberArtifacts,
+            claimBindings: memberArtifacts.flatMap((member) =>
+              member.memo.positions.map((position) => ({
+                claimId: position.claimId,
+                removalAllowed: !member.memo.dissent.some(
+                  (dissent) => dissent.claimId === position.claimId,
+                ),
+                revisionSourceArtifactIds: position.evidenceArtifactIds,
+              })),
+            ),
             editorialBrief: [
               "Produce a decision-dense specialist-team synthesis, not a stitched recap of member memos.",
               DEPARTMENT_EDITORIAL_DIRECTION[departmentId],
+              "Answer the original question and researchBrief before the default team template. A financial-health question requires a financial-health conclusion, not an entry decision. Rank claims by relevance to the brief and trace observation -> economic mechanism -> implication. Review every candidate falsifier: simulate its occurrence and check that it would weaken the exact thesis. Reject unrelated product interpretations and mixed fiscal/accounting periods. Revise a reversed falsifier through revisions rather than copying it into accepted claims. Preserve a genuinely opposing observation and do not confuse a downside risk with counterevidence to a bearish conclusion.",
               "publicSummary must answer the investment question once in at most two sentences: lead with the decision, include the most decision-relevant quantified fact when available, and name one uncertainty that can actually change the view.",
+              "When decisionContract is coherent-decision-v1, decisionPacket is REQUIRED. Write publicSummary, decisionPacket.strongestCountercase, and decisionPacket.falsifier together as ONE judgment about the original question. Choose primaryClaimId from surviving claims whose actual thesis supports that summary; put it first in strongestClaimIds. Set stanceContribution to the actual direction of the team's final summary, not a majority count of unrelated claim stances. Bind countercaseClaimIds to 1-3 surviving claims containing the facts behind your countercase (their thesis or strongestContraryObservation). Do not mechanically copy a member's opposing observation: it may SUPPORT the final team conclusion. Example: if the summary says finances are strong, cash-flow growth is support; deteriorating cash conversion is a countercase. If the summary says cash conversion is persistently weak, a falsifier must describe recovery, not further deterioration. Mentally assume the packet's falsifier occurs: it must weaken the exact publicSummary. Use only observed source facts, and keep uncertainty distinct from observed counterevidence. No investment-action recommendation is required for a financial-health question.",
               "Take the best-supported current side. Do not make the team position a list of conditions or default to qualified neutrality: state what the team believes now, why it matters to an investor, and reserve one observable reversal condition for the end.",
               "When member evidence contains a named company comparison, explicitly choose the stronger company for this department's decision dimensions and explain the trade-off. Do not replace the requested company comparison with a generic sector or peer-data caveat.",
               "Select accepted, strongest, weakest, revised, and removed claims according to evidence quality. Do not accept every claim by default.",
+              "Use claimBindings as the exact checklist: emit one disposition for EVERY listed claimId. If removalAllowed is false, preserve its explicit dissent by accepting or revising that claim; never remove it. For revisions, copy revisionSourceArtifactIds exactly into sourceArtifactIds, not the enclosing member memo artifactId. Do not print any UUID or internal ID inside public prose or disposition reasons. English fields must be English and Korean fields Korean.",
               "Classify every filled member claim exactly once with dispositions: accept, revise, or remove. Give every disposition a specific bilingual reason. Keep acceptedClaimIds, revisedClaimIds, and removedClaimIds disjoint and exhaustive.",
               "For each revised claim, retain its authenticated originClaimId and exact sourceArtifactIds in revisions, provide revised bilingual publicSummary, a claim-specific falsifier, and reason. Use originClaimId as the adjudicatedClaimId placeholder and a 64-character lowercase hexadecimal revisionHash placeholder; the trusted boundary derives the distinct deterministic adjudicatedClaimId and content hash.",
               "For every revised claim, copy the matching disposition.reason exactly into revision.reason in both languages; the trusted boundary requires byte-for-byte equality between those two reason objects.",
@@ -212,9 +223,26 @@ export function departmentJobs(
   runId: string,
   snapshotId: string,
   prompts: readonly DepartmentJobPrompt[],
+  mandate?: {
+    readonly question?: string | undefined;
+    readonly researchBrief?: ResearchBrief | undefined;
+  },
 ): readonly PersistedDepartmentJob[] {
   return prompts.map((request) => {
-    const prompt = JSON.stringify(request);
+    const prompt = JSON.stringify(
+      DepartmentJobPromptSchema.parse({
+        ...request,
+        ...(mandate?.question === undefined
+          ? {}
+          : { question: mandate.question }),
+        ...(mandate?.researchBrief === undefined
+          ? {}
+          : {
+              researchBrief: mandate.researchBrief,
+              decisionContract: "coherent-decision-v1",
+            }),
+      }),
+    );
     const memberArtifactIds = request.memberArtifacts.map(
       (member) => member.artifactId,
     );
@@ -242,7 +270,9 @@ export function departmentJobs(
       inputHash: codexInputHash({
         stage: "department_consolidation",
         prompt,
-        outputSchema: DepartmentConsolidationOutputSchema,
+        outputSchema: departmentRunnerOutputSchema(
+          DepartmentJobPromptSchema.parse(JSON.parse(prompt)),
+        ),
       }),
       inputManifestHash: hashCanonical(
         request.memberArtifacts.map((member) => ({

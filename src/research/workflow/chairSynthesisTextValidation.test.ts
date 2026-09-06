@@ -161,3 +161,45 @@ describe("chair synthesis public text", () => {
     ).toBe(false);
   });
 });
+
+describe("financial magnitude grounding", () => {
+  const source = [
+    {
+      text: {
+        en: "Cash is $26B and net cash is $19.7B.",
+        ko: "현금은 260억 달러이며 순현금은 197억 달러입니다.",
+      },
+    },
+  ];
+  it("rejects a lost Korean magnitude and preserves legitimate unit conversion", () => {
+    expect(
+      publicTextIsValid(
+        {
+          en: "Cash is $260 and net cash is $197.",
+          ko: "현금은 $260이며 순현금은 $197입니다.",
+        },
+        source,
+        400,
+      ),
+    ).toBe(false);
+    expect(
+      publicTextIsValid(
+        {
+          en: "Cash is $26,000M and net cash is $19.7B.",
+          ko: "현금은 260억 달러이며 순현금은 197억 달러입니다.",
+        },
+        source,
+        400,
+      ),
+    ).toBe(true);
+  });
+  it("does not equate a percentage with an unscaled count", () => {
+    expect(
+      publicTextIsValid(
+        { en: "Cash is 26%.", ko: "현금은 26%입니다." },
+        [{ text: { en: "Cash is 26.", ko: "현금은 26입니다." } }],
+        400,
+      ),
+    ).toBe(false);
+  });
+});

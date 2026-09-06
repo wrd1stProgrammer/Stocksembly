@@ -9,6 +9,7 @@ const FilingColumnsSchema = z
     acceptanceDateTime: z.array(z.string().trim().min(1)),
     reportDate: z.array(z.string()),
     primaryDocument: z.array(z.string()),
+    items: z.array(z.string()).optional(),
   })
   .passthrough();
 
@@ -38,6 +39,7 @@ export type FilingMetadata = {
   readonly acceptedAt: string;
   readonly period: string;
   readonly primaryDocument: string;
+  readonly items?: string;
 };
 
 export type SubmissionPayload = {
@@ -118,6 +120,9 @@ function columnsToRecords(
         acceptedAt: accepted,
         period,
         primaryDocument,
+        ...(columns.items?.[index] === undefined
+          ? {}
+          : { items: columns.items[index] }),
       }),
     );
   }

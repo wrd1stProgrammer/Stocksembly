@@ -6,6 +6,7 @@ import {
   normalizeResearchProfile,
   ResearchProfileSchema,
   withQuestionComparisonSymbols,
+  withQuestionIntent,
 } from "../../domain/researchProfile";
 import {
   COMMITTEE_RESEARCH_TARGET,
@@ -48,7 +49,7 @@ export function parseResearchInput(input: unknown): ResearchInputResult {
       locale: parsed.data.locale,
       researchTarget: parsed.data.researchTarget ?? COMMITTEE_RESEARCH_TARGET,
       researchProfile: withQuestionComparisonSymbols(
-        normalizedProfile,
+        withQuestionIntent(normalizedProfile, question),
         question,
         symbol.data,
       ),

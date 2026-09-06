@@ -202,7 +202,7 @@ it("publishes accepted/revised/removed adjudication without resurrecting removed
     schemaVersion: "workflow-v2",
     editorialPublication: {
       qaPolicy: {
-        moduleMinimum: 5,
+        moduleMinimum: 1,
         supportedCount: report.anticipatedQuestions.length,
       },
       candidate: { confidence: report.editorialDecision.confidence },

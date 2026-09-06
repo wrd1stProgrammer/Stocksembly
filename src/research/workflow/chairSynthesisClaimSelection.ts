@@ -12,7 +12,7 @@ export function isComparatorAbsenceThesis(text: {
     /(?:peer|comparator|benchmark|sector comparison|relative strength).{0,80}(?:unavailable|missing|absent|insufficient|cannot be (?:verified|confirmed|assessed))/iu.test(
       text.en,
     ) ||
-    /(?:동종기업|피어|벤치마크|섹터 비교|상대 강도).{0,80}(?:없|부재|부족|불가|확인할 수 없|검증되지 않)/u.test(
+    /(?:동종기업|피어|벤치마크|섹터 비교|상대\s*강도).{0,80}(?:없|부재|부족|불가|확인할 수 없|검증되지 않)/u.test(
       text.ko,
     )
   );

@@ -214,7 +214,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
             : this.fault === "v3_invented_number"
               ? "Verified revenue reaches 777% and supports the view."
               : this.fault === "v3_hedge_twice"
-                ? "Wait conditionally because the thesis needs confirmation."
+                ? "Wait conditionally until revenue growth turns into cash in the next filing."
                 : narrative,
         strongestCountercase:
           this.fault === "v3_imperative_twice"
@@ -242,7 +242,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
           sectionKey,
           narrative:
             this.fault === "v3_hedge_twice"
-              ? "Wait conditionally because the thesis needs confirmation."
+              ? "Wait conditionally until revenue growth turns into cash in the next filing."
               : narrative,
           lineage: lineage(decisive),
         })),

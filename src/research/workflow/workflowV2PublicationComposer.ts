@@ -95,19 +95,19 @@ export function composeWorkflowV2Report(
     input.chair.decisionBrief.primaryClaimIds.filter((claimId) =>
       editorialClaimIds.has(claimId),
     );
-  const fallbackPrimaryClaimId = editorialClaims[0]?.claimId;
-  if (fallbackPrimaryClaimId === undefined)
-    throw new TypeError("authenticated_editorial_claim_required");
+  if (
+    retainedPrimaryClaimIds.length === 0 ||
+    retainedPrimaryClaimIds.length !==
+      input.chair.decisionBrief.primaryClaimIds.length
+  )
+    throw new TypeError("chair_primary_claim_missing_from_publication");
   const decision = {
     stance: input.chair.decisionBrief.stance,
     confidence: input.chair.decisionBrief.confidence,
     decisiveReason: input.chair.decisionBrief.decisiveReason,
     strongestCountercase: input.chair.decisionBrief.strongestCountercase,
     falsifier: input.chair.decisionBrief.falsifier,
-    primaryClaimIds:
-      retainedPrimaryClaimIds.length > 0
-        ? retainedPrimaryClaimIds
-        : [fallbackPrimaryClaimId],
+    primaryClaimIds: retainedPrimaryClaimIds,
   } as const;
   const qa = selectGroundedAnticipatedQuestions({
     runId: input.legacyReport.runId,

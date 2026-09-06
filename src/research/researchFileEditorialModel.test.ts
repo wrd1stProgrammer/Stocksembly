@@ -5,6 +5,8 @@ import {
 } from "./domain/comparatorQualification";
 import { researchFileFixture } from "./mockResearchFile";
 import { buildResearchFileEditorialModel } from "./researchFileEditorialModel";
+import { researchReportToFile } from "./researchReportToFile";
+import { workflowV2PresentationFixture } from "./workflowV2Presentation.testSupport";
 
 describe("buildResearchFileEditorialModel", () => {
   it("conditionally carries typed comparator eligibility without inventing comparison prose", () => {
@@ -352,5 +354,44 @@ describe("buildResearchFileEditorialModel", () => {
           !row.evidence.includes("U.S. Securities"),
       ),
     ).toBe(true);
+  });
+});
+
+describe("claim-owned presentation", () => {
+  it("does not insert unrelated sections, another team's metrics, or a falsifier as evidence", () => {
+    const source = researchReportToFile(
+      workflowV2PresentationFixture(),
+      "2026-09-06T00:00:00.000Z",
+    );
+    const structured = source.structuredEditorial;
+    if (structured === undefined) throw new Error("structured fixture missing");
+    const file = {
+      ...source,
+      structuredEditorial: {
+        ...structured,
+        claimRegister: structured.claimRegister.map(
+          ({ text: _text, ...claim }) => claim,
+        ),
+        sectionNarratives: [
+          {
+            id: "supported_analysis",
+            claimIds: [],
+            title: { en: "Unrelated", ko: "무관" },
+            body: {
+              en: "Unrelated regulatory observation.",
+              ko: "무관한 규제 관측입니다.",
+            },
+          },
+        ],
+      },
+    };
+    const rows = buildResearchFileEditorialModel(file, "en").analysisRows;
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.evidence).toBe("");
+      expect(row.counterpoint).not.toBe(row.checkpoint);
+      const claim = structured.claims.find((item) => item.claimId === row.id);
+      expect(row.evidenceId).toBe(claim?.evidenceArtifactIds[0]);
+    }
   });
 });

@@ -325,6 +325,50 @@ export class SpecialistRoundSqliteAuthority implements LaunchReservationReader {
     }
   }
 
+  persistValidationFeedback(
+    attemptId: string,
+    feedback: string,
+    at: string,
+  ): void {
+    const value = { feedback };
+    const requestHash = hashCanonical(value);
+    this.#database
+      .prepare(`INSERT OR IGNORE INTO idempotency_records(
+      scope, idempotency_key, request_hash, result_json, created_at
+    ) VALUES ('specialist-validation-feedback', ?, ?, ?, ?)`)
+      .run(attemptId, requestHash, JSON.stringify(value), at);
+    const saved = this.#database
+      .prepare(`SELECT request_hash FROM idempotency_records
+      WHERE scope = 'specialist-validation-feedback' AND idempotency_key = ?`)
+      .get(attemptId);
+    if (
+      !z.object({ request_hash: z.literal(requestHash) }).safeParse(saved)
+        .success
+    )
+      throw new TypeError("specialist_validation_feedback_changed");
+  }
+
+  previousValidationFeedback(attemptId: string): string | undefined {
+    const row = this.#database
+      .prepare(`SELECT f.result_json, f.request_hash
+      FROM attempts a JOIN attempts previous ON previous.attempt_id = a.replacement_of_attempt_id
+        AND previous.job_id = a.job_id AND previous.run_id = a.run_id
+      JOIN idempotency_records f ON f.scope = 'specialist-validation-feedback'
+        AND f.idempotency_key = previous.attempt_id
+      WHERE a.attempt_id = ?`)
+      .get(attemptId);
+    const parsed = z
+      .object({ result_json: z.string(), request_hash: z.string() })
+      .safeParse(row);
+    if (!parsed.success) return undefined;
+    const value = z
+      .object({ feedback: z.string().max(12000) })
+      .parse(parseSafeJson(parsed.data.result_json));
+    if (hashCanonical(value) !== parsed.data.request_hash)
+      throw new TypeError("specialist_validation_feedback_changed");
+    return value.feedback;
+  }
+
   persistRepairPrompt(input: {
     readonly jobId: string;
     readonly inputHash: string;

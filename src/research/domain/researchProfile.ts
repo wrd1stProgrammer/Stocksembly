@@ -137,6 +137,39 @@ export const DEFAULT_RESEARCH_PROFILE: ResearchProfile = Object.freeze({
   comparisonSymbols: Object.freeze([]),
 });
 
+export function withQuestionIntent(
+  profile: ResearchProfile,
+  question: string,
+): ResearchProfile {
+  const long = /장기|long[ -]term|multi[ -]year/iu.test(question);
+  const short = /단기|단타|short[ -]term|intraday/iu.test(question);
+  const sizing =
+    /(?:추가\s*(?:매수|보유)|비중|물량\s*더|더\s*(?:가져|담|살))|position siz|add to (?:my |the )?position/iu.test(
+      question,
+    );
+  const holding = /보유|계속\s*들고|holding|keep (?:my |the )?shares/iu.test(
+    question,
+  );
+  return ResearchProfileSchema.parse({
+    ...profile,
+    investmentHorizon:
+      profile.investmentHorizon ===
+        DEFAULT_RESEARCH_PROFILE.investmentHorizon && long !== short
+        ? long
+          ? "long"
+          : "short"
+        : profile.investmentHorizon,
+    decisionPurpose:
+      profile.decisionPurpose === DEFAULT_RESEARCH_PROFILE.decisionPurpose
+        ? sizing
+          ? "position_sizing"
+          : holding
+            ? "holding_review"
+            : profile.decisionPurpose
+        : profile.decisionPurpose,
+  });
+}
+
 export function normalizeResearchProfile(
   input: unknown,
   subjectSymbol?: string,

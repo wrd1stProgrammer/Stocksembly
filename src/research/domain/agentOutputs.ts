@@ -103,6 +103,17 @@ export const DepartmentClaimRevisionSchema = z
   .strict()
   .readonly();
 
+export const DepartmentDecisionPacketSchema = z
+  .object({
+    primaryClaimId: ClaimIdSchema,
+    stanceContribution: z.enum(["supports", "opposes", "uncertain"]),
+    countercaseClaimIds: z.array(ClaimIdSchema).min(1).max(3).readonly(),
+    strongestCountercase: BilingualPublicTextSchema,
+    falsifier: BilingualPublicTextSchema,
+  })
+  .strict()
+  .readonly();
+
 export const DepartmentConsolidationOutputSchema = z
   .object({
     kind: z.literal("department_consolidation"),
@@ -124,6 +135,7 @@ export const DepartmentConsolidationOutputSchema = z
     dissent: DissentListSchema,
     openQuestions: UnknownListSchema,
     evidencePriorityArtifactIds: SourceArtifactIdsSchema,
+    decisionPacket: DepartmentDecisionPacketSchema.optional(),
   })
   .strict()
   .readonly();

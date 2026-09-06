@@ -64,6 +64,7 @@ export async function loadChairRelations(context: Context) {
     readonly claimIds: readonly z.infer<typeof ClaimIdSchema>[];
     readonly text: { readonly en: string; readonly ko: string };
   }[] = [];
+  const memoCountercases: typeof responseDissent = [];
   for (const departmentId of WORKFLOW_V1_DEPARTMENT_IDS) {
     const positionRow = context.rows.find(
       (row) => row.logical_key === `consolidation:${departmentId}`,
@@ -142,8 +143,22 @@ export async function loadChairRelations(context: Context) {
     item.logical_key.startsWith("memo:"),
   )) {
     const payload = await chairAgentPayload(context.cas, row, row.logical_key);
-    if (!MemoOutputSchema.safeParse(payload).success) return undefined;
+    const memo = MemoOutputSchema.safeParse(payload);
+    if (!memo.success) return undefined;
     authenticated.push({ row, payload });
+    for (const position of memo.data.positions) {
+      if (
+        !context.auditedClaimIds.has(position.claimId) ||
+        position.strongestContraryObservation === undefined
+      )
+        continue;
+      memoCountercases.push({
+        sentenceId: `dissent:counterevidence:${position.claimId}`,
+        claimIds: [position.claimId],
+        sourceArtifactIds: [row.artifact_id],
+        text: position.strongestContraryObservation,
+      });
+    }
   }
   for (const row of context.rows.filter((item) =>
     item.logical_key.startsWith("challenge:"),
@@ -247,6 +262,7 @@ export async function loadChairRelations(context: Context) {
     dissent,
     challengeDissent,
     responseDissent,
+    memoCountercases,
     revisions,
   };
 }

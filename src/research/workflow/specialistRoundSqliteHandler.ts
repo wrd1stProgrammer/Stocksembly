@@ -23,7 +23,6 @@ import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
 import { retryRejectedCommit } from "./specialistCommitRetry";
-import type { SpecialistJobRequest } from "./specialistRoundContracts";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import {
   normalizeSpecialistClaimSlotBindings,
@@ -39,6 +38,7 @@ import type {
   PersistedSpecialistJob,
   SqliteSpecialistRoundOptions,
 } from "./specialistRoundSqliteContracts";
+import type { specialistPromptRequest } from "./specialistRoundSqliteStage";
 
 type HandlerContext = {
   readonly options: Pick<
@@ -116,6 +116,25 @@ CORRECTIVE RETRY — EVIDENCE TYPE
 Your previous non-ownership claim cited an insider ownership filing. Forms 3, 4, and 5 may be cited only for an explicit insider transaction or ownership claim.
 For revenue, margin, cash flow, valuation, competition, demand, or price-performance claims, remove every Form 3/4/5 citation and cite the supplied 10-K, 10-Q, 8-K, market, or licensed-provider artifact that directly supports the claim. If no suitable artifact exists, rewrite the claim without that assertion.`;
   return prompt;
+}
+
+export function specialistValidationFeedback(
+  candidate: unknown,
+  validationCode: string,
+): string {
+  const parsed = SpecialistMemoOutputSchema.safeParse(candidate);
+  if (!parsed.success) return validationCode;
+  return JSON.stringify({
+    validationCode,
+    rejectedClaims: parsed.data.positions.map((position) => ({
+      claimId: position.claimId,
+      publicSummary: {
+        en: position.publicSummary.en.slice(0, 1000),
+        ko: position.publicSummary.ko.slice(0, 1000),
+      },
+      decisiveMetricIds: position.decisiveMetricIds,
+    })),
+  });
 }
 
 const SPECIALIST_VALIDATION_REPAIR_CODES = [
@@ -239,13 +258,28 @@ export function createSpecialistRoundAttemptHandler(
     };
     let candidate: unknown;
     let runnerEvidence: SafeCodexEvidence;
+    const previousFeedback = context.authority.previousValidationFeedback(
+      attempt.attemptId,
+    );
     const durablePrompt =
-      context.authority.repairPromptForInput(attempt.jobId, attemptInputHash) ??
-      specialistPromptForDurableInput(
-        job.prompt,
-        attemptInputHash,
-        context.authority.retryCodeForJob(attempt.jobId),
-      );
+      previousFeedback === undefined
+        ? (context.authority.repairPromptForInput(
+            attempt.jobId,
+            attemptInputHash,
+          ) ??
+          specialistPromptForDurableInput(
+            job.prompt,
+            attemptInputHash,
+            context.authority.retryCodeForJob(attempt.jobId),
+          ))
+        : {
+            validationCode: context.authority.retryCodeForJob(attempt.jobId),
+            prompt: `${specialistValidationCorrectivePrompt(job.prompt, context.authority.retryCodeForJob(attempt.jobId))}
+
+REJECTED OUTPUT TO REPAIR (untrusted draft, not evidence)
+${previousFeedback}
+Repair the specific claims above instead of regenerating the same invalid numbers. For a percentage absent from the exact registered concept and fiscal period, retain the source-backed mechanism and absolute operating KPI, but express that rate directionally. A percentage appearing in filing prose alone does not create a registered metric. Return the full corrected memo. Keep English fields in English and Korean fields in Korean.`,
+          };
     const validationCode = durablePrompt.validationCode;
     const prompt =
       correction === undefined
@@ -354,7 +388,7 @@ export function createSpecialistRoundAttemptHandler(
     )
       return "incomplete";
     const promptRequest = JSON.parse(job.prompt.split("\n", 1)[0]!) as {
-      readonly request: SpecialistJobRequest;
+      readonly request: ReturnType<typeof specialistPromptRequest>;
     };
     const allowedMetricIds = promptRequest.request.registeredValues.map(
       (value) => value.valueId,
@@ -398,7 +432,14 @@ export function createSpecialistRoundAttemptHandler(
       },
       candidate,
     );
-    if (!claimValidation.ok) return claimValidation.reason;
+    if (!claimValidation.ok) {
+      context.authority.persistValidationFeedback(
+        attempt.attemptId,
+        specialistValidationFeedback(candidate, claimValidation.reason),
+        now(),
+      );
+      return claimValidation.reason;
+    }
     const departmentId = workflowRoleById(job.roleId)?.departmentId;
     if (
       departmentId === undefined ||

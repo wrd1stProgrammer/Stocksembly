@@ -16,7 +16,14 @@ import {
   treasuryYieldSourceUrl,
 } from "../server/data/macro/treasuryYield";
 import { parseCompanyFacts } from "../server/data/sec/companyFacts";
-import { parseMainSubmission } from "../server/data/sec/filingsPayload";
+import {
+  earningsExhibitDocuments,
+  selectCurrentReports,
+} from "../server/data/sec/earningsEvidence";
+import {
+  type FilingMetadata,
+  parseMainSubmission,
+} from "../server/data/sec/filingsPayload";
 import { normalizeFinancials } from "../server/data/sec/financialNormalizer";
 import { resolveTickerReference } from "../server/data/sec/issuerResolverReference";
 import {
@@ -421,10 +428,7 @@ export async function collectInitialEvidence(
   const quarterly = submissions.value.records
     .filter((record) => record.form === "10-Q")
     .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))[0];
-  const currentReports = submissions.value.records
-    .filter((record) => record.form === "8-K")
-    .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
-    .slice(0, 2);
+  const currentReports = selectCurrentReports(submissions.value.records);
   const insiderFilings = submissions.value.records
     .filter((record) => /^(?:3|4|5)(?:\/A)?$/u.test(record.form))
     .sort((left, right) => right.acceptedAt.localeCompare(left.acceptedAt))
@@ -471,11 +475,49 @@ export async function collectInitialEvidence(
       ),
     ]),
   );
-  const { filingResults, factsResult } = await collectSecEvidenceBatch({
-    client,
-    cik: reference.cik,
-    filings: selectedFilings,
-  });
+  const { filingResults: primaryResults, factsResult } =
+    await collectSecEvidenceBatch({
+      client,
+      cik: reference.cik,
+      filings: selectedFilings,
+    });
+  const exhibitResults: {
+    readonly filing: FilingMetadata & { readonly isExhibit: true };
+    readonly result: SecFetchResult;
+  }[] = [];
+  const exhibitLimitations: string[] = [];
+  for (const { filing, result } of primaryResults.filter(
+    (item) => item.filing.form === "8-K",
+  )) {
+    const documents = earningsExhibitDocuments(
+      new TextDecoder().decode(result.bytes),
+      result.provenance.sourceUrl,
+    );
+    for (const primaryDocument of documents.slice(
+      0,
+      Math.max(0, 2 - exhibitResults.length),
+    )) {
+      try {
+        const exhibit = {
+          ...filing,
+          primaryDocument,
+          isExhibit: true as const,
+        };
+        exhibitResults.push({
+          filing: exhibit,
+          result: await fetchSecFilingDocument(client, reference.cik, exhibit),
+        });
+      } catch {
+        exhibitLimitations.push(
+          `sec_earnings_exhibit_unavailable:${filing.accessionNumber}:${primaryDocument}`,
+        );
+      }
+    }
+  }
+  const filingResults: readonly {
+    readonly filing: FilingMetadata & { readonly isExhibit?: boolean };
+    readonly result: SecFetchResult;
+  }[] = [...primaryResults, ...exhibitResults];
   const retrievedAt =
     [
       tickerResult.provenance.retrievedAt,
@@ -492,7 +534,10 @@ export async function collectInitialEvidence(
         ["10-K", "10-K/A", "10-Q", "10-Q/A"].includes(record.form) ||
         isRegistrationFinancialForm(record.form),
     )
-    .map(({ primaryDocument: _primaryDocument, ...record }) => record);
+    .map(
+      ({ primaryDocument: _primaryDocument, items: _items, ...record }) =>
+        record,
+    );
   const parsedFacts = parseCompanyFacts(factsResult.bytes, {
     cik: reference.cik,
     cutoffAt,
@@ -679,7 +724,7 @@ export async function collectInitialEvidence(
       cik: reference.cik,
     },
     ...filingRecords.map(({ filing, result, artifact }) => ({
-      evidenceId: `filing:${filing.accessionNumber}`,
+      evidenceId: `filing:${filing.accessionNumber}${filing.isExhibit ? `:${filing.primaryDocument}` : ""}`,
       dataset: ownershipDataset(
         filing.form,
         filing.accessionNumber,
@@ -728,7 +773,7 @@ export async function collectInitialEvidence(
   ];
   const sources: SpecialistSourceArtifact[] = [
     ...filingRecords.map(({ filing, artifact, bytes, locator }) => ({
-      evidenceId: `filing:${filing.accessionNumber}`,
+      evidenceId: `filing:${filing.accessionNumber}${filing.isExhibit ? `:${filing.primaryDocument}` : ""}`,
       artifactId: artifact.artifactId,
       bytes,
       mediaType: "application/json",
@@ -787,6 +832,44 @@ export async function collectInitialEvidence(
   let valueRegistry = financials.registry;
   for (const draft of provider.valueDrafts)
     valueRegistry = registerValue(valueRegistry, draft).registry;
+  if (treasury.status === "available") {
+    for (const row of [...treasury.curve]
+      .sort((a, b) => b.observationDate.localeCompare(a.observationDate))
+      .slice(0, 3)) {
+      for (const [tenor, value] of Object.entries(row.tenors)) {
+        if (value === null) continue;
+        valueRegistry = registerValue(valueRegistry, {
+          runId: input.runId,
+          snapshotId: input.snapshotId,
+          valueId: `treasury:${tenor}:${row.observationDate}`,
+          metric: `treasury_yield.${tenor.replaceAll(" ", "_")}`,
+          value,
+          unit: "percent",
+          source: "treasury_yield",
+          period: row.observationDate,
+          evidenceCutoffAt: cutoffAt,
+        }).registry;
+      }
+    }
+  }
+  for (const { definition, collection } of blsRecords) {
+    for (const observation of [...collection.observations]
+      .sort((a, b) => b.observationDate.localeCompare(a.observationDate))
+      .slice(0, 3)) {
+      if (observation.value.kind !== "present") continue;
+      valueRegistry = registerValue(valueRegistry, {
+        runId: input.runId,
+        snapshotId: input.snapshotId,
+        valueId: `bls:${definition.seriesId}:${observation.observationDate}`,
+        metric: `bls.${definition.seriesId}`,
+        value: observation.value.decimal,
+        unit: definition.unit,
+        source: "bls_allowlist",
+        period: observation.observationDate,
+        evidenceCutoffAt: cutoffAt,
+      }).registry;
+    }
+  }
   return {
     identity,
     evidence,
@@ -810,7 +893,7 @@ export async function collectInitialEvidence(
     marketAvailable,
     providerCapabilities: provider.capabilities,
     providerFamilyStates: provider.familyStates,
-    providerLimitations: provider.limitations,
+    providerLimitations: [...provider.limitations, ...exhibitLimitations],
     providerRequestLedger: provider.requestLedger,
   };
 }

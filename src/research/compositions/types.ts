@@ -34,6 +34,7 @@ export type ResearchFileData = {
     readonly comparators: WorkflowV2ResearchReport["comparators"];
     readonly sectionNarratives?: readonly {
       readonly id: string;
+      readonly claimIds?: readonly string[];
       readonly title: LocalizedText;
       readonly body: LocalizedText;
     }[];

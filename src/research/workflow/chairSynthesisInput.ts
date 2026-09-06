@@ -160,6 +160,7 @@ export async function loadChairPrompt(
     dissent: dissentSources,
     challengeDissent,
     responseDissent,
+    memoCountercases,
     revisions,
   } = relations;
   const excludeComparatorAbsenceClaims = !requestsRelativeComparison(
@@ -186,6 +187,7 @@ export async function loadChairPrompt(
   )
     return undefined;
   const authenticatedCountercases = [
+    ...memoCountercases,
     ...challengeDissent,
     ...responseDissent,
   ].filter((source) =>
@@ -400,6 +402,7 @@ export async function loadChairPrompt(
     },
     ...(investmentModel === undefined ? {} : { investmentModel }),
     auditedClaimIds,
+    adjudicatedRevisions: authenticatedRevisions,
     departmentPositions: positions.map(
       ({ summary: _summary, claimIds: _claimIds, ...position }) => position,
     ),

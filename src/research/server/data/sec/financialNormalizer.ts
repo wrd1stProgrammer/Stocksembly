@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   createValueRegistry,
+  deriveValue,
   registerValue,
   type ValueRegistry,
 } from "../../../domain/valueRegistry";
@@ -47,7 +48,7 @@ const CandidateSchema = z
     value: z.string().regex(/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i),
     start: z.iso.date().optional(),
     end: z.iso.date(),
-    periodKind: z.enum(["annual", "quarter", "instant"]),
+    periodKind: z.enum(["annual", "quarter", "ytd", "instant"]),
     accessionNumber: z.string().regex(/^\d{10}-\d{2}-\d{6}$/),
     form: z.enum(COMPANY_FACT_FILING_FORMS),
     filedAt: z.iso.datetime({ offset: true }),
@@ -70,7 +71,7 @@ const InputSchema = z
 
 function sourceMetric(
   metric: CoreMetric,
-  kind: "annual" | "quarter" | "instant",
+  kind: "annual" | "quarter" | "ytd" | "instant",
 ): string {
   return `${metric}_${kind}`;
 }
@@ -81,6 +82,8 @@ function sourcePeriod(candidate: z.infer<typeof CandidateSchema>): string {
       return `FY:${candidate.end}`;
     case "quarter":
       return `Q:${candidate.end}`;
+    case "ytd":
+      return `YTD:${candidate.start}:${candidate.end}`;
     case "instant":
       return candidate.end;
   }
@@ -145,6 +148,66 @@ function registerSources(input: z.infer<typeof InputSchema>): {
   return { registry, accepted, rejected };
 }
 
+function deriveCumulativeQuarters(
+  registry: ValueRegistry,
+  candidates: z.infer<typeof CandidateSchema>[],
+  evidenceCutoffAt: string,
+): ValueRegistry {
+  let current = registry;
+  // Cash-flow statements commonly report YTD, not standalone Q2/Q3/Q4.
+  // Only additive flows can be differenced; EPS and weighted shares cannot.
+  for (const metric of TTM_METRICS) {
+    const flows = candidates.filter(
+      (candidate) =>
+        candidate.metric === metric &&
+        candidate.start !== undefined &&
+        current.records.some(
+          (record) => record.valueId === `sec:${candidate.candidateId}`,
+        ),
+    );
+    for (const latest of flows) {
+      if (!["ytd", "annual"].includes(latest.periodKind)) continue;
+      if (
+        current.records.some(
+          (record) =>
+            record.metric === `${metric}_quarter` &&
+            record.period === `Q:${latest.end}`,
+        )
+      )
+        continue;
+      const previous = flows
+        .filter((candidate) => {
+          const days =
+            (Date.parse(latest.end) - Date.parse(candidate.end)) / 86_400_000;
+          return (
+            candidate.start === latest.start &&
+            candidate.unit === latest.unit &&
+            candidate.tag === latest.tag &&
+            days >= 70 &&
+            days <= 120
+          );
+        })
+        .sort((left, right) => right.end.localeCompare(left.end))[0];
+      if (previous === undefined) continue;
+      current = deriveValue(current, {
+        valueId: `${metric}:quarter_from_ytd:${latest.end}`,
+        metric: `${metric}_quarter`,
+        operation: "subtract",
+        numeratorValueId: `sec:${latest.candidateId}`,
+        denominatorValueId: `sec:${previous.candidateId}`,
+        unit: latest.unit,
+        period: `Q:${latest.end}`,
+        evidenceCutoffAt,
+        accession: latest.accessionNumber,
+        form: latest.form,
+        filedAt: latest.filedAt,
+        acceptedAt: latest.acceptedAt,
+      }).registry;
+    }
+  }
+  return current;
+}
+
 function deriveAll(
   registry: ValueRegistry,
   evidenceCutoffAt: string,
@@ -195,7 +258,14 @@ export function normalizeFinancials(
     stock_compensation: state("stock_compensation"),
   } satisfies Record<CoreMetric, FinancialAvailability>;
   return Object.freeze({
-    registry: deriveAll(sources.registry, input.evidenceCutoffAt),
+    registry: deriveAll(
+      deriveCumulativeQuarters(
+        sources.registry,
+        input.candidates,
+        input.evidenceCutoffAt,
+      ),
+      input.evidenceCutoffAt,
+    ),
     availability: Object.freeze(availability),
     rejected: Object.freeze(sources.rejected),
   });

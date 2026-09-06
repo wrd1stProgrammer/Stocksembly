@@ -11,20 +11,28 @@ import {
 export function inspectFollowupCandidate(
   job: PersistedFollowupResponseJob,
   input: unknown,
+  capturedArtifactIds: readonly string[] = [],
 ) {
   const candidate = FollowUpOutputSchema.safeParse(input);
   if (!candidate.success) return undefined;
   const request = FollowupJobPromptSchema.parse(JSON.parse(job.prompt));
   if (
     candidate.data.requestId !== request.requestId ||
-    !candidate.data.evidenceArtifactIds.every((id) =>
-      request.evidenceArtifactIds.includes(id),
+    !candidate.data.evidenceArtifactIds.every(
+      (id) =>
+        request.evidenceArtifactIds.includes(id) ||
+        capturedArtifactIds.includes(id),
     )
   )
     return undefined;
   return FollowUpOutputSchema.parse({
     ...candidate.data,
-    sourceArtifactIds: request.sourceArtifactIds,
+    sourceArtifactIds: [
+      ...new Set([
+        ...request.sourceArtifactIds,
+        ...candidate.data.evidenceArtifactIds,
+      ]),
+    ],
   });
 }
 

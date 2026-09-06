@@ -14,7 +14,7 @@ import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
 
 const AUDITED_WEB_INSTRUCTIONS =
-  "All permitted information, including the target claim and debate context, is in this request. Native hosted web search may be used for public context; do not call any other tool or read files. Return only JSON matching the output schema. Answer the supplied claim directly; never say the claim text or delegated question is missing.";
+  "All permitted information, including the target claim and debate context, is in this request. Use at most two focused native hosted searches to resolve the decision-changing gap; open the issuer primary source and verify the period, entity and claim direction. Distinguish new evidence from original inputs and name what remains unresolved; do not call any other tool or read files. Return only JSON matching the output schema. Answer the supplied claim directly; never say the claim text or delegated question is missing.";
 
 export const BallotVoteSchema = z.enum([
   "support",
@@ -32,6 +32,8 @@ export const FollowupJobPromptSchema = z
     actorId: z.enum(WORKFLOW_V1_DEPARTMENT_IDS),
     targetClaimId: ClaimIdSchema,
     targetContext: BilingualPublicTextSchema.optional(),
+    targetClaim: BilingualPublicTextSchema.optional(),
+    falsifier: BilingualPublicTextSchema.optional(),
     requestKind: z.enum([
       "source_scope_clarification",
       "calculation_recheck",
@@ -53,6 +55,12 @@ export const OwnerResponseJobPromptSchema = z
     sourceArtifactIds: z.array(ArtifactIdSchema).min(2).max(64).readonly(),
     targetClaimIds: z.array(ClaimIdSchema).min(1).max(64).readonly(),
     challengeContext: BilingualPublicTextSchema.optional(),
+    followupResult: z
+      .object({
+        publicAnswer: BilingualPublicTextSchema,
+        unresolved: z.array(BilingualPublicTextSchema).max(32),
+      })
+      .optional(),
     departmentContext: z
       .array(BilingualPublicTextSchema)
       .max(32)
@@ -60,8 +68,10 @@ export const OwnerResponseJobPromptSchema = z
       .readonly(),
     publicUnknowns: z.array(BilingualPublicTextSchema).max(32).readonly(),
     instructions: z
-      .literal(AUDITED_WEB_INSTRUCTIONS)
-      .default(AUDITED_WEB_INSTRUCTIONS),
+      .string()
+      .default(
+        "Use only the supplied claim, departmentContext and followupResult. Do not use tools. Explain whether the follow-up changes the claim; if it remains unresolved, do not treat missing evidence as support. Check that falsification conditions weaken rather than reinforce the thesis. Return only schema JSON.",
+      ),
   })
   .strict()
   .readonly();

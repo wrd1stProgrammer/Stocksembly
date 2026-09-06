@@ -7,7 +7,10 @@ import {
   ChairSynthesisV3ModelOutputSchema,
   chairSynthesisV3Prompt,
 } from "./chairSynthesisContracts";
-import { synthesizeChairV3 } from "./chairSynthesisV3";
+import {
+  normalizeCanonicalNarrativeV3ForPublication,
+  synthesizeChairV3,
+} from "./chairSynthesisV3";
 
 const sectionKeys = [
   "ten_second_brief",
@@ -56,6 +59,12 @@ describe("workflow-v3 canonical chair synthesis", () => {
       });
 
       expect(prompt).toContain(`"sourceLocale":"${sourceLocale}"`);
+      const contract = JSON.parse(prompt).outputContract.canonicalSchema;
+      expect(contract.properties.kind.const).toBe("chair_synthesis_v3");
+      expect(contract.required).toContain("decisionLineage");
+      expect(contract.properties.sections.items.properties.lineage.type).toBe(
+        "object",
+      );
       expect(prompt).not.toContain('"en":{"');
       expect(prompt).not.toContain('"ko":{"');
 
@@ -336,7 +345,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     }
   });
 
-  it("degrades repeated generic posture locally", async () => {
+  it("preserves substantive caution instead of replacing it with a generic verdict", async () => {
     const prepared = await createPreparedChairRound("v3_hedge_twice");
     try {
       const chair = createSqliteChairSynthesis({
@@ -368,9 +377,8 @@ describe("workflow-v3 canonical chair synthesis", () => {
           )
           .map((section: { readonly narrative: string }) => section.narrative),
       ].join(" ");
-      expect(
-        publishedCore.match(/wait|conditional|confirmation/giu) ?? [],
-      ).toHaveLength(0);
+      expect(publishedCore).toContain("revenue growth turns into cash");
+      expect(publishedCore).not.toContain("Verified evidence is balanced.");
     } finally {
       prepared.cleanup();
     }
@@ -392,5 +400,86 @@ describe("workflow-v3 canonical chair synthesis", () => {
     } finally {
       prepared.cleanup();
     }
+  });
+});
+
+describe("department-owned publication recovery", () => {
+  it("recovers each team from its own position and ballot, never a shared fallback", () => {
+    const departments = ["market", "company", "financial", "risk"] as const;
+    const sentences = departments.flatMap((departmentId, index) =>
+      ["position", "ballot"].map((kind) => ({
+        sentenceId: `${kind}:${departmentId}`,
+        claimIds: [
+          `00000000-0000-4000-8000-${String(71 + index).padStart(12, "0")}`,
+        ],
+        sourceArtifactIds: [
+          `00000000-0000-4000-8000-${String(81 + index).padStart(12, "0")}`,
+        ],
+        text: {
+          en: `${departmentId} ${kind} evidence supports the investment conclusion.`,
+          ko: `${departmentId} ${kind} 근거가 해당 팀의 판단을 지지합니다.`,
+        },
+      })),
+    );
+    const first = sentences[0];
+    if (first === undefined) throw new Error("sentence fixture missing");
+    const foreign = {
+      sentenceIds: ["position:market"],
+      claimIds: first.claimIds,
+      sourceArtifactIds: first.sourceArtifactIds,
+    };
+    const canonical = ChairSynthesisV3ModelOutputSchema.parse({
+      kind: "chair_synthesis_v3",
+      sourceLocale: "en",
+      stance: "balanced",
+      decisiveReason: first.text.en,
+      strongestCountercase: first.text.en,
+      invalidationCheckpoint: first.text.en,
+      decisionLineage: {
+        decisiveReason: foreign,
+        strongestCountercase: foreign,
+        invalidationCheckpoint: foreign,
+      },
+      teamViews: departments.map((departmentId) => ({
+        departmentId,
+        position: first.text.en,
+        rationale: first.text.en,
+        vote: "support_with_reservations",
+        lineage: foreign,
+      })),
+      sections: sectionKeys.map((sectionKey) => ({
+        sectionKey,
+        narrative: first.text.en,
+        lineage: foreign,
+      })),
+      anticipatedQuestions: [],
+    });
+    const result = normalizeCanonicalNarrativeV3ForPublication({
+      canonical,
+      sentences,
+      auditedClaimIds: [
+        ...new Set(sentences.flatMap((sentence) => sentence.claimIds)),
+      ],
+      sourceArtifactIds: [
+        ...new Set(sentences.flatMap((sentence) => sentence.sourceArtifactIds)),
+      ],
+      sections: sectionKeys.map((sectionKey) => ({
+        sectionKey,
+        primarySentenceId: "position:market",
+      })),
+    });
+    for (const view of result.canonical.teamViews) {
+      expect(view.position).toBe(
+        `${view.departmentId} position evidence supports the investment conclusion.`,
+      );
+      expect(view.rationale).toBe(
+        `${view.departmentId} ballot evidence supports the investment conclusion.`,
+      );
+      expect(view.lineage.sentenceIds).toEqual([
+        `position:${view.departmentId}`,
+        `ballot:${view.departmentId}`,
+      ]);
+    }
+    expect(result.reduced).toBe(true);
   });
 });

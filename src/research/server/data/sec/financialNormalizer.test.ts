@@ -76,6 +76,64 @@ function selected(metric: DurationMetric, values: readonly string[]) {
 }
 
 describe("normalizeFinancials", () => {
+  it("derives a standalone quarter from cumulative cash flow and aligns the cash-conversion denominator", () => {
+    const cash = selected("operating_cash_flow", ["50344", "74421"]);
+    const income = selected("net_income", ["58321", "59688"]);
+    const candidates = [...cash, ...income].map((candidate, index) => ({
+      ...candidate,
+      start: index === 3 ? "2026-04-27" : "2026-01-26",
+      end: index % 2 === 0 ? "2026-04-26" : "2026-07-26",
+      periodKind: index === 1 ? "ytd" : "quarter",
+      acceptedAt: "2026-08-26T20:00:00.000Z",
+      filedAt: "2026-08-26T00:00:00.000Z",
+    }));
+    const result = normalizeFinancials({
+      runId: RUN_ID,
+      snapshotId: SNAPSHOT_ID,
+      evidenceCutoffAt: "2026-09-06T00:00:00.000Z",
+      candidates,
+    });
+    const quarter = result.registry.records.find(
+      (record) =>
+        record.metric === "operating_cash_flow_quarter" &&
+        record.period === "Q:2026-07-26",
+    );
+    expect(quarter?.value).toBe("24077");
+    expect(quarter?.formula?.operation).toBe("subtract");
+    expect(quarter?.parentValueIds).toHaveLength(2);
+    const ratio = result.registry.records.find(
+      (record) =>
+        record.metric === "cash_conversion_quarter" &&
+        record.period === "Q:2026-07-26",
+    );
+    expect(Number(ratio?.value)).toBeCloseTo(40.338, 3);
+    expect(ratio?.parentValueIds).toContain(quarter?.valueId);
+  });
+
+  it("does not difference cumulative values from different fiscal starts or override a reported quarter", () => {
+    const cash = selected("operating_cash_flow", ["10", "30", "7"]);
+    const candidates = cash.map((candidate, index) => ({
+      ...candidate,
+      start:
+        index === 0 ? "2024-01-02" : index === 1 ? "2024-01-01" : "2024-04-01",
+      end: index === 0 ? "2024-03-31" : "2024-06-30",
+      periodKind: index === 1 ? "ytd" : "quarter",
+    }));
+    const normalize = (values: typeof candidates) =>
+      normalizeFinancials({
+        runId: RUN_ID,
+        snapshotId: SNAPSHOT_ID,
+        evidenceCutoffAt: "2025-03-01T00:00:00.000Z",
+        candidates: values,
+      }).registry.records.filter(
+        (record) =>
+          record.metric === "operating_cash_flow_quarter" &&
+          record.period === "Q:2024-06-30",
+      );
+    expect(normalize(candidates.slice(0, 2))).toHaveLength(0);
+    expect(normalize(candidates).map((record) => record.value)).toEqual(["7"]);
+  });
+
   it("registers annual/quarter/TTM values and exactly reproducible derived margins", () => {
     // Given four exact-decimal quarters from selected Company Facts.
     const candidates = [
