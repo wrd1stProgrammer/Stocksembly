@@ -641,6 +641,14 @@ type Copy = {
     readonly proof: string;
   };
   readonly landing: {
+    readonly steps: {
+      readonly eyebrow: string;
+      readonly title: string;
+      readonly items: readonly {
+        readonly title: string;
+        readonly body: string;
+      }[];
+    };
     readonly explainer: {
       readonly eyebrow: string;
       readonly title: string;
@@ -685,6 +693,9 @@ type Copy = {
     readonly howItWorks: string;
     readonly research: string;
     readonly stockAnalysis: string;
+    readonly pricing: string;
+    readonly blog: string;
+    readonly glossary: string;
     readonly standardsHeading: string;
     readonly about: string;
     readonly methodology: string;
@@ -753,6 +764,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Watch the debate, follow the sources, decide for yourself.",
     },
     landing: {
+      steps: {
+        eyebrow: "How it works",
+        title: "One question starts the research.",
+        items: [
+          {
+            title: "Pick a stock, ask a question",
+            body: "Choose a US stock and write down what you want verified. That single question starts the run.",
+          },
+          {
+            title: "Eleven analysts investigate and debate",
+            body: "Each analyst researches on their own, then challenges the others' conclusions. You can watch it happen live.",
+          },
+          {
+            title: "A research file with linked sources",
+            body: "Every claim ships with its source attached. No buy or sell calls, just the material for your own judgment.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "WHAT YOU GET",
         title: "A research file, not a tip.",
@@ -816,6 +845,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "How it works",
       research: "Start research",
       stockAnalysis: "US stock analysis",
+      pricing: "Pricing",
+      blog: "Blog",
+      glossary: "Glossary",
       standardsHeading: "About & standards",
       about: "About Stocksembly",
       methodology: "Research methodology",
@@ -882,6 +914,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "토론을 지켜보고, 출처를 따라가고, 판단은 직접 하세요.",
     },
     landing: {
+      steps: {
+        eyebrow: "진행 방식",
+        title: "질문 하나면 시작됩니다.",
+        items: [
+          {
+            title: "종목과 질문 입력",
+            body: "검증할 미국 주식을 고르고 궁금한 점을 그대로 적으면 리서치가 시작됩니다.",
+          },
+          {
+            title: "11명이 조사하고 토론",
+            body: "분석가들이 각자 조사한 뒤 서로의 결론에 반론을 제기합니다. 그 과정을 실시간으로 지켜볼 수 있습니다.",
+          },
+          {
+            title: "출처가 링크된 리서치 파일",
+            body: "모든 주장에 출처가 붙은 리서치 파일이 발행됩니다. 매매 추천 없이, 판단 재료만 남깁니다.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "무엇을 받게 되나요",
         title: "추천이 아니라 리서치 파일입니다.",
@@ -943,6 +993,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "작동 방식",
       research: "리서치 시작",
       stockAnalysis: "미국주식 분석",
+      pricing: "요금제",
+      blog: "블로그",
+      glossary: "용어사전",
       standardsHeading: "소개 및 원칙",
       about: "Stocksembly 소개",
       methodology: "리서치 방법론",
@@ -1008,6 +1061,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "議論を見て、出典をたどり、判断はご自身で。",
     },
     landing: {
+      steps: {
+        eyebrow: "進め方",
+        title: "質問ひとつでリサーチが始まります。",
+        items: [
+          {
+            title: "銘柄と質問を入力",
+            body: "検証したい米国株を選び、気になる点をそのまま書くとリサーチが始まります。",
+          },
+          {
+            title: "11人が調査して討論",
+            body: "アナリストが各自調査し、互いの結論に反論します。その過程をリアルタイムで見られます。",
+          },
+          {
+            title: "出典リンク付きリサーチファイル",
+            body: "すべての主張に出典が付いたリサーチファイルが発行されます。売買推奨はなく、判断材料だけを残します。",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "得られるもの",
         title: "推奨ではなく、リサーチファイル。",
@@ -1069,6 +1140,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "仕組み",
       research: "リサーチを開始",
       stockAnalysis: "米国株分析",
+      pricing: "料金プラン",
+      blog: "ブログ",
+      glossary: "用語集",
       standardsHeading: "会社情報・基準",
       about: "Stocksemblyについて",
       methodology: "リサーチ手法",
@@ -1134,6 +1208,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "看完辯論、追蹤來源，再自行判斷。",
     },
     landing: {
+      steps: {
+        eyebrow: "運作方式",
+        title: "一個問題就能開始研究。",
+        items: [
+          {
+            title: "選擇股票並提問",
+            body: "挑選想驗證的美股，寫下你的疑問，研究隨即開始。",
+          },
+          {
+            title: "11 位分析師調查並辯論",
+            body: "每位分析師獨立調查後互相質疑結論，整個過程都能即時觀看。",
+          },
+          {
+            title: "附來源連結的研究檔案",
+            body: "每項主張都附上來源。沒有買賣建議，只留下供你判斷的材料。",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "您會得到什麼",
         title: "是研究檔案，不是明牌。",
@@ -1193,6 +1285,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "運作方式",
       research: "開始研究",
       stockAnalysis: "美股分析",
+      pricing: "方案",
+      blog: "部落格",
+      glossary: "詞彙表",
       standardsHeading: "關於與標準",
       about: "關於 Stocksembly",
       methodology: "研究方法",
@@ -1258,6 +1353,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Sigue el debate, revisa las fuentes y decide por tu cuenta.",
     },
     landing: {
+      steps: {
+        eyebrow: "Cómo funciona",
+        title: "Una pregunta basta para empezar.",
+        items: [
+          {
+            title: "Elige una acción y pregunta",
+            body: "Selecciona una acción de EE. UU. y escribe lo que quieres verificar. Esa pregunta inicia el análisis.",
+          },
+          {
+            title: "Once analistas investigan y debaten",
+            body: "Cada analista investiga por su cuenta y cuestiona las conclusiones de los demás. Puedes verlo en vivo.",
+          },
+          {
+            title: "Un informe con fuentes enlazadas",
+            body: "Cada afirmación llega con su fuente. Sin recomendaciones de compra o venta, solo material para tu propio juicio.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "QUÉ OBTIENES",
         title: "Un archivo de investigación, no un consejo.",
@@ -1321,6 +1434,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "Cómo funciona",
       research: "Iniciar análisis",
       stockAnalysis: "Análisis de acciones de EE. UU.",
+      pricing: "Planes",
+      blog: "Blog",
+      glossary: "Glosario",
       standardsHeading: "Información y estándares",
       about: "Sobre Stocksembly",
       methodology: "Metodología",
@@ -1388,6 +1504,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         "Acompanhe o debate, confira as fontes e decida por conta própria.",
     },
     landing: {
+      steps: {
+        eyebrow: "Como funciona",
+        title: "Uma pergunta já inicia o research.",
+        items: [
+          {
+            title: "Escolha a ação e pergunte",
+            body: "Selecione uma ação dos EUA e escreva o que quer verificar. Essa pergunta inicia a análise.",
+          },
+          {
+            title: "Onze analistas investigam e debatem",
+            body: "Cada analista pesquisa por conta própria e questiona as conclusões dos outros. Você acompanha ao vivo.",
+          },
+          {
+            title: "Um arquivo de research com fontes",
+            body: "Cada afirmação vem com a fonte anexada. Sem recomendações de compra ou venda, só material para o seu julgamento.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "O QUE VOCÊ RECEBE",
         title: "Um arquivo de pesquisa, não uma dica.",
@@ -1451,6 +1585,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "Como funciona",
       research: "Iniciar research",
       stockAnalysis: "Análise de ações dos EUA",
+      pricing: "Planos",
+      blog: "Blog",
+      glossary: "Glossário",
       standardsHeading: "Sobre e padrões",
       about: "Sobre a Stocksembly",
       methodology: "Metodologia",
@@ -1516,6 +1653,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Debatte verfolgen, Quellen prüfen, selbst entscheiden.",
     },
     landing: {
+      steps: {
+        eyebrow: "So funktioniert es",
+        title: "Eine Frage genügt zum Start.",
+        items: [
+          {
+            title: "Aktie wählen, Frage stellen",
+            body: "Wähle eine US-Aktie und schreibe auf, was du prüfen willst. Diese Frage startet die Recherche.",
+          },
+          {
+            title: "Elf Analysten recherchieren und debattieren",
+            body: "Jeder Analyst recherchiert eigenständig und hinterfragt die Schlüsse der anderen. Live mitzuverfolgen.",
+          },
+          {
+            title: "Research-Datei mit verlinkten Quellen",
+            body: "Jede Aussage kommt mit Quelle. Keine Kauf- oder Verkaufsempfehlungen, nur Material für dein eigenes Urteil.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "WAS SIE BEKOMMEN",
         title: "Eine Research-Akte, kein Tipp.",
@@ -1579,6 +1734,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "So funktioniert es",
       research: "Research starten",
       stockAnalysis: "US-Aktienanalyse",
+      pricing: "Tarife",
+      blog: "Blog",
+      glossary: "Glossar",
       standardsHeading: "Über uns & Standards",
       about: "Über Stocksembly",
       methodology: "Research-Methodik",
@@ -1645,6 +1803,24 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       proof: "Suivez le débat, vérifiez les sources, décidez par vous-même.",
     },
     landing: {
+      steps: {
+        eyebrow: "Comment ça marche",
+        title: "Une question suffit pour commencer.",
+        items: [
+          {
+            title: "Choisissez une action, posez une question",
+            body: "Sélectionnez une action américaine et écrivez ce que vous voulez vérifier. Cette question lance la recherche.",
+          },
+          {
+            title: "Onze analystes enquêtent et débattent",
+            body: "Chaque analyste enquête de son côté puis conteste les conclusions des autres. Le tout se suit en direct.",
+          },
+          {
+            title: "Un dossier aux sources liées",
+            body: "Chaque affirmation est reliée à sa source. Aucun conseil d'achat ou de vente, seulement de quoi juger par vous-même.",
+          },
+        ],
+      },
       explainer: {
         eyebrow: "CE QUE VOUS OBTENEZ",
         title: "Un dossier de recherche, pas un tuyau.",
@@ -1708,6 +1884,9 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       howItWorks: "Fonctionnement",
       research: "Lancer une recherche",
       stockAnalysis: "Analyse d’actions américaines",
+      pricing: "Offres",
+      blog: "Blog",
+      glossary: "Glossaire",
       standardsHeading: "À propos et standards",
       about: "À propos de Stocksembly",
       methodology: "Méthodologie",

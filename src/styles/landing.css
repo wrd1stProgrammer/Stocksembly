@@ -452,3 +452,100 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+.landing-steps {
+  position: relative;
+  z-index: 1;
+  width: min(var(--landing-width), calc(100% - clamp(32px, 6.25vw, 104px)));
+  margin: 0 auto;
+  padding: var(--space-16) 0 0;
+  text-align: center;
+}
+
+.landing-steps__eyebrow {
+  margin: 0 0 var(--space-3);
+  color: var(--color-accent-bright);
+  font-size: var(--type-label);
+  font-weight: 680;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing-steps h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--type-title);
+  font-weight: 720;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-wrap: balance;
+  word-break: keep-all;
+}
+
+.landing-steps__items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.landing-steps__items li {
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-panel-raised) 72%, transparent);
+}
+
+.landing-steps__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-bottom: var(--space-3);
+  border-radius: 999px;
+  color: var(--color-accent-bright);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  font-size: var(--type-label);
+  font-weight: 800;
+}
+
+.landing-steps__items h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--type-body);
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+
+.landing-steps__items p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--type-label);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+/* Korean copy must wrap between words, not inside them. */
+.landing-office-live__intro h2,
+.landing-office-live__intro p,
+.landing-explainer h2,
+.landing-explainer__cards h3,
+.landing-explainer__cards p {
+  word-break: keep-all;
+}
+
+@media (max-width: 768px) {
+  .landing-steps {
+    padding-top: var(--space-12);
+  }
+
+  .landing-steps__items {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+}

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { LandingFooter, LandingSections } from "./LandingSections";
 
@@ -87,6 +87,46 @@ describe("landing explainer", () => {
         level: 2,
       }),
     ).toBeVisible();
-    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
+    expect(
+      within(
+        screen.getByRole("region", {
+          name: "추천이 아니라 리서치 파일입니다.",
+        }),
+      ).getAllByRole("heading", { level: 3 }),
+    ).toHaveLength(3);
+  });
+
+  it("walks new visitors through the three research steps", () => {
+    render(<LandingSections locale="en" />);
+
+    const steps = within(
+      screen.getByRole("region", {
+        name: "One question starts the research.",
+      }),
+    );
+    expect(steps.getAllByRole("listitem")).toHaveLength(3);
+    expect(
+      steps.getByRole("heading", {
+        name: "Eleven analysts investigate and debate",
+        level: 3,
+      }),
+    ).toBeVisible();
+  });
+});
+
+describe("landing footer product and content links", () => {
+  it("links pricing, blog, and glossary from the footer", () => {
+    const korean = render(<LandingFooter locale="ko" />);
+    for (const path of ["/pricing", "/ko/blog", "/ko/glossary"])
+      expect(
+        korean.container.querySelector(`a[href="${path}"]`),
+      ).not.toBeNull();
+    korean.unmount();
+
+    const english = render(<LandingFooter locale="en" />);
+    for (const path of ["/pricing?lang=en", "/en/blog", "/en/glossary"])
+      expect(
+        english.container.querySelector(`a[href="${path}"]`),
+      ).not.toBeNull();
   });
 });
