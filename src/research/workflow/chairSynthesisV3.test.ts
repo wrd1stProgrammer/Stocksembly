@@ -1,12 +1,14 @@
 import Database from "better-sqlite3";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ArtifactDigestSchema } from "../ports/artifacts";
+import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
 import { createSqliteChairSynthesis } from "./chairSynthesis";
 import { createPreparedChairRound } from "./chairSynthesis.testSupport";
 import {
   ChairSynthesisV3ModelOutputSchema,
   chairSynthesisV3Prompt,
 } from "./chairSynthesisContracts";
+import * as chairProjection from "./chairSynthesisV3";
 import {
   normalizeCanonicalNarrativeV3ForPublication,
   synthesizeChairV3,
@@ -302,6 +304,71 @@ describe("workflow-v3 canonical chair synthesis", () => {
   );
 
   it.each([
+    ["en", "none"],
+    ["ko", "invalid"],
+  ] as const)(
+    "publishes %s high-precision evidence through the real publisher after one chair launch (%s)",
+    async (sourceLocale, fault) => {
+      const text =
+        sourceLocale === "en"
+          ? "The accepted filing supports margin durability: operating margin was 66.23710000935347% on revenue of $96.221 billion, but the next transition must preserve pricing."
+          : "확인된 공시에 따르면 매출 96.221십억 달러에 영업이익률은 66.23710000935347%로 수익성을 뒷받침하지만 다음 전환에서도 가격이 유지되어야 합니다.";
+      const prepared = await createPreparedChairRound(fault, sourceLocale, {
+        en: text,
+        ko: text,
+      });
+      const chair = createSqliteChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+        publishReport: (request) =>
+          publishAuthoritativeReportForRun(prepared.options, request),
+      });
+      try {
+        expect(await chair.stage({ runId: prepared.runId })).toEqual({
+          kind: "staged",
+        });
+        await chair.drain(prepared.runId);
+        const database = new Database(prepared.options.databasePath, {
+          readonly: true,
+        });
+        try {
+          expect(
+            database
+              .prepare(`SELECT status, report_id,
+            (SELECT COUNT(*) FROM report_versions) AS versions,
+            (SELECT COUNT(*) FROM run_events WHERE event_type = 'report_published') AS publications
+            FROM runs WHERE run_id = ?`)
+              .get(prepared.runId),
+          ).toMatchObject({
+            status: "complete-with-limitations",
+            report_id: expect.any(String),
+            versions: 1,
+            publications: 1,
+          });
+          const row = database
+            .prepare(`SELECT envelope_json FROM agent_output_commits
+            JOIN artifacts USING(artifact_id) WHERE logical_key = 'chair_synthesis:chair'`)
+            .get() as { envelope_json: string };
+          const payload = JSON.parse(row.envelope_json).payload;
+          expect(payload.decisionBrief.decisiveReason[sourceLocale]).toContain(
+            "66.24%",
+          );
+          expect(JSON.stringify(payload.canonicalNarrativeV3)).not.toContain(
+            "66.23710000935347",
+          );
+          expect(prepared.codex.chairLaunches).toBe(1);
+        } finally {
+          database.close();
+        }
+      } finally {
+        await chair.close();
+        prepared.cleanup();
+      }
+    },
+    20_000,
+  );
+
+  it.each([
     ["invent_recommendation", "Verified evidence supports a balanced view."],
     [
       "v3_imperative_twice",
@@ -431,6 +498,54 @@ describe("workflow-v3 canonical chair synthesis", () => {
       expect(publishedCore).toContain("revenue growth turns into cash");
       expect(publishedCore).not.toContain("Verified evidence is balanced.");
     } finally {
+      prepared.cleanup();
+    }
+  });
+
+  it("retains an irreparable projection error without relaunching the chair", async () => {
+    const prepared = await createPreparedChairRound("none");
+    const projection = vi
+      .spyOn(chairProjection, "projectChairV3ForCommit")
+      .mockImplementation(() => {
+        throw new TypeError(
+          "chair_v3_grounding_failed:invalid_directional_brief",
+        );
+      });
+    const chair = createSqliteChairSynthesis({
+      ...prepared.options,
+      workflowVersion: "workflow-v3",
+    });
+    try {
+      await chair.stage({ runId: prepared.runId });
+      await chair.drain(prepared.runId);
+      expect(projection).toHaveBeenCalledTimes(2);
+      expect(prepared.codex.chairLaunches).toBe(1);
+      const database = new Database(prepared.options.databasePath, {
+        readonly: true,
+      });
+      try {
+        const events = database
+          .prepare(
+            "SELECT event_type, payload_json FROM run_events WHERE run_id = ?",
+          )
+          .all(prepared.runId);
+        expect(JSON.stringify(events)).toContain(
+          "chair_v3_grounding_failed:invalid_directional_brief",
+        );
+        expect(JSON.stringify(events)).not.toContain(
+          "logical_artifact_replacement_exhausted",
+        );
+        expect(
+          database
+            .prepare("SELECT report_id FROM runs WHERE run_id = ?")
+            .get(prepared.runId),
+        ).toEqual({ report_id: null });
+      } finally {
+        database.close();
+      }
+    } finally {
+      projection.mockRestore();
+      await chair.close();
       prepared.cleanup();
     }
   });

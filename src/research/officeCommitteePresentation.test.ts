@@ -32,6 +32,7 @@ it("presents all saved final team positions before the chair, without inventing 
   }));
   expect(officeCommitteePresentation([gathering, chair], undefined)).toEqual([
     gathering,
+    chair,
   ]);
   const result = officeCommitteePresentation([gathering, chair], teams);
   expect(result.map((entry) => entry.agent)).toEqual([

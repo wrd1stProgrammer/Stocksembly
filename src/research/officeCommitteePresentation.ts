@@ -1,4 +1,5 @@
 import type { ResearchFileData } from "./compositions/types";
+import { officeRepresentativeMeetings } from "./officeRepresentativeMeetings";
 import type { ResearchEvent } from "./types";
 
 export function officeTeamStatement(
@@ -17,10 +18,15 @@ export function officeTeamStatement(
 // Some workflows persist the final team positions only in the published report.
 // Present those saved positions before the chair, without fabricating public commits.
 export function officeCommitteePresentation(
-  events: readonly ResearchEvent[],
+  inputEvents: readonly ResearchEvent[],
   teamViews: ResearchFileData["teamViews"] | undefined,
 ): readonly ResearchEvent[] {
+  const events = officeRepresentativeMeetings(inputEvents);
   if (
+    events.some(
+      (event) =>
+        event.officeMeeting?.location === "forum" && event.agent !== "chair",
+    ) ||
     events.some((event) => event.workflowKind === "department_ballot_committed")
   )
     return events;
@@ -33,7 +39,7 @@ export function officeCommitteePresentation(
   );
   if (closingIndex < 0) return events;
   const before = events.slice(0, closingIndex);
-  if (teamViews === undefined) return before;
+  if (teamViews === undefined) return events;
   const presentations: ResearchEvent[] = teamViews.map((team, index) => ({
     id: `report-team-${team.departmentId}`,
     agent: team.representativeId,

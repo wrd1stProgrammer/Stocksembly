@@ -14,8 +14,12 @@ import {
   chairDirectionalBriefAssignment,
   chairSectionPrimaryAssignments,
 } from "./chairSynthesisPrompts";
-import { publicTextIsValid } from "./chairSynthesisTextValidation";
 import {
+  normalizeReaderFacingPrecision,
+  publicTextIsValid,
+} from "./chairSynthesisTextValidation";
+import {
+  chairCandidateIssue,
   projectChairAssignments,
   validChairCandidate,
 } from "./chairSynthesisValidation";
@@ -711,17 +715,20 @@ export function projectChairV3ForCommit(
       sourceArtifactIds.size !== lineage.sourceArtifactIds.length
     )
       throw new TypeError("chair_v3_lineage_mismatch");
-    const localized = { en: text, ko: text };
+    const normalized = normalizeReaderFacingPrecision(text);
+    const localized = { en: normalized, ko: normalized };
     return publicTextIsValid(
       localized,
       sentences,
       4_000,
       canonical.sourceLocale,
     )
-      ? text
+      ? normalized
       : (() => {
           publicationReductionReasons.add("grounding_rewrite");
-          return sentences[0]?.text[canonical.sourceLocale] ?? text;
+          return normalizeReaderFacingPrecision(
+            sentences[0]?.text[canonical.sourceLocale] ?? text,
+          );
         })();
   };
   const authoritativeStance =
@@ -732,7 +739,9 @@ export function projectChairV3ForCommit(
     ...canonicalWithAuthenticatedLineage,
     stance: authoritativeStance,
     decisiveReason: stanceConflict
-      ? directional.decisive.text[canonical.sourceLocale]
+      ? normalizeReaderFacingPrecision(
+          directional.decisive.text[canonical.sourceLocale],
+        )
       : grounded(
           canonical.decisiveReason,
           canonicalWithAuthenticatedLineage.decisionLineage.decisiveReason,
@@ -801,7 +810,16 @@ export function projectChairV3ForCommit(
     throw new TypeError("chair_v3_structural_projection_failed");
   const committed = validChairCandidate(validationPrompt, projection.candidate);
   const parsed = ChairSynthesisOutputSchema.safeParse(committed);
-  if (!parsed.success) throw new TypeError("chair_v3_grounding_failed");
+  if (!parsed.success) {
+    const issue = chairCandidateIssue(
+      validationPrompt,
+      projection.candidate,
+      true,
+    );
+    throw new TypeError(
+      `chair_v3_grounding_failed:${issue?.reason ?? "invalid_output_schema"}`,
+    );
+  }
   return ChairSynthesisOutputSchema.parse({
     ...parsed.data,
     canonicalNarrativeV3: normalizedCanonical,

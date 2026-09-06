@@ -9,6 +9,7 @@ export type OfficeDialogue = {
   readonly participantIds: readonly AgentId[];
   readonly kind: "work" | "team" | "visit" | "forum";
   readonly segments: readonly string[];
+  readonly forumParticipantIds?: readonly AgentId[];
 };
 export type OfficeDialogueChange = {
   readonly id: string;
@@ -30,7 +31,8 @@ export function officeDialogue(
   );
   const parties = [...new Set([event.agent, ...(event.participantIds ?? [])])];
   const kind =
-    workflow === "department_consolidation_committed" ||
+    event.officeMeeting?.location ??
+    (workflow === "department_consolidation_committed" ||
     (["summary", "checkpoint"].includes(event.kind ?? "") &&
       event.phase === "analyzing")
       ? "team"
@@ -49,7 +51,7 @@ export function officeDialogue(
             ].includes(workflow ?? "") ||
               event.phase === "challenging")
           ? "visit"
-          : "work";
+          : "work");
   const participantIds =
     kind === "forum"
       ? OFFICE_SCENE_MANIFEST.roster
@@ -67,6 +69,9 @@ export function officeDialogue(
     speakerId: event.agent,
     participantIds,
     kind,
+    ...(event.officeMeeting
+      ? { forumParticipantIds: event.officeMeeting.seatedRepresentativeIds }
+      : {}),
     segments: speechBubbleSegments(event.summary[locale], locale),
   };
 }
