@@ -10,8 +10,7 @@ declare const styles: {
   readonly cardMeta: string;
   readonly toolbar: string;
   readonly unavailable: string;
-  readonly average20: string;
-  readonly average50: string;
+  readonly gestureHint: string;
   readonly canvas: string;
   readonly cardCopy: string;
   readonly observation: string;

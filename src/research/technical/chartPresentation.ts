@@ -29,6 +29,8 @@ export const VISIBLE_BARS = {
   "1d": 180,
   "1w": 156,
 } as const;
+export const futureBarCount = (timeframe: TechnicalChartFrame["timeframe"]) =>
+  Math.ceil(VISIBLE_BARS[timeframe] / 3);
 export const chartPrice = (price: number) =>
   price.toLocaleString("en-US", {
     minimumFractionDigits: 2,
