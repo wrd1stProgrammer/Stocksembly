@@ -229,6 +229,11 @@ export function ResearchFileHeader({
                     ? "팀 결론"
                     : "Team view"}
             </a>
+            {file.technicalChart && (
+              <a href="#technical-chart">
+                {ko ? "차트 구조" : "Chart structure"}
+              </a>
+            )}
             {file.researchTarget?.kind === "department" ? null : (
               <a href="#evidence-analysis">{ko ? "핵심 근거" : "Evidence"}</a>
             )}

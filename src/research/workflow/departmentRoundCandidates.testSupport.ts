@@ -101,6 +101,7 @@ export function specialistCandidate(input: string, fault: DepartmentFault) {
         : publicText(roleId);
   return {
     kind: "memo",
+    chartCommentaryJson: null,
     sourceArtifactIds: prompt.sourceArtifactIds,
     positions: [
       {

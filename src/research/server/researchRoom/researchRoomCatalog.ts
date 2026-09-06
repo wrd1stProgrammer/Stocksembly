@@ -8,6 +8,7 @@ import {
   PublicRunSchema,
 } from "../../client/schemas";
 import type { ResearchFileData } from "../../compositions/types";
+import type { parseStoredResearchReportVersioned } from "../../domain/reportStorage";
 import type { ResearchTarget } from "../../domain/researchTarget";
 import { researchReportToFile } from "../../researchReportToFile";
 import type { ResearchCompany } from "../../types";
@@ -134,6 +135,7 @@ export type ResearchRoomConversation = {
 };
 
 export type ResearchRoomReportBundle = {
+  readonly report: ReturnType<typeof parseStoredResearchReportVersioned>;
   readonly item: ResearchRoomCatalogItem;
   readonly file: ResearchFileData;
   readonly company: ResearchCompany;
@@ -609,6 +611,7 @@ export async function loadResearchRoomReport(
     events: result.events,
   });
   return {
+    report,
     item,
     file,
     company: companyFor(result.item.symbol, file),

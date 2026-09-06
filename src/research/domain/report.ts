@@ -40,6 +40,7 @@ import {
   WORKFLOW_V1_DEPARTMENT_IDS,
   WORKFLOW_V1_ROLE_REGISTRY,
 } from "./roleRegistry";
+import { TechnicalChartManifestSchema } from "./technicalChart";
 
 const TeamViewSchema = z
   .object({
@@ -224,6 +225,7 @@ const VersionedResearchReportContractSchema = z
       .strict()
       .optional(),
     metricSnapshot: ResearchMetricSnapshotSchema.optional(),
+    technicalChart: TechnicalChartManifestSchema.optional(),
     teamViews: z.array(TeamViewSchema).min(1).max(4),
     artifacts: z.array(
       z.union([
@@ -575,6 +577,7 @@ const WorkflowV3ResearchReportContractSchema = z
       .strict()
       .optional(),
     metricSnapshot: ResearchMetricSnapshotSchema.optional(),
+    technicalChart: TechnicalChartManifestSchema.optional(),
     teamViews: z.array(CanonicalTeamViewSchema).min(1).max(4),
     artifacts: z.array(
       z.union([

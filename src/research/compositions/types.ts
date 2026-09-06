@@ -26,6 +26,7 @@ export type ResearchEvidenceStrength =
   | "unverified";
 
 export type ResearchFileData = {
+  readonly reportId?: string;
   readonly presentationVersion?: "legacy-v1" | "workflow-v2";
   readonly structuredEditorial?: {
     readonly decision: WorkflowV2ResearchReport["editorialDecision"];
@@ -56,6 +57,7 @@ export type ResearchFileData = {
     readonly changePercent?: number;
   };
   readonly metricSnapshot?: ResearchMetricSnapshot;
+  readonly technicalChart?: import("../domain/technicalChart").TechnicalChartManifest;
   readonly anticipatedQuestions?: readonly AnticipatedQuestion[];
   readonly qualityScorecard?: {
     readonly evidenceCoverage: number;

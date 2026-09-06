@@ -29,6 +29,7 @@ import {
   reportRoleFor,
 } from "./authoritativeReportAuthorityContracts";
 import { loadAuthenticatedReportSources } from "./authoritativeReportSources";
+import { persistOptionalTechnicalChart } from "./technicalChartArtifact";
 
 const RowSchema = z.object({
   artifact_id: z.string().uuid(),
@@ -312,7 +313,14 @@ export async function loadReportAuthority(
         });
       },
     );
+    const technicalChart = await persistOptionalTechnicalChart(
+      database,
+      cas,
+      input.runId,
+      run.data.snapshot_id,
+    );
     return {
+      ...(technicalChart === undefined ? {} : { technicalChart }),
       locale: run.data.locale,
       runVersion: run.data.version,
       reportId: revision?.reportId ?? randomUUID(),

@@ -10,6 +10,7 @@ import type { ResearchCompany } from "../../../research/types";
 import { buildCommitteeDecisionModel } from "./committeeDecisionModel";
 import { EvidenceStrength } from "./ResearchFilePrimitives";
 import { ResearchDecisionPathBoard } from "./ResearchFileVisuals";
+import { TechnicalChartResearchPage } from "./TechnicalChartResearchPage";
 
 const voteLabels = {
   support: { en: "Support", ko: "지지" },
@@ -507,13 +508,15 @@ export function CommitteeDecisionCockpit({
         />
       </section>
 
+      <TechnicalChartResearchPage file={file} locale={locale} />
+
       <section
         className="committee-owned-analysis committee-evidence-read research-editorial-section"
         data-report-section="evidence-read"
         id="evidence-analysis"
       >
         <header>
-          <span>02</span>
+          <span>{file.technicalChart ? "03" : "02"}</span>
           <div>
             <h2>{ko ? "핵심 주장 검증" : "Core claim audit"}</h2>
             <p>
@@ -604,7 +607,7 @@ export function CommitteeDecisionCockpit({
         aria-labelledby="committee-conflict-title"
       >
         <header>
-          <span>03</span>
+          <span>{file.technicalChart ? "04" : "03"}</span>
           <div>
             <h2 id="committee-conflict-title">
               {ko ? "네 팀의 판단 차이" : "Where the teams disagree"}
@@ -665,7 +668,7 @@ export function CommitteeDecisionCockpit({
         id="decision-scenarios"
       >
         <header>
-          <span>04</span>
+          <span>{file.technicalChart ? "05" : "04"}</span>
           <div>
             <h2>
               {hasValuationData
@@ -890,7 +893,7 @@ export function CommitteeDecisionCockpit({
           id="catalyst-clock"
         >
           <header>
-            <span>05</span>
+            <span>{file.technicalChart ? "06" : "05"}</span>
             <div>
               <h2>{ko ? "다가오는 판단 시점" : "Upcoming decision points"}</h2>
               <p>
@@ -929,7 +932,13 @@ export function CommitteeDecisionCockpit({
           id="role-owned-analysis"
         >
           <header>
-            <span>{view.catalysts.length === 0 ? "05" : "06"}</span>
+            <span>
+              {String(
+                5 +
+                  Number(Boolean(file.technicalChart)) +
+                  Number(view.catalysts.length > 0),
+              ).padStart(2, "0")}
+            </span>
             <div>
               <h2>{ko ? "전문가별 추가 판단" : "Specialist findings"}</h2>
               <p>

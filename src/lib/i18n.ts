@@ -245,7 +245,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "Collecting data",
       macro_analysis: "Analyzing market conditions",
-      news_analysis: "Analyzing news",
+      news_analysis: "Analyzing chart structure",
       market_comparison: "Comparing peers",
       business_analysis: "Analyzing the business",
       product_analysis: "Analyzing products",
@@ -292,7 +292,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "데이터 수집 중",
       macro_analysis: "시장 환경 분석 중",
-      news_analysis: "뉴스 분석 중",
+      news_analysis: "차트 구조 분석 중",
       market_comparison: "동종기업 비교 중",
       business_analysis: "사업 분석 중",
       product_analysis: "제품 분석 중",
@@ -339,7 +339,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "データを収集中",
       macro_analysis: "市場環境を分析中",
-      news_analysis: "ニュースを分析中",
+      news_analysis: "チャート構造を分析中",
       market_comparison: "同業他社を比較中",
       business_analysis: "事業を分析中",
       product_analysis: "製品を分析中",
@@ -383,7 +383,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "正在蒐集資料",
       macro_analysis: "正在分析市場環境",
-      news_analysis: "正在分析新聞",
+      news_analysis: "正在分析圖表結構",
       market_comparison: "正在比較同業",
       business_analysis: "正在分析業務",
       product_analysis: "正在分析產品",
@@ -430,7 +430,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "Recopilando datos",
       macro_analysis: "Analizando el entorno de mercado",
-      news_analysis: "Analizando noticias",
+      news_analysis: "Analizando la estructura del gráfico",
       market_comparison: "Comparando empresas pares",
       business_analysis: "Analizando el negocio",
       product_analysis: "Analizando productos",
@@ -478,7 +478,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "Coletando dados",
       macro_analysis: "Analisando o ambiente de mercado",
-      news_analysis: "Analisando notícias",
+      news_analysis: "Analisando a estrutura do gráfico",
       market_comparison: "Comparando empresas pares",
       business_analysis: "Analisando o negócio",
       product_analysis: "Analisando produtos",
@@ -526,7 +526,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "Daten werden gesammelt",
       macro_analysis: "Marktumfeld wird analysiert",
-      news_analysis: "Nachrichten werden analysiert",
+      news_analysis: "Chartstruktur wird analysiert",
       market_comparison: "Vergleichsunternehmen werden geprüft",
       business_analysis: "Geschäft wird analysiert",
       product_analysis: "Produkte werden analysiert",
@@ -574,7 +574,7 @@ export const researchCopy: Readonly<Record<AppLocale, ResearchCopy>> = {
     activityStatus: {
       data_collection: "Collecte des données",
       macro_analysis: "Analyse de l’environnement de marché",
-      news_analysis: "Analyse des actualités",
+      news_analysis: "Analyse de la structure du graphique",
       market_comparison: "Comparaison des sociétés comparables",
       business_analysis: "Analyse de l’activité",
       product_analysis: "Analyse des produits",

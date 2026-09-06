@@ -1,0 +1,24 @@
+declare const styles: {
+  readonly page: string;
+  readonly chapter: string;
+  readonly eyebrow: string;
+  readonly thesis: string;
+  readonly grid: string;
+  readonly card: string;
+  readonly expanded: string;
+  readonly cardHeader: string;
+  readonly cardMeta: string;
+  readonly toolbar: string;
+  readonly unavailable: string;
+  readonly average20: string;
+  readonly average50: string;
+  readonly canvas: string;
+  readonly cardCopy: string;
+  readonly observation: string;
+  readonly levels: string;
+  readonly drawingReason: string;
+  readonly scenarios: string;
+  readonly coverage: string;
+  readonly footer: string;
+};
+export default styles;

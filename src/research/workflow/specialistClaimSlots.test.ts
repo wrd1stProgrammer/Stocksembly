@@ -833,6 +833,7 @@ describe("specialist claim slots", () => {
     };
     const candidate = {
       kind: "memo" as const,
+      chartCommentaryJson: null,
       sourceArtifactIds: request.allowedArtifactIds,
       positions: request.claimSlots
         .filter((slot) => !slot.optional)

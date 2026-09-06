@@ -66,13 +66,13 @@ export const ROLE_ASSIGNMENT_POLICIES = [
   {
     roleId: "market_news",
     agentName: "June",
-    primaryCrux: "disclosure_chronology",
+    primaryCrux: "macro_regime",
     focusAreas: [
+      "weekly_context_daily_structure",
       "one_hour_short_term_structure",
       "four_hour_medium_term_structure",
       "moving_averages",
-      "rsi",
-      "macd",
+      "confirmed_pivots_trend_channels_order_block_candidates",
       "atr_volatility",
       "volume_confirmation",
       "support_resistance",
@@ -88,7 +88,7 @@ export const ROLE_ASSIGNMENT_POLICIES = [
     capabilityKeys: ["current_market_data", "professional_news"],
     requiredOutputs: [
       "atomic_timing_claim",
-      "moving_averages_rsi_macd_atr_volume",
+      "four_timeframe_structure_next_candle_conditions",
       "support_resistance",
       "invalidation_levels",
       "timeframe_agreement_or_disagreement",
