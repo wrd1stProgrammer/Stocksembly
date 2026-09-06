@@ -18,14 +18,11 @@ import {
   type LandingResearchRoomPreviewData,
 } from "../researchRoom/landingResearchRoomPreviewSelection";
 import { SearchConsole } from "../SearchConsole";
-import { HOME_PREVIEW_RUNS } from "./homePreviewData";
 
 type SignedInHomeProps = Pick<
   ComponentProps<typeof SearchConsole>,
   "locale" | "onOpenPlans" | "subscriptionTier" | "creditsRemaining"
 > & {
-  /** Localhost-only layout review: render sample runs instead of fetching. */
-  readonly preview?: boolean;
   readonly communityPreview?: LandingResearchRoomPreviewData;
 };
 
@@ -47,18 +44,15 @@ function communityTargetLabel(
 
 export function SignedInHome(props: SignedInHomeProps) {
   const {
-    preview = false,
     communityPreview = EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
     ...searchConsoleProps
   } = props;
   const { locale } = searchConsoleProps;
   const content = copy[locale].home;
   const roomLabels = copy[locale].landing.researchRoom;
-  const [loadState, setLoadState] = useState<LoadState>(() =>
-    preview
-      ? { status: "ready", runs: HOME_PREVIEW_RUNS }
-      : { status: "loading" },
-  );
+  const [loadState, setLoadState] = useState<LoadState>({
+    status: "loading",
+  });
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const { status: loadStatus } = loadState;
 
