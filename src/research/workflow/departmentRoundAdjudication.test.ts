@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { z as zod } from "zod";
 import type { z } from "zod";
+import { z as zod } from "zod";
 import type { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
 import { departmentCandidate } from "./departmentRoundCandidates.testSupport";
 import type { DepartmentJobPrompt } from "./departmentRoundContracts";

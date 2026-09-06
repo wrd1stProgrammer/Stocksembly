@@ -1,4 +1,3 @@
-import { ANTICIPATED_QUESTIONS_POLICY } from "../../../workflow/anticipatedQuestionsPublication";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import type { AuthoritativeReportCommit } from "../../../application/assembleReportPersistence";
@@ -16,6 +15,7 @@ import {
 } from "../../../domain/ids";
 import { WorkflowV3ResearchReportSchema } from "../../../domain/report";
 import { REQUIRED_REPORT_ARTIFACT_ROLES } from "../../../domain/reportArtifactProvenance";
+import { ANTICIPATED_QUESTIONS_POLICY } from "../../../workflow/anticipatedQuestionsPublication";
 import {
   evaluatePrePublicationEditorialGate,
   type PrePublicationEditorialEnvelope,
@@ -129,8 +129,10 @@ export function publishReportAtomically(
         | undefined;
       if (
         envelope?.gateVersion !== "editorial-quality-v1" ||
-        envelope.qaPolicy.moduleMinimum !== ANTICIPATED_QUESTIONS_POLICY.moduleMinimum ||
-        envelope.qaPolicy.standardTarget !== ANTICIPATED_QUESTIONS_POLICY.standardTarget ||
+        envelope.qaPolicy.moduleMinimum !==
+          ANTICIPATED_QUESTIONS_POLICY.moduleMinimum ||
+        envelope.qaPolicy.standardTarget !==
+          ANTICIPATED_QUESTIONS_POLICY.standardTarget ||
         envelope.qaPolicy.supportedCount !==
           envelope.candidate.anticipatedQuestions.length ||
         envelope.qaPolicy.moduleVisible !==

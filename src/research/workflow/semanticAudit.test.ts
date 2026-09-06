@@ -14,7 +14,11 @@ import {
   ArtifactDigestSchema,
 } from "../ports/artifacts";
 import { sha256Value } from "../server/codex/codexArtifacts";
-import { CODEX_RUNTIME_POLICY, CODEX_RUNTIME_PINS, LINUX_CODEX_RUNTIME_PINS } from "../server/codex/codexPolicy";
+import {
+  CODEX_RUNTIME_PINS,
+  CODEX_RUNTIME_POLICY,
+  LINUX_CODEX_RUNTIME_PINS,
+} from "../server/codex/codexPolicy";
 import type {
   CodexRunInput,
   CodexRunResult,
@@ -189,8 +193,14 @@ class SemanticCodexFake extends FollowupResponseCodexFake {
         reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[input.stage],
         browsingPolicy: CODEX_RUNTIME_POLICY.browsingByStage[input.stage],
         toolTranscriptHash: sha256Value([]),
-        binaryVersion: (process.platform === "linux" ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS).version,
-        binaryHash: (process.platform === "linux" ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS).originSha256,
+        binaryVersion: (process.platform === "linux"
+          ? LINUX_CODEX_RUNTIME_PINS
+          : CODEX_RUNTIME_PINS
+        ).version,
+        binaryHash: (process.platform === "linux"
+          ? LINUX_CODEX_RUNTIME_PINS
+          : CODEX_RUNTIME_PINS
+        ).originSha256,
         originDevice: "1",
         originInode: "1",
         linkDevice: "1",

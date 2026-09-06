@@ -293,10 +293,17 @@ export function createInitialCollectionHandler(
       } catch (error) {
         return collectionFailure(error, clock(), attempt.ordinal);
       }
-      const question = normalizeResearchQuestion(request.question) ?? defaultResearchQuestion(request.symbol, request.locale);
+      const question =
+        normalizeResearchQuestion(request.question) ??
+        defaultResearchQuestion(request.symbol, request.locale);
       const researchBrief = await planResearchBrief({
-        runId, databasePath: options.databasePath, question, symbol: request.symbol,
-        legalName: collected.identity.legalName, profile: researchProfile, sources: collected.sources,
+        runId,
+        databasePath: options.databasePath,
+        question,
+        symbol: request.symbol,
+        legalName: collected.identity.legalName,
+        profile: researchProfile,
+        sources: collected.sources,
       });
       const acquisitionClosedAt =
         clock() > collected.retrievedAt ? clock() : collected.retrievedAt;

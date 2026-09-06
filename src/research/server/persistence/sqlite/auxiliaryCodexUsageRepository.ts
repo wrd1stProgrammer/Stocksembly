@@ -1,7 +1,10 @@
 import Database from "better-sqlite3";
 import type { SemanticNewsClassifierUsage } from "../../data/insightsentry/insightSentrySemanticNewsClassifier";
 
-type AuxiliaryCodexUsageInput = Omit<SemanticNewsClassifierUsage, "phase" | "reasoning"> & {
+type AuxiliaryCodexUsageInput = Omit<
+  SemanticNewsClassifierUsage,
+  "phase" | "reasoning"
+> & {
   readonly phase: SemanticNewsClassifierUsage["phase"] | "research_brief";
   readonly reasoning: "low" | "medium";
   readonly runId: string;
@@ -28,7 +31,10 @@ export function recordAuxiliaryCodexUsage(
       )`)
       .run({
         ...input,
-        purpose: input.phase === "research_brief" ? "research_brief" : `semantic_news_${input.phase}`,
+        purpose:
+          input.phase === "research_brief"
+            ? "research_brief"
+            : `semantic_news_${input.phase}`,
         inputTokens: input.inputTokens ?? null,
         cachedInputTokens: input.cachedInputTokens ?? null,
         cacheWriteInputTokens: input.cacheWriteInputTokens ?? null,

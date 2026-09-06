@@ -112,9 +112,9 @@ export function registerSandboxTests(): void {
       expect(buildCodexArgv(input.schemaPath, "memo")).toContain(
         'web_search="live"',
       );
-      expect(
-        buildCodexArgv(input.schemaPath, "chair_synthesis"),
-      ).toContain('web_search="disabled"');
+      expect(buildCodexArgv(input.schemaPath, "chair_synthesis")).toContain(
+        'web_search="disabled"',
+      );
       expect(memoProfile).toContain("(allow network-outbound)");
       expect(chairProfile).toContain("(allow network-outbound)");
     });

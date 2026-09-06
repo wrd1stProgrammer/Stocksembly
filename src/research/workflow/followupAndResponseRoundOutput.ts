@@ -18,14 +18,21 @@ export function inspectFollowupCandidate(
   const request = FollowupJobPromptSchema.parse(JSON.parse(job.prompt));
   if (
     candidate.data.requestId !== request.requestId ||
-    !candidate.data.evidenceArtifactIds.every((id) =>
-      request.evidenceArtifactIds.includes(id) || capturedArtifactIds.includes(id),
+    !candidate.data.evidenceArtifactIds.every(
+      (id) =>
+        request.evidenceArtifactIds.includes(id) ||
+        capturedArtifactIds.includes(id),
     )
   )
     return undefined;
   return FollowUpOutputSchema.parse({
     ...candidate.data,
-    sourceArtifactIds: [...new Set([...request.sourceArtifactIds, ...candidate.data.evidenceArtifactIds])],
+    sourceArtifactIds: [
+      ...new Set([
+        ...request.sourceArtifactIds,
+        ...candidate.data.evidenceArtifactIds,
+      ]),
+    ],
   });
 }
 

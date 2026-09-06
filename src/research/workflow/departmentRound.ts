@@ -1,7 +1,7 @@
-import { loadResearchMandateAtPath } from "./chairSynthesisArtifacts";
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
 import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { createLeaseEngine } from "../worker/leaseEngine";
+import { loadResearchMandateAtPath } from "./chairSynthesisArtifacts";
 import type {
   DepartmentRoundReplay,
   SqliteDepartmentRound,

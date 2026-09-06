@@ -79,24 +79,39 @@ describe("late-stage model prompt compaction", () => {
     const compactEvidence = JSON.parse(compact);
     delete compactEvidence.instructions;
     const { instructions: _instructions, ...trustedEvidence } = prompt;
-    expect(JSON.stringify(compactEvidence).length).toBeLessThan(JSON.stringify(trustedEvidence).length * 0.75);
+    expect(JSON.stringify(compactEvidence).length).toBeLessThan(
+      JSON.stringify(trustedEvidence).length * 0.75,
+    );
     expect(prompt.claims[0]?.evidence[0]?.artifactId).toBe(id(1));
   });
 
   it("keeps chair copy and selection ids while omitting provenance UUIDs", () => {
-    const sentences = ["claim", "position", "claim", "dissent", "unknown", "scenario", "change_condition"].map(
-      (kind, index) => ({
-        sentenceId: `${kind}:${index}`,
-        kind,
-        claimIds: kind === "unknown" ? [] : [id(index + 2)],
-        sourceArtifactIds: [id(1)],
-        text: { en: `${kind} text`, ko: `${kind} 문장` },
-      }),
+    const sentences = [
+      "claim",
+      "position",
+      "claim",
+      "dissent",
+      "unknown",
+      "scenario",
+      "change_condition",
+    ].map((kind, index) => ({
+      sentenceId: `${kind}:${index}`,
+      kind,
+      claimIds: kind === "unknown" ? [] : [id(index + 2)],
+      sourceArtifactIds: [id(1)],
+      text: { en: `${kind} text`, ko: `${kind} 문장` },
+    }));
+    sentences.push(
+      ...["market", "company", "financial", "risk"].map(
+        (department, index) => ({
+          sentenceId: `position:${department}`,
+          kind: "position",
+          claimIds: [id(index + 20)],
+          sourceArtifactIds: [id(1)],
+          text: { en: `${department} position`, ko: `${department} 판단` },
+        }),
+      ),
     );
-    sentences.push(...["market", "company", "financial", "risk"].map((department, index) => ({
-      sentenceId: `position:${department}`, kind: "position", claimIds: [id(index + 20)], sourceArtifactIds: [id(1)],
-      text: { en: `${department} position`, ko: `${department} 판단` },
-    })));
     const prompt = ChairSynthesisPromptSchema.parse({
       kind: "chair_synthesis_input_v1",
       mandate: {

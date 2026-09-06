@@ -459,7 +459,9 @@ export function CommitteeDecisionCockpit({
               <p>{view.countercase}</p>
             </div>
             <div className="committee-cockpit__countercase">
-              <strong>{ko ? "판단을 바꿀 조건" : "What would change the view"}</strong>
+              <strong>
+                {ko ? "판단을 바꿀 조건" : "What would change the view"}
+              </strong>
               <p>{decisionFalsifier}</p>
             </div>
           </article>

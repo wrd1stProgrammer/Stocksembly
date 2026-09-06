@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { ResearchBriefSchema } from "../domain/researchBrief";
 import { hashCanonical, timestampMillis } from "../domain/contractHelpers";
 import { TickerSymbolSchema } from "../domain/ids";
+import { ResearchBriefSchema } from "../domain/researchBrief";
 import { normalizeResearchDirection } from "../domain/researchDirection";
 import { normalizeResearchProfile } from "../domain/researchProfile";
 import {
@@ -142,7 +142,9 @@ export async function createResearchMandate(
     manifestHash: admission.snapshot.manifestHash,
     symbol,
     ...(question === undefined ? {} : { question }),
-    ...(input.researchBrief === undefined ? {} : { researchBrief: ResearchBriefSchema.parse(input.researchBrief) }),
+    ...(input.researchBrief === undefined
+      ? {}
+      : { researchBrief: ResearchBriefSchema.parse(input.researchBrief) }),
     locale,
     scope,
     ...(researchProfile === undefined ? {} : { researchProfile }),

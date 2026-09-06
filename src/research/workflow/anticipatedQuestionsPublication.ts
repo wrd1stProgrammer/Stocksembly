@@ -601,7 +601,10 @@ export function selectGroundedAnticipatedQuestions(
     {
       decisionKey: `decision_${profile.decisionPurpose}`,
       priority: 110,
-      question: { en: "What is the report’s answer to the research question?", ko: "이 리서치는 조사 질문에 어떤 답을 내렸나요?" },
+      question: {
+        en: "What is the report’s answer to the research question?",
+        ko: "이 리서치는 조사 질문에 어떤 답을 내렸나요?",
+      },
       answer: decisionAnswer,
       claims: decisionClaims,
     },
@@ -659,7 +662,6 @@ export function selectGroundedAnticipatedQuestions(
           claims: [claim],
         }),
       ),
-
   ].sort((left, right) => right.priority - left.priority);
   const selected: PersistedQuestion[] = [];
   const primaryCounts = new Map<string, number>();
@@ -684,8 +686,10 @@ export function selectGroundedAnticipatedQuestions(
             .duplicate ||
           textSimilarity(question.question.ko, candidate.question.ko, "ko")
             .duplicate ||
-          textSimilarity(question.answer.en, candidate.answer.en, "en").duplicate ||
-          textSimilarity(question.answer.ko, candidate.answer.ko, "ko").duplicate,
+          textSimilarity(question.answer.en, candidate.answer.en, "en")
+            .duplicate ||
+          textSimilarity(question.answer.ko, candidate.answer.ko, "ko")
+            .duplicate,
       )
     )
       continue;

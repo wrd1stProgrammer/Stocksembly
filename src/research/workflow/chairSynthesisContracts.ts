@@ -1,4 +1,3 @@
-import { ResearchBriefSchema } from "../domain/researchBrief";
 import { z } from "zod";
 import {
   ChairConflictAdjudicationSchema,
@@ -18,6 +17,7 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
+import { ResearchBriefSchema } from "../domain/researchBrief";
 import {
   DEFAULT_RESEARCH_PROFILE,
   ResearchProfileSchema,

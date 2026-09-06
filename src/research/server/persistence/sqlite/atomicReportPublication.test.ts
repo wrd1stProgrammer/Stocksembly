@@ -510,7 +510,9 @@ describe("publishReportAtomically identity boundary", () => {
         qaPolicy: {
           ...ANTICIPATED_QUESTIONS_POLICY,
           supportedCount: anticipatedQuestions.length,
-          moduleVisible: anticipatedQuestions.length >= ANTICIPATED_QUESTIONS_POLICY.moduleMinimum,
+          moduleVisible:
+            anticipatedQuestions.length >=
+            ANTICIPATED_QUESTIONS_POLICY.moduleMinimum,
         },
         candidate,
       },

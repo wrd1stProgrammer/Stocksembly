@@ -120,7 +120,9 @@ function columnsToRecords(
         acceptedAt: accepted,
         period,
         primaryDocument,
-        ...(columns.items?.[index] === undefined ? {} : { items: columns.items[index] }),
+        ...(columns.items?.[index] === undefined
+          ? {}
+          : { items: columns.items[index] }),
       }),
     );
   }
