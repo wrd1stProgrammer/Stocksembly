@@ -8,6 +8,7 @@ import { findTicker } from "../../../src/lib/tickers";
 import { committeeReportPreviewFixture } from "../../../src/research/committeeReportPreviewFixture";
 import type { ResearchEventWithModeFor } from "../../../src/research/compositionMode";
 import { fixtureComposition } from "../../../src/research/compositions/fixture";
+import { officeRepresentativeMeetings } from "../../../src/research/officeRepresentativeMeetings";
 
 type Props = {
   readonly params: Promise<{ readonly symbol: string }>;
@@ -99,7 +100,20 @@ export default async function FixtureResearchPage({
     query.scene === "continuity"
       ? {
           ...payload,
-          data: { ...payload.data, playbackEvents: continuityEvents },
+          data: {
+            ...payload.data,
+            playbackEvents: officeRepresentativeMeetings(
+              continuityEvents.map((event) =>
+                visits.includes(event)
+                  ? { ...event, workflowKind: "challenge_committed" }
+                  : event,
+              ),
+            ).map((event) => ({
+              ...event,
+              mode: payload.mode,
+              origin: payload.origin,
+            })),
+          },
         }
       : range
         ? {

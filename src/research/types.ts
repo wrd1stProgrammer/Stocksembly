@@ -34,6 +34,10 @@ export type ResearchEvent = {
   readonly kind?: OfficePublicEventKind;
   readonly workflowKind?: string;
   readonly participantIds?: readonly AgentId[];
+  readonly officeMeeting?: {
+    readonly location: "visit" | "forum";
+    readonly seatedRepresentativeIds: readonly AgentId[];
+  };
 };
 
 export type AgentProfile = {

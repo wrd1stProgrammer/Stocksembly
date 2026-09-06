@@ -178,7 +178,10 @@ export function dialogueDestinations(
 ): ReadonlyMap<ActorId, LiveDestination> {
   const destinations = new Map<ActorId, LiveDestination>();
   for (const member of OFFICE_SCENE_MANIFEST.roster) {
-    const forum = dialogue.kind === "forum" && member.finalLocation === "forum";
+    const forum =
+      member.finalLocation === "forum" &&
+      (dialogue.kind === "forum" ||
+        dialogue.forumParticipantIds?.includes(member.id));
     const team = seatedTeams.has(member.departmentId);
     const anchor = forum
       ? OFFICE_SCENE_MANIFEST.forum.anchors[
@@ -208,7 +211,8 @@ export function dialogueDestinations(
         .length === members.length;
     if (sameEncounter) {
       for (const [id, place] of previous)
-        if (place.kind === "visit") destinations.set(id, place);
+        if (place.kind === "visit" && destinations.get(id)?.kind !== "forum")
+          destinations.set(id, place);
       return destinations;
     }
     const host =
@@ -219,7 +223,11 @@ export function dialogueDestinations(
         ...priorPlaces.map((place) => place?.group),
       ]);
       for (const [id, place] of previous)
-        if (place.kind === "visit" && !releasedGroups.has(place.group))
+        if (
+          place.kind === "visit" &&
+          !releasedGroups.has(place.group) &&
+          destinations.get(id)?.kind !== "forum"
+        )
           destinations.set(id, place);
       const department = OFFICE_SCENE_MANIFEST.departments[host.departmentId];
       let hostIndex = 0;

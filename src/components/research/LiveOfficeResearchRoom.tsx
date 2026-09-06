@@ -381,10 +381,7 @@ export function LiveOfficeResearchRoom({
     locale,
     projection.snapshot.run.runId,
   ]);
-  const completed =
-    projection.state === "published" &&
-    report !== undefined &&
-    presentation.drained;
+  const completed = projection.state === "published" && report !== undefined;
   const terminal =
     projection.state === "failed" ||
     projection.state === "incomplete" ||

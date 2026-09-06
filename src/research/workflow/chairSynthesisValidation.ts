@@ -69,7 +69,23 @@ function normalizedModelCandidate(raw: unknown): unknown {
   if (!Array.isArray(record["sections"])) return raw;
   return {
     kind: record["kind"],
-    decisionBrief: record["decisionBrief"],
+    decisionBrief: (() => {
+      const brief = z
+        .record(z.string(), z.unknown())
+        .safeParse(record["decisionBrief"]);
+      return brief.success
+        ? {
+            ...brief.data,
+            decisiveReason: normalizedPublicSummary(
+              brief.data["decisiveReason"],
+            ),
+            strongestCountercase: normalizedPublicSummary(
+              brief.data["strongestCountercase"],
+            ),
+            falsifier: normalizedPublicSummary(brief.data["falsifier"]),
+          }
+        : record["decisionBrief"];
+    })(),
     selectedUnknownIds: record["selectedUnknownIds"],
     sections: record["sections"].map((section) => {
       const parsedSection = z
@@ -265,7 +281,10 @@ function projectedDirectionalText(
   const selected =
     individuallyValid && decisionTextsAreDistinct(current)
       ? current
-      : sources.map((source) => source.text);
+      : sources.map((source) => ({
+          en: normalizeReaderFacingPrecision(source.text.en),
+          ko: normalizeReaderFacingPrecision(source.text.ko),
+        }));
   return {
     decisiveReason: selected[0],
     strongestCountercase: selected[1],
@@ -762,6 +781,7 @@ function resolvedCandidate(
 export function chairCandidateIssue(
   promptJson: string,
   raw: unknown,
+  allowEditorialDefects = false,
 ): ChairCandidateIssue | undefined {
   const prompt = ChairSynthesisPromptSchema.parse(JSON.parse(promptJson));
   const candidate = ChairSynthesisModelOutputSchema.safeParse(
@@ -769,7 +789,11 @@ export function chairCandidateIssue(
   );
   if (!candidate.success)
     return { sectionKey: "ten_second_brief", reason: "invalid_model_output" };
-  return issueForCandidate(prompt, candidate.data);
+  return issueForCandidate(
+    prompt,
+    candidate.data,
+    allowEditorialDefects ? NON_BLOCKING_AFTER_REWRITE : new Set(),
+  );
 }
 
 export function validChairCandidate(promptJson: string, raw: unknown): unknown {

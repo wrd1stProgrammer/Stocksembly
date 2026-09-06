@@ -173,7 +173,19 @@ export function PixelOfficeGame({
     if (!event || event.id === "office-waiting") return undefined;
     const request = officeDialogue(event, locale);
     return presentation?.active === false
-      ? { ...request, segments: [] }
+      ? {
+          ...request,
+          segments: [],
+          ...(event.officeMeeting?.location === "visit"
+            ? {
+                kind: "work" as const,
+                forumParticipantIds: [
+                  ...(request.forumParticipantIds ?? []),
+                  ...request.participantIds,
+                ],
+              }
+            : {}),
+        }
       : request;
   }, [currentEvent, locale, presentation]);
   const conversationParticipantIds = dialogue?.participantIds ?? [];

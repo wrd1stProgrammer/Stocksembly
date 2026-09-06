@@ -74,6 +74,7 @@ export function createChairSynthesisAttemptHandler(
     | "accepted"
     | "commit_rejected"
     | "incomplete"
+    | { readonly kind: "projection_failed"; readonly code: string }
     | {
         readonly kind: "isolation_unavailable";
         readonly check: CodexIsolationError["check"];
@@ -305,6 +306,25 @@ export function createChairSynthesisAttemptHandler(
           check: error.check,
           reason: error.reason,
         };
+      if (error.message.startsWith("chair_v3_")) {
+        process.stderr.write(
+          `${JSON.stringify({
+            kind: "chair_projection_failed",
+            runId: attempt.runId,
+            attemptId: attempt.attemptId,
+            code: error.message,
+          })}\n`,
+        );
+        return { kind: "projection_failed", code: error.message };
+      }
+      process.stderr.write(
+        `${JSON.stringify({
+          kind: "chair_execution_failed",
+          runId: attempt.runId,
+          attemptId: attempt.attemptId,
+          errorType: error.name,
+        })}\n`,
+      );
       return "incomplete";
     }
     const recorded = recordSuccessfulRunnerEvidence(
@@ -413,6 +433,8 @@ export function createChairSynthesisAttemptHandler(
         incompleteCodes.get(attempt.runId) ?? "chair_synthesis_missing";
       incompleteCodes.delete(attempt.runId);
       if (outcome === "accepted") return { kind: "accepted" };
+      if (typeof outcome === "object" && outcome.kind === "projection_failed")
+        return { kind: "incomplete", code: outcome.code };
       if (
         typeof outcome === "object" &&
         outcome.kind === "isolation_unavailable"
