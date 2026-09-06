@@ -155,8 +155,22 @@ describe("InsightSentry initial workflow collection", () => {
         const providerCode = path.includes("NASDAQ:MSFT")
           ? "NASDAQ:MSFT"
           : "NASDAQ:NVDA";
+        const weekly = request.url.searchParams.get("bar_type") === "week";
+        const tradingDates: number[] = [];
+        for (let offset = 0; tradingDates.length < 320; offset++) {
+          const day = new Date(Date.UTC(2024, 8, 2 + offset, 14, 30));
+          if (day.getUTCDay() !== 0 && day.getUTCDay() !== 6)
+            tradingDates.push(day.getTime() / 1000);
+        }
         const series = Array.from({ length: daily ? 300 : 40 }, (_, index) => ({
-          time: 1_727_000_000 + index * interval * (daily ? 86_400 : 3_600),
+          time: weekly
+            ? 1_725_284_600 + index * 7 * 86_400
+            : daily
+              ? Number(tradingDates[index])
+              : Number(
+                  tradingDates[Math.floor(index / (interval === 4 ? 2 : 6))],
+                ) +
+                (index % (interval === 4 ? 2 : 6)) * interval * 3600,
           open: 150 + index * 0.5,
           high: 151 + index * 0.5,
           low: 149 + index * 0.5,
@@ -293,7 +307,7 @@ describe("InsightSentry initial workflow collection", () => {
     });
 
     // Then
-    expect(cold.requestLedger.uniqueUpstreamCalls).toBe(16);
+    expect(cold.requestLedger.uniqueUpstreamCalls).toBe(17);
     expect(warm.requestLedger.uniqueUpstreamCalls).toBeGreaterThanOrEqual(5);
     expect(warm.requestLedger.uniqueUpstreamCalls).toBeLessThanOrEqual(8);
     expect(
@@ -320,7 +334,7 @@ describe("InsightSentry initial workflow collection", () => {
       decoded.analysis.timeframes.map(
         (value: { timeframe: string }) => value.timeframe,
       ),
-    ).toEqual(["1h", "4h", "1d"]);
+    ).toEqual(["1h", "4h", "1d", "1w"]);
     expect(decoded.analysis.timeframes[0]).toEqual(
       expect.objectContaining({
         movingAverages: expect.any(Object),
@@ -347,7 +361,7 @@ describe("InsightSentry initial workflow collection", () => {
       performance1Year: expect.any(Number),
     });
     expect(peerData.peers[0]).toMatchObject({
-      symbol: "NASDAQ:MSFT",
+      symbol: "MSFT",
       performance3Month: expect.any(Number),
       performance1Year: expect.any(Number),
     });

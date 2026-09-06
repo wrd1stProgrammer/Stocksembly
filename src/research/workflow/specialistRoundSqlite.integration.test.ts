@@ -8,6 +8,7 @@ import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { codexInputHash } from "../server/codex/codexReservation";
+import { buildTechnicalChart } from "../technical/buildTechnicalChart";
 import { createLeaseEngine } from "../worker/leaseEngine";
 import {
   createRuntimeAttemptHandler,
@@ -40,7 +41,18 @@ describe("official SQLite specialist round", () => {
     );
     const sources = harness.sources.map((source) => ({
       ...source,
-      bytes,
+      bytes:
+        source.evidenceId === "annual"
+          ? new TextEncoder().encode(
+              JSON.stringify({
+                technicalChart: buildTechnicalChart({
+                  symbol: "NVDA",
+                  asOf: "2026-07-23T00:00:00.000Z",
+                  sets: [],
+                }),
+              }),
+            )
+          : bytes,
     }));
     const sourceHashes = new Map(
       sources.map((source) => [
@@ -56,6 +68,9 @@ describe("official SQLite specialist round", () => {
             throw new TypeError("missing large evidence fixture");
           return {
             ...artifact,
+            ...(artifact.evidenceId === "annual"
+              ? { dataset: "market_bars" as const }
+              : {}),
             rawHash: contentHash,
             ...(artifact.normalizedHash === undefined
               ? {}
@@ -83,6 +98,9 @@ describe("official SQLite specialist round", () => {
           throw new TypeError("missing snapshot evidence fixture");
         return {
           ...artifact,
+          ...(artifact.evidenceId === "annual"
+            ? { dataset: "market_bars" as const }
+            : {}),
           rawHash: contentHash,
           ...(artifact.normalizedHash === undefined
             ? {}
@@ -108,6 +126,13 @@ describe("official SQLite specialist round", () => {
     );
 
     // Then
+    const june = jobs.find((job) => job.roleId === "market_news");
+    expect(
+      june?.prompt
+        .split("\n")
+        .filter((line) => line.startsWith("EVIDENCE "))[0],
+    ).toBe("EVIDENCE annual");
+    expect(june?.prompt).toContain('"frames":[{"timeframe":"1h"');
     expect(
       Math.max(...jobs.map((job) => Buffer.byteLength(job.prompt))),
     ).toBeLessThanOrEqual(80 * 1_024);

@@ -13,6 +13,7 @@ import type {
 } from "./publicationRecovery";
 
 export type AssemblyInput = {
+  readonly technicalChart?: import("../domain/technicalChart").TechnicalChartManifest;
   readonly locale?: "en" | "ko";
   readonly reportId: string;
   readonly versionId: string;

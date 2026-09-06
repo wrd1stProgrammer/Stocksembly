@@ -215,7 +215,7 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
       id="market-timing"
     >
       <header className={styles.chapter}>
-        <span>MARKET / 02</span>
+        <span>MARKET / {file.technicalChart ? "03" : "02"}</span>
         <h2>
           {ko
             ? "가격대·지속성·촉매 시계"

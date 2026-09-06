@@ -197,6 +197,7 @@ describe("InsightSentry market adapter", () => {
       bars,
       { ...bars, bar_type: "4h", series: bars.series.slice(0, 2) },
       { ...bars, bar_type: "day", series: bars.series.slice(0, 2) },
+      { ...bars, bar_type: "week", series: bars.series.slice(0, 2) },
     ]);
 
     // When
@@ -209,6 +210,7 @@ describe("InsightSentry market adapter", () => {
       "1h",
       "4h",
       "1d",
+      "1w",
     ]);
     expect(result[0]?.bars.map(({ timestamp }) => timestamp)).toEqual([
       "2025-07-23T21:00:00.000Z",
@@ -218,11 +220,11 @@ describe("InsightSentry market adapter", () => {
       observedStart: "2025-07-23T21:00:00.000Z",
       observedEnd: "2025-07-23T22:00:00.000Z",
       barCount: 2,
-      requestedBarCount: 390,
+      requestedBarCount: 500,
       partial: true,
     });
     expect(result[2]?.coverage.requestedBarCount).toBe(1_000);
-    expect(fixture.requests).toHaveLength(3);
+    expect(fixture.requests).toHaveLength(4);
     for (const interval of [1, 4]) {
       expect(fixture.requests).toContainEqual(
         expect.objectContaining({
@@ -231,7 +233,7 @@ describe("InsightSentry market adapter", () => {
           parameters: {
             bar_type: "hour",
             bar_interval: interval,
-            dp: 390,
+            dp: 500,
           },
           adjustmentFlags: {
             split: true,
@@ -353,8 +355,8 @@ describe("InsightSentry market adapter", () => {
     );
 
     // Then
-    await expect(action).rejects.toThrow("invalid OHLC price ordering");
-    expect(fixture.requests).toHaveLength(3);
+    expect((await action).map((set) => set.timeframe)).toEqual(["4h", "1d"]);
+    expect(fixture.requests).toHaveLength(4);
   });
 
   it("caches company info for one day, actions for 7 days, and reports quote market state", async () => {

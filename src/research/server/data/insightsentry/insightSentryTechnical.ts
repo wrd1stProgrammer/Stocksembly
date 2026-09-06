@@ -7,7 +7,7 @@ import type {
 export type TechnicalTrend = "bullish" | "bearish" | "mixed";
 
 export type InsightSentryTimeframeAnalysis = {
-  readonly timeframe: "1h" | "4h" | "1d";
+  readonly timeframe: "1h" | "4h" | "1d" | "1w";
   readonly horizon: "short_term" | "medium_term" | "long_term";
   readonly trend: TechnicalTrend;
   readonly movingAverages: {
@@ -29,11 +29,7 @@ export type InsightSentryTimeframeAnalysis = {
 
 export type InsightSentryTechnicalAnalysis = {
   readonly quote: InsightSentryQuote;
-  readonly timeframes: readonly [
-    InsightSentryTimeframeAnalysis,
-    InsightSentryTimeframeAnalysis,
-    InsightSentryTimeframeAnalysis,
-  ];
+  readonly timeframes: readonly InsightSentryTimeframeAnalysis[];
   readonly timeframeAgreement:
     | "agrees_bullish"
     | "agrees_bearish"
@@ -120,28 +116,22 @@ export function deriveInsightSentryTimeframeAnalysis(
 
 export function deriveInsightSentryTechnicalAnalysis(input: {
   readonly quote: InsightSentryQuote;
-  readonly bars: readonly [
-    InsightSentryBarSet,
-    InsightSentryBarSet,
-    InsightSentryBarSet,
-  ];
+  readonly bars: readonly InsightSentryBarSet[];
 }): InsightSentryTechnicalAnalysis {
-  const hourly = deriveInsightSentryTimeframeAnalysis(input.bars[0]);
-  const fourHourly = deriveInsightSentryTimeframeAnalysis(input.bars[1]);
-  const daily = deriveInsightSentryTimeframeAnalysis(input.bars[2]);
+  const timeframes = input.bars
+    .filter((set) => set.bars.length >= 20)
+    .map(deriveInsightSentryTimeframeAnalysis);
   const timeframeAgreement =
-    hourly.trend === "bullish" &&
-    fourHourly.trend === "bullish" &&
-    daily.trend === "bullish"
+    timeframes.length >= 3 &&
+    timeframes.every((frame) => frame.trend === "bullish")
       ? "agrees_bullish"
-      : hourly.trend === "bearish" &&
-          fourHourly.trend === "bearish" &&
-          daily.trend === "bearish"
+      : timeframes.length >= 3 &&
+          timeframes.every((frame) => frame.trend === "bearish")
         ? "agrees_bearish"
         : "disagrees";
   return Object.freeze({
     quote: input.quote,
-    timeframes: Object.freeze([hourly, fourHourly, daily] as const),
+    timeframes: Object.freeze(timeframes),
     timeframeAgreement,
   });
 }

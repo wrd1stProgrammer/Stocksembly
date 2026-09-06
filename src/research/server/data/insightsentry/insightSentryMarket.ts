@@ -32,7 +32,7 @@ export type InsightSentrySymbol = {
 
 export type InsightSentryBar = {
   readonly timestamp: string;
-  readonly timeframe: "1h" | "4h" | "1d";
+  readonly timeframe: "1h" | "4h" | "1d" | "1w";
   readonly open: number;
   readonly high: number;
   readonly low: number;
@@ -41,7 +41,7 @@ export type InsightSentryBar = {
 };
 
 export type InsightSentryBarSet = {
-  readonly timeframe: "1h" | "4h" | "1d";
+  readonly timeframe: "1h" | "4h" | "1d" | "1w";
   readonly bars: readonly InsightSentryBar[];
   readonly coverage: {
     readonly observedStart: string;
@@ -53,10 +53,10 @@ export type InsightSentryBarSet = {
 };
 
 type SeriesRequest = {
-  readonly barType: "hour" | "day";
+  readonly barType: "hour" | "day" | "week";
   readonly interval: 1 | 4;
   readonly timeframe: InsightSentryBarSet["timeframe"];
-  readonly pointCount: 390 | 1_000;
+  readonly pointCount: 500 | 1_000;
 };
 
 export type InsightSentryCompanyInfo = {
@@ -89,9 +89,7 @@ export interface InsightSentryMarket {
   ) => Promise<readonly InsightSentrySymbol[]>;
   readonly technicalBars: (
     providerCode: string,
-  ) => Promise<
-    readonly [InsightSentryBarSet, InsightSentryBarSet, InsightSentryBarSet]
-  >;
+  ) => Promise<readonly InsightSentryBarSet[]>;
   readonly fourHourBars: (providerCode: string) => Promise<InsightSentryBarSet>;
   readonly comparisonDailyBars: (
     providerCode: string,
@@ -164,18 +162,18 @@ export function createInsightSentryMarket(
       );
     },
     technicalBars: async (providerCode) => {
-      const [hourly, fourHourly, daily] = await Promise.all([
+      const results = await Promise.allSettled([
         series(providerCode, {
           barType: "hour",
           interval: 1,
           timeframe: "1h",
-          pointCount: 390,
+          pointCount: 500,
         }),
         series(providerCode, {
           barType: "hour",
           interval: 4,
           timeframe: "4h",
-          pointCount: 390,
+          pointCount: 500,
         }),
         series(providerCode, {
           barType: "day",
@@ -183,15 +181,26 @@ export function createInsightSentryMarket(
           timeframe: "1d",
           pointCount: 1_000,
         }),
+        series(providerCode, {
+          barType: "week",
+          interval: 1,
+          timeframe: "1w",
+          pointCount: 500,
+        }),
       ]);
-      return Object.freeze([hourly, fourHourly, daily]);
+      const available = results.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      );
+      if (available.length === 0)
+        throw new RangeError("No technical timeframes available");
+      return Object.freeze(available);
     },
     fourHourBars: async (providerCode) =>
       series(providerCode, {
         barType: "hour",
         interval: 4,
         timeframe: "4h",
-        pointCount: 390,
+        pointCount: 500,
       }),
     comparisonDailyBars: async (providerCode) =>
       series(

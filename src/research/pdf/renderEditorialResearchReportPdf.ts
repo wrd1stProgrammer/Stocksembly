@@ -15,12 +15,15 @@ import type {
   WorkflowV2ResearchReport,
   WorkflowV3ResearchReport,
 } from "../domain/report";
+import type { TechnicalChartSnapshot } from "../domain/technicalChart";
 import { formatPercent, publicPdfEvidenceSource } from "../publicPresentation";
 import { publicStanceLabel } from "../publicStanceLabels";
 import { buildResearchFileEditorialModel } from "../researchFileEditorialModel";
 import { researchReportToFile } from "../researchReportToFile";
+import { technicalChartPdfPage } from "./technicalChartSvg";
 
 type PdfProps = {
+  readonly technicalChart?: TechnicalChartSnapshot;
   readonly report:
     | ResearchReport
     | WorkflowV2ResearchReport
@@ -31,6 +34,7 @@ type PdfProps = {
 };
 
 export type ResearchFilePdfProps = {
+  readonly technicalChart?: TechnicalChartSnapshot;
   readonly file: ResearchFileData;
   readonly symbol: string;
   readonly locale: Locale;
@@ -1748,6 +1752,9 @@ export function buildResearchFilePdfDocument(
   const qa = qaPage(file, locale);
   const content: Content[] = [
     v2FirstPage(file, symbol, locale, version, decision, claims),
+    ...(props.technicalChart === undefined
+      ? []
+      : [technicalChartPdfPage(props.technicalChart, locale)]),
     ...(department === undefined
       ? committeeDetailPages(file, locale, claims)
       : [teamDetailPage(file, locale, department, claims)]),
@@ -1790,6 +1797,9 @@ export async function renderEditorialResearchReportPdf(
   props: PdfProps,
 ): Promise<Buffer> {
   return await renderResearchFilePdf({
+    ...(props.technicalChart === undefined
+      ? {}
+      : { technicalChart: props.technicalChart }),
     file: researchReportToFile(props.report, props.createdAt),
     symbol: props.symbol,
     locale: props.locale,
