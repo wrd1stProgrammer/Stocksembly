@@ -26,6 +26,7 @@ import {
   decisionTextsAreDistinct,
   isSymmetricHedge,
   normalizeReaderFacingPrecision,
+  publicBriefTextIsValid,
   publicTextIsValid,
 } from "./chairSynthesisTextValidation";
 
@@ -257,7 +258,7 @@ function projectedDirectionalText(
     const source = sources[index];
     return (
       source !== undefined &&
-      publicTextIsValid(text, [source], 360, locale) &&
+      publicBriefTextIsValid(text, [source], locale) &&
       !isSymmetricHedge(text)
     );
   });
@@ -403,11 +404,19 @@ export function projectChairAssignments(
         : selected;
     return {
       ...section,
-      publicSummary: publicTextIsValid(
-        section.publicSummary,
-        grounding,
-        sectionKey === "ten_second_brief" ? 360 : 4_000,
-        prompt.mandate.locale,
+      publicSummary: (
+        sectionKey === "ten_second_brief"
+          ? publicBriefTextIsValid(
+              section.publicSummary,
+              grounding,
+              prompt.mandate.locale,
+            )
+          : publicTextIsValid(
+              section.publicSummary,
+              grounding,
+              4_000,
+              prompt.mandate.locale,
+            )
       )
         ? section.publicSummary
         : primary.text,
@@ -553,12 +562,18 @@ function issueForCandidate(
         ? [...claimGrounding, ...investmentModelGrounding(prompt)]
         : claimGrounding;
     if (
-      !publicTextIsValid(
-        section.publicSummary,
-        grounding,
-        section.sectionKey === "ten_second_brief" ? 360 : 4_000,
-        prompt.mandate.locale,
-      )
+      !(section.sectionKey === "ten_second_brief"
+        ? publicBriefTextIsValid(
+            section.publicSummary,
+            grounding,
+            prompt.mandate.locale,
+          )
+        : publicTextIsValid(
+            section.publicSummary,
+            grounding,
+            4_000,
+            prompt.mandate.locale,
+          ))
     )
       return {
         sectionKey: section.sectionKey,
@@ -666,7 +681,7 @@ function issueForCandidate(
       const sentence = roleSentences[index];
       return (
         sentence === undefined ||
-        !publicTextIsValid(text, [sentence], 360, prompt.mandate.locale)
+        !publicBriefTextIsValid(text, [sentence], prompt.mandate.locale)
       );
     })
   )

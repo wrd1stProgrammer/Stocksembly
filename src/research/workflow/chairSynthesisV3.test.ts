@@ -250,6 +250,57 @@ describe("workflow-v3 canonical chair synthesis", () => {
     },
   );
 
+  it.each(["en", "ko"] as const)(
+    "recovers invalid output using complete long %s evidence after one chair launch",
+    async (sourceLocale) => {
+      const observation =
+        sourceLocale === "en"
+          ? "The accepted filing supports stronger earnings, but cash conversion still requires confirmation across future reporting periods. "
+          : "확인된 공시는 이익 개선을 뒷받침하지만 지속적인 현금 전환과 이익의 질은 향후 보고 기간의 공시를 통해 계속 확인해야 합니다. ";
+      const qualification =
+        sourceLocale === "en"
+          ? "Do not assume the improvement is durable until cash conversion is confirmed."
+          : "현금 전환을 확인하기 전에는 이러한 개선이 지속된다고 단정할 수 없습니다.";
+      const source = `${observation.repeat(6)}${qualification}`;
+      expect(source.length).toBeGreaterThan(360);
+      const prepared = await createPreparedChairRound("invalid", sourceLocale, {
+        en: source,
+        ko: source,
+      });
+      try {
+        const chair = createSqliteChairSynthesis({
+          ...prepared.options,
+          workflowVersion: "workflow-v3",
+        });
+        await chair.stage({ runId: prepared.runId });
+        const replay = await chair.drain(prepared.runId);
+        await chair.close();
+        expect(replay.publishable, JSON.stringify(replay)).toBe(true);
+        expect(prepared.codex.chairLaunches).toBe(1);
+        const database = new Database(prepared.options.databasePath, {
+          readonly: true,
+        });
+        const row = database
+          .prepare(
+            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+          )
+          .get(replay.artifactIds[0]) as { readonly envelope_json: string };
+        database.close();
+        const payload = JSON.parse(row.envelope_json).payload;
+        const brief = payload.sections.find(
+          (section: { readonly sectionKey: string }) =>
+            section.sectionKey === "ten_second_brief",
+        );
+        expect(brief.publicSummary[sourceLocale]).toBe(source);
+        expect(payload.canonicalNarrativeV3.decisiveReason).toContain(
+          qualification,
+        );
+      } finally {
+        prepared.cleanup();
+      }
+    },
+  );
+
   it.each([
     ["invent_recommendation", "Verified evidence supports a balanced view."],
     [

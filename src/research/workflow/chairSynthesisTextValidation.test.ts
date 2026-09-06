@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveEditorialItemDefect } from "../domain/editorialStance";
 import {
   normalizeReaderFacingPrecision,
+  publicBriefTextIsValid,
   publicTextIsValid,
 } from "./chairSynthesisTextValidation";
 
@@ -88,6 +89,65 @@ describe("chair synthesis public text", () => {
       ),
     ).toBe("EPS was 4.71, revenue was $1,234.57 and growth was -17.9%.");
   });
+
+  it.each([
+    ["$11.995", "$12"],
+    ["-11.995%", "-12%"],
+    ["$2.675", "$2.68"],
+    ["1.005K", "1.01K"],
+  ])("keeps normalized midpoint %s grounded in its source", (raw, rounded) => {
+    const source = {
+      en: `The reported value is ${raw}.`,
+      ko: `보고된 수치는 ${raw}입니다.`,
+    };
+    const normalized = {
+      en: normalizeReaderFacingPrecision(source.en),
+      ko: normalizeReaderFacingPrecision(source.ko),
+    };
+    expect(normalized.en).toBe(`The reported value is ${rounded}.`);
+    expect(publicTextIsValid(normalized, [{ text: source }], 360)).toBe(true);
+  });
+
+  it.each(["en", "ko"] as const)(
+    "preserves a complete long %s source but rejects altered or oversized briefs",
+    (locale) => {
+      const sentence =
+        locale === "en"
+          ? "The filing supports stronger earnings, while durable cash conversion still needs confirmation. "
+          : "공시는 이익 개선을 뒷받침하지만 지속적인 현금 전환은 아직 확인이 필요합니다. ";
+      const original = sentence.repeat(10);
+      const source = { en: original, ko: original };
+      expect(original.length).toBeGreaterThan(360);
+      expect(publicTextIsValid(source, [{ text: source }], 360, locale)).toBe(
+        false,
+      );
+      expect(publicBriefTextIsValid(source, [{ text: source }], locale)).toBe(
+        true,
+      );
+      const altered = {
+        en: `${original}${sentence}`,
+        ko: `${original}${sentence}`,
+      };
+      expect(publicBriefTextIsValid(altered, [{ text: source }], locale)).toBe(
+        false,
+      );
+      const unsupported = { en: `${original} 999%`, ko: `${original} 999%` };
+      expect(
+        publicBriefTextIsValid(unsupported, [{ text: source }], locale),
+      ).toBe(false);
+      expect(
+        publicBriefTextIsValid(
+          source,
+          [{ text: source }],
+          locale === "en" ? "ko" : "en",
+        ),
+      ).toBe(false);
+      const oversized = { en: original.repeat(10), ko: original.repeat(10) };
+      expect(
+        publicBriefTextIsValid(oversized, [{ text: oversized }], locale),
+      ).toBe(false);
+    },
+  );
 
   it("accepts equivalent financial-unit formatting", () => {
     expect(

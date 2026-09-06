@@ -623,6 +623,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
 export async function createPreparedChairRound(
   fault: ChairFault,
   sourceLocale: "en" | "ko" = "en",
+  claimText?: { readonly en: string; readonly ko: string },
 ) {
   const codex = new ChairCodexFake(fault);
   const root = mkdtempSync(join(tmpdir(), "chair-synthesis-"));
@@ -751,7 +752,7 @@ export async function createPreparedChairRound(
       claimId,
       runId: originalClaim.runId,
       snapshotId: originalClaim.snapshotId,
-      text: originalClaim.text,
+      text: claimText ?? originalClaim.text,
       epistemicClass: originalClaim.epistemicClass,
       stance: originalClaim.stance,
       materiality: originalClaim.materiality,

@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { ArtifactIdSchema, ClaimIdSchema } from "../domain/ids";
 import {
   ChairSynthesisModelOutputSchema,
@@ -799,7 +800,10 @@ export function projectChairV3ForCommit(
   if (projection === undefined)
     throw new TypeError("chair_v3_structural_projection_failed");
   const committed = validChairCandidate(validationPrompt, projection.candidate);
-  if (typeof committed !== "object" || committed === null)
-    throw new TypeError("chair_v3_grounding_failed");
-  return { ...committed, canonicalNarrativeV3: normalizedCanonical };
+  const parsed = ChairSynthesisOutputSchema.safeParse(committed);
+  if (!parsed.success) throw new TypeError("chair_v3_grounding_failed");
+  return ChairSynthesisOutputSchema.parse({
+    ...parsed.data,
+    canonicalNarrativeV3: normalizedCanonical,
+  });
 }
