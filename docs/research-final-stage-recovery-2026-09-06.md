@@ -33,6 +33,7 @@
 - `chairSynthesisTextValidation.test.ts`, `chairSynthesisV3.test.ts`: 37개 통과. 두 언어의 SQLite 저장 시나리오 포함.
 - `pnpm typecheck`, 변경 파일 lint, `git diff --check`: 통과. Lint의 기존 경고 2개는 변경하지 않았다.
 - 운영 DB와 파일은 읽기 전용으로만 접근했다. 모델 재호출, 운영 배포, 기존 실패 실행의 재개는 아직 수행하지 않았다.
+- CI에 추가한 chair 통합 테스트에서 Linux 준비 단계 오류를 발견했다. 기존 challenge/response/chair 테스트 대역이 macOS 실행 파일 정보만 제출하고 있어 Linux의 검증에 거절됐다. 이미 다른 테스트에서 사용 중인 OS별 runtime pin 선택을 세 대역에도 적용했다. 운영 검증 정책은 변경하지 않았다.
 - 기존 작업 공간의 변경 사항과 검증용 운영 원본은 커밋에서 제외한다.
 
 ## 재개 지점
