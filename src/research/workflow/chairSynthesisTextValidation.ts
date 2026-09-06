@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import {
   normalizeEditorialText,
   textSimilarity,
@@ -11,7 +12,7 @@ const NUMERIC_TOKEN =
 
 type NumericValue = {
   readonly canonical: string;
-  readonly value: number;
+  readonly value: Decimal;
   readonly decimalPlaces: number;
   readonly resolution: number;
   readonly unit: "percent" | "number";
@@ -35,9 +36,9 @@ function numericValue(token: string): NumericValue | undefined {
             : /^(?:K|thousand)/u.test(suffix)
               ? 1e3
               : 1;
-  const value = Number(match[0]) * magnitude;
+  const value = new Decimal(match[0]).times(magnitude);
   const decimalPlaces = match[1]?.length ?? 0;
-  return Number.isFinite(value)
+  return value.isFinite()
     ? {
         canonical: String(value),
         value,
@@ -63,11 +64,9 @@ function isGroundedNumber(
     (source) =>
       source.unit === summary.unit &&
       source.resolution < summary.resolution &&
-      Math.abs(
-        Math.round(source.value / summary.resolution) * summary.resolution -
-          summary.value,
-      ) <
-        summary.resolution * 1e-9,
+      source.value
+        .toNearest(summary.resolution, Decimal.ROUND_HALF_UP)
+        .equals(summary.value),
   );
 }
 
@@ -105,9 +104,11 @@ export function normalizeReaderFacingPrecision(value: string): string {
     );
     if (match === null) return token;
     const [, prefix = "", integer = "", fraction = "", suffix = ""] = match;
-    const numeric = Number(`${integer.replaceAll(",", "")}.${fraction}`);
-    if (!Number.isFinite(numeric)) return token;
-    const rounded = numeric.toFixed(2).replace(/(?:\.0+|(?<=\.[0-9])0)$/u, "");
+    const numeric = new Decimal(`${integer.replaceAll(",", "")}.${fraction}`);
+    if (!numeric.isFinite()) return token;
+    const rounded = numeric
+      .toFixed(2, Decimal.ROUND_HALF_UP)
+      .replace(/(?:\.0+|(?<=\.[0-9])0)$/u, "");
     const [roundedInteger = "0", roundedFraction] = rounded.split(".");
     const formattedInteger = integer.includes(",")
       ? roundedInteger.replace(/\B(?=(\d{3})+(?!\d))/gu, ",")
@@ -174,6 +175,25 @@ export function publicTextIsValid(
     hasHumanReadablePrecision(text.ko) &&
     hasOnlyGroundedNumbers(text.en, bilingualNumbers) &&
     hasOnlyGroundedNumbers(text.ko, bilingualNumbers)
+  );
+}
+
+/** Preserve a complete cited observation when a concise rendering is unavailable. */
+export function publicBriefTextIsValid(
+  text: PublicText,
+  sentences: readonly SourceText[],
+  expectedLocale: "en" | "ko",
+): boolean {
+  if (publicTextIsValid(text, sentences, 360, expectedLocale)) return true;
+  const matchesSource = sentences.some(
+    (sentence) =>
+      text.en.trim() ===
+        normalizeReaderFacingPrecision(sentence.text.en).trim() &&
+      text.ko.trim() ===
+        normalizeReaderFacingPrecision(sentence.text.ko).trim(),
+  );
+  return (
+    matchesSource && publicTextIsValid(text, sentences, 4_000, expectedLocale)
   );
 }
 

@@ -22,6 +22,7 @@ import { sha256Value } from "../server/codex/codexArtifacts";
 import {
   CODEX_RUNTIME_PINS,
   CODEX_RUNTIME_POLICY,
+  LINUX_CODEX_RUNTIME_PINS,
 } from "../server/codex/codexPolicy";
 import type {
   CodexRunInput,
@@ -581,6 +582,10 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
     input: CodexRunInput<Candidate>,
     raw: unknown,
   ): CodexRunResult<Candidate> {
+    const runtimePins =
+      process.platform === "linux"
+        ? LINUX_CODEX_RUNTIME_PINS
+        : CODEX_RUNTIME_PINS;
     let transported = raw;
     try {
       const kind = z
@@ -601,8 +606,8 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
         reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[input.stage],
         browsingPolicy: CODEX_RUNTIME_POLICY.browsingByStage[input.stage],
         toolTranscriptHash: sha256Value([]),
-        binaryVersion: CODEX_RUNTIME_PINS.version,
-        binaryHash: CODEX_RUNTIME_PINS.originSha256,
+        binaryVersion: runtimePins.version,
+        binaryHash: runtimePins.originSha256,
         originDevice: "1",
         originInode: "1",
         linkDevice: "1",
@@ -623,6 +628,7 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
 export async function createPreparedChairRound(
   fault: ChairFault,
   sourceLocale: "en" | "ko" = "en",
+  claimText?: { readonly en: string; readonly ko: string },
 ) {
   const codex = new ChairCodexFake(fault);
   const root = mkdtempSync(join(tmpdir(), "chair-synthesis-"));
@@ -751,7 +757,7 @@ export async function createPreparedChairRound(
       claimId,
       runId: originalClaim.runId,
       snapshotId: originalClaim.snapshotId,
-      text: originalClaim.text,
+      text: claimText ?? originalClaim.text,
       epistemicClass: originalClaim.epistemicClass,
       stance: originalClaim.stance,
       materiality: originalClaim.materiality,
