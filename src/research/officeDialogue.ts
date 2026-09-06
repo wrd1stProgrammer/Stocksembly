@@ -69,7 +69,9 @@ export function officeDialogue(
     speakerId: event.agent,
     participantIds,
     kind,
-    forumParticipantIds: event.officeMeeting?.seatedRepresentativeIds,
+    ...(event.officeMeeting
+      ? { forumParticipantIds: event.officeMeeting.seatedRepresentativeIds }
+      : {}),
     segments: speechBubbleSegments(event.summary[locale], locale),
   };
 }
