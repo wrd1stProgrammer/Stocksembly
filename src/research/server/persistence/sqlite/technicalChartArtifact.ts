@@ -91,6 +91,43 @@ export async function persistOptionalTechnicalChart(
       parentDigests,
       bytes: new TextEncoder().encode(canonicalJson(chart)),
     });
+    database
+      .transaction(() => {
+        database
+          .prepare(`INSERT OR IGNORE INTO artifacts(
+        artifact_id, run_id, snapshot_id, content_hash, byte_length,
+        media_type, logical_key, input_hash, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(
+            artifact.artifactId,
+            runId,
+            snapshotId,
+            artifact.digest,
+            artifact.byteLength,
+            artifact.mediaType,
+            `technical-chart:${artifact.digest}`,
+            artifact.digest,
+            new Date().toISOString(),
+          );
+        const saved = z
+          .object({ artifact_id: ArtifactIdSchema })
+          .parse(
+            database
+              .prepare(
+                "SELECT artifact_id FROM artifacts WHERE snapshot_id = ? AND content_hash = ?",
+              )
+              .get(snapshotId, artifact.digest),
+          );
+        for (const parentDigest of parentDigests) {
+          database
+            .prepare(`INSERT OR IGNORE INTO artifact_edges(
+          child_artifact_id, parent_artifact_id, relation)
+          SELECT ?, artifact_id, 'derived-from' FROM artifacts
+          WHERE snapshot_id = ? AND content_hash = ?`)
+            .run(saved.artifact_id, snapshotId, parentDigest);
+        }
+      })
+      .immediate();
     process.stdout.write(
       `${JSON.stringify({
         kind: "technical_chart_saved",

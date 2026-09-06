@@ -1,5 +1,4 @@
-import { parseStoredResearchReportVersioned } from "@/src/research/domain/reportStorage";
-import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
+import { loadAccessibleResearchReport } from "@/src/research/server/api/accessibleResearchReport";
 import { readPublishedTechnicalChart } from "@/src/research/server/api/technicalChartReader";
 
 export const runtime = "nodejs";
@@ -9,22 +8,9 @@ export async function GET(
   context: { readonly params: Promise<{ readonly reportId: string }> },
 ): Promise<Response> {
   const { reportId } = await context.params;
-  const url = new URL(request.url);
-  const reportUrl = new URL(
-    `/api/research/reports/${encodeURIComponent(reportId)}`,
-    request.url,
-  );
-  reportUrl.search = url.search;
-  const response = await (await getLiveResearchApi()).handle(
-    new Request(reportUrl, { headers: request.headers }),
-  );
-  if (!response.ok) return response;
-  const body: unknown = await response.json();
-  const report = parseStoredResearchReportVersioned(
-    typeof body === "object" && body !== null
-      ? Reflect.get(body, "report")
-      : undefined,
-  );
+  const result = await loadAccessibleResearchReport(request, reportId);
+  if (result instanceof Response) return result;
+  const { report } = result;
   if (!report.technicalChart)
     return Response.json(
       { chart: null },
