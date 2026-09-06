@@ -174,6 +174,7 @@ export function destinationFor(actor: OfficeActorSnapshot): LiveDestination {
 export function dialogueDestinations(
   dialogue: OfficeDialogue,
   seatedTeams: ReadonlySet<string>,
+  previous: ReadonlyMap<ActorId, LiveDestination> = new Map(),
 ): ReadonlyMap<ActorId, LiveDestination> {
   const destinations = new Map<ActorId, LiveDestination>();
   for (const member of OFFICE_SCENE_MANIFEST.roster) {
@@ -196,9 +197,30 @@ export function dialogueDestinations(
       );
       return member && member.departmentId !== "chair" ? [member] : [];
     });
+    const priorPlaces = members.map((member) => previous.get(member.id));
+    const priorGroup = priorPlaces[0]?.group;
+    const sameEncounter =
+      priorPlaces.length > 1 &&
+      priorPlaces.every(
+        (place) => place?.kind === "visit" && place.group === priorGroup,
+      ) &&
+      [...previous.values()].filter((place) => place.group === priorGroup)
+        .length === members.length;
+    if (sameEncounter) {
+      for (const [id, place] of previous)
+        if (place.kind === "visit") destinations.set(id, place);
+      return destinations;
+    }
     const host =
       members.find((member) => member.id !== dialogue.speakerId) ?? members[0];
     if (host) {
+      const releasedGroups = new Set([
+        `visit:${host.departmentId}`,
+        ...priorPlaces.map((place) => place?.group),
+      ]);
+      for (const [id, place] of previous)
+        if (place.kind === "visit" && !releasedGroups.has(place.group))
+          destinations.set(id, place);
       const department = OFFICE_SCENE_MANIFEST.departments[host.departmentId];
       let hostIndex = 0;
       for (const member of members) {

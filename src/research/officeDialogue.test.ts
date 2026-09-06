@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLiveOfficeFrame } from "./liveOfficeAnimation";
 import { OfficeDialoguePlayer, officeDialogue } from "./officeDialogue";
+import { FORUM_PLACES } from "./officeMotion/layout";
 import { LiveOfficeScene } from "./officeMotion/liveScene";
 import { measureOfficeBubble } from "./officeMotion/ui";
 import { renderOfficeSnapshot } from "./officeRenderer";
@@ -92,7 +93,9 @@ describe("arrival-driven research dialogue", () => {
         dialogue,
         speech: null,
       });
-      expect(scene.readyForDialogue(dialogue), entry.id).toBe(false);
+      expect(scene.readyForDialogue(dialogue), entry.id).toBe(
+        entry.id === "response",
+      );
       for (
         let tick = 0;
         tick < 2_400 && !scene.readyForDialogue(dialogue);
@@ -144,6 +147,145 @@ describe("arrival-driven research dialogue", () => {
         });
     }
     expect(actions).toEqual(new Set(["read", "write", "listen"]));
+  });
+
+  it("keeps independent pairs in place when questions become responses", () => {
+    const scene = new LiveOfficeScene();
+    const snapshot = officeSimulationSnapshot(
+      createLiveOfficeFrame(220).simulation,
+    );
+    const options = { reducedMotion: false, paused: false };
+    scene.update(snapshot, undefined, 0, options);
+    const positions = new Map<
+      string,
+      { position: { x: number; y: number }; facing: string }
+    >();
+    const exchanges = [
+      event("question-a", "market", "challenge_committed", [
+        "market",
+        "company",
+      ]),
+      event("question-b", "financial", "challenge_committed", [
+        "financial",
+        "risk",
+      ]),
+      event("answer-a", "company", "owner_response_committed", [
+        "company",
+        "market",
+      ]),
+      event("answer-b", "risk", "owner_response_committed", [
+        "risk",
+        "financial",
+      ]),
+      event("followup-a", "market", "followup_committed", [
+        "market",
+        "company",
+      ]),
+    ];
+    for (const entry of exchanges) {
+      const dialogue = officeDialogue(entry, "ko");
+      let frame = scene.update(snapshot, undefined, 0, {
+        ...options,
+        dialogue,
+        speech: null,
+      });
+      const returningPair = dialogue.participantIds.every((id) =>
+        positions.has(id),
+      );
+      expect(scene.readyForDialogue(dialogue)).toBe(returningPair);
+      for (
+        let tick = 0;
+        tick < 2400 && !scene.readyForDialogue(dialogue);
+        tick += 1
+      ) {
+        frame = scene.update(snapshot, undefined, 1 / 60, {
+          ...options,
+          dialogue,
+          speech: null,
+        });
+        for (const actor of frame.actors) {
+          const prior = positions.get(actor.id);
+          if (prior) {
+            expect(actor.position, `${entry.id}: ${actor.id}`).toEqual(
+              prior.position,
+            );
+            expect(actor.facing).toBe(prior.facing);
+            expect(actor.action).not.toBe("walk");
+          }
+        }
+      }
+      expect(scene.readyForDialogue(dialogue)).toBe(true);
+      for (const actor of frame.actors) {
+        if (!dialogue.participantIds.includes(actor.id)) continue;
+        const prior = positions.get(actor.id);
+        if (prior)
+          expect({ position: actor.position, facing: actor.facing }).toEqual(
+            prior,
+          );
+        positions.set(actor.id, {
+          position: actor.position,
+          facing: actor.facing,
+        });
+      }
+    }
+  });
+
+  it("gathers five people for evidence review before report arrival and keeps the final meeting seated", () => {
+    const scene = new LiveOfficeScene();
+    const snapshot = officeSimulationSnapshot(
+      createLiveOfficeFrame(220).simulation,
+    );
+    const options = { reducedMotion: false, paused: false };
+    scene.update(snapshot, undefined, 0, options);
+    const audit = officeDialogue(
+      event("audit", "chair", "structural_audit_completed"),
+      "ko",
+    );
+    expect(audit.kind).toBe("forum");
+    expect(audit.participantIds).toHaveLength(5);
+    scene.update(snapshot, undefined, 0, {
+      ...options,
+      dialogue: audit,
+      speech: null,
+    });
+    expect(scene.readyForDialogue(audit)).toBe(false);
+    for (let tick = 0; tick < 2400 && !scene.readyForDialogue(audit); tick += 1)
+      scene.update(snapshot, undefined, 1 / 60, {
+        ...options,
+        dialogue: audit,
+        speech: null,
+      });
+    expect(scene.readyForDialogue(audit)).toBe(true);
+    const finalEvents = [
+      event("meaning", "chair", "semantic_audit_committed"),
+      ...(["market", "company", "financial", "risk"] as const).map((id) => ({
+        ...event(`present-${id}`, id, "committee_team_view"),
+        phase: "committee" as const,
+      })),
+      {
+        ...event("chair", "chair", "chair_synthesis_committed"),
+        phase: "committee" as const,
+      },
+      {
+        ...event("complete", "chair", "report_published"),
+        phase: "complete" as const,
+      },
+    ];
+    for (const entry of finalEvents) {
+      const dialogue = officeDialogue(entry, "ko");
+      const frame = scene.update(snapshot, undefined, 0.05, {
+        ...options,
+        dialogue,
+        speech: { speakerId: entry.agent, message: entry.summary.ko },
+      });
+      expect(scene.readyForDialogue(dialogue), entry.id).toBe(true);
+      for (const [id, place] of Object.entries(FORUM_PLACES)) {
+        const actor = frame.actors.find((actor) => actor.id === id);
+        expect(actor).toMatchObject({ seated: true, position: place.position });
+        expect(["walk", "stand", "sit"]).not.toContain(actor?.action);
+      }
+      expect(frame.speaker).toBe(entry.agent);
+    }
   });
 
   it("keeps every central speaker visible when neighboring heads block the first bubble position", () => {

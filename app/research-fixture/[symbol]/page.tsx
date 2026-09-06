@@ -6,6 +6,7 @@ import type { Locale } from "../../../src/lib/i18n";
 import { researchLocaleFromValue } from "../../../src/lib/i18n";
 import { findTicker } from "../../../src/lib/tickers";
 import { committeeReportPreviewFixture } from "../../../src/research/committeeReportPreviewFixture";
+import type { ResearchEventWithModeFor } from "../../../src/research/compositionMode";
 import { fixtureComposition } from "../../../src/research/compositions/fixture";
 
 type Props = {
@@ -58,19 +59,61 @@ export default async function FixtureResearchPage({
         : query.scene === "forum"
           ? [1080, 1580]
           : undefined;
-  const previewPayload = range
-    ? {
-        ...payload,
-        data: {
-          ...payload.data,
-          playbackEvents: payload.data.playbackEvents.filter(
-            (event) =>
-              (event.tick ?? 0) >= (range[0] ?? 0) &&
-              (event.tick ?? 0) <= (range[1] ?? 1580),
-          ),
+  const visits = payload.data.playbackEvents.filter((event) =>
+    ["handoff-market-company", "handoff-financial-risk"].includes(event.id),
+  );
+  const continuityEvents: readonly ResearchEventWithModeFor<"fixture">[] = [
+    ...visits,
+    ...visits.map(
+      (event): ResearchEventWithModeFor<"fixture"> => ({
+        ...event,
+        id: `response-${event.id}`,
+        agent: event.participantIds?.[1] ?? event.agent,
+        workflowKind: "owner_response_committed",
+        summary: {
+          ko: "반론의 근거를 확인했습니다. 이 자리에서 조건과 위험을 함께 검토하겠습니다.",
+          en: "I have reviewed the counter-evidence. Let us examine the conditions and risks here.",
         },
-      }
-    : payload;
+      }),
+    ),
+    ...payload.data.playbackEvents
+      .filter((event) => event.id === "representatives-gathering")
+      .map(
+        (event): ResearchEventWithModeFor<"fixture"> => ({
+          ...event,
+          id: "central-evidence-review",
+          agent: "chair",
+          phase: "auditing",
+          workflowKind: "structural_audit_completed",
+          summary: {
+            ko: "각 팀의 근거를 중앙 회의에서 함께 검토하겠습니다.",
+            en: "We will review each team's evidence together at the central table.",
+          },
+        }),
+      ),
+    ...payload.data.playbackEvents.filter((event) =>
+      ["committee", "complete"].includes(event.phase),
+    ),
+  ];
+  const previewPayload =
+    query.scene === "continuity"
+      ? {
+          ...payload,
+          data: { ...payload.data, playbackEvents: continuityEvents },
+        }
+      : range
+        ? {
+            ...payload,
+            data: {
+              ...payload.data,
+              playbackEvents: payload.data.playbackEvents.filter(
+                (event) =>
+                  (event.tick ?? 0) >= (range[0] ?? 0) &&
+                  (event.tick ?? 0) <= (range[1] ?? 1580),
+              ),
+            },
+          }
+        : payload;
   return (
     <ResearchRoom
       company={company}
