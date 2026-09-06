@@ -8,6 +8,7 @@ import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import { copy, intlLocale } from "../../lib/i18n";
 import type { PublicRun } from "../../research/client/schemas";
 import { SearchConsole } from "../SearchConsole";
+import { HOME_PREVIEW_RUNS } from "./homePreviewData";
 
 type SignedInHomeProps = Pick<
   ComponentProps<typeof SearchConsole>,
@@ -16,48 +17,6 @@ type SignedInHomeProps = Pick<
   /** Localhost-only layout review: render sample runs instead of fetching. */
   readonly preview?: boolean;
 };
-
-const PREVIEW_RUNS: readonly PublicRun[] = [
-  {
-    runId: "00000000-0000-4000-8000-000000000001",
-    snapshotId: "00000000-0000-4000-8000-000000000011",
-    symbol: "NVDA",
-    question: "성장률이 현재 밸류에이션을 정당화할까?",
-    locale: "ko",
-    status: "completed",
-    lastEventSeq: 42,
-    createdAt: "2026-09-05T09:30:00.000Z",
-  },
-  {
-    runId: "00000000-0000-4000-8000-000000000002",
-    snapshotId: "00000000-0000-4000-8000-000000000012",
-    symbol: "TSLA",
-    question: "로보택시 없이도 마진 회복이 가능한가?",
-    locale: "ko",
-    status: "running",
-    lastEventSeq: 12,
-    createdAt: "2026-09-06T11:05:00.000Z",
-  },
-  {
-    runId: "00000000-0000-4000-8000-000000000003",
-    snapshotId: "00000000-0000-4000-8000-000000000013",
-    symbol: "MSFT",
-    question: "AI 투자 회수 구간은 언제부터인가?",
-    locale: "ko",
-    status: "complete-with-limitations",
-    lastEventSeq: 40,
-    createdAt: "2026-09-04T22:10:00.000Z",
-  },
-  {
-    runId: "00000000-0000-4000-8000-000000000004",
-    snapshotId: "00000000-0000-4000-8000-000000000014",
-    symbol: "AAPL",
-    locale: "ko",
-    status: "failed",
-    lastEventSeq: 3,
-    createdAt: "2026-09-03T08:00:00.000Z",
-  },
-];
 
 type LoadState =
   | { readonly status: "loading" }
@@ -71,7 +30,9 @@ export function SignedInHome(props: SignedInHomeProps) {
   const { locale } = searchConsoleProps;
   const content = copy[locale].home;
   const [loadState, setLoadState] = useState<LoadState>(() =>
-    preview ? { status: "ready", runs: PREVIEW_RUNS } : { status: "loading" },
+    preview
+      ? { status: "ready", runs: HOME_PREVIEW_RUNS }
+      : { status: "loading" },
   );
   const { status: loadStatus } = loadState;
 

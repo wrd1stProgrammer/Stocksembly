@@ -93,7 +93,6 @@ afterEach(() => {
 const marketingTestIds = [
   "landing-header",
   "office-preview",
-  "room-preview",
   "landing-sections",
   "landing-footer",
 ];
@@ -110,6 +109,7 @@ describe("home authentication branches", () => {
     );
     for (const testId of marketingTestIds)
       expect(screen.getByTestId(testId)).toBeInTheDocument();
+    expect(screen.getByTestId("room-preview")).toBeInTheDocument();
     expect(screen.getAllByTestId("search-console")).toHaveLength(1);
     expect(container.querySelector("#product .hero__proof")).toHaveTextContent(
       copy.en.hero.proof,
@@ -132,6 +132,7 @@ describe("home authentication branches", () => {
     expect(screen.getAllByTestId("search-console")).toHaveLength(1);
     for (const testId of marketingTestIds)
       expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
+    expect(screen.getByTestId("room-preview")).toBeInTheDocument();
     expect(container.querySelector(".hero")).toBeNull();
     expect(screen.getByTestId("signed-in-sidebar")).toBeInTheDocument();
     expect(screen.getByTestId("mobile-nav")).toHaveAttribute(

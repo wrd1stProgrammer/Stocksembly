@@ -13,6 +13,7 @@ import {
 } from "./auth/localePreference";
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
 import { Header } from "./components/Header";
+import { HOME_PREVIEW_RESEARCH_ROOM } from "./components/home/homePreviewData";
 import { SignedInHome } from "./components/home/SignedInHome";
 import { LandingOfficePreview } from "./components/LandingOfficePreview";
 import { LandingFooter, LandingSections } from "./components/LandingSections";
@@ -434,13 +435,25 @@ export function App({
       )}
       <main>
         {workspaceHome ? (
-          <SignedInHome
-            locale={locale}
-            preview={homePreview}
-            onOpenPlans={openSubscriptionModal}
-            subscriptionTier={subscriptionTier}
-            creditsRemaining={billingStatus?.credits.remaining}
-          />
+          <>
+            <SignedInHome
+              locale={locale}
+              preview={homePreview}
+              onOpenPlans={openSubscriptionModal}
+              subscriptionTier={subscriptionTier}
+              creditsRemaining={billingStatus?.credits.remaining}
+            />
+            <div className="signed-in-home__community">
+              <LandingResearchRoomPreview
+                locale={locale}
+                initialLocale={initialLocale}
+                initialPreview={
+                  homePreview ? HOME_PREVIEW_RESEARCH_ROOM : researchRoomPreview
+                }
+                onOpenPlans={openSubscriptionModal}
+              />
+            </div>
+          </>
         ) : (
           <>
             <section className="hero" id="product">

@@ -1,3 +1,14 @@
+/* Lifts the community deck above the fixed starfield canvas, matching the
+   stacking the deck gets from the hero on the signed-out landing. */
+.signed-in-home__community {
+  position: relative;
+  z-index: 1;
+  /* The deck sizes itself against the hero on the marketing landing; here the
+     wrapper provides the same side insets and room above the mobile nav. */
+  padding-inline: var(--space-4);
+  padding-bottom: calc(var(--space-20) + env(safe-area-inset-bottom, 0px));
+}
+
 .signed-in-home {
   position: relative;
   z-index: 1;
