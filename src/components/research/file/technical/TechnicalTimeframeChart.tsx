@@ -4,13 +4,15 @@ import {
   ColorType,
   createChart,
   HistogramSeries,
-  LineSeries,
   LineStyle,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
 import type { TechnicalChartFrame } from "../../../../research/domain/technicalChart";
-import { VISIBLE_BARS } from "../../../../research/technical/chartPresentation";
+import {
+  futureBarCount,
+  VISIBLE_BARS,
+} from "../../../../research/technical/chartPresentation";
 import {
   type ChartPalette,
   TechnicalChartPrimitive,
@@ -28,8 +30,6 @@ function palette(element: HTMLElement): ChartPalette {
     rule: token("--editorial-rule", "#e5e5df"),
     up: token("--editorial-chart-positive", "#237759"),
     down: token("--editorial-chart-negative", "#bc5060"),
-    average: token("--editorial-chart-neutral", "#3f6aaa"),
-    slow: token("--editorial-chart-warning", "#a58132"),
   };
 }
 export default function TechnicalTimeframeChart({
@@ -44,14 +44,9 @@ export default function TechnicalTimeframeChart({
   const container = useRef<HTMLDivElement>(null);
   const controls = useRef<{
     reset: () => void;
-    update: (
-      selected: string | undefined,
-      drawings: boolean,
-      slow: boolean,
-    ) => void;
+    update: (selected: string | undefined, drawings: boolean) => void;
   } | null>(null);
   const [drawings, setDrawings] = useState(true);
-  const [slow, setSlow] = useState(false);
   const [error, setError] = useState(false);
   useEffect(() => {
     const element = container.current;
@@ -74,13 +69,15 @@ export default function TechnicalTimeframeChart({
         },
         rightPriceScale: {
           borderVisible: false,
+          minimumWidth: 56,
           scaleMargins: { top: 0.09, bottom: 0.19 },
         },
         timeScale: {
           borderVisible: false,
           timeVisible: frame.timeframe === "1h" || frame.timeframe === "4h",
           secondsVisible: false,
-          rightOffset: 8,
+          rightOffset: futureBarCount(frame.timeframe),
+          lockVisibleTimeRangeOnResize: true,
         },
         localization: {
           locale: locale === "ko" ? "ko-KR" : "en-US",
@@ -95,10 +92,16 @@ export default function TechnicalTimeframeChart({
             }).format(new Date(time * 1000)),
         },
         handleScroll: {
-          mouseWheel: false,
+          mouseWheel: true,
           pressedMouseMove: true,
           horzTouchDrag: true,
-          vertTouchDrag: false,
+          vertTouchDrag: true,
+        },
+        handleScale: {
+          mouseWheel: true,
+          pinch: true,
+          axisPressedMouseMove: { price: true, time: true },
+          axisDoubleClickReset: { price: true, time: true },
         },
       });
       cleanup = () => chart.remove();
@@ -139,48 +142,23 @@ export default function TechnicalTimeframeChart({
           color: bar.close >= bar.open ? `${colors.up}45` : `${colors.down}45`,
         }));
       volume.setData(volumeData());
-      const averages = frame.averages.map((average) => {
-        const series = chart.addSeries(LineSeries, {
-          color:
-            average.period === 20
-              ? colors.average
-              : average.period === 50
-                ? colors.slow
-                : colors.muted,
-          lineWidth: 1,
-          lastValueVisible: false,
-          priceLineVisible: false,
-          crosshairMarkerVisible: false,
-          visible: average.period !== 200,
-        });
-        series.setData(
-          average.points.flatMap((point) => {
-            const bar = frame.bars[point.index];
-            return bar
-              ? [{ time: time(bar.timestamp), value: point.price }]
-              : [];
-          }),
-        );
-        return { period: average.period, series };
-      });
       const primitive = new TechnicalChartPrimitive(frame, colors);
       candles.attachPrimitive(primitive);
       let selected: string | undefined;
       let showDrawings = true;
-      const reset = () =>
+      const reset = () => {
+        chart.priceScale("right").applyOptions({ autoScale: true });
         chart.timeScale().setVisibleLogicalRange({
           from: Math.max(0, frame.bars.length - VISIBLE_BARS[frame.timeframe]),
-          to: frame.bars.length + 8,
+          to: frame.bars.length - 1 + futureBarCount(frame.timeframe),
         });
+      };
       controls.current = {
         reset,
-        update: (nextSelected, nextDrawings, nextSlow) => {
+        update: (nextSelected, nextDrawings) => {
           selected = nextSelected;
           showDrawings = nextDrawings;
           primitive.update(colors, selected, showDrawings);
-          averages
-            .find((average) => average.period === 200)
-            ?.series.applyOptions({ visible: nextSlow });
         },
       };
       reset();
@@ -200,15 +178,6 @@ export default function TechnicalTimeframeChart({
           wickDownColor: colors.down,
         });
         volume.setData(volumeData());
-        for (const average of averages)
-          average.series.applyOptions({
-            color:
-              average.period === 20
-                ? colors.average
-                : average.period === 50
-                  ? colors.slow
-                  : colors.muted,
-          });
         primitive.update(colors, selected, showDrawings);
       });
       const document = element.closest("[data-report-theme]");
@@ -229,8 +198,8 @@ export default function TechnicalTimeframeChart({
     return cleanup;
   }, [frame, locale]);
   useEffect(() => {
-    controls.current?.update(selectedId, drawings, slow);
-  }, [selectedId, drawings, slow]);
+    controls.current?.update(selectedId, drawings);
+  }, [selectedId, drawings]);
   return (
     <>
       <fieldset
@@ -244,21 +213,15 @@ export default function TechnicalTimeframeChart({
         >
           {locale === "ko" ? "작도" : "Drawings"}
         </button>
-        <span className={styles.average20}>SMA 20</span>
-        <span className={styles.average50}>SMA 50</span>
-        {frame.averages.some((item) => item.period === 200) && (
-          <button
-            type="button"
-            aria-pressed={slow}
-            onClick={() => setSlow((value) => !value)}
-          >
-            SMA 200
-          </button>
-        )}
         <button type="button" onClick={() => controls.current?.reset()}>
           {locale === "ko" ? "초기 범위" : "Reset view"}
         </button>
       </fieldset>
+      <p className={styles.gestureHint}>
+        {locale === "ko"
+          ? "가격축 드래그: 높이 조절 · 핀치/휠: 확대·축소"
+          : "Drag price axis: scale height · Pinch/wheel: zoom"}
+      </p>
       {error ? (
         <p className={styles.unavailable}>
           {locale === "ko"

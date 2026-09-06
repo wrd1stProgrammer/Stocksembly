@@ -141,16 +141,17 @@
 .toolbar button:last-child {
   margin-left: auto;
 }
-.average20 {
-  color: var(--editorial-chart-neutral);
-}
-.average50 {
-  color: var(--editorial-chart-warning);
+.gestureHint {
+  padding: 0 18px 10px;
+  color: var(--editorial-muted);
+  font-size: 10px;
+  line-height: 1.6;
 }
 .canvas {
   height: 290px;
   min-width: 0;
   width: 100%;
+  touch-action: none;
 }
 .expanded .canvas {
   height: 410px;
@@ -316,6 +317,9 @@
     min-width: 0;
     padding-inline: 12px;
     gap: 8px;
+  }
+  .gestureHint {
+    padding-inline: 12px;
   }
   .expanded .canvas {
     height: 390px;

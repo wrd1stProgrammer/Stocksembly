@@ -7,6 +7,7 @@ import {
   chartPrice,
   drawingSegments,
   FRAME_NAMES,
+  futureBarCount,
   REGIME_NAMES,
   VISIBLE_BARS,
 } from "../technical/chartPresentation";
@@ -23,6 +24,8 @@ export function technicalChartSvg(
   if (!visible.length)
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"></svg>`;
   const right = width - 47;
+  const futureBars = futureBarCount(frame.timeframe);
+  const drawingEnd = frame.bars.length - 1 + futureBars;
   const bottom = height - 24;
   const low = Math.min(...visible.map((bar) => bar.low));
   const high = Math.max(...visible.map((bar) => bar.high));
@@ -30,11 +33,11 @@ export function technicalChartSvg(
   const min = low - range * 0.06;
   const max = high + range * 0.09;
   const x = (index: number) =>
-    5 + ((index - start) * (right - 5)) / (visible.length + 8);
+    5 + ((index - start) * (right - 5)) / (drawingEnd - start);
   const y = (price: number) =>
     6 + ((max - price) / (max - min)) * (bottom - 37);
   const maxVolume = Math.max(1, ...visible.map((bar) => bar.volume));
-  const bodyWidth = Math.max(0.8, ((right - 5) / (visible.length + 8)) * 0.7);
+  const bodyWidth = Math.max(0.8, ((right - 5) / (drawingEnd - start)) * 0.7);
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><clipPath id="plot"><rect x="0" y="0" width="${right}" height="${bottom}"/></clipPath></defs><rect width="${width}" height="${height}" fill="#fbfaf6"/>`,
   ];
@@ -55,18 +58,9 @@ export function technicalChartSvg(
       `<line x1="${px}" y1="${y(bar.high)}" x2="${px}" y2="${y(bar.low)}" stroke="${color}" stroke-width="0.6"/><rect x="${px - bodyWidth / 2}" y="${Math.min(y(bar.open), y(bar.close))}" width="${bodyWidth}" height="${Math.max(0.7, Math.abs(y(bar.open) - y(bar.close)))}" fill="${color}"/><rect x="${px - bodyWidth / 2}" y="${bottom - (bar.volume / maxVolume) * 22}" width="${bodyWidth}" height="${(bar.volume / maxVolume) * 22}" fill="${color}" fill-opacity="0.22"/>`,
     );
   }
-  for (const average of frame.averages.filter((item) => item.period !== 200)) {
-    const points = average.points
-      .filter((point) => point.index >= start)
-      .map((point) => `${x(point.index)},${y(point.price)}`)
-      .join(" ");
-    parts.push(
-      `<polyline points="${points}" fill="none" stroke="${average.period === 20 ? "#4d72a6" : "#a1853d"}" stroke-width="0.9"/>`,
-    );
-  }
   for (const drawing of frame.drawings) {
     const color = drawing.side === "demand" ? up : down;
-    const segments = drawingSegments(drawing, frame.bars.length + 7);
+    const segments = drawingSegments(drawing, drawingEnd);
     const first = segments[0];
     if (!first) continue;
     if (drawing.kind !== "trend" && drawing.kind !== "channel")

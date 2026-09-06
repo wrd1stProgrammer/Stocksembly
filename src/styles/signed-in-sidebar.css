@@ -1208,20 +1208,9 @@
     justify-content: flex-start;
   }
 
-  .signed-in-sidebar__nav a > span,
-  .signed-in-sidebar__nav button > span {
-    order: 1;
-  }
-
   .signed-in-sidebar__nav a > svg,
   .signed-in-sidebar__nav button > svg {
-    order: 2;
-    margin-left: auto;
-  }
-
-  .signed-in-sidebar__nav a > .signed-in-sidebar__nav-badge,
-  .signed-in-sidebar__nav button > .signed-in-sidebar__nav-badge {
-    order: 3;
+    flex: 0 0 18px;
   }
 
   .signed-in-sidebar__history {

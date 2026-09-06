@@ -9,6 +9,7 @@ import type { TechnicalChartFrame } from "../../../../research/domain/technicalC
 import {
   chartPrice,
   drawingSegments,
+  futureBarCount,
 } from "../../../../research/technical/chartPresentation";
 
 export type ChartPalette = {
@@ -18,8 +19,6 @@ export type ChartPalette = {
   rule: string;
   up: string;
   down: string;
-  average: string;
-  slow: string;
 };
 export class TechnicalChartPrimitive implements ISeriesPrimitive<Time> {
   private attachedTo: SeriesAttachedParameter<Time> | undefined;
@@ -68,6 +67,12 @@ export class TechnicalChartPrimitive implements ISeriesPrimitive<Time> {
       const last = this.frame.bars.at(-1);
       if (!last) return;
       const futureX = x(lastIndex + 0.5);
+      const drawingEnd = Math.max(
+        lastIndex + futureBarCount(this.frame.timeframe),
+        Math.ceil(
+          attached.chart.timeScale().getVisibleLogicalRange()?.to ?? lastIndex,
+        ),
+      );
       context.save();
       context.beginPath();
       context.rect(0, 0, mediaSize.width, mediaSize.height);
@@ -89,7 +94,7 @@ export class TechnicalChartPrimitive implements ISeriesPrimitive<Time> {
           const color =
             drawing.side === "demand" ? this.palette.up : this.palette.down;
           const selected = this.selectedId === drawing.id;
-          const segments = drawingSegments(drawing, lastIndex + 7);
+          const segments = drawingSegments(drawing, drawingEnd);
           const first = segments[0];
           if (!first) continue;
           context.strokeStyle = color;
