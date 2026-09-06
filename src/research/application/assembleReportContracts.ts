@@ -57,6 +57,10 @@ export type AssembleReportResult =
   | {
       readonly kind: "assembled";
       readonly report: WorkflowV2ResearchReport;
+      readonly publicationChair: z.infer<
+        typeof import("../domain/agentOutputs").ChairSynthesisOutputSchema
+      >;
+      readonly publicationSentences: AssemblyInput["chairSentences"];
       readonly editorialPublication: PrePublicationEditorialEnvelope;
       readonly recoveryMetadata: {
         readonly comparatorNormalizationAttemptCount?: number;

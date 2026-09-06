@@ -34,6 +34,7 @@ import type {
 export type LiveSceneOptions = {
   readonly reducedMotion: boolean;
   readonly paused: boolean;
+  readonly snapToProgress?: boolean;
   readonly dialogue?: OfficeDialogue;
   readonly speech?: {
     readonly speakerId: ActorId;
@@ -241,7 +242,7 @@ export class LiveOfficeScene {
         state = initialState(actor, target, options.reducedMotion);
         this.states.set(actor.id, state);
       }
-      if (options.reducedMotion) {
+      if (options.reducedMotion || options.snapToProgress) {
         state.position = target.position;
         state.facing = target.facing;
         state.destination = target;

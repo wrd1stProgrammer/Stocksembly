@@ -25,6 +25,7 @@ export type OfficeGameInspection = {
 export type OfficeCameraControlMode = "automatic" | "free" | "overview";
 
 export type OfficeSnapshotRenderOptions = {
+  readonly snapToProgress?: boolean;
   readonly dialogue?: OfficeDialogue;
   readonly previousSnapshot?: OfficeSimulationSnapshot;
   readonly interpolation?: number;

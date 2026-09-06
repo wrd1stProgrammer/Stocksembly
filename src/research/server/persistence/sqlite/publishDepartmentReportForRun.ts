@@ -1353,7 +1353,7 @@ export async function publishDepartmentReportForRun(
       return { kind: "incomplete", reason: "department_report_inputs_invalid" };
     if (run.data.department_id === "market") {
       const technicalChart = await persistOptionalTechnicalChart(
-        database,
+        options.databasePath,
         options.cas,
         runId,
         run.data.snapshot_id,

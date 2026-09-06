@@ -15,7 +15,7 @@ import { buildTechnicalChart } from "../../../technical/buildTechnicalChart";
 import { stageAcceptedSpecialists } from "../../../workflow/departmentRound.testSupport";
 import { persistOptionalTechnicalChart } from "./technicalChartArtifact";
 
-it("keeps chart metadata and lineage available after reopening and in production sync inventory", async () => {
+it("persists charts with a read-only authority reader and retains metadata after reopening", async () => {
   const root = mkdtempSync(join(tmpdir(), "technical-chart-persistence-"));
   try {
     const prepared = await stageAcceptedSpecialists(root, "none");
@@ -36,7 +36,7 @@ it("keeps chart metadata and lineage available after reopening and in production
         JSON.stringify({ technicalChart: chart }),
       ),
     });
-    const db = new Database(prepared.options.databasePath);
+    let db = new Database(prepared.options.databasePath);
     let digest: string;
     try {
       db.prepare(`INSERT INTO artifacts(artifact_id, run_id, snapshot_id,
@@ -51,8 +51,11 @@ it("keeps chart metadata and lineage available after reopening and in production
         source.digest,
         chart.analysisAsOf,
       );
+      db.close();
+      db = new Database(prepared.options.databasePath, { readonly: true });
+      expect(db.readonly).toBe(true);
       const saved = await persistOptionalTechnicalChart(
-        db,
+        prepared.options.databasePath,
         prepared.options.cas,
         runId,
         snapshotId,
@@ -61,7 +64,7 @@ it("keeps chart metadata and lineage available after reopening and in production
       digest = ArtifactDigestSchema.parse(saved?.digest);
       expect(
         await persistOptionalTechnicalChart(
-          db,
+          prepared.options.databasePath,
           prepared.options.cas,
           runId,
           snapshotId,

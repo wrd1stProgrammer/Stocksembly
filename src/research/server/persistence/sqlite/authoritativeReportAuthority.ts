@@ -314,7 +314,7 @@ export async function loadReportAuthority(
       },
     );
     const technicalChart = await persistOptionalTechnicalChart(
-      database,
+      databasePath,
       cas,
       input.runId,
       run.data.snapshot_id,

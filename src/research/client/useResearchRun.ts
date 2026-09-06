@@ -43,6 +43,7 @@ export type ResearchRunProjection = {
   readonly snapshot: PublicRunDetail;
   readonly state: ResearchRunViewState;
   readonly lastEventSeq: number;
+  readonly syncRevision: number;
   readonly cancel: () => Promise<void>;
   readonly retry: () => Promise<RecoveredRun>;
   readonly followUp: (question?: string) => Promise<ChildRun>;
@@ -59,6 +60,7 @@ export function useResearchRun(
   options: Options,
 ): ResearchRunProjection {
   const [snapshot, setSnapshot] = useState(initial);
+  const [syncRevision, setSyncRevision] = useState(0);
   const [state, setState] = useState<ResearchRunViewState>("loading");
   const snapshotRef = useRef(initial);
   const sourceRef = useRef<ResearchEventSource | undefined>(undefined);
@@ -73,6 +75,7 @@ export function useResearchRun(
   }, [options]);
 
   const replaceSnapshot = useCallback((next: PublicRunDetail) => {
+    if (next.run.lastEventSeq < snapshotRef.current.run.lastEventSeq) return;
     snapshotRef.current = next;
     setSnapshot(next);
     setState(stateForRun(next.run.status));
@@ -96,6 +99,7 @@ export function useResearchRun(
         setState(stateForRun(snapshotRef.current.run.status));
       };
       source.onerror = () => {
+        if (stateForRun(snapshotRef.current.run.status) !== "live") return;
         setState("connection-interrupted");
         failuresRef.current += 1;
         const delay = Math.min(30_000, 1_000 * 2 ** (failuresRef.current - 1));
@@ -118,7 +122,9 @@ export function useResearchRun(
           if (parsed.event.sequence !== cursor + 1) {
             setState("degraded");
             source.close();
-            void resyncRef.current();
+            // Private worker events also consume sequence numbers. Fetch missing
+            // public records without skipping a fresh visible conversation.
+            void resyncRef.current(false);
             return;
           }
           const next = appendPublicEvent(snapshotRef.current, parsed.event);
@@ -134,17 +140,19 @@ export function useResearchRun(
   );
 
   const refreshSnapshot = useCallback(
-    async (reopenStream: boolean): Promise<void> => {
+    async (reopenStream: boolean, catchUp = reopenStream): Promise<void> => {
       try {
         const next = await optionsRef.current.client.getRun(
           snapshotRef.current.run.runId,
         );
         if (!mountedRef.current) return;
         replaceSnapshot(next);
-        if (stateForRun(next.run.status) !== "live") {
+        if (catchUp) setSyncRevision((revision) => revision + 1);
+        const current = snapshotRef.current;
+        if (stateForRun(current.run.status) !== "live") {
           sourceRef.current?.close();
         } else if (reopenStream) {
-          openStream(next.run.lastEventSeq);
+          openStream(current.run.lastEventSeq);
         }
       } catch (error) {
         if (!mountedRef.current) return;
@@ -170,7 +178,8 @@ export function useResearchRun(
     [openStream, replaceSnapshot],
   );
   const resync = useCallback(
-    async (): Promise<void> => await refreshSnapshot(true),
+    async (catchUp = true): Promise<void> =>
+      await refreshSnapshot(true, catchUp),
     [refreshSnapshot],
   );
   const resyncRef = useRef(resync);
@@ -206,7 +215,6 @@ export function useResearchRun(
   useEffect(() => {
     const resyncWhenActive = () => {
       if (document.visibilityState === "hidden") return;
-      if (stateForRun(snapshotRef.current.run.status) !== "live") return;
       void refreshSnapshot(true);
     };
     window.addEventListener("online", resyncWhenActive);
@@ -278,12 +286,22 @@ export function useResearchRun(
       snapshot,
       state,
       lastEventSeq: snapshot.run.lastEventSeq,
+      syncRevision,
       cancel,
       retry,
       followUp,
       askQuestion,
       resync,
     }),
-    [askQuestion, cancel, followUp, resync, retry, snapshot, state],
+    [
+      askQuestion,
+      cancel,
+      followUp,
+      resync,
+      retry,
+      snapshot,
+      state,
+      syncRevision,
+    ],
   );
 }

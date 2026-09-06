@@ -145,6 +145,18 @@ export function chairSectionPrimaryAssignments(
           sectionRelevance(prompt, sectionKey, left.sentence);
         if (sectionKey === "ten_second_brief")
           return (
+            Number(
+              right.sentence.claimIds.length > 0 &&
+                right.sentence.claimIds.every((id) =>
+                  prompt.publishableClaimIds?.includes(id),
+                ),
+            ) -
+              Number(
+                left.sentence.claimIds.length > 0 &&
+                  left.sentence.claimIds.every((id) =>
+                    prompt.publishableClaimIds?.includes(id),
+                  ),
+              ) ||
             leftRank - rightRank ||
             relevance ||
             left.sentenceIndex - right.sentenceIndex

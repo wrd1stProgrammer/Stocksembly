@@ -21,6 +21,24 @@ import {
 } from "./chairSynthesisValidation";
 
 describe("chair synthesis directional contract", () => {
+  it("selects the final brief from publishable claims before a more attractive partial claim", () => {
+    const { prompt } = mixedClaimValidationFixture();
+    const original = chairDirectionalBriefAssignment(prompt);
+    const alternative = prompt.sentences.find(
+      (sentence) =>
+        sentence.kind === "claim" &&
+        sentence.claimIds.length > 0 &&
+        sentence.claimIds.every((id) => !original.primaryClaimIds.includes(id)),
+    );
+    if (!alternative) throw new TypeError("missing alternative claim fixture");
+    const selected = chairDirectionalBriefAssignment({
+      ...prompt,
+      publishableClaimIds: [...alternative.claimIds],
+    });
+    expect(selected.primaryClaimIds).toEqual(alternative.claimIds);
+    expect(selected.primarySentenceIds).toContain(alternative.sentenceId);
+  });
+
   it("rejects duplicate sentence identifiers before the chair is called", () => {
     const { prompt } = mixedClaimValidationFixture();
     const duplicate = prompt.sentences[0];
