@@ -75,6 +75,7 @@ export function useLiveOfficeAnimation(
   playbackReady = true,
   completeEntrance = false,
   physicalMovement = false,
+  snapToProgress = false,
 ) {
   const releaseOrderKey = departmentReleaseOrder.join("\u0000");
   const displayTargetTick =
@@ -95,8 +96,11 @@ export function useLiveOfficeAnimation(
       releaseOrderKey === "" ? [] : releaseOrderKey.split("\u0000")
     ) as readonly OfficeDepartmentId[];
     if (
-      physicalMovement &&
-      displayTargetTick < frameRef.current.simulation.tick
+      (physicalMovement &&
+        displayTargetTick < frameRef.current.simulation.tick) ||
+      (snapToProgress &&
+        playbackReady &&
+        displayTargetTick !== frameRef.current.simulation.tick)
     ) {
       frameRef.current = createLiveOfficeFrame(
         playbackReady ? displayTargetTick : 0,
@@ -155,7 +159,13 @@ export function useLiveOfficeAnimation(
     };
     animationFrame = window.requestAnimationFrame(advance);
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [displayTargetTick, playbackReady, releaseOrderKey, physicalMovement]);
+  }, [
+    displayTargetTick,
+    playbackReady,
+    releaseOrderKey,
+    physicalMovement,
+    snapToProgress,
+  ]);
 
   return useMemo(
     () => ({

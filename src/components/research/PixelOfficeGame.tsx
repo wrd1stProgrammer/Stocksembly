@@ -56,6 +56,7 @@ type PendingRender = {
   readonly cameraActorIds?: readonly AgentId[];
   readonly isPaused: boolean;
   readonly dialogue?: OfficeDialogue;
+  readonly snapToProgress?: boolean;
 };
 
 const MOBILE_CAMERA_QUERY = "(max-width: 767px)";
@@ -197,6 +198,7 @@ export function PixelOfficeGame({
     cameraControlMode,
     isPaused,
     ...(dialogue ? { dialogue } : {}),
+    snapToProgress: presentation?.snapToProgress ?? false,
   });
   const [rendererFailed, setRendererFailed] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -278,6 +280,7 @@ export function PixelOfficeGame({
       ...(cameraActorIds === undefined ? {} : { cameraActorIds }),
       isPaused,
       ...(dialogue ? { dialogue } : {}),
+      snapToProgress: presentation?.snapToProgress ?? false,
     };
   }, [
     effectiveCameraMode,
@@ -288,6 +291,7 @@ export function PixelOfficeGame({
     snapshot,
     dialogue,
     cameraActorIds,
+    presentation?.snapToProgress,
   ]);
 
   useEffect(() => {
@@ -331,6 +335,7 @@ export function PixelOfficeGame({
               : { cameraActorIds: pending.cameraActorIds }),
             liveBubbles: [],
             ...(pending.dialogue ? { dialogue: pending.dialogue } : {}),
+            snapToProgress: pending.snapToProgress ?? false,
           });
         }
         controller.setPaused(pending.isPaused);
@@ -379,6 +384,7 @@ export function PixelOfficeGame({
         ...(cameraActorIds === undefined ? {} : { cameraActorIds }),
         liveBubbles: [],
         ...(dialogue ? { dialogue } : {}),
+        snapToProgress: presentation?.snapToProgress ?? false,
       });
     }
     controller.setPaused(isPaused);
@@ -391,6 +397,7 @@ export function PixelOfficeGame({
     snapshot,
     dialogue,
     cameraActorIds,
+    presentation?.snapToProgress,
   ]);
 
   return (

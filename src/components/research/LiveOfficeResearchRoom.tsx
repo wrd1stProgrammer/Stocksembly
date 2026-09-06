@@ -297,6 +297,11 @@ export function LiveOfficeResearchRoom({
     presentationEvents,
     projection.snapshot.run.runId,
     initialSnapshot.run.reportId !== undefined,
+    {
+      syncRevision: projection.syncRevision,
+      restore: initialSnapshot.events.length > 2,
+      terminal: !["queued", "running"].includes(projection.snapshot.run.status),
+    },
   );
   const animation = useLiveOfficeAnimation(
     presentation.tick,
@@ -304,6 +309,7 @@ export function LiveOfficeResearchRoom({
     officeReady,
     true,
     true,
+    presentation.snapToProgress,
   );
   // The room re-renders on every animation frame while the office catches up,
   // so everything derived from the snapshot is memoized on its inputs.

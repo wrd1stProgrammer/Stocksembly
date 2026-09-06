@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type Database from "better-sqlite3";
+import Database from "better-sqlite3";
 import { z } from "zod";
 import { canonicalJson, hashBytes } from "../../../domain/contractHelpers";
 import {
@@ -24,12 +24,15 @@ const RowSchema = z.object({
   content_hash: ArtifactDigestSchema,
 });
 export async function persistOptionalTechnicalChart(
-  database: Database.Database,
+  databasePath: string,
   cas: ArtifactCasPort,
   runId: string,
   snapshotId: string,
 ): Promise<TechnicalChartManifest | undefined> {
+  let connection: Database.Database | undefined;
   try {
+    const database = new Database(databasePath, { timeout: 5_000 });
+    connection = database;
     const row = RowSchema.safeParse(
       database
         .prepare(
@@ -153,5 +156,7 @@ export async function persistOptionalTechnicalChart(
       `${JSON.stringify({ kind: "optional_technical_chart_omitted", runId, error: error instanceof Error ? error.name : "unknown" })}\n`,
     );
     return undefined;
+  } finally {
+    connection?.close();
   }
 }

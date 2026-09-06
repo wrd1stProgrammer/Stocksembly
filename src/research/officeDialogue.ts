@@ -18,6 +18,7 @@ export type OfficeDialogueChange = {
 export type OfficePresentation = {
   readonly event: ResearchEvent | undefined;
   readonly active: boolean;
+  readonly snapToProgress?: boolean;
   readonly onChange: (change: OfficeDialogueChange) => void;
 };
 

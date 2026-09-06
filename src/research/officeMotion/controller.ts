@@ -104,6 +104,7 @@ export async function createOfficeMotionRenderer(
     const sceneOptions = {
       reducedMotion,
       paused,
+      snapToProgress: renderOptions.snapToProgress ?? false,
       ...(dialogue ? { dialogue, speech } : {}),
     };
     frame = scene.update(snapshot, semantic, delta, sceneOptions);

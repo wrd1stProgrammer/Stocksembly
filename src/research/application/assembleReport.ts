@@ -17,6 +17,7 @@ import {
   SECTION_TITLES,
   scenarioMetric,
 } from "./assembleReportValidation";
+import { reconcilePublicationNarrative } from "./publicationNarrativeRecovery";
 import { recoverPublicPublication } from "./publicationRecovery";
 import { StructuralAuditArtifactEnvelopeSchema } from "./structuralAuditPersistenceContracts";
 
@@ -262,7 +263,28 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   const registeredSourceIds = new Set<string>(
     sources.map((source) => source.sourceId),
   );
-  const sections = chair.data.sections.map((section) => ({
+  const publicEvidenceIds = new Set<string>(
+    sources.map((source) => source.sourceId),
+  );
+  const editorialClaims = (input.editorialClaims ?? []).flatMap((claim) => {
+    if (!recoveredClaimIds.has(claim.claimId)) return [];
+    const evidenceArtifactIds = (evidenceByClaim.get(claim.claimId) ?? [])
+      .filter((artifactId) => publicEvidenceIds.has(artifactId))
+      .map((artifactId) => ArtifactIdSchema.parse(artifactId));
+    return evidenceArtifactIds.length === 0
+      ? []
+      : [{ ...claim, evidenceArtifactIds }];
+  });
+  const publicationNarrative = reconcilePublicationNarrative({
+    chair: chair.data,
+    sentences: input.chairSentences,
+    claims: editorialClaims,
+    registeredClaimIds: new Set(audit.claims.map((claim) => claim.claimId)),
+    auditArtifactId: semantic.data.artifactId,
+    auditReasons: semantic.data.verdicts,
+  });
+  const publicationChair = publicationNarrative.chair;
+  const sections = publicationChair.sections.map((section) => ({
     id: section.sectionKey,
     title: SECTION_TITLES[section.sectionKey],
     body: section.publicSummary,
@@ -316,6 +338,14 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       : { limitationId: `limitation:${capability.key}` }),
   }));
   const limitations = [
+    ...(publicationNarrative.reduced
+      ? [
+          {
+            id: "limitation:publication_evidence_reconciliation",
+            capability: "decision_evidence",
+          },
+        ]
+      : []),
     ...capabilities
       .filter((capability) => capability.availability !== "available")
       .map((capability) => ({
@@ -469,23 +499,11 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     );
     return { kind: "blocked", reason: "report_invalid" };
   }
-  const publicEvidenceIds = new Set<string>(
-    sources.map((source) => source.sourceId),
-  );
-  const editorialClaims = (input.editorialClaims ?? []).flatMap((claim) => {
-    if (!recoveredClaimIds.has(claim.claimId)) return [];
-    const evidenceArtifactIds = (evidenceByClaim.get(claim.claimId) ?? [])
-      .filter((artifactId) => publicEvidenceIds.has(artifactId))
-      .map((artifactId) => ArtifactIdSchema.parse(artifactId));
-    return evidenceArtifactIds.length === 0
-      ? []
-      : [{ ...claim, evidenceArtifactIds }];
-  });
   try {
     const composed = composeWorkflowV2Report({
       legacyReport: report.data,
-      chair: chair.data,
-      chairSentences: input.chairSentences,
+      chair: publicationChair,
+      chairSentences: publicationNarrative.sentences,
       comparators: input.comparators ?? [],
       editorialClaims,
       ...(input.researchProfile === undefined
@@ -495,6 +513,8 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     return {
       kind: "assembled",
       report: composed.report,
+      publicationChair,
+      publicationSentences: publicationNarrative.sentences,
       editorialPublication: composed.envelope,
       recoveryMetadata: {
         ...(chairRecovery === undefined
@@ -505,9 +525,18 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
             }),
         omissions: [
           ...new Map(
-            [...(chairRecovery?.omissions ?? []), ...publication.omissions].map(
-              (omission) => [JSON.stringify(omission), omission],
-            ),
+            [
+              ...(chairRecovery?.omissions ?? []),
+              ...publication.omissions,
+              ...(publicationNarrative.rebuilt
+                ? [
+                    {
+                      itemId: "decision_brief",
+                      reason: "primary_claim_removed_decision_rebuilt",
+                    },
+                  ]
+                : []),
+            ].map((omission) => [JSON.stringify(omission), omission]),
           ).values(),
         ],
         repairAttempts: publication.repairAttempts,

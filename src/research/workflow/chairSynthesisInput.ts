@@ -402,6 +402,13 @@ export async function loadChairPrompt(
     },
     ...(investmentModel === undefined ? {} : { investmentModel }),
     auditedClaimIds,
+    publishableClaimIds: semantic.data.verdicts
+      .filter(
+        (verdict) =>
+          verdict.verdict === "entailed" &&
+          auditedClaimIds.includes(verdict.claimId),
+      )
+      .map((verdict) => verdict.claimId),
     adjudicatedRevisions: authenticatedRevisions,
     departmentPositions: positions.map(
       ({ summary: _summary, claimIds: _claimIds, ...position }) => position,

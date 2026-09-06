@@ -431,3 +431,34 @@ describe("approved office live adapter", () => {
     expect(reduced.actors[0]?.action).not.toBe("walk");
   });
 });
+
+it("snaps a returning room to the committee seats without walking through old team visits", () => {
+  const scene = new LiveOfficeScene();
+  scene.update(initial, undefined, 0, options);
+  const forumActors = Object.entries(OFFICE_SCENE_MANIFEST.forum.anchors).map(
+    ([id, anchor]) => {
+      const source = initial.actors.find((entry) => entry.id === id)!;
+      return { ...source, destination: anchor.cell, action: "listen" as const };
+    },
+  );
+  const caughtUp = scene.update(snapshot(forumActors, 1541), undefined, 0, {
+    ...options,
+    snapToProgress: true,
+  });
+  expect(caughtUp.actors).toHaveLength(5);
+  expect(caughtUp.actors.every((entry) => entry.seated)).toBe(true);
+  for (const entry of caughtUp.actors)
+    expect(entry.position).toEqual(
+      Object.entries(FORUM_PLACES).find(([id]) => entry.id === id)?.[1]
+        .position,
+    );
+  const continuing = scene.update(
+    snapshot(forumActors, 1541),
+    undefined,
+    0.1,
+    options,
+  );
+  expect(continuing.actors.map((entry) => entry.position)).toEqual(
+    caughtUp.actors.map((entry) => entry.position),
+  );
+});

@@ -49,6 +49,7 @@ describe("useResearchRun durable projection", () => {
       result.current.snapshot.events.map((event) => event.sequence),
     ).toEqual([13, 14, 15]);
     expect(getRun).toHaveBeenCalledOnce();
+    expect(result.current.syncRevision).toBe(0);
   });
 
   it("keeps native reconnect available, then enters reauthentication on fallback 401", async () => {
@@ -224,4 +225,36 @@ describe("useResearchRun durable projection", () => {
       idempotencyKey: "question-key",
     });
   });
+});
+
+it("does not rewind newer terminal events when an older snapshot response arrives late", async () => {
+  let resolveSnapshot: (value: ReturnType<typeof detail>) => void = () =>
+    undefined;
+  const getRun = vi.fn(
+    () =>
+      new Promise<ReturnType<typeof detail>>((resolve) => {
+        resolveSnapshot = resolve;
+      }),
+  );
+  const source = new FakeEventSource();
+  const { result } = renderHook(() =>
+    useResearchRun(detail(), {
+      client: client(getRun),
+      createEventSource: () => source,
+    }),
+  );
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = result.current.resync();
+  });
+  act(() => source.emit(publicEvent(13, "run_incomplete")));
+  await act(async () => {
+    resolveSnapshot(detail(12));
+    await pending;
+  });
+  expect(result.current.state).toBe("incomplete");
+  expect(result.current.lastEventSeq).toBe(13);
+  expect(result.current.syncRevision).toBe(1);
+  act(() => source.onerror?.());
+  expect(result.current.state).toBe("incomplete");
 });

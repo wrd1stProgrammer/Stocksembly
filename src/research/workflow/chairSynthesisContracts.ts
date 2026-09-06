@@ -127,6 +127,7 @@ export const ChairSynthesisPromptSchema = z
       .readonly()
       .default([]),
     auditedClaimIds: z.array(ClaimIdSchema).min(1).readonly(),
+    publishableClaimIds: z.array(ClaimIdSchema).readonly().optional(),
     departmentPositions: z
       .array(
         z

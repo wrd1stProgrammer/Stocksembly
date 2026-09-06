@@ -87,34 +87,33 @@ export async function persistAuthoritativeReport(
     canonicalChair.data.canonicalNarrativeV3 === undefined
   )
     return { kind: "blocked", reason: "workflow_v3_chair_required" };
+  const assembled = assembleReport(input);
+  if (assembled.kind === "blocked") return assembled;
+  const publicationChair = assembled.publicationChair;
   const auditedClaimIds = [
     ...new Set(
-      canonicalChair.data.sections.flatMap(
-        (section) => section.auditedClaimIds,
-      ),
+      publicationChair.sections.flatMap((section) => section.auditedClaimIds),
     ),
   ];
   const normalizedCanonical = normalizeCanonicalNarrativeV3ForPublication({
-    canonical: canonicalChair.data.canonicalNarrativeV3,
-    sentences: input.chairSentences,
+    canonical: publicationChair.canonicalNarrativeV3!,
+    sentences: assembled.publicationSentences,
     auditedClaimIds,
-    sourceArtifactIds: canonicalChair.data.sourceArtifactIds,
-    sections: canonicalChair.data.sections,
+    sourceArtifactIds: publicationChair.sourceArtifactIds,
+    sections: publicationChair.sections,
   });
   if (
     !canonicalNarrativeV3IsGrounded({
       canonical: normalizedCanonical.canonical,
-      sentences: input.chairSentences,
+      sentences: assembled.publicationSentences,
       auditedClaimIds,
-      sourceArtifactIds: canonicalChair.data.sourceArtifactIds,
+      sourceArtifactIds: publicationChair.sourceArtifactIds,
     })
   )
     return {
       kind: "blocked",
       reason: "workflow_v3_canonical_grounding_invalid",
     };
-  const assembled = assembleReport(input);
-  if (assembled.kind === "blocked") return assembled;
   const recomputedGate = await gateWithOneTargetedRewrite(
     assembled.editorialPublication.candidate,
     async (request) => {
