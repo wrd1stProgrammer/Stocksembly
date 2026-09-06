@@ -435,25 +435,16 @@ export function App({
       )}
       <main>
         {workspaceHome ? (
-          <>
-            <SignedInHome
-              locale={locale}
-              preview={homePreview}
-              onOpenPlans={openSubscriptionModal}
-              subscriptionTier={subscriptionTier}
-              creditsRemaining={billingStatus?.credits.remaining}
-            />
-            <div className="signed-in-home__community">
-              <LandingResearchRoomPreview
-                locale={locale}
-                initialLocale={initialLocale}
-                initialPreview={
-                  homePreview ? HOME_PREVIEW_RESEARCH_ROOM : researchRoomPreview
-                }
-                onOpenPlans={openSubscriptionModal}
-              />
-            </div>
-          </>
+          <SignedInHome
+            locale={locale}
+            preview={homePreview}
+            communityPreview={
+              homePreview ? HOME_PREVIEW_RESEARCH_ROOM : researchRoomPreview
+            }
+            onOpenPlans={openSubscriptionModal}
+            subscriptionTier={subscriptionTier}
+            creditsRemaining={billingStatus?.credits.remaining}
+          />
         ) : (
           <>
             <section className="hero" id="product">

@@ -624,7 +624,14 @@ type Copy = {
   readonly home: {
     readonly title: string;
     readonly description: string;
+    readonly myEyebrow: string;
     readonly researchTitle: string;
+    readonly community: {
+      readonly eyebrow: string;
+      readonly title: string;
+      readonly description: string;
+      readonly browse: string;
+    };
     readonly loading: string;
     readonly emptyTitle: string;
     readonly emptyDescription: string;
@@ -728,7 +735,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       title: "Which stock shall we investigate today?",
       description:
         "Start with a question. Follow the evidence back to its sources.",
+      myEyebrow: "My research",
       researchTitle: "My research",
+      community: {
+        eyebrow: "Research room",
+        title: "Research rooms from other investors",
+        description:
+          "Open other investors' questions and their finished research files.",
+        browse: "Browse other research",
+      },
       loading: "Loading your research",
       emptyTitle: "Your first research starts here.",
       emptyDescription:
@@ -883,7 +898,14 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     home: {
       title: "오늘은 어떤 종목을 검증해볼까요?",
       description: "궁금한 점에서 시작해, 근거와 출처를 따라 확인해 보세요.",
+      myEyebrow: "My research",
       researchTitle: "내 리서치",
+      community: {
+        eyebrow: "Research room",
+        title: "다른 투자자의 리서치룸",
+        description: "다른 투자자의 질문과 완성된 리서치 파일을 열어 보세요.",
+        browse: "다른 리서치 보기",
+      },
       loading: "내 리서치를 불러오는 중",
       emptyTitle: "첫 리서치를 시작해 보세요.",
       emptyDescription:
@@ -1033,7 +1055,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       title: "今日はどの銘柄を検証しましょうか？",
       description:
         "気になる問いから始めて、根拠と出典をたどって確かめましょう。",
+      myEyebrow: "My research",
       researchTitle: "マイリサーチ",
+      community: {
+        eyebrow: "Research room",
+        title: "他の投資家のリサーチルーム",
+        description:
+          "他の投資家の質問と完成したリサーチファイルを開いてみましょう。",
+        browse: "他のリサーチを見る",
+      },
       loading: "リサーチを読み込み中",
       emptyTitle: "最初のリサーチを始めましょう。",
       emptyDescription:
@@ -1180,7 +1210,14 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
     home: {
       title: "今天想驗證哪一檔股票？",
       description: "從你的問題出發，沿著證據與來源逐一查證。",
+      myEyebrow: "My research",
       researchTitle: "我的研究",
+      community: {
+        eyebrow: "Research room",
+        title: "其他投資人的研究室",
+        description: "打開其他投資人的問題與完成的研究檔案。",
+        browse: "查看其他研究",
+      },
       loading: "正在載入你的研究",
       emptyTitle: "開始你的第一份研究。",
       emptyDescription:
@@ -1325,7 +1362,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       title: "¿Qué acción investigamos hoy?",
       description:
         "Empieza con una pregunta y sigue la evidencia hasta sus fuentes.",
+      myEyebrow: "My research",
       researchTitle: "Mis investigaciones",
+      community: {
+        eyebrow: "Research room",
+        title: "Salas de análisis de otros inversores",
+        description:
+          "Abre las preguntas de otros inversores y sus informes terminados.",
+        browse: "Ver otros análisis",
+      },
       loading: "Cargando tus investigaciones",
       emptyTitle: "Empieza tu primera investigación.",
       emptyDescription:
@@ -1475,7 +1520,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       title: "Qual ação vamos investigar hoje?",
       description:
         "Comece com uma pergunta e acompanhe as evidências até suas fontes.",
+      myEyebrow: "My research",
       researchTitle: "Minhas pesquisas",
+      community: {
+        eyebrow: "Research room",
+        title: "Salas de research de outros investidores",
+        description:
+          "Abra as perguntas de outros investidores e seus researchs concluídos.",
+        browse: "Ver outros researchs",
+      },
       loading: "Carregando suas pesquisas",
       emptyTitle: "Comece sua primeira pesquisa.",
       emptyDescription:
@@ -1625,7 +1678,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       title: "Welche Aktie untersuchen wir heute?",
       description:
         "Starte mit einer Frage und verfolge die Belege bis zu ihren Quellen.",
+      myEyebrow: "My research",
       researchTitle: "Meine Analysen",
+      community: {
+        eyebrow: "Research room",
+        title: "Research-Räume anderer Anleger",
+        description:
+          "Öffne die Fragen anderer Anleger und ihre fertigen Research-Dateien.",
+        browse: "Andere Analysen ansehen",
+      },
       loading: "Deine Analysen werden geladen",
       emptyTitle: "Starte deine erste Analyse.",
       emptyDescription:
@@ -1775,7 +1836,15 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       title: "Quelle action allons-nous examiner aujourd’hui ?",
       description:
         "Partez d’une question et remontez des éléments de preuve à leurs sources.",
+      myEyebrow: "My research",
       researchTitle: "Mes analyses",
+      community: {
+        eyebrow: "Research room",
+        title: "Salles de recherche d'autres investisseurs",
+        description:
+          "Ouvrez les questions d'autres investisseurs et leurs dossiers terminés.",
+        browse: "Voir d'autres recherches",
+      },
       loading: "Chargement de vos analyses",
       emptyTitle: "Lancez votre première analyse.",
       emptyDescription:

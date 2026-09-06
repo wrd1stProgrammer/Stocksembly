@@ -1,12 +1,22 @@
 "use client";
 
 import "../../styles/signed-in-home.css";
-import { ArrowUpRight, FileText } from "lucide-react";
+import { ArrowUpRight, FileText, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 import { type ComponentProps, useEffect, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
-import { copy, intlLocale } from "../../lib/i18n";
+import {
+  type AppLocale,
+  copy,
+  intlLocale,
+  researchLocale,
+} from "../../lib/i18n";
 import type { PublicRun } from "../../research/client/schemas";
+import { MembershipAccessModal } from "../billing/MembershipAccessModal";
+import {
+  EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
+  type LandingResearchRoomPreviewData,
+} from "../researchRoom/landingResearchRoomPreviewSelection";
 import { SearchConsole } from "../SearchConsole";
 import { HOME_PREVIEW_RUNS } from "./homePreviewData";
 
@@ -16,6 +26,7 @@ type SignedInHomeProps = Pick<
 > & {
   /** Localhost-only layout review: render sample runs instead of fetching. */
   readonly preview?: boolean;
+  readonly communityPreview?: LandingResearchRoomPreviewData;
 };
 
 type LoadState =
@@ -25,15 +36,30 @@ type LoadState =
 
 const LOAD_RETRY_DELAYS_MS = [0, 250, 800, 1_600] as const;
 
+function communityTargetLabel(
+  report: LandingResearchRoomPreviewData["reports"][number],
+  locale: AppLocale,
+): string {
+  const labels = copy[locale].landing.researchRoom;
+  if (report.researchTarget.kind === "committee") return labels.fullCommittee;
+  return labels.teams[report.researchTarget.departmentId];
+}
+
 export function SignedInHome(props: SignedInHomeProps) {
-  const { preview = false, ...searchConsoleProps } = props;
+  const {
+    preview = false,
+    communityPreview = EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
+    ...searchConsoleProps
+  } = props;
   const { locale } = searchConsoleProps;
   const content = copy[locale].home;
+  const roomLabels = copy[locale].landing.researchRoom;
   const [loadState, setLoadState] = useState<LoadState>(() =>
     preview
       ? { status: "ready", runs: HOME_PREVIEW_RUNS }
       : { status: "loading" },
   );
+  const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const { status: loadStatus } = loadState;
 
   useEffect(() => {
@@ -76,6 +102,7 @@ export function SignedInHome(props: SignedInHomeProps) {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const communityReports = communityPreview.reports;
 
   return (
     <div className="signed-in-home">
@@ -94,7 +121,12 @@ export function SignedInHome(props: SignedInHomeProps) {
         className="signed-in-home__research"
         aria-labelledby="signed-in-home-research-title"
       >
-        <h2 id="signed-in-home-research-title">{content.researchTitle}</h2>
+        <header className="signed-in-home__section-head">
+          <div>
+            <span>{content.myEyebrow}</span>
+            <h2 id="signed-in-home-research-title">{content.researchTitle}</h2>
+          </div>
+        </header>
         {loadState.status === "loading" ? (
           <div className="signed-in-home__loading" role="status">
             <span className="sr-only">{content.loading}</span>
@@ -159,6 +191,90 @@ export function SignedInHome(props: SignedInHomeProps) {
           </ol>
         )}
       </section>
+
+      {communityReports.length === 0 ? null : (
+        <section
+          className="signed-in-home__research signed-in-home__community"
+          aria-labelledby="signed-in-home-community-title"
+        >
+          <header className="signed-in-home__section-head">
+            <div>
+              <span>{content.community.eyebrow}</span>
+              <h2 id="signed-in-home-community-title">
+                {content.community.title}
+              </h2>
+              <p>{content.community.description}</p>
+            </div>
+            <Link
+              className="signed-in-home__section-link"
+              href={`/research-room?lang=${locale}`}
+            >
+              {content.community.browse}
+              <ArrowUpRight size={15} aria-hidden="true" />
+            </Link>
+          </header>
+          <ol className="signed-in-home__runs">
+            {communityReports.map((report) => {
+              const rowContent = (
+                <>
+                  <span className="signed-in-home__run-content">
+                    <strong>{report.symbol}</strong>
+                    <span className="signed-in-home__question">
+                      {report.question}
+                    </span>
+                  </span>
+                  <span className="signed-in-home__run-meta">
+                    <span className="signed-in-home__status">
+                      {communityTargetLabel(report, locale)}
+                    </span>
+                    <time dateTime={report.publishedAt}>
+                      {dateFormatter.format(new Date(report.publishedAt))}
+                    </time>
+                  </span>
+                </>
+              );
+              return (
+                <li key={report.reportId}>
+                  {report.locked ? (
+                    <button
+                      type="button"
+                      className="signed-in-home__run signed-in-home__run--locked"
+                      aria-label={`${report.symbol} · ${roomLabels.locked}`}
+                      onClick={() => setMembershipGateOpen(true)}
+                    >
+                      {rowContent}
+                      <LockKeyhole
+                        className="signed-in-home__run-arrow"
+                        size={16}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ) : (
+                    <Link
+                      className="signed-in-home__run"
+                      href={`/research-room/${report.reportId}?lang=${locale}`}
+                    >
+                      {rowContent}
+                      <ArrowUpRight
+                        className="signed-in-home__run-arrow"
+                        size={18}
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          <MembershipAccessModal
+            locale={researchLocale(locale)}
+            open={membershipGateOpen}
+            reason="recent-report"
+            onClose={() => setMembershipGateOpen(false)}
+            onOpenPlans={props.onOpenPlans}
+          />
+        </section>
+      )}
     </div>
   );
 }

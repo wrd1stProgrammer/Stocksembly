@@ -18,6 +18,11 @@ vi.mock("../SearchConsole", () => ({
   SearchConsole: vi.fn(() => <div data-testid="search-console" />),
 }));
 
+vi.mock("../billing/MembershipAccessModal", () => ({
+  MembershipAccessModal: ({ open }: { readonly open: boolean }) =>
+    open ? <div data-testid="membership-gate" /> : null,
+}));
+
 const RUN: PublicRun = {
   runId: "00000000-0000-4000-8000-000000000001",
   snapshotId: "00000000-0000-4000-8000-000000000002",
@@ -40,6 +45,62 @@ afterEach(() => {
 });
 
 describe("SignedInHome", () => {
+  it("lists other investors' research in the same card design", async () => {
+    testState.listRuns.mockResolvedValue([RUN]);
+    const communityPreview = {
+      reports: [
+        {
+          reportId: "00000000-0000-4000-8000-000000000201",
+          symbol: "MSFT",
+          question: "코파일럿 매출은 언제부터 숫자로 증명되나?",
+          locale: "ko" as const,
+          researchTarget: { kind: "committee" as const },
+          publishedAt: "2026-09-05T12:10:00.000Z",
+          status: "complete" as const,
+          locked: false,
+          viewCount: 10,
+        },
+        {
+          reportId: "00000000-0000-4000-8000-000000000202",
+          symbol: "MU",
+          question: "HBM 증설 경쟁에서 수익성을 지킬 수 있을까?",
+          locale: "ko" as const,
+          researchTarget: {
+            kind: "department" as const,
+            departmentId: "market" as const,
+          },
+          publishedAt: "2026-09-04T09:00:00.000Z",
+          status: "complete" as const,
+          locked: true,
+          viewCount: 4,
+        },
+      ],
+      companyNames: {},
+    };
+
+    render(<SignedInHome locale="ko" communityPreview={communityPreview} />);
+
+    const community = within(
+      screen.getByRole("region", {
+        name: copy.ko.home.community.title,
+      }),
+    );
+    expect(
+      community.getByRole("link", { name: /다른 리서치 보기/u }),
+    ).toHaveAttribute("href", "/research-room?lang=ko");
+    expect(community.getByRole("link", { name: /MSFT/u })).toHaveAttribute(
+      "href",
+      "/research-room/00000000-0000-4000-8000-000000000201?lang=ko",
+    );
+    expect(
+      community.getByText(copy.ko.landing.researchRoom.teams.market),
+    ).toBeVisible();
+
+    expect(screen.queryByTestId("membership-gate")).not.toBeInTheDocument();
+    fireEvent.click(community.getByRole("button", { name: /MU/u }));
+    expect(await screen.findByTestId("membership-gate")).toBeInTheDocument();
+  });
+
   it.each(locales)(
     "renders research statuses and links in %s",
     async (locale) => {
