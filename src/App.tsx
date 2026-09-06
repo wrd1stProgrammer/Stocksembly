@@ -13,6 +13,7 @@ import {
 } from "./auth/localePreference";
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
 import { Header } from "./components/Header";
+import { SignedInHome } from "./components/home/SignedInHome";
 import { LandingOfficePreview } from "./components/LandingOfficePreview";
 import { LandingFooter, LandingSections } from "./components/LandingSections";
 import { MobileBottomNav } from "./components/MobileBottomNav";
@@ -423,46 +424,60 @@ export function App({
         <Header locale={locale} onLocaleChange={selectLocale} />
       )}
       <main>
-        <section className="hero" id="product">
-          <div className="hero__copy">
-            <p className="hero__eyebrow">{content.hero.eyebrow}</p>
-            <h1>
-              <span className="hero__title-lead">{content.hero.titleLead}</span>{" "}
-              <PrismRevealText
-                key={content.hero.titleTail}
-                text={content.hero.titleTail}
-              />
-            </h1>
-            <p className="hero__description">
-              <span className="hero__description-lead">
-                {content.hero.descriptionLead}
-              </span>{" "}
-              <span className="hero__description-tail">
-                {content.hero.descriptionTail}
-              </span>
-            </p>
-          </div>
-          <SearchConsole
+        {signedIn ? (
+          <SignedInHome
             locale={locale}
+            communityPreview={researchRoomPreview}
             onOpenPlans={openSubscriptionModal}
             subscriptionTier={subscriptionTier}
             creditsRemaining={billingStatus?.credits.remaining}
           />
-          <LandingOfficePreview locale={locale} />
-          <LandingResearchRoomPreview
-            locale={locale}
-            initialLocale={initialLocale}
-            initialPreview={researchRoomPreview}
-            onOpenPlans={openSubscriptionModal}
-          />
-          <p className="hero__proof">
-            <ShieldCheck aria-hidden="true" size={22} />
-            {content.hero.proof}
-          </p>
-        </section>
-        <LandingSections locale={locale} />
+        ) : (
+          <>
+            <section className="hero" id="product">
+              <div className="hero__copy">
+                <p className="hero__eyebrow">{content.hero.eyebrow}</p>
+                <h1>
+                  <span className="hero__title-lead">
+                    {content.hero.titleLead}
+                  </span>{" "}
+                  <PrismRevealText
+                    key={content.hero.titleTail}
+                    text={content.hero.titleTail}
+                  />
+                </h1>
+                <p className="hero__description">
+                  <span className="hero__description-lead">
+                    {content.hero.descriptionLead}
+                  </span>{" "}
+                  <span className="hero__description-tail">
+                    {content.hero.descriptionTail}
+                  </span>
+                </p>
+              </div>
+              <SearchConsole
+                locale={locale}
+                onOpenPlans={openSubscriptionModal}
+                subscriptionTier={subscriptionTier}
+                creditsRemaining={billingStatus?.credits.remaining}
+              />
+              <LandingOfficePreview locale={locale} />
+              <LandingResearchRoomPreview
+                locale={locale}
+                initialLocale={initialLocale}
+                initialPreview={researchRoomPreview}
+                onOpenPlans={openSubscriptionModal}
+              />
+              <p className="hero__proof">
+                <ShieldCheck aria-hidden="true" size={22} />
+                {content.hero.proof}
+              </p>
+            </section>
+            <LandingSections locale={locale} />
+          </>
+        )}
       </main>
-      <LandingFooter locale={locale} />
+      {signedIn ? null : <LandingFooter locale={locale} />}
       <MobileBottomNav
         activeItem="home"
         locale={locale}
