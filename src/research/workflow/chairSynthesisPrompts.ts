@@ -50,6 +50,69 @@ export type ChairDirectionalBriefAssignment = {
   readonly primaryClaimIds: readonly string[];
 };
 
+function sectionRelevance(
+  prompt: ChairSynthesisPrompt,
+  sectionKey: ChairSectionKey,
+  sentence: ChairSentence,
+): number {
+  if (prompt.mandate.question === undefined) return 0;
+  const text = sentence.text[prompt.mandate.locale];
+  const profile = prompt.mandate.researchProfile;
+  const owners = prompt.sentences
+    .filter(
+      (candidate) =>
+        candidate.kind === "position" &&
+        candidate.claimIds.some((id) => sentence.claimIds.includes(id)),
+    )
+    .map((candidate) => candidate.sentenceId);
+  if (sectionKey === "ten_second_brief") {
+    const preferred =
+      prompt.mandate.researchBrief?.objective === "financial_health"
+        ? ["financial", "risk", "company", "market"]
+        : prompt.mandate.researchBrief?.objective === "business_quality"
+          ? ["company", "financial", "risk", "market"]
+          : profile.investmentHorizon === "short"
+            ? ["market", "financial", "company", "risk"]
+            : profile.investmentHorizon === "long" &&
+                profile.decisionPurpose === "holding_review"
+              ? ["company", "financial", "risk", "market"]
+              : ["financial", "company", "risk", "market"];
+    return Math.max(
+      0,
+      ...preferred.map((department, index) =>
+        owners.includes(`position:${department}`) ? (4 - index) * 10 : 0,
+      ),
+    );
+  }
+  if (
+    sectionKey === "change_conditions" &&
+    profile.investmentHorizon !== "short"
+  ) {
+    const intraday =
+      /(?:1|4|한|네)\s*(?:시간|hour)|intraday|RSI|MACD|이동평균|저항선/iu.test(
+        text,
+      );
+    const business =
+      /매출|마진|현금|수익|이용률|고객|운행|재투자|revenue|margin|cash|adoption|utilization|customer|return on/iu.test(
+        text,
+      );
+    return (business ? 30 : 0) - (intraday ? 60 : 0);
+  }
+  if (sectionKey === "valuation_comparison")
+    return /valuation|multiple|EPS|밸류|배수|PER|PBR|내재|선행/iu.test(text)
+      ? 20
+      : 0;
+  if (sectionKey === "operational_scenarios")
+    return sentence.kind === "scenario"
+      ? -20
+      : /매출|마진|현금|수익|생산|수요|revenue|margin|cash|demand|capacity/iu.test(
+            text,
+          )
+        ? 20
+        : 0;
+  return 0;
+}
+
 export function chairSectionPrimaryAssignments(
   prompt: ChairSynthesisPrompt,
 ): readonly ChairSectionPrimaryAssignment[] {
@@ -77,7 +140,20 @@ export function chairSectionPrimaryAssignments(
       .sort((left, right) => {
         const leftRank = kindOrder.indexOf(left.sentence.kind);
         const rightRank = kindOrder.indexOf(right.sentence.kind);
-        return leftRank - rightRank || left.sentenceIndex - right.sentenceIndex;
+        const relevance =
+          sectionRelevance(prompt, sectionKey, right.sentence) -
+          sectionRelevance(prompt, sectionKey, left.sentence);
+        if (sectionKey === "ten_second_brief")
+          return (
+            leftRank - rightRank ||
+            relevance ||
+            left.sentenceIndex - right.sentenceIndex
+          );
+        return (
+          relevance ||
+          leftRank - rightRank ||
+          left.sentenceIndex - right.sentenceIndex
+        );
       });
     for (const { sentence } of candidates) {
       const remainder = search(
@@ -113,6 +189,8 @@ export function chairDirectionalBriefAssignment(
   const decisive = prompt.sentences.find(
     (sentence) => sentence.sentenceId === tenSecond?.primarySentenceId,
   );
+  const sharesDecisiveClaim = (sentence: ChairSentence) =>
+    sentence.claimIds.some((id) => decisive?.claimIds.includes(id));
   const countercaseCandidates = prompt.sentences
     .filter(
       (sentence) =>
@@ -124,12 +202,14 @@ export function chairDirectionalBriefAssignment(
           prompt.mandate.locale,
         ),
     )
-    // A challenge is a better countercase than an echoed claim. Keep the
-    // catalog order as the final tie-breaker so the assignment stays stable.
     .sort(
       (left, right) =>
+        Number(sharesDecisiveClaim(right)) -
+          Number(sharesDecisiveClaim(left)) ||
+        Number(right.sentenceId.startsWith("dissent:counterevidence:")) -
+          Number(left.sentenceId.startsWith("dissent:counterevidence:")) ||
         Number(right.sentenceId.startsWith("dissent:challenge:")) -
-        Number(left.sentenceId.startsWith("dissent:challenge:")),
+          Number(left.sentenceId.startsWith("dissent:challenge:")),
     );
   const countercase =
     decisive === undefined
@@ -137,11 +217,21 @@ export function chairDirectionalBriefAssignment(
       : (countercaseCandidates.find((sentence) =>
           decisionTextsAreDistinct([decisive.text, sentence.text]),
         ) ?? countercaseCandidates[0]);
-  const falsifierCandidates = prompt.sentences.filter(
-    (sentence) =>
-      sentence.kind === "change_condition" &&
-      publicTextIsValid(sentence.text, [sentence], 360, prompt.mandate.locale),
-  );
+  const falsifierCandidates = prompt.sentences
+    .filter(
+      (sentence) =>
+        sentence.kind === "change_condition" &&
+        publicTextIsValid(
+          sentence.text,
+          [sentence],
+          360,
+          prompt.mandate.locale,
+        ),
+    )
+    .sort(
+      (left, right) =>
+        Number(sharesDecisiveClaim(right)) - Number(sharesDecisiveClaim(left)),
+    );
   const falsifier =
     decisive === undefined || countercase === undefined
       ? falsifierCandidates[0]
@@ -441,6 +531,7 @@ export function chairSynthesisModelPrompt(
     })),
     evidenceBoundaryEnd: "END_UNTRUSTED_EVIDENCE_CATALOG",
     editorialDirection: {
+      researchBrief: prompt.mandate.researchBrief,
       horizon: prompt.mandate.researchProfile.investmentHorizon,
       decisionPurpose: prompt.mandate.researchProfile.decisionPurpose,
       counterargumentIntensity:
@@ -450,10 +541,12 @@ export function chairSynthesisModelPrompt(
       requirements: [
         explanationInstruction(prompt.mandate.researchProfile),
         "The report must answer mandate.question rather than merely describe the company. Reuse the question's subject, not its wording, and make the relevance explicit in the ten-second brief and one supporting section only.",
-        "Convert evidence into a decision, not a meeting recap.",
+        "Answer the original question directly, then explain two or three distinct mechanisms. Separate disclosed facts, management expectations and calculated assumptions. State what is still unproven without turning every answer into a wait recommendation. A financial-health question requires a financial-health conclusion, not a mandatory trade verdict. The researchBrief identifies the actual subject and priority questions; never replace an unresolved product name with a similar-sounding topic.",
         "For short horizon, prioritize the next catalyst, price/estimate direction, and a near-term invalidation signal; do not let long-run optionality dominate the conclusion.",
         "For medium horizon, prioritize the next two-to-four reporting periods, estimate revisions, operating execution, and the valuation path required over that window.",
         "For long horizon, prioritize durable demand, competitive advantage, reinvestment economics, balance-sheet endurance, and the conditions that would erode compounding.",
+        "The user's explicit question takes precedence over a default new_entry purpose. Financial health is not an investment-return verdict. A long-term add-to-position question requires business economics, valuation and an observable thesis invalidation; a one-hour trend is not the decisive reason.",
+        "Preserve each team's own position and distinct rationale. A rationale must explain the evidence-to-conclusion mechanism, not repeat its position. The strongest countercase must support a different decision than the chosen stance; distinguish that opposing case from a risk that already supports waiting. Preserve fiscal periods, GAAP/adjusted labels, and numeric magnitudes through all public copy. Never silently substitute an older ratio for the latest quarter.",
         "For new_entry, state entry prerequisites and the valuation or proof the investor is being asked to accept.",
         "For holding_review, separate thesis intact, thesis weakened, and exit/reassess conditions.",
         "For position_sizing, state which asymmetry or concentration condition argues for adding, maintaining, or reducing exposure.",

@@ -8,7 +8,6 @@ import {
   ChairSynthesisV3RunnerOutputSchema,
   chairSynthesisV3Prompt,
   containsDirectOrderImperative,
-  containsRepeatedGenericPosture,
 } from "./chairSynthesisContracts";
 import {
   chairDirectionalBriefAssignment,
@@ -129,7 +128,11 @@ export function normalizeCanonicalNarrativeV3ForPublication(
       preferredSentenceId === undefined
         ? undefined
         : catalog.get(preferredSentenceId),
-      ...catalog.values(),
+      ...[...catalog.values()].filter((sentence) =>
+        sentence.claimIds.some((id) =>
+          lineage.claimIds.includes(ClaimIdSchema.parse(id)),
+        ),
+      ),
     ].filter((sentence): sentence is CatalogSentence => sentence !== undefined);
     for (const sentence of candidates) {
       const fallbackLineage = lineageFor(sentence);
@@ -182,6 +185,23 @@ export function normalizeCanonicalNarrativeV3ForPublication(
     "change_conditions",
   );
   const teamViews = input.canonical.teamViews.map((view) => {
+    const owned = input.sentences.filter(
+      (sentence) =>
+        sentence.sentenceId === `position:${view.departmentId}` ||
+        sentence.sentenceId === `ballot:${view.departmentId}`,
+    );
+    const ownedClaims = new Set(owned.flatMap((sentence) => sentence.claimIds));
+    const candidates = [
+      ...owned,
+      ...input.sentences.filter(
+        (sentence) =>
+          sentence.sentenceId.startsWith("claim:") &&
+          sentence.claimIds.some((claimId) => ownedClaims.has(claimId)),
+      ),
+    ];
+    const ownsLineage = view.lineage.sentenceIds.every((id) =>
+      candidates.some((sentence) => sentence.sentenceId === id),
+    );
     const shared = {
       lineage: view.lineage,
       canonical: input.canonical,
@@ -190,18 +210,47 @@ export function normalizeCanonicalNarrativeV3ForPublication(
       sourceArtifactIds: input.sourceArtifactIds,
     };
     if (
+      ownsLineage &&
+      view.position.trim() !== view.rationale.trim() &&
       canonicalUnitIsGrounded({ ...shared, text: view.position }) &&
       canonicalUnitIsGrounded({ ...shared, text: view.rationale })
     )
       return view;
-    const fallback = groundedFallback(view.lineage, "supported_analysis");
-    if (fallback === undefined) return view;
+    const grounded = candidates.filter((sentence) =>
+      canonicalUnitIsGrounded({
+        ...shared,
+        text: sentence.text[input.canonical.sourceLocale],
+        lineage: lineageFor(sentence),
+      }),
+    );
+    const position =
+      grounded.find(
+        (sentence) => sentence.sentenceId === `position:${view.departmentId}`,
+      ) ?? grounded[0];
+    if (position === undefined) return view;
+    const rationale =
+      grounded.find(
+        (sentence) =>
+          sentence.text[input.canonical.sourceLocale] !==
+          position.text[input.canonical.sourceLocale],
+      ) ?? position;
     reduced = true;
     return {
       ...view,
-      position: fallback.text,
-      rationale: fallback.text,
-      lineage: fallback.lineage,
+      position: position.text[input.canonical.sourceLocale],
+      rationale: rationale.text[input.canonical.sourceLocale],
+      lineage: {
+        sentenceIds: [...new Set([position.sentenceId, rationale.sentenceId])],
+        claimIds: [
+          ...new Set([...position.claimIds, ...rationale.claimIds]),
+        ].map((id) => ClaimIdSchema.parse(id)),
+        sourceArtifactIds: [
+          ...new Set([
+            ...position.sourceArtifactIds,
+            ...rationale.sourceArtifactIds,
+          ]),
+        ].map((id) => ArtifactIdSchema.parse(id)),
+      },
     };
   });
   const sections = input.canonical.sections.map((section) => {
@@ -337,10 +386,6 @@ function locallyDegrade(output: RawOutput): RawOutput {
       degradedText(output.sourceLocale, "invalidation"),
     ),
   }));
-  const repeatedPosture = containsRepeatedGenericPosture(output);
-  if (repeatedPosture) reductionReasons.add("repeated_posture_rewrite");
-  const genericPosture =
-    /\b(?:wait|conditional|needs?\s+confirmation)\b|대기|조건부|확인\s*필요/iu;
   const directEvidenceText =
     output.sourceLocale === "ko"
       ? output.stance === "downside_skewed"
@@ -362,9 +407,7 @@ function locallyDegrade(output: RawOutput): RawOutput {
         output.decisiveReason,
         originalSafeSections[0]?.narrative ?? directEvidenceText,
       )
-    : repeatedPosture && genericPosture.test(output.decisiveReason)
-      ? directEvidenceText
-      : output.decisiveReason;
+    : output.decisiveReason;
   return {
     ...output,
     decisiveReason,
@@ -387,15 +430,7 @@ function locallyDegrade(output: RawOutput): RawOutput {
         degradedText(output.sourceLocale, "invalidation"),
       ),
     })),
-    sections: safeSections.map((section) => ({
-      ...section,
-      narrative:
-        repeatedPosture &&
-        section.sectionKey !== "change_conditions" &&
-        genericPosture.test(section.narrative)
-          ? directEvidenceText
-          : section.narrative,
-    })),
+    sections: safeSections,
     anticipatedQuestions: output.anticipatedQuestions.filter((item) => {
       const retained =
         !containsDirectOrderImperative(item.question) &&

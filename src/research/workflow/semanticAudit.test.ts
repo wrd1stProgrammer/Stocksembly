@@ -14,7 +14,7 @@ import {
   ArtifactDigestSchema,
 } from "../ports/artifacts";
 import { sha256Value } from "../server/codex/codexArtifacts";
-import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
+import { CODEX_RUNTIME_POLICY, CODEX_RUNTIME_PINS, LINUX_CODEX_RUNTIME_PINS } from "../server/codex/codexPolicy";
 import type {
   CodexRunInput,
   CodexRunResult,
@@ -189,9 +189,8 @@ class SemanticCodexFake extends FollowupResponseCodexFake {
         reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[input.stage],
         browsingPolicy: CODEX_RUNTIME_POLICY.browsingByStage[input.stage],
         toolTranscriptHash: sha256Value([]),
-        binaryVersion: "codex-cli 0.146.0-alpha.3.1",
-        binaryHash:
-          "fb2b6b35789e59c885cf4d2aee12475809dd67b2c10df580e638122fd6b3438e",
+        binaryVersion: (process.platform === "linux" ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS).version,
+        binaryHash: (process.platform === "linux" ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS).originSha256,
         originDevice: "1",
         originInode: "1",
         linkDevice: "1",
@@ -625,7 +624,7 @@ describe("schema-bound semantic evidence verifier", () => {
   });
 
   it.each(["partial", "not_assessable", "cited_but_non_entailing"] as const)(
-    "publishes with explicit limitations when a material audit is %s",
+    "blocks publication when the only material answer is %s",
     async (fault) => {
       // Given
       const { prepared, structuralAudit, questionIds } =
@@ -643,7 +642,8 @@ describe("schema-bound semantic evidence verifier", () => {
       await audit.close();
 
       // Then
-      expect(replay.publishable).toBe(true);
+      expect(replay.publishable).toBe(false);
+      expect(replay.blockers).toContain("no_grounded_core_answer");
       expect(replay).not.toHaveProperty("score");
       expect(replay.characterActorId).toBeNull();
     },

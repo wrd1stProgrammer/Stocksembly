@@ -286,8 +286,11 @@ export async function loadReportAuthority(
             position.falsifier === undefined
           )
             return [];
+          const claimRevision = prompt.adjudicatedRevisions.find(
+            (item) => item.originClaimId === position.claimId,
+          );
           const parsed = AtomicEditorialClaimSchema.safeParse({
-            claimId: position.claimId,
+            claimId: claimRevision?.adjudicatedClaimId ?? position.claimId,
             decisionDimension: position.decisionDimension,
             roleOwner: position.roleOwner,
             stanceContribution:
@@ -297,11 +300,13 @@ export async function loadReportAuthority(
                   ? "opposes"
                   : "uncertain",
             materiality: position.materiality,
-            publicThesis: position.publicSummary,
-            evidenceArtifactIds: position.evidenceArtifactIds,
+            publicThesis:
+              claimRevision?.publicSummary ?? position.publicSummary,
+            evidenceArtifactIds:
+              claimRevision?.sourceArtifactIds ?? position.evidenceArtifactIds,
             counterevidenceArtifactIds: [],
             decisiveMetricIds: position.decisiveMetricIds ?? [],
-            falsifier: position.falsifier,
+            falsifier: claimRevision?.falsifier ?? position.falsifier,
           });
           return parsed.success ? [parsed.data] : [];
         });

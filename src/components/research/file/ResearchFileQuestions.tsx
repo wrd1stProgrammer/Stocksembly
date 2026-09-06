@@ -12,9 +12,7 @@ export function ResearchFileQuestions({
   readonly compact?: boolean;
 }) {
   const questions = file.anticipatedQuestions ?? [];
-  const persisted = file.presentationVersion === "workflow-v2";
-  if (questions.length === 0 || (persisted && questions.length < 5))
-    return null;
+  if (questions.length === 0) return null;
   const rankedQuestions = [...questions].sort(
     (first, second) => (first.rank ?? 100) - (second.rank ?? 100),
   );
@@ -38,8 +36,8 @@ export function ResearchFileQuestions({
         title={ko ? "투자자 Q&A" : "Investor Q&A"}
         description={
           ko
-            ? `가격·실적·하방 위험·판단 변경 조건을 ${visibleQuestions.length}개 질문으로 정리했습니다.`
-            : `${visibleQuestions.length} questions covering price, earnings, downside risk, and decision-changing evidence.`
+            ? `이 리서치의 근거로 답할 수 있는 ${visibleQuestions.length}개 질문입니다.`
+            : `${visibleQuestions.length} questions answered by the evidence in this research.`
         }
       />
       <div

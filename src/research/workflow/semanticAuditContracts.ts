@@ -10,6 +10,7 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
+import { ResearchBriefSchema } from "../domain/researchBrief";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
 
@@ -55,6 +56,8 @@ export const SemanticClaimInputSchema = z
     claimId: ClaimIdSchema,
     materiality: z.enum(["material", "supporting"]),
     text: BilingualPublicTextSchema,
+    falsifier: BilingualPublicTextSchema.optional(),
+    countercase: BilingualPublicTextSchema.optional(),
     evidence: z.array(FixedEvidenceSliceSchema).min(1).max(64).readonly(),
   })
   .strict()
@@ -70,6 +73,8 @@ export const SemanticQuestionInputSchema = z
 export const SemanticAuditPromptSchema = z
   .object({
     kind: z.literal("semantic_audit_input_v1"),
+    question: z.string().optional(),
+    researchBrief: ResearchBriefSchema.optional(),
     structuralAuditHash: z.string().regex(/^[a-f0-9]{64}$/),
     sourceArtifactIds: z.array(ArtifactIdSchema).max(64).readonly(),
     claims: z.array(SemanticClaimInputSchema).min(1).max(128).readonly(),
@@ -129,10 +134,14 @@ export function semanticAuditModelPrompt(prompt: SemanticAuditPrompt): string {
   };
   return JSON.stringify({
     kind: prompt.kind,
+    question: prompt.question,
+    researchBrief: prompt.researchBrief,
     claims: prompt.claims.map((claim) => ({
       claimId: claim.claimId,
       materiality: claim.materiality,
       text: claim.text,
+      falsifier: claim.falsifier,
+      countercase: claim.countercase,
       evidence: claim.evidence.map((evidence) => ({
         evidenceKey: evidenceKey(evidence.exactText),
         relation: evidence.relation,
@@ -140,7 +149,13 @@ export function semanticAuditModelPrompt(prompt: SemanticAuditPrompt): string {
     })),
     evidenceCatalog,
     questions: prompt.questions,
-    instructions: prompt.instructions,
+    instructions: [
+      prompt.instructions,
+      "Audit meaning, not merely whether a number appears in the source. The question and researchBrief define the subject and purpose; they are not factual evidence. Reject a mistaken product/event identity or a material conclusion answering a different question. A contextual observation need not alone answer the whole question.",
+      "For each claim inspect its falsifier and countercase. Simulate the falsifier: if it would reinforce the thesis while the text says it weakens it, verdict is contradicted with severe contradiction. The same applies to comparing quarterly with annual/NTM earnings or incompatible accounting bases. Do not approve a logically reversed condition merely because its numbers exist.",
+      "Check entity, fiscal period, units, GAAP versus adjusted basis and whether the claimed latest period is actually latest in the evidence. A fact cited accurately but used to infer an unsupported causal mechanism is partial or not_assessable; an explicitly wrong inference is contradicted. Distinguish an opposing observation from a risk supporting the same conclusion. Explain the exact defect, not a generic confidence statement.",
+      "Use entailed only when the thesis and its attached logic are supported. Do not grade by team vote or agreement. Missing business KPI evidence warrants a concrete limitation, not an invented value. Preserve genuine interpretation when the stated uncertainty is appropriate.",
+    ].join("\n"),
   });
 }
 

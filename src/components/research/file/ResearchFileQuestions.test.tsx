@@ -42,7 +42,7 @@ describe("ResearchFileQuestions persisted workflow-v2 presentation", () => {
     expect(container.querySelector("details")).toBeNull();
   });
 
-  it("omits the module when fewer than five persisted answers are supported", () => {
+  it("shows supported answers even when fewer than five exist", () => {
     // Given
     const file = {
       ...fixtureData.report,
@@ -56,6 +56,7 @@ describe("ResearchFileQuestions persisted workflow-v2 presentation", () => {
     );
 
     // Then
-    expect(container).toBeEmptyDOMElement();
+    expect(container.querySelectorAll("article")).toHaveLength(4);
+    expect(screen.getByText("Persisted question 4")).toBeVisible();
   });
 });

@@ -71,12 +71,11 @@ describe("isolated Codex runner", () => {
 
   it("enables audited web only for source gathering and intent-routed questions", () => {
     // Given
-    const allowed = ["memo", "qa"] as const;
+    const allowed = ["memo", "follow_up", "qa"] as const;
     const forbidden = [
       "department_consolidation",
       "blind_challenge",
       "owner_response_ballot",
-      "follow_up",
       "semantic_audit",
       "chair_synthesis",
       "probe",

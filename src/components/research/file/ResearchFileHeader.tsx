@@ -27,6 +27,22 @@ type Props = {
   }[];
 };
 
+function reportAsOf(value: string, locale: Locale): string {
+  if (!/^\d{4}-\d{2}-\d{2}T/u.test(value)) return value;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return value;
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+    timeZone: locale === "ko" ? "Asia/Seoul" : "UTC",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  }).format(date);
+}
+
 function publicConclusionLabel(
   model: ResearchFileEditorialModel,
   locale: Locale,
@@ -101,7 +117,7 @@ export function ResearchFileHeader({
             </div>
             <div>
               <dt>{ko ? "기준 시각" : "As of"}</dt>
-              <dd>{file.asOf[locale]}</dd>
+              <dd>{reportAsOf(file.asOf[locale], locale)}</dd>
             </div>
           </dl>
           <fieldset className="research-theme-toggle">
@@ -158,13 +174,21 @@ export function ResearchFileHeader({
                       locale={locale}
                     />
                   </dt>
-                  <dd>{model.conclusionIndex}/100</dd>
+                  <dd>
+                    {model.structuredDecision === undefined
+                      ? `${model.conclusionIndex}/100`
+                      : {
+                          high: ko ? "높음" : "High",
+                          medium: ko ? "보통" : "Medium",
+                          low: ko ? "낮음" : "Low",
+                        }[model.structuredDecision.confidence]}
+                  </dd>
                 </div>
                 <div>
                   <dt>
                     <ResearchTermHelp
                       term="evidenceReliability"
-                      label={ko ? "근거 신뢰도" : "Evidence reliability"}
+                      label={ko ? "근거 검증 지표" : "Evidence audit score"}
                       locale={locale}
                     />
                   </dt>

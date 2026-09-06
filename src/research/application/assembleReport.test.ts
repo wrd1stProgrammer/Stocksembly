@@ -73,7 +73,7 @@ describe("persistAuthoritativeReport", () => {
     ]);
   });
 
-  it("publishes a recovered editorial subset when the chair decision cites a removed claim", () => {
+  it("rejects publication when the decisive claim is absent instead of assigning unrelated evidence", () => {
     const input = makeAuthoritativeReportInput();
     const baseline = assembleReport(input);
     expect(baseline.kind).toBe("assembled");
@@ -107,20 +107,15 @@ describe("persistAuthoritativeReport", () => {
       schemaVersion: "workflow-v1",
     });
 
-    const result = composeWorkflowV2Report({
-      legacyReport,
-      chair,
-      chairSentences,
-      comparators: [],
-      editorialClaims: input.editorialClaims,
-    });
-
-    expect(result.report.editorialDecision.primaryClaimIds).toEqual([
-      publishedClaimId,
-    ]);
-    expect(
-      result.envelope.candidate.sections.flatMap((section) => section.claimIds),
-    ).not.toContain(removedClaimId);
+    expect(() =>
+      composeWorkflowV2Report({
+        legacyReport,
+        chair,
+        chairSentences,
+        comparators: [],
+        editorialClaims: input.editorialClaims,
+      }),
+    ).toThrow("chair_primary_claim_missing_from_publication");
   });
 
   it.each(["en", "ko"] as const)(

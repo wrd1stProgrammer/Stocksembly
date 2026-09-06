@@ -199,12 +199,18 @@ export function DepartmentResearchDesk({
     {
       id: "case",
       label: ko ? "현재 판단의 근거" : "Why this view holds",
-      value: firstDistinct(
-        decision?.decisiveReason[locale],
-        team?.rationale[locale],
-        team?.position[locale],
-        file.expectation[locale],
-      ),
+      value:
+        firstDistinct(
+          ...claims
+            .filter((claim) =>
+              decision?.primaryClaimIds.some((id) => id === claim.id),
+            )
+            .map((claim) => claim.thesis),
+          decision?.decisiveReason[locale],
+        ) ||
+        decision?.decisiveReason[locale] ||
+        team?.position[locale] ||
+        "",
     },
     {
       id: "countercase",
@@ -318,7 +324,7 @@ export function DepartmentResearchDesk({
       >
         <header className={styles["decisionHeader"]}>
           <div>
-            <span>{ko ? "투자 판단 보드" : "INVESTMENT DECISION BOARD"}</span>
+            <span>{ko ? "팀 판단" : "TEAM ASSESSMENT"}</span>
             <h2>{stanceLabel(decision?.stance, locale)}</h2>
           </div>
         </header>

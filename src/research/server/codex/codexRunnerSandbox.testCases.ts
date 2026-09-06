@@ -192,7 +192,7 @@ export function registerSandboxTests(): void {
       const passwordFile = "/private/etc/passwd";
       const projectSentinel = join(
         process.cwd(),
-        ".omo/evidence/start-work/live-research-office/task-17/sandbox-project-sentinel",
+        `.stocksembly-sandbox-project-sentinel-${process.pid}`,
       );
       const homeSentinel = join(
         homedir(),

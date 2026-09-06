@@ -111,6 +111,7 @@ export type EditorialVisualMetric = {
     | "expectations";
   readonly signal: "higher_better" | "lower_better" | "contextual";
   readonly barPercent?: number;
+  readonly period?: string;
 };
 
 export type EditorialEvidenceBalance = {
@@ -856,6 +857,7 @@ function visualMetric(
     ),
     category: metric.category,
     signal: metric.signal,
+    ...(metric.period === undefined ? {} : { period: metric.period }),
     ...(barPercent === undefined ? {} : { barPercent }),
   };
 }
@@ -1236,43 +1238,10 @@ function buildWorkflowV2EditorialModel(
           ),
       ),
   );
-  const sectionCopy = (
-    item: ResearchFileData["analysis"][number] | undefined,
-  ) =>
-    item === undefined
-      ? ""
-      : dedupeEditorialTexts([text(item.summary), text(item.detail)]).join(" ");
   const narrativeById = (id: string) =>
     structured.sectionNarratives?.find((section) => section.id === id)?.body[
       locale
     ] ?? "";
-  const sectionMatching = (pattern: RegExp, fallbackIndex: number) =>
-    file.analysis.find((item) => pattern.test(text(item.title))) ??
-    file.analysis[fallbackIndex];
-  const supportedSection = sectionMatching(/supported|analysis|판단|분석/iu, 0);
-  const valuationSection = sectionMatching(
-    /valuation|comparison|expectation|밸류|가치|비교|기대/iu,
-    1,
-  );
-  const operatingSection = sectionMatching(
-    /operat|scenario|path|실적|운영|시나리오|경로/iu,
-    2,
-  );
-  const distinctCandidate = (
-    candidates: readonly (string | undefined)[],
-    references: readonly string[],
-  ) =>
-    candidates
-      .map((candidate) => compactEditorialText(candidate ?? "", 2))
-      .find(
-        (candidate) =>
-          candidate.length > 0 &&
-          references.every(
-            (reference) =>
-              reference.length === 0 ||
-              !editoriallySimilar(candidate, reference),
-          ),
-      ) ?? "";
   const teams: readonly EditorialTeamRow[] = file.teamViews.map((team) => ({
     departmentId: team.departmentId,
     teamName: text(team.teamName),
@@ -1281,70 +1250,42 @@ function buildWorkflowV2EditorialModel(
     evidence: text(team.rationale),
     portraitPath: `/research/office-v7/portraits/${team.departmentId}.png`,
   }));
-  const supportClaims = displayClaims.filter(
-    (claim) => claim.stanceContribution === "supports",
-  );
-  const opposingClaims = displayClaims.filter(
-    (claim) => claim.stanceContribution === "opposes",
-  );
-  const usedClaimEvidence: string[] = [];
-  const usedCounterpoints: string[] = [];
   const claimRows: readonly EditorialAnalysisRow[] = displayClaims.map(
-    (claim, index) => {
+    (claim) => {
+      const registered = structured.claimRegister.find(
+        (entry) => entry.claimId === claim.claimId,
+      );
+      const audited = file.claimMatrix?.find(
+        (entry) => entry.id === claim.claimId,
+      );
+      const linkedSection = structured.sectionNarratives?.find(
+        (section) =>
+          section.claimIds?.includes(claim.claimId) &&
+          section.id !== "ten_second_brief" &&
+          section.id !== "synthesis",
+      );
       const thesis = text(claim.publicThesis);
-      const checkpoint = text(claim.falsifier);
-      const role = workflowRoleById(claim.roleOwner);
-      const team = teams.find(
-        (candidate) => candidate.departmentId === role?.departmentId,
-      );
-      const oppositePool =
-        claim.stanceContribution === "opposes" ? supportClaims : opposingClaims;
-      const opposite = oppositePool[index % Math.max(oppositePool.length, 1)];
-      const counterpoint = distinctCandidate(
+      const evidence =
         [
-          opposite === undefined ? undefined : text(opposite.publicThesis),
-          text(structured.decision.strongestCountercase),
-          team?.strongestClaim,
-          checkpoint,
-        ],
-        [thesis, ...usedCounterpoints],
-      );
-      const dimensionSection =
-        claim.decisionDimension === "embedded_expectations"
-          ? valuationSection
-          : ["catalyst", "leading_indicator", "downside_path"].includes(
-                claim.decisionDimension,
-              )
-            ? operatingSection
-            : supportedSection;
-      const evidence = distinctCandidate(
-        [
-          dimensionSection === undefined
-            ? undefined
-            : text(dimensionSection.detail),
-          dimensionSection === undefined
-            ? undefined
-            : text(dimensionSection.summary),
-          team?.evidence,
-          sectionCopy(file.analysis[index % Math.max(file.analysis.length, 1)]),
-        ],
-        [thesis, counterpoint, checkpoint, ...usedClaimEvidence],
-      );
-      const resolvedEvidence = evidence || team?.evidence || thesis;
-      const resolvedCounterpoint = counterpoint || checkpoint;
-      usedClaimEvidence.push(resolvedEvidence);
-      usedCounterpoints.push(resolvedCounterpoint);
+          registered?.text === undefined ? "" : text(registered.text),
+          linkedSection === undefined ? "" : text(linkedSection.body),
+        ].find(
+          (candidate) =>
+            candidate.trim().length > 0 &&
+            !editoriallySimilar(candidate, thesis),
+        ) ?? "";
       return {
         id: claim.claimId,
         title: publicDecisionDimensionLabel(claim.decisionDimension, locale),
         agentView: thesis,
-        evidence: resolvedEvidence,
-        counterpoint: resolvedCounterpoint,
-        checkpoint,
-        evidenceId: claim.claimId,
-        strength:
-          file.claimMatrix?.find((candidate) => candidate.id === claim.claimId)
-            ?.strength ?? "moderate",
+        evidence,
+        counterpoint:
+          audited?.counterpoint === undefined ? "" : text(audited.counterpoint),
+        checkpoint: text(claim.falsifier),
+        ...(claim.evidenceArtifactIds[0] === undefined
+          ? {}
+          : { evidenceId: claim.evidenceArtifactIds[0] }),
+        strength: audited?.strength ?? "unverified",
       };
     },
   );
@@ -1485,7 +1426,7 @@ function buildWorkflowV2EditorialModel(
     valuationConclusion:
       valuationClaim === undefined
         ? compactEditorialText(
-            sectionCopy(valuationSection) ||
+            narrativeById("valuation_comparison") ||
               text(
                 financialClaim?.publicThesis ??
                   structured.decision.decisiveReason,
@@ -1505,10 +1446,14 @@ function buildWorkflowV2EditorialModel(
     debates: [],
     initialView: directAnswer,
     finalView: directAnswer,
-    acceptedClaims: supportClaims.map((claim) => text(claim.publicThesis)),
+    acceptedClaims: displayClaims
+      .filter((claim) => claim.stanceContribution === "supports")
+      .map((claim) => text(claim.publicThesis)),
     preservedDissent: [
       countercase,
-      ...opposingClaims.map((claim) => text(claim.publicThesis)),
+      ...displayClaims
+        .filter((claim) => claim.stanceContribution === "opposes")
+        .map((claim) => text(claim.publicThesis)),
     ],
     evidenceIndex: sourceIndex,
     sourceGroups: sourceGroups(file, sourceIndex, locale),

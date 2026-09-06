@@ -1,3 +1,4 @@
+import { ResearchBriefSchema } from "../domain/researchBrief";
 import { z } from "zod";
 import {
   ChairConflictAdjudicationSchema,
@@ -82,6 +83,7 @@ export const ChairSynthesisPromptSchema = z
       .object({
         mandateHash: z.string().regex(/^[a-f0-9]{64}$/),
         question: z.string().min(1).max(500).optional(),
+        researchBrief: ResearchBriefSchema.optional(),
         scope: z.enum(["broad", "focused"]),
         locale: z.enum(["en", "ko"]),
         researchProfile: ResearchProfileSchema.default(
@@ -110,6 +112,20 @@ export const ChairSynthesisPromptSchema = z
       .readonly(),
     recoveryMetadata: ChairRecoveryMetadataSchema.optional(),
     investmentModel: UniversalInvestmentModelSchema.optional(),
+    adjudicatedRevisions: z
+      .array(
+        z
+          .object({
+            originClaimId: ClaimIdSchema,
+            adjudicatedClaimId: ClaimIdSchema,
+            publicSummary: BilingualPublicTextSchema,
+            falsifier: BilingualPublicTextSchema,
+            sourceArtifactIds: z.array(ArtifactIdSchema).min(1).readonly(),
+          })
+          .readonly(),
+      )
+      .readonly()
+      .default([]),
     auditedClaimIds: z.array(ClaimIdSchema).min(1).readonly(),
     departmentPositions: z
       .array(
@@ -254,6 +270,7 @@ export function chairSynthesisV3Prompt(
         instruction:
           "Return one JSON object whose candidateJson value is a JSON-encoded string containing the canonical chair response described below.",
       },
+      canonicalSchema: z.toJSONSchema(ChairSynthesisV3RawModelOutputSchema),
       narrativeLocales: [input.sourceLocale],
       requiredStances: [
         "upside_skewed",
@@ -262,7 +279,9 @@ export function chairSynthesisV3Prompt(
         "insufficient_evidence",
       ],
       requirements: [
+        "candidateJson must decode to exactly the canonicalSchema above: kind is chair_synthesis_v3; decisiveReason, strongestCountercase, invalidationCheckpoint and decisionLineage are required. Every section uses one allowed sectionKey, narrative, and a lineage OBJECT, never sectionId/title or a lineage array.",
         "Write every public narrative exactly once in sourceLocale.",
+        "Answer mandate.question and researchBrief with the final conclusion, countercase and invalidationCheckpoint as one coherent judgment. For a long-term question, use business execution, adoption, margins, cash generation or valuation assumptions as the main change condition. Intraday chart recovery cannot overturn a long-term business thesis. Keep the change_conditions section consistent with invalidationCheckpoint.",
         "Return one position and rationale for each of the four departments in sourceLocale.",
         "Lead with the direct evidence-weighted conclusion even when teams are not unanimous.",
         "Keep the strongest countercase separate and put all conditions and caveats in the single invalidationCheckpoint.",

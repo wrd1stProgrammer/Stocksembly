@@ -1,3 +1,4 @@
+import { loadResearchMandateAtPath } from "./chairSynthesisArtifacts";
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
 import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { createLeaseEngine } from "../worker/leaseEngine";
@@ -96,6 +97,7 @@ export function createSqliteDepartmentRound(
         input.runId,
         first.snapshot_id,
         authenticated.prompts,
+        loadResearchMandateAtPath(options.databasePath, input.runId),
       );
       const staged = departmentAuthority.stageJobs(
         input.runId,

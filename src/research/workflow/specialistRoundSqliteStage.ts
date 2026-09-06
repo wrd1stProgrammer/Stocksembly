@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { hashBytes } from "../domain/contractHelpers";
 import { EventIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { researchEvidenceExcerpt } from "../domain/researchEvidenceExcerpt";
+import { researchFinancialBoard } from "../domain/researchFinancialBoard";
 import { analyticalResearchProfile } from "../domain/researchProfile";
 import { workflowRoleById } from "../domain/roleRegistry";
 import { TEAM_CORE_DATA } from "../domain/teamCoreData";
@@ -10,7 +12,10 @@ import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/
 import type { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
 import { qualifyComparatorsBeforeSynthesis } from "./preSynthesisComparatorQualification";
 import type { SpecialistRoundInput } from "./specialistRound";
-import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
+import {
+  type SpecialistJobRequest,
+  SpecialistMemoOutputSchema,
+} from "./specialistRoundContracts";
 import {
   specialistRequest,
   validateSpecialistRoundInput,
@@ -37,6 +42,24 @@ type StageContext = {
   readonly authority: SpecialistRoundSqliteAuthority;
 };
 
+export function specialistPromptRequest(request: SpecialistJobRequest) {
+  return {
+    ...request,
+    registeredValues: request.registeredValues.map((value) => ({
+      valueId: value.valueId,
+      metric: value.metric,
+      value: value.value,
+      unit: value.unit,
+      period: value.period,
+      source: value.source,
+      accession: value.accession,
+      form: value.form,
+      acceptedAt: value.acceptedAt,
+      formula: value.formula,
+    })),
+  };
+}
+
 const MAX_INLINE_EVIDENCE_BYTES = 72_000;
 const MAX_INLINE_SOURCE_CHARS = 12_000;
 const SPECIALIST_PROMPT_HEADROOM_BYTES = 16 * 1_024;
@@ -56,29 +79,6 @@ export function specialistInlineEvidenceBudget(
   );
 }
 
-function filingExcerpt(
-  text: string,
-  focusAreas: readonly string[],
-  maxChars: number,
-): string {
-  const windows: string[] = [text.slice(0, 12_000)];
-  const lowered = text.toLowerCase();
-  const terms = [
-    ...focusAreas.flatMap((area) => area.split("_")),
-    "revenue",
-    "risk",
-    "competition",
-    "cash flow",
-  ];
-  for (const term of [...new Set(terms)]) {
-    const index = lowered.indexOf(term.toLowerCase());
-    if (index < 0) continue;
-    windows.push(text.slice(Math.max(0, index - 3_000), index + 9_000));
-    if (windows.join("\n").length >= maxChars) break;
-  }
-  return windows.join("\n\n").slice(0, maxChars);
-}
-
 function inlineSource(
   source: SpecialistSourceArtifact,
   focusAreas: readonly string[],
@@ -95,7 +95,7 @@ function inlineSource(
       };
     };
     if (typeof parsed.value?.text === "string")
-      return filingExcerpt(parsed.value.text, focusAreas, maxChars);
+      return researchEvidenceExcerpt(parsed.value.text, focusAreas, maxChars);
     if (parsed.value?.selectedFacts !== undefined)
       return "Use the registeredValues in the request for normalized financial evidence.";
     return JSON.stringify(parsed.value ?? parsed).slice(0, maxChars);
@@ -237,7 +237,10 @@ export function prepareSpecialistJobs(
       },
     );
     const promptSections = [
-      JSON.stringify({ request, sourceArtifactIds }),
+      JSON.stringify({
+        request: specialistPromptRequest(request),
+        sourceArtifactIds,
+      }),
       "",
       "Permitted sealed evidence excerpts are inlined below. Native hosted web search may be used for public context; do not call any other tool or read files.",
       "For sourceArtifactIds and evidenceArtifactIds, copy only exact UUIDs from the top-level sourceArtifactIds allowlist. contentHash, rawHash, and normalizedHash values are integrity metadata, not citation IDs, and must never be cited or converted into UUIDs.",
@@ -246,6 +249,11 @@ export function prepareSpecialistJobs(
       "Claims from the same role must not restate one another. Give each slot a different mechanism, metric combination, investor implication, and falsifier; do not split one sentence into several cosmetic claims.",
       `CUSTOM RESEARCH PROFILE ${JSON.stringify(analyticalResearchProfile(request.mandate.researchProfile))}`,
       "The explanationMode metadata is reserved for final reader-facing copy. It must not reduce evidence breadth, analytical rigor, disagreement, or falsification work in this specialist stage.",
+      "Use mandate.researchBrief as the shared investigation plan, not as a factual source. Resolve its unknown entities through an issuer primary document before interpreting them. Preserve the original product/event subject across languages. Investigate the role-owned crux, including the best opposing explanation. If a decision-changing business KPI is missing, use at most two focused hosted searches, open the primary issuer source and report the result or precise unresolved item. Do not use an older annual figure to stand in for an available latest quarter. Distinguish management claims, disclosed results and your interpretation.",
+      "Build each thesis as observation -> causal mechanism -> economic implication for this question. For capital investment, distinguish spending from realized return; for cash conversion, inspect working capital and period comparability; for valuation, identify what observed price requires and separate calculated assumptions from consensus. A ratio alone is not a causal explanation.",
+      "Before submitting a falsifier, assume its event happened: it must weaken this exact thesis, not strengthen it. State both the observation and the resulting change in judgment. Never compare quarterly EPS with annual or next-twelve-month EPS. Use observable direction when no defensible numerical threshold exists; do not invent a threshold to fill the field.",
+      "The user's question defines the decision being researched. For financial-health questions, assess earnings quality, liquidity, debt and cash conversion; do not turn financial strength into a buy recommendation. For long-term position sizing, intraday price action is entry context and cannot be the decisive investment thesis.",
+      "Every financial observation must state its fiscal period and accounting basis. The retrieval date is not the fiscal period. Latest means the greatest period end for that metric, not the last array entry. For cash conversion, use operating cash flow and net income for the exact same quarter; distinguish a registered quarter_from_ytd calculation from reported YTD. Never describe an older available ratio as the latest quarter. Do not divide FQ by TTM or mix GAAP and adjusted earnings; retain the magnitude when translating billion/million into 억/조.",
       "Apply the custom profile to analysis, not merely wording. short emphasizes the next catalyst and timing; medium emphasizes the next two to four reporting periods; long emphasizes moat, reinvestment, and terminal economics. new_entry requires entry prerequisites and valuation tolerance; holding_review requires thesis health and hold-or-reassess triggers; position_sizing requires asymmetry, concentration risk, and add/reduce conditions; earnings requires the dated earnings calendar, available estimates, recent filing, and the metric most likely to move the thesis before versus after the release.",
       "When counterargumentIntensity is strong, spend material analytical weight on the strongest evidence-backed opposing case and identify what the consensus view may be missing. Do not manufacture symmetry when one side is better supported.",
       "When analysisDepth is core, prioritize the single decisive claim and only add a distinct supporting claim when it changes the decision. For standard, cover every required slot. For deep, fill every slot and connect the mechanism to a measurable investor implication.",
@@ -261,6 +269,8 @@ export function prepareSpecialistJobs(
       "Use only exact request.registeredValues[].valueId values in decisiveMetricIds. If no registered value directly supports the claim, return decisiveMetricIds as an empty array.",
       "Every percentage in publicSummary must equal a selected registered value for the same metric and period. Never infer a growth rate from an unrelated total, a different period, or prose context; omit the percentage when no matching registered value exists.",
       `TEAM DATA CONTRACT ${JSON.stringify(teamData)}`,
+      `COMPARABLE FINANCIAL SERIES ${JSON.stringify(researchFinancialBoard(request.registeredValues))}`,
+      "The financial series references the same registeredValues, sorted newest first within each metric. Compare the latest quarter with a comparable prior quarter and year-ago quarter where available; FY, Q, YTD, TTM and instant records are separate. Explain drivers of change rather than relabeling a historical level as a current trend. Do not calculate a new percentage unless its exact registry value exists.",
       "Use the available team datasets and metrics in that contract as the team's decision board. Check all inlined evidence before deciding a contracted metric is absent; when it is absent, name the concrete observable trigger that would resolve the claim.",
       "Licensed news is an event input, not a summary assignment. State what changed, connect it to this role's owned metric or mechanism, and give the next observable confirmation. Never restate a headline as analysis.",
       "A material event may be routed to several departments. Stay inside this role's decision dimensions and do not reproduce another team's likely interpretation: market owns price, volume, and relative reaction; company owns demand, product, customer, and competition; financial owns revenue, margin, cash flow, estimates, and capital allocation; risk owns downside transmission and mitigants.",
@@ -336,7 +346,13 @@ export function prepareSpecialistJobs(
         );
         const content = inlineSource(
           source,
-          assignment.focusAreas,
+          [
+            ...(request.mandate.researchBrief?.cruxes.flatMap(
+              (crux) => crux.searchTerms,
+            ) ?? []),
+            request.mandate.question ?? "",
+            ...assignment.focusAreas,
+          ],
           availableChars,
         );
         const block = [prefix, content].join("\n");

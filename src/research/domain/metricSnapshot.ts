@@ -553,9 +553,17 @@ export function buildResearchMetricSnapshot(input: {
         id: definition.id,
         label: definition.label,
         category: definition.category,
-        value,
+        value:
+          definition.id === "capital_expenditures" ? Math.abs(value) : value,
         unit: definition.unit,
-        ...(indicator.period === undefined ? {} : { period: indicator.period }),
+        ...((indicator.period ?? /_(ttm|fq|fy)$/iu.exec(indicator.id)?.[1]) ===
+        undefined
+          ? {}
+          : {
+              period:
+                indicator.period ??
+                /_(ttm|fq|fy)$/iu.exec(indicator.id)?.[1]?.toUpperCase(),
+            }),
         observedAt: fundamentals.data.providerUpdatedAt,
         source: "insightsentry",
         signal: definition.signal,
@@ -742,4 +750,20 @@ export function buildResearchMetricSnapshot(input: {
       ? {}
       : { comparatorQualification }),
   });
+}
+
+export function metricsSharePeriod(
+  ...metrics: readonly (ResearchMetricPoint | undefined)[]
+): boolean {
+  const first = metrics[0];
+  if (first?.period === undefined || first.period.trim() === "") return false;
+  const period = first.period.trim().toUpperCase();
+  return metrics.every(
+    (metric) =>
+      metric !== undefined &&
+      metric.period?.trim().toUpperCase() === period &&
+      (!/^(TTM|FQ|FY)$/u.test(period) ||
+        (metric.source === first.source &&
+          metric.observedAt === first.observedAt)),
+  );
 }

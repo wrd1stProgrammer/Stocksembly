@@ -7,6 +7,7 @@ import {
   normalizeResearchProfile,
   publicExplanationPolicy,
   withQuestionComparisonSymbols,
+  withQuestionIntent,
 } from "./researchProfile";
 
 describe("research profile question comparators", () => {
@@ -61,5 +62,38 @@ describe("research explanation mode", () => {
       defineSpecializedTerms: true,
       preserveAnalyticalDepth: true,
     });
+  });
+});
+
+describe("research question intent", () => {
+  it("recovers long-term position sizing from a question with default controls", () => {
+    expect(
+      withQuestionIntent(
+        DEFAULT_RESEARCH_PROFILE,
+        "사이버캡 이슈로 올랐던데 물량 더 가져갈까 장기적으로?",
+      ),
+    ).toMatchObject({
+      investmentHorizon: "long",
+      decisionPurpose: "position_sizing",
+    });
+  });
+  it("preserves nondefault controls and does not guess an ambiguous horizon", () => {
+    expect(
+      withQuestionIntent(
+        {
+          ...DEFAULT_RESEARCH_PROFILE,
+          investmentHorizon: "short",
+          decisionPurpose: "earnings",
+        },
+        "장기 보유 비중",
+      ),
+    ).toMatchObject({
+      investmentHorizon: "short",
+      decisionPurpose: "earnings",
+    });
+    expect(
+      withQuestionIntent(DEFAULT_RESEARCH_PROFILE, "단기와 장기 전망")
+        .investmentHorizon,
+    ).toBe("medium");
   });
 });

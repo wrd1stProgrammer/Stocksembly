@@ -50,23 +50,6 @@ function editorialTextKey(value: string): string {
     .trim();
 }
 
-function looksLikeInternalIds(value: string): boolean {
-  return /^[\da-f-]{20,}(?:\s*,\s*[\da-f-]{20,})*$/iu.test(value.trim());
-}
-
-function departmentForRole(
-  roleId: string | undefined,
-): "market" | "company" | "financial" | "risk" | undefined {
-  if (roleId === undefined) return undefined;
-  if (["market", "market_news", "benchmark"].includes(roleId)) return "market";
-  if (["company", "company_product", "company_competition"].includes(roleId))
-    return "company";
-  if (["financial", "valuation", "financial_quality"].includes(roleId))
-    return "financial";
-  if (["risk", "risk_policy"].includes(roleId)) return "risk";
-  return undefined;
-}
-
 function metricWithId(
   metrics: readonly EditorialVisualMetric[],
   ...ids: readonly string[]
@@ -215,14 +198,14 @@ export function CommitteeDecisionCockpit({
     {
       id: "invalidate",
       label: ko ? "판단 무효화" : "Invalidation",
-      headline: view.drivers[0]?.falsifier ?? decisionFalsifier,
+      headline: decisionFalsifier,
       detail: decisionFalsifier,
     },
   ];
   const expectationLenses = [
     {
       id: "priced",
-      label: ko ? "컨센서스가 요구하는 숫자" : "Numbers priced in",
+      label: ko ? "시장 컨센서스" : "Consensus estimates",
       value: model.metricGroups.expectations
         .slice(0, 3)
         .map((metric) => `${metric.label} ${metric.value}`)
@@ -230,7 +213,7 @@ export function CommitteeDecisionCockpit({
     },
     {
       id: "delivery",
-      label: ko ? "실적이 증명해야 할 숫자" : "Operating proof required",
+      label: ko ? "최근 실적 지표" : "Recent operating results",
       value: model.metricGroups.financial
         .slice(0, 3)
         .map((metric) => `${metric.label} ${metric.value}`)
@@ -265,12 +248,15 @@ export function CommitteeDecisionCockpit({
   const claimLedgerRows = model.analysisRows
     .filter((item) => !driverThesisKeys.has(editorialTextKey(item.agentView)))
     .slice(0, 4);
+  const primaryDecisionClaim = model.structuredClaims?.find((claim) =>
+    model.structuredDecision?.primaryClaimIds.includes(claim.claimId),
+  );
   const primaryDecisionVariable =
-    view.drivers[0] === undefined
+    primaryDecisionClaim === undefined
       ? ko
         ? "핵심 논지"
         : "Core thesis"
-      : dimensionLabel(view.drivers[0].decisionDimension, locale);
+      : dimensionLabel(primaryDecisionClaim.decisionDimension, locale);
   const nextDecisionCheck =
     view.nextEvent?.date ??
     (model.nextVerificationEvent.trim().length > 0
@@ -423,16 +409,12 @@ export function CommitteeDecisionCockpit({
           <article className="committee-cockpit__opinion">
             <header className="committee-cockpit__section-heading">
               <i aria-hidden="true" />
-              <span>{ko ? "투자 의견" : "Investment view"}</span>
+              <span>{ko ? "질문에 대한 답" : "Answer to the question"}</span>
             </header>
             <div className="committee-cockpit__opinion-lead">
               {model.investmentView.map((paragraph) => (
                 <p key={editorialTextKey(paragraph)}>{paragraph}</p>
               ))}
-            </div>
-            <div className="committee-cockpit__countercase">
-              <strong>{ko ? "가장 강한 반론" : "Strongest countercase"}</strong>
-              <p>{view.countercase}</p>
             </div>
 
             <header className="committee-cockpit__drivers-intro">
@@ -472,6 +454,14 @@ export function CommitteeDecisionCockpit({
                 </li>
               ))}
             </ol>
+            <div className="committee-cockpit__countercase">
+              <strong>{ko ? "가장 강한 반론" : "Strongest countercase"}</strong>
+              <p>{view.countercase}</p>
+            </div>
+            <div className="committee-cockpit__countercase">
+              <strong>{ko ? "판단을 바꿀 조건" : "What would change the view"}</strong>
+              <p>{decisionFalsifier}</p>
+            </div>
           </article>
 
           <aside className="committee-cockpit__snapshot">
@@ -550,122 +540,10 @@ export function CommitteeDecisionCockpit({
               const structuredClaim = file.structuredEditorial?.claims.find(
                 (claim) => claim.claimId === item.id,
               );
-              const driver = view.drivers.find(
-                (candidate) => candidate.id === item.id,
-              );
-              const department =
-                driver?.departmentId ??
-                departmentForRole(structuredClaim?.roleOwner);
-              const teamRead = view.adjudicationRows.find(
-                (row) => row.departmentId === department,
-              );
-              const allMetrics = Object.values(model.metricGroups).flat();
-              const dimensionKey = item.title
-                .trim()
-                .toLowerCase()
-                .replaceAll(" ", "_");
-              const preferredMetricPatterns: readonly RegExp[] =
-                dimensionKey === "relative_performance"
-                  ? [
-                      /current_price|현재가|observed_price/iu,
-                      /change|전일/iu,
-                      /3_month|3개월/iu,
-                    ]
-                  : dimensionKey === "growth_engine"
-                    ? [
-                        /revenue_growth|매출_성장|매출 성장/iu,
-                        /revenue_ttm|최근_12개월_매출|최근 12개월 매출/iu,
-                        /services.*share|services.*비중/iu,
-                      ]
-                    : dimensionKey === "moat"
-                      ? [
-                          /services.*share|services.*비중/iu,
-                          /gross_margin|매출총이익률/iu,
-                          /operating_margin|영업이익률/iu,
-                        ]
-                      : dimensionKey === "adoption"
-                        ? [
-                            /iphone.*share|iphone.*비중/iu,
-                            /services.*share|services.*비중/iu,
-                            /revenue_growth|매출_성장|매출 성장/iu,
-                          ]
-                        : [];
-              const preferredMetrics = preferredMetricPatterns.flatMap(
-                (pattern) => {
-                  const metric = allMetrics.find((candidate) =>
-                    pattern.test(`${candidate.id} ${candidate.label}`),
-                  );
-                  return metric === undefined ? [] : [metric];
-                },
-              );
-              const decisiveMetrics =
-                structuredClaim?.decisiveMetricIds.flatMap((metricId) => {
-                  const metric = allMetrics.find(
-                    (candidate) =>
-                      candidate.id === metricId ||
-                      candidate.id.startsWith(`${metricId}:`),
-                  );
-                  return metric === undefined ? [] : [metric];
-                }) ?? [];
-              const supportingMetrics =
-                preferredMetrics.length > 0
-                  ? preferredMetrics
-                  : decisiveMetrics.length > 0
-                    ? decisiveMetrics
-                    : department === undefined
-                      ? []
-                      : model.metricGroups[department].slice(0, 3);
-              const metricEvidence = supportingMetrics
-                .slice(0, 3)
-                .map((metric) => `${metric.label} ${metric.value}`)
-                .join(" · ");
-              const repeatedEvidence =
-                editorialTextKey(item.evidence) ===
-                editorialTextKey(item.agentView);
-              const observedEvidence = repeatedEvidence
-                ? metricEvidence || teamRead?.evidence || item.evidence
-                : item.evidence;
-              const suppliedCounterpoint =
-                item.counterpoint.trim().length > 0 &&
-                !looksLikeInternalIds(item.counterpoint)
-                  ? item.counterpoint
-                  : "";
-              const repeatedDriverWhy =
-                driver !== undefined &&
-                view.drivers.some(
-                  (candidate) =>
-                    candidate.rank < driver.rank &&
-                    editorialTextKey(candidate.why) ===
-                      editorialTextKey(driver.why),
-                );
-              const dimensionCounterpoint =
-                dimensionKey === "moat"
-                  ? view.countercase
-                  : dimensionKey === "adoption"
-                    ? ko
-                      ? "제품·서비스 매출 증가는 확산의 방향을 보여주지만, 설치 기반·활성 사용자·반복 이용 지표 없이는 확산의 깊이까지 확인할 수 없습니다."
-                      : "Product and services growth shows direction, but adoption depth still needs installed-base, active-user, or repeat-usage evidence."
-                    : "";
-              const counterpoint =
-                [
-                  suppliedCounterpoint,
-                  dimensionCounterpoint,
-                  driver?.falsifier,
-                  repeatedDriverWhy ? "" : driver?.why,
-                  view.countercase,
-                  teamRead?.strongestClaim,
-                ]
-                  .map((candidate) => candidate?.trim() ?? "")
-                  .find(
-                    (candidate) =>
-                      candidate.length > 0 &&
-                      editorialTextKey(candidate) !==
-                        editorialTextKey(observedEvidence) &&
-                      editorialTextKey(candidate) !==
-                        editorialTextKey(item.agentView) &&
-                      editorialTextKey(candidate) !==
-                        editorialTextKey(item.checkpoint),
-                  ) ?? view.countercase;
+              const dimensionKey =
+                structuredClaim?.decisionDimension ?? item.title;
+              const observedEvidence = item.evidence;
+              const counterpoint = item.counterpoint;
               return (
                 <article key={item.id} data-evidence-id={item.evidenceId}>
                   <header>
@@ -683,16 +561,26 @@ export function CommitteeDecisionCockpit({
                     <strong>{item.agentView}</strong>
                   </div>
                   <dl>
-                    <div>
-                      <dt>{ko ? "확인한 사실" : "Observed fact"}</dt>
-                      <dd>{observedEvidence}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        {ko ? "남아 있는 빈틈" : "What remains unresolved"}
-                      </dt>
-                      <dd>{counterpoint}</dd>
-                    </div>
+                    {observedEvidence.length === 0 ? null : (
+                      <div>
+                        <dt>
+                          {ko
+                            ? "이 주장에 연결된 분석"
+                            : "Analysis linked to this claim"}
+                        </dt>
+                        <dd>{observedEvidence}</dd>
+                      </div>
+                    )}
+                    {counterpoint.length === 0 ? null : (
+                      <div>
+                        <dt>
+                          {ko
+                            ? "이 주장에 제기된 반론"
+                            : "Challenge to this claim"}
+                        </dt>
+                        <dd>{counterpoint}</dd>
+                      </div>
+                    )}
                     <div>
                       <dt>
                         {ko ? "투자자 체크포인트" : "Investor checkpoint"}

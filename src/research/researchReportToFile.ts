@@ -363,6 +363,7 @@ function workflowV2ReportToFile(
           const korean = koreanSectionsById.get(section.id) ?? section;
           return {
             id: section.id,
+            claimIds: section.claimIds,
             title: localized(
               sanitizePublicEditorialText(section.title),
               sanitizePublicEditorialText(korean.title),
@@ -446,6 +447,24 @@ function workflowV2ReportToFile(
         sourceRefs: claim.evidenceArtifactIds,
         strength: claimStrength(verdict, claim.evidenceArtifactIds.length),
         checkpoint: claim.falsifier,
+        counterpoint: localized(
+          report.locales.en.dissent
+            .filter(
+              (item) =>
+                item.claimId === claim.claimId &&
+                item.disposition !== "removed",
+            )
+            .map((item) => item.text)
+            .join(" "),
+          report.locales.ko.dissent
+            .filter(
+              (item) =>
+                item.claimId === claim.claimId &&
+                item.disposition !== "removed",
+            )
+            .map((item) => item.text)
+            .join(" "),
+        ),
         roleOwner: claim.roleOwner,
         decisionDimension: claim.decisionDimension,
         decisiveMetricIds: claim.decisiveMetricIds,

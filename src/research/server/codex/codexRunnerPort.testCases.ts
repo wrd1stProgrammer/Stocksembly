@@ -24,12 +24,12 @@ export function registerPortTests(): void {
       // Given
       const expected = {
         memo: "low",
-        department_consolidation: "low",
+        department_consolidation: "medium",
         blind_challenge: "low",
         owner_response_ballot: "low",
         follow_up: "low",
-        semantic_audit: "low",
-        chair_synthesis: "low",
+        semantic_audit: "medium",
+        chair_synthesis: "medium",
         qa: "low",
         probe: "low",
       } as const;

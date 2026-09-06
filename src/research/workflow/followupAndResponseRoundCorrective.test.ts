@@ -320,6 +320,15 @@ describe("follow-up and response corrective boundaries", () => {
 
     // Then
     expect(fixture.codex.responseInputs).toHaveLength(4);
+    const researchedResponses = fixture.codex.responseInputs.filter(
+      (input) => input.followupResult !== undefined,
+    );
+    expect(researchedResponses).toHaveLength(3);
+    for (const input of researchedResponses)
+      expect(input.followupResult?.publicAnswer).toEqual({
+        en: "Evidence checked.",
+        ko: "증거를 확인했습니다.",
+      });
     expect(fixture.codex.responseOutputs).toHaveLength(4);
     for (const input of fixture.codex.responseInputs) {
       expect(input.targetClaimIds).toHaveLength(1);

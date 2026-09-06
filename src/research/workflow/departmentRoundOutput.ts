@@ -11,86 +11,18 @@ type DepartmentCandidate = ReturnType<
   typeof DepartmentConsolidationOutputSchema.parse
 >;
 
-export function deterministicDepartmentCandidate(
-  job: PersistedDepartmentJob,
-): DepartmentCandidate {
-  const request = DepartmentJobPromptSchema.parse(JSON.parse(job.prompt));
-  const positions = request.memberArtifacts.flatMap(
-    (member) => member.memo.positions,
-  );
-  const claims = [...new Set(positions.map((position) => position.claimId))];
-  const leadPosition =
-    request.memberArtifacts
-      .find((member) => member.ownership.roleId === request.department.leadId)
-      ?.memo.positions.find(
-        (position) => position.materiality === "material",
-      ) ??
-    request.memberArtifacts.find(
-      (member) => member.ownership.roleId === request.department.leadId,
-    )?.memo.positions[0] ??
-    positions[0];
-  if (leadPosition === undefined || claims.length === 0)
-    throw new TypeError("department fallback requires member positions");
-  const dissentByClaim = new Map(
-    request.memberArtifacts
-      .flatMap((member) => member.memo.dissent)
-      .map((item) => [item.claimId, item] as const),
-  );
-  for (const position of positions)
-    if (position.stance === "opposes" && !dissentByClaim.has(position.claimId))
-      dissentByClaim.set(position.claimId, {
-        claimId: position.claimId,
-        publicSummary: position.publicSummary,
-      });
-  const openQuestions = [
-    ...new Map(
-      request.memberArtifacts
-        .flatMap((member) => member.memo.unknowns)
-        .map((item) => [`${item.en}\u0000${item.ko}`, item] as const),
-    ).values(),
-  ].slice(0, 2);
-  const evidencePriorityArtifactIds = [
-    ...new Set(positions.flatMap((position) => position.evidenceArtifactIds)),
-  ].slice(0, 64);
-  return DepartmentConsolidationOutputSchema.parse({
-    kind: "department_consolidation",
-    sourceArtifactIds: request.memberArtifacts.map(
-      (member) => member.artifactId,
-    ),
-    agreementClaimIds: positions
-      .filter((position) => position.stance === "supports")
-      .map((position) => position.claimId),
-    disagreementClaimIds: positions
-      .filter((position) => position.stance !== "supports")
-      .map((position) => position.claimId),
-    acceptedClaimIds: claims,
-    strongestClaimIds: [leadPosition.claimId],
-    weakestClaimIds: [
-      positions.find((position) => position.claimId !== leadPosition.claimId)
-        ?.claimId ?? leadPosition.claimId,
-    ],
-    revisedClaimIds: [],
-    removedClaimIds: [],
-    dispositions: claims.map((claimId) => ({
-      claimId,
-      disposition: "accept" as const,
-      reason: {
-        en: "Retained from an authenticated specialist memo with its evidence path intact.",
-        ko: "인증된 전문 메모와 근거 경로를 그대로 보존했습니다.",
-      },
-    })),
-    revisions: [],
-    publicSummary: leadPosition.publicSummary,
-    dissent: [...dissentByClaim.values()],
-    openQuestions,
-    evidencePriorityArtifactIds,
-  });
-}
-
 function publicTexts(candidate: DepartmentCandidate): readonly string[] {
   return [
     candidate.publicSummary.en,
     candidate.publicSummary.ko,
+    ...(candidate.decisionPacket === undefined
+      ? []
+      : [
+          candidate.decisionPacket.strongestCountercase.en,
+          candidate.decisionPacket.strongestCountercase.ko,
+          candidate.decisionPacket.falsifier.en,
+          candidate.decisionPacket.falsifier.ko,
+        ]),
     ...candidate.dissent.flatMap((item) => [
       item.publicSummary.en,
       item.publicSummary.ko,
@@ -202,6 +134,11 @@ export function inspectDepartmentCandidate(
   const request = DepartmentJobPromptSchema.parse(JSON.parse(job.prompt));
   if (!parsed.success) return undefined;
   const candidate = parsed.data;
+  if (
+    request.decisionContract === "coherent-decision-v1" &&
+    candidate.decisionPacket === undefined
+  )
+    return undefined;
   if (candidate.openQuestions.length > 2) return undefined;
   const claims = [
     ...new Set(
@@ -455,6 +392,31 @@ export function inspectDepartmentCandidate(
     ...canonicalRevisedClaimIds,
   ]);
   if (survivorIds.size === 0) return undefined;
+  let decisionPacket = candidate.decisionPacket;
+  if (decisionPacket !== undefined) {
+    const primaryClaimId = canonicalClaimId(decisionPacket.primaryClaimId);
+    const countercaseClaimIds =
+      decisionPacket.countercaseClaimIds.map(canonicalClaimId);
+    if (
+      primaryClaimId === undefined ||
+      strongestClaimIds[0] !== primaryClaimId ||
+      countercaseClaimIds.some(
+        (id) => id === undefined || !survivorIds.has(id),
+      ) ||
+      new Set(countercaseClaimIds).size !== countercaseClaimIds.length ||
+      sameText(decisionPacket.strongestCountercase, candidate.publicSummary) ||
+      sameText(decisionPacket.falsifier, candidate.publicSummary) ||
+      sameText(decisionPacket.falsifier, decisionPacket.strongestCountercase)
+    )
+      return undefined;
+    decisionPacket = {
+      ...decisionPacket,
+      primaryClaimId,
+      countercaseClaimIds: countercaseClaimIds.flatMap((id) =>
+        id === undefined ? [] : [id],
+      ),
+    };
+  }
   const survivorFalsifiers = [
     ...acceptedClaimIds.map(
       (claimId) => positionsByClaim.get(claimId)?.falsifier,
@@ -526,6 +488,7 @@ export function inspectDepartmentCandidate(
   ];
   const canonicalCandidate = DepartmentConsolidationOutputSchema.parse({
     ...candidate,
+    ...(decisionPacket === undefined ? {} : { decisionPacket }),
     sourceArtifactIds: expectedSources,
     agreementClaimIds: candidate.agreementClaimIds
       .flatMap((claimId) => {

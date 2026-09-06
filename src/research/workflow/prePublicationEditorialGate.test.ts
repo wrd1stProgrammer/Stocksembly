@@ -623,7 +623,7 @@ describe("pre-publication editorial quality gate", () => {
 });
 
 describe("persisted anticipated Q&A selection", () => {
-  it("builds ten decision questions from the available claim set", () => {
+  it("selects five distinct decision questions from the available claim set", () => {
     const theses = [
       [
         "Enterprise adoption broadens recurring demand.",
@@ -703,13 +703,13 @@ describe("persisted anticipated Q&A selection", () => {
       claims,
       decision,
     });
-    expect(selected.questions).toHaveLength(10);
-    expect(selected.policy.moduleMinimum).toBe(5);
-    expect(selected.questions.every((question) => question.rank <= 10)).toBe(
+    expect(selected.questions).toHaveLength(5);
+    expect(selected.policy.moduleMinimum).toBe(1);
+    expect(selected.questions.every((question) => question.rank <= 5)).toBe(
       true,
     );
     expect(selected.questions[0]?.question.en).toBe(
-      "What must be true before a new position has a favorable evidence-to-price trade-off?",
+      "What is the report’s answer to the research question?",
     );
     expect(
       new Set(selected.questions.map((question) => question.question.en)).size,
@@ -722,7 +722,7 @@ describe("persisted anticipated Q&A selection", () => {
     );
   });
 
-  it("fills all ten investor questions when only one claim is publishable", () => {
+  it("limits a single publishable claim to two distinct investor questions", () => {
     const claim = AtomicEditorialClaimSchema.parse({
       claimId: id(121),
       decisionDimension: "growth_engine",
@@ -756,13 +756,13 @@ describe("persisted anticipated Q&A selection", () => {
       decision,
     });
 
-    expect(selected.questions).toHaveLength(10);
+    expect(selected.questions).toHaveLength(2);
     expect(
       new Set(selected.questions.map((item) => item.decisionKey)).size,
-    ).toBe(10);
+    ).toBe(2);
     expect(
       new Set(selected.questions.map((item) => item.question.en)).size,
-    ).toBe(10);
+    ).toBe(2);
     expect(
       selected.questions.every(
         (item) => item.primaryClaimIds[0] === claim.claimId,
@@ -776,7 +776,7 @@ describe("persisted anticipated Q&A selection", () => {
     expect(selected.moduleVisible).toBe(true);
   });
 
-  it("prioritizes earnings and grounded calculations across ten questions", () => {
+  it("prioritizes earnings and grounded calculations within the question budget", () => {
     const dimensions = [
       "embedded_expectations",
       "catalyst",

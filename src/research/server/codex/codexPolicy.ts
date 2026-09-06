@@ -94,12 +94,12 @@ export const CODEX_RUNTIME_POLICY = Object.freeze({
   model: "gpt-5.6-luna",
   reasoningByStage: Object.freeze({
     memo: "low",
-    department_consolidation: "low",
+    department_consolidation: "medium",
     blind_challenge: "low",
     owner_response_ballot: "low",
     follow_up: "low",
-    semantic_audit: "low",
-    chair_synthesis: "low",
+    semantic_audit: "medium",
+    chair_synthesis: "medium",
     qa: "low",
     probe: "low",
   } satisfies Readonly<Record<CodexStage, CodexReasoning>>),
@@ -108,7 +108,7 @@ export const CODEX_RUNTIME_POLICY = Object.freeze({
     department_consolidation: "disabled",
     blind_challenge: "disabled",
     owner_response_ballot: "disabled",
-    follow_up: "disabled",
+    follow_up: "audited_web",
     semantic_audit: "disabled",
     chair_synthesis: "disabled",
     qa: "audited_web",
@@ -132,8 +132,8 @@ export const CODEX_RUNTIME_POLICY = Object.freeze({
 export const CODEX_RUNTIME_PINS = Object.freeze({
   originPath: "/Applications/ChatGPT.app/Contents/Resources/codex",
   originSha256:
-    "4ff5e75f028e913cfeb53bd7319f87573cdce6538c1b1ccc44ce62d5ce51ca1d",
-  version: "codex-cli 0.150.0-alpha.8",
+    "0cf2d42e90ddd50fa5b7eedd5d72f109b68d33e5a6ce7c3fc2c87e4180edcd59",
+  version: "codex-cli 0.153.1",
   sandboxExecPath: "/usr/bin/sandbox-exec",
   sandboxExecSha256:
     "f3162ae11789a5b296bb3850d493c33ddd52053a03f984b2c4bc34004f4fee99",
@@ -142,7 +142,7 @@ export const CODEX_RUNTIME_PINS = Object.freeze({
     "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994",
   codeIdentifier: "codex",
   teamIdentifier: "2DC432GLL2",
-  codeDirectoryHash: "33f71aee6d3f281e0a63630b6f7d41659834e260",
+  codeDirectoryHash: "28db942786e732576baa3379d9570de2b92de18a",
   locale: "en_US.UTF-8",
 });
 

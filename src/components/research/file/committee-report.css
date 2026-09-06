@@ -24,6 +24,7 @@
 }
 
 .committee-cockpit {
+  container: committee-cockpit / inline-size;
   padding: clamp(24px, 2.7vw, 36px);
   color: var(--editorial-ink);
   background: var(--editorial-paper);
@@ -1556,5 +1557,20 @@
   .committee-conflict-matrix__table tbody {
     min-width: 680px;
     display: table;
+  }
+}
+
+@container committee-cockpit (max-width: 700px) {
+  .committee-cockpit__verdict {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-cockpit-price] dd {
+    white-space: nowrap;
+  }
+
+  [data-cockpit-price] dd small {
+    display: block;
+    margin-left: 0;
   }
 }

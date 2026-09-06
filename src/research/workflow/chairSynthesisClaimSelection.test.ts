@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { selectChairClaims } from "./chairSynthesisClaimSelection";
+import {
+  isComparatorAbsenceThesis,
+  selectChairClaims,
+} from "./chairSynthesisClaimSelection";
 
 describe("selectChairClaims", () => {
   it("deduplicates retained dissent and audited claim identifiers before chair synthesis", () => {
@@ -45,4 +48,13 @@ describe("selectChairClaims", () => {
 
     expect(selected.auditedClaimIds).toEqual([operatingId]);
   });
+});
+
+it("recognizes Korean relative-strength absence without spaces", () => {
+  expect(
+    isComparatorAbsenceThesis({
+      en: "",
+      ko: "현재 상대강도 우위는 확인할 수 없고 단기 추세는 약세입니다.",
+    }),
+  ).toBe(true);
 });

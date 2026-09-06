@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { z as zod } from "zod";
 import type { z } from "zod";
 import type { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
 import { departmentCandidate } from "./departmentRoundCandidates.testSupport";
 import type { DepartmentJobPrompt } from "./departmentRoundContracts";
-import { DepartmentJobPromptSchema } from "./departmentRoundContracts";
+import {
+  DepartmentJobPromptSchema,
+  departmentRunnerOutputSchema,
+} from "./departmentRoundContracts";
 import { departmentJobs } from "./departmentRoundInput";
 import {
   hasOnlyGroundedNumbers,
@@ -138,6 +142,65 @@ function candidate(): Record<string, unknown> {
 }
 
 describe("department adjudication trust boundary", () => {
+  it("uses a required decision packet in the provider schema while preserving legacy jobs", () => {
+    const current = zod.toJSONSchema(
+      departmentRunnerOutputSchema({
+        decisionContract: "coherent-decision-v1",
+      }),
+    );
+    expect(current.required).toContain("decisionPacket");
+    expect(new Set(current.required)).toEqual(
+      new Set(Object.keys(current.properties ?? {})),
+    );
+    const legacy = zod.toJSONSchema(departmentRunnerOutputSchema({}));
+    expect(legacy.properties).not.toHaveProperty("decisionPacket");
+  });
+
+  it("requires a coherent packet on new jobs and authenticates its revised references and numbers", () => {
+    const currentJob = departmentJobs(IDS.run, IDS.snapshot, [
+      {
+        ...request(),
+        decisionContract: "coherent-decision-v1",
+      },
+    ])[0]!;
+    expect(inspectDepartmentCandidate(currentJob, candidate())).toBeUndefined();
+    const decisionPacket = {
+      primaryClaimId: IDS.accepted,
+      stanceContribution: "supports",
+      countercaseClaimIds: [IDS.revised],
+      strongestCountercase: text(
+        "Momentum at 20 still lacks volume confirmation",
+      ),
+      falsifier: text("A break of 10 support would weaken the current view"),
+    };
+    const accepted = inspectDepartmentCandidate(currentJob, {
+      ...candidate(),
+      decisionPacket,
+    });
+    expect(accepted).toBeDefined();
+    expect(accepted?.decisionPacket?.countercaseClaimIds).toEqual(
+      accepted?.revisedClaimIds,
+    );
+    expect(
+      inspectDepartmentCandidate(currentJob, {
+        ...candidate(),
+        decisionPacket: {
+          ...decisionPacket,
+          countercaseClaimIds: [IDS.removed],
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      inspectDepartmentCandidate(currentJob, {
+        ...candidate(),
+        decisionPacket: {
+          ...decisionPacket,
+          falsifier: text("Unsupported threshold 99"),
+        },
+      }),
+    ).toBeUndefined();
+  });
+
   it("characterizes authenticated ID/evidence plus number and actor failures", () => {
     const base = departmentCandidate(request(), "none");
     expect(inspectDepartmentCandidate(job(), base)).toBeDefined();

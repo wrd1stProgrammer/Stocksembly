@@ -40,6 +40,7 @@ import {
   specialistJobSeed,
 } from "../workflow/specialistRoundSqliteStage";
 import { collectInitialEvidence } from "./initialCollectionData";
+import { planResearchBrief } from "./researchBriefPlanner";
 
 const RequestSchema = z.object({
   symbol: z.string(),
@@ -292,6 +293,11 @@ export function createInitialCollectionHandler(
       } catch (error) {
         return collectionFailure(error, clock(), attempt.ordinal);
       }
+      const question = normalizeResearchQuestion(request.question) ?? defaultResearchQuestion(request.symbol, request.locale);
+      const researchBrief = await planResearchBrief({
+        runId, databasePath: options.databasePath, question, symbol: request.symbol,
+        legalName: collected.identity.legalName, profile: researchProfile, sources: collected.sources,
+      });
       const acquisitionClosedAt =
         clock() > collected.retrievedAt ? clock() : collected.retrievedAt;
       const evidenceCutoffAt = after(acquisitionClosedAt, 1);
@@ -424,14 +430,12 @@ export function createInitialCollectionHandler(
           "변경 불가능한 리서치 스냅샷을 봉인했습니다.",
         ),
       });
-      const question =
-        normalizeResearchQuestion(request.question) ??
-        defaultResearchQuestion(request.symbol, request.locale);
       const mandate = await createResearchMandate(
         {
           snapshotManifestHash: manifest.manifestHash,
           symbol: request.symbol,
           question,
+          researchBrief,
           locale: request.locale,
           scope: "broad",
           researchProfile,

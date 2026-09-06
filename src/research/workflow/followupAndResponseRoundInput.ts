@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   FollowUpOutputSchema,
   OwnerResponseBallotOutputSchema,
@@ -86,6 +87,14 @@ export function rankedFollowupJobs(
           actorId: challenge.targetDepartmentId,
           targetClaimId: request.targetClaimId,
           targetContext: challenge.payload.publicChallenge,
+          targetClaim: inputs.memos
+            .flatMap((memo) => memo.payload.positions)
+            .find((position) => position.claimId === request.targetClaimId)
+            ?.publicSummary,
+          falsifier: inputs.memos
+            .flatMap((memo) => memo.payload.positions)
+            .find((position) => position.claimId === request.targetClaimId)
+            ?.falsifier,
           requestKind: request.kind,
           sourceArtifactIds,
           evidenceArtifactIds: request.evidenceArtifactIds,
@@ -147,6 +156,7 @@ export function ownerResponseJobs(
   followupArtifacts: readonly {
     readonly artifact_id: string;
     readonly logical_artifact_key: string;
+    readonly envelope_json?: string;
   }[],
   unknowns: readonly PublicUnknown[],
   readyDepartmentIds?: ReadonlySet<WorkflowDepartmentId>,
@@ -158,11 +168,19 @@ export function ownerResponseJobs(
         readyDepartmentIds.has(challenge.targetDepartmentId),
     )
     .map((challenge) => {
-      const followupId = followupArtifacts.find(
+      const followup = followupArtifacts.find(
         (item) =>
           item.logical_artifact_key ===
           `followup:${challenge.targetDepartmentId}`,
-      )?.artifact_id;
+      );
+      const followupId = followup?.artifact_id;
+      const followupPayload =
+        followup?.envelope_json === undefined
+          ? undefined
+          : z
+              .object({ payload: FollowUpOutputSchema })
+              .passthrough()
+              .parse(JSON.parse(followup.envelope_json)).payload;
       const sourceArtifactIds = [
         challenge.artifactId,
         ...memberMemoIds(inputs, challenge.targetDepartmentId),
@@ -179,6 +197,14 @@ export function ownerResponseJobs(
           sourceArtifactIds,
           targetClaimIds,
           challengeContext: challenge.payload.publicChallenge,
+          ...(followupPayload === undefined
+            ? {}
+            : {
+                followupResult: {
+                  publicAnswer: followupPayload.publicAnswer,
+                  unresolved: followupPayload.unresolved,
+                },
+              }),
           departmentContext: memberContext(
             inputs,
             challenge.targetDepartmentId,

@@ -1,4 +1,5 @@
 import type { CapabilityManifest } from "../domain/capabilities";
+import type { ResearchBrief } from "../domain/researchBrief";
 import type { ResearchProfile } from "../domain/researchProfile";
 import type { SpecialistRoleId } from "../domain/roleRegistry";
 import type { SnapshotManifest } from "./buildSnapshot";
@@ -38,6 +39,7 @@ export type ResearchMandateV1 = {
   readonly manifestHash: string;
   readonly symbol: string;
   readonly question?: string;
+  readonly researchBrief?: ResearchBrief;
   readonly locale: ResearchLocale;
   readonly scope: ResearchScope;
   readonly researchProfile?: ResearchProfile;
@@ -74,6 +76,7 @@ export type CreateMandateInput = {
   readonly snapshotManifestHash: string;
   readonly symbol: unknown;
   readonly question?: unknown;
+  readonly researchBrief?: unknown;
   readonly locale: unknown;
   readonly scope: unknown;
   readonly researchProfile?: unknown;

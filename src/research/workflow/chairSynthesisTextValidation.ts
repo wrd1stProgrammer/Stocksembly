@@ -7,23 +7,43 @@ type PublicText = { readonly en: string; readonly ko: string };
 type SourceText = { readonly text: PublicText };
 
 const NUMERIC_TOKEN =
-  /[$€£]?[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:%|[A-Za-z]+)?/gu;
+  /(?:US)?[$€£]?[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:\s?(?:trillion|billion|million|thousand|[KMBT]|조|억|만))?(?:%|[A-Za-z]+)?/gu;
 
 type NumericValue = {
   readonly canonical: string;
   readonly value: number;
   readonly decimalPlaces: number;
+  readonly resolution: number;
+  readonly unit: "percent" | "number";
 };
 
 function numericValue(token: string): NumericValue | undefined {
-  const match = token.replaceAll(",", "").match(/\d+(?:\.(\d+))?/u);
+  const cleaned = token.replaceAll(",", "");
+  const match = cleaned.match(/[+-]?\d+(?:\.(\d+))?/u);
   if (match === null) return undefined;
-  const value = Number(match[0]);
+  const suffix = cleaned.slice((match.index ?? 0) + match[0].length).trim();
+  const magnitude = /^(?:T|trillion|조)/u.test(suffix)
+    ? 1e12
+    : /^(?:B|billion)/u.test(suffix)
+      ? 1e9
+      : /^억/u.test(suffix)
+        ? 1e8
+        : /^(?:M|million)/u.test(suffix)
+          ? 1e6
+          : /^만/u.test(suffix)
+            ? 1e4
+            : /^(?:K|thousand)/u.test(suffix)
+              ? 1e3
+              : 1;
+  const value = Number(match[0]) * magnitude;
+  const decimalPlaces = match[1]?.length ?? 0;
   return Number.isFinite(value)
     ? {
         canonical: String(value),
         value,
-        decimalPlaces: match[1]?.length ?? 0,
+        decimalPlaces,
+        resolution: magnitude / 10 ** decimalPlaces,
+        unit: suffix.includes("%") ? "percent" : "number",
       }
     : undefined;
 }
@@ -32,14 +52,22 @@ function isGroundedNumber(
   summary: NumericValue,
   sources: readonly NumericValue[],
 ): boolean {
-  if (sources.some((source) => source.canonical === summary.canonical))
+  if (
+    sources.some(
+      (source) =>
+        source.unit === summary.unit && source.canonical === summary.canonical,
+    )
+  )
     return true;
-  const scale = 10 ** summary.decimalPlaces;
   return sources.some(
     (source) =>
-      source.decimalPlaces > summary.decimalPlaces &&
-      Math.round((source.value + Number.EPSILON) * scale) / scale ===
-        summary.value,
+      source.unit === summary.unit &&
+      source.resolution < summary.resolution &&
+      Math.abs(
+        Math.round(source.value / summary.resolution) * summary.resolution -
+          summary.value,
+      ) <
+        summary.resolution * 1e-9,
   );
 }
 
@@ -73,7 +101,7 @@ function hasHumanReadablePrecision(summary: string): boolean {
 export function normalizeReaderFacingPrecision(value: string): string {
   return value.replace(NUMERIC_TOKEN, (token) => {
     const match = token.match(
-      /^([$€£]?[+-]?)(\d{1,3}(?:,\d{3})+|\d+)\.(\d{3,})((?:%|[A-Za-z]+)?)$/u,
+      /^((?:US)?[$€£]?[+-]?)(\d{1,3}(?:,\d{3})+|\d+)\.(\d{3,})(.*)$/u,
     );
     if (match === null) return token;
     const [, prefix = "", integer = "", fraction = "", suffix = ""] = match;

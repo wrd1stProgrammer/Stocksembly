@@ -190,7 +190,7 @@ describe("publishReportAtomically identity boundary", () => {
         (item: { readonly lineage: unknown }) => item.lineage,
       ),
     ];
-    expect(canonical.anticipatedQuestions).toHaveLength(10);
+    expect(canonical.anticipatedQuestions).toHaveLength(4);
     expect(lineageEntries).toHaveLength(
       13 + canonical.anticipatedQuestions.length,
     );
@@ -510,7 +510,7 @@ describe("publishReportAtomically identity boundary", () => {
         qaPolicy: {
           ...ANTICIPATED_QUESTIONS_POLICY,
           supportedCount: anticipatedQuestions.length,
-          moduleVisible: false,
+          moduleVisible: anticipatedQuestions.length >= ANTICIPATED_QUESTIONS_POLICY.moduleMinimum,
         },
         candidate,
       },

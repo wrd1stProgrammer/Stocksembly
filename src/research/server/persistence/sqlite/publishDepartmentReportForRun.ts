@@ -379,7 +379,9 @@ function localizedSections(
   ];
   const claimIds = selectedOrAll.map((position) => position.claimId);
   const strongestPositions = selectedOrAll.filter((position) =>
-    strongest.has(position.claimId),
+    consolidation.decisionPacket === undefined
+      ? strongest.has(position.claimId)
+      : position.claimId === consolidation.decisionPacket.primaryClaimId,
   );
   const leadPositions =
     strongestPositions.length > 0
@@ -389,29 +391,22 @@ function localizedSections(
     (position) =>
       !leadPositions.some((lead) => lead.claimId === position.claimId),
   );
-  const dispositionFor = (position: (typeof selectedOrAll)[number]) => {
-    const originClaimId =
-      consolidation.revisions.find(
-        (revision) => revision.adjudicatedClaimId === position.claimId,
-      )?.originClaimId ?? position.claimId;
-    return consolidation.dispositions.find(
-      (disposition) => disposition.claimId === originClaimId,
-    );
-  };
-  const rationaleBody = (
+  const contraryBody = (
     selectedPositions: readonly (typeof selectedOrAll)[number][],
   ) => ({
     en: selectedPositions
-      .flatMap((position) => {
-        const rationale = dispositionFor(position)?.reason.en;
-        return rationale === undefined ? [] : [narrative(rationale, "en")];
-      })
+      .flatMap((position) =>
+        position.strongestContraryObservation === undefined
+          ? []
+          : [narrative(position.strongestContraryObservation.en, "en")],
+      )
       .join(" "),
     ko: selectedPositions
-      .flatMap((position) => {
-        const rationale = dispositionFor(position)?.reason.ko;
-        return rationale === undefined ? [] : [narrative(rationale, "ko")];
-      })
+      .flatMap((position) =>
+        position.strongestContraryObservation === undefined
+          ? []
+          : [narrative(position.strongestContraryObservation.ko, "ko")],
+      )
       .join(" "),
   });
   const leadSummary = {
@@ -422,12 +417,25 @@ function localizedSections(
       .map((position) => narrative(position.publicSummary.ko, "ko"))
       .join(" "),
   };
-  const leadRationaleBody = rationaleBody(leadPositions);
-  const secondaryRationaleBody = rationaleBody(secondaryPositions);
-  const evidenceBody =
-    secondaryRationaleBody.en.length > 0 && secondaryRationaleBody.ko.length > 0
-      ? secondaryRationaleBody
-      : leadRationaleBody;
+  const packet = consolidation.decisionPacket;
+  const countercasePositions =
+    packet === undefined
+      ? leadPositions
+      : selectedOrAll.filter((position) =>
+          packet.countercaseClaimIds.includes(position.claimId),
+        );
+  const leadRationaleBody =
+    packet === undefined
+      ? contraryBody(leadPositions)
+      : localizedNarrative(packet.strongestCountercase);
+  const evidenceBody = {
+    en: secondaryPositions
+      .map((position) => narrative(position.publicSummary.en, "en"))
+      .join(" "),
+    ko: secondaryPositions
+      .map((position) => narrative(position.publicSummary.ko, "ko"))
+      .join(" "),
+  };
   const uniqueDissent = consolidation.dissent.filter((item) =>
     selectedOrAll.every(
       (position) =>
@@ -437,17 +445,6 @@ function localizedSections(
           normalizeEditorialText(position.publicSummary.ko),
     ),
   );
-  const secondaryBody =
-    secondaryPositions.length > 0
-      ? {
-          en: secondaryPositions
-            .map((position) => narrative(position.publicSummary.en, "en"))
-            .join(" "),
-          ko: secondaryPositions
-            .map((position) => narrative(position.publicSummary.ko, "ko"))
-            .join(" "),
-        }
-      : evidenceBody;
   const openQuestionBody = {
     en:
       consolidation.openQuestions
@@ -468,22 +465,25 @@ function localizedSections(
         .map((dissent) => narrative(dissent.publicSummary.ko, "ko"))
         .join(" ") || "팀 내부에서 보존된 중대한 이견은 없습니다.",
   };
-  const changeBody = {
-    en: leadPositions
-      .flatMap((position) =>
-        position.falsifier === undefined
-          ? []
-          : [narrative(position.falsifier.en, "en")],
-      )
-      .join(" "),
-    ko: leadPositions
-      .flatMap((position) =>
-        position.falsifier === undefined
-          ? []
-          : [narrative(position.falsifier.ko, "ko")],
-      )
-      .join(" "),
-  };
+  const changeBody =
+    packet === undefined
+      ? {
+          en: leadPositions
+            .flatMap((position) =>
+              position.falsifier === undefined
+                ? []
+                : [narrative(position.falsifier.en, "en")],
+            )
+            .join(" "),
+          ko: leadPositions
+            .flatMap((position) =>
+              position.falsifier === undefined
+                ? []
+                : [narrative(position.falsifier.ko, "ko")],
+            )
+            .join(" "),
+        }
+      : localizedNarrative(packet.falsifier);
   const base = [
     {
       id: "ten_second_brief",
@@ -502,13 +502,26 @@ function localizedSections(
         ),
       ],
     },
-    {
-      id: "supported_analysis",
-      title: { en: "Evidence-backed findings", ko: "근거로 확인된 핵심 판단" },
-      body: evidenceBody,
-      claimIds,
-      sourceIds,
-    },
+    ...(secondaryPositions.length === 0
+      ? []
+      : [
+          {
+            id: "supported_analysis",
+            title: {
+              en: "Evidence-backed findings",
+              ko: "근거로 확인된 핵심 판단",
+            },
+            body: evidenceBody,
+            claimIds: secondaryPositions.map((position) => position.claimId),
+            sourceIds: [
+              ...new Set(
+                secondaryPositions.flatMap(
+                  (position) => position.evidenceArtifactIds,
+                ),
+              ),
+            ],
+          },
+        ]),
     ...(secondaryPositions.length === 0 ||
     leadRationaleBody.en.length === 0 ||
     leadRationaleBody.ko.length === 0
@@ -516,39 +529,15 @@ function localizedSections(
       : [
           {
             id: `${departmentId}_deep_dive`,
-            title: DEPARTMENT_COPY[departmentId].section,
+            title: {
+              en: "Evidence challenging the lead thesis",
+              ko: "핵심 주장에 맞서는 근거",
+            },
             body: leadRationaleBody,
-            claimIds: leadPositions.map((position) => position.claimId),
+            claimIds: countercasePositions.map((position) => position.claimId),
             sourceIds: [
               ...new Set(
-                leadPositions.flatMap(
-                  (position) => position.evidenceArtifactIds,
-                ),
-              ),
-            ],
-          },
-        ]),
-    ...(secondaryPositions.length === 0
-      ? []
-      : [
-          {
-            id: "valuation_comparison",
-            title:
-              departmentId === "financial"
-                ? { en: "Valuation constraints", ko: "밸류에이션 제약" }
-                : departmentId === "market"
-                  ? { en: "Relative leadership check", ko: "상대 주도력 검증" }
-                  : departmentId === "company"
-                    ? { en: "Moat pressure test", ko: "경쟁우위 압력 테스트" }
-                    : {
-                        en: "Risk concentration check",
-                        ko: "위험 집중도 검증",
-                      },
-            body: secondaryBody,
-            claimIds: secondaryPositions.map((position) => position.claimId),
-            sourceIds: [
-              ...new Set(
-                secondaryPositions.flatMap(
+                countercasePositions.flatMap(
                   (position) => position.evidenceArtifactIds,
                 ),
               ),
@@ -587,7 +576,7 @@ function localizedSections(
               ko: "판단이 바뀌는 조건",
             },
             body: changeBody,
-            claimIds: consolidation.dissent.map((dissent) => dissent.claimId),
+            claimIds: leadPositions.map((position) => position.claimId),
             sourceIds,
           },
         ]),
@@ -863,8 +852,11 @@ async function buildReport(
     runId: value.row.run_id,
     snapshotId: value.row.snapshot_id,
   }));
+  const decisionPacket = consolidation.data.decisionPacket;
   const publishedLeadPosition = adjudicatedPositions.find((position) =>
-    strongest.has(position.claimId),
+    decisionPacket === undefined
+      ? strongest.has(position.claimId)
+      : position.claimId === decisionPacket.primaryClaimId,
   );
   const publishedLeadRevision =
     publishedLeadPosition === undefined
@@ -876,7 +868,9 @@ async function buildReport(
       : dispositionByClaim.get(
           publishedLeadRevision?.originClaimId ?? publishedLeadPosition.claimId,
         )?.reason;
-  const leadCounterpoint = publishedLeadPosition?.strongestContraryObservation;
+  const leadCounterpoint =
+    decisionPacket?.strongestCountercase ??
+    publishedLeadPosition?.strongestContraryObservation;
   if (
     publishedLeadPosition === undefined ||
     leadRationale === undefined ||
@@ -1040,7 +1034,9 @@ async function buildReport(
     });
   });
   const leadClaim = editorialClaims.find((claim) =>
-    strongest.has(claim.claimId),
+    decisionPacket === undefined
+      ? strongest.has(claim.claimId)
+      : claim.claimId === decisionPacket.primaryClaimId,
   )!;
   const sourceClasses = sources
     .filter((source) => leadClaim.evidenceArtifactIds.includes(source.sourceId))
@@ -1056,7 +1052,10 @@ async function buildReport(
     materialContributions.length === 1
       ? materialContributions[0]!
       : ("uncertain" as const);
-  const stance = departmentEditorialStance(departmentId, aggregateContribution);
+  const stance = departmentEditorialStance(
+    departmentId,
+    decisionPacket?.stanceContribution ?? aggregateContribution,
+  );
   const decisiveReason = localizedNarrative(consolidation.data.publicSummary);
   const preferredCounterContribution = contraryContribution(
     departmentId,
@@ -1079,20 +1078,18 @@ async function buildReport(
   const dissentCountercase = consolidation.data.dissent
     .map((item) => localizedNarrative(item.publicSummary))
     .find((item) => localizedTextDiffers(item, decisiveReason));
-  const rationaleCountercase = localizedNarrative(leadRationale);
-  const falsifierCountercase = localizedNarrative({
-    en: `The opposing case becomes investable if this observable condition is met: ${leadClaim.falsifier.en}`,
-    ko: `현재 결론에 반대되는 투자 논리는 다음 관찰 조건이 충족될 때 유효해집니다: ${leadClaim.falsifier.ko}`,
-  });
-  const strongestCountercase =
-    stance === "wait_for_proof"
-      ? falsifierCountercase
-      : (contraryClaim?.publicThesis ??
-        unresolvedClaim?.publicThesis ??
-        dissentCountercase ??
-        (localizedTextDiffers(rationaleCountercase, decisiveReason)
-          ? rationaleCountercase
-          : falsifierCountercase));
+  const observedCountercase =
+    publishedLeadPosition?.strongestContraryObservation;
+  const strongestCountercase = localizedNarrative(
+    decisionPacket?.strongestCountercase ??
+      contraryClaim?.publicThesis ??
+      dissentCountercase ??
+      observedCountercase ??
+      unresolvedClaim?.publicThesis ?? {
+        en: "No independently supported countercase was retained; the thesis remains subject to its stated invalidation condition.",
+        ko: "독립적인 근거를 갖춘 반대 논거가 보존되지 않았습니다. 제시된 무효화 조건에서 판단을 재검토해야 합니다.",
+      },
+  );
   const decision = {
     stance,
     confidence: deriveEditorialConfidence({
@@ -1107,7 +1104,10 @@ async function buildReport(
     }),
     decisiveReason,
     strongestCountercase,
-    falsifier: leadClaim.falsifier,
+    falsifier:
+      decisionPacket === undefined
+        ? leadClaim.falsifier
+        : localizedNarrative(decisionPacket.falsifier),
     primaryClaimIds: [leadClaim.claimId],
     teamAssessment: teamEditorialAssessment(departmentId, stance),
   } as const;

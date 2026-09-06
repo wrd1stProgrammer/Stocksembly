@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { MemoOutputSchema } from "../domain/agentOutputs";
+import {
+  DepartmentConsolidationOutputSchema,
+  DepartmentDecisionPacketSchema,
+  MemoOutputSchema,
+} from "../domain/agentOutputs";
 import { HashSchema } from "../domain/evidenceSchemas";
 import {
   ArtifactIdSchema,
@@ -7,12 +11,30 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
+import { ResearchBriefSchema } from "../domain/researchBrief";
 import {
   WORKFLOW_V1_DEPARTMENT_IDS,
   WORKFLOW_V1_SPECIALIST_IDS,
 } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
+
+const LegacyDepartmentRunnerSchema =
+  DepartmentConsolidationOutputSchema.unwrap()
+    .omit({ decisionPacket: true })
+    .readonly();
+const CoherentDepartmentRunnerSchema =
+  DepartmentConsolidationOutputSchema.unwrap()
+    .extend({ decisionPacket: DepartmentDecisionPacketSchema })
+    .readonly();
+
+export function departmentRunnerOutputSchema(request: {
+  readonly decisionContract?: "coherent-decision-v1" | undefined;
+}) {
+  return request.decisionContract === "coherent-decision-v1"
+    ? CoherentDepartmentRunnerSchema
+    : LegacyDepartmentRunnerSchema;
+}
 
 export const DepartmentIdSchema = z.enum(WORKFLOW_V1_DEPARTMENT_IDS);
 export type DepartmentId = z.infer<typeof DepartmentIdSchema>;
@@ -35,6 +57,9 @@ const DepartmentMemberArtifactSchema = z
 export const DepartmentJobPromptSchema = z
   .object({
     kind: z.literal("department_consolidation_input_v1"),
+    question: z.string().optional(),
+    researchBrief: ResearchBriefSchema.optional(),
+    decisionContract: z.literal("coherent-decision-v1").optional(),
     department: z
       .object({
         id: DepartmentIdSchema,
@@ -48,7 +73,18 @@ export const DepartmentJobPromptSchema = z
       .min(2)
       .max(3)
       .readonly(),
-    editorialBrief: z.string().trim().min(1).max(8_000).optional(),
+    claimBindings: z
+      .array(
+        z
+          .object({
+            claimId: z.string().uuid(),
+            removalAllowed: z.boolean(),
+            revisionSourceArtifactIds: z.array(z.string().uuid()),
+          })
+          .strict(),
+      )
+      .optional(),
+    editorialBrief: z.string().trim().min(1).max(10_000).optional(),
   })
   .strict()
   .readonly();

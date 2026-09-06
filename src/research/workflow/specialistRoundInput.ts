@@ -8,6 +8,7 @@ import {
   JobIdSchema,
   QuestionIdSchema,
 } from "../domain/ids";
+import type { ResearchBrief } from "../domain/researchBrief";
 import type { ResearchProfile } from "../domain/researchProfile";
 import { DEFAULT_RESEARCH_PROFILE } from "../domain/researchProfile";
 import {
@@ -38,12 +39,6 @@ type ClaimSlotBlueprint = {
   readonly optional?: boolean;
 };
 
-/**
- * A focused report used to accept one broad sentence from each specialist.
- * These role-owned angles force the team to produce a research package: at
- * least six distinct, decision-relevant observations without inventing new
- * roles or letting the publication layer pad sparse output.
- */
 const ROLE_CLAIM_BLUEPRINTS = {
   market: [
     {
@@ -198,31 +193,46 @@ export function allocateSpecialistClaimSlots(
     readonly roleId: SpecialistRoleId;
   },
   profile: ResearchProfile = DEFAULT_RESEARCH_PROFILE,
+  brief?: ResearchBrief,
 ): readonly SpecialistClaimSlot[] {
-  return ROLE_CLAIM_BLUEPRINTS[identity.roleId].map((blueprint, index) => ({
-    claimId: ClaimIdSchema.parse(
-      deterministicUuid({
-        runId: identity.runId,
-        snapshotId: identity.snapshotId,
-        roleId: identity.roleId,
-        decisionDimension: blueprint.decisionDimension,
-        analyticalAngle: blueprint.analyticalAngle,
-        slotIndex: index,
-        kind: "specialist-claim-slot",
-      }),
-    ),
-    decisionDimension: blueprint.decisionDimension,
-    analyticalAngle: blueprint.analyticalAngle,
-    materiality: index === 0 ? "material" : "supporting",
-    optional:
-      profile.analysisDepth === "core"
-        ? index > 0
-        : profile.analysisDepth === "deep"
-          ? false
-          : "optional" in blueprint
-            ? blueprint.optional
-            : false,
-  }));
+  const priority = (dimension: string) => {
+    const index =
+      brief?.priorityDimensions.findIndex((item) => item === dimension) ?? -1;
+    return index < 0 ? 100 : index;
+  };
+  return [...ROLE_CLAIM_BLUEPRINTS[identity.roleId]]
+    .sort(
+      (a, b) => priority(a.decisionDimension) - priority(b.decisionDimension),
+    )
+    .map((blueprint, index) => ({
+      claimId: ClaimIdSchema.parse(
+        deterministicUuid({
+          runId: identity.runId,
+          snapshotId: identity.snapshotId,
+          roleId: identity.roleId,
+          decisionDimension: blueprint.decisionDimension,
+          analyticalAngle: blueprint.analyticalAngle,
+          slotIndex: index,
+          kind: "specialist-claim-slot",
+        }),
+      ),
+      decisionDimension: blueprint.decisionDimension,
+      analyticalAngle: [
+        blueprint.analyticalAngle,
+        ...(brief?.cruxes ?? [])
+          .filter((crux) => crux.dimension === blueprint.decisionDimension)
+          .map((crux) => crux.question),
+      ].join("; "),
+      materiality: index === 0 ? "material" : "supporting",
+      optional:
+        profile.analysisDepth === "core"
+          ? index > 0
+          : profile.analysisDepth === "deep"
+            ? false
+            : "optional" in blueprint
+              ? blueprint.optional
+              : false,
+    }));
 }
 
 function registeredValuesFor(
@@ -232,7 +242,14 @@ function registeredValuesFor(
   const allowedDatasets = new Set<string>(assignment.allowedDatasets);
   const counts = new Map<string, number>();
   const selected: ValueRecord[] = [];
-  for (const value of [...values].reverse()) {
+  for (const value of [...values].sort((left, right) => {
+    const end = (period: string) =>
+      period.match(/\d{4}-\d{2}-\d{2}/gu)?.at(-1) ?? period;
+    return (
+      end(right.period).localeCompare(end(left.period)) ||
+      (right.acceptedAt ?? "").localeCompare(left.acceptedAt ?? "")
+    );
+  })) {
     const providerDataset = value.metric.startsWith("provider_earnings.")
       ? "insightsentry_calendar"
       : value.metric.startsWith("provider_fundamental.")
@@ -282,6 +299,7 @@ export function specialistRequest(
       roleId: role.id,
     },
     input.mandate.researchProfile ?? DEFAULT_RESEARCH_PROFILE,
+    input.mandate.researchBrief,
   );
   const researchProfile =
     input.mandate.researchProfile ?? DEFAULT_RESEARCH_PROFILE;
@@ -303,6 +321,9 @@ export function specialistRequest(
       ...(input.mandate.question === undefined
         ? {}
         : { question: input.mandate.question }),
+      ...(input.mandate.researchBrief === undefined
+        ? {}
+        : { researchBrief: input.mandate.researchBrief }),
       scope: input.mandate.scope,
       locale: input.mandate.locale,
       limitations: input.mandate.limitations,
@@ -399,11 +420,13 @@ function isForwardThresholdPercentage(
 function percentageMetricFamilies(text: string): readonly RegExp[] {
   const families: RegExp[] = [];
   if (
-    /(?:revenue|sales).{0,40}(?:growth|grew|increase|decrease)|(?:growth|grew|increase|decrease).{0,40}(?:revenue|sales)|매출.{0,40}(?:성장|증가|감소)|(?:성장|증가|감소).{0,40}매출/iu.test(
+    /(?:revenue|sales).{0,40}(?:growth|grew|increase|decrease)|(?:growth|grew|increase|decrease).{0,40}(?:revenue|sales)|매출(?!\s*채권).{0,40}(?:성장|증가|감소)|(?:성장|증가|감소).{0,40}매출(?!\s*채권)/iu.test(
       text,
     )
   )
     families.push(/revenue.*growth|growth.*revenue|sales.*growth/iu);
+  if (/cash.{0,20}conversion|현금\s*전환/iu.test(text))
+    families.push(/cash_conversion/iu);
   if (/margin|마진|이익률/iu.test(text)) families.push(/margin/iu);
   if (
     /(?:stock|share price|price).{0,40}(?:rose|fell|up|down|increase|decrease)|주가.{0,40}(?:상승|하락|증가|감소)/iu.test(
@@ -421,42 +444,41 @@ function percentageClaimMatchesRegisteredMetrics(input: {
     ClaimSubmissionRequest["registeredValues"]
   >;
 }): boolean {
-  const families = percentageMetricFamilies(input.text);
-  if (families.length === 0) return true;
-  const percentages = [
-    ...new Set(
-      [...input.text.matchAll(PERCENTAGE_TOKEN)]
-        .filter((match) => {
-          const start = match.index ?? 0;
-          return !isForwardThresholdPercentage(
-            input.text,
-            start,
-            start + (match[0]?.length ?? 0),
-          );
-        })
-        .map((match) =>
-          Math.abs(Number((match[0] ?? "").replace(/[,%\s]/gu, ""))),
-        ),
-    ),
-  ].filter(Number.isFinite);
-  if (percentages.length === 0) return true;
-  const selected = input.registeredValues.filter(
-    (record) =>
-      input.decisiveMetricIds.includes(record.valueId) &&
-      families.some((family) =>
-        family.test(`${record.valueId} ${record.metric}`),
-      ),
-  );
-  return percentages.every((percentage) =>
-    selected.some((record) => {
+  return [...input.text.matchAll(PERCENTAGE_TOKEN)].every((match) => {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (isForwardThresholdPercentage(input.text, start, end)) return true;
+    const before =
+      input.text
+        .slice(Math.max(0, start - 120), start)
+        .split(/[;,。！？!?\n]|\.\s/u)
+        .at(-1) ?? "";
+    const after =
+      input.text.slice(end, end + 50).split(/[;,。！？!?\n]|\.\s/u)[0] ?? "";
+    const precedingFamilies = percentageMetricFamilies(before);
+    const families =
+      precedingFamilies.length > 0
+        ? precedingFamilies
+        : percentageMetricFamilies(after);
+    const percentage = Math.abs(Number(match[0].replace(/[,%\s]/gu, "")));
+    if (!Number.isFinite(percentage)) return false;
+    return input.registeredValues.some((record) => {
+      if (
+        !input.decisiveMetricIds.includes(record.valueId) ||
+        (families.length > 0 &&
+          !families.some((family) =>
+            family.test(`${record.valueId} ${record.metric}`),
+          ))
+      )
+        return false;
       const value = Math.abs(Number(record.value));
       if (!Number.isFinite(value)) return false;
       return (
         Math.abs(value - percentage) <= 0.2 ||
-        (value <= 1 && Math.abs(value * 100 - percentage) <= 0.2)
+        (record.unit === "ratio" && Math.abs(value * 100 - percentage) <= 0.2)
       );
-    }),
-  );
+    });
+  });
 }
 
 function evidenceTypesSuitClaim(input: {
@@ -571,31 +593,6 @@ function groundPercentageText(input: {
   return grounded + input.text.slice(cursor);
 }
 
-function removeUnsupportedPercentageValues(
-  text: string,
-  replacement: string,
-): string {
-  const matches = [...text.matchAll(PERCENTAGE_TOKEN)].filter((match) => {
-    const start = match.index ?? 0;
-    return !isForwardThresholdPercentage(
-      text,
-      start,
-      start + (match[0]?.length ?? 0),
-    );
-  });
-  if (matches.length === 0) return text;
-  return replacement;
-}
-
-/**
- * A selected registered metric is the numeric authority for a claim. When the
- * model preserves that binding but mistypes the displayed percentage, project
- * the exact registered value into both reader locales instead of spending a
- * second model call on a deterministic copy correction. When several
- * percentages cannot be unambiguously matched, retain the sourced qualitative
- * claim but remove only those unsupported displayed values. A presentation
- * ambiguity must not exhaust the run's replacement budget.
- */
 export function sanitizeSpecialistNumericMetricValues(
   candidate: unknown,
   registeredValues: NonNullable<ClaimSubmissionRequest["registeredValues"]>,
@@ -638,37 +635,7 @@ export function sanitizeSpecialistNumericMetricValues(
         decisiveMetricIds,
         registeredValues,
       });
-      if (en === undefined || ko === undefined) {
-        const enGrounded = percentageClaimMatchesRegisteredMetrics({
-          text: position.publicSummary.en,
-          decisiveMetricIds,
-          registeredValues,
-        });
-        const koGrounded = percentageClaimMatchesRegisteredMetrics({
-          text: position.publicSummary.ko,
-          decisiveMetricIds,
-          registeredValues,
-        });
-        if (enGrounded && koGrounded) return position;
-        return {
-          ...position,
-          publicSummary: {
-            ...position.publicSummary,
-            en: enGrounded
-              ? position.publicSummary.en
-              : removeUnsupportedPercentageValues(
-                  position.publicSummary.en,
-                  "The evidence supports the direction of this claim, but an exact rate is omitted because it could not be matched unambiguously.",
-                ),
-            ko: koGrounded
-              ? position.publicSummary.ko
-              : removeUnsupportedPercentageValues(
-                  position.publicSummary.ko,
-                  "근거는 이 주장의 방향성을 뒷받침하지만, 명확히 연결되지 않은 비율은 표시하지 않았습니다.",
-                ),
-          },
-        };
-      }
+      if (en === undefined || ko === undefined) return position;
       return {
         ...position,
         publicSummary: {

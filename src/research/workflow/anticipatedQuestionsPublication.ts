@@ -13,15 +13,16 @@ import type {
   ResearchMetricPoint,
   ResearchMetricSnapshot,
 } from "../domain/metricSnapshot";
+import { metricsSharePeriod } from "../domain/metricSnapshot";
 import {
   DEFAULT_RESEARCH_PROFILE,
   type ResearchProfile,
 } from "../domain/researchProfile";
 
 export const ANTICIPATED_QUESTIONS_POLICY = Object.freeze({
-  standardTarget: 10,
-  moduleMinimum: 5,
-  maximumPerPrimaryClaim: 10,
+  standardTarget: 5,
+  moduleMinimum: 1,
+  maximumPerPrimaryClaim: 2,
 });
 
 type Claim = z.infer<typeof AtomicEditorialClaimSchema>;
@@ -438,7 +439,8 @@ function calculationCandidates(input: {
     revenue !== undefined &&
     freeCashFlow !== undefined &&
     revenue.value > 0 &&
-    cashClaim !== undefined
+    cashClaim !== undefined &&
+    metricsSharePeriod(revenue, freeCashFlow)
   ) {
     const margin = (freeCashFlow.value / revenue.value) * 100;
     const marginText = margin.toLocaleString("en-US", {
@@ -467,7 +469,8 @@ function calculationCandidates(input: {
     revenue !== undefined &&
     capex !== undefined &&
     revenue.value > 0 &&
-    reinvestmentClaim !== undefined
+    reinvestmentClaim !== undefined &&
+    metricsSharePeriod(revenue, capex)
   ) {
     const intensity = (Math.abs(capex.value) / revenue.value) * 100;
     const intensityText = intensity.toLocaleString("en-US", {
@@ -551,62 +554,7 @@ function calculationCandidates(input: {
   return candidates;
 }
 
-function purposeQuestion(profile: ResearchProfile): Localized {
-  return {
-    new_entry: {
-      en: "What must be true before a new position has a favorable evidence-to-price trade-off?",
-      ko: "신규 진입의 근거 대비 가격 조건이 유리하려면 무엇이 먼저 확인돼야 하나요?",
-    },
-    holding_review: {
-      en: "Is the holding thesis intact, weakened, or broken?",
-      ko: "보유 논지는 유지·약화·훼손 중 어디에 해당하나요?",
-    },
-    position_sizing: {
-      en: "Which evidence argues for more exposure, and which evidence argues for less?",
-      ko: "비중 확대와 축소를 각각 뒷받침하는 근거는 무엇인가요?",
-    },
-    earnings: {
-      en: "What must the next earnings release prove to change the decision?",
-      ko: "다음 실적이 무엇을 입증해야 현재 판단이 달라지나요?",
-    },
-  }[profile.decisionPurpose];
-}
-
-function supplementalCandidates(
-  profile: ResearchProfile,
-  claims: readonly Claim[],
-): readonly QuestionCandidate[] {
-  return claims.flatMap((claim, claimIndex) => [
-    ...Array.from(
-      { length: 4 },
-      (_, variant): QuestionCandidate => ({
-        decisionKey: `${claim.decisionDimension}_followup_${claimIndex + 1}_${variant + 1}`,
-        priority: 72 - variant,
-        question: questionFor(claim, "thesis", variant + 1),
-        answer: claimAnswer(profile, claim, variant + 2),
-        claims: [claim],
-      }),
-    ),
-    ...Array.from(
-      { length: 4 },
-      (_, variant): QuestionCandidate => ({
-        decisionKey: `${claim.decisionDimension}_risk_test_${claimIndex + 1}_${variant + 1}`,
-        priority: 66 - variant,
-        question: questionFor(claim, "falsifier", variant + 1),
-        answer:
-          variant % 2 === 0
-            ? joinLocalized(claim.falsifier, claim.publicThesis)
-            : joinLocalized(
-                claim.falsifier,
-                profileImplication(profile, claim.decisionDimension),
-              ),
-        claims: [claim],
-      }),
-    ),
-  ]);
-}
-
-/** Builds the ten investor questions from the report's persisted claim set. */
+/** Selects distinct investor questions supported by the persisted claims. */
 export function selectGroundedAnticipatedQuestions(
   input: Readonly<{
     runId: string;
@@ -653,7 +601,7 @@ export function selectGroundedAnticipatedQuestions(
     {
       decisionKey: `decision_${profile.decisionPurpose}`,
       priority: 110,
-      question: purposeQuestion(profile),
+      question: { en: "What is the report’s answer to the research question?", ko: "이 리서치는 조사 질문에 어떤 답을 내렸나요?" },
       answer: decisionAnswer,
       claims: decisionClaims,
     },
@@ -711,7 +659,7 @@ export function selectGroundedAnticipatedQuestions(
           claims: [claim],
         }),
       ),
-    ...supplementalCandidates(profile, preferred),
+
   ].sort((left, right) => right.priority - left.priority);
   const selected: PersistedQuestion[] = [];
   const primaryCounts = new Map<string, number>();
@@ -735,7 +683,9 @@ export function selectGroundedAnticipatedQuestions(
           textSimilarity(question.question.en, candidate.question.en, "en")
             .duplicate ||
           textSimilarity(question.question.ko, candidate.question.ko, "ko")
-            .duplicate,
+            .duplicate ||
+          textSimilarity(question.answer.en, candidate.answer.en, "en").duplicate ||
+          textSimilarity(question.answer.ko, candidate.answer.ko, "ko").duplicate,
       )
     )
       continue;

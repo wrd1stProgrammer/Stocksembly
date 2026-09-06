@@ -69,6 +69,7 @@ export function createFollowupAndResponseAttemptHandler(
       attemptId: attempt.attemptId,
       ordinal: attempt.ordinal,
     };
+    const capturedArtifactIds: string[] = [];
     let raw: unknown;
     let runnerEvidence: SafeCodexEvidence;
     try {
@@ -82,14 +83,22 @@ export function createFollowupAndResponseAttemptHandler(
               stage: "follow_up",
               prompt: job.prompt,
               outputSchema: FollowUpOutputSchema,
-              captureWebEvidence: async (webEvidence) =>
-                await captureAttemptWebEvidence(
+              captureWebEvidence: async (webEvidence) => {
+                const captured = await captureAttemptWebEvidence(
                   context.options.cas,
                   context.commitStore,
                   attempt.snapshotId,
                   now(),
                   webEvidence,
-                ),
+                );
+                if (captured)
+                  capturedArtifactIds.push(
+                    ...webEvidence.artifacts.map(
+                      (artifact) => artifact.artifactId,
+                    ),
+                  );
+                return captured;
+              },
               signal,
               onActivity: activity,
             })
@@ -119,7 +128,7 @@ export function createFollowupAndResponseAttemptHandler(
     }
     const candidate =
       job.stage === "follow_up"
-        ? inspectFollowupCandidate(job, raw)
+        ? inspectFollowupCandidate(job, raw, capturedArtifactIds)
         : inspectOwnerResponseCandidate(job, raw);
     const recorded = recordSuccessfulRunnerEvidence(
       context.commitStore,

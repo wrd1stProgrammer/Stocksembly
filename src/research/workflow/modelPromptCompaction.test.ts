@@ -76,20 +76,27 @@ describe("late-stage model prompt compaction", () => {
     const compact = semanticAuditModelPrompt(prompt);
 
     expect(compact.match(/Revenue grew/gu)).toHaveLength(20);
-    expect(compact.length).toBeLessThan(JSON.stringify(prompt).length * 0.75);
+    const compactEvidence = JSON.parse(compact);
+    delete compactEvidence.instructions;
+    const { instructions: _instructions, ...trustedEvidence } = prompt;
+    expect(JSON.stringify(compactEvidence).length).toBeLessThan(JSON.stringify(trustedEvidence).length * 0.75);
     expect(prompt.claims[0]?.evidence[0]?.artifactId).toBe(id(1));
   });
 
   it("keeps chair copy and selection ids while omitting provenance UUIDs", () => {
-    const sentences = ["claim", "position", "ballot", "dissent", "unknown"].map(
+    const sentences = ["claim", "position", "claim", "dissent", "unknown", "scenario", "change_condition"].map(
       (kind, index) => ({
         sentenceId: `${kind}:${index}`,
         kind,
-        claimIds: kind === "unknown" ? [] : [id(2)],
+        claimIds: kind === "unknown" ? [] : [id(index + 2)],
         sourceArtifactIds: [id(1)],
         text: { en: `${kind} text`, ko: `${kind} 문장` },
       }),
     );
+    sentences.push(...["market", "company", "financial", "risk"].map((department, index) => ({
+      sentenceId: `position:${department}`, kind: "position", claimIds: [id(index + 20)], sourceArtifactIds: [id(1)],
+      text: { en: `${department} position`, ko: `${department} 판단` },
+    })));
     const prompt = ChairSynthesisPromptSchema.parse({
       kind: "chair_synthesis_input_v1",
       mandate: {
@@ -100,7 +107,7 @@ describe("late-stage model prompt compaction", () => {
         limitations: [],
       },
       capabilities: [],
-      auditedClaimIds: [id(2)],
+      auditedClaimIds: sentences.flatMap((sentence) => sentence.claimIds),
       departmentPositions: ["market", "company", "financial", "risk"].map(
         (departmentId) => ({ departmentId, artifactId: id(1) }),
       ),

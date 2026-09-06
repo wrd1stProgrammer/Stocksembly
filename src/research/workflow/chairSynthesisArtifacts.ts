@@ -1,7 +1,8 @@
-import type Database from "better-sqlite3";
+import Database from "better-sqlite3";
 import { z } from "zod";
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { ResearchBriefSchema } from "../domain/researchBrief";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
@@ -33,6 +34,7 @@ const SpecialistJobSchema = z
           .object({
             mandateHash: z.string().regex(/^[a-f0-9]{64}$/),
             question: z.string().optional(),
+            researchBrief: ResearchBriefSchema.optional(),
             scope: z.enum(["broad", "focused"]),
             locale: z.enum(["en", "ko"]),
             limitations: z.array(
@@ -131,4 +133,16 @@ export function loadChairMandate(database: Database.Database, runId: string) {
   if (sealedRequest === undefined) return undefined;
   return SpecialistJobSchema.safeParse(parseSafeJson(sealedRequest)).data
     ?.request.mandate;
+}
+
+export function loadResearchMandateAtPath(databasePath: string, runId: string) {
+  const database = new Database(databasePath, {
+    readonly: true,
+    fileMustExist: true,
+  });
+  try {
+    return loadChairMandate(database, runId);
+  } finally {
+    database.close();
+  }
 }

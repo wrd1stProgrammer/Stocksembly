@@ -1,3 +1,4 @@
+import { ANTICIPATED_QUESTIONS_POLICY } from "../../../workflow/anticipatedQuestionsPublication";
 import Database from "better-sqlite3";
 import { z } from "zod";
 import type { AuthoritativeReportCommit } from "../../../application/assembleReportPersistence";
@@ -128,8 +129,8 @@ export function publishReportAtomically(
         | undefined;
       if (
         envelope?.gateVersion !== "editorial-quality-v1" ||
-        envelope.qaPolicy.moduleMinimum !== 5 ||
-        envelope.qaPolicy.standardTarget !== 10 ||
+        envelope.qaPolicy.moduleMinimum !== ANTICIPATED_QUESTIONS_POLICY.moduleMinimum ||
+        envelope.qaPolicy.standardTarget !== ANTICIPATED_QUESTIONS_POLICY.standardTarget ||
         envelope.qaPolicy.supportedCount !==
           envelope.candidate.anticipatedQuestions.length ||
         envelope.qaPolicy.moduleVisible !==
