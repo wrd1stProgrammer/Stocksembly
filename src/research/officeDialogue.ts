@@ -34,7 +34,11 @@ export function officeDialogue(
     (["summary", "checkpoint"].includes(event.kind ?? "") &&
       event.phase === "analyzing")
       ? "team"
-      : workflow === "department_ballot_committed" ||
+      : [
+            "structural_audit_completed",
+            "semantic_audit_committed",
+            "department_ballot_committed",
+          ].includes(workflow ?? "") ||
           ["gathering", "committee", "complete"].includes(event.phase)
         ? "forum"
         : parties.length > 1 &&

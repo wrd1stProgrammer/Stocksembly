@@ -7,6 +7,7 @@ import {
   OFFICE_CLOCK_CONTRACT,
   OFFICE_ENTRY_TIMELINE,
 } from "./officeChoreography";
+import { OFFICE_WALK_SPEED_MULTIPLIER } from "./officeMotion/timing";
 import { prefersReducedMotion } from "./officeReducedMotion";
 import type { OfficeDepartmentId } from "./officeSceneManifest";
 import {
@@ -140,7 +141,8 @@ export function useLiveOfficeAnimation(
             : advanceLiveOfficeFrameForDisplay(
                 frameRef.current,
                 displayTargetTick,
-                (timestamp - previousTimestamp) * (physicalMovement ? 1.5 : 1),
+                (timestamp - previousTimestamp) *
+                  (physicalMovement ? OFFICE_WALK_SPEED_MULTIPLIER : 1),
               );
         if (next !== frameRef.current) {
           frameRef.current = next;

@@ -21,6 +21,7 @@ import {
   isFloorPoint,
   nearestFloorPoint,
 } from "./navigation";
+import { OFFICE_WALK_SPEED } from "./timing";
 import type {
   Action,
   ActorFrame,
@@ -54,7 +55,6 @@ type ActorState = {
   settledAt: number;
 };
 const TRANSITION_SECONDS = 0.65;
-const WALK_SPEED = 156;
 const COMMITTED_TEAM_HOLD_SECONDS = 0.5;
 
 function distance(left: Point, right: Point): number {
@@ -217,11 +217,13 @@ export class LiveOfficeScene {
     }
     if (options.dialogue?.kind === "forum") this.forumActive = true;
     const encounter =
-      options.dialogue && this.forumActive && options.dialogue.kind === "work"
+      options.dialogue && this.forumActive
         ? { ...options.dialogue, kind: "forum" as const }
         : options.dialogue;
     const targets = new Map(
-      encounter ? dialogueDestinations(encounter, this.seatedTeams) : [],
+      encounter
+        ? dialogueDestinations(encounter, this.seatedTeams, this.targets)
+        : [],
     );
     if (snapshot.tick < 120) {
       for (const actor of snapshot.actors) {
@@ -364,7 +366,7 @@ export class LiveOfficeScene {
       }
       return;
     }
-    let remaining = delta * WALK_SPEED;
+    let remaining = delta * OFFICE_WALK_SPEED;
     while (remaining > 0) {
       const next = state.route[state.routeIndex];
       if (!next) {

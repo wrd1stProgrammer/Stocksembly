@@ -186,7 +186,7 @@ describe("approved office live adapter", () => {
           Math.hypot(current.x - previous.x, current.y - previous.y),
         );
     }
-    expect(maximumStep).toBeCloseTo(156 / 60, 3);
+    expect(maximumStep).toBeCloseTo(176.8 / 60, 3);
     expect(frame.actors[0]?.seated).toBe(true);
     expect(frame.actors[0]?.speech).toBe("Actual research event");
     expect(frame.actors[0]?.position).toEqual(
