@@ -1,3 +1,4 @@
+import type { PublicRun } from "../research/client/schemas";
 import type { ActiveResearchActivityKind } from "../research/domain/activeResearchActivity";
 import type { AgentId } from "../research/types";
 import {
@@ -620,6 +621,17 @@ type Copy = {
   readonly nav: {
     readonly getStarted: string;
   };
+  readonly home: {
+    readonly title: string;
+    readonly description: string;
+    readonly researchTitle: string;
+    readonly loading: string;
+    readonly emptyTitle: string;
+    readonly emptyDescription: string;
+    readonly error: string;
+    readonly retry: string;
+    readonly statuses: Readonly<Record<PublicRun["status"], string>>;
+  };
   readonly hero: {
     readonly eyebrow: string;
     readonly titleLead: string;
@@ -701,6 +713,28 @@ type Copy = {
 
 export const copy: Readonly<Record<AppLocale, Copy>> = {
   en: {
+    home: {
+      title: "Which stock shall we investigate today?",
+      description:
+        "Start with a question. Follow the evidence back to its sources.",
+      researchTitle: "My research",
+      loading: "Loading your research",
+      emptyTitle: "Your first research starts here.",
+      emptyDescription:
+        "Choose a stock above and ask a question to build a research file with linked sources.",
+      error: "We couldn’t load your research.",
+      retry: "Try again",
+      statuses: {
+        queued: "Queued",
+        running: "Researching",
+        cancelling: "Cancelling",
+        completed: "Complete",
+        "complete-with-limitations": "Complete with limitations",
+        cancelled: "Cancelled",
+        failed: "Failed",
+        incomplete: "Incomplete",
+      },
+    },
     a11y: {
       home: "Stocksembly home",
       language: "Language",
@@ -814,6 +848,27 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       language: "언어",
       results: "검색 결과",
     },
+    home: {
+      title: "오늘은 어떤 종목을 검증해볼까요?",
+      description: "궁금한 점에서 시작해, 근거와 출처를 따라 확인해 보세요.",
+      researchTitle: "내 리서치",
+      loading: "내 리서치를 불러오는 중",
+      emptyTitle: "첫 리서치를 시작해 보세요.",
+      emptyDescription:
+        "위에서 종목을 고르고 질문을 입력하면, 출처가 연결된 리서치 파일을 만들 수 있습니다.",
+      error: "리서치를 불러오지 못했습니다.",
+      retry: "다시 시도",
+      statuses: {
+        queued: "대기 중",
+        running: "분석 중",
+        cancelling: "취소 중",
+        completed: "완료",
+        "complete-with-limitations": "일부 제한과 함께 완료",
+        cancelled: "취소됨",
+        failed: "실패",
+        incomplete: "미완료",
+      },
+    },
     nav: {
       getStarted: "시작하기",
     },
@@ -921,6 +976,28 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "検索結果",
     },
     nav: { getStarted: "始める" },
+    home: {
+      title: "今日はどの銘柄を検証しましょうか？",
+      description:
+        "気になる問いから始めて、根拠と出典をたどって確かめましょう。",
+      researchTitle: "マイリサーチ",
+      loading: "リサーチを読み込み中",
+      emptyTitle: "最初のリサーチを始めましょう。",
+      emptyDescription:
+        "上で銘柄を選んで質問を入力すると、出典へのリンク付きリサーチファイルを作成できます。",
+      error: "リサーチを読み込めませんでした。",
+      retry: "再試行",
+      statuses: {
+        queued: "待機中",
+        running: "分析中",
+        cancelling: "キャンセル中",
+        completed: "完了",
+        "complete-with-limitations": "一部制限付きで完了",
+        cancelled: "キャンセル済み",
+        failed: "失敗",
+        incomplete: "未完了",
+      },
+    },
     hero: {
       eyebrow: "米国株AIリサーチチーム",
       titleLead: "11人のAIアナリストが",
@@ -1026,6 +1103,27 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "搜尋結果",
     },
     nav: { getStarted: "開始使用" },
+    home: {
+      title: "今天想驗證哪一檔股票？",
+      description: "從你的問題出發，沿著證據與來源逐一查證。",
+      researchTitle: "我的研究",
+      loading: "正在載入你的研究",
+      emptyTitle: "開始你的第一份研究。",
+      emptyDescription:
+        "在上方選擇股票並輸入問題，即可建立附有來源連結的研究檔案。",
+      error: "無法載入你的研究。",
+      retry: "重試",
+      statuses: {
+        queued: "排隊中",
+        running: "分析中",
+        cancelling: "取消中",
+        completed: "已完成",
+        "complete-with-limitations": "已完成，但有部分限制",
+        cancelled: "已取消",
+        failed: "失敗",
+        incomplete: "未完成",
+      },
+    },
     hero: {
       eyebrow: "美股 AI 研究團隊",
       titleLead: "11 位 AI 分析師",
@@ -1128,6 +1226,28 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Resultados de búsqueda",
     },
     nav: { getStarted: "Comenzar" },
+    home: {
+      title: "¿Qué acción investigamos hoy?",
+      description:
+        "Empieza con una pregunta y sigue la evidencia hasta sus fuentes.",
+      researchTitle: "Mis investigaciones",
+      loading: "Cargando tus investigaciones",
+      emptyTitle: "Empieza tu primera investigación.",
+      emptyDescription:
+        "Elige una acción arriba y escribe una pregunta para crear un informe con enlaces a las fuentes.",
+      error: "No pudimos cargar tus investigaciones.",
+      retry: "Volver a intentar",
+      statuses: {
+        queued: "En cola",
+        running: "En análisis",
+        cancelling: "Cancelando",
+        completed: "Completada",
+        "complete-with-limitations": "Completada con limitaciones",
+        cancelled: "Cancelada",
+        failed: "Fallida",
+        incomplete: "Incompleta",
+      },
+    },
     hero: {
       eyebrow: "Investigación con IA de acciones de EE. UU.",
       titleLead: "Once analistas de IA",
@@ -1235,6 +1355,28 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Resultados da busca",
     },
     nav: { getStarted: "Começar" },
+    home: {
+      title: "Qual ação vamos investigar hoje?",
+      description:
+        "Comece com uma pergunta e acompanhe as evidências até suas fontes.",
+      researchTitle: "Minhas pesquisas",
+      loading: "Carregando suas pesquisas",
+      emptyTitle: "Comece sua primeira pesquisa.",
+      emptyDescription:
+        "Escolha uma ação acima e faça uma pergunta para criar um relatório com links para as fontes.",
+      error: "Não foi possível carregar suas pesquisas.",
+      retry: "Tentar novamente",
+      statuses: {
+        queued: "Na fila",
+        running: "Em análise",
+        cancelling: "Cancelando",
+        completed: "Concluída",
+        "complete-with-limitations": "Concluída com limitações",
+        cancelled: "Cancelada",
+        failed: "Falhou",
+        incomplete: "Incompleta",
+      },
+    },
     hero: {
       eyebrow: "Pesquisa com IA para ações dos EUA",
       titleLead: "Onze analistas de IA",
@@ -1342,6 +1484,28 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Suchergebnisse",
     },
     nav: { getStarted: "Loslegen" },
+    home: {
+      title: "Welche Aktie untersuchen wir heute?",
+      description:
+        "Starte mit einer Frage und verfolge die Belege bis zu ihren Quellen.",
+      researchTitle: "Meine Analysen",
+      loading: "Deine Analysen werden geladen",
+      emptyTitle: "Starte deine erste Analyse.",
+      emptyDescription:
+        "Wähle oben eine Aktie und stelle eine Frage, um einen Analysebericht mit verlinkten Quellen zu erstellen.",
+      error: "Deine Analysen konnten nicht geladen werden.",
+      retry: "Erneut versuchen",
+      statuses: {
+        queued: "In der Warteschlange",
+        running: "In Analyse",
+        cancelling: "Wird abgebrochen",
+        completed: "Abgeschlossen",
+        "complete-with-limitations": "Mit Einschränkungen abgeschlossen",
+        cancelled: "Abgebrochen",
+        failed: "Fehlgeschlagen",
+        incomplete: "Unvollständig",
+      },
+    },
     hero: {
       eyebrow: "KI-Researchteam für US-Aktien",
       titleLead: "Elf KI-Analysten",
@@ -1449,6 +1613,28 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
       results: "Résultats de recherche",
     },
     nav: { getStarted: "Commencer" },
+    home: {
+      title: "Quelle action allons-nous examiner aujourd’hui ?",
+      description:
+        "Partez d’une question et remontez des éléments de preuve à leurs sources.",
+      researchTitle: "Mes analyses",
+      loading: "Chargement de vos analyses",
+      emptyTitle: "Lancez votre première analyse.",
+      emptyDescription:
+        "Choisissez une action ci-dessus et posez une question pour créer un dossier d’analyse avec des liens vers les sources.",
+      error: "Impossible de charger vos analyses.",
+      retry: "Réessayer",
+      statuses: {
+        queued: "En attente",
+        running: "En cours d’analyse",
+        cancelling: "Annulation en cours",
+        completed: "Terminée",
+        "complete-with-limitations": "Terminée avec des limites",
+        cancelled: "Annulée",
+        failed: "Échec",
+        incomplete: "Incomplète",
+      },
+    },
     hero: {
       eyebrow: "Recherche IA sur les actions américaines",
       titleLead: "Onze analystes IA",
