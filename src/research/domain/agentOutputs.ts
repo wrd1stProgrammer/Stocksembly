@@ -73,6 +73,7 @@ export {
 export const MemoOutputSchema = z
   .object({
     kind: z.literal("memo"),
+    chartCommentaryJson: z.string().nullable().optional(),
     sourceArtifactIds: SourceArtifactIdsSchema,
     positions: z.array(PublicPositionSchema).min(1).max(32).readonly(),
     dissent: DissentListSchema,

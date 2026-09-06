@@ -162,7 +162,7 @@ export async function persistAuthoritativeReport(
     candidate: gated.candidate,
     fieldLineage: gated.fieldLineage,
   };
-  const projectedPublicationReport = workflowV3ReportFromCanonicalNarrative(
+  const canonicalPublicationReport = workflowV3ReportFromCanonicalNarrative(
     assembled.report,
     normalizedCanonical.canonical,
     new Map(
@@ -173,6 +173,13 @@ export async function persistAuthoritativeReport(
     ),
     normalizedCanonical.anticipatedQuestionIndexes,
   );
+  const projectedPublicationReport =
+    input.technicalChart === undefined
+      ? canonicalPublicationReport
+      : WorkflowV3ResearchReportSchema.parse({
+          ...canonicalPublicationReport,
+          technicalChart: input.technicalChart,
+        });
   const canonicalWasReduced =
     normalizedCanonical.reduced ||
     (normalizedCanonical.canonical.publicationReductionReasons?.length ?? 0) >

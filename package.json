@@ -65,6 +65,7 @@
     "clsx": "^2.1.1",
     "decimal.js": "10.6.0",
     "ky": "^1.14.2",
+    "lightweight-charts": "5.2.0",
     "lucide-react": "^1.25.0",
     "motion": "^12.42.2",
     "next": "16.2.10",

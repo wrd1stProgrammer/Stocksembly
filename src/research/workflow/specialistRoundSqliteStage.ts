@@ -6,10 +6,12 @@ import { researchFinancialBoard } from "../domain/researchFinancialBoard";
 import { analyticalResearchProfile } from "../domain/researchProfile";
 import { workflowRoleById } from "../domain/roleRegistry";
 import { TEAM_CORE_DATA } from "../domain/teamCoreData";
+import { TechnicalChartSnapshotSchema } from "../domain/technicalChart";
 import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import { codexInputHash } from "../server/codex/codexRunner";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import type { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { technicalChartPromptSummary } from "../technical/buildTechnicalChart";
 import { qualifyComparatorsBeforeSynthesis } from "./preSynthesisComparatorQualification";
 import type { SpecialistRoundInput } from "./specialistRound";
 import {
@@ -32,7 +34,10 @@ type SqliteStore = ReturnType<typeof openSqliteStore>;
 export function permittedSpecialistInlineArtifact(artifact: {
   readonly dataset: string;
 }): boolean {
-  return artifact.dataset !== "insightsentry_peers";
+  return (
+    artifact.dataset !== "insightsentry_peers" &&
+    artifact.dataset !== "insightsentry_request_ledger"
+  );
 }
 
 type StageContext = {
@@ -87,13 +92,20 @@ function inlineSource(
   const decoded = new TextDecoder().decode(source.bytes);
   try {
     const parsed = JSON.parse(decoded) as {
+      readonly technicalChart?: unknown;
       readonly value?: {
         readonly text?: unknown;
         readonly selectedFacts?: unknown;
+        readonly technicalChart?: unknown;
         readonly treasury?: unknown;
         readonly bls?: unknown;
       };
     };
+    const chart = TechnicalChartSnapshotSchema.safeParse(
+      parsed.value?.technicalChart ?? parsed.technicalChart,
+    );
+    if (chart.success)
+      return JSON.stringify(technicalChartPromptSummary(chart.data));
     if (typeof parsed.value?.text === "string")
       return researchEvidenceExcerpt(parsed.value.text, focusAreas, maxChars);
     if (parsed.value?.selectedFacts !== undefined)
@@ -241,6 +253,9 @@ export function prepareSpecialistJobs(
         request: specialistPromptRequest(request),
         sourceArtifactIds,
       }),
+      assignment.roleId === "market_news"
+        ? `You are June, the chart-structure specialist. Read the supplied technical chart snapshot from weekly context to daily structure, four-hour setup and hourly confirmation. Use confirmed drawing IDs and closing conditions. Do not treat four correlated timeframes as votes or assert a probability. Your existing positions must explain structure, next-candle confirmation and invalidation. Price calculations are supplied; never invent future candles or targets. In chartCommentaryJson, return a JSON string with synthesis:{en,ko}, frames:[{timeframe,focusDrawingIds,observation:{en,ko}}], or null when unavailable. Write qualitative explanations without numerals, price amounts, percentage signs or win-rate claims; the page adds exact supplied prices separately. Explain why the chosen drawings matter for the next candle and what invalidates that reading. Use words such as hourly/four-hour/daily/weekly in prose, and the exact enum values in timeframe. This optional text does not replace the required positions.`
+        : "Set chartCommentaryJson to null; June owns the optional chart commentary.",
       "",
       "Permitted sealed evidence excerpts are inlined below. Native hosted web search may be used for public context; do not call any other tool or read files.",
       "For sourceArtifactIds and evidenceArtifactIds, copy only exact UUIDs from the top-level sourceArtifactIds allowlist. contentHash, rawHash, and normalizedHash values are integrity metadata, not citation IDs, and must never be cited or converted into UUIDs.",
@@ -330,6 +345,12 @@ export function prepareSpecialistJobs(
     );
     const inlineEvidence = assignment.evidenceSlice.artifacts
       .filter(permittedSpecialistInlineArtifact)
+      .sort((left, right) =>
+        assignment.roleId === "market_news"
+          ? Number(right.dataset === "market_bars") -
+            Number(left.dataset === "market_bars")
+          : 0,
+      )
       .flatMap((artifact) => {
         const source = sourceByEvidence.get(artifact.evidenceId);
         if (source === undefined)

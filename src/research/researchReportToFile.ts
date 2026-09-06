@@ -410,6 +410,10 @@ function workflowV2ReportToFile(
               : { changePercent: report.marketSnapshot.changePercent }),
           },
         }),
+    reportId: report.reportId,
+    ...(report.technicalChart === undefined
+      ? {}
+      : { technicalChart: report.technicalChart }),
     ...(report.metricSnapshot === undefined
       ? {}
       : { metricSnapshot: report.metricSnapshot }),
@@ -813,6 +817,10 @@ export function researchReportToFile(
               : { changePercent: report.marketSnapshot.changePercent }),
           },
         }),
+    reportId: report.reportId,
+    ...(report.technicalChart === undefined
+      ? {}
+      : { technicalChart: report.technicalChart }),
     ...(report.metricSnapshot === undefined
       ? {}
       : { metricSnapshot: report.metricSnapshot }),

@@ -106,6 +106,7 @@ class FakeCodexPort implements CodexPort {
       : prompt.sourceArtifactIds;
     const candidate = input.outputSchema.parse({
       kind: "memo",
+      chartCommentaryJson: null,
       sourceArtifactIds: citedArtifactIds,
       positions: [
         {

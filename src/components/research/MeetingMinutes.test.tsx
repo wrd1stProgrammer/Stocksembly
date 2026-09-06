@@ -201,7 +201,7 @@ describe("MeetingMinutes", () => {
 
     expect(
       screen.getByRole("status", {
-        name: `${agent.name.ko}: 뉴스 분석 중`,
+        name: `${agent.name.ko}: 차트 구조 분석 중`,
       }),
     ).toBeInTheDocument();
     expect(document.querySelector("[data-agent-thinking]")).toHaveAttribute(

@@ -39,6 +39,7 @@ const EvidenceRefSchema = z
 export const SpecialistMemoOutputSchema = z
   .object({
     kind: z.literal("memo"),
+    chartCommentaryJson: z.string().nullable(),
     sourceArtifactIds: SourceArtifactIdsSchema,
     positions: z
       .array(

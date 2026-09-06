@@ -1,6 +1,7 @@
 import { parseStoredResearchReportVersioned } from "@/src/research/domain/reportStorage";
 import { renderEditorialResearchReportPdf } from "@/src/research/pdf/renderEditorialResearchReportPdf";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
+import { readPublishedTechnicalChart } from "@/src/research/server/api/technicalChartReader";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,11 +50,20 @@ export async function GET(
     typeof createdAtValue === "string"
       ? createdAtValue
       : new Date().toISOString();
+  const technicalChart =
+    report.technicalChart === undefined
+      ? undefined
+      : await readPublishedTechnicalChart(report.technicalChart);
+  const renderInput = { report, symbol, locale, createdAt } as const;
   const bytes = await renderEditorialResearchReportPdf({
-    report,
-    symbol,
-    locale,
-    createdAt,
+    ...renderInput,
+    ...(technicalChart === undefined ? {} : { technicalChart }),
+  }).catch((error: unknown) => {
+    if (technicalChart === undefined) throw error;
+    process.stderr.write(
+      `${JSON.stringify({ kind: "optional_chart_pdf_omitted", reportId })}\n`,
+    );
+    return renderEditorialResearchReportPdf(renderInput);
   });
   return new Response(new Uint8Array(bytes), {
     headers: {

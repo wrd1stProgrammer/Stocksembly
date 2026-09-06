@@ -62,6 +62,7 @@ import {
   qualityMetricsForPublication,
 } from "./researchQualityObservations";
 import { serializeSafeJson } from "./safeJson";
+import { persistOptionalTechnicalChart } from "./technicalChartArtifact";
 
 const RunSchema = z.object({
   snapshot_id: SnapshotIdSchema,
@@ -1339,7 +1340,7 @@ export async function publishDepartmentReportForRun(
       .all(runId, run.data.snapshot_id)
       .map((value) => ArtifactRowSchema.parse(value));
     const publishedAt = options.now?.() ?? new Date().toISOString();
-    const built = await buildReport(
+    let built = await buildReport(
       options.cas,
       options.databasePath,
       publishedAt,
@@ -1350,6 +1351,22 @@ export async function publishDepartmentReportForRun(
     );
     if (built === undefined)
       return { kind: "incomplete", reason: "department_report_inputs_invalid" };
+    if (run.data.department_id === "market") {
+      const technicalChart = await persistOptionalTechnicalChart(
+        database,
+        options.cas,
+        runId,
+        run.data.snapshot_id,
+      );
+      if (technicalChart !== undefined)
+        built = {
+          ...built,
+          report: WorkflowV2ResearchReportSchema.parse({
+            ...built.report,
+            technicalChart,
+          }),
+        };
+    }
     const artifactId = ArtifactIdSchema.parse(randomUUID());
     const parentDigests = built.parentRows.map((row) => row.content_hash);
     const bytes = new TextEncoder().encode(

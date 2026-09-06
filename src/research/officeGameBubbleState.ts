@@ -84,8 +84,8 @@ const messages: Readonly<
     ko: ["금리·물가 확인 중", "시장 국면 대조 중"],
   },
   market_news: {
-    en: ["Comparing 20/50/200-day trends", "Checking momentum and volume"],
-    ko: ["20·50·200일 추세 비교 중", "모멘텀·거래량 확인 중"],
+    en: ["Comparing weekly and daily structure", "Checking entry conditions"],
+    ko: ["주봉·일봉 구조 비교 중", "진입 확인 조건 점검 중"],
   },
   benchmark: {
     en: ["Comparing sector benchmarks", "Testing rates and peer dispersion"],

@@ -195,11 +195,11 @@ export const SOURCE_BY_SURFACE_RIGHTS = {
     "insightsentry_rapidapi",
     cell(
       "bounded_normalized_provider_values",
-      "derived_values_with_provider_attribution",
+      "bounded_normalized_candles_and_derived_values_with_provider_attribution",
     ),
     cell(
       "bounded_normalized_provider_values",
-      "derived_values_with_provider_attribution",
+      "bounded_normalized_candles_and_derived_values_with_provider_attribution",
     ),
     cell("derived_values_only", "same_report_content"),
   ),

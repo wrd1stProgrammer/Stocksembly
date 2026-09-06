@@ -36,6 +36,7 @@ describe("pre-synthesis comparator qualification", () => {
     // Given
     const artifacts = [
       { dataset: "insightsentry_peers" },
+      { dataset: "insightsentry_request_ledger" },
       { dataset: "sec_filing" },
     ];
 

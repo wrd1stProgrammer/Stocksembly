@@ -45,6 +45,8 @@ import {
   createPeerIssuerIdentityResolver,
   type PeerIssuerIdentityResolver,
 } from "../server/data/insightsentry/peerIssuerIdentityResolver";
+import { buildTechnicalChart } from "../technical/buildTechnicalChart";
+import { closedChartBars } from "../technical/chartSessions";
 import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
 
 const encoder = new TextEncoder();
@@ -314,11 +316,7 @@ function providerValueDrafts(input: {
   readonly technical: FamilyResult<{
     readonly company: InsightSentryCompanyInfo;
     readonly quote: InsightSentryQuote;
-    readonly bars: readonly [
-      InsightSentryBarSet,
-      InsightSentryBarSet,
-      InsightSentryBarSet,
-    ];
+    readonly bars: readonly InsightSentryBarSet[];
     readonly analysis: ReturnType<typeof deriveInsightSentryTechnicalAnalysis>;
   }>;
   readonly fundamentals: FamilyResult<FundamentalsDataset>;
@@ -778,22 +776,38 @@ export async function collectInsightSentryInitialEvidence(input: {
   const unavailableTechnical = unavailable<{
     readonly company: InsightSentryCompanyInfo;
     readonly quote: InsightSentryQuote;
-    readonly bars: readonly [
-      InsightSentryBarSet,
-      InsightSentryBarSet,
-      InsightSentryBarSet,
-    ];
+    readonly bars: readonly InsightSentryBarSet[];
     readonly analysis: ReturnType<typeof deriveInsightSentryTechnicalAnalysis>;
   }>();
   const technicalPromise =
     code === undefined
       ? Promise.resolve(unavailableTechnical)
       : marketFamily(async () => {
-          const [company, quote, bars] = await Promise.all([
+          const [company, quote, collectedBars] = await Promise.all([
             market.companyInfo(code),
             market.quote(code),
             market.technicalBars(code),
           ]);
+          const bars = collectedBars
+            .map((set) => {
+              const closed = closedChartBars(
+                set.bars,
+                set.timeframe,
+                input.asOf,
+              ).map((bar) => ({ ...bar, timeframe: set.timeframe }));
+              return {
+                ...set,
+                bars: closed,
+                coverage: {
+                  ...set.coverage,
+                  barCount: closed.length,
+                  observedEnd:
+                    closed.at(-1)?.timestamp ?? set.coverage.observedStart,
+                  partial: closed.length < set.coverage.requestedBarCount,
+                },
+              };
+            })
+            .filter((set) => set.bars.length > 0);
           return {
             company,
             quote,
@@ -974,6 +988,19 @@ export async function collectInsightSentryInitialEvidence(input: {
       "insightsentry:technical",
       "market_bars",
       {
+        ...(() => {
+          try {
+            return {
+              technicalChart: buildTechnicalChart({
+                symbol: input.identity.ticker,
+                asOf: input.asOf,
+                sets: technical.data.bars,
+              }),
+            };
+          } catch {
+            return {};
+          }
+        })(),
         analysis: technical.data.analysis,
         coverage: technical.data.bars.map((set) => set.coverage),
         company: technical.data.company,
