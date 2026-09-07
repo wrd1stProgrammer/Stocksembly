@@ -463,6 +463,45 @@ describe("follow-up and response corrective boundaries", () => {
     expect(replay.ballotArtifactIds).toHaveLength(4);
   });
 
+  it("discards invalid optional runner output without exhausting replacement budget", async () => {
+    const fixture = await stagedRound(1, {
+      followupRunnerFailure: "output_invalid",
+    });
+    const replay = await fixture.round.drain(
+      fixture.prepared.harness.input.mandate.runId,
+    );
+    await fixture.round.close();
+
+    expect(fixture.codex.followupLaunches).toBe(1);
+    expect(replay.followupArtifactIds).toHaveLength(0);
+    expect(replay.ballotArtifactIds).toHaveLength(4);
+    expect(replay.consensus).toBe("support_with_reservations");
+    expect(
+      replay.receipts.filter((item) =>
+        item.logicalArtifactId.startsWith("followup:"),
+      ),
+    ).toHaveLength(1);
+    expect(
+      fixture.codex.responseInputs.every(
+        (input) => input.followupResult === undefined,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not discard optional runner authentication failures as invalid prose", async () => {
+    const fixture = await stagedRound(1, {
+      followupRunnerFailure: "auth_unavailable",
+    });
+    const replay = await fixture.round.drain(
+      fixture.prepared.harness.input.mandate.runId,
+    );
+    await fixture.round.close();
+    expect(replay.consensus).toBe("incomplete");
+    expect(replay.responseStartAllowed).toBe(false);
+    expect(replay.ballotArtifactIds).toHaveLength(0);
+    expect(replay.receipts[0]?.outcome).toBe("failed");
+  });
+
   it("stops after a second invalid required ballot without launch 35 or consensus", async () => {
     // Given
     const fixture = await stagedRound(4, { invalidBallotDepartment: "market" });

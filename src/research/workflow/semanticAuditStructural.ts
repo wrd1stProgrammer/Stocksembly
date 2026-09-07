@@ -42,7 +42,7 @@ type LoadResult =
       readonly reason: SemanticAuditStageBlockedReason;
     };
 
-const SEMANTIC_EVIDENCE_WINDOW = 1_500;
+const SEMANTIC_EVIDENCE_WINDOW = 4_000;
 const SEARCH_STOP_WORDS = new Set([
   "about",
   "after",
@@ -105,17 +105,58 @@ export function semanticEvidenceWindow(
       cursor = index + token.length;
     }
   }
+  // Narrative amounts are often rounded billions, while filing tables use millions.
+  // These matches select context only; the auditor still verifies period and units.
+  const amounts = [...claimText.matchAll(/\b(\d+\.\d+)\b/gu)].map((match) => ({
+    value: Number(match[0]),
+    tolerance: 0.5 * 10 ** -(match[0].length - match[0].indexOf(".") - 1),
+  }));
+  const numericMatches = [
+    ...exactText.matchAll(/\b\d[\d,]*(?:\.\d+)?\b/gu),
+  ].flatMap((match) => {
+    const value = Number(match[0].replaceAll(",", ""));
+    const amount = amounts.findIndex((item) =>
+      [1, 1_000, 1_000_000, 1_000_000_000].some(
+        (scale) => Math.abs(value / scale - item.value) <= item.tolerance,
+      ),
+    );
+    if (amount < 0) return [];
+    candidates.add(
+      Math.max(
+        0,
+        Math.min(
+          exactText.length - SEMANTIC_EVIDENCE_WINDOW,
+          match.index - Math.floor(SEMANTIC_EVIDENCE_WINDOW / 2),
+        ),
+      ),
+    );
+    return [{ index: match.index, amount }];
+  });
   let bestStart = 0;
   let bestScore = -1;
   for (const start of candidates) {
     const window = lower.slice(start, start + SEMANTIC_EVIDENCE_WINDOW);
-    const score = tokens.reduce(
-      (total, token) =>
-        total +
-        (window.includes(token) ? (/\\d|[$%]/u.test(token) ? 3 : 1) : 0),
-      0,
-    );
-    if (score > bestScore) {
+    const score =
+      tokens.reduce(
+        (total, token) =>
+          total +
+          (window.includes(token) ? (/\d|[$%]/u.test(token) ? 3 : 1) : 0),
+        0,
+      ) +
+      12 *
+        new Set(
+          numericMatches
+            .filter(
+              (match) =>
+                match.index >= start &&
+                match.index < start + SEMANTIC_EVIDENCE_WINDOW,
+            )
+            .map((match) => match.amount),
+        ).size;
+    if (
+      score > bestScore ||
+      (score > 0 && score === bestScore && start > bestStart)
+    ) {
       bestScore = score;
       bestStart = start;
     }
@@ -124,6 +165,27 @@ export function semanticEvidenceWindow(
     start: bestStart,
     text: exactText.slice(bestStart, bestStart + SEMANTIC_EVIDENCE_WINDOW),
   };
+}
+
+export function semanticEvidenceWindows(exactText: string, claimText: string) {
+  const selected = semanticEvidenceWindow(exactText, claimText);
+  const headings = [
+    ...exactText.matchAll(
+      /(?:statements? of (?:cash flows|income|operations)|cash flows|income statements?)/giu,
+    ),
+  ];
+  const heading = headings
+    .filter(
+      (match) =>
+        match.index < selected.start && selected.start - match.index < 8_000,
+    )
+    .at(-1);
+  if (heading === undefined) return [selected];
+  const start = Math.max(0, heading.index - 200);
+  return [
+    { start, text: exactText.slice(start, start + SEMANTIC_EVIDENCE_WINDOW) },
+    selected,
+  ];
 }
 
 function decodedJson(value: string): unknown | undefined {
@@ -365,12 +427,13 @@ export async function loadSemanticPrompt(
           : { en: condition.en, ko: condition.ko };
       })(),
     countercase: memoPositions.get(slice.claimId)?.strongestContraryObservation,
-    evidence: slice.evidence.map((evidence) => {
-      const selected = semanticEvidenceWindow(
+    evidence: slice.evidence.flatMap((evidence) => {
+      const revised = revisions.get(slice.claimId)?.publicSummary ?? slice.text;
+      const windows = semanticEvidenceWindows(
         evidence.exactText,
-        `${slice.text.en}\n${slice.text.ko}`,
-      );
-      return {
+        `${revised.en}\n${revised.ko}`,
+      ).slice(-Math.max(1, Math.floor(64 / slice.evidence.length)));
+      return windows.map((selected) => ({
         ...evidence,
         span: {
           start: evidence.span.start + selected.start,
@@ -378,7 +441,7 @@ export async function loadSemanticPrompt(
           textHash: hashBytes(selected.text),
         },
         exactText: selected.text,
-      };
+      }));
     }),
   }));
   const prompt = SemanticAuditPromptSchema.parse({

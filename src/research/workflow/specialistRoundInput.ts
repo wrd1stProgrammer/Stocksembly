@@ -23,7 +23,10 @@ import type {
   SpecialistMemoCandidate,
   SpecialistRoundInput,
 } from "./specialistRoundContracts";
-import { SpecialistMemoCandidateSchema } from "./specialistRoundContracts";
+import {
+  SpecialistMemoCandidateSchema,
+  SpecialistMemoOutputSchema,
+} from "./specialistRoundContracts";
 
 const PRICE_MENTION =
   /(?:[$€£¥₩]|\b(?:price|price target|current price|multiple)\b|(?:가격|주가|목표가|배수))/iu;
@@ -645,6 +648,60 @@ export function sanitizeSpecialistNumericMetricValues(
         },
       };
     }),
+  };
+}
+
+export function omitUnboundPercentageSentences(
+  candidate: unknown,
+  registeredValues: NonNullable<ClaimSubmissionRequest["registeredValues"]>,
+): unknown {
+  const parsed = SpecialistMemoOutputSchema.safeParse(candidate);
+  if (!parsed.success) return candidate;
+  let changed = false;
+  const positions = parsed.data.positions.map((position) => {
+    if (
+      percentageClaimMatchesRegisteredMetrics({
+        text: `${position.publicSummary.en}\n${position.publicSummary.ko}`,
+        decisiveMetricIds: position.decisiveMetricIds,
+        registeredValues,
+      })
+    )
+      return position;
+    const filter = (text: string) =>
+      text
+        .split(/(?<=[.!?。！？])\s+|\n+/u)
+        .filter((sentence) =>
+          percentageClaimMatchesRegisteredMetrics({
+            text: sentence,
+            decisiveMetricIds: position.decisiveMetricIds,
+            registeredValues,
+          }),
+        )
+        .join(" ")
+        .trim();
+    const en = filter(position.publicSummary.en);
+    const ko = filter(position.publicSummary.ko);
+    if (!en || !ko) return position;
+    if (en === position.publicSummary.en && ko === position.publicSummary.ko)
+      return position;
+    changed = true;
+    return {
+      ...position,
+      stance: "uncertain" as const,
+      publicSummary: { en, ko },
+    };
+  });
+  if (!changed || parsed.data.unknowns.length >= 32) return candidate;
+  return {
+    ...parsed.data,
+    positions,
+    unknowns: [
+      ...parsed.data.unknowns,
+      {
+        en: "Some percentage statements could not be verified and were omitted. The remaining observations still require source verification.",
+        ko: "비율 수치를 확인하지 못한 문장은 제외했습니다. 남은 내용도 원문 근거 검증을 거쳐야 합니다.",
+      },
+    ],
   };
 }
 

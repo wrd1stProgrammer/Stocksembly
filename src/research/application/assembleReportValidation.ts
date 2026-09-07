@@ -129,7 +129,10 @@ export function chairValidationReason(
         section.publicSummary,
         selected,
         input.locale,
-        section.sectionKey === "ten_second_brief" ? 360 : 4_000,
+        section.sectionKey === "ten_second_brief" &&
+          input.chair.canonicalNarrativeV3 === undefined
+          ? 360
+          : 4_000,
       ) ||
       !sameSet(
         [...new Set(selected.flatMap((sentence) => sentence.claimIds))],
