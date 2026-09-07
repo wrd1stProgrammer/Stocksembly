@@ -26,6 +26,7 @@ import { retryRejectedCommit } from "./specialistCommitRetry";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import {
   normalizeSpecialistClaimSlotBindings,
+  omitUnboundPercentageSentences,
   type SpecialistClaimValidationReason,
   sanitizeSpecialistDecisiveMetricIds,
   sanitizeSpecialistEvidenceTypeBindings,
@@ -407,6 +408,15 @@ Repair the specific claims above instead of regenerating the same invalid number
       candidate,
       promptRequest.request.registeredValues,
     );
+    if (
+      previousFeedback !== undefined &&
+      validationCode === "specialist_claim_numeric_metric_mismatch"
+    ) {
+      candidate = omitUnboundPercentageSentences(
+        candidate,
+        promptRequest.request.registeredValues,
+      );
+    }
     candidate = sanitizeSpecialistEvidenceTypeBindings(
       candidate,
       evidenceArtifacts,

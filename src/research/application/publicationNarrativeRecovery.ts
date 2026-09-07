@@ -4,6 +4,7 @@ import type {
   ChairSynthesisOutputSchema,
 } from "../domain/agentOutputs";
 import { ArtifactIdSchema, ClaimIdSchema } from "../domain/ids";
+import { normalizeReaderFacingPrecision } from "../workflow/chairSynthesisTextValidation";
 import type { AssemblyInput } from "./assembleReportContracts";
 
 type Chair = z.infer<typeof ChairSynthesisOutputSchema>;
@@ -85,16 +86,20 @@ export function reconcilePublicationNarrative(input: {
     claims: readonly string[],
     sources: readonly string[],
   ): Unit => {
+    const displayText = {
+      en: normalizeReaderFacingPrecision(text.en),
+      ko: normalizeReaderFacingPrecision(text.ko),
+    };
     const sentence: Sentence = {
       sentenceId: `publication:${key}`,
       kind: "unknown",
-      text,
+      text: displayText,
       claimIds: claims,
       sourceArtifactIds: sources,
     };
     extra.push(sentence);
     return {
-      text,
+      text: displayText,
       sentence,
       lineage: {
         sentenceIds: [sentence.sentenceId],
@@ -180,6 +185,7 @@ export function reconcilePublicationNarrative(input: {
         canonical.decisiveReason,
         canonical.decisionLineage.decisiveReason,
         "ten_second_brief",
+        ":decision",
       );
   const countercase = missingPrimary
     ? limited(
@@ -191,6 +197,7 @@ export function reconcilePublicationNarrative(input: {
         canonical.strongestCountercase,
         canonical.decisionLineage.strongestCountercase,
         "dissent_unknowns",
+        ":decision",
       );
   const falsifier = missingPrimary
     ? unit(
@@ -203,6 +210,7 @@ export function reconcilePublicationNarrative(input: {
         canonical.invalidationCheckpoint,
         canonical.decisionLineage.invalidationCheckpoint,
         "change_conditions",
+        ":decision",
       );
   const supportedClaims: Claim[] = [];
   for (const claim of [

@@ -10,6 +10,7 @@ import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import {
   allocateSpecialistClaimSlots,
   normalizeSpecialistClaimSlotBindings,
+  omitUnboundPercentageSentences,
   sanitizeSpecialistDecisiveMetricIds,
   sanitizeSpecialistEvidenceTypeBindings,
   sanitizeSpecialistNumericMetricValues,
@@ -1165,5 +1166,45 @@ describe("specialist claim slots", () => {
       authority.close();
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("unbound percentage recovery", () => {
+  const candidate = (text: string) => ({
+    ...quantifiedCandidate({
+      roleId: "company",
+      claimSlots: allocateSpecialistClaimSlots({
+        runId: "00000000-0000-4000-8000-000000000002",
+        snapshotId: "00000000-0000-4000-8000-000000000003",
+        roleId: "company",
+      }),
+      artifactId: "00000000-0000-4000-8000-000000000001",
+      metricId: "unregistered",
+      leadSummary: { en: text, ko: text },
+    }),
+    chartCommentaryJson: null,
+  });
+
+  it("omits only the unbound numeric sentence and keeps evidence plus a limitation", () => {
+    const input = candidate(
+      "Revenue was $11.536 billion and guided margin was 56%. Deployments still need to convert into sales.",
+    );
+    const result = SpecialistMemoOutputSchema.parse(
+      omitUnboundPercentageSentences(input, []),
+    );
+    expect(result.positions[0]?.publicSummary.en).toBe(
+      "Deployments still need to convert into sales.",
+    );
+    expect(result.positions[0]?.stance).toBe("uncertain");
+    expect(result.positions[0]?.evidenceArtifactIds).toEqual(
+      input.positions[0]?.evidenceArtifactIds,
+    );
+    expect(result.unknowns).toHaveLength(1);
+    expect(result.positions[1]).toEqual(input.positions[1]);
+  });
+
+  it("does not invent a replacement when the whole observation would disappear", () => {
+    const input = candidate("Gross margin was 56%.");
+    expect(omitUnboundPercentageSentences(input, [])).toBe(input);
   });
 });

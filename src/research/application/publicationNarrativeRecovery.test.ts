@@ -3,6 +3,7 @@ import {
   AtomicEditorialClaimSchema,
   ChairSynthesisOutputSchema,
 } from "../domain/agentOutputs";
+import { publicTextIsValid } from "../workflow/chairSynthesisTextValidation";
 import { canonicalNarrativeV3IsGrounded } from "../workflow/chairSynthesisV3";
 import { makeAuthoritativeReportInput } from "./assembleReport.testSupport";
 import { reconcilePublicationNarrative } from "./publicationNarrativeRecovery";
@@ -82,5 +83,86 @@ describe("publication evidence reconciliation", () => {
         registeredClaimIds: new Set(chair.decisionBrief.primaryClaimIds),
       }).chair,
     ).toBe(chair);
+  });
+
+  it("keeps decision and section limitations distinct and normalizes generated precision", () => {
+    const fixture = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(fixture.chair);
+    const canonical = chair.canonicalNarrativeV3;
+    if (!canonical) throw new Error("canonical fixture required");
+    const excluded = [
+      "00000000-0000-4000-8000-000000009994",
+      "00000000-0000-4000-8000-000000009995",
+    ];
+    const lineage = (index: number) => ({
+      sentenceIds: [`excluded:${index}`],
+      claimIds: [excluded[index]],
+      sourceArtifactIds: [fixture.semanticAudit.artifactId],
+    });
+    const inputChair = ChairSynthesisOutputSchema.parse({
+      ...chair,
+      canonicalNarrativeV3: {
+        ...canonical,
+        decisionLineage: {
+          ...canonical.decisionLineage,
+          invalidationCheckpoint: lineage(0),
+        },
+        sections: canonical.sections.map((section) =>
+          section.sectionKey === "change_conditions"
+            ? { ...section, lineage: lineage(1) }
+            : section,
+        ),
+      },
+    });
+    const recovered = reconcilePublicationNarrative({
+      chair: inputChair,
+      sentences: fixture.chairSentences,
+      claims: fixture.editorialClaims,
+      registeredClaimIds: new Set([
+        ...chair.decisionBrief.primaryClaimIds,
+        ...excluded,
+      ]),
+      auditArtifactId: fixture.semanticAudit.artifactId,
+      auditReasons: [
+        {
+          claimId: excluded[0] ?? "",
+          reason: "The $8.874 billion balance is unverified.",
+        },
+        {
+          claimId: excluded[1] ?? "",
+          reason: "The $7.123 billion estimate is unverified.",
+        },
+      ],
+    });
+    const generated = recovered.sentences.filter((sentence) =>
+      sentence.sentenceId.startsWith("publication:change_conditions"),
+    );
+    expect(generated).toHaveLength(2);
+    expect(new Set(generated.map((sentence) => sentence.sentenceId)).size).toBe(
+      2,
+    );
+    expect(generated.map((sentence) => sentence.text.en).join(" ")).toContain(
+      "$8.87 billion",
+    );
+    expect(generated.map((sentence) => sentence.text.en).join(" ")).toContain(
+      "$7.12 billion",
+    );
+    for (const sentence of generated) {
+      expect(sentence.claimIds).toEqual([]);
+      expect(sentence.sourceArtifactIds).toEqual([
+        fixture.semanticAudit.artifactId,
+      ]);
+      expect(
+        publicTextIsValid(
+          sentence.text,
+          [sentence],
+          4000,
+          canonical.sourceLocale,
+        ),
+      ).toBe(true);
+    }
+    expect(
+      inputChair.canonicalNarrativeV3?.decisionLineage.invalidationCheckpoint,
+    ).toEqual(lineage(0));
   });
 });

@@ -122,6 +122,12 @@ export function createFollowupAndResponseAttemptHandler(
       raw = result.candidate;
       runnerEvidence = result.evidence;
     } catch (error) {
+      if (
+        job.stage === "follow_up" &&
+        error instanceof CodexRunnerError &&
+        error.code === "output_invalid"
+      )
+        return "degraded";
       if (error instanceof CodexRunnerError) throw error;
       if (!(error instanceof Error)) throw error;
       return job.stage === "follow_up" ? "degraded" : "repair";

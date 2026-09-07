@@ -1,6 +1,7 @@
 import { OwnerResponseBallotOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
 import { sha256Value } from "../server/codex/codexArtifacts";
+import { CodexRunnerError } from "../server/codex/codexErrors";
 import {
   CODEX_RUNTIME_PINS,
   CODEX_RUNTIME_POLICY,
@@ -41,6 +42,7 @@ export class FollowupResponseCodexFake implements CodexPort {
     private readonly options: {
       readonly eligibleFollowups?: number;
       readonly invalidFollowup?: boolean;
+      readonly followupRunnerFailure?: "output_invalid" | "auth_unavailable";
       readonly invalidBallotDepartment?:
         | "market"
         | "company"
@@ -56,6 +58,8 @@ export class FollowupResponseCodexFake implements CodexPort {
   ): Promise<CodexRunResult<Candidate>> {
     if (input.stage === "follow_up") {
       this.followupLaunches += 1;
+      if (this.options.followupRunnerFailure !== undefined)
+        throw new CodexRunnerError(this.options.followupRunnerFailure);
       const request = FollowupJobPromptSchema.parse(JSON.parse(input.prompt));
       if (this.options.invalidFollowup === true) return this.result(input, {});
       return this.result(input, {
