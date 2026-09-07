@@ -359,6 +359,24 @@ describe("InsightSentry market adapter", () => {
     expect(fixture.requests).toHaveLength(4);
   });
 
+  it("normalizes the provider holiday status for company info and quotes", async () => {
+    const fixture = fixtureClient([
+      { code: "NASDAQ:NVDA", name: "NVIDIA", status: "HOLIDAY" },
+      {
+        total_items: 1,
+        data: [{ code: "NASDAQ:NVDA", status: "HOLIDAY", last_price: 230.36 }],
+      },
+    ]);
+    const market = createInsightSentryMarket(fixture.client);
+    expect(await market.companyInfo("NASDAQ:NVDA")).toMatchObject({
+      company: "NVIDIA",
+    });
+    expect(await market.quote("NASDAQ:NVDA")).toMatchObject({
+      marketState: "HOLIDAYS",
+      lastPrice: 230.36,
+    });
+  });
+
   it("caches company info for one day, actions for 7 days, and reports quote market state", async () => {
     // Given
     const info = {
