@@ -72,7 +72,9 @@ function validateRunInput<Candidate>(input: CodexRunInput<Candidate>): void {
   if (
     typeof input.prompt !== "string" ||
     Buffer.byteLength(input.prompt, "utf8") >
-      CODEX_RUNTIME_POLICY.maxPromptBytes ||
+      (input.stage === "semantic_audit" || input.stage === "chair_synthesis"
+        ? CODEX_RUNTIME_POLICY.maxSynthesisPromptBytes
+        : CODEX_RUNTIME_POLICY.maxPromptBytes) ||
     !isOutputSchema(input.outputSchema)
   )
     throw new CodexRunnerError("policy_violation");

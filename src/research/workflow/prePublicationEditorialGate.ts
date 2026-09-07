@@ -652,7 +652,12 @@ export async function gateWithOneTargetedRewrite(
     permittedNumbers: sanitizedOriginal.supportedNumbers,
     untrustedCandidateJson: `<untrusted_editorial_candidate>${JSON.stringify(sanitizedOriginal)}</untrusted_editorial_candidate>`,
   };
-  const rewritten = await rewrite(rewriteRequest);
+  let rewritten: PrePublicationEditorialCandidate;
+  try {
+    rewritten = await rewrite(rewriteRequest);
+  } catch {
+    rewritten = deterministicMetadataRewrite(sanitizedOriginal, rewriteRequest);
+  }
   const modelRewrite = sanitizePrePublicationCandidate(rewritten);
   const modelChangedPaths = changedLeafPaths(
     sanitizedOriginal,

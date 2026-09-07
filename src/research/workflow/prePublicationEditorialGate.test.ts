@@ -235,6 +235,28 @@ describe("pre-publication editorial quality gate", () => {
     ).resolves.toMatchObject({ kind: "accepted", rewritten: false });
   });
 
+  it("publishes a repaired candidate when the final prose rewrite fails", async () => {
+    const candidate = {
+      ...cleanCandidate(),
+      position: {
+        en: "Demand grew 99999% across customers.",
+        ko: "고객 수요가 99999% 증가했습니다.",
+      },
+    };
+    const rewrite = vi.fn(async () => {
+      throw new Error("rewrite unavailable");
+    });
+    const result = await gateWithOneTargetedRewrite(candidate, rewrite);
+    expect(rewrite).toHaveBeenCalledOnce();
+    expect(result.kind).toBe("accepted");
+    if (result.kind === "accepted") {
+      expect(result.candidate.position.en).not.toContain("99999");
+      expect(
+        evaluatePrePublicationEditorialGate(result.candidate).publishable,
+      ).toBe(true);
+    }
+  });
+
   it("recovers from a rewrite that adds an unsupported metric", async () => {
     const repaired = cleanCandidate();
     const invalid: PrePublicationEditorialCandidate = {
