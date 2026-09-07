@@ -10,6 +10,7 @@ import {
 } from "./chairSynthesisContracts";
 import * as chairProjection from "./chairSynthesisV3";
 import {
+  deterministicChairV3Fallback,
   normalizeCanonicalNarrativeV3ForPublication,
   synthesizeChairV3,
 } from "./chairSynthesisV3";
@@ -630,6 +631,117 @@ describe("workflow-v3 canonical chair synthesis", () => {
       prepared.cleanup();
     }
   });
+
+  it("end to end: a duplicate model teamView is caught by the gate, recovered by the fallback, and the run completes", async () => {
+    // MINOR 6 — the full chain the review report asked to see exercised in
+    // one test: model emits position==rationale for one department (the
+    // exact archived defect) -> synthesizeChairV3's gate rejects it ->
+    // chairSynthesisHandler.ts's existing catch falls back to
+    // deterministicChairV3Fallback -> the run still completes and
+    // publishes, with distinct teamViews throughout.
+    const prepared = await createPreparedChairRound("v3_team_view_duplicate");
+    const stdout = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    try {
+      const chair = createSqliteChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+      });
+      await chair.stage({ runId: prepared.runId });
+      const replay = await chair.drain(prepared.runId);
+      await chair.close();
+      expect(replay.publishable, JSON.stringify(replay)).toBe(true);
+      expect(replay.artifactIds).toHaveLength(1);
+      // No second model launch — the fallback recovered locally, exactly
+      // like the existing "invalid model output" recovery path above.
+      expect(prepared.codex.chairLaunches).toBe(1);
+      const recoveredEvents = stdout.mock.calls
+        .map((call) => String(call[0]))
+        .filter((line) => line.includes("chair_model_output_recovered"));
+      expect(
+        recoveredEvents.length,
+        "gate rejection must be visible on the same recovery channel as any other model-output defect",
+      ).toBeGreaterThan(0);
+      expect(recoveredEvents[0]).toContain(
+        "chair_v3_team_view_position_rationale_duplicate:market",
+      );
+      const database = new Database(prepared.options.databasePath, {
+        readonly: true,
+      });
+      const row = database
+        .prepare(
+          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+        )
+        .get(replay.artifactIds[0]) as { readonly envelope_json: string };
+      database.close();
+      const teamViews = JSON.parse(row.envelope_json).payload
+        .canonicalNarrativeV3.teamViews as readonly {
+        readonly departmentId: string;
+        readonly position: string;
+        readonly rationale: string;
+      }[];
+      expect(teamViews).toHaveLength(4);
+      for (const view of teamViews)
+        expect(
+          view.rationale.trim(),
+          `${view.departmentId}: position and rationale must not match after recovery`,
+        ).not.toBe(view.position.trim());
+    } finally {
+      stdout.mockRestore();
+      prepared.cleanup();
+    }
+  });
+
+  it("edge case: deterministicChairV3Fallback recovers when a department's own ballot text equals its position text", async () => {
+    // Real production-shaped catalog (not hand-built) from a clean run,
+    // with one department's ballot sentence text overwritten to exactly
+    // match its position sentence text — the withoutComparatorAbsence
+    // collision MAJOR 1 named. The department must still recover a
+    // distinct, honestly grounded rationale (from a related claim
+    // sentence), not the archived duplicate.
+    const prepared = await createPreparedChairRound("none");
+    try {
+      const chair = createSqliteChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+      });
+      await chair.stage({ runId: prepared.runId });
+      await chair.drain(prepared.runId);
+      await chair.close();
+      const rawPrompt = prepared.codex.chairPrompts[0];
+      expect(rawPrompt).toBeDefined();
+      if (rawPrompt === undefined) return;
+      const outer = JSON.parse(rawPrompt) as { evidenceCatalog: string };
+      const evidenceCatalog = JSON.parse(outer.evidenceCatalog) as {
+        sentences: {
+          sentenceId: string;
+          text: { en: string; ko: string };
+        }[];
+      };
+      const marketPosition = evidenceCatalog.sentences.find(
+        (sentence) => sentence.sentenceId === "position:market",
+      );
+      const marketBallot = evidenceCatalog.sentences.find(
+        (sentence) => sentence.sentenceId === "ballot:market",
+      );
+      expect(marketPosition).toBeDefined();
+      expect(marketBallot).toBeDefined();
+      if (marketPosition === undefined || marketBallot === undefined) return;
+      marketBallot.text = { ...marketPosition.text };
+      const mutatedValidationPrompt = JSON.stringify(evidenceCatalog);
+      const result = deterministicChairV3Fallback(mutatedValidationPrompt);
+      const marketView = result.teamViews.find(
+        (view) => view.departmentId === "market",
+      );
+      expect(marketView).toBeDefined();
+      expect(marketView?.rationale.trim()).not.toBe(
+        marketView?.position.trim(),
+      );
+    } finally {
+      prepared.cleanup();
+    }
+  });
 });
 
 describe("department-owned publication recovery", () => {
@@ -712,15 +824,7 @@ describe("department-owned publication recovery", () => {
     expect(result.reduced).toBe(true);
   });
 
-  it("never reuses a shared claim sentence across two departments' recovered team views", () => {
-    // Injected scenario (not real archived data): market's and company's own
-    // ballot sentences are deliberately excluded from the audited claim set
-    // so both departments fall back to a claim they both cite. Before the
-    // fix, the second department to be normalized (company, array order)
-    // could be handed the exact same sentence market already used —
-    // reproducing the archived cross-index duplicates (GOOG tv[0]==tv[1],
-    // SKHY tv[1]==tv[2]) via injection, since the originals are no longer
-    // reproducible from stored data (see report).
+  function sharedClaimFixture() {
     const claimA = "00000000-0000-4000-8000-0000000000a1";
     const marketOnlyClaim = "00000000-0000-4000-8000-0000000000a2";
     const companyOnlyClaim = "00000000-0000-4000-8000-0000000000a3";
@@ -833,57 +937,73 @@ describe("department-owned publication recovery", () => {
       claimIds: [claimA],
       sourceArtifactIds: [artifactRisk],
     };
-    const canonical = ChairSynthesisV3ModelOutputSchema.parse({
-      kind: "chair_synthesis_v3",
-      sourceLocale: "en",
-      stance: "balanced",
-      decisiveReason: sentences[0]?.text.en,
-      strongestCountercase: sentences[0]?.text.en,
-      invalidationCheckpoint: sentences[0]?.text.en,
-      decisionLineage: {
-        decisiveReason: foreign,
-        strongestCountercase: foreign,
-        invalidationCheckpoint: foreign,
-      },
-      teamViews: [
-        {
-          departmentId: "market",
-          position: sentences[0]?.text.en,
-          rationale: sentences[0]?.text.en,
-          vote: "support_with_reservations",
-          lineage: foreign,
-        },
-        {
-          departmentId: "company",
-          position: sentences[0]?.text.en,
-          rationale: sentences[0]?.text.en,
-          vote: "support_with_reservations",
-          lineage: foreign,
-        },
-        {
-          departmentId: "financial",
-          position: "Financial position holds on its own evidence.",
-          rationale: "Financial ballot rationale stands on its own evidence.",
-          vote: "support_with_reservations",
-          lineage: financialLineage,
-        },
-        {
-          departmentId: "risk",
-          position: "Risk position holds on its own evidence.",
-          rationale: "Risk ballot rationale stands on its own evidence.",
-          vote: "support_with_reservations",
-          lineage: riskLineage,
-        },
-      ],
-      sections: sectionKeys.map((sectionKey) => ({
-        sectionKey,
-        narrative: sentences[0]?.text.en,
-        lineage: foreign,
-      })),
-      anticipatedQuestions: [],
+    const teamViewFor = (departmentId: "market" | "company") => ({
+      departmentId,
+      position: sentences[0]?.text.en,
+      rationale: sentences[0]?.text.en,
+      vote: "support_with_reservations" as const,
+      lineage: foreign,
     });
-    const result = normalizeCanonicalNarrativeV3ForPublication({
-      canonical,
+    // `order` controls only the input array position of market vs company —
+    // never which one is *processed* first for shared-candidate purposes
+    // (MAJOR 3: that is fixed by canonical department order, not array
+    // order).
+    const buildResult = (order: readonly ["market", "company"] | readonly ["company", "market"]) => {
+      const canonical = ChairSynthesisV3ModelOutputSchema.parse({
+        kind: "chair_synthesis_v3",
+        sourceLocale: "en",
+        stance: "balanced",
+        decisiveReason: sentences[0]?.text.en,
+        strongestCountercase: sentences[0]?.text.en,
+        invalidationCheckpoint: sentences[0]?.text.en,
+        decisionLineage: {
+          decisiveReason: foreign,
+          strongestCountercase: foreign,
+          invalidationCheckpoint: foreign,
+        },
+        teamViews: [
+          ...order.map((departmentId) => teamViewFor(departmentId)),
+          {
+            departmentId: "financial",
+            position: "Financial position holds on its own evidence.",
+            rationale:
+              "Financial ballot rationale stands on its own evidence.",
+            vote: "support_with_reservations",
+            lineage: financialLineage,
+          },
+          {
+            departmentId: "risk",
+            position: "Risk position holds on its own evidence.",
+            rationale: "Risk ballot rationale stands on its own evidence.",
+            vote: "support_with_reservations",
+            lineage: riskLineage,
+          },
+        ],
+        sections: sectionKeys.map((sectionKey) => ({
+          sectionKey,
+          narrative: sentences[0]?.text.en,
+          lineage: foreign,
+        })),
+        anticipatedQuestions: [],
+      });
+      return normalizeCanonicalNarrativeV3ForPublication({
+        canonical,
+        sentences,
+        auditedClaimIds: [claimA],
+        sourceArtifactIds: [
+          artifactShared,
+          artifactMarketBallot,
+          artifactCompanyBallot,
+          artifactFinancial,
+          artifactRisk,
+        ],
+        sections: sectionKeys.map((sectionKey) => ({
+          sectionKey,
+          primarySentenceId: "position:market",
+        })),
+      });
+    };
+    const normalizeInput = () => ({
       sentences,
       auditedClaimIds: [claimA],
       sourceArtifactIds: [
@@ -898,6 +1018,20 @@ describe("department-owned publication recovery", () => {
         primarySentenceId: "position:market",
       })),
     });
+    return { buildResult, normalizeInput };
+  }
+
+  it("never reuses a shared claim sentence across two departments' recovered team views", () => {
+    // Injected scenario (not real archived data): market's and company's own
+    // ballot sentences are deliberately excluded from the audited claim set
+    // so both departments fall back to a claim they both cite. Before the
+    // fix, the second department to be normalized could be handed the exact
+    // same sentence the first already used — reproducing the archived
+    // cross-index duplicates (GOOG tv[0]==tv[1], SKHY tv[1]==tv[2]) via
+    // injection, since the originals are no longer reproducible from stored
+    // data (see report).
+    const { buildResult } = sharedClaimFixture();
+    const result = buildResult(["market", "company"]);
     const market = result.canonical.teamViews.find(
       (view) => view.departmentId === "market",
     );
@@ -917,5 +1051,89 @@ describe("department-owned publication recovery", () => {
     // unchanged rather than silently duplicating market's rationale.
     expect(company.rationale.trim()).not.toBe(market.rationale.trim());
     expect(company.position.trim()).not.toBe(market.rationale.trim());
+  });
+
+  it("edge case: the shared-candidate winner does not depend on input array order", () => {
+    // Same fixture as above, but company appears BEFORE market in the
+    // model's own teamViews array. Before MAJOR 3's fix, whichever
+    // department was processed first (= array order) won the shared
+    // sentence — so this permutation would have made company win instead
+    // of market, an order-dependent outcome for a supposedly deterministic
+    // publication step.
+    const { buildResult } = sharedClaimFixture();
+    const reordered = buildResult(["company", "market"]);
+    const market = reordered.canonical.teamViews.find(
+      (view) => view.departmentId === "market",
+    );
+    const company = reordered.canonical.teamViews.find(
+      (view) => view.departmentId === "company",
+    );
+    expect(market).toBeDefined();
+    expect(company).toBeDefined();
+    if (market === undefined || company === undefined) return;
+    // Same winner as the non-reordered case above: market, because
+    // department processing order is fixed (WORKFLOW_V1_DEPARTMENT_IDS),
+    // not the input array's order.
+    expect(market.rationale).toBe(
+      "Shared claim evidence supports the market and company view.",
+    );
+    expect(company.rationale.trim()).not.toBe(market.rationale.trim());
+  });
+
+  it("edge case: renormalizing an already-normalized result never regresses a fixed view or creates a new cross-view collision", () => {
+    // Repeated normalization, feeding normalize's own output back into
+    // itself with the exact same evidence catalog it saw the first time.
+    //
+    // This is NOT a claim that the output is byte-for-byte stable across
+    // passes, and it is not a claim that every view converges to distinct
+    // eventually: company in this fixture has no honest distinct candidate
+    // on pass 1 (its own ballot sentence is excluded from the audited claim
+    // set) and none appears on pass 2 either — its pre-existing internal
+    // duplicate is left alone on both passes, exactly as the very first
+    // test above documents. What this test guards is narrower but is what
+    // actually matters operationally: a view MAJOR 3's fix already made
+    // distinct (market, via the shared claim) must not regress on a second
+    // pass, and no NEW cross-view collision may appear either — because
+    // normalize's narrower per-pass reservation (only newly-assigned
+    // sentences, not passthrough ones) means a later pass could in
+    // principle free up a sentence a passthrough view is still relying on.
+    const { buildResult, normalizeInput } = sharedClaimFixture();
+    const first = buildResult(["market", "company"]);
+    const firstMarket = first.canonical.teamViews.find(
+      (view) => view.departmentId === "market",
+    );
+    expect(firstMarket).toBeDefined();
+    if (firstMarket === undefined) return;
+    expect(firstMarket.rationale.trim()).not.toBe(
+      firstMarket.position.trim(),
+    );
+    const second = normalizeCanonicalNarrativeV3ForPublication({
+      canonical: first.canonical,
+      ...normalizeInput(),
+    });
+    const secondMarket = second.canonical.teamViews.find(
+      (view) => view.departmentId === "market",
+    );
+    expect(secondMarket).toBeDefined();
+    if (secondMarket === undefined) return;
+    expect(
+      secondMarket.rationale.trim(),
+      "market must not regress to a duplicate on the second pass",
+    ).not.toBe(secondMarket.position.trim());
+    expect(
+      secondMarket.position.trim(),
+      "market's position must not shift between passes",
+    ).toBe(firstMarket.position.trim());
+    const allTexts = second.canonical.teamViews.flatMap((view) => [
+      view.position.trim(),
+      view.rationale.trim(),
+    ]);
+    const duplicateTexts = allTexts.filter(
+      (text, index) => allTexts.indexOf(text) !== index,
+    );
+    // The one pre-existing, never-honestly-fixable duplicate (company's own
+    // position === rationale) is allowed to persist. No OTHER collision
+    // (cross-view, or a newly regressed view) may appear alongside it.
+    expect(new Set(duplicateTexts).size).toBeLessThanOrEqual(1);
   });
 });
