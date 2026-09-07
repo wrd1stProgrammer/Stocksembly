@@ -12,6 +12,7 @@ import * as chairProjection from "./chairSynthesisV3";
 import {
   deterministicChairV3Fallback,
   normalizeCanonicalNarrativeV3ForPublication,
+  projectChairV3ForCommit,
   synthesizeChairV3,
 } from "./chairSynthesisV3";
 
@@ -742,6 +743,215 @@ describe("workflow-v3 canonical chair synthesis", () => {
       prepared.cleanup();
     }
   });
+
+  it("edge case: deterministicChairV3Fallback throws when a department's repair pool has no distinct alternative", async () => {
+    // Same real production-shaped catalog and same ballot==position
+    // mutation as the test above, but this time market's related claim:
+    // sentences are also stripped out — the repair pool that made recovery
+    // possible above is now empty. repairIndistinctFallbackTeamView must
+    // fail loud (chair_v3_-prefixed throw), never fabricate a third value.
+    const prepared = await createPreparedChairRound("none");
+    try {
+      const chair = createSqliteChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+      });
+      await chair.stage({ runId: prepared.runId });
+      await chair.drain(prepared.runId);
+      await chair.close();
+      const rawPrompt = prepared.codex.chairPrompts[0];
+      expect(rawPrompt).toBeDefined();
+      if (rawPrompt === undefined) return;
+      const outer = JSON.parse(rawPrompt) as { evidenceCatalog: string };
+      const evidenceCatalog = JSON.parse(outer.evidenceCatalog) as {
+        sentences: {
+          sentenceId: string;
+          claimIds: string[];
+          text: { en: string; ko: string };
+        }[];
+      };
+      const marketPosition = evidenceCatalog.sentences.find(
+        (sentence) => sentence.sentenceId === "position:market",
+      );
+      const marketBallot = evidenceCatalog.sentences.find(
+        (sentence) => sentence.sentenceId === "ballot:market",
+      );
+      expect(marketPosition).toBeDefined();
+      expect(marketBallot).toBeDefined();
+      if (marketPosition === undefined || marketBallot === undefined) return;
+      marketBallot.text = { ...marketPosition.text };
+      const marketOwnedClaims = new Set([
+        ...marketPosition.claimIds,
+        ...marketBallot.claimIds,
+      ]);
+      evidenceCatalog.sentences = evidenceCatalog.sentences.filter(
+        (sentence) =>
+          !(
+            sentence.sentenceId.startsWith("claim:") &&
+            sentence.claimIds.some((claimId) => marketOwnedClaims.has(claimId))
+          ),
+      );
+      const mutatedValidationPrompt = JSON.stringify(evidenceCatalog);
+      expect(() => deterministicChairV3Fallback(mutatedValidationPrompt)).toThrow(
+        "chair_v3_fallback_team_view_indistinct:market",
+      );
+    } finally {
+      prepared.cleanup();
+    }
+  });
+
+  it("edge case: projectChairV3ForCommit's grounded() avoidText actually picks a different referenced sentence", async () => {
+    // MAJOR 2 mechanism, isolated: force BOTH position and rationale to
+    // need a grounded replacement from the same two-sentence lineage.
+    // Without avoidText, both independently fall back to the first
+    // referenced sentence (position:market) — the exact gate-adjacent
+    // reproduction the review report flagged. With it, rationale must
+    // land on the OTHER referenced sentence (ballot:market), not repeat
+    // position's.
+    const prepared = await createPreparedChairRound("none");
+    try {
+      const chair = createSqliteChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+      });
+      await chair.stage({ runId: prepared.runId });
+      await chair.drain(prepared.runId);
+      await chair.close();
+      const rawPrompt = prepared.codex.chairPrompts[0];
+      expect(rawPrompt).toBeDefined();
+      if (rawPrompt === undefined) return;
+      const outer = JSON.parse(rawPrompt) as { evidenceCatalog: string };
+      const evidenceCatalogText = outer.evidenceCatalog;
+      const evidenceCatalog = JSON.parse(evidenceCatalogText) as {
+        sentences: { sentenceId: string; text: { en: string; ko: string } }[];
+      };
+      const marketPositionText = evidenceCatalog.sentences.find(
+        (sentence) => sentence.sentenceId === "position:market",
+      )?.text.en;
+      const marketBallotText = evidenceCatalog.sentences.find(
+        (sentence) => sentence.sentenceId === "ballot:market",
+      )?.text.en;
+      expect(marketPositionText).toBeDefined();
+      expect(marketBallotText).toBeDefined();
+      if (marketPositionText === undefined || marketBallotText === undefined)
+        return;
+      const baseline = deterministicChairV3Fallback(evidenceCatalogText);
+      const marketIndex = baseline.teamViews.findIndex(
+        (view) => view.departmentId === "market",
+      );
+      expect(marketIndex).toBeGreaterThanOrEqual(0);
+      const marketBaseline = baseline.teamViews[marketIndex];
+      expect(marketBaseline).toBeDefined();
+      if (marketBaseline === undefined) return;
+      // Shares no vocabulary with the real evidence catalog on purpose, so
+      // publicTextIsValid's grounding-language check fails for both fields
+      // and grounded() is forced down its rewrite branch for both.
+      const ungrounded =
+        "Zzyzx Quokka Bagpipe Xylophone Marimba Yakitori Zephyrine Quixotic.";
+      const mutatedCanonical = {
+        ...baseline,
+        teamViews: baseline.teamViews.map((view, index) =>
+          index === marketIndex
+            ? {
+                ...view,
+                position: ungrounded,
+                rationale: ungrounded,
+                lineage: {
+                  ...view.lineage,
+                  sentenceIds: ["position:market", "ballot:market"],
+                },
+              }
+            : view,
+        ),
+      };
+      const committed = projectChairV3ForCommit(
+        evidenceCatalogText,
+        mutatedCanonical,
+      );
+      expect(committed.canonicalNarrativeV3).toBeDefined();
+      if (committed.canonicalNarrativeV3 === undefined) return;
+      const marketCommitted = committed.canonicalNarrativeV3.teamViews.find(
+        (view) => view.departmentId === "market",
+      );
+      expect(marketCommitted).toBeDefined();
+      if (marketCommitted === undefined) return;
+      expect(marketCommitted.position.trim()).toBe(marketPositionText.trim());
+      // The point of avoidText: rationale must NOT repeat position's
+      // fallback (position:market again) — it must land on the OTHER
+      // referenced sentence instead.
+      expect(marketCommitted.rationale.trim()).toBe(marketBallotText.trim());
+      expect(marketCommitted.rationale.trim()).not.toBe(
+        marketCommitted.position.trim(),
+      );
+    } finally {
+      prepared.cleanup();
+    }
+  });
+
+  it("edge case: a residual duplicate that grounded() cannot avoid is flagged via grounding_rewrite, not fabricated around", async () => {
+    // Same setup as the avoidText test, except the lineage now references
+    // only ONE sentence — there is nothing else for avoidText to redirect
+    // to. Both fields fall back to that single sentence and stay equal;
+    // the code must not invent a distinct value, it must flag the
+    // compromise through the same channel every other publication-time
+    // rewrite in this function uses.
+    const prepared = await createPreparedChairRound("none");
+    try {
+      const chair = createSqliteChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+      });
+      await chair.stage({ runId: prepared.runId });
+      await chair.drain(prepared.runId);
+      await chair.close();
+      const rawPrompt = prepared.codex.chairPrompts[0];
+      expect(rawPrompt).toBeDefined();
+      if (rawPrompt === undefined) return;
+      const outer = JSON.parse(rawPrompt) as { evidenceCatalog: string };
+      const evidenceCatalogText = outer.evidenceCatalog;
+      const baseline = deterministicChairV3Fallback(evidenceCatalogText);
+      const marketIndex = baseline.teamViews.findIndex(
+        (view) => view.departmentId === "market",
+      );
+      expect(marketIndex).toBeGreaterThanOrEqual(0);
+      const ungrounded =
+        "Zzyzx Quokka Bagpipe Xylophone Marimba Yakitori Zephyrine Quixotic.";
+      const mutatedCanonical = {
+        ...baseline,
+        teamViews: baseline.teamViews.map((view, index) =>
+          index === marketIndex
+            ? {
+                ...view,
+                position: ungrounded,
+                rationale: ungrounded,
+                lineage: { ...view.lineage, sentenceIds: ["position:market"] },
+              }
+            : view,
+        ),
+      };
+      const committed = projectChairV3ForCommit(
+        evidenceCatalogText,
+        mutatedCanonical,
+      );
+      expect(committed.canonicalNarrativeV3).toBeDefined();
+      if (committed.canonicalNarrativeV3 === undefined) return;
+      const marketCommitted = committed.canonicalNarrativeV3.teamViews.find(
+        (view) => view.departmentId === "market",
+      );
+      expect(marketCommitted).toBeDefined();
+      if (marketCommitted === undefined) return;
+      // The residual duplicate is real and expected here — this test is
+      // documenting it, not asserting it away.
+      expect(marketCommitted.rationale.trim()).toBe(
+        marketCommitted.position.trim(),
+      );
+      expect(
+        committed.canonicalNarrativeV3.publicationReductionReasons,
+      ).toContain("grounding_rewrite");
+    } finally {
+      prepared.cleanup();
+    }
+  });
 });
 
 describe("department-owned publication recovery", () => {
@@ -769,6 +979,17 @@ describe("department-owned publication recovery", () => {
       claimIds: first.claimIds,
       sourceArtifactIds: first.sourceArtifactIds,
     };
+    // Each department starts with its OWN duplicated placeholder, not a
+    // value shared across departments. Sharing one literal string across
+    // all four (as an earlier version of this fixture did) meant every
+    // department's "already exists elsewhere" avoid check
+    // (normalizeCanonicalNarrativeV3ForPublication's avoidTextsFor) would
+    // trip on the *other* three departments' identical placeholder text —
+    // an artifact of the fixture, not a real duplicate-across-departments
+    // scenario. Real archived duplicates never shared text across
+    // departments this way; only within one department's own two fields.
+    const initialTextFor = (departmentId: string) =>
+      `${departmentId} pre-normalization placeholder (discarded by reconstruction).`;
     const canonical = ChairSynthesisV3ModelOutputSchema.parse({
       kind: "chair_synthesis_v3",
       sourceLocale: "en",
@@ -783,8 +1004,8 @@ describe("department-owned publication recovery", () => {
       },
       teamViews: departments.map((departmentId) => ({
         departmentId,
-        position: first.text.en,
-        rationale: first.text.en,
+        position: initialTextFor(departmentId),
+        rationale: initialTextFor(departmentId),
         vote: "support_with_reservations",
         lineage: foreign,
       })),
@@ -937,10 +1158,19 @@ describe("department-owned publication recovery", () => {
       claimIds: [claimA],
       sourceArtifactIds: [artifactRisk],
     };
+    // Each department's pre-normalization placeholder is distinct — not
+    // shared with the OTHER department's placeholder or with any real
+    // catalog sentence text. Reusing one literal string across both (an
+    // earlier version of this fixture did, via sentences[0]) would trip
+    // normalizeCanonicalNarrativeV3ForPublication's avoidTextsFor check on
+    // itself: "company's pre-existing text" would coincidentally equal
+    // "market's real position sentence text", blocking market from
+    // legitimately claiming its own position sentence. Real archived
+    // duplicates never shared text across departments this way.
     const teamViewFor = (departmentId: "market" | "company") => ({
       departmentId,
-      position: sentences[0]?.text.en,
-      rationale: sentences[0]?.text.en,
+      position: `${departmentId} pre-normalization placeholder.`,
+      rationale: `${departmentId} pre-normalization placeholder.`,
       vote: "support_with_reservations" as const,
       lineage: foreign,
     });
@@ -1124,16 +1354,26 @@ describe("department-owned publication recovery", () => {
       secondMarket.position.trim(),
       "market's position must not shift between passes",
     ).toBe(firstMarket.position.trim());
-    const allTexts = second.canonical.teamViews.flatMap((view) => [
-      view.position.trim(),
-      view.rationale.trim(),
-    ]);
-    const duplicateTexts = allTexts.filter(
-      (text, index) => allTexts.indexOf(text) !== index,
+    // The direct check (review report, "채택 2"): company's pass-2
+    // rationale must not become market's pass-2 rationale. A weaker
+    // "at most one duplicate text in the whole set" tally does not catch
+    // this specific regression, because company already contributes one
+    // legitimate (pre-existing, never-fixable) self-duplicate to that
+    // tally on every pass — a second, DIFFERENT collision (company
+    // stealing market's settled rationale) would not raise the count past
+    // what pass 1 already had, and would slip through undetected.
+    const secondCompany = second.canonical.teamViews.find(
+      (view) => view.departmentId === "company",
     );
-    // The one pre-existing, never-honestly-fixable duplicate (company's own
-    // position === rationale) is allowed to persist. No OTHER collision
-    // (cross-view, or a newly regressed view) may appear alongside it.
-    expect(new Set(duplicateTexts).size).toBeLessThanOrEqual(1);
+    expect(secondCompany).toBeDefined();
+    if (secondCompany === undefined) return;
+    expect(
+      secondCompany.rationale.trim(),
+      "company must not take over market's already-settled rationale on the second pass",
+    ).not.toBe(secondMarket.rationale.trim());
+    expect(
+      secondCompany.position.trim(),
+      "company must not take over market's already-settled position on the second pass either",
+    ).not.toBe(secondMarket.position.trim());
   });
 });

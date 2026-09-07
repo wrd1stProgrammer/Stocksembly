@@ -190,21 +190,42 @@ export function normalizeCanonicalNarrativeV3ForPublication(
     input.canonical.decisionLineage.invalidationCheckpoint,
     "change_conditions",
   );
-  // Tracks only sentences this pass NEWLY hands to a department as a
-  // repaired position or rationale (the successful-repair branch below).
-  // This is deliberately narrow, not "every text seen so far":
-  //   - An already-valid, already-distinct view (passthrough) never touches
-  //     this set — it was independently grounded, not assigned from a
-  //     shared candidate pool, so it is not the failure mode being guarded.
-  //   - A view left unchanged because no honest replacement existed (the
-  //     `position === undefined` / `rationale === undefined` branches) does
-  //     not reserve its (possibly still-defective) text either — doing so
-  //     would let one broken view "squat" on text a later department could
-  //     otherwise have honestly recovered.
-  // The one invariant this set enforces: two departments' *newly assigned*
-  // recovered sentences never collide — that is what produced the archived
-  // cross-index duplicates (quality/2026-09-07-teamviews-원본대조.md
-  // ⓐ#12-14,20-21, GOOG 0==1, SKHY 1==2).
+  // Two deliberately separate sets guard against two different failure
+  // modes (review report on c672bdb, "채택 1"):
+  //
+  //   - avoidTextsFor(departmentId): a STATIC snapshot of every OTHER
+  //     department's position/rationale text, taken once from this
+  //     function's own input before any repair runs. A new candidate must
+  //     never match text that already, legitimately belongs to a different
+  //     department — whether that department is a passthrough (never
+  //     touches `newlyAssignedTexts` at all) or hasn't been processed yet
+  //     this pass. This is what makes REPEATED normalization safe: calling
+  //     this function again on its own prior output (pass 2) sees pass 1's
+  //     settled market text as already-existing-elsewhere and will not let
+  //     company take it, even though market's passthrough on pass 2 never
+  //     reserves anything dynamically.
+  //   - newlyAssignedTexts: the ORIGINAL, still-needed guard against two
+  //     departments' *newly assigned* repairs within this SAME pass
+  //     colliding with each other (the archived cross-index duplicates,
+  //     quality/2026-09-07-teamviews-원본대조.md ⓐ#12-14,20-21, GOOG 0==1,
+  //     SKHY 1==2). Unlike the static avoid set, this one grows as the pass
+  //     runs, department by department.
+  //
+  // Neither set ever excludes a department's OWN current text — a
+  // candidate that happens to already be exactly what that department has
+  // is a correct match, not a collision.
+  const inputTeamViewTexts = new Map(
+    input.canonical.teamViews.map((teamView) => [
+      teamView.departmentId,
+      [teamView.position.trim(), teamView.rationale.trim()] as const,
+    ]),
+  );
+  const avoidTextsFor = (departmentId: string): ReadonlySet<string> =>
+    new Set(
+      [...inputTeamViewTexts.entries()]
+        .filter(([id]) => id !== departmentId)
+        .flatMap(([, texts]) => texts),
+    );
   const newlyAssignedTexts = new Set<string>();
   // Processed in a fixed canonical department order, not the model's own
   // teamViews array order — which department "wins" a shared candidate must
@@ -219,6 +240,7 @@ export function normalizeCanonicalNarrativeV3ForPublication(
   const normalizeTeamView = (
     view: RawOutput["teamViews"][number],
   ): RawOutput["teamViews"][number] => {
+    const avoidTexts = avoidTextsFor(view.departmentId);
     const owned = input.sentences.filter(
       (sentence) =>
         sentence.sentenceId === `position:${view.departmentId}` ||
@@ -257,17 +279,17 @@ export function normalizeCanonicalNarrativeV3ForPublication(
         lineage: lineageFor(sentence),
       }),
     );
-    const isUnassignedThisPass = (sentence: CatalogSentence) =>
-      !newlyAssignedTexts.has(
-        sentence.text[input.canonical.sourceLocale].trim(),
-      );
+    const isCandidateAvailable = (sentence: CatalogSentence) => {
+      const text = sentence.text[input.canonical.sourceLocale].trim();
+      return !avoidTexts.has(text) && !newlyAssignedTexts.has(text);
+    };
     const position =
       grounded.find(
         (sentence) =>
           sentence.sentenceId === `position:${view.departmentId}` &&
-          isUnassignedThisPass(sentence),
-      ) ?? grounded.find(isUnassignedThisPass);
-    // No honest, not-already-assigned candidate exists. A missing value is
+          isCandidateAvailable(sentence),
+      ) ?? grounded.find(isCandidateAvailable);
+    // No honest, not-already-claimed candidate exists. A missing value is
     // better than a silently duplicated one, so leave this view exactly as
     // it arrived rather than forcing a replacement here.
     if (position === undefined) return view;
@@ -275,9 +297,9 @@ export function normalizeCanonicalNarrativeV3ForPublication(
       (sentence) =>
         sentence.text[input.canonical.sourceLocale].trim() !==
           position.text[input.canonical.sourceLocale].trim() &&
-        isUnassignedThisPass(sentence),
+        isCandidateAvailable(sentence),
     );
-    // Same principle as above: without a distinct, unassigned rationale
+    // Same principle as above: without a distinct, unclaimed rationale
     // candidate, do not collapse rationale into position (the former
     // `?? position` fallback that manufactured ⓐ#3,16-19,22 duplicates).
     if (rationale === undefined) return view;
@@ -556,6 +578,14 @@ function repairIndistinctFallbackTeamView<
         sentence.claimIds.some((claimId) => ownedClaims.has(claimId)),
     ),
   ];
+  // MINOR (review report): `distinct`'s own grounding (claim/artifact
+  // audit, publicTextIsValid) is not re-verified here — this trusts that
+  // every sentence chairSynthesisInput.ts put in the catalog for this run
+  // was already built from audited claims (selectChairClaims) and
+  // artifact-backed evidence. That is a production catalog-builder
+  // guarantee this function relies on, not something re-checked at this
+  // call site; normalizeCanonicalNarrativeV3ForPublication (later, at
+  // publish time) is what actually re-verifies grounding independently.
   const distinct = alternates.find(
     (sentence) => sentence.text[locale].trim() !== view.position.trim(),
   );
@@ -1036,6 +1066,13 @@ export function projectChairV3ForCommit(
       // one value. No distinct source exists to substitute — flag it
       // through the same channel every other publication-time compromise
       // in this function uses rather than fabricate a fix or fail the run.
+      // Precise effect of that flag (review report, "부분 채택 3" — stated
+      // exactly, not overstated): assembleReportPersistence.ts publishes
+      // the report normally with status `complete_with_limitations` once
+      // publicationReductionReasons is non-empty. The duplicate text is
+      // kept and shipped as-is, just labeled as a known limitation — this
+      // does not withhold, block, or otherwise refuse to use the
+      // duplicated pair.
       if (
         rationale.trim() === position.trim() &&
         !publicationReductionReasons.has("grounding_rewrite")
