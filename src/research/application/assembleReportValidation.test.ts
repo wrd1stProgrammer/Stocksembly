@@ -27,7 +27,7 @@ describe("publication chair validation", () => {
     const validate = (candidate: typeof chair) =>
       chairValidationReason({
         chair: candidate,
-        locale: fixture.locale,
+        locale: chair.canonicalNarrativeV3?.sourceLocale,
         sentences: fixture.chairSentences,
         auditedClaimIds: new Set(fixture.editorialClaims.map((c) => c.claimId)),
         retainedDissentClaimIds: [],
