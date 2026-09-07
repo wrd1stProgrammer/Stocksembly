@@ -228,7 +228,7 @@ export function useResearchRun(
   }, [refreshSnapshot]);
 
   const createId = useCallback(
-    () => (optionsRef.current.createId ?? crypto.randomUUID)(),
+    () => optionsRef.current.createId?.() ?? crypto.randomUUID(),
     [],
   );
   const cancel = useCallback(async () => {

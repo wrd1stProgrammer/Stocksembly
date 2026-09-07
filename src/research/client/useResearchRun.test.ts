@@ -176,6 +176,53 @@ describe("useResearchRun durable projection", () => {
     expect(getRun).toHaveBeenCalledOnce();
   });
 
+  it("keeps the native crypto receiver when commands generate their own keys", async () => {
+    const reportId = "00000000-0000-4000-8000-000000000003";
+    const researchClient = client(
+      vi.fn(async () => detail(20, "completed", reportId)),
+    );
+    const nativeUuid = crypto.randomUUID.bind(crypto);
+    const uuid = vi.spyOn(crypto, "randomUUID").mockImplementation(function (
+      this: Crypto,
+    ) {
+      if (this !== crypto) throw new TypeError("Illegal invocation");
+      return nativeUuid();
+    });
+    const hook = renderHook(() =>
+      useResearchRun(detail(20, "completed", reportId), {
+        client: researchClient,
+        createEventSource: () => new FakeEventSource(),
+      }),
+    );
+    try {
+      await act(async () => {
+        await hook.result.current.retry();
+      });
+      await act(async () => {
+        await hook.result.current.cancel();
+      });
+      await act(async () => {
+        await hook.result.current.followUp("Reassess margins");
+      });
+      await act(async () => {
+        await hook.result.current.askQuestion("Why margins?");
+      });
+      expect(researchClient.retryRun).toHaveBeenCalledWith(
+        RUN_ID,
+        expect.any(String),
+      );
+      expect(researchClient.cancelRun).toHaveBeenCalledOnce();
+      expect(researchClient.followUp).toHaveBeenCalledOnce();
+      expect(researchClient.askQuestion).toHaveBeenCalledOnce();
+      expect(
+        new Set(uuid.mock.results.map((result) => result.value)).size,
+      ).toBe(4);
+    } finally {
+      hook.unmount();
+      uuid.mockRestore();
+    }
+  });
+
   it("uses durable cancel, retry, follow-up, and question commands with fresh keys", async () => {
     // Given
     const reportId = "00000000-0000-4000-8000-000000000003";

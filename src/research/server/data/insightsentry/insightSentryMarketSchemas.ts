@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+const MarketStatusSchema = z
+  .enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAY", "HOLIDAYS"])
+  .transform((status) => (status === "HOLIDAY" ? "HOLIDAYS" : status));
+
 export const SearchResponseSchema = z.strictObject({
   current_page: z.number().int().positive(),
   has_more: z.boolean(),
@@ -23,7 +27,7 @@ export const InfoResponseSchema = z.looseObject({
   type: z.string().trim().min(1).max(64).optional(),
   exchange: z.string().trim().min(1).max(128).optional(),
   currency_code: z.string().trim().length(3).optional(),
-  status: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]).optional(),
+  status: MarketStatusSchema.optional(),
   earnings_release_date: z.number().finite().nonnegative().optional(),
   earnings_release_next_date: z.number().finite().nonnegative().optional(),
   earnings_per_share_fq: z.number().finite().optional(),
@@ -51,7 +55,7 @@ export const QuoteResponseSchema = z.looseObject({
   data: z.array(
     z.looseObject({
       code: z.string().trim().min(3).max(64),
-      status: z.enum(["OPEN", "CLOSED", "PRE", "POST", "HOLIDAYS"]),
+      status: MarketStatusSchema,
       lp_time: z.number().finite().nonnegative().optional(),
       last_price: z.number().finite().optional(),
       change: z.number().finite().optional(),
