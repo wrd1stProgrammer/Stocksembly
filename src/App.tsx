@@ -14,10 +14,6 @@ import {
   persistAccountLocale,
 } from "./auth/localePreference";
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
-import {
-  LocalHomePreviewToggle,
-  useLocalHomePreview,
-} from "./components/dev/LocalHomePreviewToggle";
 import { Header } from "./components/Header";
 import { SignedInHome } from "./components/home/SignedInHome";
 import {
@@ -99,11 +95,6 @@ export function App({
 }: AppProps) {
   const [locale, setLocale] = useState<AppLocale>(initialLocale);
   const [signedIn, setSignedIn] = useState(false);
-  const homePreview = useLocalHomePreview();
-  const homeSignedIn =
-    homePreview.mode === null ? signedIn : homePreview.mode === "signed-in";
-  const previewSignedIn =
-    homePreview.available && homePreview.mode === "signed-in";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState<
     "unknown" | "free" | "paid"
@@ -410,26 +401,13 @@ export function App({
 
   return (
     <div
-      className={`app-shell${homeSignedIn ? " app-shell--signed-in" : " app-shell--landing"}${
+      className={`app-shell${signedIn ? " app-shell--signed-in" : " app-shell--landing"}${
         sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""
       }`}
     >
       <SiteAtmosphere />
-      {homePreview.available ? (
-        <LocalHomePreviewToggle
-          signedIn={homeSignedIn}
-          overridden={homePreview.mode !== null}
-          onChange={(next) => {
-            homePreview.changeMode(next ? "signed-in" : "signed-out");
-            window.scrollTo({ top: 0 });
-          }}
-          onReset={() => homePreview.changeMode(null)}
-        />
-      ) : null}
-      {homeSignedIn ? (
+      {signedIn ? (
         <SignedInSidebar
-          key={previewSignedIn ? "local-preview" : "session"}
-          localHomePreview={previewSignedIn}
           locale={locale}
           collapsed={sidebarCollapsed}
           onCollapsedChange={setSidebarCollapsed}
@@ -439,14 +417,13 @@ export function App({
           }}
           onSignedOut={() => {
             setSidebarCollapsed(false);
-            if (previewSignedIn) homePreview.changeMode("signed-out");
-            else setSignedIn(false);
+            setSignedIn(false);
           }}
           onOpenSubscription={openSubscriptionModal}
-          subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
+          subscriptionTier={subscriptionTier}
         />
       ) : null}
-      {homeSignedIn ? null : (
+      {signedIn ? null : (
         <Header
           locale={locale}
           onLocaleChange={selectLocale}
@@ -454,14 +431,12 @@ export function App({
         />
       )}
       <main>
-        {homeSignedIn ? (
+        {signedIn ? (
           <SignedInHome
-            key={previewSignedIn ? "local-preview" : "session"}
-            localHomePreview={previewSignedIn}
             locale={locale}
             communityPreview={researchRoomPreview}
             onOpenPlans={openSubscriptionModal}
-            subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
+            subscriptionTier={subscriptionTier}
             creditsRemaining={billingStatus?.credits.remaining}
           />
         ) : (
@@ -471,7 +446,7 @@ export function App({
               <SearchConsole
                 locale={locale}
                 onOpenPlans={openSubscriptionModal}
-                subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
+                subscriptionTier={subscriptionTier}
                 creditsRemaining={billingStatus?.credits.remaining}
               />
               <LandingSearchGuide locale={locale} />
@@ -485,11 +460,11 @@ export function App({
           </>
         )}
       </main>
-      {homeSignedIn ? null : <LandingFooter locale={locale} />}
+      {signedIn ? null : <LandingFooter locale={locale} />}
       <MobileBottomNav
         activeItem="home"
         locale={locale}
-        hidden={homeSignedIn && !sidebarCollapsed}
+        hidden={signedIn && !sidebarCollapsed}
       />
       {onboardingPreview || (signedIn && onboardingState === "pending") ? (
         <WelcomeOnboardingModal
@@ -514,7 +489,7 @@ export function App({
         <SubscriptionModal
           open
           locale={researchLocale(locale)}
-          subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
+          subscriptionTier={subscriptionTier}
           plans={billingPlans}
           billingStatus={billingStatus}
           loading={billingPlansLoading}

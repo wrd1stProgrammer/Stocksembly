@@ -52,7 +52,6 @@ import {
 import { useDismissableMenu } from "./useDismissableMenu";
 
 type SignedInSidebarProps = {
-  readonly localHomePreview?: boolean;
   readonly locale: AppLocale;
   readonly collapsed: boolean;
   readonly mobileContext?: {
@@ -335,10 +334,8 @@ export function SignedInSidebar({
   onOpenSubscription,
   subscriptionTier = "unknown",
   activeItem = "dashboard",
-  localHomePreview = false,
 }: SignedInSidebarProps) {
   const messages = sidebarCopy[locale];
-  const preview = process.env.NODE_ENV === "development" && localHomePreview;
   const [runs, setRuns] = useState<readonly PublicRun[]>([]);
   const [briefingUnread, setBriefingUnread] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -350,11 +347,6 @@ export function SignedInSidebar({
   const profileWrapRef = useRef<HTMLDivElement>(null);
 
   const loadRuns = useCallback(async () => {
-    if (preview) {
-      setRuns([]);
-      setLoadState("ready");
-      return;
-    }
     setLoadState("loading");
     const client = createAuthenticatedResearchClient();
     let lastError: unknown;
@@ -386,14 +378,10 @@ export function SignedInSidebar({
     if (process.env.NODE_ENV !== "production")
       console.error("SIDEBAR_RECENT_RESEARCH_LOAD_FAILED", lastError);
     setLoadState("failed");
-  }, [activeItem, locale, preview]);
+  }, [activeItem, locale]);
 
   useEffect(() => {
     void loadRuns();
-    if (preview) {
-      setIdentity("Local preview");
-      return;
-    }
     void getCurrentUser()
       .then(async (user) => {
         const [attributes, session] = await Promise.all([
@@ -414,7 +402,7 @@ export function SignedInSidebar({
         );
       })
       .catch(() => undefined);
-  }, [loadRuns, preview]);
+  }, [loadRuns]);
 
   useEffect(() => {
     const clearUnread = () => setBriefingUnread(0);
@@ -453,10 +441,6 @@ export function SignedInSidebar({
 
   async function handleSignOut() {
     setProfileOpen(false);
-    if (preview) {
-      onSignedOut();
-      return;
-    }
     await signOut().catch(() => undefined);
     await clearResearchSession().catch(() => undefined);
     onSignedOut();
@@ -475,7 +459,7 @@ export function SignedInSidebar({
     setLanguageOpen(false);
     applyLocalePreference(nextLocale, { updateUrl: true });
     onLocaleChange(nextLocale);
-    if (!preview) void persistAccountLocale(nextLocale);
+    void persistAccountLocale(nextLocale);
   }
 
   function handleCollapsedChange(next: boolean) {
