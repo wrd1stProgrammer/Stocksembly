@@ -3,7 +3,13 @@ import "../../styles/signed-in-home.css";
 import { ArrowRight, ArrowUpRight, LockKeyhole } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { type ComponentProps, useEffect, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
 import { copy, intlLocale, researchLocale } from "../../lib/i18n";
 import type { PublicRun } from "../../research/client/schemas";
@@ -108,12 +114,20 @@ export function SignedInHome(props: SignedInHomeProps) {
     };
   }, []);
   const activeRun =
-    runs.find((run) =>
-      ["queued", "running", "cancelling"].includes(run.status),
-    ) ?? runs.find((run) => run.runId === trackedRun.current);
+    runs.find((run) => ["queued", "running"].includes(run.status)) ??
+    runs.find(
+      (run) =>
+        run.runId === trackedRun.current &&
+        ["completed", "complete-with-limitations"].includes(run.status),
+    );
   useEffect(() => {
     if (activeRun) trackedRun.current = activeRun.runId;
   }, [activeRun]);
+  const updateRun = useCallback((updated: PublicRun) => {
+    setRuns((current) =>
+      current.map((run) => (run.runId === updated.runId ? updated : run)),
+    );
+  }, []);
   const communityReports = communityPreview.reports.slice(0, 3);
   return (
     <div className="signed-in-home daily-home" id="product">
@@ -138,6 +152,7 @@ export function SignedInHome(props: SignedInHomeProps) {
         <HomeResearchActivity
           key={activeRun.runId}
           run={activeRun}
+          onRunChange={updateRun}
           locale={locale}
         />
       ) : null}

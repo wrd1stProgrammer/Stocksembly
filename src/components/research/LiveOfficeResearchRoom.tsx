@@ -41,6 +41,7 @@ import { formatSignedPercent } from "../../research/publicPresentation";
 import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
 import { useOfficePresentation } from "../../research/useOfficePresentation";
+import { useResearchEntrance } from "../../research/useResearchEntrance";
 import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { useIsMobileViewport } from "../useMediaQuery";
 import { MeetingMinutes } from "./MeetingMinutes";
@@ -248,6 +249,7 @@ export function LiveOfficeResearchRoom({
   initialLocale,
   initialSnapshot,
 }: Props) {
+  const freshEntrance = useResearchEntrance(initialSnapshot.run.runId);
   const [locale, setLocale] = useState(initialLocale);
   const [report, setReport] = useState<
     ResearchReport | WorkflowV2ResearchReport | WorkflowV3ResearchReport
@@ -299,7 +301,7 @@ export function LiveOfficeResearchRoom({
     initialSnapshot.run.reportId !== undefined,
     {
       syncRevision: projection.syncRevision,
-      restore: initialSnapshot.events.length > 2,
+      restore: !freshEntrance && initialSnapshot.events.length > 2,
       terminal: !["queued", "running"].includes(projection.snapshot.run.status),
     },
   );
@@ -310,6 +312,7 @@ export function LiveOfficeResearchRoom({
     true,
     true,
     presentation.snapToProgress,
+    freshEntrance,
   );
   // The room re-renders on every animation frame while the office catches up,
   // so everything derived from the snapshot is memoized on its inputs.

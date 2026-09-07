@@ -76,6 +76,7 @@ export function useLiveOfficeAnimation(
   completeEntrance = false,
   physicalMovement = false,
   snapToProgress = false,
+  preserveEntrance = false,
 ) {
   const releaseOrderKey = departmentReleaseOrder.join("\u0000");
   const displayTargetTick =
@@ -99,6 +100,8 @@ export function useLiveOfficeAnimation(
       (physicalMovement &&
         displayTargetTick < frameRef.current.simulation.tick) ||
       (snapToProgress &&
+        (!preserveEntrance ||
+          frameRef.current.simulation.tick >= OFFICE_ENTRY_TIMELINE.endTick) &&
         playbackReady &&
         displayTargetTick !== frameRef.current.simulation.tick)
     ) {
@@ -165,6 +168,7 @@ export function useLiveOfficeAnimation(
     releaseOrderKey,
     physicalMovement,
     snapToProgress,
+    preserveEntrance,
   ]);
 
   return useMemo(

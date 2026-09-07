@@ -265,12 +265,14 @@
   line-height: 1.9;
 }
 .home-activity__office {
+  position: relative;
+  min-height: 280px;
+  aspect-ratio: 1.4;
   min-width: 0;
   overflow: hidden;
 }
 .home-activity__office .office-game {
-  min-height: 280px;
-  aspect-ratio: 1.4;
+  min-height: 0;
 }
 .daily-text-link {
   display: inline-flex;
