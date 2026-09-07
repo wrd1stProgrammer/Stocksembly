@@ -94,7 +94,6 @@ const marketingTestIds = [
   "landing-header",
   "office-preview",
   "room-preview",
-  "landing-sections",
   "landing-footer",
 ];
 
@@ -106,14 +105,16 @@ describe("home authentication branches", () => {
       expect(testState.getCurrentUser).toHaveBeenCalledOnce(),
     );
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      `${copy.en.hero.titleLead} ${copy.en.hero.titleTail}`,
+      "One stock.Eleven perspectives.",
     );
     for (const testId of marketingTestIds)
       expect(screen.getByTestId(testId)).toBeInTheDocument();
     expect(screen.getAllByTestId("search-console")).toHaveLength(1);
-    expect(container.querySelector("#product .hero__proof")).toHaveTextContent(
-      copy.en.hero.proof,
-    );
+    expect(container.querySelector(".app-shell--landing")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Better conclusions/ }),
+    ).toBeInTheDocument();
+    expect(container.querySelector("#the-office")).toBeInTheDocument();
     expect(screen.queryByTestId("signed-in-sidebar")).not.toBeInTheDocument();
     expect(screen.getByTestId("mobile-nav")).toHaveAttribute(
       "data-hidden",
@@ -156,7 +157,7 @@ describe("home authentication branches", () => {
       expect(screen.getByTestId(testId)).toBeInTheDocument();
     expect(screen.queryByTestId("signed-in-sidebar")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      `${copy.en.hero.titleLead} ${copy.en.hero.titleTail}`,
+      "One stock.Eleven perspectives.",
     );
   });
 });

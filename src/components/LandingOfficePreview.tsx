@@ -61,8 +61,10 @@ function observeVisibility(
 
 export function LandingOfficePreview({
   locale,
+  showIntro = true,
 }: {
   readonly locale: AppLocale;
+  readonly showIntro?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
@@ -196,10 +198,12 @@ export function LandingOfficePreview({
 
   return (
     <section className="landing-office-live" aria-label={labels.label}>
-      <header className="landing-office-live__intro">
-        <h2>{labels.headline}</h2>
-        <p>{labels.description}</p>
-      </header>
+      {showIntro ? (
+        <header className="landing-office-live__intro">
+          <h2>{labels.headline}</h2>
+          <p>{labels.description}</p>
+        </header>
+      ) : null}
       <div className="landing-office-live__status">
         <span>
           <i aria-hidden="true" />

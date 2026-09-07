@@ -1,7 +1,9 @@
 "use client";
 
 import { getCurrentUser } from "aws-amplify/auth";
-import { ShieldCheck } from "lucide-react";
+import "./components/research/file/committee-report.css";
+import "./styles/landing-experience.css";
+import "./styles/landing-product.css";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OnboardingDiscoverySource } from "./accounts/onboarding";
@@ -14,11 +16,13 @@ import {
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
 import { Header } from "./components/Header";
 import { SignedInHome } from "./components/home/SignedInHome";
-import { LandingOfficePreview } from "./components/LandingOfficePreview";
-import { LandingFooter, LandingSections } from "./components/LandingSections";
+import {
+  LandingExperience,
+  LandingHeroCopy,
+  LandingSearchGuide,
+} from "./components/LandingExperience";
+import { LandingFooter } from "./components/LandingSections";
 import { MobileBottomNav } from "./components/MobileBottomNav";
-import { PrismRevealText } from "./components/PrismRevealText";
-import { LandingResearchRoomPreview } from "./components/researchRoom/LandingResearchRoomPreview";
 import {
   EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
   type LandingResearchRoomPreviewData,
@@ -109,7 +113,6 @@ export function App({
   >("unknown");
   const [onboardingPreview, setOnboardingPreview] = useState(false);
   const localeSelectionRevision = useRef(0);
-  const content = copy[locale];
 
   const applyBillingStatus = useCallback((status: WhopBillingStatus) => {
     if (status.tier === "free") setSubscriptionTier("free");
@@ -398,7 +401,7 @@ export function App({
 
   return (
     <div
-      className={`app-shell${signedIn ? " app-shell--signed-in" : ""}${
+      className={`app-shell${signedIn ? " app-shell--signed-in" : " app-shell--landing"}${
         sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""
       }`}
     >
@@ -421,7 +424,11 @@ export function App({
         />
       ) : null}
       {signedIn ? null : (
-        <Header locale={locale} onLocaleChange={selectLocale} />
+        <Header
+          locale={locale}
+          onLocaleChange={selectLocale}
+          landingNavigation
+        />
       )}
       <main>
         {signedIn ? (
@@ -435,45 +442,21 @@ export function App({
         ) : (
           <>
             <section className="hero" id="product">
-              <div className="hero__copy">
-                <p className="hero__eyebrow">{content.hero.eyebrow}</p>
-                <h1>
-                  <span className="hero__title-lead">
-                    {content.hero.titleLead}
-                  </span>{" "}
-                  <PrismRevealText
-                    key={content.hero.titleTail}
-                    text={content.hero.titleTail}
-                  />
-                </h1>
-                <p className="hero__description">
-                  <span className="hero__description-lead">
-                    {content.hero.descriptionLead}
-                  </span>{" "}
-                  <span className="hero__description-tail">
-                    {content.hero.descriptionTail}
-                  </span>
-                </p>
-              </div>
+              <LandingHeroCopy locale={locale} />
               <SearchConsole
                 locale={locale}
                 onOpenPlans={openSubscriptionModal}
                 subscriptionTier={subscriptionTier}
                 creditsRemaining={billingStatus?.credits.remaining}
               />
-              <LandingOfficePreview locale={locale} />
-              <LandingResearchRoomPreview
-                locale={locale}
-                initialLocale={initialLocale}
-                initialPreview={researchRoomPreview}
-                onOpenPlans={openSubscriptionModal}
-              />
-              <p className="hero__proof">
-                <ShieldCheck aria-hidden="true" size={22} />
-                {content.hero.proof}
-              </p>
+              <LandingSearchGuide locale={locale} />
             </section>
-            <LandingSections locale={locale} />
+            <LandingExperience
+              locale={locale}
+              initialLocale={initialLocale}
+              initialPreview={researchRoomPreview}
+              onOpenPlans={openSubscriptionModal}
+            />
           </>
         )}
       </main>

@@ -11,9 +11,14 @@ import { useDismissableMenu } from "./useDismissableMenu";
 type HeaderProps = {
   readonly locale: AppLocale;
   readonly onLocaleChange: (locale: AppLocale) => void;
+  readonly landingNavigation?: boolean;
 };
 
-export function Header({ locale, onLocaleChange }: HeaderProps) {
+export function Header({
+  locale,
+  onLocaleChange,
+  landingNavigation = false,
+}: HeaderProps) {
   const labels = copy[locale].nav;
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageRef = useRef<HTMLDivElement>(null);
@@ -28,6 +33,22 @@ export function Header({ locale, onLocaleChange }: HeaderProps) {
   return (
     <header className="site-header">
       <Brand locale={locale} />
+      {landingNavigation ? (
+        <nav
+          className="landing-header-nav"
+          aria-label={locale === "ko" ? "주요 탐색" : "Main navigation"}
+        >
+          <a href="#the-office">
+            {locale === "ko" ? "AI 리서치 팀" : "The team"}
+          </a>
+          <a href="#research-file">
+            {locale === "ko" ? "리서치 파일" : "Research file"}
+          </a>
+          <a href="#briefing">
+            {locale === "ko" ? "브리핑 룸" : "Briefing room"}
+          </a>
+        </nav>
+      ) : null}
       <div className="site-header__actions">
         <div className="header-language-slot" ref={languageRef}>
           <button
