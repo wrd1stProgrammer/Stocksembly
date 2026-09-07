@@ -24,6 +24,7 @@ type SignedInHomeProps = Pick<
   "locale" | "onOpenPlans" | "subscriptionTier" | "creditsRemaining"
 > & {
   readonly communityPreview?: LandingResearchRoomPreviewData;
+  readonly localHomePreview?: boolean;
 };
 
 type LoadState =
@@ -45,6 +46,7 @@ function communityTargetLabel(
 export function SignedInHome(props: SignedInHomeProps) {
   const {
     communityPreview = EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
+    localHomePreview = false,
     ...searchConsoleProps
   } = props;
   const { locale } = searchConsoleProps;
@@ -58,6 +60,10 @@ export function SignedInHome(props: SignedInHomeProps) {
 
   useEffect(() => {
     if (loadStatus !== "loading") return;
+    if (process.env.NODE_ENV === "development" && localHomePreview) {
+      setLoadState({ status: "ready", runs: [] });
+      return;
+    }
     const client = createAuthenticatedResearchClient();
     let active = true;
     let retryTimer: number | undefined;
@@ -87,7 +93,7 @@ export function SignedInHome(props: SignedInHomeProps) {
       active = false;
       window.clearTimeout(retryTimer);
     };
-  }, [loadStatus]);
+  }, [loadStatus, localHomePreview]);
 
   const dateFormatter = new Intl.DateTimeFormat(intlLocale(locale), {
     year: "numeric",

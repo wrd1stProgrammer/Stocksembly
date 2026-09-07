@@ -1,7 +1,9 @@
 "use client";
 
 import { getCurrentUser } from "aws-amplify/auth";
-import { ShieldCheck } from "lucide-react";
+import "./components/research/file/committee-report.css";
+import "./styles/landing-experience.css";
+import "./styles/landing-product.css";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OnboardingDiscoverySource } from "./accounts/onboarding";
@@ -12,13 +14,19 @@ import {
   persistAccountLocale,
 } from "./auth/localePreference";
 import { currentAuthTokens, syncResearchSession } from "./auth/researchSession";
+import {
+  LocalHomePreviewToggle,
+  useLocalHomePreview,
+} from "./components/dev/LocalHomePreviewToggle";
 import { Header } from "./components/Header";
 import { SignedInHome } from "./components/home/SignedInHome";
-import { LandingOfficePreview } from "./components/LandingOfficePreview";
-import { LandingFooter, LandingSections } from "./components/LandingSections";
+import {
+  LandingExperience,
+  LandingHeroCopy,
+  LandingSearchGuide,
+} from "./components/LandingExperience";
+import { LandingFooter } from "./components/LandingSections";
 import { MobileBottomNav } from "./components/MobileBottomNav";
-import { PrismRevealText } from "./components/PrismRevealText";
-import { LandingResearchRoomPreview } from "./components/researchRoom/LandingResearchRoomPreview";
 import {
   EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
   type LandingResearchRoomPreviewData,
@@ -91,6 +99,11 @@ export function App({
 }: AppProps) {
   const [locale, setLocale] = useState<AppLocale>(initialLocale);
   const [signedIn, setSignedIn] = useState(false);
+  const homePreview = useLocalHomePreview();
+  const homeSignedIn =
+    homePreview.mode === null ? signedIn : homePreview.mode === "signed-in";
+  const previewSignedIn =
+    homePreview.available && homePreview.mode === "signed-in";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState<
     "unknown" | "free" | "paid"
@@ -109,7 +122,6 @@ export function App({
   >("unknown");
   const [onboardingPreview, setOnboardingPreview] = useState(false);
   const localeSelectionRevision = useRef(0);
-  const content = copy[locale];
 
   const applyBillingStatus = useCallback((status: WhopBillingStatus) => {
     if (status.tier === "free") setSubscriptionTier("free");
@@ -398,13 +410,26 @@ export function App({
 
   return (
     <div
-      className={`app-shell${signedIn ? " app-shell--signed-in" : ""}${
+      className={`app-shell${homeSignedIn ? " app-shell--signed-in" : " app-shell--landing"}${
         sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""
       }`}
     >
       <SiteAtmosphere />
-      {signedIn ? (
+      {homePreview.available ? (
+        <LocalHomePreviewToggle
+          signedIn={homeSignedIn}
+          overridden={homePreview.mode !== null}
+          onChange={(next) => {
+            homePreview.changeMode(next ? "signed-in" : "signed-out");
+            window.scrollTo({ top: 0 });
+          }}
+          onReset={() => homePreview.changeMode(null)}
+        />
+      ) : null}
+      {homeSignedIn ? (
         <SignedInSidebar
+          key={previewSignedIn ? "local-preview" : "session"}
+          localHomePreview={previewSignedIn}
           locale={locale}
           collapsed={sidebarCollapsed}
           onCollapsedChange={setSidebarCollapsed}
@@ -414,74 +439,57 @@ export function App({
           }}
           onSignedOut={() => {
             setSidebarCollapsed(false);
-            setSignedIn(false);
+            if (previewSignedIn) homePreview.changeMode("signed-out");
+            else setSignedIn(false);
           }}
           onOpenSubscription={openSubscriptionModal}
-          subscriptionTier={subscriptionTier}
+          subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
         />
       ) : null}
-      {signedIn ? null : (
-        <Header locale={locale} onLocaleChange={selectLocale} />
+      {homeSignedIn ? null : (
+        <Header
+          locale={locale}
+          onLocaleChange={selectLocale}
+          landingNavigation
+        />
       )}
       <main>
-        {signedIn ? (
+        {homeSignedIn ? (
           <SignedInHome
+            key={previewSignedIn ? "local-preview" : "session"}
+            localHomePreview={previewSignedIn}
             locale={locale}
             communityPreview={researchRoomPreview}
             onOpenPlans={openSubscriptionModal}
-            subscriptionTier={subscriptionTier}
+            subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
             creditsRemaining={billingStatus?.credits.remaining}
           />
         ) : (
           <>
             <section className="hero" id="product">
-              <div className="hero__copy">
-                <p className="hero__eyebrow">{content.hero.eyebrow}</p>
-                <h1>
-                  <span className="hero__title-lead">
-                    {content.hero.titleLead}
-                  </span>{" "}
-                  <PrismRevealText
-                    key={content.hero.titleTail}
-                    text={content.hero.titleTail}
-                  />
-                </h1>
-                <p className="hero__description">
-                  <span className="hero__description-lead">
-                    {content.hero.descriptionLead}
-                  </span>{" "}
-                  <span className="hero__description-tail">
-                    {content.hero.descriptionTail}
-                  </span>
-                </p>
-              </div>
+              <LandingHeroCopy locale={locale} />
               <SearchConsole
                 locale={locale}
                 onOpenPlans={openSubscriptionModal}
-                subscriptionTier={subscriptionTier}
+                subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
                 creditsRemaining={billingStatus?.credits.remaining}
               />
-              <LandingOfficePreview locale={locale} />
-              <LandingResearchRoomPreview
-                locale={locale}
-                initialLocale={initialLocale}
-                initialPreview={researchRoomPreview}
-                onOpenPlans={openSubscriptionModal}
-              />
-              <p className="hero__proof">
-                <ShieldCheck aria-hidden="true" size={22} />
-                {content.hero.proof}
-              </p>
+              <LandingSearchGuide locale={locale} />
             </section>
-            <LandingSections locale={locale} />
+            <LandingExperience
+              locale={locale}
+              initialLocale={initialLocale}
+              initialPreview={researchRoomPreview}
+              onOpenPlans={openSubscriptionModal}
+            />
           </>
         )}
       </main>
-      {signedIn ? null : <LandingFooter locale={locale} />}
+      {homeSignedIn ? null : <LandingFooter locale={locale} />}
       <MobileBottomNav
         activeItem="home"
         locale={locale}
-        hidden={signedIn && !sidebarCollapsed}
+        hidden={homeSignedIn && !sidebarCollapsed}
       />
       {onboardingPreview || (signedIn && onboardingState === "pending") ? (
         <WelcomeOnboardingModal
@@ -506,7 +514,7 @@ export function App({
         <SubscriptionModal
           open
           locale={researchLocale(locale)}
-          subscriptionTier={subscriptionTier}
+          subscriptionTier={previewSignedIn ? "free" : subscriptionTier}
           plans={billingPlans}
           billingStatus={billingStatus}
           loading={billingPlansLoading}

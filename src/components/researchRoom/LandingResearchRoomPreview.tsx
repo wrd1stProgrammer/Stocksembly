@@ -78,11 +78,13 @@ export function LandingResearchRoomPreview({
   initialLocale,
   initialPreview,
   onOpenPlans,
+  showEmpty = false,
 }: {
   readonly locale: AppLocale;
   readonly initialLocale: AppLocale;
   readonly initialPreview: LandingResearchRoomPreviewData;
   readonly onOpenPlans?: () => void;
+  readonly showEmpty?: boolean;
 }) {
   const router = useRouter();
   const [preview, setPreview] = useState(initialPreview);
@@ -162,7 +164,7 @@ export function LandingResearchRoomPreview({
     };
   }, [initialLocale, initialPreview, locale]);
 
-  if (reports.length === 0) return null;
+  if (reports.length === 0 && !showEmpty) return null;
   return (
     <>
       <section
@@ -172,7 +174,9 @@ export function LandingResearchRoomPreview({
       >
         <header>
           <div>
-            <span>{labels.eyebrow}</span>
+            <span>
+              {showEmpty ? "RESEARCH ROOM · LATEST FIVE" : labels.eyebrow}
+            </span>
             <h2 id="landing-research-room-title">{labels.title}</h2>
             <p>{labels.description}</p>
           </div>
@@ -181,6 +185,13 @@ export function LandingResearchRoomPreview({
             <ArrowUpRight size={17} />
           </Link>
         </header>
+        {reports.length === 0 ? (
+          <p className="landing-research-room__empty" role="status">
+            {locale === "ko"
+              ? "완성된 리서치가 이곳에 모입니다. 리서치 룸에서 발행된 보고서를 확인하세요."
+              : "Completed research appears here. Explore published reports in the research room."}
+          </p>
+        ) : null}
         <ol className="landing-research-room__deck">
           {reports.map((report, index) => (
             <li key={report.reportId} className="landing-research-room__card">

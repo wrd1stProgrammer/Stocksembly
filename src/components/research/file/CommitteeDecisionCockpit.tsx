@@ -135,10 +135,12 @@ export function CommitteeDecisionCockpit({
   file,
   model,
   locale,
+  hasChartChapter = Boolean(file.technicalChart),
 }: {
   readonly company: ResearchCompany;
   readonly file: ResearchFileData;
   readonly model: ResearchFileEditorialModel;
+  readonly hasChartChapter?: boolean;
   readonly locale: Locale;
 }) {
   const view = buildCommitteeDecisionModel(file, model, locale);
@@ -520,7 +522,7 @@ export function CommitteeDecisionCockpit({
         id="evidence-analysis"
       >
         <header>
-          <span>{file.technicalChart ? "03" : "02"}</span>
+          <span>{hasChartChapter ? "03" : "02"}</span>
           <div>
             <h2>{ko ? "핵심 주장 검증" : "Core claim audit"}</h2>
             <p>
@@ -611,7 +613,7 @@ export function CommitteeDecisionCockpit({
         aria-labelledby="committee-conflict-title"
       >
         <header>
-          <span>{file.technicalChart ? "04" : "03"}</span>
+          <span>{hasChartChapter ? "04" : "03"}</span>
           <div>
             <h2 id="committee-conflict-title">
               {ko ? "네 팀의 판단 차이" : "Where the teams disagree"}
@@ -672,7 +674,7 @@ export function CommitteeDecisionCockpit({
         id="decision-scenarios"
       >
         <header>
-          <span>{file.technicalChart ? "05" : "04"}</span>
+          <span>{hasChartChapter ? "05" : "04"}</span>
           <div>
             <h2>
               {hasValuationData
@@ -900,7 +902,7 @@ export function CommitteeDecisionCockpit({
           id="catalyst-clock"
         >
           <header>
-            <span>{file.technicalChart ? "06" : "05"}</span>
+            <span>{hasChartChapter ? "06" : "05"}</span>
             <div>
               <h2>{ko ? "다가오는 판단 시점" : "Upcoming decision points"}</h2>
               <p>
@@ -941,9 +943,7 @@ export function CommitteeDecisionCockpit({
           <header>
             <span>
               {String(
-                5 +
-                  Number(Boolean(file.technicalChart)) +
-                  Number(view.catalysts.length > 0),
+                5 + Number(hasChartChapter) + Number(view.catalysts.length > 0),
               ).padStart(2, "0")}
             </span>
             <div>
