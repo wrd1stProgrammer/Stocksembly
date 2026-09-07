@@ -189,6 +189,22 @@ export function normalizeCanonicalNarrativeV3ForPublication(
     input.canonical.decisionLineage.invalidationCheckpoint,
     "change_conditions",
   );
+  // Tracks every position/rationale text already committed to an earlier
+  // team view in this pass. A grounded-but-shared sentence (for example a
+  // `claim:` sentence two departments both cite) must not be handed out a
+  // second time — that is what produced the cross-index duplicates recorded
+  // in quality/2026-09-07-teamviews-원본대조.md (ⓐ#12-14,20-21, GOOG 0==1,
+  // SKHY 1==2). Departments are normalized in array order, so reserving each
+  // chosen text before moving to the next view is enough to keep the whole
+  // set distinct.
+  const teamViewUsedTexts = new Set<string>();
+  const reserveTeamView = (
+    committed: RawOutput["teamViews"][number],
+  ): RawOutput["teamViews"][number] => {
+    teamViewUsedTexts.add(committed.position.trim());
+    teamViewUsedTexts.add(committed.rationale.trim());
+    return committed;
+  };
   const teamViews = input.canonical.teamViews.map((view) => {
     const owned = input.sentences.filter(
       (sentence) =>
@@ -220,7 +236,7 @@ export function normalizeCanonicalNarrativeV3ForPublication(
       canonicalUnitIsGrounded({ ...shared, text: view.position }) &&
       canonicalUnitIsGrounded({ ...shared, text: view.rationale })
     )
-      return view;
+      return reserveTeamView(view);
     const grounded = candidates.filter((sentence) =>
       canonicalUnitIsGrounded({
         ...shared,
@@ -228,19 +244,32 @@ export function normalizeCanonicalNarrativeV3ForPublication(
         lineage: lineageFor(sentence),
       }),
     );
+    const isUnused = (sentence: CatalogSentence) =>
+      !teamViewUsedTexts.has(
+        sentence.text[input.canonical.sourceLocale].trim(),
+      );
     const position =
       grounded.find(
-        (sentence) => sentence.sentenceId === `position:${view.departmentId}`,
-      ) ?? grounded[0];
-    if (position === undefined) return view;
-    const rationale =
-      grounded.find(
         (sentence) =>
-          sentence.text[input.canonical.sourceLocale] !==
-          position.text[input.canonical.sourceLocale],
-      ) ?? position;
+          sentence.sentenceId === `position:${view.departmentId}` &&
+          isUnused(sentence),
+      ) ?? grounded.find(isUnused);
+    // No honest, not-already-used candidate exists. A missing value is
+    // better than a silently duplicated one, so leave this view exactly as
+    // it arrived rather than forcing a replacement here.
+    if (position === undefined) return reserveTeamView(view);
+    const rationale = grounded.find(
+      (sentence) =>
+        sentence.text[input.canonical.sourceLocale].trim() !==
+          position.text[input.canonical.sourceLocale].trim() &&
+        isUnused(sentence),
+    );
+    // Same principle as above: without a distinct, unused rationale
+    // candidate, do not collapse rationale into position (the former
+    // `?? position` fallback that manufactured ⓐ#3,16-19,22 duplicates).
+    if (rationale === undefined) return reserveTeamView(view);
     reduced = true;
-    return {
+    return reserveTeamView({
       ...view,
       position: position.text[input.canonical.sourceLocale],
       rationale: rationale.text[input.canonical.sourceLocale],
@@ -256,7 +285,7 @@ export function normalizeCanonicalNarrativeV3ForPublication(
           ]),
         ].map((id) => ArtifactIdSchema.parse(id)),
       },
-    };
+    });
   });
   const sections = input.canonical.sections.map((section) => {
     const normalized = normalizeUnit(
@@ -510,15 +539,46 @@ export function deterministicChairV3Fallback(
         position.departmentId,
         position.artifactId,
       );
+      // The department's own ballot rationale is a distinct, honestly
+      // sourced sentence from its position summary (both are always emitted
+      // together for every department in chairSynthesisInput.ts). Using it
+      // here — instead of reusing `sentence` for both fields — is what stops
+      // this deterministic fallback from manufacturing a position==rationale
+      // duplicate (quality/2026-09-07-teamviews-원본대조.md ⓐ#15-19,22-23).
+      const rationaleSentence = catalog.get(`ballot:${position.departmentId}`);
+      if (rationaleSentence === undefined)
+        throw new TypeError("chair_v3_fallback_rationale_missing");
       return {
         departmentId: position.departmentId,
         position: textFor(sentence),
-        rationale: textFor(sentence),
+        rationale: textFor(rationaleSentence),
         vote:
           prompt.ballots.find(
             (ballot) => ballot.departmentId === position.departmentId,
           )?.vote ?? "abstain",
-        lineage: lineageFor(sentence),
+        lineage:
+          sentence.sentenceId === rationaleSentence.sentenceId
+            ? lineageFor(sentence)
+            : {
+                sentenceIds: [
+                  ...new Set([
+                    sentence.sentenceId,
+                    rationaleSentence.sentenceId,
+                  ]),
+                ],
+                claimIds: [
+                  ...new Set([
+                    ...sentence.claimIds,
+                    ...rationaleSentence.claimIds,
+                  ]),
+                ],
+                sourceArtifactIds: [
+                  ...new Set([
+                    ...sentence.sourceArtifactIds,
+                    ...rationaleSentence.sourceArtifactIds,
+                  ]),
+                ],
+              },
       };
     }),
     sections: assignments.map((assignment) => {
@@ -545,6 +605,35 @@ export function deterministicChairV3Fallback(
   });
 }
 
+// position/rationale must be substantively distinct per team view (trim
+// basis). The prompt already instructs this (chairSynthesisPrompts.ts
+// ~L549), but nothing enforced it: 10 of the 23 archived duplicate pairs
+// traced back to the model simply ignoring that instruction
+// (quality/2026-09-07-teamviews-원본대조.md ⓐ#1-2,4-11). This is a plain
+// function check, not a `ChairSynthesisV3ModelOutputSchema` refine, on
+// purpose — that schema is also used to parse and re-render already
+// published reports (src/research/domain/report.ts) that still contain the
+// archived duplicates; folding the check into the shared schema would break
+// rendering of that historical data (and, separately, is asserted directly
+// in fixtures across the test suite, e.g. chairSynthesis.testSupport.ts).
+// Scoping the check to this function keeps it targeted at the one boundary
+// this task is about: newly generated chair model output.
+export function chairV3TeamViewDuplicateDepartmentId(
+  canonical: RawOutput,
+): string | undefined {
+  return canonical.teamViews.find(
+    (view) => view.position.trim() === view.rationale.trim(),
+  )?.departmentId;
+}
+
+function assertTeamViewsPositionRationaleDistinct(canonical: RawOutput): void {
+  const departmentId = chairV3TeamViewDuplicateDepartmentId(canonical);
+  if (departmentId !== undefined)
+    throw new TypeError(
+      `chair_v3_team_view_position_rationale_duplicate:${departmentId}`,
+    );
+}
+
 export async function synthesizeChairV3(
   input: Readonly<{
     sourceLocale: "en" | "ko";
@@ -569,7 +658,18 @@ export async function synthesizeChairV3(
   // Never spend another reserved model launch on a public-writing defect.
   // Local degradation preserves the grounded structure and removes only the
   // unsafe or excessively conditional wording.
-  return ChairSynthesisV3ModelOutputSchema.parse(locallyDegrade(initial));
+  const output = ChairSynthesisV3ModelOutputSchema.parse(
+    locallyDegrade(initial),
+  );
+  // Catches both the model emitting position==rationale directly and
+  // `locallyDegrade` collapsing both fields onto the same replacement text
+  // when a view's position and rationale both contain a direct-order
+  // imperative. Thrown here, this is caught by
+  // chairSynthesisHandler.ts's existing `synthesizeChairV3` call site, which
+  // — same as any other post-launch model-output defect — falls back to
+  // `deterministicChairV3Fallback` instead of terminating the run.
+  assertTeamViewsPositionRationaleDistinct(output);
+  return output;
 }
 
 export function projectChairV3ForCommit(

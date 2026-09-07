@@ -235,7 +235,10 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
         teamViews: WORKFLOW_V1_DEPARTMENT_IDS.map((departmentId) => ({
           departmentId,
           position: narrative,
-          rationale: narrative,
+          // Must stay distinct from `position` (trim basis) — a real chair
+          // model output is now rejected otherwise (see
+          // chairV3TeamViewDuplicateDepartmentId in chairSynthesisV3.ts).
+          rationale: `${narrative} The ${departmentId} team ballot reached this conclusion.`,
           vote: "support_with_reservations",
           lineage: lineage(decisive),
         })),

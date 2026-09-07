@@ -46,7 +46,9 @@ const teamViews = (narrative: string) =>
   (["market", "company", "financial", "risk"] as const).map((departmentId) => ({
     departmentId,
     position: narrative,
-    rationale: narrative,
+    // Must stay distinct from `position` (trim basis) — synthesizeChairV3
+    // now rejects a chair candidate where they match.
+    rationale: `${narrative} ${departmentId} ballot: this stands.`,
     vote: "support_with_reservations" as const,
     lineage: canonicalLineage,
   }));
@@ -203,6 +205,43 @@ describe("workflow-v3 canonical chair synthesis", () => {
         "direct_order_rewrite",
         "anticipated_question_omission",
       ]),
+    );
+  });
+
+  it("rejects a chair candidate whose team view position and rationale match", async () => {
+    // Deliberately injected violation (position === rationale, trim basis) —
+    // not a real chair output. This is the exact defect the archived
+    // duplicates trace back to (quality/2026-09-07-teamviews-원본대조.md
+    // ⓐ#1-2,4-11). synthesizeChairV3 must reject it rather than let it
+    // reach publication.
+    await expect(
+      synthesizeChairV3({
+        sourceLocale: "en",
+        evidenceCatalog: "trusted catalog",
+        runModel: async () => ({
+          kind: "chair_synthesis_v3",
+          sourceLocale: "en",
+          stance: "balanced",
+          ...canonicalDecisionLineage,
+          decisiveReason: "Evidence is balanced.",
+          strongestCountercase: "Margins may contract.",
+          invalidationCheckpoint: "Reassess if margins contract.",
+          teamViews: [
+            {
+              departmentId: "market",
+              position: "Evidence supports the view.",
+              rationale: "Evidence supports the view.",
+              vote: "support_with_reservations",
+              lineage: canonicalLineage,
+            },
+            ...teamViews("Evidence supports the view.").slice(1),
+          ],
+          sections: sections("Evidence supports upside."),
+          anticipatedQuestions: [],
+        }),
+      }),
+    ).rejects.toThrow(
+      "chair_v3_team_view_position_rationale_duplicate:market",
     );
   });
 
@@ -563,6 +602,30 @@ describe("workflow-v3 canonical chair synthesis", () => {
       expect(replay.publishable, JSON.stringify(replay)).toBe(true);
       expect(replay.artifactIds).toHaveLength(1);
       expect(prepared.codex.chairLaunches).toBe(1);
+      // Regression guard for the deterministicChairV3Fallback double-assignment
+      // fix: every team view's rationale must come from a source distinct
+      // from its position, never a duplicate of it.
+      const database = new Database(prepared.options.databasePath, {
+        readonly: true,
+      });
+      const row = database
+        .prepare(
+          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+        )
+        .get(replay.artifactIds[0]) as { readonly envelope_json: string };
+      database.close();
+      const teamViews = JSON.parse(row.envelope_json).payload
+        .canonicalNarrativeV3.teamViews as readonly {
+        readonly departmentId: string;
+        readonly position: string;
+        readonly rationale: string;
+      }[];
+      expect(teamViews.length).toBeGreaterThan(0);
+      for (const view of teamViews)
+        expect(
+          view.rationale.trim(),
+          `${view.departmentId}: position and rationale must not match`,
+        ).not.toBe(view.position.trim());
     } finally {
       prepared.cleanup();
     }
@@ -647,5 +710,212 @@ describe("department-owned publication recovery", () => {
       ]);
     }
     expect(result.reduced).toBe(true);
+  });
+
+  it("never reuses a shared claim sentence across two departments' recovered team views", () => {
+    // Injected scenario (not real archived data): market's and company's own
+    // ballot sentences are deliberately excluded from the audited claim set
+    // so both departments fall back to a claim they both cite. Before the
+    // fix, the second department to be normalized (company, array order)
+    // could be handed the exact same sentence market already used —
+    // reproducing the archived cross-index duplicates (GOOG tv[0]==tv[1],
+    // SKHY tv[1]==tv[2]) via injection, since the originals are no longer
+    // reproducible from stored data (see report).
+    const claimA = "00000000-0000-4000-8000-0000000000a1";
+    const marketOnlyClaim = "00000000-0000-4000-8000-0000000000a2";
+    const companyOnlyClaim = "00000000-0000-4000-8000-0000000000a3";
+    const artifactShared = "00000000-0000-4000-8000-0000000000b1";
+    const artifactMarketBallot = "00000000-0000-4000-8000-0000000000b2";
+    const artifactCompanyBallot = "00000000-0000-4000-8000-0000000000b3";
+    const artifactFinancial = "00000000-0000-4000-8000-0000000000b4";
+    const artifactRisk = "00000000-0000-4000-8000-0000000000b5";
+
+    const sentences = [
+      {
+        sentenceId: "position:market",
+        claimIds: [claimA],
+        sourceArtifactIds: [artifactShared],
+        text: {
+          en: "Market position holds given the shared evidence.",
+          ko: "market 포지션은 공유 근거에 기반해 유지됩니다.",
+        },
+      },
+      {
+        // Excluded from auditedClaimIds below, so this never grounds — the
+        // department is forced past its own ballot toward the shared claim.
+        sentenceId: "ballot:market",
+        claimIds: [marketOnlyClaim],
+        sourceArtifactIds: [artifactMarketBallot],
+        text: {
+          en: "Market ballot rationale is unaudited and must not ground.",
+          ko: "market 표결 근거는 감사되지 않아 근거로 쓰일 수 없습니다.",
+        },
+      },
+      {
+        sentenceId: "position:company",
+        claimIds: [claimA],
+        sourceArtifactIds: [artifactShared],
+        text: {
+          en: "Company position holds given the shared evidence.",
+          ko: "company 포지션은 공유 근거에 기반해 유지됩니다.",
+        },
+      },
+      {
+        // Same exclusion as ballot:market, for the same reason.
+        sentenceId: "ballot:company",
+        claimIds: [companyOnlyClaim],
+        sourceArtifactIds: [artifactCompanyBallot],
+        text: {
+          en: "Company ballot rationale is unaudited and must not ground.",
+          ko: "company 표결 근거는 감사되지 않아 근거로 쓰일 수 없습니다.",
+        },
+      },
+      {
+        // The only remaining grounded, distinct-from-position candidate for
+        // BOTH market and company once their own ballots are excluded.
+        sentenceId: `claim:${claimA}`,
+        claimIds: [claimA],
+        sourceArtifactIds: [artifactShared],
+        text: {
+          en: "Shared claim evidence supports the market and company view.",
+          ko: "공유된 근거는 market과 company의 판단을 함께 지지합니다.",
+        },
+      },
+      {
+        sentenceId: "position:financial",
+        claimIds: [claimA],
+        sourceArtifactIds: [artifactFinancial],
+        text: {
+          en: "Financial position holds on its own evidence.",
+          ko: "financial 포지션은 자체 근거로 유지됩니다.",
+        },
+      },
+      {
+        sentenceId: "ballot:financial",
+        claimIds: [claimA],
+        sourceArtifactIds: [artifactFinancial],
+        text: {
+          en: "Financial ballot rationale stands on its own evidence.",
+          ko: "financial 표결 근거는 자체 근거로 성립합니다.",
+        },
+      },
+      {
+        sentenceId: "position:risk",
+        claimIds: [claimA],
+        sourceArtifactIds: [artifactRisk],
+        text: {
+          en: "Risk position holds on its own evidence.",
+          ko: "risk 포지션은 자체 근거로 유지됩니다.",
+        },
+      },
+      {
+        sentenceId: "ballot:risk",
+        claimIds: [claimA],
+        sourceArtifactIds: [artifactRisk],
+        text: {
+          en: "Risk ballot rationale stands on its own evidence.",
+          ko: "risk 표결 근거는 자체 근거로 성립합니다.",
+        },
+      },
+    ];
+    const foreign = {
+      sentenceIds: ["position:market"],
+      claimIds: [claimA],
+      sourceArtifactIds: [artifactShared],
+    };
+    const financialLineage = {
+      sentenceIds: ["position:financial", "ballot:financial"],
+      claimIds: [claimA],
+      sourceArtifactIds: [artifactFinancial],
+    };
+    const riskLineage = {
+      sentenceIds: ["position:risk", "ballot:risk"],
+      claimIds: [claimA],
+      sourceArtifactIds: [artifactRisk],
+    };
+    const canonical = ChairSynthesisV3ModelOutputSchema.parse({
+      kind: "chair_synthesis_v3",
+      sourceLocale: "en",
+      stance: "balanced",
+      decisiveReason: sentences[0]?.text.en,
+      strongestCountercase: sentences[0]?.text.en,
+      invalidationCheckpoint: sentences[0]?.text.en,
+      decisionLineage: {
+        decisiveReason: foreign,
+        strongestCountercase: foreign,
+        invalidationCheckpoint: foreign,
+      },
+      teamViews: [
+        {
+          departmentId: "market",
+          position: sentences[0]?.text.en,
+          rationale: sentences[0]?.text.en,
+          vote: "support_with_reservations",
+          lineage: foreign,
+        },
+        {
+          departmentId: "company",
+          position: sentences[0]?.text.en,
+          rationale: sentences[0]?.text.en,
+          vote: "support_with_reservations",
+          lineage: foreign,
+        },
+        {
+          departmentId: "financial",
+          position: "Financial position holds on its own evidence.",
+          rationale: "Financial ballot rationale stands on its own evidence.",
+          vote: "support_with_reservations",
+          lineage: financialLineage,
+        },
+        {
+          departmentId: "risk",
+          position: "Risk position holds on its own evidence.",
+          rationale: "Risk ballot rationale stands on its own evidence.",
+          vote: "support_with_reservations",
+          lineage: riskLineage,
+        },
+      ],
+      sections: sectionKeys.map((sectionKey) => ({
+        sectionKey,
+        narrative: sentences[0]?.text.en,
+        lineage: foreign,
+      })),
+      anticipatedQuestions: [],
+    });
+    const result = normalizeCanonicalNarrativeV3ForPublication({
+      canonical,
+      sentences,
+      auditedClaimIds: [claimA],
+      sourceArtifactIds: [
+        artifactShared,
+        artifactMarketBallot,
+        artifactCompanyBallot,
+        artifactFinancial,
+        artifactRisk,
+      ],
+      sections: sectionKeys.map((sectionKey) => ({
+        sectionKey,
+        primarySentenceId: "position:market",
+      })),
+    });
+    const market = result.canonical.teamViews.find(
+      (view) => view.departmentId === "market",
+    );
+    const company = result.canonical.teamViews.find(
+      (view) => view.departmentId === "company",
+    );
+    expect(market).toBeDefined();
+    expect(company).toBeDefined();
+    if (market === undefined || company === undefined) return;
+    // market recovers the shared claim honestly — it is the only distinct,
+    // grounded candidate left once its own ballot is excluded.
+    expect(market.rationale).toBe(
+      "Shared claim evidence supports the market and company view.",
+    );
+    // company must NOT be handed that same sentence a second time. Either it
+    // recovers a distinct one, or (as here, since none remains) it is left
+    // unchanged rather than silently duplicating market's rationale.
+    expect(company.rationale.trim()).not.toBe(market.rationale.trim());
+    expect(company.position.trim()).not.toBe(market.rationale.trim());
   });
 });
