@@ -455,15 +455,19 @@ export function CommitteeDecisionCockpit({
                 </li>
               ))}
             </ol>
-            <div className="committee-cockpit__countercase">
-              <strong>{ko ? "가장 강한 반론" : "Strongest countercase"}</strong>
-              <p>{view.countercase}</p>
-            </div>
-            <div className="committee-cockpit__countercase">
-              <strong>
-                {ko ? "판단을 바꿀 조건" : "What would change the view"}
-              </strong>
-              <p>{decisionFalsifier}</p>
+            <div className="committee-cockpit__considerations">
+              <div className="committee-cockpit__countercase">
+                <strong>
+                  {ko ? "가장 강한 반론" : "Strongest countercase"}
+                </strong>
+                <p>{view.countercase}</p>
+              </div>
+              <div className="committee-cockpit__countercase">
+                <strong>
+                  {ko ? "판단을 바꿀 조건" : "What would change the view"}
+                </strong>
+                <p>{decisionFalsifier}</p>
+              </div>
             </div>
           </article>
 
@@ -640,8 +644,8 @@ export function CommitteeDecisionCockpit({
                       className="committee-conflict-matrix__portrait"
                       src={row.portraitPath}
                       alt=""
-                      width={40}
-                      height={40}
+                      width={72}
+                      height={72}
                     />
                     <div>
                       <strong>{row.teamName}</strong>
@@ -829,7 +833,10 @@ export function CommitteeDecisionCockpit({
                 </article>
               ))}
             </div>
-            <footer>{model.valuationFramework.summary}</footer>
+            {model.valuationFramework.summary.trim() ===
+            model.valuationFramework.note.trim() ? null : (
+              <footer>{model.valuationFramework.summary}</footer>
+            )}
           </section>
         )}
         {view.valuationConclusion.length === 0 ? null : (

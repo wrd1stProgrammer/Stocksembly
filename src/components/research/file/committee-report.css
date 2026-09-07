@@ -68,8 +68,9 @@
 
 .committee-cockpit__agent,
 .committee-conflict-matrix__portrait {
-  width: 32px;
-  height: 32px;
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
   object-fit: contain;
   image-rendering: pixelated;
 }
@@ -173,10 +174,17 @@
   font-weight: 520;
 }
 
+.committee-cockpit__considerations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  margin-top: 24px;
+}
+
 .committee-cockpit__countercase {
-  margin-top: 22px;
+  margin-top: 0;
   padding: 16px 0 16px 18px;
-  max-width: 66ch;
+  min-width: 0;
   border-left: 2px solid var(--editorial-rule-strong);
 }
 
@@ -575,7 +583,7 @@
 
 .committee-claim-ledger > article {
   display: grid;
-  grid-template-columns: minmax(150px, 0.25fr) minmax(0, 1fr);
+  grid-template-columns: minmax(130px, 0.18fr) minmax(0, 1fr);
   border-bottom: 1px solid var(--editorial-rule);
 }
 
@@ -630,15 +638,16 @@
 .committee-claim-ledger__verdict strong {
   margin-top: 7px;
   display: block;
-  max-width: 72ch;
-  font-size: 1rem;
-  line-height: 1.55;
+  max-width: none;
+  font-size: 0.95rem;
+  font-weight: 620;
+  line-height: 1.65;
 }
 
 .committee-claim-ledger > article > dl {
   grid-column: 2;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   border-top: 1px solid var(--editorial-rule);
 }
 
@@ -801,9 +810,9 @@
 
 .committee-valuation-framework__capabilities {
   padding: 13px 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 20px;
   border-top: 1px solid var(--editorial-rule);
   border-bottom: 1px solid var(--editorial-rule);
 }
@@ -834,12 +843,27 @@
 
 .committee-valuation-framework__scenarios {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
 }
 
 .committee-valuation-framework__scenarios article {
   min-width: 0;
   padding: 20px 18px 18px 0;
+}
+
+.committee-valuation-framework__scenarios article:only-child {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px 32px;
+  padding-right: 0;
+}
+
+.committee-valuation-framework__scenarios article:only-child > header {
+  grid-column: 1 / -1;
+}
+
+.committee-valuation-framework__scenarios article:only-child :is(dl, p) {
+  margin-top: 0;
 }
 
 .committee-valuation-framework__scenarios article + article {
@@ -1115,8 +1139,8 @@
 .committee-expectation-brief > header {
   padding: 18px 0;
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 26px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
   align-items: baseline;
   background: transparent;
   border-right: 0;
@@ -1134,12 +1158,13 @@
 .committee-expectation-brief > header h3 {
   margin-top: 0;
   font-size: 0.94rem;
-  line-height: 1.55;
+  font-weight: 560;
+  line-height: 1.7;
 }
 
 .committee-expectation-brief > dl > div {
   display: grid;
-  grid-template-columns: minmax(190px, 0.32fr) minmax(0, 1fr);
+  grid-template-columns: minmax(160px, 0.24fr) minmax(0, 1fr);
   gap: 26px;
   padding: 14px 0;
 }
@@ -1424,6 +1449,30 @@
 }
 
 @media (max-width: 700px) {
+  .committee-valuation-framework__capabilities {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .committee-valuation-framework__scenarios article:only-child {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .committee-valuation-framework > header {
+    align-items: start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .committee-cockpit__considerations {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .committee-claim-ledger__verdict {
+    padding-left: 0;
+  }
+
   .research-editorial-cover--committee {
     min-height: 0;
   }
@@ -1509,6 +1558,9 @@
   }
 
   .committee-claim-ledger > article > header {
+    display: flex;
+    align-items: start;
+    gap: 18px;
     grid-row: auto;
     border-right: 0;
   }
@@ -1516,6 +1568,14 @@
   .committee-claim-ledger > article > dl {
     grid-column: 1;
     grid-template-columns: 1fr;
+  }
+
+  .committee-claim-ledger > article > header > b {
+    margin-bottom: 0;
+  }
+
+  .committee-claim-ledger > article > dl > div {
+    padding-inline: 0;
   }
 
   .committee-claim-ledger > article > dl > div + div {
