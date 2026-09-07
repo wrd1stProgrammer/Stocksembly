@@ -285,15 +285,6 @@ export function TechnicalChartResearchPage({
                 : "Dotted paths mark conditions to check on the next closed candle, not future candles or odds. S = support; R = resistance. Order blocks are price-reaction candidates."}
             </p>
             <p>
-              InsightSentry ·{" "}
-              {ko
-                ? "정규장 · 분할 조정 · 배당 미조정"
-                : "Regular session · Split adjusted · Dividends unadjusted"}{" "}
-              ·{" "}
-              {new Date(chart.analysisAsOf).toLocaleDateString(
-                ko ? "ko-KR" : "en-US",
-              )}{" "}
-              ·{" "}
               <a
                 href="https://www.tradingview.com/"
                 target="_blank"
