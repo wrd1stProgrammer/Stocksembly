@@ -1,6 +1,13 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { copy, intlLocale, locales } from "../../lib/i18n";
+import { copy, locales } from "../../lib/i18n";
 import type { PublicRun } from "../../research/client/schemas";
 import { SearchConsole } from "../SearchConsole";
 import { SignedInHome } from "./SignedInHome";
@@ -9,149 +16,62 @@ const testState = vi.hoisted(() => ({
   bootstrapSession: vi.fn<() => Promise<void>>(),
   listRuns: vi.fn<(limit?: number) => Promise<readonly PublicRun[]>>(),
 }));
-
 vi.mock("../../auth/researchClient", () => ({
   createAuthenticatedResearchClient: () => testState,
 }));
-
+vi.mock("./HomeResearchActivity", () => ({
+  HomeResearchActivity: ({ run }: { run: PublicRun }) => (
+    <div data-testid="active-research">
+      <a href={`/research/${run.symbol}?run=${run.runId}`}>
+        {run.symbol} {run.status}
+      </a>
+    </div>
+  ),
+}));
 vi.mock("../SearchConsole", () => ({
   SearchConsole: vi.fn(() => <div data-testid="search-console" />),
 }));
-
 vi.mock("../billing/MembershipAccessModal", () => ({
-  MembershipAccessModal: ({ open }: { readonly open: boolean }) =>
+  MembershipAccessModal: ({ open }: { open: boolean }) =>
     open ? <div data-testid="membership-gate" /> : null,
 }));
-
 const RUN: PublicRun = {
   runId: "00000000-0000-4000-8000-000000000001",
   snapshotId: "00000000-0000-4000-8000-000000000002",
   symbol: "NVDA",
-  question: "Can growth justify today's valuation?",
+  question: "Can growth justify valuation?",
   locale: "en",
   status: "completed",
   lastEventSeq: 10,
   createdAt: "2026-09-06T01:30:00.000Z",
 };
-
 beforeEach(() => {
   vi.clearAllMocks();
   testState.bootstrapSession.mockReset().mockResolvedValue(undefined);
   testState.listRuns.mockReset().mockResolvedValue([]);
 });
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
-describe("SignedInHome", () => {
-  it("lists other investors' research in the same card design", async () => {
-    testState.listRuns.mockResolvedValue([RUN]);
-    const communityPreview = {
-      reports: [
-        {
-          reportId: "00000000-0000-4000-8000-000000000201",
-          symbol: "MSFT",
-          question: "코파일럿 매출은 언제부터 숫자로 증명되나?",
-          locale: "ko" as const,
-          researchTarget: { kind: "committee" as const },
-          publishedAt: "2026-09-05T12:10:00.000Z",
-          status: "complete" as const,
-          locked: false,
-          viewCount: 10,
-        },
-        {
-          reportId: "00000000-0000-4000-8000-000000000202",
-          symbol: "MU",
-          question: "HBM 증설 경쟁에서 수익성을 지킬 수 있을까?",
-          locale: "ko" as const,
-          researchTarget: {
-            kind: "department" as const,
-            departmentId: "market" as const,
-          },
-          publishedAt: "2026-09-04T09:00:00.000Z",
-          status: "complete" as const,
-          locked: true,
-          viewCount: 4,
-        },
-      ],
-      companyNames: {},
-    };
-
-    render(<SignedInHome locale="ko" communityPreview={communityPreview} />);
-
-    const community = within(
-      screen.getByRole("region", {
-        name: copy.ko.home.community.title,
-      }),
-    );
-    expect(
-      community.getByRole("link", { name: /다른 리서치 보기/u }),
-    ).toHaveAttribute("href", "/research-room?lang=ko");
-    expect(community.getByRole("link", { name: /MSFT/u })).toHaveAttribute(
-      "href",
-      "/research-room/00000000-0000-4000-8000-000000000201?lang=ko",
-    );
-    expect(
-      community.getByText(copy.ko.landing.researchRoom.teams.market),
-    ).toBeVisible();
-
-    expect(screen.queryByTestId("membership-gate")).not.toBeInTheDocument();
-    fireEvent.click(community.getByRole("button", { name: /MU/u }));
-    expect(await screen.findByTestId("membership-gate")).toBeInTheDocument();
-  });
-
+afterEach(() => vi.useRealTimers());
+describe("daily workspace", () => {
   it.each(locales)(
-    "renders research statuses and links in %s",
+    "preserves search and leaves completed history in the sidebar (%s)",
     async (locale) => {
-      const content = copy[locale].home;
-      const statuses = Object.keys(content.statuses) as PublicRun["status"][];
-      const runs = statuses.map((status, index) => ({
-        ...RUN,
-        runId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-        status,
-        ...(index > 0 ? { question: undefined } : {}),
-      }));
-      testState.listRuns.mockResolvedValue(runs);
-
+      testState.listRuns.mockResolvedValue([RUN]);
       render(<SignedInHome locale={locale} />);
-
       expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-        content.title,
+        copy[locale].home.title,
       );
-      const research = within(
-        screen.getByRole("region", { name: content.researchTitle }),
-      );
-      const links = await research.findAllByRole("link");
-      expect(links).toHaveLength(runs.length);
-      const expectedDate = new Intl.DateTimeFormat(intlLocale(locale), {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(RUN.createdAt));
-      for (const [index, run] of runs.entries()) {
-        const link = links[index];
-        expect(link).toHaveAttribute(
-          "href",
-          `/research/${run.symbol}?run=${run.runId}&lang=${locale}`,
-        );
-        expect(link).toHaveTextContent(run.symbol);
-        expect(link).toHaveTextContent(content.statuses[run.status]);
-        expect(link?.querySelector("time")).toHaveAttribute(
-          "datetime",
-          run.createdAt,
-        );
-        expect(link?.querySelector("time")).toHaveTextContent(expectedDate);
-      }
-      expect(research.getAllByText(RUN.question ?? "")).toHaveLength(1);
-      expect(testState.bootstrapSession).toHaveBeenCalledOnce();
-      expect(testState.listRuns).toHaveBeenCalledWith(12);
+      await waitFor(() => expect(testState.listRuns).toHaveBeenCalledWith(12));
+      expect(screen.getAllByTestId("search-console")).toHaveLength(1);
+      expect(screen.queryByText(RUN.question ?? "")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("active-research")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("heading", {
+          name: copy[locale].home.researchTitle,
+        }),
+      ).not.toBeInTheDocument();
     },
   );
-
-  it("keeps the existing search props and invites the first research when empty", async () => {
+  it("keeps search props and omits the watchlist briefing", async () => {
     const props = {
       locale: "ko" as const,
       onOpenPlans: vi.fn(),
@@ -159,81 +79,92 @@ describe("SignedInHome", () => {
       creditsRemaining: 42,
     };
     render(<SignedInHome {...props} />);
-
-    expect(await screen.findByText(copy.ko.home.emptyTitle)).toBeVisible();
-    expect(screen.getByText(copy.ko.home.emptyDescription)).toBeVisible();
-    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "내 종목의 브리핑" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "관심 종목 등록하기" }),
+    ).not.toBeInTheDocument();
     expect(vi.mocked(SearchConsole).mock.lastCall?.[0]).toEqual(props);
   });
-
-  it("waits for the session before requesting research", async () => {
-    let restoreSession = () => {};
-    testState.bootstrapSession.mockReturnValue(
-      new Promise<void>((resolve) => {
-        restoreSession = resolve;
-      }),
-    );
+  it("only opens an office for active research", async () => {
+    testState.listRuns.mockResolvedValue([
+      RUN,
+      {
+        ...RUN,
+        runId: "00000000-0000-4000-8000-000000000003",
+        symbol: "AMD",
+        status: "running",
+      },
+    ]);
     render(<SignedInHome locale="en" />);
-
-    expect(screen.getByRole("status")).toHaveTextContent(copy.en.home.loading);
-    expect(testState.listRuns).not.toHaveBeenCalled();
-    await act(async () => restoreSession());
-    expect(screen.getByText(copy.en.home.emptyTitle)).toBeVisible();
-    expect(testState.listRuns).toHaveBeenCalledWith(12);
-  });
-
-  it("recovers automatically when Cognito session restoration is delayed", async () => {
-    vi.useFakeTimers();
-    testState.bootstrapSession.mockRejectedValueOnce(
-      new Error("Session is restoring"),
+    expect(await screen.findByTestId("active-research")).toHaveTextContent(
+      "AMD running",
     );
+    expect(screen.queryByText("NVDA")).not.toBeInTheDocument();
+  });
+  it("keeps tracked completion available after polling", async () => {
+    vi.useFakeTimers();
+    testState.listRuns.mockResolvedValue([{ ...RUN, status: "running" }]);
+    render(<SignedInHome locale="en" />);
+    await act(async () => vi.advanceTimersByTimeAsync(0));
     testState.listRuns.mockResolvedValue([RUN]);
-    render(<SignedInHome locale="ko" />);
-
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(screen.getByTestId("active-research")).toHaveTextContent(
+      "NVDA completed",
+    );
+  });
+  it("waits for authentication and retries failed activity loads", async () => {
+    vi.useFakeTimers();
+    testState.bootstrapSession.mockRejectedValueOnce(new Error("Restoring"));
+    testState.listRuns.mockRejectedValue(new Error("Unavailable"));
+    render(<SignedInHome locale="en" />);
     await act(async () => vi.advanceTimersByTimeAsync(0));
     expect(testState.listRuns).not.toHaveBeenCalled();
-    expect(screen.getByRole("status")).toHaveTextContent(copy.ko.home.loading);
-    await act(async () => vi.advanceTimersByTimeAsync(250));
-    expect(screen.getByRole("link")).toHaveTextContent("NVDA");
-    expect(testState.bootstrapSession).toHaveBeenCalledTimes(2);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("shows a retry button after repeated failures and reloads successfully", async () => {
-    vi.useFakeTimers();
-    testState.listRuns.mockRejectedValue(new Error("Service unavailable"));
-    render(<SignedInHome locale="en" />);
-
     await act(async () => vi.advanceTimersByTimeAsync(2_650));
-    expect(testState.bootstrapSession).toHaveBeenCalledTimes(4);
-    expect(testState.listRuns).toHaveBeenCalledTimes(4);
-    expect(screen.getByRole("alert")).toHaveTextContent(copy.en.home.error);
-
-    testState.listRuns.mockResolvedValue([RUN]);
-    fireEvent.click(screen.getByRole("button", { name: copy.en.home.retry }));
-    expect(screen.getByRole("status")).toHaveTextContent(copy.en.home.loading);
-    await act(async () => vi.advanceTimersByTimeAsync(0));
-
-    expect(screen.getByRole("link")).toHaveTextContent("NVDA");
-    expect(testState.listRuns).toHaveBeenCalledTimes(5);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: copy.en.home.retry }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("stops scheduled retries when the signed-in home unmounts", async () => {
-    vi.useFakeTimers();
-    testState.bootstrapSession.mockRejectedValue(
-      new Error("Session unavailable"),
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Unable to check for active research.",
     );
+    testState.listRuns.mockResolvedValue([]);
+    fireEvent.click(within(screen.getByRole("alert")).getByRole("button"));
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("stops retries and polling after unmount", async () => {
+    vi.useFakeTimers();
+    testState.bootstrapSession.mockRejectedValue(new Error("Unavailable"));
     const { unmount } = render(<SignedInHome locale="en" />);
-
     await act(async () => vi.advanceTimersByTimeAsync(0));
     unmount();
-    await act(async () => vi.advanceTimersByTimeAsync(2_650));
-
+    await act(async () => vi.advanceTimersByTimeAsync(60_000));
     expect(testState.bootstrapSession).toHaveBeenCalledOnce();
-    expect(testState.listRuns).not.toHaveBeenCalled();
+  });
+  it("keeps locked community questions behind membership access", async () => {
+    const report = {
+      reportId: "00000000-0000-4000-8000-000000000004",
+      symbol: "MU",
+      question: "Can HBM margins hold?",
+      locale: "en" as const,
+      researchTarget: { kind: "committee" as const },
+      publishedAt: RUN.createdAt,
+      status: "complete" as const,
+      locked: true,
+      viewCount: 1,
+    };
+    render(
+      <SignedInHome
+        locale="en"
+        communityPreview={{ reports: [report], companyNames: {} }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `MU · ${copy.en.landing.researchRoom.locked}`,
+      }),
+    );
+    expect(screen.getByTestId("membership-gate")).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: /Can HBM/ }),
+    ).not.toBeInTheDocument();
   });
 });

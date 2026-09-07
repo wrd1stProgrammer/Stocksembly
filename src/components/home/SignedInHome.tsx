@@ -1,16 +1,11 @@
 "use client";
-
 import "../../styles/signed-in-home.css";
-import { ArrowUpRight, FileText, LockKeyhole } from "lucide-react";
+import { ArrowRight, ArrowUpRight, LockKeyhole } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { type ComponentProps, useEffect, useState } from "react";
+import { type ComponentProps, useEffect, useRef, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
-import {
-  type AppLocale,
-  copy,
-  intlLocale,
-  researchLocale,
-} from "../../lib/i18n";
+import { copy, intlLocale, researchLocale } from "../../lib/i18n";
 import type { PublicRun } from "../../research/client/schemas";
 import { MembershipAccessModal } from "../billing/MembershipAccessModal";
 import {
@@ -19,28 +14,25 @@ import {
 } from "../researchRoom/landingResearchRoomPreviewSelection";
 import { SearchConsole } from "../SearchConsole";
 
+const HomeResearchActivity = dynamic(
+  () =>
+    import("./HomeResearchActivity").then(
+      (module) => module.HomeResearchActivity,
+    ),
+  { ssr: false },
+);
+
 type SignedInHomeProps = Pick<
   ComponentProps<typeof SearchConsole>,
   "locale" | "onOpenPlans" | "subscriptionTier" | "creditsRemaining"
 > & {
   readonly communityPreview?: LandingResearchRoomPreviewData;
 };
-
 type LoadState =
   | { readonly status: "loading" }
   | { readonly status: "failed" }
   | { readonly status: "ready"; readonly runs: readonly PublicRun[] };
-
 const LOAD_RETRY_DELAYS_MS = [0, 250, 800, 1_600] as const;
-
-function communityTargetLabel(
-  report: LandingResearchRoomPreviewData["reports"][number],
-  locale: AppLocale,
-): string {
-  const labels = copy[locale].landing.researchRoom;
-  if (report.researchTarget.kind === "committee") return labels.fullCommittee;
-  return labels.teams[report.researchTarget.departmentId];
-}
 
 export function SignedInHome(props: SignedInHomeProps) {
   const {
@@ -48,14 +40,23 @@ export function SignedInHome(props: SignedInHomeProps) {
     ...searchConsoleProps
   } = props;
   const { locale } = searchConsoleProps;
+  const ko = locale === "ko";
   const content = copy[locale].home;
-  const roomLabels = copy[locale].landing.researchRoom;
-  const [loadState, setLoadState] = useState<LoadState>({
-    status: "loading",
-  });
+  const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const { status: loadStatus } = loadState;
-
+  const trackedRun = useRef<string | undefined>(undefined);
+  const [runs, setRuns] = useState<readonly PublicRun[]>([]);
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    setToday(
+      new Intl.DateTimeFormat(intlLocale(locale), {
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      }).format(new Date()),
+    );
+  }, [locale]);
   useEffect(() => {
     if (loadStatus !== "loading") return;
     const client = createAuthenticatedResearchClient();
@@ -68,7 +69,10 @@ export function SignedInHome(props: SignedInHomeProps) {
         await client.bootstrapSession();
         if (!active) return;
         const runs = await client.listRuns?.(12);
-        if (active) setLoadState({ status: "ready", runs: runs ?? [] });
+        if (active) {
+          setRuns(runs ?? []);
+          setLoadState({ status: "ready", runs: runs ?? [] });
+        }
       } catch {
         if (!active) return;
         const nextDelay = LOAD_RETRY_DELAYS_MS[attempt + 1];
@@ -89,142 +93,113 @@ export function SignedInHome(props: SignedInHomeProps) {
     };
   }, [loadStatus]);
 
-  const dateFormatter = new Intl.DateTimeFormat(intlLocale(locale), {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const communityReports = communityPreview.reports;
-
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible")
+        setLoadState((current) =>
+          current.status === "ready" ? { status: "loading" } : current,
+        );
+    };
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+  const activeRun =
+    runs.find((run) =>
+      ["queued", "running", "cancelling"].includes(run.status),
+    ) ?? runs.find((run) => run.runId === trackedRun.current);
+  useEffect(() => {
+    if (activeRun) trackedRun.current = activeRun.runId;
+  }, [activeRun]);
+  const communityReports = communityPreview.reports.slice(0, 3);
   return (
-    <div className="signed-in-home">
+    <div className="signed-in-home daily-home" id="product">
+      <header className="daily-home__masthead">
+        <span>
+          <i /> MY WORKSPACE
+        </span>
+        <time>{today}</time>
+      </header>
       <section
         className="signed-in-home__start"
         aria-labelledby="signed-in-home-title"
       >
         <div className="signed-in-home__intro">
+          <span className="daily-eyebrow">START WITH A QUESTION</span>
           <h1 id="signed-in-home-title">{content.title}</h1>
           <p>{content.description}</p>
         </div>
         <SearchConsole {...searchConsoleProps} />
       </section>
-
-      <section
-        className="signed-in-home__research"
-        aria-labelledby="signed-in-home-research-title"
-      >
-        <header className="signed-in-home__section-head">
-          <div>
-            <span>{content.myEyebrow}</span>
-            <h2 id="signed-in-home-research-title">{content.researchTitle}</h2>
-          </div>
-        </header>
-        {loadState.status === "loading" ? (
-          <div className="signed-in-home__loading" role="status">
-            <span className="sr-only">{content.loading}</span>
-            <span aria-hidden="true" />
-            <span aria-hidden="true" />
-            <span aria-hidden="true" />
-          </div>
-        ) : loadState.status === "failed" ? (
-          <div className="signed-in-home__message">
-            <p role="alert">{content.error}</p>
-            <button
-              type="button"
-              className="signed-in-home__retry"
-              onClick={() => {
-                setLoadState({ status: "loading" });
-              }}
-            >
-              {content.retry}
-            </button>
-          </div>
-        ) : loadState.runs.length === 0 ? (
-          <div className="signed-in-home__message" role="status">
-            <FileText size={24} aria-hidden="true" />
-            <strong>{content.emptyTitle}</strong>
-            <p>{content.emptyDescription}</p>
-          </div>
-        ) : (
-          <ol className="signed-in-home__runs">
-            {loadState.runs.map((run) => (
-              <li key={run.runId}>
-                <Link
-                  className="signed-in-home__run"
-                  href={`/research/${run.symbol}?run=${run.runId}&lang=${locale}`}
-                >
-                  <span className="signed-in-home__run-content">
-                    <strong>{run.symbol}</strong>
-                    {run.question ? (
-                      <span className="signed-in-home__question">
-                        {run.question}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="signed-in-home__run-meta">
-                    <span
-                      className="signed-in-home__status"
-                      data-status={run.status}
-                    >
-                      {content.statuses[run.status]}
-                    </span>
-                    <time dateTime={run.createdAt}>
-                      {dateFormatter.format(new Date(run.createdAt))}
-                    </time>
-                  </span>
-                  <ArrowUpRight
-                    className="signed-in-home__run-arrow"
-                    size={18}
-                    aria-hidden="true"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
-      {communityReports.length === 0 ? null : (
+      {activeRun ? (
+        <HomeResearchActivity
+          key={activeRun.runId}
+          run={activeRun}
+          locale={locale}
+        />
+      ) : null}
+      {loadState.status === "failed" ? (
+        <div className="daily-feedback daily-feedback--activity" role="alert">
+          <p>
+            {ko
+              ? "진행 중인 리서치를 확인하지 못했습니다."
+              : "Unable to check for active research."}
+          </p>
+          <button
+            type="button"
+            onClick={() => setLoadState({ status: "loading" })}
+          >
+            {content.retry}
+          </button>
+        </div>
+      ) : null}
+      {communityReports.length ? (
         <section
-          className="signed-in-home__research signed-in-home__community"
-          aria-labelledby="signed-in-home-community-title"
+          className="home-questions"
+          aria-labelledby="home-questions-title"
         >
-          <header className="signed-in-home__section-head">
+          <header className="daily-section-head">
             <div>
-              <span>{content.community.eyebrow}</span>
-              <h2 id="signed-in-home-community-title">
-                {content.community.title}
+              <span className="daily-eyebrow">
+                01 / A DIFFERENT PERSPECTIVE
+              </span>
+              <h2 id="home-questions-title">
+                {ko
+                  ? "다른 투자자는 무엇을 묻고 있을까요?"
+                  : "What are other investors asking?"}
               </h2>
-              <p>{content.community.description}</p>
             </div>
-            <Link
-              className="signed-in-home__section-link"
-              href={`/research-room?lang=${locale}`}
-            >
-              {content.community.browse}
-              <ArrowUpRight size={15} aria-hidden="true" />
+            <Link href={`/research-room?lang=${locale}`}>
+              {ko ? "더 많은 질문" : "More questions"}
+              <ArrowUpRight size={15} />
             </Link>
           </header>
-          <ol className="signed-in-home__runs">
-            {communityReports.map((report) => {
-              const rowContent = (
+          <ol>
+            {communityReports.map((report, index) => {
+              const inside = (
                 <>
-                  <span className="signed-in-home__run-content">
-                    <strong>{report.symbol}</strong>
-                    <span className="signed-in-home__question">
-                      {report.question}
+                  <div className="home-question__meta">
+                    <span>{report.symbol}</span>
+                    <small>0{index + 1}</small>
+                  </div>
+                  <h3>{report.question}</h3>
+                  <footer>
+                    <span>
+                      {report.researchTarget.kind === "committee"
+                        ? copy[locale].landing.researchRoom.fullCommittee
+                        : copy[locale].landing.researchRoom.teams[
+                            report.researchTarget.departmentId
+                          ]}
                     </span>
-                  </span>
-                  <span className="signed-in-home__run-meta">
-                    <span className="signed-in-home__status">
-                      {communityTargetLabel(report, locale)}
-                    </span>
-                    <time dateTime={report.publishedAt}>
-                      {dateFormatter.format(new Date(report.publishedAt))}
-                    </time>
-                  </span>
+                    {report.locked ? (
+                      <LockKeyhole size={15} />
+                    ) : (
+                      <ArrowUpRight size={18} />
+                    )}
+                  </footer>
                 </>
               );
               return (
@@ -232,43 +207,40 @@ export function SignedInHome(props: SignedInHomeProps) {
                   {report.locked ? (
                     <button
                       type="button"
-                      className="signed-in-home__run signed-in-home__run--locked"
-                      aria-label={`${report.symbol} · ${roomLabels.locked}`}
                       onClick={() => setMembershipGateOpen(true)}
+                      aria-label={`${report.symbol} · ${copy[locale].landing.researchRoom.locked}`}
                     >
-                      {rowContent}
-                      <LockKeyhole
-                        className="signed-in-home__run-arrow"
-                        size={16}
-                        aria-hidden="true"
-                      />
+                      {inside}
                     </button>
                   ) : (
                     <Link
-                      className="signed-in-home__run"
                       href={`/research-room/${report.reportId}?lang=${locale}`}
                     >
-                      {rowContent}
-                      <ArrowUpRight
-                        className="signed-in-home__run-arrow"
-                        size={18}
-                        aria-hidden="true"
-                      />
+                      {inside}
                     </Link>
                   )}
                 </li>
               );
             })}
           </ol>
-          <MembershipAccessModal
-            locale={researchLocale(locale)}
-            open={membershipGateOpen}
-            reason="recent-report"
-            onClose={() => setMembershipGateOpen(false)}
-            onOpenPlans={props.onOpenPlans}
-          />
         </section>
-      )}
+      ) : null}
+      <footer className="daily-home__footer">
+        <span>
+          STOCKSEMBLY <i /> RESEARCH, WITH PERSPECTIVE.
+        </span>
+        <Link href={`/methodology?lang=${locale}`}>
+          {ko ? "리서치 방법론" : "Our methodology"}
+          <ArrowRight size={13} />
+        </Link>
+      </footer>
+      <MembershipAccessModal
+        locale={researchLocale(locale)}
+        open={membershipGateOpen}
+        reason="recent-report"
+        onClose={() => setMembershipGateOpen(false)}
+        onOpenPlans={props.onOpenPlans}
+      />
     </div>
   );
 }

@@ -129,7 +129,9 @@ describe("home authentication branches", () => {
     expect(
       await screen.findByRole("heading", { name: copy.en.home.title }),
     ).toBeVisible();
-    expect(await screen.findByText(copy.en.home.emptyTitle)).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Your watchlist, briefed." }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByTestId("search-console")).toHaveLength(1);
     for (const testId of marketingTestIds)
       expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
