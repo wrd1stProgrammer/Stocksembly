@@ -1,4 +1,5 @@
 "use client";
+import { markNewResearchEntrance } from "../../research/useResearchEntrance";
 
 import "../../styles/researchWorkspace";
 import "../../styles/research-room.css";
@@ -87,6 +88,7 @@ export function LaunchingResearchRoom({
     void launch
       .then((created) => {
         if (!active) return;
+        markNewResearchEntrance(created.run.runId);
         router.replace(
           `/research/${symbol}?run=${created.run.runId}&lang=${locale}`,
         );

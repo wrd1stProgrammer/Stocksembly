@@ -1,3 +1,4 @@
+import { markNewResearchEntrance } from "../research/useResearchEntrance";
 import "../styles/search-controls.css";
 import "../styles/search-states.css";
 import {
@@ -612,6 +613,7 @@ export function SearchConsole({
         researchTarget,
         researchProfile,
       });
+      markNewResearchEntrance(created.run.runId);
       notifyBillingChanged();
       startTransition(() => {
         router.push(

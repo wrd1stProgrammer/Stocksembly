@@ -103,6 +103,19 @@ describe("daily workspace", () => {
     );
     expect(screen.queryByText("NVDA")).not.toBeInTheDocument();
   });
+  it.each(["cancelling", "cancelled", "failed"] as const)(
+    "removes tracked %s research on refresh",
+    async (status) => {
+      vi.useFakeTimers();
+      testState.listRuns.mockResolvedValue([{ ...RUN, status: "running" }]);
+      render(<SignedInHome locale="en" />);
+      await act(async () => vi.advanceTimersByTimeAsync(0));
+      expect(screen.getByTestId("active-research")).toBeVisible();
+      testState.listRuns.mockResolvedValue([{ ...RUN, status }]);
+      await act(async () => vi.advanceTimersByTimeAsync(30_000));
+      expect(screen.queryByTestId("active-research")).not.toBeInTheDocument();
+    },
+  );
   it("keeps tracked completion available after polling", async () => {
     vi.useFakeTimers();
     testState.listRuns.mockResolvedValue([{ ...RUN, status: "running" }]);

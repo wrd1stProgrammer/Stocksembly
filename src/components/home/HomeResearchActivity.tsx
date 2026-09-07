@@ -22,12 +22,17 @@ const Office = dynamic(
 function LiveActivity({
   initial,
   locale,
+  onRunChange,
 }: {
   initial: PublicRunDetail;
+  onRunChange: (run: PublicRun) => void;
   locale: AppLocale;
 }) {
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const projection = useResearchRun(initial, { client });
+  useEffect(() => {
+    onRunChange(projection.snapshot.run);
+  }, [onRunChange, projection.snapshot.run]);
   const office = useMemo(
     () => liveOfficeProjection(projection.snapshot),
     [projection.snapshot],
@@ -113,8 +118,10 @@ function LiveActivity({
 export function HomeResearchActivity({
   run,
   locale,
+  onRunChange,
 }: {
   run: PublicRun;
+  onRunChange: (run: PublicRun) => void;
   locale: AppLocale;
 }) {
   const [detail, setDetail] = useState<PublicRunDetail>();
@@ -148,7 +155,11 @@ export function HomeResearchActivity({
         <span className="home-live-dot">{run.symbol}</span>
       </header>
       {detail ? (
-        <LiveActivity initial={detail} locale={locale} />
+        <LiveActivity
+          initial={detail}
+          locale={locale}
+          onRunChange={onRunChange}
+        />
       ) : (
         <p role="status">
           {failed

@@ -149,6 +149,28 @@ describe("live office animation", () => {
     view.unmount();
   });
 
+  it("preserves a fresh entrance even when server progress requests a snap", () => {
+    const requestFrame = vi.fn(() => 1);
+    vi.stubGlobal("requestAnimationFrame", requestFrame);
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    const fresh = renderHook(
+      ({ ready }) =>
+        useLiveOfficeAnimation(501, undefined, ready, true, true, true, true),
+      { initialProps: { ready: false } },
+    );
+    fresh.rerender({ ready: true });
+    expect(fresh.result.current.snapshot.tick).toBe(0);
+    expect(requestFrame).toHaveBeenCalled();
+    fresh.unmount();
+    const restored = renderHook(
+      ({ ready }) =>
+        useLiveOfficeAnimation(501, undefined, ready, true, true, true),
+      { initialProps: { ready: false } },
+    );
+    restored.rerender({ ready: true });
+    expect(restored.result.current.snapshot.tick).toBe(501);
+    restored.unmount();
+  });
   it("finishes seating the entrance even while the research run is still queued", () => {
     const callbacks = new Map<number, FrameRequestCallback>();
     let requestId = 0;
