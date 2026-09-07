@@ -115,6 +115,7 @@ export const CODEX_RUNTIME_POLICY = Object.freeze({
     probe: "disabled",
   } satisfies Readonly<Record<CodexStage, CodexBrowsingPolicy>>),
   maxPromptBytes: 256 * 1_024,
+  maxSynthesisPromptBytes: 1_024 * 1_024,
   maxSchemaBytes: 128 * 1_024,
   maxStdoutBytes: 1_024 * 1_024,
   maxAuditedStdoutBytes: 24 * 1_024 * 1_024,

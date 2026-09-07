@@ -62,6 +62,57 @@ export function registerPortTests(): void {
       expect(argv).toContain('model_reasoning_effort="low"');
     });
 
+    it.each(["semantic_audit", "chair_synthesis"] as const)(
+      "allows aggregated evidence above the specialist prompt limit for %s",
+      async (stage) => {
+        const fixture = await makePlatform();
+        try {
+          const input = {
+            ...runInput(fixture.attemptDir),
+            stage,
+            prompt: "e".repeat(290_749),
+          };
+          fixture.reservations.commit(committedReservation(input));
+          const port = createCodexPortForTesting(
+            fixture.platform,
+            fixture.reservations,
+          );
+          const result = await port.run(input);
+          expect(result.candidate).toEqual({ message: "PONG" });
+          expect(fixture.invocations).toHaveLength(2);
+        } finally {
+          await fixture.root.cleanup();
+        }
+      },
+    );
+
+    it.each(["memo", "semantic_audit", "chair_synthesis"] as const)(
+      "still bounds %s prompt size before launch",
+      async (stage) => {
+        const fixture = await makePlatform();
+        try {
+          const limit =
+            stage === "memo"
+              ? CODEX_RUNTIME_POLICY.maxPromptBytes
+              : CODEX_RUNTIME_POLICY.maxSynthesisPromptBytes;
+          const port = createCodexPortForTesting(
+            fixture.platform,
+            fixture.reservations,
+          );
+          await expect(
+            port.run({
+              ...runInput(fixture.attemptDir),
+              stage,
+              prompt: "e".repeat(limit + 1),
+            }),
+          ).rejects.toMatchObject({ code: "policy_violation" });
+          expect(fixture.invocations).toHaveLength(0);
+        } finally {
+          await fixture.root.cleanup();
+        }
+      },
+    );
+
     it("executes only the protected link after a committed ordinal", async () => {
       // Given
       const fixture = await makePlatform();
