@@ -614,7 +614,10 @@ export function LiveOfficeResearchRoom({
         />
         <OfficeStage
           key={projection.snapshot.run.runId}
-          presentation={presentation.presentation}
+          presentation={{
+            ...presentation.presentation,
+            preserveEntrance: freshEntrance,
+          }}
           current={presentation.current}
           events={presentation.events}
           snapshot={snapshot}

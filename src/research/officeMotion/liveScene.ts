@@ -35,6 +35,7 @@ export type LiveSceneOptions = {
   readonly reducedMotion: boolean;
   readonly paused: boolean;
   readonly snapToProgress?: boolean;
+  readonly preserveEntrance?: boolean;
   readonly dialogue?: OfficeDialogue;
   readonly speech?: {
     readonly speakerId: ActorId;
@@ -160,6 +161,7 @@ export class LiveOfficeScene {
   private states = new Map<ActorId, ActorState>();
   private time = 0;
   private lastTick = -1;
+  private entranceFinished = false;
   private lastFrame: SceneFrame | undefined;
   private forumActive = false;
   private readonly seatedTeams = new Set<string>();
@@ -187,6 +189,7 @@ export class LiveOfficeScene {
     this.targets = new Map();
     this.time = 0;
     this.lastTick = -1;
+    this.entranceFinished = false;
     this.lastFrame = undefined;
   }
 
@@ -242,7 +245,11 @@ export class LiveOfficeScene {
         state = initialState(actor, target, options.reducedMotion);
         this.states.set(actor.id, state);
       }
-      if (options.reducedMotion || options.snapToProgress) {
+      if (
+        options.reducedMotion ||
+        (options.snapToProgress &&
+          (!options.preserveEntrance || this.entranceFinished))
+      ) {
         state.position = target.position;
         state.facing = target.facing;
         state.destination = target;
@@ -270,6 +277,18 @@ export class LiveOfficeScene {
     for (const actor of snapshot.actors) {
       const state = this.states.get(actor.id);
       if (state && delta > 0) this.advance(actor.id, state, delta);
+    }
+    // The semantic clock can reach work before the visible actors reach their
+    // seats. Do not teleport them during a fresh entrance, including first paint.
+    if (
+      !this.entranceFinished &&
+      snapshot.tick >= 120 &&
+      snapshot.actors.length > 0
+    ) {
+      this.entranceFinished = snapshot.actors.every((actor) => {
+        const state = this.states.get(actor.id);
+        return state?.phase === "ready" && state.anchor?.seated === true;
+      });
     }
     const actors = snapshot.actors.map((source, index) => {
       const state = this.states.get(source.id);
