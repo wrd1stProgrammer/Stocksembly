@@ -462,3 +462,31 @@ it("snaps a returning room to the committee seats without walking through old te
     caughtUp.actors.map((entry) => entry.position),
   );
 });
+
+it("keeps fresh actors walking when catch-up requests a snap before first paint", () => {
+  const scene = new LiveOfficeScene();
+  const freshOptions = {
+    ...options,
+    snapToProgress: true,
+    preserveEntrance: true,
+  };
+  const first = scene.update(initial, undefined, 0, freshOptions);
+  expect(
+    first.actors
+      .filter((entry) => entry.id !== "chair")
+      .some((entry) => !entry.seated),
+  ).toBe(true);
+  let simulation = createOfficeSimulation();
+  while (simulation.tick < 121) simulation = stepOfficeSimulation(simulation);
+  const working = officeSimulationSnapshot(simulation);
+  const catchingUp = scene.update(working, undefined, 0.016, freshOptions);
+  expect(
+    catchingUp.actors
+      .filter((entry) => entry.id !== "chair")
+      .some((entry) => !entry.seated),
+  ).toBe(true);
+  let walked = catchingUp;
+  for (let frame = 0; frame < 1200; frame += 1)
+    walked = scene.update(working, undefined, 0.05, freshOptions);
+  expect(walked.actors.every((entry) => entry.seated)).toBe(true);
+});
