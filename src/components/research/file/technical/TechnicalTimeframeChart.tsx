@@ -4,7 +4,9 @@ import {
   ColorType,
   createChart,
   HistogramSeries,
+  LineSeries,
   LineStyle,
+  PriceLineSource,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
@@ -44,9 +46,14 @@ export default function TechnicalTimeframeChart({
   const container = useRef<HTMLDivElement>(null);
   const controls = useRef<{
     reset: () => void;
-    update: (selected: string | undefined, drawings: boolean) => void;
+    update: (
+      selected: string | undefined,
+      drawings: boolean,
+      indicators: boolean,
+    ) => void;
   } | null>(null);
   const [drawings, setDrawings] = useState(true);
+  const [indicators, setIndicators] = useState(false);
   const [error, setError] = useState(false);
   useEffect(() => {
     const element = container.current;
@@ -113,7 +120,10 @@ export default function TechnicalTimeframeChart({
         borderVisible: false,
         wickUpColor: colors.up,
         wickDownColor: colors.down,
-        priceLineVisible: false,
+        priceLineVisible: true,
+        priceLineSource: PriceLineSource.LastBar,
+        priceLineStyle: LineStyle.Dotted,
+        priceLineWidth: 1,
         lastValueVisible: true,
       });
       candles.setData(
@@ -142,6 +152,30 @@ export default function TechnicalTimeframeChart({
           color: bar.close >= bar.open ? `${colors.up}45` : `${colors.down}45`,
         }));
       volume.setData(volumeData());
+      const averages = frame.averages.map((average) => {
+        const series = chart.addSeries(LineSeries, {
+          color:
+            average.period === 20
+              ? "#4776d0"
+              : average.period === 50
+                ? "#b78038"
+                : "#9b70bc",
+          lineWidth: 1,
+          visible: false,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        series.setData(
+          average.points.flatMap((point) => {
+            const bar = frame.bars[point.index];
+            return bar
+              ? [{ time: time(bar.timestamp), value: point.price }]
+              : [];
+          }),
+        );
+        return series;
+      });
       const primitive = new TechnicalChartPrimitive(frame, colors);
       candles.attachPrimitive(primitive);
       let selected: string | undefined;
@@ -155,7 +189,9 @@ export default function TechnicalTimeframeChart({
       };
       controls.current = {
         reset,
-        update: (nextSelected, nextDrawings) => {
+        update: (nextSelected, nextDrawings, nextIndicators) => {
+          for (const average of averages)
+            average.applyOptions({ visible: nextIndicators });
           selected = nextSelected;
           showDrawings = nextDrawings;
           primitive.update(colors, selected, showDrawings);
@@ -198,8 +234,8 @@ export default function TechnicalTimeframeChart({
     return cleanup;
   }, [frame, locale]);
   useEffect(() => {
-    controls.current?.update(selectedId, drawings);
-  }, [selectedId, drawings]);
+    controls.current?.update(selectedId, drawings, indicators);
+  });
   return (
     <>
       <fieldset
@@ -213,10 +249,31 @@ export default function TechnicalTimeframeChart({
         >
           {locale === "ko" ? "작도" : "Drawings"}
         </button>
+        <button
+          type="button"
+          aria-pressed={indicators}
+          disabled={
+            !frame.averages.some((average) => average.points.length > 0)
+          }
+          onClick={() => setIndicators((value) => !value)}
+        >
+          {locale === "ko" ? "보조지표" : "Indicators"}
+        </button>
         <button type="button" onClick={() => controls.current?.reset()}>
           {locale === "ko" ? "초기 범위" : "Reset view"}
         </button>
       </fieldset>
+      {indicators && (
+        <p className={styles.indicatorLegend}>
+          {frame.averages
+            .filter((average) => average.points.length > 0)
+            .map((average) => (
+              <span key={average.period} data-period={average.period}>
+                SMA {average.period}
+              </span>
+            ))}
+        </p>
+      )}
       <p className={styles.gestureHint}>
         {locale === "ko"
           ? "가격축 드래그: 높이 조절 · 핀치/휠: 확대·축소"

@@ -10,6 +10,7 @@ declare const styles: {
   readonly cardMeta: string;
   readonly toolbar: string;
   readonly unavailable: string;
+  readonly indicatorLegend: string;
   readonly gestureHint: string;
   readonly canvas: string;
   readonly cardCopy: string;

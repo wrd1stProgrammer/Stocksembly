@@ -325,3 +325,26 @@
     height: 390px;
   }
 }
+
+.indicatorLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 0 18px 10px;
+  font:
+    11px ui-monospace,
+    monospace;
+}
+.indicatorLegend [data-period="20"] {
+  color: #4776d0;
+}
+.indicatorLegend [data-period="50"] {
+  color: #b78038;
+}
+.indicatorLegend [data-period="200"] {
+  color: #9b70bc;
+}
+.toolbar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
