@@ -1,29 +1,13 @@
-// Backfills the deterministic 5-dimension research quality score
-// (evaluateResearchQuality, src/research/domain/researchQualityEvaluator.ts)
-// for every published report_version in a local research.sqlite copy, and
-// writes a dated JSON archive + a human-readable summary.
+// Recalculate published report quality from a local research.sqlite copy and
+// its artifacts. Writes dated JSON + Markdown without changing the source DB.
+// Uses the shared liveQuality scorer; see scripts/README.md.
 //
-// Why: research_quality_observations is written on every publish, but
-// scoreDimensions in that table is always null (no scoring adapter runs on
-// the publish path yet). This script closes that gap offline, without
-// touching the publish path or requiring any paid API key — see
-// asm/plutia-labs/stocksembly/2026-08-31-품질측정-설계.md §3-4.
+// From the repository root with the project's Node 20 runtime:
+//   pnpm exec vite build --config vite.worker.config.ts --ssr scripts/quality-timeseries.ts --outDir .stocksembly-verification/quality-timeseries-cli
+//   STOCKSEMBLY_DATA_DIR=/absolute/path/to/research-copy node .stocksembly-verification/quality-timeseries-cli/quality-timeseries.js [outputDir]
 //
-// The scoring itself (publicTexts()/liveQuality()) lives in
-// src/research/quality/liveReportQuality.ts, shared with
-// scripts/run-research-quality-live.ts — see 설계 §5 작업 #1. This script
-// only reads the sqlite copy + artifacts and calls that shared scorer.
-//
-// Usage:
-//   pnpm research:quality:archive
-//   # or directly:
-//   STOCKSEMBLY_DATA_DIR=~/stocksembly-quality-data \
-//     node --experimental-strip-types scripts/quality-timeseries.ts [outputDir]
-//
-// outputDir defaults to .stocksembly-verification/quality-archive (gitignored
-// scratch directory, matching the existing scripts/audit-official-five-reports.ts
-// and package.json ".stocksembly-verification/*" convention). See
-// quality-archive/README.md for the archived-copy schema and process.
+// Default output: .stocksembly-verification/quality-archive (gitignored).
+// There is no research:quality:archive package script.
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
