@@ -30,7 +30,7 @@ export const koEditorialContent = {
       description:
         "사업모델에서 현금흐름과 위험요인까지, 경영진이 강조하지 않는 질문을 찾아내는 반복 가능한 방법입니다.",
       category: "공시 분석",
-      imageAlt: "분석가 책상 위 파란 근거 탭이 꽂힌 어두운 연차보고서",
+      imageAlt: "개념 일러스트: 미국주식 분석을 위한 10-K 읽는 법",
       sections: [
         {
           heading: "손익계산서보다 사업부터 읽기",
@@ -62,7 +62,7 @@ export const koEditorialContent = {
       description:
         "공시된 이익은 출발점입니다. 운전자본, 자본집약도, 반복 조정항목이 실제 수익성을 어떻게 바꾸는지 살펴봅니다.",
       category: "재무 분석",
-      imageAlt: "어두운 운영 엔진을 통과하는 투명한 현금 흐름",
+      imageAlt: "개념 일러스트: 이익의 질 분석: 현금전환율을 검증하는 법",
       sections: [
         {
           heading: "어떤 이익을 검증할지 먼저 정하기",
@@ -94,7 +94,7 @@ export const koEditorialContent = {
       description:
         "비교기업 선정은 밸류에이션 표를 만들기 전에 사업모델을 이해하는 문제입니다. 경제성·성숙도·위험으로 비교군을 구성합니다.",
       category: "가치평가",
-      imageAlt: "하나만 다른 높이로 측정된 다섯 개의 유리 기업 블록",
+      imageAlt: "개념 일러스트: 제대로 비교되는 동종기업 고르는 법",
       sections: [
         {
           heading: "경제적 동력이 같은지 보기",
@@ -126,7 +126,7 @@ export const koEditorialContent = {
       description:
         "임의의 목표주가가 아니라 운영 가정으로 시나리오를 만들고, 각 경우를 바꾸는 근거를 정의합니다.",
       category: "시나리오",
-      imageAlt: "하나의 파란 분석 경로가 세 가지 시장 시나리오로 갈라지는 모습",
+      imageAlt: "개념 일러스트: 강세·기준·약세 시나리오 분석 가이드",
       sections: [
         {
           heading: "모든 경우를 하나의 모델에 연결하기",
@@ -158,7 +158,7 @@ export const koEditorialContent = {
       description:
         "에이전트 수가 많다고 분석이 좋아지지는 않습니다. 독립적인 반박, 근거 검증, 의견 충돌 기록이 필요합니다.",
       category: "리서치 과정",
-      imageAlt: "파란 근거 빔으로 연결된 서로 마주 보는 두 개의 리서치 책상",
+      imageAlt: "개념 일러스트: AI 주식 리서치에 강한 반론이 필요한 이유",
       sections: [
         {
           heading: "합의 자체가 실패 방식이 될 수 있다",
@@ -190,7 +190,7 @@ export const koEditorialContent = {
       description:
         "사업을 유지하고 성장시키는 데 필요한 투자를 뺀 뒤 남는 현금입니다. 단, 공식에서 빠지는 항목까지 확인해야 유용합니다.",
       category: "현금흐름",
-      imageAlt: "투자 필터를 통과해 흐르는 파란 현금 흐름",
+      imageAlt: "개념 일러스트: 잉여현금흐름(FCF)",
       sections: [
         {
           heading: "정의",
@@ -217,7 +217,7 @@ export const koEditorialContent = {
       description:
         "기업가치(EV)를 이자·세금·감가상각 전 이익(EBITDA)과 비교하는 가치평가 배수입니다.",
       category: "가치평가",
-      imageAlt: "운영 엔진 위에 균형을 이룬 기업 구조물",
+      imageAlt: "개념 일러스트: EV/EBITDA",
       sections: [
         {
           heading: "정의",
@@ -244,7 +244,7 @@ export const koEditorialContent = {
       description:
         "경영진이 매출, 이익, 마진 또는 다른 운영지표에 대해 제시하는 미래 범위나 정성적 전망입니다.",
       category: "기대치",
-      imageAlt: "파란 전망 신호를 향하는 어두운 분기별 활주로",
+      imageAlt: "개념 일러스트: 실적 가이던스",
       sections: [
         {
           heading: "정의",
@@ -271,7 +271,7 @@ export const koEditorialContent = {
       description:
         "기업의 실질 주식 수가 증가하면서 기존 주주 한 명의 소유 비율이 줄어드는 현상입니다.",
       category: "소유권",
-      imageAlt: "여러 조각으로 나뉘는 파란 소유권 고리",
+      imageAlt: "개념 일러스트: 주식 희석",
       sections: [
         {
           heading: "정의",
@@ -298,7 +298,7 @@ export const koEditorialContent = {
       description:
         "보수적으로 추정한 가치와 지불 가격 사이의 완충 구간으로, 불확실성과 분석 오류를 흡수하기 위한 개념입니다.",
       category: "위험관리",
-      imageAlt: "변동성 높은 시장 표면 위의 파란 가치평가 다리",
+      imageAlt: "개념 일러스트: 안전마진",
       sections: [
         {
           heading: "정의",

@@ -160,6 +160,11 @@ export default async function ResearchRoomPage({ searchParams }: Props) {
       <ResearchRoomCatalog
         key={`${locale}:${page}`}
         access={access}
+        initialReadReportIds={
+          access.authenticated
+            ? await api.listReadResearchReportIds(request).catch(() => [])
+            : []
+        }
         initialCompanies={reportPage.companies}
         initialReports={reportPage.reports}
         initialPage={page}

@@ -1,6 +1,7 @@
 import { DownloadSimple } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import type { Locale } from "../../../lib/i18n";
+import { printResearchReport } from "../../../research/printResearchReport";
 import { publicEvidenceLabel } from "../../../research/publicPresentation";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 
@@ -71,7 +72,6 @@ export function ResearchFileSources({
   locale,
   version,
   reportId,
-  onReplay,
   collapsed = false,
 }: {
   readonly model: ResearchFileEditorialModel;
@@ -206,20 +206,16 @@ export function ResearchFileSources({
         </p>
         <div>
           {reportId === undefined ? null : (
-            <a
-              href={`/api/research/reports/${reportId}/pdf?lang=${locale}`}
+            <button
+              type="button"
               onClick={(event) => {
-                event.preventDefault();
-                window.print();
+                void printResearchReport(event.currentTarget);
               }}
             >
               <DownloadSimple size={17} aria-hidden="true" />
               {ko ? "PDF로 저장" : "Download PDF"}
-            </a>
+            </button>
           )}
-          <button type="button" onClick={onReplay}>
-            {ko ? "리서치 룸 다시 보기" : "Replay research room"}
-          </button>
         </div>
       </footer>
     </section>

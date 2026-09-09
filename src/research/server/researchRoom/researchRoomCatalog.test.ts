@@ -123,6 +123,38 @@ async function catalogFixtures(
 }
 
 describe("research room catalog access", () => {
+  it("filters paid reading history before pagination and returns no rows for empty history", async () => {
+    await catalogFixtures([
+      {
+        versions: [
+          {
+            version: 1,
+            status: "complete",
+            publishedAt: "2026-08-01T00:00:00.000Z",
+          },
+        ],
+      },
+    ]);
+    const access = { authenticated: true, tier: "paid" } as const;
+    const all = await listResearchRoomReportPage(access, {});
+    const id = all.reports[0]?.reportId;
+    expect(id).toBeDefined();
+    const read = await listResearchRoomReportPage(access, {
+      sort: "read",
+      readReportIds: id ? [id] : [],
+    });
+    expect(read.total).toBe(1);
+    expect(read.reports[0]?.reportId).toBe(id);
+    expect(
+      (
+        await listResearchRoomReportPage(access, {
+          sort: "read",
+          readReportIds: [],
+        })
+      ).total,
+    ).toBe(0);
+  });
+
   it("bounds an 81-row catalog page to the existing 80-row maximum", async () => {
     // Given
     await catalogFixtures(

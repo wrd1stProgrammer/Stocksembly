@@ -95,6 +95,9 @@ export type AccountStore = {
   readonly checkChatCredits?: (
     principalId: string,
   ) => Promise<CreditAvailability>;
+  readonly listReadResearchReportIds?: (
+    principalId: string,
+  ) => Promise<readonly string[]>;
   readonly consumeResearchRoomCredit?: (
     principalId: string,
     eventKey: string,
