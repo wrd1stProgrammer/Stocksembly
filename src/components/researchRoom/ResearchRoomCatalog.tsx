@@ -10,7 +10,6 @@ import {
   Clock3,
   FileText,
   Landmark,
-  Languages,
   LayoutGrid,
   LibraryBig,
   LockKeyhole,
@@ -38,8 +37,10 @@ import type {
   ResearchRoomScope,
   ResearchRoomSort,
 } from "../../research/server/researchRoom/researchRoomCatalog";
+import { requiresResearchRoomViewCredit } from "../../research/server/researchRoom/researchRoomIndexability";
 import { HeaderAuthAction } from "../auth/HeaderAuthAction";
 import { Brand } from "../Brand";
+import { CreditShortageModal } from "../billing/CreditShortageModal";
 import { MembershipAccessModal } from "../billing/MembershipAccessModal";
 import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { MobileBottomNav } from "../MobileBottomNav";
@@ -171,8 +172,61 @@ export function ResearchRoomCatalog({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
-  const [languageNotice, setLanguageNotice] =
-    useState<ResearchRoomCatalogItem | null>(null);
+  const [creditGate, setCreditGate] = useState<{
+    report: ResearchRoomCatalogItem;
+    remaining: number;
+    required: number;
+    allowed: boolean;
+  } | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [accessError, setAccessError] = useState<string>();
+  const openReport = async (
+    report: ResearchRoomCatalogItem,
+    confirmed = false,
+  ) => {
+    if (opening) return;
+    const href = `/research-room/${report.reportId}?lang=${locale}`;
+    if (!requiresResearchRoomViewCredit(report.publishedAt, new Date())) {
+      router.push(href);
+      return;
+    }
+    setOpening(true);
+    setAccessError(undefined);
+    try {
+      const response = await fetch(
+        `/api/research-room/${report.reportId}/credit`,
+        {
+          method: confirmed ? "POST" : "GET",
+          cache: "no-store",
+          credentials: "same-origin",
+        },
+      );
+      if (!response.ok) throw new Error("ACCESS_FAILED");
+      const credit = (await response.json()) as {
+        authenticated: boolean;
+        allowed: boolean;
+        remaining: number;
+        required: number;
+      };
+      if (!credit.authenticated) {
+        setMembershipGateOpen(true);
+        return;
+      }
+      if (credit.allowed && (confirmed || credit.required === 0)) {
+        router.push(href);
+        return;
+      }
+      setCreditGate({ report, ...credit });
+    } catch {
+      setAccessError(
+        locale === "ko"
+          ? "열람 정보를 확인하지 못했습니다. 다시 시도해 주세요."
+          : "Could not check access. Please try again.",
+      );
+    } finally {
+      setOpening(false);
+    }
+  };
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -492,7 +546,7 @@ export function ResearchRoomCatalog({
                     </footer>
                   </article>
                 );
-                const differentLanguage = report.locale !== locale;
+
                 return report.locked ? (
                   <ResearchRoomCardFrame key={report.reportId}>
                     <button
@@ -504,18 +558,10 @@ export function ResearchRoomCatalog({
                       {card}
                     </button>
                   </ResearchRoomCardFrame>
-                ) : differentLanguage ? (
-                  <ResearchRoomCardFrame key={report.reportId}>
-                    <button
-                      type="button"
-                      className="research-room-catalog__card"
-                      aria-label={`${report.symbol} ${report.question}`}
-                      onClick={() => setLanguageNotice(report)}
-                    >
-                      {card}
-                    </button>
-                  </ResearchRoomCardFrame>
-                ) : (
+                ) : !requiresResearchRoomViewCredit(
+                    report.publishedAt,
+                    new Date(),
+                  ) ? (
                   <ResearchRoomCardFrame key={report.reportId}>
                     <Link
                       className="research-room-catalog__card"
@@ -524,6 +570,18 @@ export function ResearchRoomCatalog({
                     >
                       {card}
                     </Link>
+                  </ResearchRoomCardFrame>
+                ) : (
+                  <ResearchRoomCardFrame key={report.reportId}>
+                    <button
+                      type="button"
+                      className="research-room-catalog__card"
+                      disabled={opening}
+                      aria-label={`${report.symbol} ${report.question}`}
+                      onClick={() => void openReport(report)}
+                    >
+                      {card}
+                    </button>
                   </ResearchRoomCardFrame>
                 );
               })}
@@ -608,6 +666,21 @@ export function ResearchRoomCatalog({
         locale={locale}
         hidden={access.authenticated && !sidebarCollapsed}
       />
+      {accessError && !creditGate ? <p role="alert">{accessError}</p> : null}
+      <CreditShortageModal
+        locale={researchLocale(locale)}
+        open={creditGate !== null}
+        remaining={creditGate?.remaining}
+        required={creditGate?.required ?? 3}
+        busy={opening}
+        {...(accessError ? { error: accessError } : {})}
+        onClose={() => {
+          if (!opening) setCreditGate(null);
+        }}
+        {...(creditGate?.allowed
+          ? { onConfirm: () => void openReport(creditGate.report, true) }
+          : {})}
+      />
       <MembershipAccessModal
         locale={researchLocale(locale)}
         open={membershipGateOpen}
@@ -621,39 +694,6 @@ export function ResearchRoomCatalog({
         initialTier={access.authenticated ? access.tier : "free"}
         onClose={() => setSubscriptionOpen(false)}
       />
-      {languageNotice === null ? null : (
-        <div className="research-room-language-notice" role="presentation">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="research-room-language-notice-title"
-          >
-            <Languages size={20} aria-hidden="true" />
-            <div>
-              <h2 id="research-room-language-notice-title">
-                {roomCopy.languageNoticeTitle}
-              </h2>
-              <p>{roomCopy.languageNoticeBody}</p>
-            </div>
-            <footer>
-              <button type="button" onClick={() => setLanguageNotice(null)}>
-                {roomCopy.cancel}
-              </button>
-              <button
-                type="button"
-                className="is-primary"
-                onClick={() =>
-                  router.push(
-                    `/research-room/${languageNotice.reportId}?lang=${locale}`,
-                  )
-                }
-              >
-                {roomCopy.openOriginal}
-              </button>
-            </footer>
-          </section>
-        </div>
-      )}
     </div>
   );
 }

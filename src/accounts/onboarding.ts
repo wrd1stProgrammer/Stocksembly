@@ -1,6 +1,10 @@
 export const CURRENT_ONBOARDING_VERSION = 1;
 
 export const ONBOARDING_DISCOVERY_SOURCES = [
+  "instagram",
+  "tiktok",
+  "google",
+  "x",
   "search",
   "youtube",
   "social",
@@ -24,6 +28,10 @@ export function isOnboardingDiscoverySource(
 export const ONBOARDING_DISCOVERY_SOURCE_LABELS_KO: Readonly<
   Record<OnboardingDiscoverySource, string>
 > = {
+  instagram: "인스타그램",
+  tiktok: "틱톡",
+  google: "구글",
+  x: "X",
   search: "검색",
   youtube: "유튜브",
   social: "소셜 미디어",

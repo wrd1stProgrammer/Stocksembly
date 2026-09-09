@@ -5,9 +5,9 @@ import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
-import { CreditShortageModal } from "@/src/components/billing/CreditShortageModal";
 import { MembershipAccessModal } from "@/src/components/billing/MembershipAccessModal";
 import { PublishedResearchWorkspace } from "@/src/components/researchRoom/PublishedResearchWorkspace";
+import { ResearchRoomCreditGate } from "@/src/components/researchRoom/ResearchRoomCreditGate";
 import { researchRoomUiCopy } from "@/src/components/researchRoom/researchRoomCopy";
 import {
   type AppLocale,
@@ -172,14 +172,15 @@ export default async function ResearchRoomReportPage({
     );
   }
   const credit = requiresResearchRoomViewCredit(report.item.publishedAt, now)
-    ? await api.consumeResearchRoomCredit(request, reportId)
+    ? await api.consumeResearchRoomCredit(request, reportId, true)
     : undefined;
-  if (credit?.authenticated && !credit.allowed) {
+  if (credit?.authenticated && credit.required > 0) {
     return (
       <main className="research-room-locked" lang={locale}>
-        <CreditShortageModal
+        <ResearchRoomCreditGate
           locale={contentLocale}
-          open
+          reportId={reportId}
+          allowed={credit.allowed}
           remaining={credit.remaining}
           required={credit.required}
         />

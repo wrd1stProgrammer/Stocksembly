@@ -99,6 +99,7 @@ export type AccountStore = {
     principalId: string,
     eventKey: string,
     reportId: string,
+    checkOnly?: boolean,
   ) => Promise<CreditAvailability>;
   readonly consumeResearchTranslationCredit?: (
     principalId: string,

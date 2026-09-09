@@ -126,6 +126,7 @@ export interface ResearchApi {
   readonly consumeResearchRoomCredit: (
     request: Request,
     reportId: string,
+    checkOnly?: boolean,
   ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
   readonly consumeResearchTranslationCredit: (
     request: Request,
@@ -718,7 +719,7 @@ export async function createResearchApi(
         return { authenticated: true, tier: "free" };
       }
     },
-    async consumeResearchRoomCredit(request, reportId) {
+    async consumeResearchRoomCredit(request, reportId, checkOnly = false) {
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return {
@@ -731,7 +732,7 @@ export async function createResearchApi(
         const remote = await proxyAuthenticatedRequest(
           request,
           `/api/research-room/${encodeURIComponent(reportId)}/credit`,
-          { method: "POST" },
+          { method: checkOnly ? "GET" : "POST" },
         );
         if (remote?.ok === true) {
           const value = (await remote.json()) as CreditAvailability & {
@@ -776,6 +777,7 @@ export async function createResearchApi(
             authentication.principal.id,
             `research-room:${authentication.principal.id}:${reportId}`,
             reportId,
+            checkOnly,
           )),
         };
       } catch {
