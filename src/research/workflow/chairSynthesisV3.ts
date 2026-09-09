@@ -305,9 +305,7 @@ export function normalizeCanonicalNarrativeV3ForPublication(
     if (rationale === undefined) return view;
     reduced = true;
     newlyAssignedTexts.add(position.text[input.canonical.sourceLocale].trim());
-    newlyAssignedTexts.add(
-      rationale.text[input.canonical.sourceLocale].trim(),
-    );
+    newlyAssignedTexts.add(rationale.text[input.canonical.sourceLocale].trim());
     return {
       ...view,
       position: position.text[input.canonical.sourceLocale],
@@ -756,7 +754,11 @@ export function deterministicChairV3Fallback(
   // repairIndistinctFallbackTeamView above for the two concrete ways that
   // happens). Repair before parsing, not after.
   const repairedTeamViews = degraded.teamViews.map((view) =>
-    repairIndistinctFallbackTeamView(view, prompt.sentences, prompt.mandate.locale),
+    repairIndistinctFallbackTeamView(
+      view,
+      prompt.sentences,
+      prompt.mandate.locale,
+    ),
   );
   const result = ChairSynthesisV3ModelOutputSchema.parse({
     ...degraded,

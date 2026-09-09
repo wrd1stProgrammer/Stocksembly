@@ -242,9 +242,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
           anticipatedQuestions: [],
         }),
       }),
-    ).rejects.toThrow(
-      "chair_v3_team_view_position_rationale_duplicate:market",
-    );
+    ).rejects.toThrow("chair_v3_team_view_position_rationale_duplicate:market");
   });
 
   it.each(["en", "ko"] as const)(
@@ -792,9 +790,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
           ),
       );
       const mutatedValidationPrompt = JSON.stringify(evidenceCatalog);
-      expect(() => deterministicChairV3Fallback(mutatedValidationPrompt)).toThrow(
-        "chair_v3_fallback_team_view_indistinct:market",
-      );
+      expect(() =>
+        deterministicChairV3Fallback(mutatedValidationPrompt),
+      ).toThrow("chair_v3_fallback_team_view_indistinct:market");
     } finally {
       prepared.cleanup();
     }
@@ -1178,7 +1176,9 @@ describe("department-owned publication recovery", () => {
     // never which one is *processed* first for shared-candidate purposes
     // (MAJOR 3: that is fixed by canonical department order, not array
     // order).
-    const buildResult = (order: readonly ["market", "company"] | readonly ["company", "market"]) => {
+    const buildResult = (
+      order: readonly ["market", "company"] | readonly ["company", "market"],
+    ) => {
       const canonical = ChairSynthesisV3ModelOutputSchema.parse({
         kind: "chair_synthesis_v3",
         sourceLocale: "en",
@@ -1196,8 +1196,7 @@ describe("department-owned publication recovery", () => {
           {
             departmentId: "financial",
             position: "Financial position holds on its own evidence.",
-            rationale:
-              "Financial ballot rationale stands on its own evidence.",
+            rationale: "Financial ballot rationale stands on its own evidence.",
             vote: "support_with_reservations",
             lineage: financialLineage,
           },
@@ -1334,9 +1333,7 @@ describe("department-owned publication recovery", () => {
     );
     expect(firstMarket).toBeDefined();
     if (firstMarket === undefined) return;
-    expect(firstMarket.rationale.trim()).not.toBe(
-      firstMarket.position.trim(),
-    );
+    expect(firstMarket.rationale.trim()).not.toBe(firstMarket.position.trim());
     const second = normalizeCanonicalNarrativeV3ForPublication({
       canonical: first.canonical,
       ...normalizeInput(),
