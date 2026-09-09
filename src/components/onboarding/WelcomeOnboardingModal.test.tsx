@@ -83,7 +83,7 @@ describe("WelcomeOnboardingModal", () => {
       }),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "소셜 미디어" }));
+    fireEvent.click(screen.getByRole("button", { name: "인스타그램" }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
     expect(screen.getByText("가입 선물 5크레딧이 준비됐어요")).toBeVisible();
@@ -119,10 +119,10 @@ describe("WelcomeOnboardingModal", () => {
     expect(pro).toHaveTextContent("$190 연간 결제");
 
     fireEvent.click(screen.getByRole("button", { name: "전체 요금제 비교" }));
-    expect(onOpenPlans).toHaveBeenCalledWith("social");
+    expect(onOpenPlans).toHaveBeenCalledWith("instagram");
 
     fireEvent.click(screen.getByRole("button", { name: "5크레딧으로 시작" }));
-    expect(onComplete).toHaveBeenCalledWith("social");
+    expect(onComplete).toHaveBeenCalledWith("instagram");
   });
 
   it("keeps the advertised annual prices visible while live plan data loads", () => {
@@ -137,7 +137,7 @@ describe("WelcomeOnboardingModal", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /실적 발표 전에/u }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
-    fireEvent.click(screen.getByRole("button", { name: "검색" }));
+    fireEvent.click(screen.getByRole("button", { name: "구글" }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
     fireEvent.click(screen.getByRole("button", { name: "요금제 보기" }));
 

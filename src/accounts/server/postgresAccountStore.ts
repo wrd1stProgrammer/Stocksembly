@@ -1011,6 +1011,7 @@ export class PostgresAccountStore implements AccountStore {
     principalId: string,
     eventKey: string,
     reportId: string,
+    checkOnly = false,
   ): Promise<CreditAvailability> {
     const now = new Date();
     const client = await this.pool.connect();
@@ -1048,7 +1049,7 @@ export class PostgresAccountStore implements AccountStore {
         await client.query("COMMIT");
         return availability(remaining, 0);
       }
-      if (remaining < required) {
+      if (checkOnly || remaining < required) {
         await client.query("COMMIT");
         return availability(remaining, required);
       }

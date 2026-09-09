@@ -887,7 +887,7 @@ body.subscription-modal-is-open {
 }
 
 .subscription-billing-toggle button.is-active {
-  color: #111;
+  color: #f5f6ff;
   background: transparent;
   box-shadow: none;
 }
@@ -897,7 +897,10 @@ body.subscription-modal-is-open {
   inset: 0;
   z-index: -1;
   border-radius: 999px;
-  background: #f2f2f2;
+  background: #303344;
+  box-shadow:
+    inset 0 0 0 1px rgb(175 185 255 / 22%),
+    0 2px 6px rgb(0 0 0 / 16%);
 }
 
 .subscription-billing-toggle__text,
@@ -926,8 +929,8 @@ body.subscription-modal-is-open {
   button.is-active
   .subscription-billing-toggle__save {
   border-color: transparent;
-  color: var(--billing-accent-ink);
-  background: var(--billing-accent);
+  color: #c6ceff;
+  background: rgb(132 151 255 / 14%);
 }
 
 .subscription-plans__grid {
@@ -1167,7 +1170,10 @@ body.subscription-modal-is-open {
 .subscription-plan-card.is-featured .subscription-plan-card__action {
   border-color: #f2f2f2;
   color: #151515;
-  background: #f2f2f2;
+  background: #303344;
+  box-shadow:
+    inset 0 0 0 1px rgb(175 185 255 / 22%),
+    0 2px 6px rgb(0 0 0 / 16%);
 }
 
 .subscription-plan-card.is-featured .subscription-plan-card__action:hover {

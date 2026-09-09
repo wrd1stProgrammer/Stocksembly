@@ -11,10 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
-import {
-  ONBOARDING_DISCOVERY_SOURCES,
-  type OnboardingDiscoverySource,
-} from "../../accounts/onboarding";
+import type { OnboardingDiscoverySource } from "../../accounts/onboarding";
 import { type AppLocale, researchLocale } from "../../lib/i18n";
 import type { WhopPricingPlan } from "../../lib/whop/contracts";
 import { CREDIT_COSTS } from "../../lib/whop/creditPolicy";
@@ -83,6 +80,10 @@ const englishCopy: OnboardingCopy = {
   discoveryDescription:
     "Your answer helps us invest in the places that bring in serious investors.",
   discoveryOptions: {
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    google: "Google",
+    x: "X",
     search: "Search",
     youtube: "YouTube",
     social: "Social media",
@@ -132,6 +133,10 @@ const onboardingCopy: Readonly<Record<AppLocale, OnboardingCopy>> = {
     discoveryDescription:
       "더 좋은 투자자들이 Stocksembly를 발견할 수 있도록 답변을 참고할게요.",
     discoveryOptions: {
+      instagram: "인스타그램",
+      tiktok: "틱톡",
+      google: "구글",
+      x: "X",
       search: "검색",
       youtube: "유튜브",
       social: "소셜 미디어",
@@ -498,8 +503,15 @@ export function WelcomeOnboardingModal({
                 {content.discoveryDescription}
               </p>
               <div className="welcome-onboarding__discovery-options">
-                {ONBOARDING_DISCOVERY_SOURCES.filter(
-                  (source) => source !== "prefer_not_to_say",
+                {(
+                  [
+                    "instagram",
+                    "tiktok",
+                    "google",
+                    "x",
+                    "recommendation",
+                    "youtube",
+                  ] as const
                 ).map((source) => (
                   <button
                     key={source}
@@ -545,19 +557,49 @@ export function WelcomeOnboardingModal({
                     </span>
                     <strong>
                       {cost}
-                      {content.creditUnit}
+                      {locale === "en"
+                        ? cost === 1
+                          ? " credit"
+                          : " credits"
+                        : content.creditUnit}
                     </strong>
                   </article>
                 ))}
               </div>
-              <button
-                type="button"
-                className="welcome-onboarding__primary"
-                onClick={() => setStep(3)}
-              >
-                {content.plansAction}
-                <ArrowRight aria-hidden="true" size={18} />
-              </button>
+              <div className="welcome-onboarding__actions">
+                <button type="button" onClick={() => setStep(3)}>
+                  {content.plansAction}
+                  <ArrowRight aria-hidden="true" size={18} />
+                </button>
+                <button
+                  type="button"
+                  className="welcome-onboarding__primary"
+                  disabled={saving}
+                  onClick={async () => {
+                    setSaving(true);
+                    setError(false);
+                    try {
+                      await onComplete(discoverySource ?? "prefer_not_to_say");
+                      window.location.assign(`/research-room?lang=${locale}`);
+                    } catch {
+                      setSaving(false);
+                      setError(true);
+                    }
+                  }}
+                >
+                  {saving
+                    ? content.saving
+                    : locale === "ko"
+                      ? "리서치룸 둘러보기"
+                      : "Explore Research Room"}
+                  <ArrowRight aria-hidden="true" size={18} />
+                </button>
+              </div>
+              {error ? (
+                <p role="alert" className="welcome-onboarding__error">
+                  {content.error}
+                </p>
+              ) : null}
             </>
           ) : null}
 

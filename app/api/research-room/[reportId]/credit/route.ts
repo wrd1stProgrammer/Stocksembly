@@ -22,3 +22,20 @@ export async function POST(
     headers: { "Cache-Control": "private, no-store" },
   });
 }
+
+export async function GET(
+  request: Request,
+  { params }: Props,
+): Promise<Response> {
+  const { reportId } = await params;
+  if (!z.string().uuid().safeParse(reportId).success)
+    return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  const credit = await (await getLiveResearchApi()).consumeResearchRoomCredit(
+    request,
+    reportId,
+    true,
+  );
+  return Response.json(credit, {
+    headers: { "Cache-Control": "private, no-store" },
+  });
+}
