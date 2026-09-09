@@ -124,11 +124,13 @@ export class TechnicalChartPrimitive implements ISeriesPrimitive<Time> {
             }
           }
           context.setLineDash(
-            drawing.kind === "order_block"
-              ? [2, 3]
-              : drawing.strength === "tentative"
-                ? [5, 3]
-                : [],
+            drawing.kind === "support" || drawing.kind === "resistance"
+              ? []
+              : drawing.kind === "order_block"
+                ? [2, 3]
+                : drawing.strength === "tentative"
+                  ? [5, 3]
+                  : [],
           );
           for (const segment of segments) {
             const left = x(segment.from);

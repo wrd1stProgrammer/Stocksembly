@@ -69,7 +69,7 @@ export function technicalChartSvg(
       );
     for (const segment of segments)
       parts.push(
-        `<line x1="${x(segment.from)}" y1="${y(segment.startPrice)}" x2="${x(segment.to)}" y2="${y(segment.endPrice)}" stroke="${color}" stroke-width="0.8" ${drawing.strength === "tentative" ? 'stroke-dasharray="4 3"' : ""}/>`,
+        `<line x1="${x(segment.from)}" y1="${y(segment.startPrice)}" x2="${x(segment.to)}" y2="${y(segment.endPrice)}" stroke="${color}" stroke-width="0.8" ${drawing.kind !== "support" && drawing.kind !== "resistance" && drawing.strength === "tentative" ? 'stroke-dasharray="4 3"' : ""}/>`,
       );
   }
   const last = frame.bars.at(-1);
@@ -78,7 +78,19 @@ export function technicalChartSvg(
       parts.push(
         `<line x1="${x(frame.bars.length)}" y1="${y(last.close)}" x2="${x(frame.bars.length + 5)}" y2="${y(scenario.boundary)}" stroke="${scenario.direction === "up" ? up : down}" stroke-width="1" stroke-dasharray="2 3"/>`,
       );
+  if (last) {
+    const color = last.close >= last.open ? up : down;
+    parts.push(
+      `<line x1="0" y1="${y(last.close)}" x2="${right}" y2="${y(last.close)}" stroke="${color}" stroke-width="1" stroke-dasharray="2 2"/>`,
+    );
+  }
   parts.push("</g>");
+  if (last) {
+    const color = last.close >= last.open ? up : down;
+    parts.push(
+      `<rect x="${right}" y="${y(last.close) - 8}" width="47" height="16" fill="${color}"/><text x="${right + 3}" y="${y(last.close) + 3}" font-family="Helvetica" font-size="9" fill="#ffffff">${chartPrice(last.close)}</text>`,
+    );
+  }
   for (const offset of [
     0,
     Math.floor(visible.length / 2),
