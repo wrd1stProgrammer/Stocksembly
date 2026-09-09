@@ -96,10 +96,10 @@ describe("CompletedResearchFile", () => {
       container.querySelector("[data-report-theme='dark']"),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Replay research room" }),
-    );
-    expect(onReplay).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: "Replay research room" }),
+    ).not.toBeInTheDocument();
+    expect(onReplay).not.toHaveBeenCalled();
   });
 
   it("gives every focused team its own decision framework", () => {
@@ -212,18 +212,15 @@ describe("CompletedResearchFile", () => {
     );
 
     expect(screen.getByText("Show 1 sources")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute(
-      "href",
-      "/api/research/reports/report-fixture/pdf?lang=en",
-    );
+    expect(screen.getByRole("button", { name: "Download PDF" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Dark" }));
     expect(
       container.querySelector('[data-report-theme="dark"]'),
     ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Replay research room" }),
-    );
-    expect(onReplay).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: "Replay research room" }),
+    ).not.toBeInTheDocument();
+    expect(onReplay).not.toHaveBeenCalled();
   });
 
   it("fails closed for an unknown runtime report target", () => {

@@ -26,7 +26,11 @@ export async function GET(request: Request): Promise<Response> {
   );
   const page = Number.isFinite(requestedPage) ? Math.max(requestedPage, 1) : 1;
   const sort: ResearchRoomSort =
-    url.searchParams.get("sort") === "popular" ? "popular" : "latest";
+    url.searchParams.get("sort") === "read"
+      ? "read"
+      : url.searchParams.get("sort") === "popular"
+        ? "popular"
+        : "latest";
   const rawScope = url.searchParams.get("scope");
   const scope: ResearchRoomScope =
     rawScope === "committee" ||
@@ -39,12 +43,18 @@ export async function GET(request: Request): Promise<Response> {
   const requestedCompany = url.searchParams.get("company");
   const requestedQuery = url.searchParams.get("q");
   const locale = appLocaleFromValue(url.searchParams.get("lang"));
-  const access = await (await getLiveResearchApi()).researchRoomAccess(request);
+  const api = await getLiveResearchApi();
+  const access = await api.researchRoomAccess(request);
+  const readReportIds =
+    access.authenticated && sort === "read"
+      ? await api.listReadResearchReportIds(request)
+      : [];
   const reportPage = await listResearchRoomReportPage(access, {
     limit,
     offset: (page - 1) * limit,
     scope,
     sort,
+    readReportIds,
     locale,
     ...(requestedCompany === null ? {} : { company: requestedCompany }),
     ...(requestedQuery === null ? {} : { query: requestedQuery }),
@@ -52,6 +62,7 @@ export async function GET(request: Request): Promise<Response> {
   return NextResponse.json(
     {
       access,
+      readReportIds,
       companies: reportPage.companies,
       page,
       pageSize: limit,

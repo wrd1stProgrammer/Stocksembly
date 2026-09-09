@@ -1,7 +1,7 @@
 "use client";
 
 import { getCurrentUser } from "aws-amplify/auth";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { configureAmplifyAuth } from "@/src/auth/amplifyClient";
 import {
@@ -12,6 +12,7 @@ import { isLocale } from "@/src/lib/i18n";
 
 export function AuthSessionBridge() {
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     let active = true;
@@ -32,7 +33,7 @@ export function AuthSessionBridge() {
       if (needsServerSession)
         void clearResearchSession()
           .then((changed) => {
-            if (active && changed) window.location.reload();
+            if (active && changed) router.refresh();
           })
           .catch(() => undefined);
       return () => {
@@ -47,21 +48,20 @@ export function AuthSessionBridge() {
               window.dispatchEvent(
                 new CustomEvent("stocksembly:auth-session-ready"),
               );
-            if (active && changed && needsServerSession)
-              window.location.reload();
+            if (active && changed && needsServerSession) router.refresh();
           })
           .catch(() => undefined);
       },
       async () => {
         if (!needsServerSession) return;
         const changed = await clearResearchSession().catch(() => false);
-        if (active && changed) window.location.reload();
+        if (active && changed) router.refresh();
       },
     );
     return () => {
       active = false;
     };
-  }, [pathname]);
+  }, [pathname, router]);
 
   return null;
 }

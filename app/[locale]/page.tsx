@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { App } from "@/src/App";
+import { editorialWorkspaceAccess } from "@/src/editorial/server/editorialWorkspaceAccess";
 import { copy, isLocale, localeDetails, locales } from "@/src/lib/i18n";
 import {
   boundedSeoDescription,
@@ -47,8 +48,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LocalizedHomePage({ params }: Props) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const researchRoomPreview = await loadLandingResearchRoomPreview(locale);
+  const initialAccess = await editorialWorkspaceAccess("/");
+  const researchRoomPreview = await loadLandingResearchRoomPreview(
+    locale,
+    initialAccess,
+  );
   return (
-    <App initialLocale={locale} researchRoomPreview={researchRoomPreview} />
+    <App
+      initialAccess={initialAccess}
+      initialLocale={locale}
+      researchRoomPreview={researchRoomPreview}
+    />
   );
 }

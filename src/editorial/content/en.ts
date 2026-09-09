@@ -30,8 +30,7 @@ export const enEditorialContent = {
       description:
         "A repeatable way to move from business model to cash flow, risks, and the questions management would rather you miss.",
       category: "FILINGS",
-      imageAlt:
-        "A dark annual filing with blue evidence tabs on an analyst desk",
+      imageAlt: "Concept illustration: How to Read a 10-K for Stock Research",
       sections: [
         {
           heading: "Start with the business, not the income statement",
@@ -64,7 +63,7 @@ export const enEditorialContent = {
         "Reported profit is a starting point. Learn how working capital, capital intensity, and recurring adjustments change the picture.",
       category: "FINANCIALS",
       imageAlt:
-        "A transparent cash stream passing through a dark operating engine",
+        "Concept illustration: Earnings Quality: How to Test Cash Conversion",
       sections: [
         {
           heading: "Define the earnings you are trying to validate",
@@ -96,7 +95,8 @@ export const enEditorialContent = {
       description:
         "Peer selection is a business-model problem before it becomes a valuation table. Use economics, maturity, and risk to build a defensible set.",
       category: "VALUATION",
-      imageAlt: "Five measured glass business blocks with one mismatched peer",
+      imageAlt:
+        "Concept illustration: How to Choose Comparable Companies That Actually Compare",
       sections: [
         {
           heading: "Match the economic engine",
@@ -128,7 +128,8 @@ export const enEditorialContent = {
       description:
         "Build scenarios from operating assumptions, not arbitrary price targets, and define the evidence that moves one case into another.",
       category: "SCENARIOS",
-      imageAlt: "One blue analytical path dividing into three market scenarios",
+      imageAlt:
+        "Concept illustration: Bull, Base, and Bear Cases: A Scenario Analysis Guide",
       sections: [
         {
           heading: "Anchor every case to a common model",
@@ -160,7 +161,8 @@ export const enEditorialContent = {
       description:
         "More agents do not guarantee better analysis. The research process needs independent challenge, evidence tests, and a visible record of disagreement.",
       category: "PROCESS",
-      imageAlt: "Two opposing research desks connected by a blue evidence beam",
+      imageAlt:
+        "Concept illustration: Why AI Stock Research Needs a Strong Counterargument",
       sections: [
         {
           heading: "Agreement can be a failure mode",
@@ -192,7 +194,7 @@ export const enEditorialContent = {
       description:
         "Cash generated after the investment required to maintain and grow the business. Useful, but only after you inspect what the formula leaves out.",
       category: "CASH FLOW",
-      imageAlt: "A blue cash stream flowing through an investment filter",
+      imageAlt: "Concept illustration: Free Cash Flow (FCF)",
       sections: [
         {
           heading: "Definition",
@@ -219,7 +221,7 @@ export const enEditorialContent = {
       description:
         "A valuation multiple comparing enterprise value with earnings before interest, tax, depreciation, and amortization.",
       category: "VALUATION",
-      imageAlt: "An enterprise structure balanced above an operating engine",
+      imageAlt: "Concept illustration: EV/EBITDA",
       sections: [
         {
           heading: "Definition",
@@ -246,7 +248,7 @@ export const enEditorialContent = {
       description:
         "Management's forward-looking range or qualitative outlook for revenue, profit, margins, or other operating measures.",
       category: "EXPECTATIONS",
-      imageAlt: "A dark quarterly runway leading toward a blue outlook beacon",
+      imageAlt: "Concept illustration: Earnings Guidance",
       sections: [
         {
           heading: "Definition",
@@ -273,7 +275,7 @@ export const enEditorialContent = {
       description:
         "The reduction in each existing owner's percentage interest when a company increases its effective share count.",
       category: "OWNERSHIP",
-      imageAlt: "A blue ownership ring dividing into many smaller segments",
+      imageAlt: "Concept illustration: Share Dilution",
       sections: [
         {
           heading: "Definition",
@@ -300,7 +302,7 @@ export const enEditorialContent = {
       description:
         "The buffer between a conservative estimate of value and the price paid, designed to absorb uncertainty and error.",
       category: "RISK",
-      imageAlt: "A blue valuation bridge above a volatile market surface",
+      imageAlt: "Concept illustration: Margin of Safety",
       sections: [
         {
           heading: "Definition",

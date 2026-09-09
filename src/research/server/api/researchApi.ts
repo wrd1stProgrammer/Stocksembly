@@ -123,6 +123,9 @@ export interface ResearchApi {
     readonly authenticated: boolean;
     readonly tier: "free" | "paid";
   }>;
+  readonly listReadResearchReportIds: (
+    request: Request,
+  ) => Promise<readonly string[]>;
   readonly consumeResearchRoomCredit: (
     request: Request,
     reportId: string,
@@ -718,6 +721,23 @@ export async function createResearchApi(
       } catch {
         return { authenticated: true, tier: "free" };
       }
+    },
+    async listReadResearchReportIds(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized") return [];
+      if (options.accountStore)
+        return (
+          (await options.accountStore.listReadResearchReportIds?.(
+            authentication.principal.id,
+          )) ?? []
+        );
+      const remote = await proxyAuthenticatedGet(
+        request,
+        "/api/research-room/read",
+      );
+      if (!remote?.ok) throw new Error("READ_RESEARCH_UNAVAILABLE");
+      const payload = (await remote.json()) as { reportIds: readonly string[] };
+      return payload.reportIds;
     },
     async consumeResearchRoomCredit(request, reportId, checkOnly = false) {
       const authentication = await context.auth.authenticate(request);

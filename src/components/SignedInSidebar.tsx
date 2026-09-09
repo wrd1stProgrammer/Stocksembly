@@ -326,7 +326,7 @@ function dateLabel(value: string, locale: AppLocale): string {
 
 export function SignedInSidebar({
   locale,
-  collapsed,
+  collapsed: pinnedCollapsed,
   mobileContext,
   onCollapsedChange,
   onLocaleChange,
@@ -335,6 +335,8 @@ export function SignedInSidebar({
   subscriptionTier = "unknown",
   activeItem = "dashboard",
 }: SignedInSidebarProps) {
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const collapsed = pinnedCollapsed && !hoverExpanded;
   const messages = sidebarCopy[locale];
   const [runs, setRuns] = useState<readonly PublicRun[]>([]);
   const [briefingUnread, setBriefingUnread] = useState(0);
@@ -463,6 +465,7 @@ export function SignedInSidebar({
   }
 
   function handleCollapsedChange(next: boolean) {
+    setHoverExpanded(false);
     window.localStorage.setItem(SIGNED_IN_SIDEBAR_STORAGE_KEY, String(next));
     onCollapsedChange(next);
   }
@@ -492,7 +495,19 @@ export function SignedInSidebar({
   return (
     <aside
       className="signed-in-sidebar"
+      onPointerEnter={(event) => {
+        if (
+          event.pointerType === "mouse" &&
+          pinnedCollapsed &&
+          window.matchMedia("(min-width: 901px)").matches
+        )
+          setHoverExpanded(true);
+      }}
+      onPointerLeave={() => setHoverExpanded(false)}
       data-collapsed={collapsed ? "true" : "false"}
+      data-hover-expanded={
+        hoverExpanded && pinnedCollapsed ? "true" : undefined
+      }
       data-mobile-context={mobileContext === undefined ? undefined : "true"}
       aria-label={messages.workspaceSidebar}
     >
@@ -511,7 +526,7 @@ export function SignedInSidebar({
           aria-label={
             collapsed ? messages.expandSidebar : messages.collapseSidebar
           }
-          onClick={() => handleCollapsedChange(!collapsed)}
+          onClick={() => handleCollapsedChange(!pinnedCollapsed)}
         >
           <span className="signed-in-sidebar__toggle-brand" aria-hidden="true">
             <Image

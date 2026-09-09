@@ -57,11 +57,8 @@ describe("financial and risk analytical products", () => {
       "revenue_ttm,gross_margin,operating_margin,free_cash_flow,capital_expenditures",
     );
     expect(
-      financial.getByRole("link", { name: "Download PDF" }),
-    ).toHaveAttribute(
-      "href",
-      "/api/research/reports/report-fixture/pdf?lang=en",
-    );
+      financial.getByRole("button", { name: "Download PDF" }),
+    ).toBeVisible();
     financial.unmount();
 
     const risk = renderReport(teamReportPreviewFixture("risk"));

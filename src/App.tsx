@@ -85,20 +85,30 @@ async function authenticatedFetch(
 }
 
 type AppProps = {
+  readonly initialAccess?: {
+    readonly authenticated: boolean;
+    readonly tier: "free" | "paid";
+  };
   readonly initialLocale?: AppLocale;
   readonly researchRoomPreview?: LandingResearchRoomPreviewData;
 };
 
 export function App({
+  initialAccess,
   initialLocale = DEFAULT_LOCALE,
   researchRoomPreview = EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
 }: AppProps) {
   const [locale, setLocale] = useState<AppLocale>(initialLocale);
-  const [signedIn, setSignedIn] = useState(false);
+  const [signedIn, setSignedIn] = useState(
+    initialAccess?.authenticated ?? false,
+  );
+  const [authReady, setAuthReady] = useState(
+    initialAccess?.authenticated ?? false,
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [subscriptionTier, setSubscriptionTier] = useState<
     "unknown" | "free" | "paid"
-  >("unknown");
+  >(initialAccess?.authenticated ? initialAccess.tier : "unknown");
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [billingPlans, setBillingPlans] = useState<readonly WhopPricingPlan[]>(
     [],
@@ -258,8 +268,6 @@ export function App({
     }
 
     let active = true;
-    setSubscriptionTier("unknown");
-    setBillingStatus(undefined);
     setBillingPlansLoading(true);
     setBillingPlansError(false);
     setOnboardingState("unknown");
@@ -349,19 +357,25 @@ export function App({
   }, [refreshBillingStatus, signedIn]);
 
   useEffect(() => {
-    if (!configureAmplifyAuth()) return;
+    if (!configureAmplifyAuth()) {
+      setAuthReady(true);
+      return;
+    }
     let active = true;
     void getCurrentUser()
       .then(() => {
         if (active) setSignedIn(true);
       })
       .catch(() => {
-        if (active) setSignedIn(false);
+        if (active && !initialAccess?.authenticated) setSignedIn(false);
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialAccess?.authenticated]);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -401,6 +415,9 @@ export function App({
 
   return (
     <div
+      aria-busy={!authReady}
+      inert={!authReady}
+      style={authReady ? undefined : { visibility: "hidden" }}
       className={`app-shell${signedIn ? " app-shell--signed-in" : " app-shell--landing"}${
         sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""
       }`}
@@ -444,6 +461,7 @@ export function App({
             <section className="hero" id="product">
               <LandingHeroCopy locale={locale} />
               <SearchConsole
+                requireSignIn
                 locale={locale}
                 onOpenPlans={openSubscriptionModal}
                 subscriptionTier={subscriptionTier}

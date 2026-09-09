@@ -57,6 +57,24 @@ afterEach(() => {
 });
 
 describe("SearchConsole durable research launch", () => {
+  it("sends guests straight to login without creating a research run", () => {
+    render(<SearchConsole locale="en" requireSignIn />);
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "nvda" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Investment question" }),
+      { target: { value: "What changed in margins?" } },
+    );
+    const form = screen.getByRole("searchbox").closest("form");
+    if (!form) throw new Error("Missing search form");
+    fireEvent.submit(form);
+    expect(testState.push).toHaveBeenCalledWith(
+      "/login?lang=en&next=%2F%3Flang%3Den%23research",
+    );
+    expect(testState.startRun).not.toHaveBeenCalled();
+  });
+
   it("uses a compact research-mode picker without ticker shortcuts", () => {
     render(<SearchConsole locale="ko" />);
 
