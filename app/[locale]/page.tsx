@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: {
       canonical: `/${locale}`,
       languages: {
+        en: "/en",
         ...Object.fromEntries(
           locales.map((value) => [localeDetails[value].hreflang, `/${value}`]),
         ),

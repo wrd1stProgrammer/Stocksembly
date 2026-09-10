@@ -55,7 +55,7 @@ export const localeDetails: Readonly<
     label: "Spanish",
     nativeLabel: "Español",
     intl: "es-419",
-    hreflang: "es-419",
+    hreflang: "es",
     openGraph: "es_419",
   },
   "pt-BR": {

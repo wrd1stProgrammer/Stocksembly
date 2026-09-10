@@ -148,7 +148,10 @@ export function StockResearchHubPage({
           </div>
         </section>
       </main>
-      <LandingFooter locale={locale} />
+      <LandingFooter
+        locale={locale}
+        localePathSuffix={`/stocks/${hub.symbol.toLowerCase()}`}
+      />
       <script type="application/ld+json">
         {JSON.stringify(structuredData)}
       </script>

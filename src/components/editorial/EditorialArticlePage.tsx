@@ -154,7 +154,10 @@ export function EditorialArticlePage({
           </div>
         </section>
       </main>
-      <LandingFooter locale={locale} />
+      <LandingFooter
+        locale={locale}
+        localePathSuffix={`/${definition.kind}/${definition.slug}`}
+      />
       <script type="application/ld+json">
         {JSON.stringify(structuredData)}
       </script>

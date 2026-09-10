@@ -5,6 +5,19 @@ import { usStockAnalysisCopy } from "./usStockAnalysis";
 import { usStockAnalysisMetadata } from "./usStockAnalysisMetadata";
 
 describe("US stock analysis metadata", () => {
+  it("publishes reciprocal Spanish and global English alternates for every locale", () => {
+    for (const locale of locales) {
+      const languages = usStockAnalysisMetadata(locale).alternates?.languages;
+      expect(languages).toMatchObject({
+        es: "/es/us-stock-analysis",
+        en: "/en/us-stock-analysis",
+      });
+      expect(languages).not.toHaveProperty("es-419");
+      expect(languages).toEqual(
+        usStockAnalysisMetadata("en").alternates?.languages,
+      );
+    }
+  });
   it("uses a self-canonical Korean URL with reciprocal language alternates", () => {
     const metadata = usStockAnalysisMetadata("ko");
 

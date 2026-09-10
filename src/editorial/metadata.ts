@@ -21,6 +21,7 @@ function languageAlternates(
       locales.map((locale) => [localeDetails[locale].hreflang, paths[locale]]),
     ),
     "x-default": paths.en,
+    en: paths.en,
   };
 }
 

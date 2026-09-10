@@ -66,7 +66,7 @@ export function EditorialIndexPage({ locale, kind }: EditorialIndexPageProps) {
           ))}
         </section>
       </main>
-      <LandingFooter locale={locale} />
+      <LandingFooter locale={locale} localePathSuffix={`/${kind}`} />
       <script type="application/ld+json">
         {JSON.stringify(structuredData)}
       </script>
