@@ -61,6 +61,7 @@ export type ChairFault =
   | "v3_lineage_metadata_mismatch"
   | "v3_stance_conflict"
   | "v3_hedge_twice"
+  | "v3_team_view_duplicate"
   | "drop_position"
   | "drop_dissent"
   | "drop_unknown"
@@ -232,10 +233,20 @@ export class ChairCodexFake extends FollowupResponseCodexFake {
           strongestCountercase: lineage(countercase),
           invalidationCheckpoint: lineage(invalidation),
         },
-        teamViews: WORKFLOW_V1_DEPARTMENT_IDS.map((departmentId) => ({
+        teamViews: WORKFLOW_V1_DEPARTMENT_IDS.map((departmentId, index) => ({
           departmentId,
           position: narrative,
-          rationale: narrative,
+          // Must stay distinct from `position` (trim basis) — a real chair
+          // model output is now rejected otherwise (see
+          // chairV3TeamViewDuplicateDepartmentId in chairSynthesisV3.ts).
+          // `v3_team_view_duplicate` deliberately violates that on the
+          // first department only, simulating the archived defect
+          // (position==rationale) so tests can exercise the gate ->
+          // deterministicChairV3Fallback recovery path end to end.
+          rationale:
+            this.fault === "v3_team_view_duplicate" && index === 0
+              ? narrative
+              : `${narrative} The ${departmentId} team ballot reached this conclusion.`,
           vote: "support_with_reservations",
           lineage: lineage(decisive),
         })),
