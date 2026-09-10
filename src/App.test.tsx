@@ -18,6 +18,9 @@ describe("App", () => {
     // Then
     expect(document.documentElement.lang).toBe("ko");
     expect(navigation.push).toHaveBeenCalledWith("/ko?campaign=test#research");
+    expect(
+      window.location.pathname + window.location.search + window.location.hash,
+    ).toBe("/en?campaign=test#research");
   });
 
   it("shows a matching company when a ticker is entered", () => {

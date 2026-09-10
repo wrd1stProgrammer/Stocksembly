@@ -151,14 +151,15 @@ export function App({
   const selectLocale = useCallback(
     (nextLocale: AppLocale) => {
       localeSelectionRevision.current += 1;
-      applyLocale(nextLocale);
+      setLocale(nextLocale);
+      applyLocalePreference(nextLocale);
       void persistAccountLocale(nextLocale);
       const url = new URL(window.location.href);
       url.pathname = `/${nextLocale}`;
       url.searchParams.delete("lang");
       router.push(`${url.pathname}${url.search}${url.hash}`);
     },
-    [applyLocale, router],
+    [router],
   );
 
   const openSubscriptionModal = useCallback(() => {
