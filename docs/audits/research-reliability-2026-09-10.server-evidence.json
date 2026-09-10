@@ -189,9 +189,7 @@
     "maxObservedActiveJobs": 10,
     "peakObservedCpuPercent": 148.43,
     "peakObservedMemoryMiB": 591.1,
-    "productionHttpStatuses": [
-      "200"
-    ]
+    "productionHttpStatuses": ["200"]
   },
   "leaseSmoke": [
     {

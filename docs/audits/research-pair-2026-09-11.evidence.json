@@ -2330,9 +2330,7 @@
     "webLatencyMedianSeconds": 0.533933,
     "webLatencyP95Seconds": 0.869015,
     "webLatencyMaxSeconds": 0.891202,
-    "webHttpStatuses": [
-      "200"
-    ],
+    "webHttpStatuses": ["200"],
     "productionActiveRunsMax": 0
   },
   "configuration": {

@@ -4516,9 +4516,7 @@
     "maxActiveJobs": 12,
     "peakCpuPercent": 145.48,
     "peakMemoryMiB": 707.5,
-    "webHttpStatuses": [
-      "200"
-    ]
+    "webHttpStatuses": ["200"]
   },
   "uninterrupted": true,
   "manualInterventionsDuringBaseline": 0

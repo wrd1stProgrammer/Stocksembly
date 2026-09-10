@@ -31,7 +31,10 @@ import {
   TeamEditorialDecisionSchema,
   VersionDeltaSchema,
 } from "./reportComponents";
-import { normalizeReportNarrativeText, PublicationStatusSchema } from "./reportText";
+import {
+  normalizeReportNarrativeText,
+  PublicationStatusSchema,
+} from "./reportText";
 import {
   COMMITTEE_RESEARCH_TARGET,
   ResearchTargetSchema,

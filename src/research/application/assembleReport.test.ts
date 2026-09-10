@@ -2,8 +2,8 @@ import { rmSync } from "node:fs";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { hashCanonical } from "../domain/contractHelpers";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
+import { hashCanonical } from "../domain/contractHelpers";
 import {
   ArtifactIdSchema,
   ClaimIdSchema,
@@ -40,8 +40,8 @@ import {
   seedAuthoritativeParents,
 } from "./assembleReport.testSupport";
 import { persistAuthoritativeReport } from "./assembleReportPersistence";
-import { StructuralAuditArtifactEnvelopeSchema } from "./structuralAuditPersistenceContracts";
 import { publishableDissent } from "./assembleReportValidation";
+import { StructuralAuditArtifactEnvelopeSchema } from "./structuralAuditPersistenceContracts";
 
 describe("persistAuthoritativeReport", () => {
   it("publishes an audited team-view claim that is absent from the six section bindings", async () => {
@@ -497,24 +497,48 @@ describe("persistAuthoritativeReport", () => {
   it("normalizes a canonical valuation disclaimer without losing its evidence or lineage", () => {
     const input = makeAuthoritativeReportInput();
     const assembled = assembleReport(input);
-    if (assembled.kind !== "assembled") throw new TypeError("missing report fixture");
-    const canonical = ChairSynthesisOutputSchema.parse(input.chair).canonicalNarrativeV3;
+    if (assembled.kind !== "assembled")
+      throw new TypeError("missing report fixture");
+    const canonical = ChairSynthesisOutputSchema.parse(
+      input.chair,
+    ).canonicalNarrativeV3;
     const valuation = canonical?.sections[2];
     if (canonical === undefined || valuation === undefined)
       throw new TypeError("missing canonical section fixture");
-    const narrative = "The available valuation evidence is expectation context rather than a complete intrinsic-value range: at $488.26 and forward EPS of $19.63, MSFT implies 24.9x forward P/E. No qualified historical or peer multiple range is available, so valuation should be judged against growth durability, margin stability, and AI investment returns rather than a precise target price.";
+    const narrative =
+      "The available valuation evidence is expectation context rather than a complete intrinsic-value range: at $488.26 and forward EPS of $19.63, MSFT implies 24.9x forward P/E. No qualified historical or peer multiple range is available, so valuation should be judged against growth durability, margin stability, and AI investment returns rather than a precise target price.";
     const projected = workflowV3ReportFromCanonicalNarrative(assembled.report, {
       ...canonical,
-      sections: canonical.sections.map((section) => section.sectionKey === valuation.sectionKey
-        ? { ...section, narrative }
-        : section),
+      sections: canonical.sections.map((section) =>
+        section.sectionKey === valuation.sectionKey
+          ? { ...section, narrative }
+          : section,
+      ),
     });
-    const section = projected.narrative.sections.find((entry) => entry.id === valuation.sectionKey);
-    expect(section?.body).toBe(narrative.replace("target price", "cited market level"));
-    expect(section?.claimIds).toEqual(assembled.report.locales[canonical.sourceLocale].sections.find((entry) => entry.id === valuation.sectionKey)?.claimIds);
-    expect(section?.sourceIds).toEqual(assembled.report.locales[canonical.sourceLocale].sections.find((entry) => entry.id === valuation.sectionKey)?.sourceIds);
-    expect(projected.narrativeLineage.sections.find((entry) => entry.sectionKey === valuation.sectionKey)?.lineage).toEqual(valuation.lineage);
-    expect(WorkflowV3ResearchReportSchema.safeParse(projected).success).toBe(true);
+    const section = projected.narrative.sections.find(
+      (entry) => entry.id === valuation.sectionKey,
+    );
+    expect(section?.body).toBe(
+      narrative.replace("target price", "cited market level"),
+    );
+    expect(section?.claimIds).toEqual(
+      assembled.report.locales[canonical.sourceLocale].sections.find(
+        (entry) => entry.id === valuation.sectionKey,
+      )?.claimIds,
+    );
+    expect(section?.sourceIds).toEqual(
+      assembled.report.locales[canonical.sourceLocale].sections.find(
+        (entry) => entry.id === valuation.sectionKey,
+      )?.sourceIds,
+    );
+    expect(
+      projected.narrativeLineage.sections.find(
+        (entry) => entry.sectionKey === valuation.sectionKey,
+      )?.lineage,
+    ).toEqual(valuation.lineage);
+    expect(WorkflowV3ResearchReportSchema.safeParse(projected).success).toBe(
+      true,
+    );
   });
 
   it("keeps original Q&A identity when canonical coverage omits a middle question", () => {

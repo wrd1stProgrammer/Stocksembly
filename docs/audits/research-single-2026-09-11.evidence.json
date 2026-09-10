@@ -1196,8 +1196,6 @@
     "peakCpuPercent": 106.26,
     "peakMemoryMiB": 560.5,
     "productionActiveRunsMax": 0,
-    "webHttpStatuses": [
-      "200"
-    ]
+    "webHttpStatuses": ["200"]
   }
 }
