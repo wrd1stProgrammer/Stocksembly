@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { App } from "@/src/App";
+import { editorialWorkspaceAccess } from "@/src/editorial/server/editorialWorkspaceAccess";
 import { isLocale, resolveRequestLocale } from "@/src/lib/i18n";
 import {
   homeStructuredData,
@@ -34,10 +35,18 @@ export default async function HomePage({ searchParams }: Props) {
           requestHeaders.get("cloudfront-viewer-country") ??
           requestHeaders.get("cf-ipcountry"),
       });
-  const researchRoomPreview = await loadLandingResearchRoomPreview(locale);
+  const initialAccess = await editorialWorkspaceAccess("/");
+  const researchRoomPreview = await loadLandingResearchRoomPreview(
+    locale,
+    initialAccess,
+  );
   return (
     <>
-      <App initialLocale={locale} researchRoomPreview={researchRoomPreview} />
+      <App
+        initialAccess={initialAccess}
+        initialLocale={locale}
+        researchRoomPreview={researchRoomPreview}
+      />
       <script type="application/ld+json">
         {serializeStructuredData(homeStructuredData(locale))}
       </script>

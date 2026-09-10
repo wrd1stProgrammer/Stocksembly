@@ -110,10 +110,7 @@ describe("CommitteeReportSurface", () => {
       "details[data-committee-sources]",
     );
     expect(sources).not.toHaveAttribute("open");
-    expect(screen.getByRole("link", { name: "Download PDF" })).toHaveAttribute(
-      "href",
-      "/api/research/reports/committee-fixture/pdf?lang=en",
-    );
+    expect(screen.getByRole("button", { name: "Download PDF" })).toBeVisible();
   });
 
   it("uses three accepted material claims with owned rationale and source lineage", () => {

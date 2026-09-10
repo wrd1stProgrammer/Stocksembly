@@ -7,7 +7,10 @@ import {
 import type { AppLocale } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import { getLiveTickerCatalog } from "@/src/research/server/api/liveTickerCatalog";
-import { listResearchRoomReportPage } from "@/src/research/server/researchRoom/researchRoomCatalog";
+import {
+  listResearchRoomReportPage,
+  type ResearchRoomAccess,
+} from "@/src/research/server/researchRoom/researchRoomCatalog";
 import { requestFromPage } from "./pageRequest";
 
 async function lookupCompanyNames(
@@ -37,10 +40,13 @@ async function lookupCompanyNames(
 // is what the client did when its fetch failed.
 export async function loadLandingResearchRoomPreview(
   locale: AppLocale,
+  initialAccess?: ResearchRoomAccess,
 ): Promise<LandingResearchRoomPreviewData> {
   try {
     const api = await getLiveResearchApi();
-    const access = await api.researchRoomAccess(await requestFromPage("/"));
+    const access =
+      initialAccess ??
+      (await api.researchRoomAccess(await requestFromPage("/")));
     const page = await listResearchRoomReportPage(access, {
       limit: 5,
       offset: 0,

@@ -42,7 +42,7 @@ export type ResearchRoomScope =
   | "financial"
   | "risk";
 
-export type ResearchRoomSort = "latest" | "popular";
+export type ResearchRoomSort = "latest" | "popular" | "read";
 
 export type ResearchRoomListOptions = {
   readonly limit?: number;
@@ -52,6 +52,7 @@ export type ResearchRoomListOptions = {
   readonly company?: string;
   readonly scope?: ResearchRoomScope;
   readonly sort?: ResearchRoomSort;
+  readonly readReportIds?: readonly string[];
   readonly locale?: ResearchTranslationLocale;
 };
 
@@ -240,6 +241,10 @@ type CatalogFilter = {
 function catalogFilter(options: ResearchRoomListOptions): CatalogFilter {
   const clauses: string[] = [];
   const params: string[] = [];
+  if (options.sort === "read") {
+    clauses.push("reports.report_id IN (SELECT value FROM json_each(?))");
+    params.push(JSON.stringify(options.readReportIds ?? []));
+  }
   const query = options.query?.trim().toLocaleLowerCase();
   if (query !== undefined && query.length > 0) {
     const pattern = `%${query.replace(/[\\%_]/gu, "\\$&")}%`;

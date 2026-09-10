@@ -16,6 +16,7 @@ import type {
   LocalizedText,
   ResearchFileData,
 } from "../../research/compositions/types";
+import { printResearchReport } from "../../research/printResearchReport";
 import type { ResearchCompany } from "../../research/types";
 import { CompletedResearchFileV2 } from "./CompletedResearchFileV2";
 
@@ -48,7 +49,6 @@ export function LegacyCompletedResearchFile({
   report,
   version,
   reportId,
-  onReplay,
 }: Props) {
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   const ko = locale === "ko";
@@ -422,20 +422,16 @@ export function LegacyCompletedResearchFile({
             </p>
             <div>
               {reportId ? (
-                <a
-                  href={`/api/research/reports/${reportId}/pdf?lang=${locale}`}
+                <button
+                  type="button"
                   onClick={(event) => {
-                    event.preventDefault();
-                    window.print();
+                    void printResearchReport(event.currentTarget);
                   }}
                 >
                   <DownloadSimple size={17} aria-hidden="true" />
                   {ko ? "PDF로 저장" : "Download PDF"}
-                </a>
+                </button>
               ) : null}
-              <button type="button" onClick={onReplay}>
-                {ko ? "리서치 룸 다시 보기" : "Replay research room"}
-              </button>
             </div>
           </footer>
         </section>

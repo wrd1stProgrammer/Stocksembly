@@ -10,7 +10,7 @@ export const editorialDefinitions = [
   {
     slug: "how-to-read-a-10-k",
     kind: "blog",
-    image: "/editorial/blog-reading-10k.webp",
+    image: "/editorial/blog-reading-10k-v2.webp",
     publishedAt: "2026-08-15T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 10,
@@ -23,7 +23,7 @@ export const editorialDefinitions = [
   {
     slug: "earnings-quality-and-cash-conversion",
     kind: "blog",
-    image: "/editorial/blog-earnings-quality.webp",
+    image: "/editorial/blog-earnings-quality-v2.webp",
     publishedAt: "2026-08-13T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 9,
@@ -32,7 +32,7 @@ export const editorialDefinitions = [
   {
     slug: "how-to-choose-comparable-companies",
     kind: "blog",
-    image: "/editorial/blog-peer-comparison.webp",
+    image: "/editorial/blog-peer-comparison-v2.webp",
     publishedAt: "2026-08-11T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 9,
@@ -45,7 +45,7 @@ export const editorialDefinitions = [
   {
     slug: "bull-base-bear-scenario-analysis",
     kind: "blog",
-    image: "/editorial/blog-scenario-analysis.webp",
+    image: "/editorial/blog-scenario-analysis-v2.webp",
     publishedAt: "2026-08-09T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 10,
@@ -58,7 +58,7 @@ export const editorialDefinitions = [
   {
     slug: "counterarguments-in-ai-stock-research",
     kind: "blog",
-    image: "/editorial/blog-counterarguments.webp",
+    image: "/editorial/blog-counterarguments-v2.webp",
     publishedAt: "2026-08-07T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 9,
@@ -71,7 +71,7 @@ export const editorialDefinitions = [
   {
     slug: "free-cash-flow",
     kind: "glossary",
-    image: "/editorial/glossary-free-cash-flow.webp",
+    image: "/editorial/glossary-free-cash-flow-v2.webp",
     publishedAt: "2026-08-14T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 6,
@@ -84,7 +84,7 @@ export const editorialDefinitions = [
   {
     slug: "ev-to-ebitda",
     kind: "glossary",
-    image: "/editorial/glossary-ev-ebitda.webp",
+    image: "/editorial/glossary-ev-ebitda-v2.webp",
     publishedAt: "2026-08-12T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 6,
@@ -97,7 +97,7 @@ export const editorialDefinitions = [
   {
     slug: "earnings-guidance",
     kind: "glossary",
-    image: "/editorial/glossary-earnings-guidance.webp",
+    image: "/editorial/glossary-earnings-guidance-v2.webp",
     publishedAt: "2026-08-10T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 6,
@@ -110,7 +110,7 @@ export const editorialDefinitions = [
   {
     slug: "share-dilution",
     kind: "glossary",
-    image: "/editorial/glossary-share-dilution.webp",
+    image: "/editorial/glossary-share-dilution-v2.webp",
     publishedAt: "2026-08-08T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 6,
@@ -119,7 +119,7 @@ export const editorialDefinitions = [
   {
     slug: "margin-of-safety",
     kind: "glossary",
-    image: "/editorial/glossary-margin-of-safety.webp",
+    image: "/editorial/glossary-margin-of-safety-v2.webp",
     publishedAt: "2026-08-06T00:00:00.000Z",
     modifiedAt: "2026-08-15T00:00:00.000Z",
     readingMinutes: 6,

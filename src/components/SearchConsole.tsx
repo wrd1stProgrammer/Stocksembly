@@ -44,6 +44,7 @@ import {
 import { useDismissableMenu } from "./useDismissableMenu";
 
 type SearchConsoleProps = {
+  readonly requireSignIn?: boolean;
   readonly locale: AppLocale;
   readonly onOpenPlans?: () => void;
   readonly subscriptionTier?: "unknown" | "free" | "paid";
@@ -438,6 +439,7 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
 export function SearchConsole({
   locale,
   onOpenPlans,
+  requireSignIn = false,
   subscriptionTier = "unknown",
   creditsRemaining,
   tickerSearch = searchUsTickers,
@@ -582,6 +584,12 @@ export function SearchConsole({
   async function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!firstMatch || !hasResearchQuestion) return;
+    if (requireSignIn) {
+      router.push(
+        `/login?lang=${locale}&next=${encodeURIComponent(`/?lang=${locale}#research`)}`,
+      );
+      return;
+    }
 
     setSubmissionError(undefined);
     setResultsOpen(false);

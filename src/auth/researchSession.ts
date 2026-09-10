@@ -15,7 +15,17 @@ async function wait(delayMs: number): Promise<void> {
   await new Promise((resolve) => window.setTimeout(resolve, delayMs));
 }
 
+let pendingTokens: Promise<CurrentAuthTokens> | undefined;
+
 export async function currentAuthTokens(): Promise<CurrentAuthTokens> {
+  if (!pendingTokens)
+    pendingTokens = restoreAuthTokens().finally(() => {
+      pendingTokens = undefined;
+    });
+  return pendingTokens;
+}
+
+async function restoreAuthTokens(): Promise<CurrentAuthTokens> {
   if (!configureAmplifyAuth()) return {};
   for (const delayMs of AUTH_SESSION_RETRY_DELAYS_MS) {
     await wait(delayMs);
@@ -36,7 +46,19 @@ export async function currentAuthTokens(): Promise<CurrentAuthTokens> {
   return {};
 }
 
+let pendingSync: Promise<boolean> | undefined;
+let lastSync = 0;
+
 export async function syncResearchSession(): Promise<boolean> {
+  if (pendingSync) return pendingSync;
+  if (Date.now() - lastSync < 30_000) return false;
+  pendingSync = synchronizeSession().finally(() => {
+    pendingSync = undefined;
+  });
+  return pendingSync;
+}
+
+async function synchronizeSession(): Promise<boolean> {
   const tokens = await currentAuthTokens();
   if (tokens.accessToken === undefined) return false;
   const response = await fetch("/api/research/session", {
@@ -51,10 +73,14 @@ export async function syncResearchSession(): Promise<boolean> {
     },
   });
   if (!response.ok) throw new Error("RESEARCH_SESSION_SYNC_FAILED");
+  lastSync = Date.now();
   return response.headers.get("x-stocksembly-session-changed") === "true";
 }
 
 export async function clearResearchSession(): Promise<boolean> {
+  lastSync = 0;
+  await pendingSync?.catch(() => undefined);
+  lastSync = 0;
   const response = await fetch("/api/research/session", {
     method: "DELETE",
     credentials: "same-origin",

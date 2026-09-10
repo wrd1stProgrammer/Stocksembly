@@ -1007,6 +1007,16 @@ export class PostgresAccountStore implements AccountStore {
     }
   }
 
+  async listReadResearchReportIds(
+    principalId: string,
+  ): Promise<readonly string[]> {
+    const result = await this.pool.query<{ report_id: string }>(
+      "SELECT DISTINCT report_id FROM usage_events WHERE principal_id = $1 AND kind = 'research_room' AND report_id IS NOT NULL",
+      [principalId],
+    );
+    return result.rows.map((row) => row.report_id);
+  }
+
   async consumeResearchRoomCredit(
     principalId: string,
     eventKey: string,

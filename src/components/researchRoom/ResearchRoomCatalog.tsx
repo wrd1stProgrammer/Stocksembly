@@ -53,6 +53,7 @@ type Props = {
   readonly access: ResearchRoomAccess;
   readonly initialCompanies: readonly ResearchRoomCompanyFacet[];
   readonly initialPage: number;
+  readonly initialReadReportIds?: readonly string[];
   readonly initialReports: readonly ResearchRoomCatalogItem[];
   readonly initialTotal: number;
   readonly locale: AppLocale;
@@ -151,6 +152,7 @@ export function ResearchRoomCatalog({
   access,
   initialCompanies,
   initialPage,
+  initialReadReportIds,
   initialReports,
   initialTotal,
   locale,
@@ -160,6 +162,32 @@ export function ResearchRoomCatalog({
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<Scope>("all");
   const [company, setCompany] = useState("all");
+  const [readReportIds, setReadReportIds] = useState<readonly string[]>(
+    initialReadReportIds ?? [],
+  );
+  useEffect(() => {
+    if (!access.authenticated) {
+      setReadReportIds([]);
+      return;
+    }
+    if (initialReadReportIds !== undefined) {
+      setReadReportIds(initialReadReportIds);
+      return;
+    }
+    const controller = new AbortController();
+    void fetch("/api/research-room/read", {
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("READ_HISTORY_FAILED");
+        return (await response.json()) as { reportIds: readonly string[] };
+      })
+      .then((value) => setReadReportIds(value.reportIds))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [access.authenticated, initialReadReportIds]);
   const [sort, setSort] = useState<Sort>("latest");
   const [page, setPage] = useState(initialPage);
   const [reports, setReports] =
@@ -481,6 +509,11 @@ export function ResearchRoomCatalog({
                   >
                     <option value="latest">{roomCopy.latest}</option>
                     <option value="popular">{roomCopy.popular}</option>
+                    {access.authenticated ? (
+                      <option value="read">
+                        {locale === "ko" ? "열람한 리서치" : "Read research"}
+                      </option>
+                    ) : null}
                   </select>
                 </label>
               </div>
@@ -497,6 +530,11 @@ export function ResearchRoomCatalog({
                     key={report.reportId}
                     data-locked={report.locked ? "true" : "false"}
                   >
+                    {readReportIds.includes(report.reportId) ? (
+                      <span className="research-room-catalog__read">
+                        {locale === "ko" ? "열람 완료" : "Previously opened"}
+                      </span>
+                    ) : null}
                     <header>
                       <div>
                         <CompanyLogo symbol={report.symbol} />
