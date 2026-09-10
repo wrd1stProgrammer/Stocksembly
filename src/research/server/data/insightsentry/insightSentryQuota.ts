@@ -165,29 +165,56 @@ export async function readInsightSentryRetryIntent(
   );
 }
 
+export class InsightSentryCooldownError extends Error {
+  constructor(readonly retryAt: string) {
+    super("rate_limited");
+    this.name = "InsightSentryCooldownError";
+  }
+}
+
 export class InsightSentryQuotaGovernor {
   private active = 0;
   private known = false;
+  private cooldownUntil = 0;
+  private throttled = false;
   private readonly waiting: Array<() => void> = [];
   private readonly hydrated: Promise<void>;
 
   constructor(private readonly dataRoot: string) {
-    this.hydrated = readInsightSentryQuotaObservation(dataRoot).then(
-      (observation) => {
-        this.known = observation !== undefined;
-      },
-    );
+    this.hydrated = Promise.all([
+      readInsightSentryQuotaObservation(dataRoot),
+      retryIntents(dataRoot),
+    ]).then(([observation, intents]) => {
+      this.known = observation !== undefined;
+      for (const intent of intents)
+        if (intent.classification === "rate_limited")
+          this.coolDown(intent.retryAt);
+    });
   }
 
-  async run<T>(operation: () => Promise<T>): Promise<T> {
+  async run<T>(
+    operation: () => Promise<T>,
+    now: () => number = Date.now,
+  ): Promise<T> {
     await this.hydrated;
     await this.acquire();
     try {
+      if (this.cooldownUntil > now())
+        throw new InsightSentryCooldownError(
+          new Date(this.cooldownUntil).toISOString(),
+        );
       return await operation();
     } finally {
       this.active -= 1;
       this.drain();
     }
+  }
+
+  coolDown(retryAt: string): void {
+    const until = Date.parse(retryAt);
+    if (!Number.isFinite(until)) return;
+    this.cooldownUntil = Math.max(this.cooldownUntil, until);
+    this.throttled = true;
   }
 
   async observe(observation: InsightSentryQuotaObservation): Promise<void> {
@@ -204,7 +231,7 @@ export class InsightSentryQuotaGovernor {
   }
 
   private drain(): void {
-    const limit = this.known ? 2 : 1;
+    const limit = this.known && !this.throttled ? 2 : 1;
     while (this.active < limit) {
       const next = this.waiting.shift();
       if (next === undefined) return;

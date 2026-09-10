@@ -1,5 +1,6 @@
 import { homedir, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import type { ResearchExecutionBackend } from "../../domain/researchExecution";
 import { CodexRunnerError } from "./codexErrors";
 import { CODEX_RUNTIME_PINS, LINUX_CODEX_RUNTIME_PINS } from "./codexPolicy";
 import { executeSpawn } from "./codexProcess";
@@ -24,6 +25,7 @@ export type CodexRunnerPlatform = {
   readonly pins: CodexRuntimePins;
   readonly executionMode?: "sandbox_exec" | "direct";
   readonly authPath: string;
+  readonly authentication?: ResearchExecutionBackend;
   readonly tempParent: string;
   readonly hostEnvironment: NodeJS.ProcessEnv;
   readonly inspectSignature?: (
@@ -62,16 +64,30 @@ export function assertHostPolicy(
     throw new CodexRunnerError("policy_violation");
 }
 
-export function productionCodexPlatform(): CodexRunnerPlatform {
+export function productionCodexPlatform(
+  authentication: ResearchExecutionBackend = "subscription",
+): CodexRunnerPlatform {
   if (process.platform !== "darwin" && process.platform !== "linux")
     throw new CodexRunnerError("policy_violation");
   const direct = process.platform === "linux";
   const pins = direct ? LINUX_CODEX_RUNTIME_PINS : CODEX_RUNTIME_PINS;
   const linuxOriginDirectory = dirname(LINUX_CODEX_RUNTIME_PINS.originPath);
+  const subscriptionAuthPath = join(homedir(), ".codex", "auth.json");
+  const apiAuthPath = process.env["STOCKSEMBLY_CODEX_API_AUTH_PATH"]?.trim();
+  if (
+    authentication === "api" &&
+    (process.env["STOCKSEMBLY_CODEX_API_ENABLED"] !== "1" ||
+      apiAuthPath === undefined ||
+      !isAbsolute(apiAuthPath) ||
+      resolve(apiAuthPath) === subscriptionAuthPath)
+  )
+    throw new CodexRunnerError("auth_unavailable");
   return Object.freeze({
     pins,
+    authentication,
     executionMode: direct ? "direct" : "sandbox_exec",
-    authPath: join(homedir(), ".codex", "auth.json"),
+    authPath:
+      authentication === "api" ? (apiAuthPath ?? "") : subscriptionAuthPath,
     tempParent: direct ? linuxOriginDirectory : tmpdir(),
     hostEnvironment: {
       ...process.env,

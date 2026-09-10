@@ -7,6 +7,7 @@ import {
   TickerSymbolSchema,
 } from "../../domain/ids";
 import { RESEARCH_DIRECTION_MAX_CHARACTERS } from "../../domain/researchDirection";
+import type { ResearchQueueStatus } from "../../domain/researchExecution";
 import {
   DEFAULT_RESEARCH_PROFILE,
   ResearchProfileSchema,
@@ -98,6 +99,7 @@ export type PublicResearchEvent = {
 };
 
 export type PublicRunDetail = {
+  readonly queue?: ResearchQueueStatus;
   readonly run: PublicRun;
   readonly events: readonly PublicResearchEvent[];
   readonly activeAgentIds?: readonly WorkflowActorId[];

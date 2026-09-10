@@ -37,12 +37,12 @@ function admissionInput(value: number): CreateRunInput {
 }
 
 export function registerLeaseEngineReviewTests(): void {
-  it("atomically admits at most eight queued runs while two runs are active", async () => {
+  it("atomically enforces the fifty-run waiting queue while research is active", async () => {
     // Given
     const fixture = createLeaseEngineFixture();
     fixture.seedResearchJobs(2, 100);
     fixture.seedResearchJobs(2, 200);
-    const engines = Array.from({ length: 9 }, (_, index) =>
+    const engines = Array.from({ length: 51 }, (_, index) =>
       fixture.openEngine(`admission-worker-${index}`),
     );
 
@@ -57,7 +57,7 @@ export function registerLeaseEngineReviewTests(): void {
       // Then
       expect(
         results.filter((result) => result.kind === "admitted"),
-      ).toHaveLength(8);
+      ).toHaveLength(50);
       expect(
         results.filter((result) => result.kind === "queue_full"),
       ).toHaveLength(1);

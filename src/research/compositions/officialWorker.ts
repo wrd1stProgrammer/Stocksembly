@@ -41,6 +41,7 @@ import {
   requireCommittedMetadata,
 } from "./officialWorkerMetadata";
 import { createOfficialWorkflowCoordinator } from "./officialWorkflowCoordinator";
+import { runWithResearchExecution } from "./runWithResearchExecution";
 
 export type OfficialAttemptHandlerOptions = {
   readonly dataDirectory: string;
@@ -292,7 +293,23 @@ export async function createOfficialAttemptHandler(
   await coordinator.resumeActiveRuns();
   await backfillPublishedResearchQuestionLocalizations(options.databasePath);
   return {
-    handler,
+    handler: {
+      run: (attempt, signal, activity) =>
+        runWithResearchExecution(options.databasePath, attempt.runId, () =>
+          handler.run(attempt, signal, activity),
+        ),
+      afterCommit: (attempt, outcome) =>
+        runWithResearchExecution(
+          options.databasePath,
+          attempt.runId,
+          async () => {
+            await handler.afterCommit?.(attempt, outcome);
+          },
+        ),
+      reconcile: async () => {
+        await handler.reconcile?.();
+      },
+    },
     close: async () => {
       archive?.close();
       metadata?.close();

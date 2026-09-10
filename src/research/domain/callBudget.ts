@@ -58,7 +58,8 @@ export function createCallBudgetLedger(input: unknown): CallBudgetLedger {
     CALL_BUDGET_POLICY.initialCollectionAttempts +
       CALL_BUDGET_POLICY.mandatoryFirstAttempts +
       CALL_BUDGET_POLICY.maxOptionalFollowups +
-      CALL_BUDGET_POLICY.maxRequiredReplacements !==
+      CALL_BUDGET_POLICY.maxRequiredReplacements +
+      CALL_BUDGET_POLICY.maxTransientRetryHeadroom !==
       CALL_BUDGET_POLICY.maxPhysicalLaunches
   ) {
     return {

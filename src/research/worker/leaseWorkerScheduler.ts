@@ -35,12 +35,6 @@ function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-function batchIsIdle(results: readonly PollResult[]): boolean {
-  return results.every(
-    (result) => result.kind === "idle" || result.kind === "stopping",
-  );
-}
-
 export async function runLeaseWorkerScheduler(
   engine: LeaseWorkerSchedulerEngine,
   signal: AbortSignal,
@@ -53,25 +47,41 @@ export async function runLeaseWorkerScheduler(
     options.lifecycle?.heartbeat?.(engine.heartbeat());
   }, heartbeatIntervalMs);
 
+  const inFlight = new Set<Promise<void>>();
+  const failures: unknown[] = [];
   try {
     while (!signal.aborted) {
+      if (failures.length > 0) throw failures[0];
       engine.recoverExpired();
       if (!(await engine.reconcile())) {
         options.lifecycle?.result?.({ kind: "recovery-pending" });
         await wait(pollIntervalMs, signal);
         continue;
       }
-      const results = await Promise.all(
-        Array.from({ length: LEASE_ENGINE_DEFAULTS.globalCodexProcesses }, () =>
-          engine.poll(),
-        ),
-      );
-      for (const result of results)
-        if (result.kind !== "idle") options.lifecycle?.result?.(result);
-      const idle = batchIsIdle(results);
-      if (options.stopWhenIdle === true && idle) return;
+      if (signal.aborted) break;
+      let idle = true;
+      const available =
+        LEASE_ENGINE_DEFAULTS.globalCodexProcesses - inFlight.size;
+      for (let index = 0; index < available; index += 1) {
+        const task = engine.poll().then(
+          (result) => {
+            inFlight.delete(task);
+            if (result.kind !== "idle" && result.kind !== "stopping")
+              idle = false;
+            if (result.kind !== "idle") options.lifecycle?.result?.(result);
+          },
+          (error: unknown) => {
+            inFlight.delete(task);
+            failures.push(error);
+          },
+        );
+        inFlight.add(task);
+      }
+      await Promise.resolve();
+      if (failures.length > 0) throw failures[0];
+      if (inFlight.size === 0 && idle && options.stopWhenIdle === true) return;
       if (!signal.aborted) {
-        if (idle && options.waitForWork !== undefined)
+        if (inFlight.size === 0 && idle && options.waitForWork !== undefined)
           await options.waitForWork(signal);
         else await wait(pollIntervalMs, signal);
       }

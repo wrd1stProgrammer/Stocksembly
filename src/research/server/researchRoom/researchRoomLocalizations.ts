@@ -27,6 +27,8 @@ const QuestionLocalizationRowSchema = z.object({
 });
 
 const PublishedQuestionRowSchema = QuestionLocalizationRowSchema.extend({
+  // Ticker-only research intentionally has no user-supplied direction.
+  question: z.string(),
   locale: z.enum(["en", "ko"]),
 });
 
@@ -180,6 +182,7 @@ export async function backfillPublishedResearchQuestionLocalizations(
         FROM research_requests
         JOIN reports USING(run_id)
         WHERE reports.state = 'published'
+          AND length(trim(research_requests.question)) > 0
           AND NOT EXISTS (
             SELECT 1 FROM research_question_localizations
             WHERE research_question_localizations.run_id = research_requests.run_id
@@ -192,7 +195,8 @@ export async function backfillPublishedResearchQuestionLocalizations(
         RESEARCH_TRANSLATION_LOCALES.length,
         Math.max(1, Math.min(256, Math.trunc(limit))),
       )
-      .map((value) => PublishedQuestionRowSchema.parse(value));
+      .map((value) => PublishedQuestionRowSchema.parse(value))
+      .filter((row) => row.question.trim().length > 0);
   } finally {
     database.close();
   }

@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { createOfficialSpecialistRound } from "../compositions/officialWorker";
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
+import { LIMITS } from "../domain/limits.constants";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { codexInputHash } from "../server/codex/codexReservation";
@@ -191,7 +192,7 @@ describe("official SQLite specialist round", () => {
     expect(replay).toEqual(completed);
   });
 
-  it("uses one durable replacement ordinal and blocks departments after a second failed attempt", async () => {
+  it("uses durable replacement ordinals and blocks departments after the retry allowance is exhausted", async () => {
     // Given
     const onceRoot = mkdtempSync(join(tmpdir(), "specialist-round-once-"));
     const alwaysRoot = mkdtempSync(join(tmpdir(), "specialist-round-always-"));
@@ -231,7 +232,12 @@ describe("official SQLite specialist round", () => {
     expect(recovered.receipts.at(-1)?.ordinal).toBe(specialistCount + 1);
     expect(recovered.artifactIds).toHaveLength(specialistCount);
     expect(incomplete.departmentStartAllowed).toBe(false);
-    expect(incomplete.receipts).toHaveLength(specialistCount + 1);
+    expect(incomplete.receipts).toHaveLength(
+      specialistCount + LIMITS.research.maxReplacementsPerArtifact,
+    );
+    expect(incomplete.receipts.at(-1)?.ordinal).toBe(
+      specialistCount + LIMITS.research.maxReplacementsPerArtifact,
+    );
     expect(incomplete.artifactIds).toHaveLength(specialistCount - 1);
   });
 

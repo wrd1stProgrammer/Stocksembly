@@ -47,6 +47,8 @@ export type CommandResult<Value> =
         | "not_found"
         | "illegal_state"
         | "quota_exhausted"
+        | "queue_full"
+        | "budget_exhausted"
         | "active_question";
     };
 
@@ -77,7 +79,7 @@ export const RecoveredRunSchema = z
   .object({
     runId: z.string().uuid(),
     snapshotId: z.string().uuid(),
-    status: z.literal("running"),
+    status: z.enum(["queued", "running"]),
     recovery: z.literal("same-run-stage-resume"),
   })
   .strict()

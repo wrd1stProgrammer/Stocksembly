@@ -52,6 +52,34 @@ describe("useResearchRun durable projection", () => {
     expect(result.current.syncRevision).toBe(0);
   });
 
+  it("preserves queue position through events and removes it when polling observes admission", async () => {
+    vi.useFakeTimers();
+    try {
+      const source = new FakeEventSource();
+      const queue = { position: 2, activeRuns: 10, capacity: 10 };
+      const { result, unmount } = renderHook(() =>
+        useResearchRun(
+          { ...detail(12, "queued"), queue },
+          {
+            client: client(vi.fn(async () => detail(14, "running"))),
+            createEventSource: () => source,
+          },
+        ),
+      );
+      act(() => source.onopen?.());
+      act(() => source.emit(publicEvent(13, "runtime_status")));
+      expect(result.current.snapshot.queue).toEqual(queue);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
+      });
+      expect(result.current.snapshot.run.status).toBe("running");
+      expect(result.current.snapshot.queue).toBeUndefined();
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps native reconnect available, then enters reauthentication on fallback 401", async () => {
     // Given
     const source = new FakeEventSource();

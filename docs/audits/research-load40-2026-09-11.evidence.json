@@ -1,0 +1,4826 @@
+{
+  "observedAt": "2026-09-10T15:56:14.702938+00:00",
+  "apiEnabled": false,
+  "workerEntrypointSha256": "d0b2e06e6b0b6501cd52ea82db17c12862960b2101e5d7d261db1aec7cb1cedb",
+  "runs": [
+    {
+      "run_id": "72ed6907-3289-4560-abcd-85185bb2698f",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T15:29:35.026Z",
+      "symbol": "GOOGL",
+      "completed_jobs": 29,
+      "reserved_launches": 33
+    },
+    {
+      "run_id": "31d867ce-988c-4d60-8999-65f00f909c56",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T15:29:35.041Z",
+      "symbol": "META",
+      "completed_jobs": 29,
+      "reserved_launches": 30
+    },
+    {
+      "run_id": "4e351c72-36c0-438a-9331-766265dd2af4",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T15:29:35.047Z",
+      "symbol": "AVGO",
+      "completed_jobs": 29,
+      "reserved_launches": 30
+    },
+    {
+      "run_id": "7c20a1fa-ad49-4dba-9b1a-8a2b6315042d",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T15:29:35.057Z",
+      "symbol": "TSLA",
+      "completed_jobs": 29,
+      "reserved_launches": 31
+    }
+  ],
+  "terminalEvents": [
+    {
+      "symbol": "AVGO",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T15:51:18.628Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T15:51:31.208Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T15:53:33.591Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T15:55:45.142Z",
+      "code": null
+    }
+  ],
+  "auxiliaryModels": [
+    {
+      "model": "gpt-5.6-luna",
+      "n": 4
+    }
+  ],
+  "rewrites": [
+    {
+      "symbol": "AVGO",
+      "n": 2
+    },
+    {
+      "symbol": "GOOGL",
+      "n": 1
+    },
+    {
+      "symbol": "META",
+      "n": 2
+    },
+    {
+      "symbol": "TSLA",
+      "n": 2
+    }
+  ],
+  "models": [
+    {
+      "model": "gpt-5.6-luna",
+      "n": 112
+    }
+  ],
+  "publishedReports": [
+    {
+      "symbol": "AVGO",
+      "state": "published"
+    },
+    {
+      "symbol": "TSLA",
+      "state": "published"
+    },
+    {
+      "symbol": "GOOGL",
+      "state": "published"
+    },
+    {
+      "symbol": "META",
+      "state": "published"
+    }
+  ],
+  "attemptFailures": [
+    {
+      "state_id": "retry-wait",
+      "code": "codex_isolation_temporarily_unavailable",
+      "n": 4
+    },
+    {
+      "state_id": "retry-wait",
+      "code": "department_consolidation_missing",
+      "n": 1
+    },
+    {
+      "state_id": "retry-wait",
+      "code": "specialist_claim_numeric_metric_mismatch",
+      "n": 1
+    }
+  ],
+  "production": "/stocksembly-web running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f\n/stocksembly-worker running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f",
+  "reportArtifacts": [
+    {
+      "symbol": "AVGO",
+      "status": "complete_with_limitations",
+      "byte_length": 69413,
+      "content_hash": "8c06fa8ab51344dce2d08bff0eb8c27e0e30e2b56b1c0aa31e11518c004aa795",
+      "blobVerified": true
+    },
+    {
+      "symbol": "TSLA",
+      "status": "complete_with_limitations",
+      "byte_length": 91458,
+      "content_hash": "4c48dbe80d628256313d1e40fca1dfd6463987612c9725999a325602abfaa9ef",
+      "blobVerified": true
+    },
+    {
+      "symbol": "GOOGL",
+      "status": "complete_with_limitations",
+      "byte_length": 109564,
+      "content_hash": "db29f18ba4b1aace13d29033d464dfe14550880915dc401eccab1ce4de12284d",
+      "blobVerified": true
+    },
+    {
+      "symbol": "META",
+      "status": "complete_with_limitations",
+      "byte_length": 79674,
+      "content_hash": "35332405405cc32316065e266e0d419dd204ffb109507e9569a5871d9fe654cc",
+      "blobVerified": true
+    }
+  ],
+  "jobTimeline": [
+    {
+      "symbol": "AVGO",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:29:35.047Z",
+      "first_started": "2026-09-10T15:29:48.602Z",
+      "last_committed": "2026-09-10T15:31:28.390Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.829Z",
+      "last_committed": "2026-09-10T15:34:17.159Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.858Z",
+      "last_committed": "2026-09-10T15:34:45.499Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.874Z",
+      "last_committed": "2026-09-10T15:32:45.340Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.888Z",
+      "last_committed": "2026-09-10T15:34:28.129Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.915Z",
+      "last_committed": "2026-09-10T15:34:30.790Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.935Z",
+      "last_committed": "2026-09-10T15:33:28.896Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.950Z",
+      "last_committed": "2026-09-10T15:33:19.121Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.967Z",
+      "last_committed": "2026-09-10T15:32:49.921Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:28.989Z",
+      "last_committed": "2026-09-10T15:34:16.579Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:31:29.009Z",
+      "last_committed": "2026-09-10T15:33:12.700Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:23.738Z",
+      "first_started": "2026-09-10T15:32:45.906Z",
+      "last_committed": "2026-09-10T15:37:04.963Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:33:29.061Z",
+      "first_started": "2026-09-10T15:33:29.449Z",
+      "last_committed": "2026-09-10T15:36:20.430Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:34:17.363Z",
+      "first_started": "2026-09-10T15:34:17.407Z",
+      "last_committed": "2026-09-10T15:37:48.553Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:34:45.672Z",
+      "first_started": "2026-09-10T15:34:46.001Z",
+      "last_committed": "2026-09-10T15:37:43.455Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:05.139Z",
+      "first_started": "2026-09-10T15:37:05.708Z",
+      "last_committed": "2026-09-10T15:40:24.453Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.293Z",
+      "first_started": "2026-09-10T15:40:25.691Z",
+      "last_committed": "2026-09-10T15:42:04.421Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.293Z",
+      "first_started": "2026-09-10T15:40:25.714Z",
+      "last_committed": "2026-09-10T15:42:19.242Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.293Z",
+      "first_started": "2026-09-10T15:40:25.733Z",
+      "last_committed": "2026-09-10T15:42:30.370Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.293Z",
+      "first_started": "2026-09-10T15:40:25.751Z",
+      "last_committed": "2026-09-10T15:42:44.945Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "followup:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:45.410Z",
+      "first_started": "2026-09-10T15:42:46.406Z",
+      "last_committed": "2026-09-10T15:44:12.733Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:45.410Z",
+      "first_started": "2026-09-10T15:42:46.415Z",
+      "last_committed": "2026-09-10T15:44:25.619Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "followup:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:45.410Z",
+      "first_started": "2026-09-10T15:42:46.424Z",
+      "last_committed": "2026-09-10T15:44:24.735Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:45.531Z",
+      "first_started": "2026-09-10T15:42:46.432Z",
+      "last_committed": "2026-09-10T15:44:25.653Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:14.029Z",
+      "first_started": "2026-09-10T15:44:14.271Z",
+      "last_committed": "2026-09-10T15:45:37.916Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:25.005Z",
+      "first_started": "2026-09-10T15:44:26.177Z",
+      "last_committed": "2026-09-10T15:45:44.664Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:26.060Z",
+      "first_started": "2026-09-10T15:44:26.189Z",
+      "last_committed": "2026-09-10T15:45:48.559Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:45:49.749Z",
+      "first_started": "2026-09-10T15:45:51.230Z",
+      "last_committed": "2026-09-10T15:48:42.939Z"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:44.481Z",
+      "first_started": "2026-09-10T15:48:45.789Z",
+      "last_committed": "2026-09-10T15:51:16.860Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:29:35.026Z",
+      "first_started": "2026-09-10T15:29:48.552Z",
+      "last_committed": "2026-09-10T15:37:17.875Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.285Z",
+      "last_committed": "2026-09-10T15:39:20.493Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.300Z",
+      "last_committed": "2026-09-10T15:39:24.277Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.316Z",
+      "last_committed": "2026-09-10T15:39:09.468Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.344Z",
+      "last_committed": "2026-09-10T15:38:33.445Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.360Z",
+      "last_committed": "2026-09-10T15:38:32.920Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.380Z",
+      "last_committed": "2026-09-10T15:39:04.032Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.399Z",
+      "last_committed": "2026-09-10T15:38:58.958Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.416Z",
+      "last_committed": "2026-09-10T15:39:42.230Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.430Z",
+      "last_committed": "2026-09-10T15:38:57.451Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:37:18.450Z",
+      "last_committed": "2026-09-10T15:38:24.343Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:37:14.103Z",
+      "first_started": "2026-09-10T15:38:24.777Z",
+      "last_committed": "2026-09-10T15:41:19.939Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:39:04.270Z",
+      "first_started": "2026-09-10T15:39:04.382Z",
+      "last_committed": "2026-09-10T15:44:46.777Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:39:20.689Z",
+      "first_started": "2026-09-10T15:39:21.274Z",
+      "last_committed": "2026-09-10T15:42:29.010Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:39:24.435Z",
+      "first_started": "2026-09-10T15:39:24.913Z",
+      "last_committed": "2026-09-10T15:42:16.753Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:41:20.168Z",
+      "first_started": "2026-09-10T15:41:21.014Z",
+      "last_committed": "2026-09-10T15:44:09.810Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:47.246Z",
+      "first_started": "2026-09-10T15:44:48.160Z",
+      "last_committed": "2026-09-10T15:46:00.931Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:47.246Z",
+      "first_started": "2026-09-10T15:44:48.171Z",
+      "last_committed": "2026-09-10T15:46:09.796Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:47.246Z",
+      "first_started": "2026-09-10T15:44:48.179Z",
+      "last_committed": "2026-09-10T15:46:17.989Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:47.246Z",
+      "first_started": "2026-09-10T15:44:48.188Z",
+      "last_committed": "2026-09-10T15:46:26.961Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "followup:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:46:27.226Z",
+      "first_started": "2026-09-10T15:46:29.464Z",
+      "last_committed": "2026-09-10T15:47:46.501Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:46:27.226Z",
+      "first_started": "2026-09-10T15:46:29.473Z",
+      "last_committed": "2026-09-10T15:48:05.341Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "followup:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:46:27.226Z",
+      "first_started": "2026-09-10T15:46:29.482Z",
+      "last_committed": "2026-09-10T15:48:00.138Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:46:27.337Z",
+      "first_started": "2026-09-10T15:46:29.499Z",
+      "last_committed": "2026-09-10T15:48:00.851Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:47:48.370Z",
+      "first_started": "2026-09-10T15:47:52.044Z",
+      "last_committed": "2026-09-10T15:48:40.150Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:00.389Z",
+      "first_started": "2026-09-10T15:48:01.846Z",
+      "last_committed": "2026-09-10T15:48:53.445Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:06.246Z",
+      "first_started": "2026-09-10T15:48:09.429Z",
+      "last_committed": "2026-09-10T15:48:45.891Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:55.458Z",
+      "first_started": "2026-09-10T15:48:58.308Z",
+      "last_committed": "2026-09-10T15:51:21.258Z"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:51:21.373Z",
+      "first_started": "2026-09-10T15:51:23.560Z",
+      "last_committed": "2026-09-10T15:53:30.996Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:29:35.041Z",
+      "first_started": "2026-09-10T15:29:48.585Z",
+      "last_committed": "2026-09-10T15:38:07.529Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.822Z",
+      "last_committed": "2026-09-10T15:40:28.492Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.836Z",
+      "last_committed": "2026-09-10T15:41:11.918Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.852Z",
+      "last_committed": "2026-09-10T15:40:56.147Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.867Z",
+      "last_committed": "2026-09-10T15:40:41.458Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.881Z",
+      "last_committed": "2026-09-10T15:40:54.599Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.898Z",
+      "last_committed": "2026-09-10T15:41:14.256Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.916Z",
+      "last_committed": "2026-09-10T15:40:37.802Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.931Z",
+      "last_committed": "2026-09-10T15:40:15.426Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.945Z",
+      "last_committed": "2026-09-10T15:40:16.780Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:38:07.966Z",
+      "last_committed": "2026-09-10T15:41:01.138Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:38:03.340Z",
+      "first_started": "2026-09-10T15:40:15.560Z",
+      "last_committed": "2026-09-10T15:45:41.787Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:41.588Z",
+      "first_started": "2026-09-10T15:40:42.209Z",
+      "last_committed": "2026-09-10T15:43:42.189Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:41:12.164Z",
+      "first_started": "2026-09-10T15:41:12.383Z",
+      "last_committed": "2026-09-10T15:43:47.334Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:41:14.613Z",
+      "first_started": "2026-09-10T15:41:14.817Z",
+      "last_committed": "2026-09-10T15:43:51.759Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:45:42.038Z",
+      "first_started": "2026-09-10T15:45:43.006Z",
+      "last_committed": "2026-09-10T15:48:18.937Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:19.303Z",
+      "first_started": "2026-09-10T15:48:21.413Z",
+      "last_committed": "2026-09-10T15:49:01.357Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:19.303Z",
+      "first_started": "2026-09-10T15:48:21.423Z",
+      "last_committed": "2026-09-10T15:49:09.443Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:19.303Z",
+      "first_started": "2026-09-10T15:48:21.432Z",
+      "last_committed": "2026-09-10T15:49:16.146Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:48:19.303Z",
+      "first_started": "2026-09-10T15:48:21.441Z",
+      "last_committed": "2026-09-10T15:49:26.546Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "followup:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:49:27.021Z",
+      "first_started": "2026-09-10T15:49:28.786Z",
+      "last_committed": "2026-09-10T15:50:44.201Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:49:27.021Z",
+      "first_started": "2026-09-10T15:49:28.797Z",
+      "last_committed": "2026-09-10T15:50:58.050Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "followup:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:49:27.021Z",
+      "first_started": "2026-09-10T15:49:28.805Z",
+      "last_committed": "2026-09-10T15:51:00.466Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:49:27.328Z",
+      "first_started": "2026-09-10T15:49:28.813Z",
+      "last_committed": "2026-09-10T15:51:04.244Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:50:45.410Z",
+      "first_started": "2026-09-10T15:50:47.125Z",
+      "last_committed": "2026-09-10T15:51:32.330Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:51:00.563Z",
+      "first_started": "2026-09-10T15:51:02.429Z",
+      "last_committed": "2026-09-10T15:51:42.927Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:51:05.370Z",
+      "first_started": "2026-09-10T15:51:07.141Z",
+      "last_committed": "2026-09-10T15:51:51.989Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:51:52.668Z",
+      "first_started": "2026-09-10T15:51:55.198Z",
+      "last_committed": "2026-09-10T15:53:37.956Z"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:53:38.674Z",
+      "first_started": "2026-09-10T15:53:39.342Z",
+      "last_committed": "2026-09-10T15:55:44.129Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:29:35.057Z",
+      "first_started": "2026-09-10T15:29:48.619Z",
+      "last_committed": "2026-09-10T15:31:23.174Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.385Z",
+      "last_committed": "2026-09-10T15:32:40.381Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.410Z",
+      "last_committed": "2026-09-10T15:33:55.559Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.441Z",
+      "last_committed": "2026-09-10T15:33:31.029Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.460Z",
+      "last_committed": "2026-09-10T15:32:21.565Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.492Z",
+      "last_committed": "2026-09-10T15:32:43.868Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.525Z",
+      "last_committed": "2026-09-10T15:33:50.999Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.547Z",
+      "last_committed": "2026-09-10T15:33:48.549Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.567Z",
+      "last_committed": "2026-09-10T15:32:28.225Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.587Z",
+      "last_committed": "2026-09-10T15:33:11.798Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:31:23.621Z",
+      "last_committed": "2026-09-10T15:33:31.870Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:31:19.039Z",
+      "first_started": "2026-09-10T15:32:22.254Z",
+      "last_committed": "2026-09-10T15:35:39.497Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:33:11.953Z",
+      "first_started": "2026-09-10T15:33:12.214Z",
+      "last_committed": "2026-09-10T15:38:24.138Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:33:32.317Z",
+      "first_started": "2026-09-10T15:33:32.426Z",
+      "last_committed": "2026-09-10T15:40:24.949Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:33:55.720Z",
+      "first_started": "2026-09-10T15:33:56.211Z",
+      "last_committed": "2026-09-10T15:37:02.459Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:35:39.973Z",
+      "first_started": "2026-09-10T15:35:40.655Z",
+      "last_committed": "2026-09-10T15:37:28.922Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.444Z",
+      "first_started": "2026-09-10T15:40:25.703Z",
+      "last_committed": "2026-09-10T15:42:13.413Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.444Z",
+      "first_started": "2026-09-10T15:40:25.725Z",
+      "last_committed": "2026-09-10T15:42:24.284Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.444Z",
+      "first_started": "2026-09-10T15:40:25.742Z",
+      "last_committed": "2026-09-10T15:42:39.721Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:40:25.444Z",
+      "first_started": "2026-09-10T15:40:25.760Z",
+      "last_committed": "2026-09-10T15:42:52.246Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "followup:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:52.431Z",
+      "first_started": "2026-09-10T15:42:53.122Z",
+      "last_committed": "2026-09-10T15:44:44.916Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "followup:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:52.431Z",
+      "first_started": "2026-09-10T15:42:53.131Z",
+      "last_committed": "2026-09-10T15:44:56.318Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:52.431Z",
+      "first_started": "2026-09-10T15:42:53.139Z",
+      "last_committed": "2026-09-10T15:44:53.696Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:42:52.699Z",
+      "first_started": "2026-09-10T15:42:53.148Z",
+      "last_committed": "2026-09-10T15:44:54.932Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:45.226Z",
+      "first_started": "2026-09-10T15:44:45.427Z",
+      "last_committed": "2026-09-10T15:45:57.619Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:53.972Z",
+      "first_started": "2026-09-10T15:44:53.981Z",
+      "last_committed": "2026-09-10T15:46:37.136Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:44:56.702Z",
+      "first_started": "2026-09-10T15:44:57.140Z",
+      "last_committed": "2026-09-10T15:46:45.682Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:46:47.330Z",
+      "first_started": "2026-09-10T15:46:51.053Z",
+      "last_committed": "2026-09-10T15:49:10.160Z"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:49:11.213Z",
+      "first_started": "2026-09-10T15:49:14.430Z",
+      "last_committed": "2026-09-10T15:51:28.866Z"
+    }
+  ],
+  "events": [
+    {
+      "symbol": "GOOGL",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:35.026Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:35.041Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:35.047Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:35.057Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.552Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "558436a2-7663-405e-80d5-8c35eb61c9fb",
+      "attempt_id": "991c06b9-fcf1-480b-88c1-6458812f2946",
+      "occurred_at": "2026-09-10T15:29:48.552Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.579Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.585Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "319f2cc6-e36e-4196-9c5c-9ae3de29e7e2",
+      "attempt_id": "079ca57a-bc48-4844-a79f-dff484942d17",
+      "occurred_at": "2026-09-10T15:29:48.585Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.599Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.602Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "bb318c8e-3d82-4c38-946b-86db1b4136d1",
+      "attempt_id": "4911ce97-13ca-414d-9040-7b10ae8b6539",
+      "occurred_at": "2026-09-10T15:29:48.602Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.615Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.619Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7c4db666-e789-4528-b4f1-dce1e5d9057a",
+      "attempt_id": "094f1d09-eae3-4d8a-bfac-cb7e14aa3a6e",
+      "occurred_at": "2026-09-10T15:29:48.619Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:29:48.636Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:31:19.037Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:31:19.038Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:31:19.039Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "7c4db666-e789-4528-b4f1-dce1e5d9057a",
+      "attempt_id": "094f1d09-eae3-4d8a-bfac-cb7e14aa3a6e",
+      "occurred_at": "2026-09-10T15:31:23.174Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "15007a76-0e54-42fc-8b8a-7d124ca2fd82",
+      "attempt_id": "5ef840a4-c767-43dc-ae32-44d02f022b3d",
+      "occurred_at": "2026-09-10T15:31:23.385Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "18aacbff-cd87-49c4-8053-085c0cf8bcba",
+      "attempt_id": "752f1f38-f2a3-4a2b-a8e1-c7fe3b0f442d",
+      "occurred_at": "2026-09-10T15:31:23.410Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1a9a778a-5f54-4fcb-8aaf-c78d09859dc0",
+      "attempt_id": "3e2e8c7b-74f6-4612-98d6-b287303b0a44",
+      "occurred_at": "2026-09-10T15:31:23.441Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "303fb5bf-32cb-4763-882c-230dc9b7c9d9",
+      "attempt_id": "f255aaec-4966-4947-ab36-5b804f3260be",
+      "occurred_at": "2026-09-10T15:31:23.460Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "536653bc-8be5-4d45-85b0-00ffc0c02ee1",
+      "attempt_id": "ba4d5df5-2eee-494d-b8f2-10121cfce755",
+      "occurred_at": "2026-09-10T15:31:23.492Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "77fc13fc-4032-469b-8a54-1c16ee2b3f46",
+      "attempt_id": "f7e98019-4a3b-439d-a0a6-0ad9c8649ea5",
+      "occurred_at": "2026-09-10T15:31:23.525Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "90578408-e049-4ed0-8859-cd15b3a707c8",
+      "attempt_id": "3d7d38d9-4891-4b11-8136-52156b096b3d",
+      "occurred_at": "2026-09-10T15:31:23.547Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "9119edd4-151b-41eb-8a5f-569674af8d58",
+      "attempt_id": "a45aa8e2-1615-490a-9f91-fb6452bddcbd",
+      "occurred_at": "2026-09-10T15:31:23.567Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "9de5f8a1-c63c-481c-8103-b8637eb7b792",
+      "attempt_id": "333674ae-c2fc-4541-ae19-42ff8e5c2155",
+      "occurred_at": "2026-09-10T15:31:23.587Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b4622a10-3791-403b-8b3d-9d1bac25ec0a",
+      "attempt_id": "99bbf9c5-f14e-4fc2-872f-7546e300f282",
+      "occurred_at": "2026-09-10T15:31:23.621Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:31:23.736Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:31:23.737Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:31:23.738Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "bb318c8e-3d82-4c38-946b-86db1b4136d1",
+      "attempt_id": "4911ce97-13ca-414d-9040-7b10ae8b6539",
+      "occurred_at": "2026-09-10T15:31:28.390Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "0b1fbc55-e209-4dc9-856f-c5ea0d7d14ef",
+      "attempt_id": "e9322f81-987a-4d69-a359-fef63601221b",
+      "occurred_at": "2026-09-10T15:31:28.829Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "12141f55-3371-4a17-8db7-970bb8f916ae",
+      "attempt_id": "eda5c17c-b33f-4219-9100-56dc74fa7381",
+      "occurred_at": "2026-09-10T15:31:28.858Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1bc5327b-99f4-4fa8-8cec-9cf5d5473c6b",
+      "attempt_id": "725027cf-68ea-4fcc-92d2-b1df5215ae21",
+      "occurred_at": "2026-09-10T15:31:28.874Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "2c30f720-3d99-4581-8b66-e1b87a12e12c",
+      "attempt_id": "b03d5ccd-cbab-4895-945a-0b64b305a9a9",
+      "occurred_at": "2026-09-10T15:31:28.888Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "60d9d2ad-3485-4eac-8b14-8eb047736164",
+      "attempt_id": "3adeff0c-d39b-4779-a04c-5f6b52d2f03d",
+      "occurred_at": "2026-09-10T15:31:28.915Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "793e0cb5-2446-4aef-8d24-389f80e58bcb",
+      "attempt_id": "98fc6ddf-0c15-4c80-bfd9-f7bbe7a71189",
+      "occurred_at": "2026-09-10T15:31:28.935Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7eff2582-6993-4570-806d-18686c148478",
+      "attempt_id": "adcb1dc8-5159-480a-9d2a-19d6525f2e0c",
+      "occurred_at": "2026-09-10T15:31:28.950Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "835ab8c1-302e-4506-8dae-7b33782dbeed",
+      "attempt_id": "94d5ef94-a4f3-44b9-945b-b6201d7a34fd",
+      "occurred_at": "2026-09-10T15:31:28.967Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a3ac402a-d836-4727-83f9-18692e3ccec0",
+      "attempt_id": "d436074f-0ff2-4042-8a69-2b6b80213951",
+      "occurred_at": "2026-09-10T15:31:28.989Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d8474d3a-a4a7-42d0-8c04-67e0f9e2b9f4",
+      "attempt_id": "451db42c-9df7-4649-9fe6-9e70458bebb8",
+      "occurred_at": "2026-09-10T15:31:29.009Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "303fb5bf-32cb-4763-882c-230dc9b7c9d9",
+      "attempt_id": "f255aaec-4966-4947-ab36-5b804f3260be",
+      "occurred_at": "2026-09-10T15:32:21.565Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d6309b0e-bd5f-42ab-8490-77598906f5b2",
+      "attempt_id": "60aa5fa0-b3d8-4dae-b25f-b66bf1771e88",
+      "occurred_at": "2026-09-10T15:32:22.254Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "9119edd4-151b-41eb-8a5f-569674af8d58",
+      "attempt_id": "a45aa8e2-1615-490a-9f91-fb6452bddcbd",
+      "occurred_at": "2026-09-10T15:32:28.225Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "15007a76-0e54-42fc-8b8a-7d124ca2fd82",
+      "attempt_id": "5ef840a4-c767-43dc-ae32-44d02f022b3d",
+      "occurred_at": "2026-09-10T15:32:40.381Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "536653bc-8be5-4d45-85b0-00ffc0c02ee1",
+      "attempt_id": "ba4d5df5-2eee-494d-b8f2-10121cfce755",
+      "occurred_at": "2026-09-10T15:32:43.868Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "1bc5327b-99f4-4fa8-8cec-9cf5d5473c6b",
+      "attempt_id": "725027cf-68ea-4fcc-92d2-b1df5215ae21",
+      "occurred_at": "2026-09-10T15:32:45.340Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e1b216b5-e17f-46c5-871f-552803d1c2d7",
+      "attempt_id": "7b6ea69f-a324-4305-bbc3-28d9dc8b45ef",
+      "occurred_at": "2026-09-10T15:32:45.906Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "835ab8c1-302e-4506-8dae-7b33782dbeed",
+      "attempt_id": "94d5ef94-a4f3-44b9-945b-b6201d7a34fd",
+      "occurred_at": "2026-09-10T15:32:49.921Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "9de5f8a1-c63c-481c-8103-b8637eb7b792",
+      "attempt_id": "333674ae-c2fc-4541-ae19-42ff8e5c2155",
+      "occurred_at": "2026-09-10T15:33:11.798Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a6506569-d85b-4aea-8290-d092bd6e9ae6",
+      "attempt_id": "2080844b-178f-452e-9c6d-e76c8a97cbb0",
+      "occurred_at": "2026-09-10T15:33:12.214Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "d8474d3a-a4a7-42d0-8c04-67e0f9e2b9f4",
+      "attempt_id": "451db42c-9df7-4649-9fe6-9e70458bebb8",
+      "occurred_at": "2026-09-10T15:33:12.700Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "7eff2582-6993-4570-806d-18686c148478",
+      "attempt_id": "adcb1dc8-5159-480a-9d2a-19d6525f2e0c",
+      "occurred_at": "2026-09-10T15:33:19.121Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "793e0cb5-2446-4aef-8d24-389f80e58bcb",
+      "attempt_id": "98fc6ddf-0c15-4c80-bfd9-f7bbe7a71189",
+      "occurred_at": "2026-09-10T15:33:28.896Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "44399516-6443-4845-8d92-36b26c86d74b",
+      "attempt_id": "36fb52af-64c2-43f0-a9a5-150a8dcd6201",
+      "occurred_at": "2026-09-10T15:33:29.449Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "1a9a778a-5f54-4fcb-8aaf-c78d09859dc0",
+      "attempt_id": "3e2e8c7b-74f6-4612-98d6-b287303b0a44",
+      "occurred_at": "2026-09-10T15:33:31.029Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "b4622a10-3791-403b-8b3d-9d1bac25ec0a",
+      "attempt_id": "99bbf9c5-f14e-4fc2-872f-7546e300f282",
+      "occurred_at": "2026-09-10T15:33:31.870Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "de08ae4b-99e6-4285-8aca-de4a35e2ea71",
+      "attempt_id": "b71b5efb-c945-484f-83ce-98aac4281f51",
+      "occurred_at": "2026-09-10T15:33:32.426Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "90578408-e049-4ed0-8859-cd15b3a707c8",
+      "attempt_id": "3d7d38d9-4891-4b11-8136-52156b096b3d",
+      "occurred_at": "2026-09-10T15:33:48.549Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "77fc13fc-4032-469b-8a54-1c16ee2b3f46",
+      "attempt_id": "f7e98019-4a3b-439d-a0a6-0ad9c8649ea5",
+      "occurred_at": "2026-09-10T15:33:50.999Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "18aacbff-cd87-49c4-8053-085c0cf8bcba",
+      "attempt_id": "752f1f38-f2a3-4a2b-a8e1-c7fe3b0f442d",
+      "occurred_at": "2026-09-10T15:33:55.559Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "14ef7847-bb9e-4932-8b3b-0b27905be934",
+      "attempt_id": "5bb88bec-cbd4-42fc-882c-065fc40befff",
+      "occurred_at": "2026-09-10T15:33:56.211Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "a3ac402a-d836-4727-83f9-18692e3ccec0",
+      "attempt_id": "d436074f-0ff2-4042-8a69-2b6b80213951",
+      "occurred_at": "2026-09-10T15:34:16.579Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "0b1fbc55-e209-4dc9-856f-c5ea0d7d14ef",
+      "attempt_id": "e9322f81-987a-4d69-a359-fef63601221b",
+      "occurred_at": "2026-09-10T15:34:17.159Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c94c0c0a-0817-4ce6-8ed0-95e6c7233d9a",
+      "attempt_id": "c8665722-05ef-4d7f-9edc-a3606ab77401",
+      "occurred_at": "2026-09-10T15:34:17.407Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "2c30f720-3d99-4581-8b66-e1b87a12e12c",
+      "attempt_id": "b03d5ccd-cbab-4895-945a-0b64b305a9a9",
+      "occurred_at": "2026-09-10T15:34:28.129Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "60d9d2ad-3485-4eac-8b14-8eb047736164",
+      "attempt_id": "3adeff0c-d39b-4779-a04c-5f6b52d2f03d",
+      "occurred_at": "2026-09-10T15:34:30.790Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "12141f55-3371-4a17-8db7-970bb8f916ae",
+      "attempt_id": "eda5c17c-b33f-4219-9100-56dc74fa7381",
+      "occurred_at": "2026-09-10T15:34:45.499Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d3eced4c-205d-4ca8-8e64-a18e95eb3687",
+      "attempt_id": "b423c858-52bf-4465-a039-811d5fae1217",
+      "occurred_at": "2026-09-10T15:34:46.001Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "attempt_committed",
+      "state_id": "retry-wait",
+      "job_id": "e1b216b5-e17f-46c5-871f-552803d1c2d7",
+      "attempt_id": "7b6ea69f-a324-4305-bbc3-28d9dc8b45ef",
+      "occurred_at": "2026-09-10T15:35:37.326Z",
+      "code": "specialist_claim_numeric_metric_mismatch"
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "runtime_status",
+      "state_id": "invalid-model-output",
+      "job_id": "e1b216b5-e17f-46c5-871f-552803d1c2d7",
+      "attempt_id": "7b6ea69f-a324-4305-bbc3-28d9dc8b45ef",
+      "occurred_at": "2026-09-10T15:35:37.326Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "e1b216b5-e17f-46c5-871f-552803d1c2d7",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:35:37.379Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e1b216b5-e17f-46c5-871f-552803d1c2d7",
+      "attempt_id": "748e9068-2a40-437d-90cb-a6862268ebd0",
+      "occurred_at": "2026-09-10T15:35:37.379Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "d6309b0e-bd5f-42ab-8490-77598906f5b2",
+      "attempt_id": "60aa5fa0-b3d8-4dae-b25f-b66bf1771e88",
+      "occurred_at": "2026-09-10T15:35:39.497Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e5ad3e90-7b47-41a0-84b5-49714c2e0bf7",
+      "attempt_id": "4b5337fd-ab40-4d37-8af6-92e518018d55",
+      "occurred_at": "2026-09-10T15:35:40.655Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "44399516-6443-4845-8d92-36b26c86d74b",
+      "attempt_id": "36fb52af-64c2-43f0-a9a5-150a8dcd6201",
+      "occurred_at": "2026-09-10T15:36:20.430Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "14ef7847-bb9e-4932-8b3b-0b27905be934",
+      "attempt_id": "5bb88bec-cbd4-42fc-882c-065fc40befff",
+      "occurred_at": "2026-09-10T15:37:02.459Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "e1b216b5-e17f-46c5-871f-552803d1c2d7",
+      "attempt_id": "748e9068-2a40-437d-90cb-a6862268ebd0",
+      "occurred_at": "2026-09-10T15:37:04.963Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1ffe3590-e06c-4483-8b53-4f71535e21c8",
+      "attempt_id": "76931080-5b3c-4c94-9c39-b9b79c1b8d69",
+      "occurred_at": "2026-09-10T15:37:05.708Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:14.101Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:14.102Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:14.103Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "558436a2-7663-405e-80d5-8c35eb61c9fb",
+      "attempt_id": "991c06b9-fcf1-480b-88c1-6458812f2946",
+      "occurred_at": "2026-09-10T15:37:17.875Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "083dde81-2f65-4e5a-8f3c-061069a9aade",
+      "attempt_id": "0b40ec53-3c91-4a36-bbde-c33784fbe401",
+      "occurred_at": "2026-09-10T15:37:18.285Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4e827152-9a99-4a25-8f8c-bfa5326b127d",
+      "attempt_id": "eef3ba13-9b16-4f03-9cbc-24864bb398eb",
+      "occurred_at": "2026-09-10T15:37:18.300Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4eb309de-a07b-44e9-89c0-491abbddd238",
+      "attempt_id": "6976d5bf-6533-41cc-a101-e659ced8d53c",
+      "occurred_at": "2026-09-10T15:37:18.316Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "6c3127e7-f6fc-482a-8cb9-0048c2226ebb",
+      "attempt_id": "d7f12649-7908-45f4-8468-c712171a4427",
+      "occurred_at": "2026-09-10T15:37:18.344Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7bf2dff8-2ca7-4b56-8e5a-0d98680ed472",
+      "attempt_id": "e5450f30-0f63-417b-8fef-155f7ed4a975",
+      "occurred_at": "2026-09-10T15:37:18.360Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "945906e3-1c8e-4e15-8788-f772df114702",
+      "attempt_id": "a4405772-74a5-4196-bf07-ddf757aa8c0e",
+      "occurred_at": "2026-09-10T15:37:18.380Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "9c7aa7f8-22e9-4139-855b-46b57bddd9be",
+      "attempt_id": "9c653d84-6fcf-44fe-940b-c080180abb0e",
+      "occurred_at": "2026-09-10T15:37:18.399Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a1a452c0-05d2-4ff8-8fe2-9a1a78fec723",
+      "attempt_id": "7f81e3a6-ca76-4b62-b26e-d4ed46ff4311",
+      "occurred_at": "2026-09-10T15:37:18.416Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "aa5505a6-c204-42e1-8d00-52a62b46ac80",
+      "attempt_id": "99ff9283-4657-42e6-ad28-0e68a4648d0f",
+      "occurred_at": "2026-09-10T15:37:18.430Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b85bb04b-d5ef-4c85-8aa8-f7ed3b94439b",
+      "attempt_id": "5c33e279-bfca-4271-99d1-715912b22dca",
+      "occurred_at": "2026-09-10T15:37:18.450Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "attempt_committed",
+      "state_id": "retry-wait",
+      "job_id": "1ffe3590-e06c-4483-8b53-4f71535e21c8",
+      "attempt_id": "76931080-5b3c-4c94-9c39-b9b79c1b8d69",
+      "occurred_at": "2026-09-10T15:37:18.995Z",
+      "code": "department_consolidation_missing"
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "runtime_status",
+      "state_id": "invalid-model-output",
+      "job_id": "1ffe3590-e06c-4483-8b53-4f71535e21c8",
+      "attempt_id": "76931080-5b3c-4c94-9c39-b9b79c1b8d69",
+      "occurred_at": "2026-09-10T15:37:18.995Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "attempt_committed",
+      "state_id": "retry-wait",
+      "job_id": "4eb309de-a07b-44e9-89c0-491abbddd238",
+      "attempt_id": "6976d5bf-6533-41cc-a101-e659ced8d53c",
+      "occurred_at": "2026-09-10T15:37:19.002Z",
+      "code": "codex_isolation_temporarily_unavailable"
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "waiting",
+      "job_id": "4eb309de-a07b-44e9-89c0-491abbddd238",
+      "attempt_id": "6976d5bf-6533-41cc-a101-e659ced8d53c",
+      "occurred_at": "2026-09-10T15:37:19.002Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "attempt_committed",
+      "state_id": "retry-wait",
+      "job_id": "083dde81-2f65-4e5a-8f3c-061069a9aade",
+      "attempt_id": "0b40ec53-3c91-4a36-bbde-c33784fbe401",
+      "occurred_at": "2026-09-10T15:37:19.007Z",
+      "code": "codex_isolation_temporarily_unavailable"
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "waiting",
+      "job_id": "083dde81-2f65-4e5a-8f3c-061069a9aade",
+      "attempt_id": "0b40ec53-3c91-4a36-bbde-c33784fbe401",
+      "occurred_at": "2026-09-10T15:37:19.007Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "attempt_committed",
+      "state_id": "retry-wait",
+      "job_id": "4e827152-9a99-4a25-8f8c-bfa5326b127d",
+      "attempt_id": "eef3ba13-9b16-4f03-9cbc-24864bb398eb",
+      "occurred_at": "2026-09-10T15:37:19.011Z",
+      "code": "codex_isolation_temporarily_unavailable"
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "waiting",
+      "job_id": "4e827152-9a99-4a25-8f8c-bfa5326b127d",
+      "attempt_id": "eef3ba13-9b16-4f03-9cbc-24864bb398eb",
+      "occurred_at": "2026-09-10T15:37:19.011Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "attempt_committed",
+      "state_id": "retry-wait",
+      "job_id": "a1a452c0-05d2-4ff8-8fe2-9a1a78fec723",
+      "attempt_id": "7f81e3a6-ca76-4b62-b26e-d4ed46ff4311",
+      "occurred_at": "2026-09-10T15:37:19.016Z",
+      "code": "codex_isolation_temporarily_unavailable"
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "waiting",
+      "job_id": "a1a452c0-05d2-4ff8-8fe2-9a1a78fec723",
+      "attempt_id": "7f81e3a6-ca76-4b62-b26e-d4ed46ff4311",
+      "occurred_at": "2026-09-10T15:37:19.016Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "1ffe3590-e06c-4483-8b53-4f71535e21c8",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:19.360Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1ffe3590-e06c-4483-8b53-4f71535e21c8",
+      "attempt_id": "c36fc3f4-e017-4a04-a464-c66aa4965ff3",
+      "occurred_at": "2026-09-10T15:37:19.360Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "083dde81-2f65-4e5a-8f3c-061069a9aade",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:19.374Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "083dde81-2f65-4e5a-8f3c-061069a9aade",
+      "attempt_id": "dc3d08c1-4af1-4733-99a0-eed4063c28d3",
+      "occurred_at": "2026-09-10T15:37:19.374Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "4e827152-9a99-4a25-8f8c-bfa5326b127d",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:19.391Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4e827152-9a99-4a25-8f8c-bfa5326b127d",
+      "attempt_id": "e98cf723-b945-4bcd-b2e6-02b9fa4f5c97",
+      "occurred_at": "2026-09-10T15:37:19.391Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "4eb309de-a07b-44e9-89c0-491abbddd238",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:19.407Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4eb309de-a07b-44e9-89c0-491abbddd238",
+      "attempt_id": "c7dd93a9-ea6b-4b5a-a7ba-55528197db2c",
+      "occurred_at": "2026-09-10T15:37:19.407Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "a1a452c0-05d2-4ff8-8fe2-9a1a78fec723",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:19.423Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a1a452c0-05d2-4ff8-8fe2-9a1a78fec723",
+      "attempt_id": "176997e0-bdba-4d32-998b-e91585fe0340",
+      "occurred_at": "2026-09-10T15:37:19.423Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "e5ad3e90-7b47-41a0-84b5-49714c2e0bf7",
+      "attempt_id": "4b5337fd-ab40-4d37-8af6-92e518018d55",
+      "occurred_at": "2026-09-10T15:37:28.922Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "de08ae4b-99e6-4285-8aca-de4a35e2ea71",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:37:41.127Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "de08ae4b-99e6-4285-8aca-de4a35e2ea71",
+      "attempt_id": "306325ea-59d5-4fd7-94fd-7cfc0a96d22e",
+      "occurred_at": "2026-09-10T15:37:41.127Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "d3eced4c-205d-4ca8-8e64-a18e95eb3687",
+      "attempt_id": "b423c858-52bf-4465-a039-811d5fae1217",
+      "occurred_at": "2026-09-10T15:37:43.455Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "c94c0c0a-0817-4ce6-8ed0-95e6c7233d9a",
+      "attempt_id": "c8665722-05ef-4d7f-9edc-a3606ab77401",
+      "occurred_at": "2026-09-10T15:37:48.553Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:38:03.338Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:38:03.339Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:38:03.340Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "319f2cc6-e36e-4196-9c5c-9ae3de29e7e2",
+      "attempt_id": "079ca57a-bc48-4844-a79f-dff484942d17",
+      "occurred_at": "2026-09-10T15:38:07.529Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1c9bb57b-3e07-42dd-8906-31fddeca021c",
+      "attempt_id": "94690220-ae6b-462a-9d13-a8899c1eae6c",
+      "occurred_at": "2026-09-10T15:38:07.822Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "57fb04e8-d689-430c-8f7b-50bb99e9cc9d",
+      "attempt_id": "5fb12546-56f3-4273-b0c5-60dc65680790",
+      "occurred_at": "2026-09-10T15:38:07.836Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "6df4c235-a244-4218-8737-0e0c44cd4644",
+      "attempt_id": "5c906d33-39c0-4b3a-8ba5-41171bbd5402",
+      "occurred_at": "2026-09-10T15:38:07.852Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "867d9422-0e9a-4e3c-8cc2-cb693f696ed7",
+      "attempt_id": "20f4c4ee-14e9-4c2d-a0fc-f40329515b95",
+      "occurred_at": "2026-09-10T15:38:07.867Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8f9021a4-99e2-47ea-81ba-e72f524bcfd0",
+      "attempt_id": "ae04f2e9-a444-45fe-b259-bec6bb9df597",
+      "occurred_at": "2026-09-10T15:38:07.881Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "9be357f1-837f-4d63-8c8f-17b5e8dc4535",
+      "attempt_id": "31cfe04a-7b27-4043-b076-61b83321a127",
+      "occurred_at": "2026-09-10T15:38:07.898Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b2d3531d-6dff-4e7c-87da-7a0038f6584e",
+      "attempt_id": "cf58bf0b-4875-47af-b0b8-13347225d19f",
+      "occurred_at": "2026-09-10T15:38:07.916Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "cc6ab53c-d229-4ced-8b0c-07062c39e04e",
+      "attempt_id": "b1207d0a-e52b-4ff2-950d-dea381ef583b",
+      "occurred_at": "2026-09-10T15:38:07.931Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d10dcae9-2633-4535-8e8b-4b1e33bdce60",
+      "attempt_id": "eb1ad51a-d934-4fa9-8b94-4d3e5d2dc5f1",
+      "occurred_at": "2026-09-10T15:38:07.945Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e201cfb0-f27b-43ee-8b2f-bcbf848f4eb0",
+      "attempt_id": "980686ac-63a7-45e8-bec1-1262499197ac",
+      "occurred_at": "2026-09-10T15:38:07.966Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "a6506569-d85b-4aea-8290-d092bd6e9ae6",
+      "attempt_id": "14a7bec8-a137-443d-b4e3-a3562fff2db9",
+      "occurred_at": "2026-09-10T15:38:24.138Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "b85bb04b-d5ef-4c85-8aa8-f7ed3b94439b",
+      "attempt_id": "5c33e279-bfca-4271-99d1-715912b22dca",
+      "occurred_at": "2026-09-10T15:38:24.343Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f9f996eb-b970-4789-8dab-c6f1f6e57bd8",
+      "attempt_id": "c0ef6821-0052-431d-be76-ad2b478ac6f4",
+      "occurred_at": "2026-09-10T15:38:24.777Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "7bf2dff8-2ca7-4b56-8e5a-0d98680ed472",
+      "attempt_id": "e5450f30-0f63-417b-8fef-155f7ed4a975",
+      "occurred_at": "2026-09-10T15:38:32.920Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "6c3127e7-f6fc-482a-8cb9-0048c2226ebb",
+      "attempt_id": "d7f12649-7908-45f4-8468-c712171a4427",
+      "occurred_at": "2026-09-10T15:38:33.445Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "aa5505a6-c204-42e1-8d00-52a62b46ac80",
+      "attempt_id": "99ff9283-4657-42e6-ad28-0e68a4648d0f",
+      "occurred_at": "2026-09-10T15:38:57.451Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "9c7aa7f8-22e9-4139-855b-46b57bddd9be",
+      "attempt_id": "9c653d84-6fcf-44fe-940b-c080180abb0e",
+      "occurred_at": "2026-09-10T15:38:58.958Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "945906e3-1c8e-4e15-8788-f772df114702",
+      "attempt_id": "a4405772-74a5-4196-bf07-ddf757aa8c0e",
+      "occurred_at": "2026-09-10T15:39:04.032Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "bab2bed0-c5e0-448d-8ab8-111d51a164ac",
+      "attempt_id": "58c054fe-0f25-4957-9bd3-e3db6d1db8a0",
+      "occurred_at": "2026-09-10T15:39:04.382Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "4eb309de-a07b-44e9-89c0-491abbddd238",
+      "attempt_id": "c7dd93a9-ea6b-4b5a-a7ba-55528197db2c",
+      "occurred_at": "2026-09-10T15:39:09.468Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "083dde81-2f65-4e5a-8f3c-061069a9aade",
+      "attempt_id": "dc3d08c1-4af1-4733-99a0-eed4063c28d3",
+      "occurred_at": "2026-09-10T15:39:20.493Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "afad30bd-9a74-4c07-88e2-cac9ba87f595",
+      "attempt_id": "4dda3fd8-5bad-4432-a4a6-db7bb652d7e2",
+      "occurred_at": "2026-09-10T15:39:21.274Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "4e827152-9a99-4a25-8f8c-bfa5326b127d",
+      "attempt_id": "e98cf723-b945-4bcd-b2e6-02b9fa4f5c97",
+      "occurred_at": "2026-09-10T15:39:24.277Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b036262d-8824-48b3-83dd-3ec6332e01ab",
+      "attempt_id": "c629afbb-29b8-4dc0-a74f-b0c591ab3ff1",
+      "occurred_at": "2026-09-10T15:39:24.913Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "a1a452c0-05d2-4ff8-8fe2-9a1a78fec723",
+      "attempt_id": "176997e0-bdba-4d32-998b-e91585fe0340",
+      "occurred_at": "2026-09-10T15:39:42.230Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "cc6ab53c-d229-4ced-8b0c-07062c39e04e",
+      "attempt_id": "b1207d0a-e52b-4ff2-950d-dea381ef583b",
+      "occurred_at": "2026-09-10T15:40:15.426Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e523a3ca-a73c-4e8c-8cb9-20601b596518",
+      "attempt_id": "e66984b7-39c3-43af-aeca-5465d88029bd",
+      "occurred_at": "2026-09-10T15:40:15.560Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "d10dcae9-2633-4535-8e8b-4b1e33bdce60",
+      "attempt_id": "eb1ad51a-d934-4fa9-8b94-4d3e5d2dc5f1",
+      "occurred_at": "2026-09-10T15:40:16.780Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "1ffe3590-e06c-4483-8b53-4f71535e21c8",
+      "attempt_id": "c36fc3f4-e017-4a04-a464-c66aa4965ff3",
+      "occurred_at": "2026-09-10T15:40:24.453Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "de08ae4b-99e6-4285-8aca-de4a35e2ea71",
+      "attempt_id": "306325ea-59d5-4fd7-94fd-7cfc0a96d22e",
+      "occurred_at": "2026-09-10T15:40:24.949Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "062c7083-d406-406e-89f4-3a94f7af966e",
+      "attempt_id": "784d138c-3872-4e37-8172-8e8496f2def2",
+      "occurred_at": "2026-09-10T15:40:25.691Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "50e221c3-6b60-4159-87c2-01b3b2cbfdd0",
+      "attempt_id": "cf8a762d-a05c-479a-bf82-a30d46731d6f",
+      "occurred_at": "2026-09-10T15:40:25.703Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "2a1387c5-7811-4960-8da5-47cdd90a2e78",
+      "attempt_id": "2480da3e-cd94-4781-9d29-805a28002d04",
+      "occurred_at": "2026-09-10T15:40:25.714Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "93532594-4188-4051-822b-b81408246920",
+      "attempt_id": "b6f4dbd2-5ff2-4362-a32e-b3b5033f3491",
+      "occurred_at": "2026-09-10T15:40:25.725Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "929dadb5-8851-45df-8b1e-eb41e9ecc9e0",
+      "attempt_id": "de9a1d59-43f3-44cb-be2c-b8e5aed86843",
+      "occurred_at": "2026-09-10T15:40:25.733Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a204b9f4-a032-4ecb-8b03-76c74a451c22",
+      "attempt_id": "163aded7-372f-4a10-a24d-1a9a775c8613",
+      "occurred_at": "2026-09-10T15:40:25.742Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f938b560-468e-4687-8766-4c10054b7ef4",
+      "attempt_id": "bc05b22e-291e-4d79-9b3d-cdc610210fad",
+      "occurred_at": "2026-09-10T15:40:25.751Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "abe203fa-c006-4fc4-85ea-b6c961292574",
+      "attempt_id": "9d6121be-34ad-4d10-856f-b1c90544c994",
+      "occurred_at": "2026-09-10T15:40:25.760Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "1c9bb57b-3e07-42dd-8906-31fddeca021c",
+      "attempt_id": "94690220-ae6b-462a-9d13-a8899c1eae6c",
+      "occurred_at": "2026-09-10T15:40:28.492Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "b2d3531d-6dff-4e7c-87da-7a0038f6584e",
+      "attempt_id": "cf58bf0b-4875-47af-b0b8-13347225d19f",
+      "occurred_at": "2026-09-10T15:40:37.802Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "867d9422-0e9a-4e3c-8cc2-cb693f696ed7",
+      "attempt_id": "20f4c4ee-14e9-4c2d-a0fc-f40329515b95",
+      "occurred_at": "2026-09-10T15:40:41.458Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "bc4bb152-80e0-4d77-8f1b-4e143b0e9cb9",
+      "attempt_id": "8ce68f6b-5a5d-4385-ab73-2778488b0507",
+      "occurred_at": "2026-09-10T15:40:42.209Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "8f9021a4-99e2-47ea-81ba-e72f524bcfd0",
+      "attempt_id": "ae04f2e9-a444-45fe-b259-bec6bb9df597",
+      "occurred_at": "2026-09-10T15:40:54.599Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "6df4c235-a244-4218-8737-0e0c44cd4644",
+      "attempt_id": "5c906d33-39c0-4b3a-8ba5-41171bbd5402",
+      "occurred_at": "2026-09-10T15:40:56.147Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "e201cfb0-f27b-43ee-8b2f-bcbf848f4eb0",
+      "attempt_id": "980686ac-63a7-45e8-bec1-1262499197ac",
+      "occurred_at": "2026-09-10T15:41:01.138Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "57fb04e8-d689-430c-8f7b-50bb99e9cc9d",
+      "attempt_id": "5fb12546-56f3-4273-b0c5-60dc65680790",
+      "occurred_at": "2026-09-10T15:41:11.918Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "014a6249-aec2-45cc-8ba8-9c506c4e833f",
+      "attempt_id": "663cf8d9-5e56-4dde-ace2-50f56936f3cf",
+      "occurred_at": "2026-09-10T15:41:12.383Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "9be357f1-837f-4d63-8c8f-17b5e8dc4535",
+      "attempt_id": "31cfe04a-7b27-4043-b076-61b83321a127",
+      "occurred_at": "2026-09-10T15:41:14.256Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "11a05f9b-a31a-48bd-8817-15364c3db6ab",
+      "attempt_id": "ba583044-f0a8-48d9-82a2-350e6673ea8e",
+      "occurred_at": "2026-09-10T15:41:14.817Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "f9f996eb-b970-4789-8dab-c6f1f6e57bd8",
+      "attempt_id": "c0ef6821-0052-431d-be76-ad2b478ac6f4",
+      "occurred_at": "2026-09-10T15:41:19.939Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "99814a45-1fc0-40f4-8065-3f30bd47d32d",
+      "attempt_id": "78fe2a58-d58d-40d5-bba9-ea576379ca4b",
+      "occurred_at": "2026-09-10T15:41:21.014Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "062c7083-d406-406e-89f4-3a94f7af966e",
+      "attempt_id": "784d138c-3872-4e37-8172-8e8496f2def2",
+      "occurred_at": "2026-09-10T15:42:04.421Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "50e221c3-6b60-4159-87c2-01b3b2cbfdd0",
+      "attempt_id": "cf8a762d-a05c-479a-bf82-a30d46731d6f",
+      "occurred_at": "2026-09-10T15:42:13.413Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "b036262d-8824-48b3-83dd-3ec6332e01ab",
+      "attempt_id": "c629afbb-29b8-4dc0-a74f-b0c591ab3ff1",
+      "occurred_at": "2026-09-10T15:42:16.753Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "2a1387c5-7811-4960-8da5-47cdd90a2e78",
+      "attempt_id": "2480da3e-cd94-4781-9d29-805a28002d04",
+      "occurred_at": "2026-09-10T15:42:19.242Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "93532594-4188-4051-822b-b81408246920",
+      "attempt_id": "b6f4dbd2-5ff2-4362-a32e-b3b5033f3491",
+      "occurred_at": "2026-09-10T15:42:24.284Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "afad30bd-9a74-4c07-88e2-cac9ba87f595",
+      "attempt_id": "4dda3fd8-5bad-4432-a4a6-db7bb652d7e2",
+      "occurred_at": "2026-09-10T15:42:29.010Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "929dadb5-8851-45df-8b1e-eb41e9ecc9e0",
+      "attempt_id": "de9a1d59-43f3-44cb-be2c-b8e5aed86843",
+      "occurred_at": "2026-09-10T15:42:30.370Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "a204b9f4-a032-4ecb-8b03-76c74a451c22",
+      "attempt_id": "163aded7-372f-4a10-a24d-1a9a775c8613",
+      "occurred_at": "2026-09-10T15:42:39.721Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "f938b560-468e-4687-8766-4c10054b7ef4",
+      "attempt_id": "bc05b22e-291e-4d79-9b3d-cdc610210fad",
+      "occurred_at": "2026-09-10T15:42:44.945Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "79636163-6dcb-4175-86de-3da91d156a32",
+      "attempt_id": "182f7b5e-0341-4e50-8a1c-6bad934b7221",
+      "occurred_at": "2026-09-10T15:42:46.406Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a30f5f5b-a4db-4c33-863f-5c2afb1f7bdd",
+      "attempt_id": "514b9b57-06cb-4378-9d02-112e4cc95644",
+      "occurred_at": "2026-09-10T15:42:46.415Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e117ace5-15d2-4889-8b0f-066406590c00",
+      "attempt_id": "97368b71-f43d-4c83-8133-eb1dec47025b",
+      "occurred_at": "2026-09-10T15:42:46.424Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1b1bbc4f-6f90-4e07-8a4d-fa4ca4b89e39",
+      "attempt_id": "94d00d7f-9035-481b-b0c6-48f98bec9215",
+      "occurred_at": "2026-09-10T15:42:46.432Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "abe203fa-c006-4fc4-85ea-b6c961292574",
+      "attempt_id": "9d6121be-34ad-4d10-856f-b1c90544c994",
+      "occurred_at": "2026-09-10T15:42:52.246Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "26866d2c-e0fc-479d-87cf-7b37de4c0f04",
+      "attempt_id": "b96420fa-63dd-4672-9374-8f870e89d7fb",
+      "occurred_at": "2026-09-10T15:42:53.122Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "2fcc96a7-807b-494a-8265-8db908521281",
+      "attempt_id": "4906783f-9285-4795-b8be-aedd6ee83637",
+      "occurred_at": "2026-09-10T15:42:53.131Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "332f9071-3671-45e9-878f-c1987190a58d",
+      "attempt_id": "8d6c10e8-36a2-4e67-a79b-4a85895314b6",
+      "occurred_at": "2026-09-10T15:42:53.139Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d5da7ce4-c1ca-4a7f-8c69-0683cbf2683f",
+      "attempt_id": "37b14a4b-c292-484d-a01c-3668588bd698",
+      "occurred_at": "2026-09-10T15:42:53.148Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "bc4bb152-80e0-4d77-8f1b-4e143b0e9cb9",
+      "attempt_id": "8ce68f6b-5a5d-4385-ab73-2778488b0507",
+      "occurred_at": "2026-09-10T15:43:42.189Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "014a6249-aec2-45cc-8ba8-9c506c4e833f",
+      "attempt_id": "663cf8d9-5e56-4dde-ace2-50f56936f3cf",
+      "occurred_at": "2026-09-10T15:43:47.334Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "11a05f9b-a31a-48bd-8817-15364c3db6ab",
+      "attempt_id": "ba583044-f0a8-48d9-82a2-350e6673ea8e",
+      "occurred_at": "2026-09-10T15:43:51.759Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "99814a45-1fc0-40f4-8065-3f30bd47d32d",
+      "attempt_id": "78fe2a58-d58d-40d5-bba9-ea576379ca4b",
+      "occurred_at": "2026-09-10T15:44:09.810Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "79636163-6dcb-4175-86de-3da91d156a32",
+      "attempt_id": "182f7b5e-0341-4e50-8a1c-6bad934b7221",
+      "occurred_at": "2026-09-10T15:44:12.733Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c4d555c2-c728-4fef-8248-8218fa4f8d0e",
+      "attempt_id": "45f6d087-69de-4a06-9847-cd91aaf7d978",
+      "occurred_at": "2026-09-10T15:44:14.271Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "e117ace5-15d2-4889-8b0f-066406590c00",
+      "attempt_id": "97368b71-f43d-4c83-8133-eb1dec47025b",
+      "occurred_at": "2026-09-10T15:44:24.735Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "a30f5f5b-a4db-4c33-863f-5c2afb1f7bdd",
+      "attempt_id": "514b9b57-06cb-4378-9d02-112e4cc95644",
+      "occurred_at": "2026-09-10T15:44:25.619Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "1b1bbc4f-6f90-4e07-8a4d-fa4ca4b89e39",
+      "attempt_id": "94d00d7f-9035-481b-b0c6-48f98bec9215",
+      "occurred_at": "2026-09-10T15:44:25.653Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "5a39f9f5-8dcf-49c7-83d3-71990ccba90f",
+      "attempt_id": "7ed95802-92e7-4bc5-9277-07f1fef8a758",
+      "occurred_at": "2026-09-10T15:44:26.177Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "cd44db54-ae9f-4358-886d-8687c86aef60",
+      "attempt_id": "3980f2f4-f578-4bbd-95b1-598d43425cad",
+      "occurred_at": "2026-09-10T15:44:26.189Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "26866d2c-e0fc-479d-87cf-7b37de4c0f04",
+      "attempt_id": "b96420fa-63dd-4672-9374-8f870e89d7fb",
+      "occurred_at": "2026-09-10T15:44:44.916Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a310b79a-ebe4-4e31-80ee-1b31045b0f90",
+      "attempt_id": "0cc69a63-824c-463f-8e69-d61e9073d29f",
+      "occurred_at": "2026-09-10T15:44:45.427Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "bab2bed0-c5e0-448d-8ab8-111d51a164ac",
+      "attempt_id": "65a3059f-099d-4862-9130-4ea0717b504c",
+      "occurred_at": "2026-09-10T15:44:46.777Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1e3e972d-31ad-4c57-86da-1b5d47ea311c",
+      "attempt_id": "25719b09-ebd2-4a6b-91d3-806c692cac3a",
+      "occurred_at": "2026-09-10T15:44:48.160Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4ebbe016-d0f1-482b-87ab-0283b56f46cb",
+      "attempt_id": "04252013-3277-4429-a168-2b52ee4d4bca",
+      "occurred_at": "2026-09-10T15:44:48.171Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "ad95280e-fe85-4b3f-853a-94549e21a244",
+      "attempt_id": "a347eb90-e5c1-4072-8bb1-59472c5261c3",
+      "occurred_at": "2026-09-10T15:44:48.179Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e98873ce-89fa-4c37-84fc-07366c1889df",
+      "attempt_id": "2565de41-c18c-474d-a6b8-de95a4296471",
+      "occurred_at": "2026-09-10T15:44:48.188Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "332f9071-3671-45e9-878f-c1987190a58d",
+      "attempt_id": "8d6c10e8-36a2-4e67-a79b-4a85895314b6",
+      "occurred_at": "2026-09-10T15:44:53.696Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "16ac208d-50e8-4a82-82d1-dba73bd17209",
+      "attempt_id": "74858082-1ddc-4fc4-b0bd-37788e15543a",
+      "occurred_at": "2026-09-10T15:44:53.981Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "d5da7ce4-c1ca-4a7f-8c69-0683cbf2683f",
+      "attempt_id": "37b14a4b-c292-484d-a01c-3668588bd698",
+      "occurred_at": "2026-09-10T15:44:54.932Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "2fcc96a7-807b-494a-8265-8db908521281",
+      "attempt_id": "4906783f-9285-4795-b8be-aedd6ee83637",
+      "occurred_at": "2026-09-10T15:44:56.318Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "41b65de7-6b14-4a43-83c8-dd2352a264b1",
+      "attempt_id": "27850ab3-733e-452d-84fd-8a08ccef4d59",
+      "occurred_at": "2026-09-10T15:44:57.140Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "c4d555c2-c728-4fef-8248-8218fa4f8d0e",
+      "attempt_id": "45f6d087-69de-4a06-9847-cd91aaf7d978",
+      "occurred_at": "2026-09-10T15:45:37.916Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "e523a3ca-a73c-4e8c-8cb9-20601b596518",
+      "attempt_id": "0293ec8f-7e21-49a3-af99-545427e31206",
+      "occurred_at": "2026-09-10T15:45:41.787Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "32fecb55-0388-46c4-804a-2000ccf21b5a",
+      "attempt_id": "4b1de824-f52f-4311-b50f-e065121bfbd0",
+      "occurred_at": "2026-09-10T15:45:43.006Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "5a39f9f5-8dcf-49c7-83d3-71990ccba90f",
+      "attempt_id": "7ed95802-92e7-4bc5-9277-07f1fef8a758",
+      "occurred_at": "2026-09-10T15:45:44.664Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "cd44db54-ae9f-4358-886d-8687c86aef60",
+      "attempt_id": "3980f2f4-f578-4bbd-95b1-598d43425cad",
+      "occurred_at": "2026-09-10T15:45:48.559Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:45:49.740Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "997636fd-01de-4013-a4ad-8da05b79ad9f",
+      "attempt_id": "4c02f359-22c9-4908-aa26-3e488ec2069e",
+      "occurred_at": "2026-09-10T15:45:51.230Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "a310b79a-ebe4-4e31-80ee-1b31045b0f90",
+      "attempt_id": "0cc69a63-824c-463f-8e69-d61e9073d29f",
+      "occurred_at": "2026-09-10T15:45:57.619Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "1e3e972d-31ad-4c57-86da-1b5d47ea311c",
+      "attempt_id": "25719b09-ebd2-4a6b-91d3-806c692cac3a",
+      "occurred_at": "2026-09-10T15:46:00.931Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "4ebbe016-d0f1-482b-87ab-0283b56f46cb",
+      "attempt_id": "04252013-3277-4429-a168-2b52ee4d4bca",
+      "occurred_at": "2026-09-10T15:46:09.796Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "ad95280e-fe85-4b3f-853a-94549e21a244",
+      "attempt_id": "a347eb90-e5c1-4072-8bb1-59472c5261c3",
+      "occurred_at": "2026-09-10T15:46:17.989Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "e98873ce-89fa-4c37-84fc-07366c1889df",
+      "attempt_id": "2565de41-c18c-474d-a6b8-de95a4296471",
+      "occurred_at": "2026-09-10T15:46:26.961Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4dd7952d-bb3a-4aa4-8a2f-78d1b8ca4a3d",
+      "attempt_id": "dadc144c-8483-410b-a36c-df5fd8792b9c",
+      "occurred_at": "2026-09-10T15:46:29.464Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "69b76767-df4f-4e46-8ad3-bda5b849d854",
+      "attempt_id": "fcf42f68-ac2e-42a6-8378-ad8bbbafa5a4",
+      "occurred_at": "2026-09-10T15:46:29.473Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b09b032a-8b07-4d23-8f61-231829350da7",
+      "attempt_id": "7c4914ff-aaa2-4c25-819e-c5394618640d",
+      "occurred_at": "2026-09-10T15:46:29.482Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "940be845-d6c1-4001-8b37-a5a9b32d2d88",
+      "attempt_id": "b40f8c71-68d9-4ca6-83c0-6ffe42166d85",
+      "occurred_at": "2026-09-10T15:46:29.499Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "16ac208d-50e8-4a82-82d1-dba73bd17209",
+      "attempt_id": "74858082-1ddc-4fc4-b0bd-37788e15543a",
+      "occurred_at": "2026-09-10T15:46:37.136Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "41b65de7-6b14-4a43-83c8-dd2352a264b1",
+      "attempt_id": "27850ab3-733e-452d-84fd-8a08ccef4d59",
+      "occurred_at": "2026-09-10T15:46:45.682Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:46:47.322Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "546f1496-8dc8-41a2-8c09-bd59a0174920",
+      "attempt_id": "e2bf2d7a-112d-4d99-bddc-6e2a61d36786",
+      "occurred_at": "2026-09-10T15:46:51.053Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "4dd7952d-bb3a-4aa4-8a2f-78d1b8ca4a3d",
+      "attempt_id": "dadc144c-8483-410b-a36c-df5fd8792b9c",
+      "occurred_at": "2026-09-10T15:47:46.501Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1c8a19f1-4c7a-4d51-83de-9683c25e2a0b",
+      "attempt_id": "5ec50cf3-6b03-4863-9cf1-926952a0a06a",
+      "occurred_at": "2026-09-10T15:47:52.044Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "b09b032a-8b07-4d23-8f61-231829350da7",
+      "attempt_id": "7c4914ff-aaa2-4c25-819e-c5394618640d",
+      "occurred_at": "2026-09-10T15:48:00.138Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "940be845-d6c1-4001-8b37-a5a9b32d2d88",
+      "attempt_id": "b40f8c71-68d9-4ca6-83c0-6ffe42166d85",
+      "occurred_at": "2026-09-10T15:48:00.851Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b00c0522-0243-47ed-8f82-bbc3389c37dc",
+      "attempt_id": "8f1b75c9-e86d-4cd3-93dc-3f06221bbb08",
+      "occurred_at": "2026-09-10T15:48:01.846Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "69b76767-df4f-4e46-8ad3-bda5b849d854",
+      "attempt_id": "fcf42f68-ac2e-42a6-8378-ad8bbbafa5a4",
+      "occurred_at": "2026-09-10T15:48:05.341Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "dbf95a7e-1aa0-4c0d-8b40-6f0b391f1225",
+      "attempt_id": "c32b734f-d1c0-4bbd-8156-204e4cc9be17",
+      "occurred_at": "2026-09-10T15:48:09.429Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "32fecb55-0388-46c4-804a-2000ccf21b5a",
+      "attempt_id": "4b1de824-f52f-4311-b50f-e065121bfbd0",
+      "occurred_at": "2026-09-10T15:48:18.937Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1a56a879-f877-4b49-8185-869e2bb390a0",
+      "attempt_id": "647b756a-178e-48b9-ac2f-d7886890c09b",
+      "occurred_at": "2026-09-10T15:48:21.413Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "454d6d79-4013-4371-85b8-4cc1ae6b538d",
+      "attempt_id": "6573c48d-2364-4bc4-9734-89c917503ffe",
+      "occurred_at": "2026-09-10T15:48:21.423Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8fa0398a-3393-4612-87af-d78e53cf8cda",
+      "attempt_id": "81f88f79-1b0c-49c3-b091-e9d645aa5600",
+      "occurred_at": "2026-09-10T15:48:21.432Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f76df61a-6992-4790-88a1-67f5f13411bd",
+      "attempt_id": "ffc1d9be-e23e-439c-8456-08bd6110f3e7",
+      "occurred_at": "2026-09-10T15:48:21.441Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "1c8a19f1-4c7a-4d51-83de-9683c25e2a0b",
+      "attempt_id": "5ec50cf3-6b03-4863-9cf1-926952a0a06a",
+      "occurred_at": "2026-09-10T15:48:40.150Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "997636fd-01de-4013-a4ad-8da05b79ad9f",
+      "attempt_id": "4c02f359-22c9-4908-aa26-3e488ec2069e",
+      "occurred_at": "2026-09-10T15:48:42.939Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "5f2e6019-12f6-4a02-95d4-cdaf892cc514",
+      "attempt_id": "a27c1e9c-b4e1-4976-b865-3914da02437c",
+      "occurred_at": "2026-09-10T15:48:45.789Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "dbf95a7e-1aa0-4c0d-8b40-6f0b391f1225",
+      "attempt_id": "c32b734f-d1c0-4bbd-8156-204e4cc9be17",
+      "occurred_at": "2026-09-10T15:48:45.891Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "b00c0522-0243-47ed-8f82-bbc3389c37dc",
+      "attempt_id": "8f1b75c9-e86d-4cd3-93dc-3f06221bbb08",
+      "occurred_at": "2026-09-10T15:48:53.445Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:48:55.450Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b4171c60-4ad8-4fbf-85ab-81557628fcfb",
+      "attempt_id": "22177a1a-4da7-4a7e-bec8-75f2f4860b69",
+      "occurred_at": "2026-09-10T15:48:58.308Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "1a56a879-f877-4b49-8185-869e2bb390a0",
+      "attempt_id": "647b756a-178e-48b9-ac2f-d7886890c09b",
+      "occurred_at": "2026-09-10T15:49:01.357Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "454d6d79-4013-4371-85b8-4cc1ae6b538d",
+      "attempt_id": "6573c48d-2364-4bc4-9734-89c917503ffe",
+      "occurred_at": "2026-09-10T15:49:09.443Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "546f1496-8dc8-41a2-8c09-bd59a0174920",
+      "attempt_id": "e2bf2d7a-112d-4d99-bddc-6e2a61d36786",
+      "occurred_at": "2026-09-10T15:49:10.160Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e09701d4-b39a-4004-94c8-703f784a2f8e",
+      "attempt_id": "d6a9b989-5d76-43f3-a1dd-28761cb7e774",
+      "occurred_at": "2026-09-10T15:49:14.430Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "8fa0398a-3393-4612-87af-d78e53cf8cda",
+      "attempt_id": "81f88f79-1b0c-49c3-b091-e9d645aa5600",
+      "occurred_at": "2026-09-10T15:49:16.146Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "f76df61a-6992-4790-88a1-67f5f13411bd",
+      "attempt_id": "ffc1d9be-e23e-439c-8456-08bd6110f3e7",
+      "occurred_at": "2026-09-10T15:49:26.546Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "422ffcb5-c451-4106-8741-ec69a0a0ef1c",
+      "attempt_id": "9763aebf-61c0-4106-8f6b-37e846db5730",
+      "occurred_at": "2026-09-10T15:49:28.786Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "9640561c-7575-4460-8acb-f5d1d2c4f551",
+      "attempt_id": "5e2fb853-defd-4e80-8b12-98c082a3e659",
+      "occurred_at": "2026-09-10T15:49:28.797Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "fd93b29e-7373-46a6-8f10-dce6b075302f",
+      "attempt_id": "69e6ed80-992e-41b9-a10f-79f24431256e",
+      "occurred_at": "2026-09-10T15:49:28.805Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "504077d0-8c83-4791-8a22-0336b407b135",
+      "attempt_id": "5c18662d-bcb5-466d-aa31-aa7f63bc2ee6",
+      "occurred_at": "2026-09-10T15:49:28.813Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "422ffcb5-c451-4106-8741-ec69a0a0ef1c",
+      "attempt_id": "9763aebf-61c0-4106-8f6b-37e846db5730",
+      "occurred_at": "2026-09-10T15:50:44.201Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "5c642ec5-9526-466f-821c-0fdfade65279",
+      "attempt_id": "ae8bb1bf-618c-4023-93ac-09ab009530f9",
+      "occurred_at": "2026-09-10T15:50:47.125Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "9640561c-7575-4460-8acb-f5d1d2c4f551",
+      "attempt_id": "5e2fb853-defd-4e80-8b12-98c082a3e659",
+      "occurred_at": "2026-09-10T15:50:58.050Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "META",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "fd93b29e-7373-46a6-8f10-dce6b075302f",
+      "attempt_id": "69e6ed80-992e-41b9-a10f-79f24431256e",
+      "occurred_at": "2026-09-10T15:51:00.466Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "fd04ca5c-22e9-4135-8e3d-76d9e8d6fed8",
+      "attempt_id": "f2ab9f60-650a-4859-9928-649c18eff1e4",
+      "occurred_at": "2026-09-10T15:51:02.429Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "504077d0-8c83-4791-8a22-0336b407b135",
+      "attempt_id": "5c18662d-bcb5-466d-aa31-aa7f63bc2ee6",
+      "occurred_at": "2026-09-10T15:51:04.244Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "42a9fee6-b1a9-4cfc-8ed5-858e393c4595",
+      "attempt_id": "d8dfb80e-d660-4cdd-b457-321094c6d87e",
+      "occurred_at": "2026-09-10T15:51:07.141Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "5f2e6019-12f6-4a02-95d4-cdaf892cc514",
+      "attempt_id": "a27c1e9c-b4e1-4976-b865-3914da02437c",
+      "occurred_at": "2026-09-10T15:51:16.860Z",
+      "code": null
+    },
+    {
+      "symbol": "AVGO",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:51:18.628Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "b4171c60-4ad8-4fbf-85ab-81557628fcfb",
+      "attempt_id": "22177a1a-4da7-4a7e-bec8-75f2f4860b69",
+      "occurred_at": "2026-09-10T15:51:21.258Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e5f11441-5dc1-4f8b-9a16-9106c9970724",
+      "attempt_id": "05a78bef-2d3d-45c9-b30b-0fb3775106aa",
+      "occurred_at": "2026-09-10T15:51:23.560Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "e09701d4-b39a-4004-94c8-703f784a2f8e",
+      "attempt_id": "d6a9b989-5d76-43f3-a1dd-28761cb7e774",
+      "occurred_at": "2026-09-10T15:51:28.866Z",
+      "code": null
+    },
+    {
+      "symbol": "TSLA",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:51:31.208Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "5c642ec5-9526-466f-821c-0fdfade65279",
+      "attempt_id": "ae8bb1bf-618c-4023-93ac-09ab009530f9",
+      "occurred_at": "2026-09-10T15:51:32.330Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "fd04ca5c-22e9-4135-8e3d-76d9e8d6fed8",
+      "attempt_id": "f2ab9f60-650a-4859-9928-649c18eff1e4",
+      "occurred_at": "2026-09-10T15:51:42.927Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "42a9fee6-b1a9-4cfc-8ed5-858e393c4595",
+      "attempt_id": "d8dfb80e-d660-4cdd-b457-321094c6d87e",
+      "occurred_at": "2026-09-10T15:51:51.989Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:51:52.660Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "66e245fd-e443-4f77-aed3-8f446325e79f",
+      "attempt_id": "80d3cc44-264b-4675-85c8-9c4ed8312740",
+      "occurred_at": "2026-09-10T15:51:55.198Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "e5f11441-5dc1-4f8b-9a16-9106c9970724",
+      "attempt_id": "05a78bef-2d3d-45c9-b30b-0fb3775106aa",
+      "occurred_at": "2026-09-10T15:53:30.996Z",
+      "code": null
+    },
+    {
+      "symbol": "GOOGL",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:53:33.591Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "66e245fd-e443-4f77-aed3-8f446325e79f",
+      "attempt_id": "80d3cc44-264b-4675-85c8-9c4ed8312740",
+      "occurred_at": "2026-09-10T15:53:37.956Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "ffd98b26-8d1a-4ee1-8772-d0fba478854d",
+      "attempt_id": "f906c13a-264f-41a6-9df7-dc29797fb0ae",
+      "occurred_at": "2026-09-10T15:53:39.342Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "ffd98b26-8d1a-4ee1-8772-d0fba478854d",
+      "attempt_id": "f906c13a-264f-41a6-9df7-dc29797fb0ae",
+      "occurred_at": "2026-09-10T15:55:44.129Z",
+      "code": null
+    },
+    {
+      "symbol": "META",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:55:45.142Z",
+      "code": null
+    }
+  ],
+  "auxiliaryUsage": [
+    {
+      "symbol": "GOOGL",
+      "purpose": "semantic_news_shortlist",
+      "recorded_at": "2026-09-10T15:32:50.897Z",
+      "input_tokens": 33859,
+      "output_tokens": 7335
+    },
+    {
+      "symbol": "META",
+      "purpose": "semantic_news_shortlist",
+      "recorded_at": "2026-09-10T15:33:43.930Z",
+      "input_tokens": 44799,
+      "output_tokens": 9970
+    },
+    {
+      "symbol": "GOOGL",
+      "purpose": "semantic_news_detail",
+      "recorded_at": "2026-09-10T15:35:53.910Z",
+      "input_tokens": 19472,
+      "output_tokens": 2112
+    },
+    {
+      "symbol": "META",
+      "purpose": "semantic_news_detail",
+      "recorded_at": "2026-09-10T15:36:33.720Z",
+      "input_tokens": 20004,
+      "output_tokens": 2283
+    }
+  ],
+  "limitations": [],
+  "attemptTimes": [
+    {
+      "symbol": "GOOGL",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T15:29:48.552Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "META",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T15:29:48.585Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T15:29:48.602Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T15:29:48.619Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T15:31:23.385Z",
+      "recorded_at": "2026-09-10T15:32:40.374Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T15:31:23.410Z",
+      "recorded_at": "2026-09-10T15:33:55.550Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T15:31:23.441Z",
+      "recorded_at": "2026-09-10T15:33:31.021Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T15:31:23.460Z",
+      "recorded_at": "2026-09-10T15:32:21.549Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T15:31:23.492Z",
+      "recorded_at": "2026-09-10T15:32:43.861Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T15:31:23.525Z",
+      "recorded_at": "2026-09-10T15:33:50.989Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T15:31:23.547Z",
+      "recorded_at": "2026-09-10T15:33:48.535Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T15:31:23.567Z",
+      "recorded_at": "2026-09-10T15:32:28.212Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T15:31:23.587Z",
+      "recorded_at": "2026-09-10T15:33:11.788Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T15:31:23.621Z",
+      "recorded_at": "2026-09-10T15:33:31.863Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T15:31:28.829Z",
+      "recorded_at": "2026-09-10T15:34:17.152Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T15:31:28.858Z",
+      "recorded_at": "2026-09-10T15:34:45.490Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T15:31:28.874Z",
+      "recorded_at": "2026-09-10T15:32:45.330Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T15:31:28.888Z",
+      "recorded_at": "2026-09-10T15:34:28.118Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T15:31:28.915Z",
+      "recorded_at": "2026-09-10T15:34:30.781Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T15:31:28.935Z",
+      "recorded_at": "2026-09-10T15:33:28.888Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T15:31:28.950Z",
+      "recorded_at": "2026-09-10T15:33:19.081Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T15:31:28.967Z",
+      "recorded_at": "2026-09-10T15:32:49.915Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T15:31:28.989Z",
+      "recorded_at": "2026-09-10T15:34:16.572Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T15:31:29.009Z",
+      "recorded_at": "2026-09-10T15:33:12.692Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T15:32:22.254Z",
+      "recorded_at": "2026-09-10T15:35:39.487Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T15:32:45.906Z",
+      "recorded_at": "2026-09-10T15:35:37.314Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T15:33:12.214Z",
+      "recorded_at": "2026-09-10T15:36:25.969Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T15:33:29.449Z",
+      "recorded_at": "2026-09-10T15:36:20.427Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:33:32.426Z",
+      "recorded_at": "2026-09-10T15:37:07.898Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T15:33:56.211Z",
+      "recorded_at": "2026-09-10T15:37:02.455Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:34:17.407Z",
+      "recorded_at": "2026-09-10T15:37:48.548Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T15:34:46.001Z",
+      "recorded_at": "2026-09-10T15:37:43.452Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T15:35:37.379Z",
+      "recorded_at": "2026-09-10T15:37:04.954Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T15:35:40.655Z",
+      "recorded_at": "2026-09-10T15:37:28.918Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T15:36:25.972Z",
+      "recorded_at": "2026-09-10T15:38:24.134Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T15:37:05.708Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:37:07.901Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T15:37:18.285Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T15:37:18.300Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T15:37:18.316Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T15:37:18.344Z",
+      "recorded_at": "2026-09-10T15:38:33.437Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T15:37:18.360Z",
+      "recorded_at": "2026-09-10T15:38:32.910Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T15:37:18.380Z",
+      "recorded_at": "2026-09-10T15:39:04.023Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T15:37:18.399Z",
+      "recorded_at": "2026-09-10T15:38:58.950Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T15:37:18.416Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T15:37:18.430Z",
+      "recorded_at": "2026-09-10T15:38:57.443Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T15:37:18.450Z",
+      "recorded_at": "2026-09-10T15:38:24.334Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T15:37:19.360Z",
+      "recorded_at": "2026-09-10T15:40:24.449Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T15:37:19.374Z",
+      "recorded_at": "2026-09-10T15:39:20.486Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T15:37:19.391Z",
+      "recorded_at": "2026-09-10T15:39:24.269Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T15:37:19.407Z",
+      "recorded_at": "2026-09-10T15:39:09.461Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T15:37:19.423Z",
+      "recorded_at": "2026-09-10T15:39:42.224Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:37:41.127Z",
+      "recorded_at": "2026-09-10T15:40:24.945Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T15:38:07.822Z",
+      "recorded_at": "2026-09-10T15:40:28.485Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T15:38:07.836Z",
+      "recorded_at": "2026-09-10T15:41:11.910Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T15:38:07.852Z",
+      "recorded_at": "2026-09-10T15:40:56.140Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T15:38:07.867Z",
+      "recorded_at": "2026-09-10T15:40:41.450Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T15:38:07.881Z",
+      "recorded_at": "2026-09-10T15:40:54.582Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T15:38:07.898Z",
+      "recorded_at": "2026-09-10T15:41:14.248Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T15:38:07.916Z",
+      "recorded_at": "2026-09-10T15:40:37.795Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T15:38:07.931Z",
+      "recorded_at": "2026-09-10T15:40:15.418Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T15:38:07.945Z",
+      "recorded_at": "2026-09-10T15:40:16.773Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T15:38:07.966Z",
+      "recorded_at": "2026-09-10T15:41:01.129Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T15:38:24.777Z",
+      "recorded_at": "2026-09-10T15:41:19.931Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T15:39:04.382Z",
+      "recorded_at": "2026-09-10T15:41:56.136Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:39:21.274Z",
+      "recorded_at": "2026-09-10T15:42:29.007Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T15:39:24.913Z",
+      "recorded_at": "2026-09-10T15:42:16.750Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T15:40:15.560Z",
+      "recorded_at": "2026-09-10T15:42:14.703Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T15:40:25.691Z",
+      "recorded_at": "2026-09-10T15:40:25.702Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T15:40:25.703Z",
+      "recorded_at": "2026-09-10T15:40:25.713Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T15:40:25.714Z",
+      "recorded_at": "2026-09-10T15:40:25.724Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T15:40:25.725Z",
+      "recorded_at": "2026-09-10T15:40:25.733Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T15:40:25.733Z",
+      "recorded_at": "2026-09-10T15:40:25.742Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T15:40:25.742Z",
+      "recorded_at": "2026-09-10T15:40:25.751Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T15:40:25.751Z",
+      "recorded_at": "2026-09-10T15:40:25.759Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T15:40:25.760Z",
+      "recorded_at": "2026-09-10T15:40:25.768Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T15:40:42.209Z",
+      "recorded_at": "2026-09-10T15:43:42.186Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T15:41:12.383Z",
+      "recorded_at": "2026-09-10T15:43:47.329Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T15:41:14.817Z",
+      "recorded_at": "2026-09-10T15:43:51.755Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T15:41:21.014Z",
+      "recorded_at": "2026-09-10T15:44:09.807Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T15:41:56.139Z",
+      "recorded_at": "2026-09-10T15:44:46.773Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T15:42:14.711Z",
+      "recorded_at": "2026-09-10T15:44:11.444Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "followup:company",
+      "created_at": "2026-09-10T15:42:46.406Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T15:42:46.415Z",
+      "recorded_at": "2026-09-10T15:44:25.616Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "followup:financial",
+      "created_at": "2026-09-10T15:42:46.424Z",
+      "recorded_at": "2026-09-10T15:44:24.732Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T15:42:46.432Z",
+      "recorded_at": "2026-09-10T15:44:25.650Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "followup:company",
+      "created_at": "2026-09-10T15:42:53.122Z",
+      "recorded_at": "2026-09-10T15:44:44.913Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "followup:financial",
+      "created_at": "2026-09-10T15:42:53.131Z",
+      "recorded_at": "2026-09-10T15:44:56.315Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T15:42:53.139Z",
+      "recorded_at": "2026-09-10T15:44:53.693Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T15:42:53.148Z",
+      "recorded_at": "2026-09-10T15:44:54.929Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T15:44:11.451Z",
+      "recorded_at": "2026-09-10T15:45:41.777Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T15:44:14.271Z",
+      "recorded_at": "2026-09-10T15:45:37.913Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T15:44:26.177Z",
+      "recorded_at": "2026-09-10T15:45:44.661Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T15:44:26.189Z",
+      "recorded_at": "2026-09-10T15:45:48.556Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T15:44:45.427Z",
+      "recorded_at": "2026-09-10T15:45:57.616Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T15:44:48.160Z",
+      "recorded_at": "2026-09-10T15:44:48.170Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T15:44:48.171Z",
+      "recorded_at": "2026-09-10T15:44:48.179Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T15:44:48.179Z",
+      "recorded_at": "2026-09-10T15:44:48.188Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T15:44:48.188Z",
+      "recorded_at": "2026-09-10T15:44:48.206Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T15:44:53.981Z",
+      "recorded_at": "2026-09-10T15:46:37.133Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T15:44:57.140Z",
+      "recorded_at": "2026-09-10T15:46:45.679Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:45:43.006Z",
+      "recorded_at": "2026-09-10T15:48:18.933Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T15:45:51.230Z",
+      "recorded_at": "2026-09-10T15:48:42.932Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "followup:company",
+      "created_at": "2026-09-10T15:46:29.464Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T15:46:29.473Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "followup:financial",
+      "created_at": "2026-09-10T15:46:29.482Z",
+      "recorded_at": "2026-09-10T15:48:00.135Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T15:46:29.499Z",
+      "recorded_at": "2026-09-10T15:48:00.848Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T15:46:51.053Z",
+      "recorded_at": "2026-09-10T15:49:10.156Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T15:47:52.044Z",
+      "recorded_at": "2026-09-10T15:48:40.148Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T15:48:01.846Z",
+      "recorded_at": "2026-09-10T15:48:53.441Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T15:48:09.429Z",
+      "recorded_at": "2026-09-10T15:48:45.888Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T15:48:21.413Z",
+      "recorded_at": "2026-09-10T15:48:21.423Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T15:48:21.423Z",
+      "recorded_at": "2026-09-10T15:48:21.432Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T15:48:21.432Z",
+      "recorded_at": "2026-09-10T15:48:21.440Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T15:48:21.441Z",
+      "recorded_at": "2026-09-10T15:48:21.449Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AVGO",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T15:48:45.789Z",
+      "recorded_at": "2026-09-10T15:51:16.855Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T15:48:58.308Z",
+      "recorded_at": "2026-09-10T15:51:21.250Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "TSLA",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T15:49:14.430Z",
+      "recorded_at": "2026-09-10T15:51:28.861Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "followup:market",
+      "created_at": "2026-09-10T15:49:28.786Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "META",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T15:49:28.797Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "META",
+      "logical_key": "followup:financial",
+      "created_at": "2026-09-10T15:49:28.805Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T15:49:28.813Z",
+      "recorded_at": "2026-09-10T15:51:04.241Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T15:50:47.125Z",
+      "recorded_at": "2026-09-10T15:51:32.326Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T15:51:02.429Z",
+      "recorded_at": "2026-09-10T15:51:42.924Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T15:51:07.141Z",
+      "recorded_at": "2026-09-10T15:51:51.986Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "GOOGL",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T15:51:23.560Z",
+      "recorded_at": "2026-09-10T15:53:30.991Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T15:51:55.198Z",
+      "recorded_at": "2026-09-10T15:53:37.948Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "META",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T15:53:39.342Z",
+      "recorded_at": "2026-09-10T15:55:44.125Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    }
+  ],
+  "tokenUsage": [
+    {
+      "input_tokens": 3304950,
+      "output_tokens": 189203
+    }
+  ],
+  "verificationContainerRemoved": true,
+  "temporaryEnvironmentRemoved": true,
+  "dataRetained": "/home/ec2-user/stocksembly-load40-20260911/data",
+  "timings": [
+    {
+      "symbol": "GOOGL",
+      "totalSeconds": 1439,
+      "collectionFromAdmissionSeconds": 459,
+      "afterCollectionSeconds": 979
+    },
+    {
+      "symbol": "META",
+      "totalSeconds": 1570,
+      "collectionFromAdmissionSeconds": 508,
+      "afterCollectionSeconds": 1062
+    },
+    {
+      "symbol": "AVGO",
+      "totalSeconds": 1304,
+      "collectionFromAdmissionSeconds": 109,
+      "afterCollectionSeconds": 1195
+    },
+    {
+      "symbol": "TSLA",
+      "totalSeconds": 1316,
+      "collectionFromAdmissionSeconds": 104,
+      "afterCollectionSeconds": 1212
+    }
+  ],
+  "sampledResources": {
+    "samples": 98,
+    "maxActiveRuns": 4,
+    "maxActiveJobs": 22,
+    "maxPerRun": {
+      "GOOGL": 10,
+      "META": 10,
+      "AVGO": 10,
+      "TSLA": 10
+    },
+    "maxCodexProcesses": 7,
+    "peakCpuPercent": 151.4,
+    "peakMemoryMiB": 775.9,
+    "webLatencyMedianSeconds": 0.5318665,
+    "webLatencyP95Seconds": 0.910108,
+    "webLatencyMaxSeconds": 1.113697,
+    "webHttpStatuses": ["200"],
+    "productionActiveRunsMax": 0,
+    "peakHostLoad1m": 1.81
+  },
+  "configuration": {
+    "jobsPerRun": 10,
+    "globalJobs": 40,
+    "subscriptionRuns": 4,
+    "apiEnabled": false
+  },
+  "manualInterventions": 0
+}

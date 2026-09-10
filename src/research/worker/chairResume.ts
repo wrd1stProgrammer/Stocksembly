@@ -92,7 +92,7 @@ export function resumeCommitteeChair(
             .parse(JSON.parse(replay.result_json));
           if (result.runId !== runId) return rejected("already_resumed");
           const repaired = database
-            .prepare(`UPDATE runs SET status = 'running', version = version + 1,
+            .prepare(`UPDATE runs SET status = 'queued', version = version + 1,
               last_event_seq = last_event_seq + 1
               WHERE run_id = @runId AND status = 'incomplete'
                 AND report_id IS NULL
@@ -129,7 +129,7 @@ export function resumeCommitteeChair(
               .prepare(`INSERT INTO run_events(run_id, sequence, event_id,
                 event_type, state_id, occurred_at, payload_json) VALUES (
                   @runId, @sequence, @eventId, 'chair_resume_reactivated',
-                  'running', @now, json_object('stage', 'chair_synthesis',
+                  'queued', @now, json_object('stage', 'chair_synthesis',
                     'authorizationHash', @authorizationHash))`)
               .run({
                 runId,
@@ -251,7 +251,7 @@ export function resumeCommitteeChair(
           return rejected("launch_budget_exhausted");
 
         const updated = database
-          .prepare(`UPDATE runs SET status = 'running', version = version + 1,
+          .prepare(`UPDATE runs SET status = 'queued', version = version + 1,
             last_event_seq = last_event_seq + 1,
             requested_replacement_calls = requested_replacement_calls + @grantedLaunch
             WHERE run_id = @runId AND status = 'incomplete'
@@ -278,7 +278,7 @@ export function resumeCommitteeChair(
           .prepare(`INSERT INTO run_events(run_id, sequence, event_id,
             event_type, state_id, occurred_at, payload_json)
             VALUES (@runId, @sequence, @eventId, 'chair_resume_authorized',
-              'running', @now, json_object('stage', 'chair_synthesis',
+              'queued', @now, json_object('stage', 'chair_synthesis',
               'grantedLaunch', @grantedLaunch,
               'authorizationHash', @authorizationHash))`)
           .run({

@@ -1,5 +1,7 @@
+import Database from "better-sqlite3";
 import { expect, it } from "vitest";
 import { z } from "zod";
+import { CALL_BUDGET_POLICY } from "../../../src/research/domain/callBudgetContracts";
 import {
   commandRequest,
   createRun,
@@ -51,7 +53,7 @@ export function registerResearchRunCommandTests(
       run: {
         runId: parent.runId,
         snapshotId: parent.snapshotId,
-        status: "running",
+        status: "queued",
         recovery: "same-run-stage-resume",
       },
     });
@@ -61,7 +63,7 @@ export function registerResearchRunCommandTests(
         "SELECT status FROM runs WHERE run_id = ?",
         parent.runId,
       ),
-    ).toBe("running");
+    ).toBe("queued");
     expect(databaseScalar(harness, "SELECT COUNT(*) FROM runs")).toBe(1);
     expect(
       databaseScalar(
@@ -84,6 +86,57 @@ export function registerResearchRunCommandTests(
          FROM idempotency_records WHERE scope = 'worker-retry'`,
       ),
     ).toBe(0);
+  });
+
+  it("does not requeue a run whose physical recovery budget is exhausted", async () => {
+    // Given: every reservation was consumed and unfinished work remains.
+    const harness = harnessValue();
+    const parent = await createRun(harness, "retry-budget-exhausted");
+    const database = new Database(harness.databasePath);
+    try {
+      for (
+        let ordinal = 1;
+        ordinal <= CALL_BUDGET_POLICY.maxPhysicalLaunches;
+        ordinal += 1
+      ) {
+        const attemptId = interruptInitialResearchJob(
+          harness,
+          parent.runId,
+          "running",
+        );
+        database
+          .prepare(`INSERT INTO research_call_ordinals(run_id,ordinal,job_id,attempt_id,logical_artifact_key,input_hash,reserved_at)
+          SELECT run_id,?,job_id,attempt_id,logical_artifact_key,input_hash,created_at FROM attempts WHERE attempt_id=?`)
+          .run(ordinal, attemptId);
+      }
+      database
+        .prepare(
+          "UPDATE attempts SET status='failed', outcome='failed' WHERE run_id=?",
+        )
+        .run(parent.runId);
+    } finally {
+      database.close();
+    }
+    setInitialResearchJobStatus(harness, parent.runId, "failed");
+    setRunStatus(harness, parent.runId, "incomplete");
+    // When: the user asks to retry the same run.
+    const response = await postCommand(
+      harness,
+      `/api/research/runs/${parent.runId}/retries`,
+      "retry-budget-command",
+    );
+    // Then: give a stable explanation without an immediate queue/failure loop.
+    expect(response.response.status).toBe(409);
+    expect(response.body).toMatchObject({
+      error: { code: "RECOVERY_BUDGET_EXHAUSTED" },
+    });
+    expect(
+      databaseScalar(
+        harness,
+        "SELECT status FROM runs WHERE run_id=?",
+        parent.runId,
+      ),
+    ).toBe("incomplete");
   });
 
   it("preserves a department target on same-snapshot retry", async () => {
@@ -164,7 +217,7 @@ export function registerResearchRunCommandTests(
         "SELECT status FROM runs WHERE run_id = ?",
         run.runId,
       ),
-    ).toBe("running");
+    ).toBe("queued");
     expect(
       databaseScalar(
         harness,

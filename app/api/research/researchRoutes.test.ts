@@ -659,7 +659,7 @@ describe("secure research routes", () => {
       Promise.resolve(2_147_483_647),
     );
     const full = await harness();
-    for (let index = 0; index < 8; index += 1) {
+    for (let index = 0; index < 50; index += 1) {
       const response = await full.api.handle(
         createRunRequest(full, `fill-${index}`),
       );

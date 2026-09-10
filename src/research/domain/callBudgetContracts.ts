@@ -8,7 +8,8 @@ export const CALL_BUDGET_POLICY = {
   mandatoryFirstAttempts: 25,
   maxOptionalFollowups: 3,
   maxRequiredReplacements: 12,
-  maxPhysicalLaunches: 41,
+  maxTransientRetryHeadroom: 24,
+  maxPhysicalLaunches: 65,
   maxAttemptsPerLogicalArtifact: 4,
 } as const;
 

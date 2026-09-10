@@ -15,6 +15,7 @@ import type { ResearchProfile } from "../../research/domain/researchProfile";
 import type { ResearchTarget } from "../../research/domain/researchTarget";
 import { Brand } from "../Brand";
 import { CreditShortageModal } from "../billing/CreditShortageModal";
+import { ResearchQueueNotice } from "./ResearchQueueNotice";
 
 type Props = {
   readonly symbol: string;
@@ -69,6 +70,7 @@ export function LaunchingResearchRoom({
   const client = useMemo(() => createAuthenticatedResearchClient(), []);
   const [failed, setFailed] = useState(false);
   const [creditShortageOpen, setCreditShortageOpen] = useState(false);
+  const [queueFull, setQueueFull] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -85,6 +87,7 @@ export function LaunchingResearchRoom({
       launchPromises.set(idempotencyKey, launch);
     }
     setFailed(false);
+    setQueueFull(false);
     void launch
       .then((created) => {
         if (!active) return;
@@ -106,6 +109,13 @@ export function LaunchingResearchRoom({
           error.code === "CREDITS_INSUFFICIENT"
         ) {
           setCreditShortageOpen(true);
+          return;
+        }
+        if (
+          error instanceof ResearchRequestError &&
+          error.code === "QUEUE_FULL"
+        ) {
+          setQueueFull(true);
           return;
         }
         setFailed(true);
@@ -175,6 +185,7 @@ export function LaunchingResearchRoom({
         <i />
         <i />
       </aside>
+      {queueFull && <ResearchQueueNotice locale={locale} queued={false} full />}
       <CreditShortageModal
         locale={locale}
         open={creditShortageOpen}

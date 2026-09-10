@@ -1203,8 +1203,143 @@ describe("unbound percentage recovery", () => {
     expect(result.positions[1]).toEqual(input.positions[1]);
   });
 
-  it("does not invent a replacement when the whole observation would disappear", () => {
+  it("omits an unsupported claim and permits explicitly disclosed partial coverage", () => {
     const input = candidate("Gross margin was 56%.");
+    const claimSlots = allocateSpecialistClaimSlots({
+      runId: "00000000-0000-4000-8000-000000000002",
+      snapshotId: "00000000-0000-4000-8000-000000000003",
+      roleId: "company",
+    });
+    const omitted = SpecialistMemoOutputSchema.parse(
+      omitUnboundPercentageSentences(input, []),
+    );
+    expect(omitted.positions).toEqual([input.positions[1]]);
+    expect(omitted.unknowns).toHaveLength(1);
+    const normalized = normalizeSpecialistClaimSlotBindings(
+      { roleId: "company", claimSlots },
+      omitted,
+    );
+    const request = {
+      runId: "00000000-0000-4000-8000-000000000002",
+      snapshotId: "00000000-0000-4000-8000-000000000003",
+      roleId: "company" as const,
+      claimSlots,
+      allowedArtifactIds: input.sourceArtifactIds,
+      allowedMetricIds: [],
+      registeredValues: [],
+      allowPartialCoverage: true,
+    };
+    expect(validateSpecialistClaimSubmission(request, omitted)).toEqual({
+      ok: false,
+      reason: "specialist_claim_required_slot_unused",
+    });
+    expect(validateSpecialistClaimSubmission(request, normalized)).toEqual({
+      ok: true,
+    });
+    expect(
+      validateSpecialistClaimSubmission(
+        { ...request, allowPartialCoverage: false },
+        normalized,
+      ),
+    ).toEqual({
+      ok: false,
+      reason: "specialist_claim_required_slot_unused",
+    });
+  });
+
+  it("recovers the observed MSFT percentage failure by retaining its cash-flow observation", () => {
+    const base = candidate(
+      "Microsoft’s FY2026 margin profile remained exceptionally strong: revenue grew 17.8%, while annual operating margin increased to 46.8%; however, the latest quarter’s 45.1% margin was below the prior quarter’s 46.3%, indicating that accelerating AI infrastructure costs may moderate operating leverage even as cloud growth remains strong.",
+    );
+    const retained =
+      "Microsoft is funding a large AI infrastructure buildout from substantial operating cash flow, but return quality is not yet proven: FY2026 capital expenditures were $115.9 billion versus $182.9 billion of operating cash flow, leaving approximately $67.0 billion of free cash flow by subtraction, while management acknowledges that capacity spending precedes fully developed revenue streams.";
+    const input = {
+      ...base,
+      positions: base.positions.map((position, index) =>
+        index === 0
+          ? position
+          : {
+              ...position,
+              publicSummary: { en: retained, ko: retained },
+            },
+      ),
+    };
+    const result = SpecialistMemoOutputSchema.parse(
+      omitUnboundPercentageSentences(input, []),
+    );
+    expect(result.positions).toEqual([input.positions[1]]);
+    expect(result.unknowns).toHaveLength(1);
+  });
+
+  it("does not remove a claim referenced by dissent", () => {
+    const base = candidate("Gross margin was 56%.");
+    const lead = base.positions[0];
+    if (lead === undefined) throw new Error("fixture claim missing");
+    const input = {
+      ...base,
+      dissent: [
+        {
+          claimId: lead.claimId,
+          publicSummary: {
+            en: "Disputed observation.",
+            ko: "논쟁 중인 관찰입니다.",
+          },
+        },
+      ],
+    };
     expect(omitUnboundPercentageSentences(input, [])).toBe(input);
+  });
+
+  it("preserves all existing limitations when the unknown list is full", () => {
+    const base = candidate("Gross margin was 56%.");
+    const input = {
+      ...base,
+      unknowns: Array.from({ length: 32 }, (_, index) => ({
+        en: `Existing limitation ${index}.`,
+        ko: `기존 제한사항 ${index}입니다.`,
+      })),
+    };
+    const result = SpecialistMemoOutputSchema.parse(
+      omitUnboundPercentageSentences(input, []),
+    );
+    expect(result.positions).toEqual([input.positions[1]]);
+    expect(result.unknowns).toHaveLength(32);
+    for (const notice of input.unknowns) {
+      expect(
+        result.unknowns.some(
+          (item) => item.en.includes(notice.en) && item.ko.includes(notice.ko),
+        ),
+      ).toBe(true);
+    }
+    expect(
+      result.unknowns.some((item) => item.en.includes("percentage statements")),
+    ).toBe(true);
+  });
+
+  it("does not invent a replacement when no grounded observation would remain", () => {
+    const base = candidate("Gross margin was 56%.");
+    const input = { ...base, positions: base.positions.slice(0, 1) };
+    expect(omitUnboundPercentageSentences(input, [])).toBe(input);
+  });
+
+  it("converts registered ratios to percentages and does not treat currency as percent", () => {
+    const input = candidate("Revenue growth was 40%.");
+    const record = {
+      valueId: "unregistered",
+      metric: "revenue_growth",
+      value: "0.18",
+      unit: "ratio",
+      period: "Q:2026-07-26",
+    };
+    expect(
+      sanitizeSpecialistNumericMetricValues(input, [record]),
+    ).toMatchObject({
+      positions: [{ publicSummary: { en: "Revenue growth was 18%." } }, {}],
+    });
+    expect(
+      sanitizeSpecialistNumericMetricValues(input, [
+        { ...record, unit: "USD" },
+      ]),
+    ).toEqual(input);
   });
 });

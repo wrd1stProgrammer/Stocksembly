@@ -21,6 +21,7 @@ import type {
   InsightSentryWireResponse,
 } from "../server/data/insightsentry/insightSentryTransport";
 import {
+  collectionFailure,
   defaultResearchQuestion,
   normalizeResearchQuestion,
 } from "./initialCollectionHandler";
@@ -407,7 +408,7 @@ describe("InsightSentry initial workflow collection", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("fails closed when required current-market data remains unavailable", async () => {
+  it("joins required requests and never starts optional branches when market data fails", async () => {
     // Given
     const root = await mkdtemp(join(tmpdir(), "insightsentry-403-"));
     const urls: string[] = [];
@@ -428,6 +429,10 @@ describe("InsightSentry initial workflow collection", () => {
         exchange: "NASDAQ",
         identityHash: "a".repeat(64),
       },
+      peerProfile: {
+        annualAccessionNumber: "0001045810-26-000001",
+        annualText: "NVIDIA competes in accelerated computing.",
+      },
       asOf: AS_OF,
       cas: new CollectionCas(),
       configuration: PROVIDER_CONFIGURATION,
@@ -437,6 +442,51 @@ describe("InsightSentry initial workflow collection", () => {
     // Then
     await expect(action).rejects.toThrow("subscription_required");
     expect(new Set(urls).size).toBeGreaterThan(0);
+    expect(
+      urls.every((url) =>
+        /\/(?:info|quotes|series)$/.test(new URL(url).pathname),
+      ),
+    ).toBe(true);
+    expect(
+      urls.some((url) =>
+        /news|documents|calendar|fundamentals|screener/.test(url),
+      ),
+    ).toBe(false);
+
     await rm(root, { recursive: true, force: true });
+  });
+});
+
+describe("durable initial collection retry", () => {
+  it("honors provider cooldown beyond the exponential delay", () => {
+    const error = Object.assign(new Error("rate_limited"), {
+      retryAt: "2026-07-24T12:02:00.000Z",
+    });
+    expect(collectionFailure(error, AS_OF, 2)).toEqual({
+      kind: "transient",
+      code: "rate_limited",
+      retryAt: error.retryAt,
+    });
+  });
+  it("allows more than three transient failures but stops after eight attempts", () => {
+    expect(collectionFailure(new Error("network"), AS_OF, 3)).toEqual({
+      kind: "transient",
+      code: "network",
+      retryAt: "2026-07-24T12:01:20.000Z",
+    });
+    expect(collectionFailure(new Error("network"), AS_OF, 7)).toEqual({
+      kind: "incomplete",
+      code: "initial_collection_retry_exhausted:network",
+    });
+  });
+  it("keeps permanent configuration errors permanent and normalizes empty failures", () => {
+    expect(collectionFailure(new Error("unauthorized"), AS_OF, 0)).toEqual({
+      kind: "permanent",
+      code: "unauthorized",
+    });
+    expect(collectionFailure(new Error(""), AS_OF, 0)).toMatchObject({
+      kind: "transient",
+      code: "collection_failed",
+    });
   });
 });

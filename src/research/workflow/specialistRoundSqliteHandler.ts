@@ -408,15 +408,10 @@ Repair the specific claims above instead of regenerating the same invalid number
       candidate,
       promptRequest.request.registeredValues,
     );
-    if (
-      previousFeedback !== undefined &&
-      validationCode === "specialist_claim_numeric_metric_mismatch"
-    ) {
-      candidate = omitUnboundPercentageSentences(
-        candidate,
-        promptRequest.request.registeredValues,
-      );
-    }
+    candidate = omitUnboundPercentageSentences(
+      candidate,
+      promptRequest.request.registeredValues,
+    );
     candidate = sanitizeSpecialistEvidenceTypeBindings(
       candidate,
       evidenceArtifacts,
@@ -439,6 +434,7 @@ Repair the specific claims above instead of regenerating the same invalid number
         registeredValues: promptRequest.request.registeredValues,
         evidenceArtifacts,
         validateEvidence: false,
+        allowPartialCoverage: true,
       },
       candidate,
     );

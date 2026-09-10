@@ -94,8 +94,9 @@ export function reserveWithinRunBudget(
         (SELECT COUNT(*) FROM attempts
           WHERE run_id = runs.run_id
           AND replacement_of_attempt_id IS NOT NULL) AS replacements,
-        (SELECT COUNT(*) FROM attempts
+        (SELECT 1 + COUNT(*) FROM attempts
           WHERE run_id = runs.run_id
+          AND replacement_of_attempt_id IS NOT NULL
           AND logical_artifact_key = ?) AS logical_attempts
       FROM runs WHERE runs.run_id = ?`)
       .get(input.claim.logicalKey, input.claim.runId),

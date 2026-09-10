@@ -35,6 +35,7 @@ import {
 import { CreditShortageModal } from "./billing/CreditShortageModal";
 import { MembershipAccessModal } from "./billing/MembershipAccessModal";
 import { ResearchExplanationModeControl } from "./ResearchExplanationModeControl";
+import { ResearchQueueNotice } from "./research/ResearchQueueNotice";
 import {
   BorderBeam,
   ResearchButton,
@@ -456,6 +457,7 @@ export function SearchConsole({
   const [isSearching, setIsSearching] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
   const [creditShortageOpen, setCreditShortageOpen] = useState(false);
+  const [queueFull, setQueueFull] = useState(false);
   const [membershipGateOpen, setMembershipGateOpen] = useState(false);
   const [targetOverride, setTargetOverride] = useState<ResearchTarget>();
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
@@ -592,6 +594,7 @@ export function SearchConsole({
     }
 
     setSubmissionError(undefined);
+    setQueueFull(false);
     setResultsOpen(false);
     setIsSubmitting(true);
     if (authIsConfigured()) {
@@ -640,6 +643,13 @@ export function SearchConsole({
         error.code === "CREDITS_INSUFFICIENT"
       ) {
         setCreditShortageOpen(true);
+        return;
+      }
+      if (
+        error instanceof ResearchRequestError &&
+        error.code === "QUEUE_FULL"
+      ) {
+        setQueueFull(true);
         return;
       }
       setSubmissionError(detailCopy.startError);
@@ -981,6 +991,13 @@ export function SearchConsole({
           ) : null}
         </form>
       </BorderBeam>
+      {queueFull && (
+        <ResearchQueueNotice
+          locale={researchLocale(locale)}
+          queued={false}
+          full
+        />
+      )}
       <CreditShortageModal
         locale={researchLocale(locale)}
         open={creditShortageOpen}

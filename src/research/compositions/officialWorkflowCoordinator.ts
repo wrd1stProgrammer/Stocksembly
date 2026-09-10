@@ -29,6 +29,7 @@ import { createSqliteFollowupAndResponseRound } from "../workflow/followupAndRes
 import { createSqliteSemanticAudit } from "../workflow/semanticAudit";
 import { persistStructuralAudit } from "../workflow/structuralAuditPersistence";
 import { buildOfficialStructuralAuditInput } from "./officialStructuralAuditInput";
+import { runWithResearchExecution } from "./runWithResearchExecution";
 import {
   clearStageRecovery,
   isRecoverableWorkflowFailure,
@@ -732,7 +733,12 @@ export function createOfficialWorkflowCoordinator(
     const previous = runTails.get(runId) ?? Promise.resolve();
     const current = previous
       .catch(() => undefined)
-      .then(async () => await advanceExclusive(runId));
+      .then(
+        async () =>
+          await runWithResearchExecution(options.databasePath, runId, () =>
+            advanceExclusive(runId),
+          ),
+      );
     runTails.set(runId, current);
     try {
       await current;

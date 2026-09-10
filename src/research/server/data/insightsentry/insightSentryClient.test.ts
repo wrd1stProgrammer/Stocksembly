@@ -429,20 +429,24 @@ describe("InsightSentry client", () => {
 
   it.each([
     [429, "rate_limited", "120", "2026-07-24T00:02:00.000Z"],
-    [429, "rate_limited", undefined, "2026-07-24T00:00:04.000Z"],
+    // The fixture clock does not advance: shared cooldown prevents more429 calls.
+    [429, "rate_limited", undefined, "2026-07-24T00:00:01.000Z"],
     [500, "server_error", undefined, "2026-07-24T00:00:04.000Z"],
   ] as const)(
     "persists a durable retry for HTTP %i",
     async (status, code, retryAfter, expectedRetryAt) => {
       // Given
       const root = await dataRoot();
+      let upstreamCalls = 0;
       const api = client({
         root,
-        adapter: async () =>
-          response(status, "{}", {
+        adapter: async () => {
+          upstreamCalls += 1;
+          return response(status, "{}", {
             "content-type": "application/json",
             ...(retryAfter === undefined ? {} : { "retry-after": retryAfter }),
-          }),
+          });
+        },
       });
 
       // When
@@ -458,6 +462,7 @@ describe("InsightSentry client", () => {
         classification: code,
         retryAt: expectedRetryAt,
       });
+      expect(upstreamCalls).toBe(status === 429 ? 1 : 3);
     },
   );
 

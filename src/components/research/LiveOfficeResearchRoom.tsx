@@ -46,6 +46,7 @@ import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { useIsMobileViewport } from "../useMediaQuery";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
+import { ResearchQueueNotice } from "./ResearchQueueNotice";
 import { ResearchSidebar } from "./ResearchSidebar";
 
 type Props = {
@@ -670,6 +671,13 @@ export function LiveOfficeResearchRoom({
               })}
         />
       </div>
+      <ResearchQueueNotice
+        key={projection.snapshot.run.runId}
+        locale={locale}
+        queued={projection.snapshot.run.status === "queued"}
+        queue={projection.snapshot.queue}
+        onCancel={projection.cancel}
+      />
       <SidebarSubscriptionModal
         open={profileOpen}
         locale={locale}

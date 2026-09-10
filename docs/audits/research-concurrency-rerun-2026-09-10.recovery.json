@@ -1,0 +1,4560 @@
+{
+  "observedAt": "2026-09-10T13:18:14.514042+00:00",
+  "apiEnabled": false,
+  "workerEntrypointSha256": "2ae9a56089b9218654f4a453a6380b15db85f2ad4c7068e61a87bea81b23e23e",
+  "runs": [
+    {
+      "run_id": "f8c36518-add4-484c-b421-e1f15fb82d9a",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T12:43:46.185Z",
+      "symbol": "AAPL",
+      "completed_jobs": 29,
+      "reserved_launches": 28
+    },
+    {
+      "run_id": "2b7db5e6-be0a-4d24-9e67-c18d3e4ff148",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T12:43:46.197Z",
+      "symbol": "MSFT",
+      "completed_jobs": 29,
+      "reserved_launches": 29
+    },
+    {
+      "run_id": "9afbd8d9-cc85-47cc-ac38-bd5cac70a956",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T12:43:46.203Z",
+      "symbol": "NVDA",
+      "completed_jobs": 29,
+      "reserved_launches": 31
+    },
+    {
+      "run_id": "53b7033d-a6a9-4997-b66a-41f3a98f1ddf",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T12:43:46.212Z",
+      "symbol": "AMZN",
+      "completed_jobs": 29,
+      "reserved_launches": 30
+    }
+  ],
+  "terminalEvents": [
+    {
+      "symbol": "NVDA",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T13:07:00.348Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T13:07:33.429Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T13:10:24.283Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "run_incomplete",
+      "occurred_at": "2026-09-10T13:13:57.890Z",
+      "code": "report_publication:automatic_recovery_exhausted"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T13:17:50.933Z",
+      "code": null
+    }
+  ],
+  "auxiliaryModels": [
+    {
+      "model": "gpt-5.6-luna",
+      "n": 4
+    }
+  ],
+  "rewrites": [
+    {
+      "symbol": "AMZN",
+      "n": 2
+    },
+    {
+      "symbol": "NVDA",
+      "n": 2
+    }
+  ],
+  "models": [
+    {
+      "model": "gpt-5.6-luna",
+      "n": 112
+    }
+  ],
+  "publishedReports": [
+    {
+      "symbol": "NVDA",
+      "state": "published"
+    },
+    {
+      "symbol": "AMZN",
+      "state": "published"
+    },
+    {
+      "symbol": "AAPL",
+      "state": "published"
+    },
+    {
+      "symbol": "MSFT",
+      "state": "published"
+    }
+  ],
+  "attemptFailures": [
+    {
+      "state_id": "retry-wait",
+      "code": "codex_isolation_temporarily_unavailable",
+      "n": 1
+    }
+  ],
+  "production": "/stocksembly-web running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f\n/stocksembly-worker running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f",
+  "reportArtifacts": [
+    {
+      "symbol": "NVDA",
+      "status": "complete_with_limitations",
+      "byte_length": 68339,
+      "content_hash": "12fbca8418b29a01a5e1a625e0dd48fd8808fefc3a4b31b01be7b5f1191a1a9f",
+      "blobVerified": true
+    },
+    {
+      "symbol": "AMZN",
+      "status": "complete_with_limitations",
+      "byte_length": 90166,
+      "content_hash": "037bb529341792dd2a145f48ba01e2d86e5fbb74c20f047ee0bba30e268e52c5",
+      "blobVerified": true
+    },
+    {
+      "symbol": "AAPL",
+      "status": "complete_with_limitations",
+      "byte_length": 100091,
+      "content_hash": "0383a422719348313df9da304e0715f112c1524346bde3f4d89bd0a7ea5c56d6",
+      "blobVerified": true
+    },
+    {
+      "symbol": "MSFT",
+      "status": "complete_with_limitations",
+      "byte_length": 81840,
+      "content_hash": "511dc67c655e053d4fb8519cde144b81c6d943f5cf1a54ca128a4e96cc2110e6",
+      "blobVerified": true
+    }
+  ],
+  "jobTimeline": [
+    {
+      "symbol": "AAPL",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:43:46.185Z",
+      "first_started": "2026-09-10T12:43:59.348Z",
+      "last_committed": "2026-09-10T12:50:59.424Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:50:59.796Z",
+      "last_committed": "2026-09-10T12:52:17.060Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:50:59.811Z",
+      "last_committed": "2026-09-10T12:52:25.682Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:50:59.830Z",
+      "last_committed": "2026-09-10T12:52:22.679Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:52:17.340Z",
+      "last_committed": "2026-09-10T12:53:29.020Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:52:22.974Z",
+      "last_committed": "2026-09-10T12:53:43.625Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:52:26.111Z",
+      "last_committed": "2026-09-10T12:53:49.537Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:53:29.506Z",
+      "last_committed": "2026-09-10T12:55:01.691Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:53:43.916Z",
+      "last_committed": "2026-09-10T12:55:04.311Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:53:50.016Z",
+      "last_committed": "2026-09-10T12:55:12.127Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:55:02.245Z",
+      "last_committed": "2026-09-10T12:56:25.530Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:56.278Z",
+      "first_started": "2026-09-10T12:55:04.830Z",
+      "last_committed": "2026-09-10T12:56:54.927Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:55:04.861Z",
+      "first_started": "2026-09-10T12:55:12.503Z",
+      "last_committed": "2026-09-10T12:57:51.484Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:55:12.387Z",
+      "first_started": "2026-09-10T12:56:26.260Z",
+      "last_committed": "2026-09-10T12:58:48.845Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:56:25.701Z",
+      "first_started": "2026-09-10T12:56:55.569Z",
+      "last_committed": "2026-09-10T12:58:59.077Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:56:55.298Z",
+      "first_started": "2026-09-10T12:57:52.564Z",
+      "last_committed": "2026-09-10T13:00:11.766Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:00:12.156Z",
+      "first_started": "2026-09-10T13:00:12.861Z",
+      "last_committed": "2026-09-10T13:01:29.359Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:00:12.156Z",
+      "first_started": "2026-09-10T13:00:12.871Z",
+      "last_committed": "2026-09-10T13:01:32.675Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:00:12.156Z",
+      "first_started": "2026-09-10T13:00:12.879Z",
+      "last_committed": "2026-09-10T13:01:40.881Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:00:12.156Z",
+      "first_started": "2026-09-10T13:01:31.275Z",
+      "last_committed": "2026-09-10T13:02:32.467Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "followup:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:32.689Z",
+      "first_started": "2026-09-10T13:02:34.091Z",
+      "last_committed": "2026-09-10T13:03:50.591Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "followup:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:32.689Z",
+      "first_started": "2026-09-10T13:02:34.112Z",
+      "last_committed": "2026-09-10T13:03:55.697Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:32.689Z",
+      "first_started": "2026-09-10T13:02:34.122Z",
+      "last_committed": "2026-09-10T13:04:04.709Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:32.825Z",
+      "first_started": "2026-09-10T13:03:51.384Z",
+      "last_committed": "2026-09-10T13:05:08.214Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:03:51.882Z",
+      "first_started": "2026-09-10T13:03:56.704Z",
+      "last_committed": "2026-09-10T13:05:18.163Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:03:57.209Z",
+      "first_started": "2026-09-10T13:04:05.570Z",
+      "last_committed": "2026-09-10T13:05:20.679Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:04:04.947Z",
+      "first_started": "2026-09-10T13:05:10.159Z",
+      "last_committed": "2026-09-10T13:06:17.812Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:06:19.164Z",
+      "first_started": "2026-09-10T13:06:21.991Z",
+      "last_committed": "2026-09-10T13:08:25.276Z"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:08:25.557Z",
+      "first_started": "2026-09-10T13:08:27.336Z",
+      "last_committed": "2026-09-10T13:10:22.789Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:43:46.212Z",
+      "first_started": "2026-09-10T12:43:59.413Z",
+      "last_committed": "2026-09-10T12:46:05.038Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:46:05.216Z",
+      "last_committed": "2026-09-10T12:47:05.099Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:46:05.231Z",
+      "last_committed": "2026-09-10T12:47:32.978Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:46:05.252Z",
+      "last_committed": "2026-09-10T12:47:13.633Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:47:05.582Z",
+      "last_committed": "2026-09-10T12:47:55.948Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:47:14.183Z",
+      "last_committed": "2026-09-10T12:48:08.459Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:47:33.293Z",
+      "last_committed": "2026-09-10T12:48:37.881Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:47:56.219Z",
+      "last_committed": "2026-09-10T12:48:45.195Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:48:08.842Z",
+      "last_committed": "2026-09-10T12:49:25.179Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:48:38.299Z",
+      "last_committed": "2026-09-10T12:50:00.606Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:48:45.724Z",
+      "last_committed": "2026-09-10T12:50:06.711Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:46:00.461Z",
+      "first_started": "2026-09-10T12:49:25.351Z",
+      "last_committed": "2026-09-10T12:52:07.428Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:47:33.216Z",
+      "first_started": "2026-09-10T12:50:01.055Z",
+      "last_committed": "2026-09-10T12:51:38.214Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:00.924Z",
+      "first_started": "2026-09-10T12:50:07.176Z",
+      "last_committed": "2026-09-10T12:51:43.114Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:06.877Z",
+      "first_started": "2026-09-10T12:51:38.681Z",
+      "last_committed": "2026-09-10T12:53:44.474Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:52:07.651Z",
+      "first_started": "2026-09-10T12:52:07.800Z",
+      "last_committed": "2026-09-10T12:54:02.010Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:54:02.496Z",
+      "first_started": "2026-09-10T12:54:02.933Z",
+      "last_committed": "2026-09-10T12:55:25.565Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:54:02.496Z",
+      "first_started": "2026-09-10T12:54:02.944Z",
+      "last_committed": "2026-09-10T12:55:32.517Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:54:02.496Z",
+      "first_started": "2026-09-10T12:54:02.953Z",
+      "last_committed": "2026-09-10T12:55:37.022Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:54:02.496Z",
+      "first_started": "2026-09-10T12:55:26.177Z",
+      "last_committed": "2026-09-10T12:57:03.031Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "followup:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:03.265Z",
+      "first_started": "2026-09-10T12:57:04.318Z",
+      "last_committed": "2026-09-10T12:58:22.760Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:03.265Z",
+      "first_started": "2026-09-10T12:57:04.329Z",
+      "last_committed": "2026-09-10T12:58:25.950Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "followup:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:03.265Z",
+      "first_started": "2026-09-10T12:57:04.338Z",
+      "last_committed": "2026-09-10T12:58:33.363Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:03.459Z",
+      "first_started": "2026-09-10T12:58:23.728Z",
+      "last_committed": "2026-09-10T12:59:49.847Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:58:23.469Z",
+      "first_started": "2026-09-10T12:58:26.741Z",
+      "last_committed": "2026-09-10T12:59:56.218Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:58:26.319Z",
+      "first_started": "2026-09-10T12:58:34.032Z",
+      "last_committed": "2026-09-10T12:59:59.647Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:58:33.755Z",
+      "first_started": "2026-09-10T12:59:50.444Z",
+      "last_committed": "2026-09-10T13:01:23.537Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:01:24.888Z",
+      "first_started": "2026-09-10T13:01:27.527Z",
+      "last_committed": "2026-09-10T13:05:19.805Z"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:05:20.164Z",
+      "first_started": "2026-09-10T13:05:20.627Z",
+      "last_committed": "2026-09-10T13:07:31.415Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:43:46.197Z",
+      "first_started": "2026-09-10T12:43:59.380Z",
+      "last_committed": "2026-09-10T12:53:15.959Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:53:16.086Z",
+      "last_committed": "2026-09-10T12:54:51.357Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:53:16.102Z",
+      "last_committed": "2026-09-10T12:54:46.342Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:53:16.122Z",
+      "last_committed": "2026-09-10T12:54:32.956Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:54:33.128Z",
+      "last_committed": "2026-09-10T12:56:17.789Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:54:46.725Z",
+      "last_committed": "2026-09-10T12:56:19.356Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:54:51.542Z",
+      "last_committed": "2026-09-10T12:56:05.793Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:56:05.925Z",
+      "last_committed": "2026-09-10T12:57:50.641Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:56:18.860Z",
+      "last_committed": "2026-09-10T12:57:49.910Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:56:20.188Z",
+      "last_committed": "2026-09-10T12:57:56.217Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:57:50.039Z",
+      "last_committed": "2026-09-10T12:59:11.227Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:53:11.610Z",
+      "first_started": "2026-09-10T12:57:51.287Z",
+      "last_committed": "2026-09-10T12:59:18.702Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:56:17.933Z",
+      "first_started": "2026-09-10T12:57:56.982Z",
+      "last_committed": "2026-09-10T13:00:33.104Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:56:19.817Z",
+      "first_started": "2026-09-10T12:59:12.146Z",
+      "last_committed": "2026-09-10T13:01:01.429Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:56.432Z",
+      "first_started": "2026-09-10T12:59:19.512Z",
+      "last_committed": "2026-09-10T13:01:34.758Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:59:18.983Z",
+      "first_started": "2026-09-10T13:00:33.712Z",
+      "last_committed": "2026-09-10T13:02:20.397Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:20.825Z",
+      "first_started": "2026-09-10T13:02:21.590Z",
+      "last_committed": "2026-09-10T13:03:04.321Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:20.825Z",
+      "first_started": "2026-09-10T13:02:21.601Z",
+      "last_committed": "2026-09-10T13:03:21.894Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:20.825Z",
+      "first_started": "2026-09-10T13:02:21.610Z",
+      "last_committed": "2026-09-10T13:03:28.820Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:20.825Z",
+      "first_started": "2026-09-10T13:03:08.377Z",
+      "last_committed": "2026-09-10T13:04:27.621Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:04:27.969Z",
+      "first_started": "2026-09-10T13:04:28.940Z",
+      "last_committed": "2026-09-10T13:05:46.378Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "followup:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:04:27.969Z",
+      "first_started": "2026-09-10T13:04:28.954Z",
+      "last_committed": "2026-09-10T13:05:52.362Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "followup:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:04:27.969Z",
+      "first_started": "2026-09-10T13:04:28.965Z",
+      "last_committed": "2026-09-10T13:06:02.340Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:04:28.121Z",
+      "first_started": "2026-09-10T13:05:48.526Z",
+      "last_committed": "2026-09-10T13:06:51.089Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:05:46.634Z",
+      "first_started": "2026-09-10T13:05:54.411Z",
+      "last_committed": "2026-09-10T13:06:56.243Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:05:55.048Z",
+      "first_started": "2026-09-10T13:06:03.975Z",
+      "last_committed": "2026-09-10T13:07:03.089Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:06:04.657Z",
+      "first_started": "2026-09-10T13:06:51.377Z",
+      "last_committed": "2026-09-10T13:07:29.786Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:07:30.953Z",
+      "first_started": "2026-09-10T13:07:34.463Z",
+      "last_committed": "2026-09-10T13:09:15.239Z"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:09:15.799Z",
+      "first_started": "2026-09-10T13:09:16.739Z",
+      "last_committed": "2026-09-10T13:11:21.233Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:43:46.203Z",
+      "first_started": "2026-09-10T12:43:59.397Z",
+      "last_committed": "2026-09-10T12:46:00.128Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:46:00.351Z",
+      "last_committed": "2026-09-10T12:48:08.415Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:46:00.384Z",
+      "last_committed": "2026-09-10T12:49:30.351Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:46:00.401Z",
+      "last_committed": "2026-09-10T12:46:51.060Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:46:51.406Z",
+      "last_committed": "2026-09-10T12:47:49.998Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:47:50.394Z",
+      "last_committed": "2026-09-10T12:48:54.728Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:48:08.828Z",
+      "last_committed": "2026-09-10T12:49:17.726Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:48:55.138Z",
+      "last_committed": "2026-09-10T12:50:10.966Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:49:18.059Z",
+      "last_committed": "2026-09-10T12:50:38.135Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:49:30.547Z",
+      "last_committed": "2026-09-10T12:50:48.052Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:50:11.403Z",
+      "last_committed": "2026-09-10T12:51:31.152Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:45:55.112Z",
+      "first_started": "2026-09-10T12:50:38.273Z",
+      "last_committed": "2026-09-10T12:51:57.925Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:48:54.858Z",
+      "first_started": "2026-09-10T12:50:48.312Z",
+      "last_committed": "2026-09-10T12:52:54.020Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:50:48.275Z",
+      "first_started": "2026-09-10T12:51:31.418Z",
+      "last_committed": "2026-09-10T12:53:53.028Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:51:31.476Z",
+      "first_started": "2026-09-10T12:51:58.207Z",
+      "last_committed": "2026-09-10T12:54:22.731Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:51:58.260Z",
+      "first_started": "2026-09-10T12:52:54.348Z",
+      "last_committed": "2026-09-10T12:55:09.692Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:55:10.068Z",
+      "first_started": "2026-09-10T12:55:10.149Z",
+      "last_committed": "2026-09-10T12:56:31.835Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:55:10.068Z",
+      "first_started": "2026-09-10T12:55:10.160Z",
+      "last_committed": "2026-09-10T12:56:44.870Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:55:10.068Z",
+      "first_started": "2026-09-10T12:55:10.168Z",
+      "last_committed": "2026-09-10T12:56:50.847Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:55:10.068Z",
+      "first_started": "2026-09-10T12:56:32.419Z",
+      "last_committed": "2026-09-10T12:57:54.431Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:54.729Z",
+      "first_started": "2026-09-10T12:57:55.217Z",
+      "last_committed": "2026-09-10T12:59:16.936Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:54.729Z",
+      "first_started": "2026-09-10T12:57:55.228Z",
+      "last_committed": "2026-09-10T12:59:27.672Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:54.729Z",
+      "first_started": "2026-09-10T12:57:55.236Z",
+      "last_committed": "2026-09-10T12:59:32.070Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:57:54.847Z",
+      "first_started": "2026-09-10T12:59:17.573Z",
+      "last_committed": "2026-09-10T13:00:34.139Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:59:17.212Z",
+      "first_started": "2026-09-10T12:59:28.583Z",
+      "last_committed": "2026-09-10T13:00:45.897Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:59:28.362Z",
+      "first_started": "2026-09-10T12:59:32.435Z",
+      "last_committed": "2026-09-10T13:00:56.516Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T12:59:32.460Z",
+      "first_started": "2026-09-10T13:00:35.174Z",
+      "last_committed": "2026-09-10T13:02:02.649Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:02:03.356Z",
+      "first_started": "2026-09-10T13:02:06.636Z",
+      "last_committed": "2026-09-10T13:04:07.371Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T13:04:08.943Z",
+      "first_started": "2026-09-10T13:04:10.268Z",
+      "last_committed": "2026-09-10T13:06:58.540Z"
+    }
+  ],
+  "events": [
+    {
+      "symbol": "AAPL",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:46.185Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:46.197Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:46.203Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:46.212Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.348Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e3b7f4b2-5965-4384-a984-da9dfa451151",
+      "attempt_id": "d350a92d-f9fe-4c1d-9c0f-933c771a4f7a",
+      "occurred_at": "2026-09-10T12:43:59.348Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.374Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.380Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a21ecd12-2880-4c3b-82a4-ea63db733cad",
+      "attempt_id": "1350aefa-57cd-4a58-b796-b290ee2d6b60",
+      "occurred_at": "2026-09-10T12:43:59.380Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.393Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.397Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "2779889d-b433-42b1-8501-62ced49b2fa6",
+      "attempt_id": "bdd50be0-d5bd-48ad-945d-0263e0496e3e",
+      "occurred_at": "2026-09-10T12:43:59.397Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.409Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.413Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f7afd48e-bc96-4d48-b13c-36798291a3a7",
+      "attempt_id": "db52eb09-67f4-46e0-b2aa-205296b05334",
+      "occurred_at": "2026-09-10T12:43:59.413Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:43:59.425Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:45:55.110Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:45:55.111Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:45:55.112Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "2779889d-b433-42b1-8501-62ced49b2fa6",
+      "attempt_id": "bdd50be0-d5bd-48ad-945d-0263e0496e3e",
+      "occurred_at": "2026-09-10T12:46:00.128Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "72c0f5f8-2d51-4554-858f-ba2af933c6c2",
+      "attempt_id": "8a7d1557-4c44-4803-9710-b579d5e4ebbb",
+      "occurred_at": "2026-09-10T12:46:00.351Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8052d0af-f801-42c5-8e7a-73e553f1758b",
+      "attempt_id": "2f764328-1e1c-43e1-91a9-89fc15ada5a8",
+      "occurred_at": "2026-09-10T12:46:00.384Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "823c010e-2950-473b-8437-b5af9c343650",
+      "attempt_id": "634a50a0-e218-4fe5-aaac-d9df4c61587c",
+      "occurred_at": "2026-09-10T12:46:00.401Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:46:00.459Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:46:00.460Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:46:00.461Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "f7afd48e-bc96-4d48-b13c-36798291a3a7",
+      "attempt_id": "db52eb09-67f4-46e0-b2aa-205296b05334",
+      "occurred_at": "2026-09-10T12:46:05.038Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "09f454ab-9451-4877-8ea7-cc410c580f13",
+      "attempt_id": "40db1c43-1eb2-4358-adbe-d94921091879",
+      "occurred_at": "2026-09-10T12:46:05.216Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7b9c0f0c-5845-4f3c-891a-06da87631491",
+      "attempt_id": "5a079daf-562d-4a68-b342-176d5f191c18",
+      "occurred_at": "2026-09-10T12:46:05.231Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7da9e862-a415-4c4a-869a-21176e7cc7cb",
+      "attempt_id": "8885a1f0-2577-46e1-9b73-fa1b53b384d9",
+      "occurred_at": "2026-09-10T12:46:05.252Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "823c010e-2950-473b-8437-b5af9c343650",
+      "attempt_id": "634a50a0-e218-4fe5-aaac-d9df4c61587c",
+      "occurred_at": "2026-09-10T12:46:51.060Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8fd9ac1e-908b-4041-87ee-cf2eebc63ec8",
+      "attempt_id": "8f94850c-c4c4-4d46-8cba-d8abc81acb50",
+      "occurred_at": "2026-09-10T12:46:51.406Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "09f454ab-9451-4877-8ea7-cc410c580f13",
+      "attempt_id": "40db1c43-1eb2-4358-adbe-d94921091879",
+      "occurred_at": "2026-09-10T12:47:05.099Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "831d8113-4a95-4074-86d3-6301271bc81e",
+      "attempt_id": "a9dbf40b-5710-45c4-b5c1-104493dff9d1",
+      "occurred_at": "2026-09-10T12:47:05.582Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "7da9e862-a415-4c4a-869a-21176e7cc7cb",
+      "attempt_id": "8885a1f0-2577-46e1-9b73-fa1b53b384d9",
+      "occurred_at": "2026-09-10T12:47:13.633Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "98e32d8a-46af-4ff5-8b1d-70b0eecda1f7",
+      "attempt_id": "fcc6c710-88db-4432-928d-169ad54edeb8",
+      "occurred_at": "2026-09-10T12:47:14.183Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "7b9c0f0c-5845-4f3c-891a-06da87631491",
+      "attempt_id": "5a079daf-562d-4a68-b342-176d5f191c18",
+      "occurred_at": "2026-09-10T12:47:32.978Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a3a47abe-0741-4f8d-8f4a-b787841ed682",
+      "attempt_id": "a6dc6c0f-fca3-4d68-ac65-4b2ec546bad4",
+      "occurred_at": "2026-09-10T12:47:33.293Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "8fd9ac1e-908b-4041-87ee-cf2eebc63ec8",
+      "attempt_id": "8f94850c-c4c4-4d46-8cba-d8abc81acb50",
+      "occurred_at": "2026-09-10T12:47:49.998Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "90942e8c-c716-490a-8312-9dbff73b2658",
+      "attempt_id": "57a2b677-3f42-46df-bc28-c6ac709b0ade",
+      "occurred_at": "2026-09-10T12:47:50.394Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "831d8113-4a95-4074-86d3-6301271bc81e",
+      "attempt_id": "a9dbf40b-5710-45c4-b5c1-104493dff9d1",
+      "occurred_at": "2026-09-10T12:47:55.948Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a8d000d2-b687-4371-80bf-b5044c9ffe08",
+      "attempt_id": "0000a5d5-7f91-4525-9147-95c7874956e9",
+      "occurred_at": "2026-09-10T12:47:56.219Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "72c0f5f8-2d51-4554-858f-ba2af933c6c2",
+      "attempt_id": "83be9ba7-f9c1-4106-baaf-d7a87f151386",
+      "occurred_at": "2026-09-10T12:48:08.415Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "98e32d8a-46af-4ff5-8b1d-70b0eecda1f7",
+      "attempt_id": "fcc6c710-88db-4432-928d-169ad54edeb8",
+      "occurred_at": "2026-09-10T12:48:08.459Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "9b34eea2-d658-431c-8074-58ecb687a497",
+      "attempt_id": "436be2ae-75c8-4b0a-9d60-74f7f03b74ea",
+      "occurred_at": "2026-09-10T12:48:08.828Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d8f3d02b-4912-4e1c-8ff8-3d685bdc3ca8",
+      "attempt_id": "c28b161d-37bc-415b-b4c4-1bdbec96edf3",
+      "occurred_at": "2026-09-10T12:48:08.842Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "8052d0af-f801-42c5-8e7a-73e553f1758b",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:48:20.866Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8052d0af-f801-42c5-8e7a-73e553f1758b",
+      "attempt_id": "72004ad3-ac7b-4e26-ab9d-890cda82cd84",
+      "occurred_at": "2026-09-10T12:48:20.866Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "a3a47abe-0741-4f8d-8f4a-b787841ed682",
+      "attempt_id": "a6dc6c0f-fca3-4d68-ac65-4b2ec546bad4",
+      "occurred_at": "2026-09-10T12:48:37.881Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "dbf8de71-74cb-4e2b-83dd-f56a85799c44",
+      "attempt_id": "97a9814c-ff3d-4b2b-80a0-a4263b5a4b6e",
+      "occurred_at": "2026-09-10T12:48:38.299Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "a8d000d2-b687-4371-80bf-b5044c9ffe08",
+      "attempt_id": "0000a5d5-7f91-4525-9147-95c7874956e9",
+      "occurred_at": "2026-09-10T12:48:45.195Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e0285110-0177-469d-8d58-e13aed8c5d92",
+      "attempt_id": "e826d61b-0d11-4e33-b1d2-1fa42288441b",
+      "occurred_at": "2026-09-10T12:48:45.724Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "90942e8c-c716-490a-8312-9dbff73b2658",
+      "attempt_id": "57a2b677-3f42-46df-bc28-c6ac709b0ade",
+      "occurred_at": "2026-09-10T12:48:54.728Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "bc9fb156-c565-4b8c-8ad0-237f2915333d",
+      "attempt_id": "6a792247-4397-4b57-b511-5d0512f8c612",
+      "occurred_at": "2026-09-10T12:48:55.138Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "9b34eea2-d658-431c-8074-58ecb687a497",
+      "attempt_id": "436be2ae-75c8-4b0a-9d60-74f7f03b74ea",
+      "occurred_at": "2026-09-10T12:49:17.726Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d8d5fd01-d9ae-4d0d-840c-f3afb3ce37ce",
+      "attempt_id": "2e2fcf0c-61cf-45ba-817d-6862b66df6bd",
+      "occurred_at": "2026-09-10T12:49:18.059Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "d8f3d02b-4912-4e1c-8ff8-3d685bdc3ca8",
+      "attempt_id": "c28b161d-37bc-415b-b4c4-1bdbec96edf3",
+      "occurred_at": "2026-09-10T12:49:25.179Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "ed648ea6-6ee5-4184-8c50-977e8da78e9b",
+      "attempt_id": "d8d02703-b3f4-48d4-96c9-2e104a4b1b0f",
+      "occurred_at": "2026-09-10T12:49:25.351Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "8052d0af-f801-42c5-8e7a-73e553f1758b",
+      "attempt_id": "72004ad3-ac7b-4e26-ab9d-890cda82cd84",
+      "occurred_at": "2026-09-10T12:49:30.351Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e17741e8-871e-480c-8f73-cb206c06f699",
+      "attempt_id": "ef3cdb9f-a385-433e-b802-653b91460f91",
+      "occurred_at": "2026-09-10T12:49:30.547Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "dbf8de71-74cb-4e2b-83dd-f56a85799c44",
+      "attempt_id": "97a9814c-ff3d-4b2b-80a0-a4263b5a4b6e",
+      "occurred_at": "2026-09-10T12:50:00.606Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "27011001-1a7c-47be-804c-f18bcabe008f",
+      "attempt_id": "675e71d6-3be1-4e44-8a45-2cbd09cd98c5",
+      "occurred_at": "2026-09-10T12:50:01.055Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "e0285110-0177-469d-8d58-e13aed8c5d92",
+      "attempt_id": "e826d61b-0d11-4e33-b1d2-1fa42288441b",
+      "occurred_at": "2026-09-10T12:50:06.711Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "2df56023-9309-4fe5-82c3-ba4fea820a8f",
+      "attempt_id": "833154b5-0de3-405f-82f8-74726155af73",
+      "occurred_at": "2026-09-10T12:50:07.176Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "bc9fb156-c565-4b8c-8ad0-237f2915333d",
+      "attempt_id": "6a792247-4397-4b57-b511-5d0512f8c612",
+      "occurred_at": "2026-09-10T12:50:10.966Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f24ae30d-d52c-4e5f-84f7-3b30a32bc803",
+      "attempt_id": "e30cf7f0-380c-46d8-92d4-494037f34a3f",
+      "occurred_at": "2026-09-10T12:50:11.403Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "d8d5fd01-d9ae-4d0d-840c-f3afb3ce37ce",
+      "attempt_id": "2e2fcf0c-61cf-45ba-817d-6862b66df6bd",
+      "occurred_at": "2026-09-10T12:50:38.135Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f8f59d22-4af3-4f99-8152-9b5bc9fd71e3",
+      "attempt_id": "f6ab8590-c9e6-4fa3-b684-a402a880d3b4",
+      "occurred_at": "2026-09-10T12:50:38.273Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "e17741e8-871e-480c-8f73-cb206c06f699",
+      "attempt_id": "ef3cdb9f-a385-433e-b802-653b91460f91",
+      "occurred_at": "2026-09-10T12:50:48.052Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b361971a-b484-4342-8fac-a6204800866b",
+      "attempt_id": "ecd5df6c-e79b-4ee4-be0d-48eac4a104c5",
+      "occurred_at": "2026-09-10T12:50:48.312Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:50:56.276Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:50:56.277Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:50:56.278Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "e3b7f4b2-5965-4384-a984-da9dfa451151",
+      "attempt_id": "d350a92d-f9fe-4c1d-9c0f-933c771a4f7a",
+      "occurred_at": "2026-09-10T12:50:59.424Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1605c81e-bd8f-4a41-820f-87d81d2ef42f",
+      "attempt_id": "a07c8dbf-0cc0-482f-8cdb-721385816c7e",
+      "occurred_at": "2026-09-10T12:50:59.796Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "577d8fca-fe41-46b6-8bd0-6cab575d64dd",
+      "attempt_id": "ce6bfb38-bd6d-4065-93db-d3349476ca69",
+      "occurred_at": "2026-09-10T12:50:59.811Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "6c844295-15ba-4fc3-8ea5-107963d1fd7c",
+      "attempt_id": "4959de8e-7abb-4f90-a9a9-40cf32e1651d",
+      "occurred_at": "2026-09-10T12:50:59.830Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "f24ae30d-d52c-4e5f-84f7-3b30a32bc803",
+      "attempt_id": "e30cf7f0-380c-46d8-92d4-494037f34a3f",
+      "occurred_at": "2026-09-10T12:51:31.152Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "77326aa6-5687-41a2-8df0-9c728f19ae2b",
+      "attempt_id": "909d0984-032f-400a-a39c-40a9aed0d705",
+      "occurred_at": "2026-09-10T12:51:31.418Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "27011001-1a7c-47be-804c-f18bcabe008f",
+      "attempt_id": "675e71d6-3be1-4e44-8a45-2cbd09cd98c5",
+      "occurred_at": "2026-09-10T12:51:38.214Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c25ed1b8-831e-479a-8332-1e7b4d962257",
+      "attempt_id": "e7ba1942-33ce-4a49-926f-6cfd07af8b79",
+      "occurred_at": "2026-09-10T12:51:38.681Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "2df56023-9309-4fe5-82c3-ba4fea820a8f",
+      "attempt_id": "833154b5-0de3-405f-82f8-74726155af73",
+      "occurred_at": "2026-09-10T12:51:43.114Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "f8f59d22-4af3-4f99-8152-9b5bc9fd71e3",
+      "attempt_id": "f6ab8590-c9e6-4fa3-b684-a402a880d3b4",
+      "occurred_at": "2026-09-10T12:51:57.925Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "de8e0117-0e02-40c4-8c6a-67722980505e",
+      "attempt_id": "dfb42b95-ba4e-4b6b-a1ac-dc9b6977dff7",
+      "occurred_at": "2026-09-10T12:51:58.207Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "ed648ea6-6ee5-4184-8c50-977e8da78e9b",
+      "attempt_id": "32c54f3d-dd7d-41a6-8c5b-1f78fe07c292",
+      "occurred_at": "2026-09-10T12:52:07.428Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b8b22b7c-289c-47da-87d6-238e70236a2e",
+      "attempt_id": "9b9df487-d03e-44d3-b022-0090b13e162e",
+      "occurred_at": "2026-09-10T12:52:07.800Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "1605c81e-bd8f-4a41-820f-87d81d2ef42f",
+      "attempt_id": "a07c8dbf-0cc0-482f-8cdb-721385816c7e",
+      "occurred_at": "2026-09-10T12:52:17.060Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7ebe1975-5dac-43d0-8b51-710678a38f36",
+      "attempt_id": "58d1f644-9c07-4260-a31e-6b542520ab89",
+      "occurred_at": "2026-09-10T12:52:17.340Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "6c844295-15ba-4fc3-8ea5-107963d1fd7c",
+      "attempt_id": "4959de8e-7abb-4f90-a9a9-40cf32e1651d",
+      "occurred_at": "2026-09-10T12:52:22.679Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7fc94398-f4c1-4810-8a18-a7413697aff6",
+      "attempt_id": "14244186-2959-4dd6-8baa-114154f12365",
+      "occurred_at": "2026-09-10T12:52:22.974Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "577d8fca-fe41-46b6-8bd0-6cab575d64dd",
+      "attempt_id": "ce6bfb38-bd6d-4065-93db-d3349476ca69",
+      "occurred_at": "2026-09-10T12:52:25.682Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "837a5123-28fc-4501-8c7a-cb37f8404625",
+      "attempt_id": "a8a2d45d-1aaa-488c-828d-215b67e72e18",
+      "occurred_at": "2026-09-10T12:52:26.111Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "b361971a-b484-4342-8fac-a6204800866b",
+      "attempt_id": "ecd5df6c-e79b-4ee4-be0d-48eac4a104c5",
+      "occurred_at": "2026-09-10T12:52:54.020Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7d708759-253f-473e-8b92-4c34df34d54c",
+      "attempt_id": "e1b8929a-242e-4f58-9041-7f0394728666",
+      "occurred_at": "2026-09-10T12:52:54.348Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:53:11.608Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:53:11.609Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T12:53:11.610Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "a21ecd12-2880-4c3b-82a4-ea63db733cad",
+      "attempt_id": "1350aefa-57cd-4a58-b796-b290ee2d6b60",
+      "occurred_at": "2026-09-10T12:53:15.959Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "45190e08-f4db-488a-8ef7-c0010cef1a74",
+      "attempt_id": "9563dbc7-0aba-40df-b448-705bc965f436",
+      "occurred_at": "2026-09-10T12:53:16.086Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "761ddd87-b109-4717-8278-7cd4ec629ad8",
+      "attempt_id": "33cb70e4-5710-4939-8b1c-dbc84b93f942",
+      "occurred_at": "2026-09-10T12:53:16.102Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "775e6a89-cc88-43d0-8556-5771ce2da6f3",
+      "attempt_id": "0cd8ae7c-01e6-418f-90b3-a864a541d8d6",
+      "occurred_at": "2026-09-10T12:53:16.122Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "7ebe1975-5dac-43d0-8b51-710678a38f36",
+      "attempt_id": "58d1f644-9c07-4260-a31e-6b542520ab89",
+      "occurred_at": "2026-09-10T12:53:29.020Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "88e00ebb-84f0-4116-8ea0-d56da977a255",
+      "attempt_id": "777e505c-3595-4b14-9057-529be7cdbd2a",
+      "occurred_at": "2026-09-10T12:53:29.506Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "7fc94398-f4c1-4810-8a18-a7413697aff6",
+      "attempt_id": "14244186-2959-4dd6-8baa-114154f12365",
+      "occurred_at": "2026-09-10T12:53:43.625Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "925a2b6d-71a6-4c53-8141-9b11d717e54b",
+      "attempt_id": "c0e38a11-bb2f-4cce-a72c-a06c2249e8c0",
+      "occurred_at": "2026-09-10T12:53:43.916Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "c25ed1b8-831e-479a-8332-1e7b4d962257",
+      "attempt_id": "e7ba1942-33ce-4a49-926f-6cfd07af8b79",
+      "occurred_at": "2026-09-10T12:53:44.474Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "837a5123-28fc-4501-8c7a-cb37f8404625",
+      "attempt_id": "a8a2d45d-1aaa-488c-828d-215b67e72e18",
+      "occurred_at": "2026-09-10T12:53:49.537Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b1927edc-81f8-4798-84f3-815083f7e8e6",
+      "attempt_id": "5fc93505-77b0-43c3-97a9-cf6064a704b0",
+      "occurred_at": "2026-09-10T12:53:50.016Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "77326aa6-5687-41a2-8df0-9c728f19ae2b",
+      "attempt_id": "909d0984-032f-400a-a39c-40a9aed0d705",
+      "occurred_at": "2026-09-10T12:53:53.028Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "b8b22b7c-289c-47da-87d6-238e70236a2e",
+      "attempt_id": "9b9df487-d03e-44d3-b022-0090b13e162e",
+      "occurred_at": "2026-09-10T12:54:02.010Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a87ff8de-ae09-4024-81f7-f27ccd4cd557",
+      "attempt_id": "d279d87c-5033-4569-94fd-1c39b54c3cd6",
+      "occurred_at": "2026-09-10T12:54:02.933Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "bf1ef333-ef25-4092-8440-9ba72d12a4ec",
+      "attempt_id": "9bb1dfe7-952d-4712-89a7-929e093404e9",
+      "occurred_at": "2026-09-10T12:54:02.944Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c53d1be6-c708-4900-8bfd-d0c6d27a6788",
+      "attempt_id": "fe1f859f-fee4-4fcd-bceb-97b29a02348c",
+      "occurred_at": "2026-09-10T12:54:02.953Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "de8e0117-0e02-40c4-8c6a-67722980505e",
+      "attempt_id": "dfb42b95-ba4e-4b6b-a1ac-dc9b6977dff7",
+      "occurred_at": "2026-09-10T12:54:22.731Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "775e6a89-cc88-43d0-8556-5771ce2da6f3",
+      "attempt_id": "0cd8ae7c-01e6-418f-90b3-a864a541d8d6",
+      "occurred_at": "2026-09-10T12:54:32.956Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8f1ee6c7-858f-424e-86d2-17fce5db9d64",
+      "attempt_id": "7cc8816f-4cb4-465b-b130-6202b9787070",
+      "occurred_at": "2026-09-10T12:54:33.128Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "761ddd87-b109-4717-8278-7cd4ec629ad8",
+      "attempt_id": "33cb70e4-5710-4939-8b1c-dbc84b93f942",
+      "occurred_at": "2026-09-10T12:54:46.342Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "9d711732-0259-44fa-8182-b3b1e2f85808",
+      "attempt_id": "41d43af0-a444-40c6-a14b-c646d6393053",
+      "occurred_at": "2026-09-10T12:54:46.725Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "45190e08-f4db-488a-8ef7-c0010cef1a74",
+      "attempt_id": "9563dbc7-0aba-40df-b448-705bc965f436",
+      "occurred_at": "2026-09-10T12:54:51.357Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b0ae9b0b-5414-4ccb-86c0-00db9eaaad16",
+      "attempt_id": "87165eab-5c80-4ec5-81f5-fceff5ba0591",
+      "occurred_at": "2026-09-10T12:54:51.542Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "88e00ebb-84f0-4116-8ea0-d56da977a255",
+      "attempt_id": "777e505c-3595-4b14-9057-529be7cdbd2a",
+      "occurred_at": "2026-09-10T12:55:01.691Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "cd07f038-7765-45ee-885f-08d0cf8adc41",
+      "attempt_id": "7931dc3e-773d-410e-ba83-6f0cdfeed2cd",
+      "occurred_at": "2026-09-10T12:55:02.245Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "925a2b6d-71a6-4c53-8141-9b11d717e54b",
+      "attempt_id": "c0e38a11-bb2f-4cce-a72c-a06c2249e8c0",
+      "occurred_at": "2026-09-10T12:55:04.311Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d35fdea5-cf28-4b20-8ae0-bee70a592215",
+      "attempt_id": "819c5bcf-64fa-4e3e-8ba9-6289e21bbc15",
+      "occurred_at": "2026-09-10T12:55:04.830Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "7d708759-253f-473e-8b92-4c34df34d54c",
+      "attempt_id": "e1b8929a-242e-4f58-9041-7f0394728666",
+      "occurred_at": "2026-09-10T12:55:09.692Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "3da8daa1-4a7c-436d-8201-9574f1e91244",
+      "attempt_id": "49ea5888-9a62-4867-875b-6aeff6c73abd",
+      "occurred_at": "2026-09-10T12:55:10.149Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "672cf7a9-6a81-4333-8af0-7e3167ef61e7",
+      "attempt_id": "e6c8618f-151d-49d0-a5c7-948547c06eee",
+      "occurred_at": "2026-09-10T12:55:10.160Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e305c79a-d56c-4d53-8cd1-c9b7668d423a",
+      "attempt_id": "c597102d-2a69-4002-aae6-68f8c57cdea7",
+      "occurred_at": "2026-09-10T12:55:10.168Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "b1927edc-81f8-4798-84f3-815083f7e8e6",
+      "attempt_id": "5fc93505-77b0-43c3-97a9-cf6064a704b0",
+      "occurred_at": "2026-09-10T12:55:12.127Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1d629599-9d32-469d-824d-e0066c03997f",
+      "attempt_id": "db1de79b-2f13-4d56-9ff4-13f95591ab95",
+      "occurred_at": "2026-09-10T12:55:12.503Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "a87ff8de-ae09-4024-81f7-f27ccd4cd557",
+      "attempt_id": "d279d87c-5033-4569-94fd-1c39b54c3cd6",
+      "occurred_at": "2026-09-10T12:55:25.565Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d63a394c-8339-48c5-8989-d75b0f7aef01",
+      "attempt_id": "0eaa7de0-1370-449e-8c73-27f4380cc579",
+      "occurred_at": "2026-09-10T12:55:26.177Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "bf1ef333-ef25-4092-8440-9ba72d12a4ec",
+      "attempt_id": "9bb1dfe7-952d-4712-89a7-929e093404e9",
+      "occurred_at": "2026-09-10T12:55:32.517Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "c53d1be6-c708-4900-8bfd-d0c6d27a6788",
+      "attempt_id": "fe1f859f-fee4-4fcd-bceb-97b29a02348c",
+      "occurred_at": "2026-09-10T12:55:37.022Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "b0ae9b0b-5414-4ccb-86c0-00db9eaaad16",
+      "attempt_id": "87165eab-5c80-4ec5-81f5-fceff5ba0591",
+      "occurred_at": "2026-09-10T12:56:05.793Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b0d428a1-7989-4ef0-861c-7e4945cb50f7",
+      "attempt_id": "31f0908c-3bce-42ea-b270-0ba9f1ea0ab3",
+      "occurred_at": "2026-09-10T12:56:05.925Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "8f1ee6c7-858f-424e-86d2-17fce5db9d64",
+      "attempt_id": "7cc8816f-4cb4-465b-b130-6202b9787070",
+      "occurred_at": "2026-09-10T12:56:17.789Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b267801b-36ab-46dc-81ff-a5a660764ceb",
+      "attempt_id": "919bcc6d-1545-4520-a7b5-c7b6bc74145d",
+      "occurred_at": "2026-09-10T12:56:18.860Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "9d711732-0259-44fa-8182-b3b1e2f85808",
+      "attempt_id": "41d43af0-a444-40c6-a14b-c646d6393053",
+      "occurred_at": "2026-09-10T12:56:19.356Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "dacc9e15-e139-4552-8c88-b13b0804a96b",
+      "attempt_id": "937092c5-3d64-4c77-b5a1-ea80b6b6de01",
+      "occurred_at": "2026-09-10T12:56:20.188Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "cd07f038-7765-45ee-885f-08d0cf8adc41",
+      "attempt_id": "7931dc3e-773d-410e-ba83-6f0cdfeed2cd",
+      "occurred_at": "2026-09-10T12:56:25.530Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "43061c1f-3e43-4d0c-8a9f-2c7201afb4e3",
+      "attempt_id": "7b2e16fb-f3d0-4415-8612-28a11ec351be",
+      "occurred_at": "2026-09-10T12:56:26.260Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "3da8daa1-4a7c-436d-8201-9574f1e91244",
+      "attempt_id": "49ea5888-9a62-4867-875b-6aeff6c73abd",
+      "occurred_at": "2026-09-10T12:56:31.835Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "eceff3a5-e592-462a-8384-f2d6036a93f5",
+      "attempt_id": "1abc2d5f-7ee6-46e8-9757-185df916881d",
+      "occurred_at": "2026-09-10T12:56:32.419Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "672cf7a9-6a81-4333-8af0-7e3167ef61e7",
+      "attempt_id": "e6c8618f-151d-49d0-a5c7-948547c06eee",
+      "occurred_at": "2026-09-10T12:56:44.870Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "e305c79a-d56c-4d53-8cd1-c9b7668d423a",
+      "attempt_id": "c597102d-2a69-4002-aae6-68f8c57cdea7",
+      "occurred_at": "2026-09-10T12:56:50.847Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "d35fdea5-cf28-4b20-8ae0-bee70a592215",
+      "attempt_id": "819c5bcf-64fa-4e3e-8ba9-6289e21bbc15",
+      "occurred_at": "2026-09-10T12:56:54.927Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b2902463-0c65-43b7-8900-87f3a340c586",
+      "attempt_id": "111440b3-9588-434a-b65a-3392d9fb1c28",
+      "occurred_at": "2026-09-10T12:56:55.569Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "d63a394c-8339-48c5-8989-d75b0f7aef01",
+      "attempt_id": "0eaa7de0-1370-449e-8c73-27f4380cc579",
+      "occurred_at": "2026-09-10T12:57:03.031Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4db4051c-6303-4730-89f3-138eb3969c6b",
+      "attempt_id": "719c0092-a044-4d8a-a089-4b99ae64fb0d",
+      "occurred_at": "2026-09-10T12:57:04.318Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "798db907-29c1-43e9-8574-555d9608a560",
+      "attempt_id": "8bcece03-2b75-478e-a32b-2724fc50675d",
+      "occurred_at": "2026-09-10T12:57:04.329Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e36142ce-7aa3-4ceb-8220-6e34bfa09407",
+      "attempt_id": "7fcd34e4-03ac-471d-a451-c3b613766e0f",
+      "occurred_at": "2026-09-10T12:57:04.338Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "b267801b-36ab-46dc-81ff-a5a660764ceb",
+      "attempt_id": "919bcc6d-1545-4520-a7b5-c7b6bc74145d",
+      "occurred_at": "2026-09-10T12:57:49.910Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "dd00edb3-3969-42be-87e9-179189b4e56d",
+      "attempt_id": "51f1283e-bd00-4083-9302-1a3f0ffd6080",
+      "occurred_at": "2026-09-10T12:57:50.039Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "b0d428a1-7989-4ef0-861c-7e4945cb50f7",
+      "attempt_id": "31f0908c-3bce-42ea-b270-0ba9f1ea0ab3",
+      "occurred_at": "2026-09-10T12:57:50.641Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e82c5ea8-a21b-47cf-85b3-12fee8a8a2d5",
+      "attempt_id": "1cb85f37-6a19-4ee1-90e5-41f0133464f5",
+      "occurred_at": "2026-09-10T12:57:51.287Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "1d629599-9d32-469d-824d-e0066c03997f",
+      "attempt_id": "db1de79b-2f13-4d56-9ff4-13f95591ab95",
+      "occurred_at": "2026-09-10T12:57:51.484Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4fdb9ec4-f558-4b78-8f94-f17cf1c97230",
+      "attempt_id": "de252838-4349-4166-9ffc-72b37e1cfbb3",
+      "occurred_at": "2026-09-10T12:57:52.564Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "eceff3a5-e592-462a-8384-f2d6036a93f5",
+      "attempt_id": "1abc2d5f-7ee6-46e8-9757-185df916881d",
+      "occurred_at": "2026-09-10T12:57:54.431Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "3c11b3c0-8487-4abb-8e74-18d95bd6e3c7",
+      "attempt_id": "72d9d35a-6db5-4f7b-b6b2-c2a128cda72b",
+      "occurred_at": "2026-09-10T12:57:55.217Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "79879bc9-c6de-46ae-86c3-73217bf3aeee",
+      "attempt_id": "337735e4-5559-491a-9de1-3f120d77b61c",
+      "occurred_at": "2026-09-10T12:57:55.228Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "cf32a3d6-becb-486e-8ecc-322b6c9ea00a",
+      "attempt_id": "920d6b78-7d58-4490-8e2b-77f726d16b5e",
+      "occurred_at": "2026-09-10T12:57:55.236Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "dacc9e15-e139-4552-8c88-b13b0804a96b",
+      "attempt_id": "937092c5-3d64-4c77-b5a1-ea80b6b6de01",
+      "occurred_at": "2026-09-10T12:57:56.217Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f8a35537-725a-41cb-8cec-5be4d230b242",
+      "attempt_id": "032b5bad-fcce-433f-871a-290506a27e66",
+      "occurred_at": "2026-09-10T12:57:56.982Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "4db4051c-6303-4730-89f3-138eb3969c6b",
+      "attempt_id": "719c0092-a044-4d8a-a089-4b99ae64fb0d",
+      "occurred_at": "2026-09-10T12:58:22.760Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "86675a53-c23a-4680-8021-17461cf87976",
+      "attempt_id": "a35be1de-4c39-4cee-81b0-7803faf5e2ad",
+      "occurred_at": "2026-09-10T12:58:23.728Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "798db907-29c1-43e9-8574-555d9608a560",
+      "attempt_id": "8bcece03-2b75-478e-a32b-2724fc50675d",
+      "occurred_at": "2026-09-10T12:58:25.950Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c8b9dfef-a194-412f-8768-82d5f65fadb0",
+      "attempt_id": "61277593-fd67-4cc2-8a26-688f9e40660b",
+      "occurred_at": "2026-09-10T12:58:26.741Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "e36142ce-7aa3-4ceb-8220-6e34bfa09407",
+      "attempt_id": "7fcd34e4-03ac-471d-a451-c3b613766e0f",
+      "occurred_at": "2026-09-10T12:58:33.363Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7d980187-75b2-4482-82e6-6988626049fb",
+      "attempt_id": "e66e2b75-8178-4cfd-bd46-2cbd2669fb3a",
+      "occurred_at": "2026-09-10T12:58:34.032Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "43061c1f-3e43-4d0c-8a9f-2c7201afb4e3",
+      "attempt_id": "7b2e16fb-f3d0-4415-8612-28a11ec351be",
+      "occurred_at": "2026-09-10T12:58:48.845Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "b2902463-0c65-43b7-8900-87f3a340c586",
+      "attempt_id": "111440b3-9588-434a-b65a-3392d9fb1c28",
+      "occurred_at": "2026-09-10T12:58:59.077Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "dd00edb3-3969-42be-87e9-179189b4e56d",
+      "attempt_id": "51f1283e-bd00-4083-9302-1a3f0ffd6080",
+      "occurred_at": "2026-09-10T12:59:11.227Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c6b71b52-6f39-4d02-8cf0-29e77eb93ab8",
+      "attempt_id": "26ab7d4e-1492-4739-93cc-150b70b3815d",
+      "occurred_at": "2026-09-10T12:59:12.146Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "3c11b3c0-8487-4abb-8e74-18d95bd6e3c7",
+      "attempt_id": "72d9d35a-6db5-4f7b-b6b2-c2a128cda72b",
+      "occurred_at": "2026-09-10T12:59:16.936Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e0719449-7b39-480e-8bdc-1442041345e4",
+      "attempt_id": "a40b2545-d017-4dd6-bbfc-f4856205253a",
+      "occurred_at": "2026-09-10T12:59:17.573Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "e82c5ea8-a21b-47cf-85b3-12fee8a8a2d5",
+      "attempt_id": "1cb85f37-6a19-4ee1-90e5-41f0133464f5",
+      "occurred_at": "2026-09-10T12:59:18.702Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "5284a1d2-b1b7-40d7-8cdb-652b01b0cf80",
+      "attempt_id": "31a9c71c-3513-41cd-9728-ade813c1ffc5",
+      "occurred_at": "2026-09-10T12:59:19.512Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "79879bc9-c6de-46ae-86c3-73217bf3aeee",
+      "attempt_id": "337735e4-5559-491a-9de1-3f120d77b61c",
+      "occurred_at": "2026-09-10T12:59:27.672Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "918d34cc-4e29-4a61-8148-d23e39fbf892",
+      "attempt_id": "e80ea60a-b09c-4c7e-8033-c290fac091e4",
+      "occurred_at": "2026-09-10T12:59:28.583Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "cf32a3d6-becb-486e-8ecc-322b6c9ea00a",
+      "attempt_id": "920d6b78-7d58-4490-8e2b-77f726d16b5e",
+      "occurred_at": "2026-09-10T12:59:32.070Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7b7ab56b-6c49-491a-817c-dcaef04cd6b2",
+      "attempt_id": "083d1b49-232a-4575-ac55-8c9891b2a238",
+      "occurred_at": "2026-09-10T12:59:32.435Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "86675a53-c23a-4680-8021-17461cf87976",
+      "attempt_id": "a35be1de-4c39-4cee-81b0-7803faf5e2ad",
+      "occurred_at": "2026-09-10T12:59:49.847Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f2a4ffe9-328f-451e-837f-8d017ecb7630",
+      "attempt_id": "658d97ad-4a86-4094-8cd8-81c7f7344065",
+      "occurred_at": "2026-09-10T12:59:50.444Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "c8b9dfef-a194-412f-8768-82d5f65fadb0",
+      "attempt_id": "61277593-fd67-4cc2-8a26-688f9e40660b",
+      "occurred_at": "2026-09-10T12:59:56.218Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "7d980187-75b2-4482-82e6-6988626049fb",
+      "attempt_id": "e66e2b75-8178-4cfd-bd46-2cbd2669fb3a",
+      "occurred_at": "2026-09-10T12:59:59.647Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "4fdb9ec4-f558-4b78-8f94-f17cf1c97230",
+      "attempt_id": "de252838-4349-4166-9ffc-72b37e1cfbb3",
+      "occurred_at": "2026-09-10T13:00:11.766Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "79d2df41-4364-4bb2-84ee-e446efe8eb1f",
+      "attempt_id": "9a7fad9b-a665-4071-b411-6af2c04047a5",
+      "occurred_at": "2026-09-10T13:00:12.861Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "ab865c77-43e1-478f-87b9-be0e6f973a85",
+      "attempt_id": "83d74c99-7429-40b1-95f8-f69e9bdf00d0",
+      "occurred_at": "2026-09-10T13:00:12.871Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "b3e82bb3-8c45-4ebc-8f16-91beaa0a83af",
+      "attempt_id": "afcaf5ab-765c-42cf-9f02-d5795004542c",
+      "occurred_at": "2026-09-10T13:00:12.879Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "f8a35537-725a-41cb-8cec-5be4d230b242",
+      "attempt_id": "032b5bad-fcce-433f-871a-290506a27e66",
+      "occurred_at": "2026-09-10T13:00:33.104Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "89074c78-cd7f-4a92-8c80-89ef576cbbc6",
+      "attempt_id": "4eb4777a-0448-4961-8389-012b90636353",
+      "occurred_at": "2026-09-10T13:00:33.712Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "e0719449-7b39-480e-8bdc-1442041345e4",
+      "attempt_id": "a40b2545-d017-4dd6-bbfc-f4856205253a",
+      "occurred_at": "2026-09-10T13:00:34.139Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8d3a5dff-efa9-4bfb-8220-98b4bc4bdb60",
+      "attempt_id": "0b1c85ff-a552-4287-ae43-7de0e944ea43",
+      "occurred_at": "2026-09-10T13:00:35.174Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "918d34cc-4e29-4a61-8148-d23e39fbf892",
+      "attempt_id": "e80ea60a-b09c-4c7e-8033-c290fac091e4",
+      "occurred_at": "2026-09-10T13:00:45.897Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "7b7ab56b-6c49-491a-817c-dcaef04cd6b2",
+      "attempt_id": "083d1b49-232a-4575-ac55-8c9891b2a238",
+      "occurred_at": "2026-09-10T13:00:56.516Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "c6b71b52-6f39-4d02-8cf0-29e77eb93ab8",
+      "attempt_id": "26ab7d4e-1492-4739-93cc-150b70b3815d",
+      "occurred_at": "2026-09-10T13:01:01.429Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "f2a4ffe9-328f-451e-837f-8d017ecb7630",
+      "attempt_id": "658d97ad-4a86-4094-8cd8-81c7f7344065",
+      "occurred_at": "2026-09-10T13:01:23.537Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:01:24.879Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4ca7dd28-4907-4f2a-b5e7-d2301e48f198",
+      "attempt_id": "e21523c9-90bc-498d-9926-16a441e7d298",
+      "occurred_at": "2026-09-10T13:01:27.527Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "79d2df41-4364-4bb2-84ee-e446efe8eb1f",
+      "attempt_id": "9a7fad9b-a665-4071-b411-6af2c04047a5",
+      "occurred_at": "2026-09-10T13:01:29.359Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "bb63e0e5-6fb6-40f9-85f3-f28e85021dd8",
+      "attempt_id": "73ecb05c-91ba-4858-adea-ef036d961003",
+      "occurred_at": "2026-09-10T13:01:31.275Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "ab865c77-43e1-478f-87b9-be0e6f973a85",
+      "attempt_id": "83d74c99-7429-40b1-95f8-f69e9bdf00d0",
+      "occurred_at": "2026-09-10T13:01:32.675Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "5284a1d2-b1b7-40d7-8cdb-652b01b0cf80",
+      "attempt_id": "31a9c71c-3513-41cd-9728-ade813c1ffc5",
+      "occurred_at": "2026-09-10T13:01:34.758Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "b3e82bb3-8c45-4ebc-8f16-91beaa0a83af",
+      "attempt_id": "afcaf5ab-765c-42cf-9f02-d5795004542c",
+      "occurred_at": "2026-09-10T13:01:40.881Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "8d3a5dff-efa9-4bfb-8220-98b4bc4bdb60",
+      "attempt_id": "0b1c85ff-a552-4287-ae43-7de0e944ea43",
+      "occurred_at": "2026-09-10T13:02:02.649Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:02:03.348Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "2d61ac30-a460-49ca-b5e6-3fb4a1ce8d63",
+      "attempt_id": "c03511a2-d122-4382-af22-8242aed0234a",
+      "occurred_at": "2026-09-10T13:02:06.636Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "89074c78-cd7f-4a92-8c80-89ef576cbbc6",
+      "attempt_id": "4eb4777a-0448-4961-8389-012b90636353",
+      "occurred_at": "2026-09-10T13:02:20.397Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "11a390a9-58b9-4881-8370-bd502e393612",
+      "attempt_id": "33f3c90b-fce3-464d-91f8-37a1e9e698fd",
+      "occurred_at": "2026-09-10T13:02:21.590Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "332a32e1-195c-4b96-8089-4784c121fc97",
+      "attempt_id": "3e11e2bc-b7d2-4f65-8236-570417f8006f",
+      "occurred_at": "2026-09-10T13:02:21.601Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "69193160-61cc-4f03-88ff-c2a33f72b99c",
+      "attempt_id": "604a553b-3078-4289-8253-121e06c6e22d",
+      "occurred_at": "2026-09-10T13:02:21.610Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "bb63e0e5-6fb6-40f9-85f3-f28e85021dd8",
+      "attempt_id": "73ecb05c-91ba-4858-adea-ef036d961003",
+      "occurred_at": "2026-09-10T13:02:32.467Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "3d5c73c2-33b4-4277-8a3b-2e48ac8c2fd7",
+      "attempt_id": "53e06080-dc35-4a83-91a0-c6577fb4a994",
+      "occurred_at": "2026-09-10T13:02:34.091Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "72d8c6f0-4b2f-47a0-8199-ec81006ed5a9",
+      "attempt_id": "8da9fe38-fe1d-49a7-95c4-ffa6332655ac",
+      "occurred_at": "2026-09-10T13:02:34.112Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "ee62e191-10a8-42fa-8b34-6a9d424b66a9",
+      "attempt_id": "6c4a83d7-9c95-4c5b-834c-2ee8e682c223",
+      "occurred_at": "2026-09-10T13:02:34.122Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "11a390a9-58b9-4881-8370-bd502e393612",
+      "attempt_id": "33f3c90b-fce3-464d-91f8-37a1e9e698fd",
+      "occurred_at": "2026-09-10T13:03:04.321Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "dd828d40-1d0e-422b-8678-74a2d3a6e589",
+      "attempt_id": "f301522e-b5ef-481b-912b-50169a0ee939",
+      "occurred_at": "2026-09-10T13:03:08.377Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "332a32e1-195c-4b96-8089-4784c121fc97",
+      "attempt_id": "3e11e2bc-b7d2-4f65-8236-570417f8006f",
+      "occurred_at": "2026-09-10T13:03:21.894Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "69193160-61cc-4f03-88ff-c2a33f72b99c",
+      "attempt_id": "604a553b-3078-4289-8253-121e06c6e22d",
+      "occurred_at": "2026-09-10T13:03:28.820Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "3d5c73c2-33b4-4277-8a3b-2e48ac8c2fd7",
+      "attempt_id": "53e06080-dc35-4a83-91a0-c6577fb4a994",
+      "occurred_at": "2026-09-10T13:03:50.591Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "47316f78-1627-4d28-8f88-f3da10f6ecea",
+      "attempt_id": "fb63a76c-9a8e-4ba9-b117-3e3efd4df1d0",
+      "occurred_at": "2026-09-10T13:03:51.384Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "72d8c6f0-4b2f-47a0-8199-ec81006ed5a9",
+      "attempt_id": "8da9fe38-fe1d-49a7-95c4-ffa6332655ac",
+      "occurred_at": "2026-09-10T13:03:55.697Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "302b7b2a-786d-4072-8a28-133275a9b4c8",
+      "attempt_id": "14e5bfb8-d0c3-436a-b57f-3b6224ab5bcf",
+      "occurred_at": "2026-09-10T13:03:56.704Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "ee62e191-10a8-42fa-8b34-6a9d424b66a9",
+      "attempt_id": "6c4a83d7-9c95-4c5b-834c-2ee8e682c223",
+      "occurred_at": "2026-09-10T13:04:04.709Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "32d0a48b-793e-4155-88b8-309685b481bb",
+      "attempt_id": "f9fb2567-19b8-423d-b87c-d9360e1b7b26",
+      "occurred_at": "2026-09-10T13:04:05.570Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "2d61ac30-a460-49ca-b5e6-3fb4a1ce8d63",
+      "attempt_id": "c03511a2-d122-4382-af22-8242aed0234a",
+      "occurred_at": "2026-09-10T13:04:07.371Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1de80bca-7962-4740-be96-bc859f449d41",
+      "attempt_id": "c687ff11-d953-4828-8183-47b1c2696668",
+      "occurred_at": "2026-09-10T13:04:10.268Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "dd828d40-1d0e-422b-8678-74a2d3a6e589",
+      "attempt_id": "f301522e-b5ef-481b-912b-50169a0ee939",
+      "occurred_at": "2026-09-10T13:04:27.621Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c1ca4b7d-88f6-412a-8c03-f13aa251101d",
+      "attempt_id": "bf5b7255-ccf8-439f-86a8-e751271579d9",
+      "occurred_at": "2026-09-10T13:04:28.940Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "c339531d-4705-4e99-8035-c4d3dc5ab8c6",
+      "attempt_id": "ea6c948d-adca-444b-b9fa-24f7f23ca51d",
+      "occurred_at": "2026-09-10T13:04:28.954Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "ca199a1d-048b-4958-8aaf-98f138929942",
+      "attempt_id": "7f77e984-fe7d-4c37-9a76-6e4013d2fbca",
+      "occurred_at": "2026-09-10T13:04:28.965Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "47316f78-1627-4d28-8f88-f3da10f6ecea",
+      "attempt_id": "fb63a76c-9a8e-4ba9-b117-3e3efd4df1d0",
+      "occurred_at": "2026-09-10T13:05:08.214Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a9da3a46-a864-4647-8b4d-60795d5e79b3",
+      "attempt_id": "fadef4f3-6219-495c-aff8-2a1df5ce3734",
+      "occurred_at": "2026-09-10T13:05:10.159Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "302b7b2a-786d-4072-8a28-133275a9b4c8",
+      "attempt_id": "14e5bfb8-d0c3-436a-b57f-3b6224ab5bcf",
+      "occurred_at": "2026-09-10T13:05:18.163Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "4ca7dd28-4907-4f2a-b5e7-d2301e48f198",
+      "attempt_id": "1286d9a7-b674-4b54-93a1-8922dd475fbb",
+      "occurred_at": "2026-09-10T13:05:19.805Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "904be829-eb23-459b-8df8-9745fd007431",
+      "attempt_id": "3b9614f4-1b63-42d7-9482-51678556665c",
+      "occurred_at": "2026-09-10T13:05:20.627Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "32d0a48b-793e-4155-88b8-309685b481bb",
+      "attempt_id": "f9fb2567-19b8-423d-b87c-d9360e1b7b26",
+      "occurred_at": "2026-09-10T13:05:20.679Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "c1ca4b7d-88f6-412a-8c03-f13aa251101d",
+      "attempt_id": "bf5b7255-ccf8-439f-86a8-e751271579d9",
+      "occurred_at": "2026-09-10T13:05:46.378Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "281adb72-8398-4858-872f-31c49188a8d1",
+      "attempt_id": "e02c75b0-679c-4320-9672-c908343f2ed7",
+      "occurred_at": "2026-09-10T13:05:48.526Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "c339531d-4705-4e99-8035-c4d3dc5ab8c6",
+      "attempt_id": "ea6c948d-adca-444b-b9fa-24f7f23ca51d",
+      "occurred_at": "2026-09-10T13:05:52.362Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "6bfcba43-351b-4b1c-81a9-9d5a08436bf2",
+      "attempt_id": "2b39d2b4-ed5a-4c45-8719-963b16cd7d86",
+      "occurred_at": "2026-09-10T13:05:54.411Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "ca199a1d-048b-4958-8aaf-98f138929942",
+      "attempt_id": "7f77e984-fe7d-4c37-9a76-6e4013d2fbca",
+      "occurred_at": "2026-09-10T13:06:02.340Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "09e50c52-260d-417d-8b0a-bb7d1f1fe1ae",
+      "attempt_id": "3c02e30d-c956-45a1-b72a-206e10200604",
+      "occurred_at": "2026-09-10T13:06:03.975Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "a9da3a46-a864-4647-8b4d-60795d5e79b3",
+      "attempt_id": "fadef4f3-6219-495c-aff8-2a1df5ce3734",
+      "occurred_at": "2026-09-10T13:06:17.812Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:06:19.155Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "019ab735-cc99-429b-87e9-d9ee05ab8c78",
+      "attempt_id": "ee7206cf-7f60-48c3-be13-07733b71533e",
+      "occurred_at": "2026-09-10T13:06:21.991Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "281adb72-8398-4858-872f-31c49188a8d1",
+      "attempt_id": "e02c75b0-679c-4320-9672-c908343f2ed7",
+      "occurred_at": "2026-09-10T13:06:51.089Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "bce4013a-cbd4-4757-8a44-c0428c356691",
+      "attempt_id": "feb780a3-00c6-4f9e-9524-8142adab82cb",
+      "occurred_at": "2026-09-10T13:06:51.377Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "6bfcba43-351b-4b1c-81a9-9d5a08436bf2",
+      "attempt_id": "2b39d2b4-ed5a-4c45-8719-963b16cd7d86",
+      "occurred_at": "2026-09-10T13:06:56.243Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "1de80bca-7962-4740-be96-bc859f449d41",
+      "attempt_id": "c687ff11-d953-4828-8183-47b1c2696668",
+      "occurred_at": "2026-09-10T13:06:58.540Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:07:00.348Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "09e50c52-260d-417d-8b0a-bb7d1f1fe1ae",
+      "attempt_id": "3c02e30d-c956-45a1-b72a-206e10200604",
+      "occurred_at": "2026-09-10T13:07:03.089Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "bce4013a-cbd4-4757-8a44-c0428c356691",
+      "attempt_id": "feb780a3-00c6-4f9e-9524-8142adab82cb",
+      "occurred_at": "2026-09-10T13:07:29.786Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:07:30.944Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "904be829-eb23-459b-8df8-9745fd007431",
+      "attempt_id": "3b9614f4-1b63-42d7-9482-51678556665c",
+      "occurred_at": "2026-09-10T13:07:31.415Z",
+      "code": null
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:07:33.429Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1db83ecd-59df-4cc9-9ec0-bfba11a827d6",
+      "attempt_id": "48fef046-1c0a-4160-9cd1-3a1a8073e17e",
+      "occurred_at": "2026-09-10T13:07:34.463Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "019ab735-cc99-429b-87e9-d9ee05ab8c78",
+      "attempt_id": "ee7206cf-7f60-48c3-be13-07733b71533e",
+      "occurred_at": "2026-09-10T13:08:25.276Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "615f8fe2-eb87-48b7-9af7-2aae47c81408",
+      "attempt_id": "f8200514-f94a-4977-a622-c39c677325d4",
+      "occurred_at": "2026-09-10T13:08:27.336Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "1db83ecd-59df-4cc9-9ec0-bfba11a827d6",
+      "attempt_id": "48fef046-1c0a-4160-9cd1-3a1a8073e17e",
+      "occurred_at": "2026-09-10T13:09:15.239Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f7e55e51-4a65-4de9-9d8d-2790f62ac2e9",
+      "attempt_id": "cc3a14b7-916b-47ec-b362-b2d25ce8f1fa",
+      "occurred_at": "2026-09-10T13:09:16.739Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "attempt_committed",
+      "state_id": "retry-wait",
+      "job_id": "f7e55e51-4a65-4de9-9d8d-2790f62ac2e9",
+      "attempt_id": "cc3a14b7-916b-47ec-b362-b2d25ce8f1fa",
+      "occurred_at": "2026-09-10T13:09:29.709Z",
+      "code": "codex_isolation_temporarily_unavailable"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "runtime_status",
+      "state_id": "waiting",
+      "job_id": "f7e55e51-4a65-4de9-9d8d-2790f62ac2e9",
+      "attempt_id": "cc3a14b7-916b-47ec-b362-b2d25ce8f1fa",
+      "occurred_at": "2026-09-10T13:09:29.709Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": "f7e55e51-4a65-4de9-9d8d-2790f62ac2e9",
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:09:30.645Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "f7e55e51-4a65-4de9-9d8d-2790f62ac2e9",
+      "attempt_id": "171e8104-0acc-4940-ba92-0dbee1dbf0bb",
+      "occurred_at": "2026-09-10T13:09:30.645Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "615f8fe2-eb87-48b7-9af7-2aae47c81408",
+      "attempt_id": "f8200514-f94a-4977-a622-c39c677325d4",
+      "occurred_at": "2026-09-10T13:10:22.789Z",
+      "code": null
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:10:24.283Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "f7e55e51-4a65-4de9-9d8d-2790f62ac2e9",
+      "attempt_id": "171e8104-0acc-4940-ba92-0dbee1dbf0bb",
+      "occurred_at": "2026-09-10T13:11:21.233Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "run_incomplete",
+      "state_id": "incomplete",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:13:57.890Z",
+      "code": "report_publication:automatic_recovery_exhausted"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "runtime_status",
+      "state_id": "retrying",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:17:34.223Z",
+      "code": "failed_stage_resumed"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:17:48.929Z",
+      "code": null
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T13:17:50.933Z",
+      "code": null
+    }
+  ],
+  "auxiliaryUsage": [
+    {
+      "symbol": "AAPL",
+      "purpose": "semantic_news_shortlist",
+      "recorded_at": "2026-09-10T12:48:04.348Z",
+      "input_tokens": 49341,
+      "output_tokens": 10859
+    },
+    {
+      "symbol": "AAPL",
+      "purpose": "semantic_news_detail",
+      "recorded_at": "2026-09-10T12:49:45.065Z",
+      "input_tokens": 21191,
+      "output_tokens": 2433
+    },
+    {
+      "symbol": "MSFT",
+      "purpose": "semantic_news_shortlist",
+      "recorded_at": "2026-09-10T12:49:48.879Z",
+      "input_tokens": 39006,
+      "output_tokens": 7864
+    },
+    {
+      "symbol": "MSFT",
+      "purpose": "semantic_news_detail",
+      "recorded_at": "2026-09-10T12:51:30.637Z",
+      "input_tokens": 20103,
+      "output_tokens": 2404
+    }
+  ],
+  "limitations": [],
+  "attemptTimes": [
+    {
+      "symbol": "AAPL",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T12:43:59.348Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T12:43:59.380Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T12:43:59.397Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T12:43:59.413Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T12:46:00.351Z",
+      "recorded_at": "2026-09-10T12:47:07.024Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T12:46:00.384Z",
+      "recorded_at": "2026-09-10T12:47:07.707Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T12:46:00.401Z",
+      "recorded_at": "2026-09-10T12:46:51.041Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T12:46:05.216Z",
+      "recorded_at": "2026-09-10T12:47:05.086Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T12:46:05.231Z",
+      "recorded_at": "2026-09-10T12:47:32.969Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T12:46:05.252Z",
+      "recorded_at": "2026-09-10T12:47:13.625Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T12:46:51.406Z",
+      "recorded_at": "2026-09-10T12:47:49.990Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T12:47:05.582Z",
+      "recorded_at": "2026-09-10T12:47:55.939Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T12:47:07.031Z",
+      "recorded_at": "2026-09-10T12:48:08.407Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T12:47:07.717Z",
+      "recorded_at": "2026-09-10T12:47:54.865Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T12:47:14.183Z",
+      "recorded_at": "2026-09-10T12:48:08.453Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T12:47:33.293Z",
+      "recorded_at": "2026-09-10T12:48:37.874Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T12:47:50.394Z",
+      "recorded_at": "2026-09-10T12:48:54.720Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T12:47:56.219Z",
+      "recorded_at": "2026-09-10T12:48:45.187Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T12:48:08.828Z",
+      "recorded_at": "2026-09-10T12:49:17.718Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T12:48:08.842Z",
+      "recorded_at": "2026-09-10T12:49:25.172Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T12:48:20.866Z",
+      "recorded_at": "2026-09-10T12:49:30.344Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T12:48:38.299Z",
+      "recorded_at": "2026-09-10T12:50:00.596Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T12:48:45.724Z",
+      "recorded_at": "2026-09-10T12:50:06.706Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T12:48:55.138Z",
+      "recorded_at": "2026-09-10T12:50:10.956Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T12:49:18.059Z",
+      "recorded_at": "2026-09-10T12:50:38.124Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T12:49:25.351Z",
+      "recorded_at": "2026-09-10T12:50:38.439Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T12:49:30.547Z",
+      "recorded_at": "2026-09-10T12:50:48.045Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T12:50:01.055Z",
+      "recorded_at": "2026-09-10T12:51:38.209Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T12:50:07.176Z",
+      "recorded_at": "2026-09-10T12:51:43.109Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T12:50:11.403Z",
+      "recorded_at": "2026-09-10T12:51:31.145Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T12:50:38.273Z",
+      "recorded_at": "2026-09-10T12:51:57.915Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T12:50:38.447Z",
+      "recorded_at": "2026-09-10T12:52:07.419Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T12:50:48.312Z",
+      "recorded_at": "2026-09-10T12:52:54.015Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T12:50:59.796Z",
+      "recorded_at": "2026-09-10T12:52:17.053Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T12:50:59.811Z",
+      "recorded_at": "2026-09-10T12:52:25.673Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T12:50:59.830Z",
+      "recorded_at": "2026-09-10T12:52:22.670Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T12:51:31.418Z",
+      "recorded_at": "2026-09-10T12:53:53.024Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T12:51:38.681Z",
+      "recorded_at": "2026-09-10T12:53:44.471Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T12:51:58.207Z",
+      "recorded_at": "2026-09-10T12:54:22.728Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T12:52:07.800Z",
+      "recorded_at": "2026-09-10T12:54:02.007Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T12:52:17.340Z",
+      "recorded_at": "2026-09-10T12:53:29.012Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T12:52:22.974Z",
+      "recorded_at": "2026-09-10T12:53:43.617Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T12:52:26.111Z",
+      "recorded_at": "2026-09-10T12:53:49.529Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T12:52:54.348Z",
+      "recorded_at": "2026-09-10T12:55:09.688Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T12:53:16.086Z",
+      "recorded_at": "2026-09-10T12:54:51.346Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T12:53:16.102Z",
+      "recorded_at": "2026-09-10T12:54:46.327Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T12:53:16.122Z",
+      "recorded_at": "2026-09-10T12:54:32.948Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T12:53:29.506Z",
+      "recorded_at": "2026-09-10T12:55:01.643Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T12:53:43.916Z",
+      "recorded_at": "2026-09-10T12:55:04.304Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T12:53:50.016Z",
+      "recorded_at": "2026-09-10T12:55:12.119Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T12:54:02.933Z",
+      "recorded_at": "2026-09-10T12:54:02.944Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T12:54:02.944Z",
+      "recorded_at": "2026-09-10T12:54:02.953Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T12:54:02.953Z",
+      "recorded_at": "2026-09-10T12:54:02.962Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T12:54:33.128Z",
+      "recorded_at": "2026-09-10T12:56:17.779Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T12:54:46.725Z",
+      "recorded_at": "2026-09-10T12:56:19.345Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T12:54:51.542Z",
+      "recorded_at": "2026-09-10T12:56:05.783Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T12:55:02.245Z",
+      "recorded_at": "2026-09-10T12:56:25.521Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T12:55:04.830Z",
+      "recorded_at": "2026-09-10T12:56:54.919Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T12:55:10.149Z",
+      "recorded_at": "2026-09-10T12:55:10.159Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T12:55:10.160Z",
+      "recorded_at": "2026-09-10T12:55:10.168Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T12:55:10.168Z",
+      "recorded_at": "2026-09-10T12:55:10.177Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T12:55:12.503Z",
+      "recorded_at": "2026-09-10T12:57:51.479Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T12:55:26.177Z",
+      "recorded_at": "2026-09-10T12:55:26.189Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T12:56:05.925Z",
+      "recorded_at": "2026-09-10T12:57:50.633Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T12:56:18.860Z",
+      "recorded_at": "2026-09-10T12:57:49.902Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T12:56:20.188Z",
+      "recorded_at": "2026-09-10T12:57:56.209Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T12:56:26.260Z",
+      "recorded_at": "2026-09-10T12:58:48.841Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T12:56:32.419Z",
+      "recorded_at": "2026-09-10T12:56:32.429Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T12:56:55.569Z",
+      "recorded_at": "2026-09-10T12:58:59.073Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "followup:company",
+      "created_at": "2026-09-10T12:57:04.318Z",
+      "recorded_at": "2026-09-10T12:58:22.757Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T12:57:04.329Z",
+      "recorded_at": "2026-09-10T12:58:25.947Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "followup:market",
+      "created_at": "2026-09-10T12:57:04.338Z",
+      "recorded_at": "2026-09-10T12:58:33.360Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T12:57:50.039Z",
+      "recorded_at": "2026-09-10T12:59:11.219Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T12:57:51.287Z",
+      "recorded_at": "2026-09-10T12:59:18.694Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T12:57:52.564Z",
+      "recorded_at": "2026-09-10T13:00:11.763Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T12:57:55.217Z",
+      "recorded_at": "2026-09-10T12:59:16.933Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:company",
+      "created_at": "2026-09-10T12:57:55.228Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:market",
+      "created_at": "2026-09-10T12:57:55.236Z",
+      "recorded_at": "2026-09-10T12:59:32.068Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T12:57:56.982Z",
+      "recorded_at": "2026-09-10T13:00:33.101Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T12:58:23.728Z",
+      "recorded_at": "2026-09-10T12:59:49.844Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T12:58:26.741Z",
+      "recorded_at": "2026-09-10T12:59:56.216Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T12:58:34.032Z",
+      "recorded_at": "2026-09-10T12:59:59.644Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T12:59:12.146Z",
+      "recorded_at": "2026-09-10T13:01:01.426Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T12:59:17.573Z",
+      "recorded_at": "2026-09-10T13:00:34.136Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T12:59:19.512Z",
+      "recorded_at": "2026-09-10T13:01:34.754Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T12:59:28.583Z",
+      "recorded_at": "2026-09-10T13:00:45.894Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T12:59:32.435Z",
+      "recorded_at": "2026-09-10T13:00:56.513Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T12:59:50.444Z",
+      "recorded_at": "2026-09-10T13:01:23.534Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T13:00:12.861Z",
+      "recorded_at": "2026-09-10T13:00:12.871Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T13:00:12.871Z",
+      "recorded_at": "2026-09-10T13:00:12.879Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T13:00:12.879Z",
+      "recorded_at": "2026-09-10T13:00:12.888Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T13:00:33.712Z",
+      "recorded_at": "2026-09-10T13:02:20.393Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T13:00:35.174Z",
+      "recorded_at": "2026-09-10T13:02:02.645Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T13:01:27.527Z",
+      "recorded_at": "2026-09-10T13:03:16.104Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T13:01:31.275Z",
+      "recorded_at": "2026-09-10T13:01:31.285Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T13:02:06.636Z",
+      "recorded_at": "2026-09-10T13:04:07.367Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T13:02:21.590Z",
+      "recorded_at": "2026-09-10T13:02:21.601Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T13:02:21.601Z",
+      "recorded_at": "2026-09-10T13:02:21.610Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T13:02:21.610Z",
+      "recorded_at": "2026-09-10T13:02:21.618Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "followup:market",
+      "created_at": "2026-09-10T13:02:34.091Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "followup:financial",
+      "created_at": "2026-09-10T13:02:34.112Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T13:02:34.122Z",
+      "recorded_at": "2026-09-10T13:04:04.706Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T13:03:08.377Z",
+      "recorded_at": "2026-09-10T13:03:08.387Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T13:03:16.110Z",
+      "recorded_at": "2026-09-10T13:05:19.799Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T13:03:51.384Z",
+      "recorded_at": "2026-09-10T13:05:08.211Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T13:03:56.704Z",
+      "recorded_at": "2026-09-10T13:05:18.160Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T13:04:05.570Z",
+      "recorded_at": "2026-09-10T13:05:20.676Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T13:04:10.268Z",
+      "recorded_at": "2026-09-10T13:06:58.534Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T13:04:28.940Z",
+      "recorded_at": "2026-09-10T13:05:46.375Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "followup:financial",
+      "created_at": "2026-09-10T13:04:28.954Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "followup:company",
+      "created_at": "2026-09-10T13:04:28.965Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T13:05:10.159Z",
+      "recorded_at": "2026-09-10T13:06:17.809Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AMZN",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T13:05:20.627Z",
+      "recorded_at": "2026-09-10T13:07:31.411Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T13:05:48.526Z",
+      "recorded_at": "2026-09-10T13:06:51.087Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T13:05:54.411Z",
+      "recorded_at": "2026-09-10T13:06:56.240Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T13:06:03.975Z",
+      "recorded_at": "2026-09-10T13:07:03.086Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T13:06:21.991Z",
+      "recorded_at": "2026-09-10T13:08:25.269Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T13:06:51.377Z",
+      "recorded_at": "2026-09-10T13:07:29.783Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T13:07:34.463Z",
+      "recorded_at": "2026-09-10T13:09:15.233Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "AAPL",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T13:08:27.336Z",
+      "recorded_at": "2026-09-10T13:10:22.783Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T13:09:16.739Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "MSFT",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T13:09:30.645Z",
+      "recorded_at": "2026-09-10T13:11:21.228Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    }
+  ],
+  "tokenUsage": [
+    {
+      "input_tokens": 3368144,
+      "output_tokens": 173114
+    }
+  ],
+  "verificationContainerRemoved": true,
+  "temporaryEnvironmentRemoved": true,
+  "dataRetained": "/home/ec2-user/stocksembly-reliability-rerun-20260910/data"
+}

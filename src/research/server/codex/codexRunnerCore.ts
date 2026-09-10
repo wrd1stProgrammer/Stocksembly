@@ -9,6 +9,7 @@ import {
   sha256Value,
   writeExclusiveJson,
 } from "./codexArtifacts";
+import { codexStdoutAuthenticationFailure } from "./codexAuthenticationFailure";
 import {
   asCodexRunnerError,
   CodexRunnerError,
@@ -130,8 +131,7 @@ function failedExecutionClass(
     return "schema_invalid";
   if (/model.+at capacity|rate.?limit|too many requests|\b429\b/iu.test(text))
     return "rate_limited";
-  if (/authentication|not authenticated|invalid api key|\b401\b/iu.test(text))
-    return "auth_unavailable";
+  if (codexStdoutAuthenticationFailure(text)) return "auth_unavailable";
   if (/network|connection (?:failed|reset|refused)|dns|\b503\b/iu.test(text))
     return "network_unavailable";
   return "process_failed";
@@ -187,7 +187,11 @@ export async function runCodexWithPlatform<Candidate>(
     }),
   );
   const runtime = await runnerPhase("runtime_prepare", () =>
-    prepareEphemeralRuntime(platform.authPath, input.attemptDir),
+    prepareEphemeralRuntime(
+      platform.authPath,
+      input.attemptDir,
+      platform.authentication,
+    ),
   );
   let cleanupComplete = false;
   let manifestWritten = false;
@@ -224,6 +228,7 @@ export async function runCodexWithPlatform<Candidate>(
     const plannedToolTranscriptHash = sha256Value([]);
     const manifest = Object.freeze({
       schema: "stocksembly.codex-launch.v1",
+      executionBackend: platform.authentication ?? "subscription",
       runId: reservation.runId,
       jobId: reservation.jobId,
       attemptId: reservation.attemptId,
@@ -309,20 +314,25 @@ export async function runCodexWithPlatform<Candidate>(
       platform.runCodex(invocation),
     );
     if (execution.exitCode !== 0)
-      throw new CodexRunnerError(failedExecutionClass(execution.stdout), {
-        process: {
-          exitCode: execution.exitCode,
-          signal: execution.signal ?? null,
-          stdoutBytes:
-            execution.stdoutBytes ??
-            execution.stdout.reduce(
-              (total, chunk) => total + chunk.byteLength,
-              0,
-            ),
-          stderrBytes: execution.stderrBytes,
-          durationMs: execution.durationMs ?? 0,
+      throw new CodexRunnerError(
+        execution.authenticationFailure
+          ? "auth_unavailable"
+          : failedExecutionClass(execution.stdout),
+        {
+          process: {
+            exitCode: execution.exitCode,
+            signal: execution.signal ?? null,
+            stdoutBytes:
+              execution.stdoutBytes ??
+              execution.stdout.reduce(
+                (total, chunk) => total + chunk.byteLength,
+                0,
+              ),
+            stderrBytes: execution.stderrBytes,
+            durationMs: execution.durationMs ?? 0,
+          },
         },
-      });
+      );
     const collected = await runnerPhase("output_contract", () =>
       collectCodexJsonl(execution.stdout, undefined, browsingPolicy),
     );
@@ -392,6 +402,7 @@ export async function runCodexWithPlatform<Candidate>(
     if (manifestWritten)
       await writeExclusiveJson(input.attemptDir, "lifecycle.json", {
         schema: "stocksembly.codex-lifecycle.v1",
+        executionBackend: platform.authentication ?? "subscription",
         runId: reservation.runId,
         jobId: reservation.jobId,
         attemptId: reservation.attemptId,

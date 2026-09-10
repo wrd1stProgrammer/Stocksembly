@@ -35,37 +35,39 @@ describe("WorkflowV1 physical launch budget", () => {
       initialCollectionAttempts: 1,
       mandatoryFirstAttempts: 25,
       maxOptionalFollowups: 3,
-      maxRequiredReplacements: 5,
-      maxPhysicalLaunches: 34,
+      maxRequiredReplacements: 12,
+      maxTransientRetryHeadroom: 24,
+      maxPhysicalLaunches: 65,
+      maxAttemptsPerLogicalArtifact: 4,
     });
     expect(summary.physicalLaunches).toBe(26);
     expect(summary.burnedOrdinals).toBe(0);
   });
 
-  it("accepts absolute ordinal 34 and terminalizes ordinal 35", () => {
+  it("accepts absolute ordinal 65 and terminalizes ordinal 66", () => {
     // Given
     const request = {
-      attemptId: attemptId(34),
+      attemptId: attemptId(65),
       logicalArtifactId: REQUIRED_IDS[0],
       purpose: "mandatory_first",
       rosterFingerprint: WORKFLOW_V1_ROSTER_FINGERPRINT,
     } as const;
     // When
-    const ordinal34 = reserveResearchLaunch(openLedger(), {
+    const ordinal65 = reserveResearchLaunch(openLedger(), {
       ...request,
-      ordinal: 34,
+      ordinal: 65,
     });
-    const ordinal35 = reserveResearchLaunch(openLedger(), {
+    const ordinal66 = reserveResearchLaunch(openLedger(), {
       ...request,
-      ordinal: 35,
-      attemptId: attemptId(35),
+      ordinal: 66,
+      attemptId: attemptId(66),
     });
     // Then
-    expect(ordinal34.kind).toBe("reserved");
-    expect(ordinal34.ledger.launches).toHaveLength(1);
-    expect(ordinal35.kind).toBe("incomplete");
-    expect(ordinal35.ledger.incompleteReason).toBe("ordinal_limit");
-    expect(ordinal35.ledger.launches).toHaveLength(0);
+    expect(ordinal65.kind).toBe("reserved");
+    expect(ordinal65.ledger.launches).toHaveLength(1);
+    expect(ordinal66.kind).toBe("incomplete");
+    expect(ordinal66.ledger.incompleteReason).toBe("ordinal_limit");
+    expect(ordinal66.ledger.launches).toHaveLength(0);
   });
 
   it("allows three follow-ups plus five replacements at exactly 34", () => {
@@ -107,7 +109,7 @@ describe("WorkflowV1 physical launch budget", () => {
     );
   });
 
-  it("terminalizes reuse, a sixth replacement, and replacement of a follow-up", () => {
+  it("terminalizes reuse, a thirteenth replacement, and replacement of a follow-up", () => {
     // Given
     const burned = outcome(
       reserve(openLedger(), 1, REQUIRED_IDS[0], "mandatory_first"),
@@ -129,13 +131,13 @@ describe("WorkflowV1 physical launch budget", () => {
     // Given
     let exhausted = openLedger();
     let ordinal = 10;
-    for (const id of REQUIRED_IDS.slice(0, 6)) {
+    for (const id of EXPECTED_REQUIRED_ARTIFACT_IDS.slice(0, 13)) {
       exhausted = outcome(
         reserve(exhausted, ordinal, id, "mandatory_first"),
         ordinal,
         "timeout",
       );
-      if (id !== REQUIRED_IDS[5]) {
+      if (id !== EXPECTED_REQUIRED_ARTIFACT_IDS[12]) {
         exhausted = outcome(
           reserve(exhausted, ordinal + 1, id, "required_replacement"),
           ordinal + 1,
@@ -145,15 +147,15 @@ describe("WorkflowV1 physical launch budget", () => {
       ordinal += 2;
     }
     // When
-    const sixth = reserveResearchLaunch(exhausted, {
+    const thirteenth = reserveResearchLaunch(exhausted, {
       ordinal,
       attemptId: attemptId(ordinal),
-      logicalArtifactId: REQUIRED_IDS[5],
+      logicalArtifactId: EXPECTED_REQUIRED_ARTIFACT_IDS[12],
       purpose: "required_replacement",
       rosterFingerprint: WORKFLOW_V1_ROSTER_FINGERPRINT,
     });
     // Then
-    expect(sixth.ledger.incompleteReason).toBe(
+    expect(thirteenth.ledger.incompleteReason).toBe(
       "replacement_capacity_exhausted",
     );
 
@@ -177,7 +179,7 @@ describe("WorkflowV1 physical launch budget", () => {
     );
   });
 
-  it("covers early, late, and chair failures and terminal second launches", () => {
+  it("covers early, late, and chair failures and terminal fourth launches", () => {
     // Given
     const stages = [REQUIRED_IDS[0], REQUIRED_IDS[3], REQUIRED_IDS[5]] as const;
     const failures = [
@@ -196,13 +198,17 @@ describe("WorkflowV1 physical launch budget", () => {
           firstOrdinal,
           failure,
         );
-        const replacement = reserve(
-          failed,
-          firstOrdinal + 1,
-          id,
-          "required_replacement",
-        );
-        return outcome(replacement, firstOrdinal + 1, failure);
+        let retried = failed;
+        for (let repair = 1; repair <= 3; repair += 1) {
+          const nextOrdinal = firstOrdinal + repair;
+          retried = outcome(
+            reserve(retried, nextOrdinal, id, "required_replacement"),
+            nextOrdinal,
+            failure,
+          );
+          if (repair < 3) expect(retried.status).toBe("open");
+        }
+        return retried;
       }),
     );
     // Then
