@@ -874,7 +874,7 @@ describe("leased research worker", () => {
     }
   });
 
-  it("holds twelve global slots and at most three jobs per research across workers", async () => {
+  it("shares twelve global slots fairly across workers and resumes overflow after release", async () => {
     // Given
     const fixture = createLeaseEngineFixture();
     const handler = new RecordingHandler();
@@ -894,11 +894,14 @@ describe("leased research worker", () => {
 
       // Then
       expect(fixture.launches()).toHaveLength(12);
-      expect(overflow).toEqual({ kind: "idle" });
+      expect(overflow).toEqual({ kind: "capacity" });
       for (const group of groups)
         expect(fixture.launches(group[0]?.runId)).toHaveLength(3);
       release?.();
       await Promise.all(tasks);
+      const resumed = await engines[12]?.poll();
+      expect(resumed?.kind).toBe("handled");
+      expect(fixture.launches()).toHaveLength(13);
     } finally {
       release?.();
       await Promise.all(engines.map((engine) => engine.shutdown()));
