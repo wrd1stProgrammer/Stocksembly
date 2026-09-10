@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import type { InsightSentrySymbol } from "../../../../src/research/server/data/insightsentry/insightSentryMarket";
-import { createTickerRoute } from "./route";
+import { createTickerRoute } from "./handler";
 
 describe("GET /api/research/tickers", () => {
   it("returns canonical provider-backed results for company-name queries", async () => {
     // Given
     const result: InsightSentrySymbol = {
-        symbol: "NVDA",
-        providerCode: "NASDAQ:NVDA",
-        company: "NVIDIA Corporation",
-        exchange: "NASDAQ",
-        securityType: "common_stock",
-        currency: "USD",
-        status: "active",
-        aliases: ["NVDA"],
+      symbol: "NVDA",
+      providerCode: "NASDAQ:NVDA",
+      company: "NVIDIA Corporation",
+      exchange: "NASDAQ",
+      securityType: "common_stock",
+      currency: "USD",
+      status: "active",
+      aliases: ["NVDA"],
     };
     const search = vi.fn(async () => [result]);
     const get = createTickerRoute(async () => ({
