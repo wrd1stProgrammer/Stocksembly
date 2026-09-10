@@ -783,11 +783,18 @@ export async function collectInsightSentryInitialEvidence(input: {
     code === undefined
       ? Promise.resolve(unavailableTechnical)
       : marketFamily(async () => {
-          const [company, quote, collectedBars] = await Promise.all([
-            market.companyInfo(code),
-            market.quote(code),
-            market.technicalBars(code),
-          ]);
+          const [companyResult, quoteResult, barsResult] =
+            await Promise.allSettled([
+              market.companyInfo(code),
+              market.quote(code),
+              market.technicalBars(code),
+            ]);
+          if (companyResult.status === "rejected") throw companyResult.reason;
+          if (quoteResult.status === "rejected") throw quoteResult.reason;
+          if (barsResult.status === "rejected") throw barsResult.reason;
+          const company = companyResult.value;
+          const quote = quoteResult.value;
+          const collectedBars = barsResult.value;
           const bars = collectedBars
             .map((set) => {
               const closed = closedChartBars(
@@ -815,6 +822,11 @@ export async function collectInsightSentryInitialEvidence(input: {
             analysis: deriveInsightSentryTechnicalAnalysis({ quote, bars }),
           };
         }, true);
+  // Optional branches can launch auxiliary models; start them only after the
+  // required market inputs succeed, and join every required request on failure.
+  const technical = await technicalPromise;
+  if (technical.status !== "available")
+    throw new TypeError("required_market_data_unavailable");
   const fundamentalsPromise: Promise<FamilyResult<FundamentalsDataset>> =
     code === undefined
       ? Promise.resolve(unavailable())
@@ -864,7 +876,6 @@ export async function collectInsightSentryInitialEvidence(input: {
           needed: false,
         });
   const [
-    technical,
     fundamentals,
     news,
     documents,
@@ -872,7 +883,6 @@ export async function collectInsightSentryInitialEvidence(input: {
     collectedPeers,
     options,
   ] = await Promise.all([
-    technicalPromise,
     fundamentalsPromise,
     newsPromise,
     documentsPromise,

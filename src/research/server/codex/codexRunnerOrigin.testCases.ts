@@ -8,6 +8,7 @@ import {
   readFile,
   stat,
   symlink,
+  unlink,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -16,6 +17,7 @@ import { CodexRunnerError } from "./codexErrors";
 import {
   protectCodexOrigin,
   sha256File,
+  verifyPinnedExecutable,
   verifyPinnedRegularFile,
 } from "./codexOrigin";
 import { makeCodexTempDirectory } from "./codexRunnerTestSupport";
@@ -52,6 +54,29 @@ export function registerOriginTests(): void {
       expect(protectedOrigin.origin.hash).toBe(protectedOrigin.link.hash);
       expect((await lstat(attemptDir)).mode & 0o777).toBe(0o700);
       await fixture.cleanup();
+    });
+
+    it("rechecks a pinned binary when sibling hard-link cleanup changes ctime", async () => {
+      const fixture = await makeCodexTempDirectory();
+      try {
+        const contents = Buffer.alloc(8 * 1024 * 1024, 65);
+        const origin = join(fixture.path, "shared-bin");
+        await writeFile(origin, contents, { mode: 0o755, flag: "wx" });
+        const hash = createHash("sha256").update(contents).digest("hex");
+        const sibling = join(fixture.path, "sibling-bin");
+        const [verified] = await Promise.all([
+          verifyPinnedExecutable(origin, hash, "origin_untrusted"),
+          (async () => {
+            for (let i = 0; i < 16; i += 1) {
+              await link(origin, sibling);
+              await unlink(sibling);
+            }
+          })(),
+        ]);
+        expect(verified.hash).toBe(hash);
+      } finally {
+        await fixture.cleanup();
+      }
     });
 
     it("rejects a symlink origin before linking", async () => {

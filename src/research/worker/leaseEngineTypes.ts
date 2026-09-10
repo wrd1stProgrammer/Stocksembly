@@ -9,7 +9,7 @@ import type { JsonValue } from "../server/persistence/sqlite/safeJson";
 
 export const LEASE_ENGINE_DEFAULTS = {
   activeRuns: LIMITS.admission.activeRuns,
-  queuedRuns: 8,
+  queuedRuns: LIMITS.admission.queuedRuns,
   globalCodexProcesses: LIMITS.admission.globalCodexProcesses,
   leaseMs: 30_000,
   heartbeatMs: 10_000,

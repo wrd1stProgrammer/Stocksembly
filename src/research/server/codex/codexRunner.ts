@@ -1,3 +1,11 @@
+import type { ResearchExecutionBackend } from "../../domain/researchExecution";
+import { createCodexHybridPool } from "./codexHybridPool";
+import {
+  admitHybridCodexWorker,
+  createCodexAuthenticationCircuit,
+  createHybridCodexPort,
+} from "./codexHybridRouting";
+
 export {
   buildChildEnvironment,
   buildCodexArgv,
@@ -56,32 +64,78 @@ function readinessFingerprint(platform: CodexRunnerPlatform): string {
     .digest("hex");
 }
 
-export function createCodexPort(
-  reservations: LaunchReservationReader,
-): CodexPort {
-  const platform = productionCodexPlatform();
-  return createReadinessGuardedCodexPort(
-    portWithPlatform(platform, reservations),
-    runProductionCodexReadinessProbe,
-    { fingerprint: () => readinessFingerprint(platform) },
+function apiEnabled(): boolean {
+  return (
+    process.env["STOCKSEMBLY_CODEX_API_ENABLED"] === "1" &&
+    Boolean(process.env["STOCKSEMBLY_CODEX_API_AUTH_PATH"]?.trim())
   );
 }
 
-export async function runProductionCodexWorkerAdmission(): Promise<void> {
-  const platform = productionCodexPlatform();
-  const inner: CodexPort = Object.freeze({
-    id: "isolated-codex-cli",
-    kind: "real",
-    async run<Candidate>() {
-      return { candidate: undefined as Candidate, evidence: undefined! };
+const authentication = createCodexAuthenticationCircuit(() =>
+  readinessFingerprint(productionCodexPlatform("subscription")),
+);
+
+function positiveSetting(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error(`Invalid positive integer setting: ${name}`);
+  return value;
+}
+
+let hybridPool: ReturnType<typeof createCodexHybridPool> | undefined;
+function processHybridPool() {
+  hybridPool ??= createCodexHybridPool({
+    subscriptionAvailable: authentication.available,
+    apiEnabled,
+    subscriptionCapacity: positiveSetting(
+      "STOCKSEMBLY_CODEX_PRO_CONCURRENCY",
+      10,
+    ),
+    apiCapacity: positiveSetting("STOCKSEMBLY_CODEX_API_CONCURRENCY", 6),
+    spillAfterMs: positiveSetting(
+      "STOCKSEMBLY_CODEX_API_SPILL_AFTER_MS",
+      30_000,
+    ),
+  });
+  return hybridPool;
+}
+
+export function createCodexPort(
+  reservations: LaunchReservationReader,
+): CodexPort {
+  const ports = new Map<ResearchExecutionBackend, CodexPort>();
+  return createHybridCodexPort({
+    pool: processHybridPool(),
+    authentication,
+    apiEnabled,
+    port(backend) {
+      let port = ports.get(backend);
+      if (port === undefined) {
+        const platform = productionCodexPlatform(backend);
+        port = createReadinessGuardedCodexPort(
+          portWithPlatform(platform, reservations),
+          (scope) => runProductionCodexReadinessProbe(scope, backend),
+          {
+            fingerprint: () =>
+              `${backend}:${platform.authPath}:${readinessFingerprint(platform)}`,
+          },
+        );
+        ports.set(backend, port);
+      }
+      return port;
     },
   });
-  const guarded = createReadinessGuardedCodexPort(
-    inner,
-    async () => await runProductionCodexReadinessProbe("worker_admission"),
-    { fingerprint: () => readinessFingerprint(platform) },
-  );
-  await guarded.run({} as CodexRunInput<unknown>);
+}
+
+export async function runProductionCodexWorkerAdmission(): Promise<void> {
+  await admitHybridCodexWorker({
+    authentication,
+    apiEnabled,
+    probe: (backend) =>
+      runProductionCodexReadinessProbe("worker_admission", backend),
+  });
 }
 
 export async function runProductionReadinessDiagnostic(

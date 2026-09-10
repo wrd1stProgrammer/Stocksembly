@@ -20,6 +20,7 @@ import {
   WorkflowActorIdSchema,
 } from "../../domain/roleRegistry";
 import { applyOrderedMigrations } from "../persistence/sqlite/migrations";
+import { researchQueueStatus } from "../persistence/sqlite/runExecutionRepository";
 import {
   parseSafeJson,
   serializeSafeJson,
@@ -356,7 +357,14 @@ export class ResearchApiRepository {
       const activeAgentIds = [
         ...new Set(activeActivities.map((activity) => activity.actorId)),
       ];
-      return { run, events, activeAgentIds, activeActivities };
+      const queue = researchQueueStatus(this.#database, runId);
+      return {
+        run,
+        events,
+        activeAgentIds,
+        activeActivities,
+        ...(queue === undefined ? {} : { queue }),
+      };
     })();
   }
 

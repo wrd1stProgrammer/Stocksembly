@@ -1,6 +1,8 @@
 import { constants } from "node:fs";
-import { chmod, mkdir, open, realpath, rm } from "node:fs/promises";
+import { chmod, mkdir, open, readFile, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
+import type { ResearchExecutionBackend } from "../../domain/researchExecution";
 import { CodexRunnerError } from "./codexErrors";
 
 const MAX_AUTH_BYTES = 64 * 1_024;
@@ -72,6 +74,7 @@ async function copyAuthDescriptor(
 export async function prepareEphemeralRuntime(
   authPath: string,
   attemptDir: string,
+  authentication: ResearchExecutionBackend = "subscription",
 ): Promise<EphemeralCodexRuntime> {
   const paths: string[] = [];
   try {
@@ -89,6 +92,18 @@ export async function prepareEphemeralRuntime(
     await chmod(userHome, 0o700);
     await chmod(temp, 0o700);
     await copyAuthDescriptor(authPath, join(home, "auth.json"));
+    if (authentication === "api") {
+      const auth: unknown = JSON.parse(
+        await readFile(join(home, "auth.json"), "utf8"),
+      );
+      const parsed = z
+        .object({
+          OPENAI_API_KEY: z.string().trim().min(1),
+          tokens: z.null().optional(),
+        })
+        .safeParse(auth);
+      if (!parsed.success) throw new CodexRunnerError("auth_unavailable");
+    }
     return Object.freeze({
       root,
       home,

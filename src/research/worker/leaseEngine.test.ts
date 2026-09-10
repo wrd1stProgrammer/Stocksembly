@@ -874,7 +874,7 @@ describe("leased research worker", () => {
     }
   });
 
-  it("holds the cross-worker Codex concurrency ceiling at six", async () => {
+  it("holds twelve global slots and at most three jobs per research across workers", async () => {
     // Given
     const fixture = createLeaseEngineFixture();
     const handler = new RecordingHandler();
@@ -882,19 +882,21 @@ describe("leased research worker", () => {
     handler.gate = new Promise((resolve) => {
       release = resolve;
     });
-    fixture.seedResearchJobs(7, 9);
-    const engines = ["a", "b", "c", "d", "e", "f", "g"].map((id) =>
+    const groups = [9, 10, 11, 12].map((id) => fixture.seedResearchJobs(4, id));
+    const engines = Array.from({ length: 13 }, (_, id) =>
       fixture.openEngine(`worker-${id}`, handler),
     );
 
     try {
       // When
       const tasks = engines.map((engine) => engine.poll());
-      const seventh = await tasks[6];
+      const overflow = await tasks[12];
 
       // Then
-      expect(fixture.launches()).toHaveLength(6);
-      expect(seventh).toEqual({ kind: "capacity" });
+      expect(fixture.launches()).toHaveLength(12);
+      expect(overflow).toEqual({ kind: "idle" });
+      for (const group of groups)
+        expect(fixture.launches(group[0]?.runId)).toHaveLength(3);
       release?.();
       await Promise.all(tasks);
     } finally {
@@ -904,7 +906,7 @@ describe("leased research worker", () => {
     }
   });
 
-  it("reports the default two-active/eight-queued admission capacity", async () => {
+  it("reports the ten-run maximum and fifty-run waiting capacity", async () => {
     // Given
     const fixture = createLeaseEngineFixture();
     const engine = fixture.openEngine("capacity-worker");
@@ -916,8 +918,8 @@ describe("leased research worker", () => {
       const capacity = engine.capacity();
 
       // Then
-      expect(LEASE_ENGINE_DEFAULTS.activeRuns).toBe(2);
-      expect(capacity.queuedRuns).toBe(8);
+      expect(LEASE_ENGINE_DEFAULTS.activeRuns).toBe(10);
+      expect(capacity.queuedRuns).toBe(50);
       expect(capacity.acceptsRun).toBe(false);
     } finally {
       await engine.shutdown();

@@ -47,8 +47,8 @@ describe("local command and worker limits", () => {
 
   it("returns queue-full instead of inventing a run when active and queued slots are full", () => {
     expect(outcomeTag(checkRunAdmission(2, 7))).toBe("accepted");
-    expect(outcomeTag(checkRunAdmission(2, 8))).toBe("queue_full");
-    expect(outcomeTag(checkRunAdmission(3, 0))).toBe("queue_full");
+    expect(outcomeTag(checkRunAdmission(10, 50))).toBe("queue_full");
+    expect(outcomeTag(checkRunAdmission(11, 0))).toBe("queue_full");
   });
 
   it("rejects admission below the two-GiB free-disk floor", () => {
@@ -74,20 +74,20 @@ describe("local command and worker limits", () => {
   );
 
   it("keeps the physical launch ceiling at the configured policy", () => {
-    expect(outcomeTag(checkLaunchBudget(26, 3, 5))).toBe("accepted");
+    expect(outcomeTag(checkLaunchBudget(26, 3, 12))).toBe("accepted");
     expect(outcomeTag(checkLaunchBudget(26, 4, 5))).toBe("physical_launches");
     expect(allowedFollowUps(0)).toBe(3);
     expect(allowedFollowUps(5)).toBe(3);
-    expect(LIMITS.research.maxPhysicalLaunches).toBe(34);
+    expect(LIMITS.research.maxPhysicalLaunches).toBe(65);
   });
 
-  it("enforces 26 mandatory calls, optional ranges 0..3, replacements 0..5, and total <=34", () => {
+  it("enforces 26 mandatory calls, optional ranges 0..3, replacements 0..12, and bounded recovery headroom", () => {
     expect(outcomeTag(checkLaunchBudget(26, 0, 0))).toBe("accepted");
     expect(outcomeTag(checkLaunchBudget(26, 1, 2))).toBe("accepted");
-    expect(outcomeTag(checkLaunchBudget(26, 3, 5))).toBe("accepted");
+    expect(outcomeTag(checkLaunchBudget(26, 3, 12))).toBe("accepted");
     expect(outcomeTag(checkLaunchBudget(25, 0, 0))).toBe("mandatory_calls");
     expect(outcomeTag(checkLaunchBudget(26, 4, 0))).toBe("physical_launches");
-    expect(outcomeTag(checkLaunchBudget(26, 0, 6))).toBe("physical_launches");
+    expect(outcomeTag(checkLaunchBudget(26, 0, 13))).toBe("physical_launches");
   });
 
   it.each([
@@ -112,9 +112,10 @@ describe("local command and worker limits", () => {
     expect(outcomeTag(checkCommandBodySize(-1))).toBe("invalid_measurement");
   });
 
-  it("allows exactly one replacement per logical artifact", () => {
+  it("allows exactly three replacements per logical artifact", () => {
     expect(outcomeTag(checkArtifactReplacement(0))).toBe("accepted");
-    expect(outcomeTag(checkArtifactReplacement(1))).toBe(
+    expect(outcomeTag(checkArtifactReplacement(2))).toBe("accepted");
+    expect(outcomeTag(checkArtifactReplacement(3))).toBe(
       "replacement_per_artifact",
     );
   });

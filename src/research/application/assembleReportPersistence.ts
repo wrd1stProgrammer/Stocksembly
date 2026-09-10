@@ -90,11 +90,9 @@ export async function persistAuthoritativeReport(
   const assembled = assembleReport(input);
   if (assembled.kind === "blocked") return assembled;
   const publicationChair = assembled.publicationChair;
-  const auditedClaimIds = [
-    ...new Set(
-      publicationChair.sections.flatMap((section) => section.auditedClaimIds),
-    ),
-  ];
+  // Team views may retain eligible claims that the six section summaries omit.
+  // Ground against the recovered publication register, never section selection.
+  const auditedClaimIds = assembled.report.claims.map((claim) => claim.claimId);
   const normalizedCanonical = normalizeCanonicalNarrativeV3ForPublication({
     canonical: publicationChair.canonicalNarrativeV3!,
     sentences: assembled.publicationSentences,

@@ -1,0 +1,121 @@
+{
+  "observedAt": "2026-09-10T09:51:14.928768+00:00",
+  "apiEnabled": false,
+  "workerSha256": "4804b89fd4859fe536bdbfec81bae0f4e1c289f371079ccc57b9b0142ca87a2d",
+  "runs": [
+    {
+      "run_id": "611ef0e5-8cc5-49ed-8f1b-99f089bb7882",
+      "status": "incomplete",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T09:24:19.348Z",
+      "symbol": "AAPL",
+      "completed_jobs": 11,
+      "reserved_launches": 28
+    },
+    {
+      "run_id": "d094b928-3abf-4e30-bcee-b7aae0febbca",
+      "status": "incomplete",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T09:24:19.360Z",
+      "symbol": "MSFT",
+      "completed_jobs": 17,
+      "reserved_launches": 41
+    },
+    {
+      "run_id": "a15fb9a5-0941-4bc9-8b60-7031533a4248",
+      "status": "incomplete",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T09:24:19.366Z",
+      "symbol": "NVDA",
+      "completed_jobs": 12,
+      "reserved_launches": 28
+    },
+    {
+      "run_id": "2626fb44-5377-450c-8057-103acefd80d2",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T09:24:19.376Z",
+      "symbol": "AMZN",
+      "completed_jobs": 29,
+      "reserved_launches": 41
+    }
+  ],
+  "terminalEvents": [
+    {
+      "symbol": "AMZN",
+      "event_type": "run_failed",
+      "occurred_at": "2026-09-10T09:33:34.418Z",
+      "code": "codex_link_untrusted"
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "run_incomplete",
+      "occurred_at": "2026-09-10T09:37:00.731Z",
+      "code": "logical_artifact_replacement_exhausted"
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "run_incomplete",
+      "occurred_at": "2026-09-10T09:37:01.353Z",
+      "code": "logical_artifact_replacement_exhausted"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "run_failed",
+      "occurred_at": "2026-09-10T09:37:47.244Z",
+      "code": "cancelled"
+    },
+    {
+      "symbol": "AAPL",
+      "event_type": "run_incomplete",
+      "occurred_at": "2026-09-10T09:41:06.218Z",
+      "code": "logical_artifact_replacement_exhausted"
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "run_incomplete",
+      "occurred_at": "2026-09-10T09:41:10.548Z",
+      "code": "logical_artifact_replacement_exhausted"
+    },
+    {
+      "symbol": "MSFT",
+      "event_type": "run_incomplete",
+      "occurred_at": "2026-09-10T09:44:37.600Z",
+      "code": "physical_launch_budget_exhausted"
+    },
+    {
+      "symbol": "AMZN",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T09:49:16.551Z",
+      "code": null
+    }
+  ],
+  "models": [
+    {
+      "model": "gpt-5.6-luna",
+      "n": 86
+    }
+  ],
+  "publishedReports": [
+    {
+      "symbol": "AMZN",
+      "state": "published"
+    }
+  ],
+  "failuresAfterFix": [
+    {
+      "state_id": "retry-wait",
+      "code": "specialist_claim_numeric_metric_mismatch",
+      "n": 3
+    },
+    {
+      "state_id": "retry-wait",
+      "code": "specialist_claim_required_slot_unused",
+      "n": 1
+    }
+  ],
+  "production": "/stocksembly-web running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f\n/stocksembly-worker running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f",
+  "verificationContainerRemoved": true,
+  "temporaryEnvironmentRemoved": true,
+  "dataRetained": "/home/ec2-user/stocksembly-capacity-20260910/data"
+}

@@ -74,7 +74,7 @@ describe.skipIf(!existsSync(SOURCE))("bounded copied-DB chair resume", () => {
       ChairSynthesisPromptSchema.safeParse(JSON.parse(job.validationPrompt)),
     ).toMatchObject({ success: true });
   });
-  it("reopens and claims only chair without changing upstream history", () => {
+  it("reopens and queues only chair without changing upstream history", () => {
     const path = copiedDatabase();
     const before = new Database(path, { readonly: true });
     const upstreamEvents = before
@@ -95,7 +95,7 @@ describe.skipIf(!existsSync(SOURCE))("bounded copied-DB chair resume", () => {
     const database = new Database(path);
     const candidate = database
       .prepare(`WITH scheduled_research_runs AS (
-        SELECT run_id FROM runs WHERE status = 'running'
+        SELECT run_id FROM runs WHERE status = 'queued'
       ) SELECT jobs.logical_key FROM jobs JOIN runs USING(run_id)
       LEFT JOIN idempotency_records retry ON retry.scope = 'worker-retry'
         AND retry.idempotency_key = jobs.job_id
@@ -269,6 +269,9 @@ describe.skipIf(!existsSync(SOURCE))("bounded copied-DB chair resume", () => {
     expect(chairResumeReceiptExceptionAvailable(path, RUN_ID)).toBe(true);
 
     const store = new SqliteLeaseEngineStore(path);
+    expect(
+      store.activateNextRun(authorization(44), "2026-08-01T03:20:02.500Z"),
+    ).toBe(true);
     const claim = store.claim(
       "receipt-exception-worker",
       "2026-08-01T03:20:03.000Z",

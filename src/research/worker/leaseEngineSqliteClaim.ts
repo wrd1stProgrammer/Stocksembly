@@ -7,8 +7,9 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
+import { RESEARCH_EXECUTION_LIMITS } from "../domain/researchExecution";
+import { researchExecutionCapacity } from "../server/persistence/sqlite/runExecutionRepository";
 import type { ClaimedJob } from "./leaseEngineSqliteTypes";
-import { LEASE_ENGINE_DEFAULTS } from "./leaseEngineTypes";
 
 const CandidateRowSchema = z.object({
   job_id: JobIdSchema,
@@ -60,14 +61,19 @@ export function claimNextJob(
 ): ClaimedJob | undefined {
   const value = database
     .transaction(() => {
+      const capacity = researchExecutionCapacity();
       const candidateValue = database
-        .prepare(`WITH scheduled_research_runs AS (
-          SELECT run_id FROM runs WHERE status = 'running'
+        .prepare(`WITH ranked_runs AS (
+          SELECT run_id, execution_backend,
+            ROW_NUMBER() OVER (PARTITION BY execution_backend ORDER BY created_at, run_id) AS lane_position
+          FROM runs WHERE status = 'running'
             AND EXISTS (SELECT 1 FROM jobs pending WHERE pending.run_id = runs.run_id
               AND pending.kind = 'research'
               AND pending.status NOT IN ('cancelled', 'succeeded', 'failed'))
-          ORDER BY created_at, run_id
-          LIMIT ${LEASE_ENGINE_DEFAULTS.activeRuns}
+        ), scheduled_research_runs AS (
+          SELECT run_id FROM ranked_runs WHERE
+            (execution_backend = 'subscription' AND lane_position <= @subscriptionCapacity)
+            OR (execution_backend = 'api' AND lane_position <= @apiCapacity)
         ) SELECT jobs.job_id,
           COALESCE(json_extract(retry.result_json, '$.failureCount'), 0)
             AS transient_failures,
@@ -87,7 +93,14 @@ export function claimNextJob(
                 WHERE questions.job_id = jobs.job_id AND reports.state = 'published'
               )
             )
-          ) AND (
+          ) AND (SELECT COUNT(*) FROM jobs active
+            WHERE active.run_id = jobs.run_id
+              AND active.status IN ('leased', 'spawn-reserved', 'running', 'cancel-requested')
+              AND active.lease_expires_at > @now) < @jobsPerRun
+          AND (jobs.kind <> 'qa' OR (SELECT COUNT(*) FROM jobs active
+            WHERE active.kind = 'qa' AND active.status IN ('leased', 'spawn-reserved', 'running', 'cancel-requested')
+              AND active.lease_expires_at > @now) < 2)
+          AND (
             jobs.status = 'queued'
             OR (jobs.status = 'retry-wait' AND
               COALESCE(json_extract(retry.result_json, '$.circuitOpen'), 0) = 0
@@ -95,8 +108,16 @@ export function claimNextJob(
               COALESCE(json_extract(retry.result_json, '$.retryAt'), '') <= @now)
             OR (jobs.status = 'leased' AND jobs.lease_expires_at <= @now)
           )
-          ORDER BY jobs.created_at, jobs.job_id LIMIT 1`)
-        .get({ now });
+          ORDER BY (SELECT COUNT(*) FROM jobs active WHERE active.run_id = jobs.run_id
+            AND active.status IN ('leased', 'spawn-reserved', 'running', 'cancel-requested')
+            AND active.lease_expires_at > @now),
+            runs.last_scheduled_at, jobs.created_at, jobs.job_id LIMIT 1`)
+        .get({
+          now,
+          subscriptionCapacity: capacity.subscription,
+          apiCapacity: capacity.api,
+          jobsPerRun: RESEARCH_EXECUTION_LIMITS.jobsPerRun,
+        });
       if (candidateValue === undefined) return undefined;
       const candidate = CandidateRowSchema.parse(candidateValue);
       const leased = database
@@ -115,7 +136,12 @@ export function claimNextJob(
           now,
           expiresAt,
         });
-      return leased === undefined ? undefined : { leased, candidate };
+      if (leased === undefined) return undefined;
+      database
+        .prepare(`UPDATE runs SET last_scheduled_at = @now
+        WHERE run_id = (SELECT run_id FROM jobs WHERE job_id = @jobId)`)
+        .run({ now, jobId: candidate.job_id });
+      return { leased, candidate };
     })
     .immediate();
   return value === undefined

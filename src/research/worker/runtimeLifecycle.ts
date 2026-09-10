@@ -13,6 +13,7 @@ import {
 import { hostname } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import Database from "better-sqlite3";
 import { z } from "zod";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import {
@@ -25,6 +26,7 @@ import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
 
 const RUNTIME_MARKER = Buffer.from("stocksembly-worker-runtime-v1\n", "utf8");
 const LOCK_FILE = "worker.lock" as const;
+const LEASE_DATABASE = "worker-lease.sqlite";
 const lockSchema = z.object({
   ownerId: z.string().min(1),
   pid: z.number().int().positive(),
@@ -100,46 +102,72 @@ export async function acquireWorkerLease(
     pid: process.pid,
     nonce: randomUUID(),
   };
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const handle = await open(path, "wx", 0o600);
-      try {
-        await handle.writeFile(`${JSON.stringify(record)}\n`, "utf8");
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
-      return {
-        ownerId: record.ownerId,
-        release: async () => {
-          const current = lockSchema.parse(
-            JSON.parse(await readFile(path, "utf8")),
-          );
-          if (current.nonce === record.nonce) await rm(path);
-        },
-      };
-    } catch (error) {
-      if (!hasCode(error, "EEXIST")) throw error;
-      const current = await readLock(path);
-      if (processIsAlive(current.pid)) {
-        throw new WorkerRuntimeError(
-          "WORKER_LEASE_OCCUPIED",
-          "Another research worker holds the data-directory lease",
-        );
-      }
-      await rm(path);
+  // SQLite's OS lock survives PID namespaces and is released even after SIGKILL.
+  // Never unlink this database: another process may still hold its inode lock.
+  const database = new Database(join(runtime.dataDirectory, LEASE_DATABASE), {
+    timeout: 0,
+  });
+  try {
+    database.exec("BEGIN IMMEDIATE");
+  } catch (error) {
+    database.close();
+    if (hasCode(error, "SQLITE_BUSY")) {
+      throw new WorkerRuntimeError(
+        "WORKER_LEASE_OCCUPIED",
+        "Another research worker holds the data-directory lease",
+      );
     }
+    throw error;
   }
-  throw new WorkerRuntimeError(
-    "WORKER_LEASE_OCCUPIED",
-    "Another research worker holds the data-directory lease",
-  );
+  const temporary = `${path}.${record.nonce}`;
+  try {
+    await chmod(join(runtime.dataDirectory, LEASE_DATABASE), 0o600);
+    const handle = await open(temporary, "wx", 0o600);
+    try {
+      await handle.writeFile(`${JSON.stringify(record)}\n`, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(temporary, path);
+  } catch (error) {
+    database.close();
+    await rm(temporary, { force: true });
+    throw error;
+  }
+  let released = false;
+  return {
+    ownerId: record.ownerId,
+    release: async () => {
+      if (released) return;
+      released = true;
+      try {
+        const current = await readLock(path);
+        if (current.nonce === record.nonce) await rm(path);
+      } finally {
+        database.close();
+      }
+    },
+  };
 }
 
 export async function inspectWorkerHealth(): Promise<WorkerRuntime> {
   const runtime = await prepareWorkerRuntime();
-  const lock = await readLock(join(runtime.dataDirectory, LOCK_FILE));
-  if (!processIsAlive(lock.pid)) {
+  await readLock(join(runtime.dataDirectory, LOCK_FILE));
+  const database = new Database(join(runtime.dataDirectory, LEASE_DATABASE), {
+    timeout: 0,
+  });
+  let active = false;
+  try {
+    database.exec("BEGIN IMMEDIATE");
+    database.exec("ROLLBACK");
+  } catch (error) {
+    if (!hasCode(error, "SQLITE_BUSY")) throw error;
+    active = true;
+  } finally {
+    database.close();
+  }
+  if (!active) {
     throw new WorkerRuntimeError(
       "WORKER_NOT_RUNNING",
       "The research worker lease is not active",
@@ -246,16 +274,6 @@ async function readLock(path: string): Promise<z.infer<typeof lockSchema>> {
       "The research worker lease record is invalid",
       { cause: error },
     );
-  }
-}
-
-function processIsAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (hasCode(error, "ESRCH")) return false;
-    throw error;
   }
 }
 

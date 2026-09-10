@@ -7,6 +7,7 @@ import { SqliteLeaseEngineStore } from "./leaseEngineSqlite";
 import type { ClaimedJob, LeaseEngineStore } from "./leaseEngineSqliteTypes";
 import {
   type AttemptHandler,
+  type AttemptOutcome,
   type CapacityState,
   LEASE_ENGINE_DEFAULTS,
   type PollResult,
@@ -231,6 +232,15 @@ export class LeaseEngine {
     } catch (error) {
       if (error instanceof WorkerCrashError)
         return { kind: "crashed", attempt };
+      if (
+        signal.aborted &&
+        (error instanceof Error || error instanceof DOMException) &&
+        error.name === "AbortError"
+      )
+        return await this.commitOutcome(claim, attempt, {
+          kind: "incomplete",
+          code: "cancelled",
+        });
       if (error instanceof CodexRunnerError) {
         const outcome = routeRunnerFailure(error, {
           now: this.#clock.now(),
@@ -258,8 +268,22 @@ export class LeaseEngine {
   private async commitOutcome(
     claim: ClaimedJob,
     attempt: WorkerAttempt,
-    outcome: import("./leaseEngineTypes").AttemptOutcome,
+    outcome: AttemptOutcome,
   ): Promise<PollResult> {
+    if (
+      outcome.kind === "incomplete" &&
+      outcome.code === "cancelled" &&
+      this.#controllers.get(attempt.attemptId)?.signal.aborted &&
+      !this.#store.cancellationRequested(claim)
+    ) {
+      outcome = {
+        kind: "transient",
+        code: this.#stopping
+          ? "worker_restarting"
+          : "worker_attempt_interrupted",
+        retryAt: after(this.#clock.now(), 30_000),
+      };
+    }
     const committed = this.#store.commit({
       claim,
       attemptId: attempt.attemptId,

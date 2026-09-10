@@ -1,3 +1,5 @@
+import { CALL_BUDGET_POLICY } from "./callBudgetContracts";
+
 const KIB = 1024;
 const MIB = KIB * KIB;
 const GIB = KIB * KIB * KIB;
@@ -7,10 +9,10 @@ function configuredLimit(name: string, fallback: number): number {
   return Number.isSafeInteger(value) && value >= 1 ? value : fallback;
 }
 
-const ACTIVE_RUNS = configuredLimit("STOCKSEMBLY_ACTIVE_RUNS", 2);
+const ACTIVE_RUNS = 10;
 const GLOBAL_CODEX_PROCESSES = configuredLimit(
   "STOCKSEMBLY_GLOBAL_CODEX_PROCESSES",
-  6,
+  12,
 );
 
 export const BYTES = {
@@ -27,7 +29,7 @@ export const BYTES = {
 export const LIMITS = {
   admission: {
     activeRuns: ACTIVE_RUNS,
-    queuedRuns: 8,
+    queuedRuns: 50,
     globalCodexProcesses: GLOBAL_CODEX_PROCESSES,
   },
   source: {
@@ -63,7 +65,7 @@ export const LIMITS = {
     maxFollowUps: 3,
     maxReplacements: 12,
     maxReplacementsPerArtifact: 3,
-    maxPhysicalLaunches: 41,
+    maxPhysicalLaunches: CALL_BUDGET_POLICY.maxPhysicalLaunches,
   },
   rights: { maxDisplayedExcerptChars: 500 },
 } as const;

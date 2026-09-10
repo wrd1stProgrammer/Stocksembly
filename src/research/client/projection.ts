@@ -101,6 +101,9 @@ export function appendPublicEvent(
         : {}),
     },
     events: [...snapshot.events, event],
+    ...(status === RUN_STATUS.queued && snapshot.queue !== undefined
+      ? { queue: snapshot.queue }
+      : {}),
     ...(snapshot.activeAgentIds === undefined
       ? {}
       : { activeAgentIds: snapshot.activeAgentIds }),

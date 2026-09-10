@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 import { z } from "zod";
 import { CALL_BUDGET_POLICY } from "../../domain/callBudgetContracts";
 import { EventIdSchema, RunIdSchema } from "../../domain/ids";
+import { LIMITS } from "../../domain/limits.constants";
 import { appendRunEvent } from "../persistence/sqlite/runRepository";
 import { serializeSafeJson } from "../persistence/sqlite/safeJson";
 import {
@@ -143,8 +144,33 @@ export function retryResearchRun(
         !publicationOnlyRecovery
       )
         return { kind: "illegal_state" };
+      const used = z
+        .object({ count: z.number().int().nonnegative() })
+        .parse(
+          database
+            .prepare(
+              "SELECT COUNT(*) AS count FROM research_call_ordinals WHERE run_id=?",
+            )
+            .get(parentRunId),
+        );
+      if (
+        !publicationOnlyRecovery &&
+        used.count >= CALL_BUDGET_POLICY.maxPhysicalLaunches
+      )
+        return { kind: "budget_exhausted" };
+      const queued = z
+        .object({ count: z.number().int().nonnegative() })
+        .parse(
+          database
+            .prepare(
+              "SELECT COUNT(*) AS count FROM runs WHERE status = 'queued'",
+            )
+            .get(),
+        );
+      if (queued.count >= LIMITS.admission.queuedRuns)
+        return { kind: "queue_full" };
       const updated = database
-        .prepare(`UPDATE runs SET status = 'running', version = version + 1
+        .prepare(`UPDATE runs SET status = 'queued', version = version + 1
           WHERE run_id = ? AND status IN ('failed', 'incomplete')
             AND report_id IS NULL`)
         .run(parentRunId).changes;
@@ -187,7 +213,7 @@ export function retryResearchRun(
       const value = RecoveredRunSchema.parse({
         runId: parentRunId,
         snapshotId: parent.snapshot_id,
-        status: "running",
+        status: "queued",
         recovery: "same-run-stage-resume",
       });
       commitCommand(database, {

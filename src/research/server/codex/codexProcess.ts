@@ -1,4 +1,5 @@
 import { type SpawnOptionsWithoutStdio, spawn } from "node:child_process";
+import { CodexStderrAuthenticationDetector } from "./codexAuthenticationFailure";
 import { CodexRunnerError } from "./codexErrors";
 import { CODEX_RUNTIME_POLICY } from "./codexPolicy";
 import type { ProcessExecution, SpawnInvocation } from "./codexTypes";
@@ -50,6 +51,7 @@ export async function executeSpawn(
     const stdout: Buffer[] = [];
     let stdoutBytes = 0;
     let stderrBytes = 0;
+    const authentication = new CodexStderrAuthenticationDetector();
     let terminalError: CodexRunnerError | undefined;
     let killTimer: NodeJS.Timeout | undefined;
     let inactivityTimer: NodeJS.Timeout | undefined;
@@ -123,6 +125,7 @@ export async function executeSpawn(
     child.stderr.on("data", (chunk: Buffer) => {
       activity();
       stderrBytes += chunk.byteLength;
+      authentication.feed(chunk);
       if (stderrBytes > CODEX_RUNTIME_POLICY.maxStderrBytes)
         terminate(new CodexRunnerError("output_invalid"));
     });
@@ -158,6 +161,7 @@ export async function executeSpawn(
             exitCode: code ?? -1,
             signal,
             stdout: Object.freeze(stdout),
+            ...(authentication.failed ? { authenticationFailure: true } : {}),
             stdoutBytes,
             stderrBytes,
             durationMs: Math.max(0, Date.now() - startedAt),

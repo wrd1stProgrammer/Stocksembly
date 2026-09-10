@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { ResearchExecutionBackend } from "../../domain/researchExecution";
 import type { CodexTokenUsage } from "./codexJsonl";
 import type {
   CodexBrowsingPolicy,
@@ -54,6 +55,7 @@ export type VerifiedFile = {
 };
 
 export type SafeCodexEvidence = {
+  readonly executionBackend?: ResearchExecutionBackend;
   readonly ordinal: number;
   readonly stage: CodexStage;
   readonly model: CodexModel;
@@ -112,6 +114,7 @@ export type SpawnInvocation = {
 };
 
 export type ProcessExecution = {
+  readonly authenticationFailure?: boolean;
   readonly exitCode: number;
   readonly signal?: NodeJS.Signals | null;
   readonly stdout: readonly Uint8Array[];

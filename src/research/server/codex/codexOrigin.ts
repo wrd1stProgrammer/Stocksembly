@@ -37,45 +37,50 @@ async function inspectFileHandle(
   executable = true,
 ): Promise<VerifiedFile> {
   try {
-    const before = await handle.stat({ bigint: true });
-    if (!before.isFile() || (executable && (before.mode & 0o111n) === 0o000n))
-      throw new CodexRunnerError(failureClass);
-    const hash = createHash("sha256");
-    const buffer = Buffer.allocUnsafe(64 * 1_024);
-    let position = 0;
-    for (;;) {
-      const { bytesRead } = await handle.read(
-        buffer,
-        0,
-        buffer.byteLength,
-        position,
-      );
-      if (bytesRead === 0) break;
-      hash.update(buffer.subarray(0, bytesRead));
-      position += bytesRead;
+    for (let inspection = 0; inspection < 3; inspection += 1) {
+      const before = await handle.stat({ bigint: true });
+      if (!before.isFile() || (executable && (before.mode & 0o111n) === 0o000n))
+        throw new CodexRunnerError(failureClass);
+      const hash = createHash("sha256");
+      const buffer = Buffer.allocUnsafe(64 * 1_024);
+      let position = 0;
+      for (;;) {
+        const { bytesRead } = await handle.read(
+          buffer,
+          0,
+          buffer.byteLength,
+          position,
+        );
+        if (bytesRead === 0) break;
+        hash.update(buffer.subarray(0, bytesRead));
+        position += bytesRead;
+      }
+      buffer.fill(0);
+      const after = await handle.stat({ bigint: true });
+      if (
+        before.dev !== after.dev ||
+        before.ino !== after.ino ||
+        before.size !== after.size ||
+        before.mode !== after.mode ||
+        before.uid !== after.uid ||
+        before.gid !== after.gid ||
+        before.mtimeNs !== after.mtimeNs ||
+        after.size > BigInt(Number.MAX_SAFE_INTEGER)
+      )
+        throw new CodexRunnerError(failureClass);
+      // Sibling attempts create/remove hard links to this inode. Retry a fresh,
+      // complete hash on metadata-only churn; never accept a changing read.
+      if (before.ctimeNs !== after.ctimeNs) continue;
+      return Object.freeze({
+        device: after.dev.toString(),
+        inode: after.ino.toString(),
+        hash: hash.digest("hex"),
+        byteLength: Number(after.size),
+        userId: after.uid.toString(),
+        groupId: after.gid.toString(),
+      });
     }
-    buffer.fill(0);
-    const after = await handle.stat({ bigint: true });
-    if (
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.size !== after.size ||
-      before.mode !== after.mode ||
-      before.uid !== after.uid ||
-      before.gid !== after.gid ||
-      before.mtimeNs !== after.mtimeNs ||
-      before.ctimeNs !== after.ctimeNs ||
-      after.size > BigInt(Number.MAX_SAFE_INTEGER)
-    )
-      throw new CodexRunnerError(failureClass);
-    return Object.freeze({
-      device: after.dev.toString(),
-      inode: after.ino.toString(),
-      hash: hash.digest("hex"),
-      byteLength: Number(after.size),
-      userId: after.uid.toString(),
-      groupId: after.gid.toString(),
-    });
+    throw new CodexRunnerError(failureClass);
   } catch (error) {
     if (error instanceof CodexRunnerError) throw error;
     throw new CodexRunnerError(failureClass);

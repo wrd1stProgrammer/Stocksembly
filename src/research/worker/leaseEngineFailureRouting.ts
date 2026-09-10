@@ -71,10 +71,18 @@ export function routeRunnerFailure(
             ? after(context.now, retryDelayMs(context.failures, context.random))
             : error.retryAt,
       };
+    case "auth_unavailable":
+      if (error.fallbackBackend === "api")
+        return {
+          kind: "transient",
+          code: "codex_auth_fallback_to_api",
+          retryAt: context.now,
+          ...runner,
+        };
+      return { kind: "permanent", code: permanentCode(error.code), ...runner };
     case "policy_violation":
     case "origin_untrusted":
     case "link_untrusted":
-    case "auth_unavailable":
     case "schema_invalid":
     case "rights_denied":
       return {

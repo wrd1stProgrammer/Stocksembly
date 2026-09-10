@@ -89,6 +89,10 @@ function commandFailure(kind: string): Response {
       return apiError(409, "IDEMPOTENCY_CONFLICT");
     case "not_found":
       return apiError(404, "NOT_FOUND");
+    case "budget_exhausted":
+      return apiError(409, "RECOVERY_BUDGET_EXHAUSTED");
+    case "queue_full":
+      return apiError(429, "QUEUE_FULL");
     case "quota_exhausted":
       return apiError(409, "QUESTION_QUOTA_EXHAUSTED");
     case "active_question":

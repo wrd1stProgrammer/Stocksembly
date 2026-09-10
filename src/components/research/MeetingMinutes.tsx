@@ -388,6 +388,7 @@ export function MeetingMinutes({
     | "retry_forbidden"
     | "retry_missing"
     | "retry_unavailable"
+    | "retry_budget_exhausted"
   >();
   const canAsk =
     isComplete && chatEnabled && questionsEnabled && reportId !== undefined;
@@ -669,13 +670,15 @@ export function MeetingMinutes({
                     .catch((error: unknown) => {
                       if (error instanceof ResearchRequestError) {
                         setCommandError(
-                          error.code === "RECOVERY_NOT_AVAILABLE"
-                            ? "retry_unavailable"
-                            : error.status === 404
-                              ? "retry_missing"
-                              : error.status === 409
-                                ? "retry_forbidden"
-                                : "retry",
+                          error.code === "RECOVERY_BUDGET_EXHAUSTED"
+                            ? "retry_budget_exhausted"
+                            : error.code === "RECOVERY_NOT_AVAILABLE"
+                              ? "retry_unavailable"
+                              : error.status === 404
+                                ? "retry_missing"
+                                : error.status === 409
+                                  ? "retry_forbidden"
+                                  : "retry",
                         );
                         return;
                       }
@@ -690,15 +693,18 @@ export function MeetingMinutes({
             {commandError === "retry" ||
             commandError === "retry_forbidden" ||
             commandError === "retry_missing" ||
-            commandError === "retry_unavailable" ? (
+            commandError === "retry_unavailable" ||
+            commandError === "retry_budget_exhausted" ? (
               <p className="meeting-minutes__command-error" role="alert">
-                {commandError === "retry_unavailable"
-                  ? ui.retryUnavailable
-                  : commandError === "retry_forbidden"
-                    ? ui.retryForbidden
-                    : commandError === "retry_missing"
-                      ? ui.retryMissing
-                      : ui.retryFailed}
+                {commandError === "retry_budget_exhausted"
+                  ? ui.retryBudgetExhausted
+                  : commandError === "retry_unavailable"
+                    ? ui.retryUnavailable
+                    : commandError === "retry_forbidden"
+                      ? ui.retryForbidden
+                      : commandError === "retry_missing"
+                        ? ui.retryMissing
+                        : ui.retryFailed}
               </p>
             ) : null}
           </section>

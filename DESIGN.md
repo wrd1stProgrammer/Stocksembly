@@ -549,3 +549,15 @@ The public editorial library translates the attached reference composition into 
 - All eight supported locales receive their own canonical route, translated interface and article copy, `hreflang` alternates, localized Open Graph metadata, and structured data. Locale changes preserve the current article or glossary slug.
 - Blog entries use `Article` schema and glossary entries use `DefinedTerm` schema. Both participate in the sitemap and link back to the research archive, the US-stock-analysis landing page, and related editorial entries.
 - At tablet width the grid becomes two columns. At mobile width it becomes one column, the hero title reduces without truncation, the article image remains 16:9, metadata wraps, and all controls retain at least a 44px interactive target.
+
+## Research queue state
+
+The existing midnight panel and cobalt action tokens apply to the native dialog.
+When admitted capacity is full, show the real FIFO position without an invented
+completion estimate. “Keep my place” closes the modal and leaves a compact reopen
+button; Escape has the same behavior. “Cancel request” uses the existing cancellation
+command and announces failures. The dialog closes when the run leaves the queue.
+At the bounded admission limit, explain that the request was not accepted and show
+only a close action. English and Korean copy have the same controls. The dialog is
+460px maximum, keeps 16px viewport margins, scrolls on short displays, traps keyboard
+focus natively, and uses minimum 44px action targets.

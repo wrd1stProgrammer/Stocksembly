@@ -31,7 +31,7 @@ import {
   TeamEditorialDecisionSchema,
   VersionDeltaSchema,
 } from "./reportComponents";
-import { PublicationStatusSchema } from "./reportText";
+import { normalizeReportNarrativeText, PublicationStatusSchema } from "./reportText";
 import {
   COMMITTEE_RESEARCH_TARGET,
   ResearchTargetSchema,
@@ -939,7 +939,10 @@ export function workflowV3ReportFromCanonicalNarrative(
       ...report.locales[sourceLocale],
       sections: report.locales[sourceLocale].sections.map((section) => ({
         ...section,
-        body: sections.get(section.id) ?? section.body,
+        body: normalizeReportNarrativeText(
+          sections.get(section.id) ?? section.body,
+          section.body,
+        ),
         claimIds: sectionClaimIds.get(section.id) ?? section.claimIds,
       })),
     },

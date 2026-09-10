@@ -61,6 +61,7 @@ const SAFE_MESSAGES = Object.freeze({
 export class CodexRunnerError extends Error {
   readonly code: CodexFailureClass;
   readonly retryAt?: string;
+  readonly fallbackBackend?: "api";
   readonly process?: SafeProcessDiagnostics;
   readonly phase?: SafeCodexRunnerPhase;
 
@@ -68,6 +69,7 @@ export class CodexRunnerError extends Error {
     code: CodexFailureClass,
     options: {
       readonly retryAt?: string;
+      readonly fallbackBackend?: "api";
       readonly process?: SafeProcessDiagnostics;
       readonly phase?: SafeCodexRunnerPhase;
     } = {},
@@ -75,6 +77,8 @@ export class CodexRunnerError extends Error {
     super(SAFE_MESSAGES[code]);
     this.name = "CodexRunnerError";
     this.code = code;
+    if (options.fallbackBackend !== undefined)
+      this.fallbackBackend = options.fallbackBackend;
     if (options.retryAt !== undefined) this.retryAt = options.retryAt;
     if (options.process !== undefined) this.process = options.process;
     if (options.phase !== undefined) this.phase = options.phase;

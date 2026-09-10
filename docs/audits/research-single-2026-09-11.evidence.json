@@ -1,0 +1,1203 @@
+{
+  "observedAt": "2026-09-10T15:22:09.648366+00:00",
+  "apiEnabled": false,
+  "workerEntrypointSha256": "2ae9a56089b9218654f4a453a6380b15db85f2ad4c7068e61a87bea81b23e23e",
+  "runs": [
+    {
+      "run_id": "0285e98d-b2e2-416f-9c68-e5902b1c2070",
+      "status": "complete-with-limitations",
+      "execution_backend": "subscription",
+      "created_at": "2026-09-10T15:01:23.655Z",
+      "symbol": "NVDA",
+      "completed_jobs": 29,
+      "reserved_launches": 31
+    }
+  ],
+  "terminalEvents": [
+    {
+      "symbol": "NVDA",
+      "event_type": "report_published",
+      "occurred_at": "2026-09-10T15:21:18.919Z",
+      "code": null
+    }
+  ],
+  "auxiliaryModels": [
+    {
+      "model": "gpt-5.6-luna",
+      "n": 2
+    }
+  ],
+  "rewrites": [
+    {
+      "symbol": "NVDA",
+      "n": 3
+    }
+  ],
+  "models": [
+    {
+      "model": "gpt-5.6-luna",
+      "n": 30
+    }
+  ],
+  "publishedReports": [
+    {
+      "symbol": "NVDA",
+      "state": "published"
+    }
+  ],
+  "attemptFailures": [],
+  "production": "/stocksembly-web running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f\n/stocksembly-worker running restartCount=0 image=359463332817.dkr.ecr.us-east-1.amazonaws.com/stocksembly:sha-3140a398ca4e42023789218509d56f72217ac84f",
+  "reportArtifacts": [
+    {
+      "symbol": "NVDA",
+      "status": "complete_with_limitations",
+      "byte_length": 104046,
+      "content_hash": "6c00e3cfe759ef88e3683bc3f10ee797042a2abbf7907ca2085e2bbfaacc76b1",
+      "blobVerified": true
+    }
+  ],
+  "jobTimeline": [
+    {
+      "symbol": "NVDA",
+      "logical_key": "collection:initial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:01:23.655Z",
+      "first_started": "2026-09-10T15:01:40.621Z",
+      "last_committed": "2026-09-10T15:07:34.890Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market_news",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:07:34.962Z",
+      "last_committed": "2026-09-10T15:08:29.151Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:07:34.983Z",
+      "last_committed": "2026-09-10T15:08:23.437Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:07:34.998Z",
+      "last_committed": "2026-09-10T15:09:09.490Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:valuation",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:08:23.686Z",
+      "last_committed": "2026-09-10T15:09:07.642Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_product",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:08:29.492Z",
+      "last_committed": "2026-09-10T15:09:11.557Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_competition",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:09:07.862Z",
+      "last_committed": "2026-09-10T15:09:55.405Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk_policy",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:09:09.616Z",
+      "last_committed": "2026-09-10T15:09:55.454Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:benchmark",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:09:11.666Z",
+      "last_committed": "2026-09-10T15:09:57.117Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:09:55.812Z",
+      "last_committed": "2026-09-10T15:10:55.381Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:09:55.830Z",
+      "last_committed": "2026-09-10T15:10:44.493Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial_quality",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:07:29.508Z",
+      "first_started": "2026-09-10T15:09:57.376Z",
+      "last_committed": "2026-09-10T15:10:45.492Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:09:55.730Z",
+      "first_started": "2026-09-10T15:10:44.975Z",
+      "last_committed": "2026-09-10T15:15:04.815Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:09:57.261Z",
+      "first_started": "2026-09-10T15:10:45.878Z",
+      "last_committed": "2026-09-10T15:12:01.055Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:10:45.751Z",
+      "first_started": "2026-09-10T15:10:55.658Z",
+      "last_committed": "2026-09-10T15:12:35.722Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:10:55.724Z",
+      "first_started": "2026-09-10T15:12:01.205Z",
+      "last_committed": "2026-09-10T15:13:06.581Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:05.103Z",
+      "first_started": "2026-09-10T15:15:05.196Z",
+      "last_committed": "2026-09-10T15:15:34.699Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:05.103Z",
+      "first_started": "2026-09-10T15:15:05.208Z",
+      "last_committed": "2026-09-10T15:15:39.937Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:05.103Z",
+      "first_started": "2026-09-10T15:15:05.217Z",
+      "last_committed": "2026-09-10T15:15:41.913Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:05.103Z",
+      "first_started": "2026-09-10T15:15:34.887Z",
+      "last_committed": "2026-09-10T15:15:47.953Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:48.101Z",
+      "first_started": "2026-09-10T15:15:48.263Z",
+      "last_committed": "2026-09-10T15:16:23.128Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:48.101Z",
+      "first_started": "2026-09-10T15:15:48.273Z",
+      "last_committed": "2026-09-10T15:16:32.585Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:48.101Z",
+      "first_started": "2026-09-10T15:15:48.282Z",
+      "last_committed": "2026-09-10T15:16:38.797Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:market",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:15:48.157Z",
+      "first_started": "2026-09-10T15:16:23.507Z",
+      "last_committed": "2026-09-10T15:16:55.391Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:company",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:16:23.259Z",
+      "first_started": "2026-09-10T15:16:32.714Z",
+      "last_committed": "2026-09-10T15:17:00.262Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:risk",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:16:32.834Z",
+      "first_started": "2026-09-10T15:16:38.923Z",
+      "last_committed": "2026-09-10T15:17:02.106Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:financial",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:16:38.915Z",
+      "first_started": "2026-09-10T15:16:55.729Z",
+      "last_committed": "2026-09-10T15:17:28.062Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "semantic_audit:system",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:17:28.952Z",
+      "first_started": "2026-09-10T15:17:31.525Z",
+      "last_committed": "2026-09-10T15:19:18.037Z"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "chair_synthesis:chair",
+      "status": "succeeded",
+      "created_at": "2026-09-10T15:19:18.957Z",
+      "first_started": "2026-09-10T15:19:19.830Z",
+      "last_committed": "2026-09-10T15:21:17.496Z"
+    }
+  ],
+  "events": [
+    {
+      "symbol": "NVDA",
+      "event_type": "run_created",
+      "state_id": "run_created",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:01:23.655Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "run_started",
+      "state_id": "running",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:01:40.621Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "aa12a980-dbb8-477f-81fb-cfd27d61f9be",
+      "attempt_id": "12399cf4-4117-4f4c-ba3f-c77e5cb0d26d",
+      "occurred_at": "2026-09-10T15:01:40.621Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "collection_started",
+      "state_id": "collection_started",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:01:40.660Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "evidence_cutoff_recorded",
+      "state_id": "evidence_cutoff_recorded",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:07:29.506Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "snapshot_sealed",
+      "state_id": "snapshot_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:07:29.507Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "mandate_sealed",
+      "state_id": "mandate_sealed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:07:29.508Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "aa12a980-dbb8-477f-81fb-cfd27d61f9be",
+      "attempt_id": "12399cf4-4117-4f4c-ba3f-c77e5cb0d26d",
+      "occurred_at": "2026-09-10T15:07:34.890Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "17566df7-41ce-41a7-8c4c-e821f79e1d61",
+      "attempt_id": "2594d16f-b362-4968-933b-dabeb3662462",
+      "occurred_at": "2026-09-10T15:07:34.962Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "281e67d1-e8ee-4892-8ff5-3f74d8262062",
+      "attempt_id": "0c08d434-6a18-4afb-b3fa-ff67e1b39135",
+      "occurred_at": "2026-09-10T15:07:34.983Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "4d49a774-b49c-42ec-81b8-7de95e84b9f0",
+      "attempt_id": "dd55ad21-f8b1-4788-be4d-e7df206d9dd1",
+      "occurred_at": "2026-09-10T15:07:34.998Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "281e67d1-e8ee-4892-8ff5-3f74d8262062",
+      "attempt_id": "0c08d434-6a18-4afb-b3fa-ff67e1b39135",
+      "occurred_at": "2026-09-10T15:08:23.437Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "5c4b61c4-3016-49d5-8068-ad3c6d938f79",
+      "attempt_id": "fc9fe7ed-18b0-46ea-987c-ca337d3ed93a",
+      "occurred_at": "2026-09-10T15:08:23.686Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "17566df7-41ce-41a7-8c4c-e821f79e1d61",
+      "attempt_id": "2594d16f-b362-4968-933b-dabeb3662462",
+      "occurred_at": "2026-09-10T15:08:29.151Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "61283fc1-bb28-44ed-83a4-823828e1318e",
+      "attempt_id": "fb59db8e-9aa7-45f9-bdd8-092942b3f48b",
+      "occurred_at": "2026-09-10T15:08:29.492Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "5c4b61c4-3016-49d5-8068-ad3c6d938f79",
+      "attempt_id": "fc9fe7ed-18b0-46ea-987c-ca337d3ed93a",
+      "occurred_at": "2026-09-10T15:09:07.642Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "6b99f418-0a0c-4c1e-8d8a-9da44679fc2b",
+      "attempt_id": "9a7bca12-1992-4832-ae7d-f2004f12a754",
+      "occurred_at": "2026-09-10T15:09:07.862Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "4d49a774-b49c-42ec-81b8-7de95e84b9f0",
+      "attempt_id": "e289644c-1bf2-4d44-8d3f-b3fb4f98b5d6",
+      "occurred_at": "2026-09-10T15:09:09.490Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "70e67cee-86a4-488d-8aa7-8b5bb8cb640f",
+      "attempt_id": "1cf69b0f-7217-49c7-8dd6-8e58fe238e18",
+      "occurred_at": "2026-09-10T15:09:09.616Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "61283fc1-bb28-44ed-83a4-823828e1318e",
+      "attempt_id": "fb59db8e-9aa7-45f9-bdd8-092942b3f48b",
+      "occurred_at": "2026-09-10T15:09:11.557Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "89245c90-a7bf-43cc-8089-9861f2b93913",
+      "attempt_id": "10679aa7-395c-4f3f-8d9c-25f8a6c82a2a",
+      "occurred_at": "2026-09-10T15:09:11.666Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "6b99f418-0a0c-4c1e-8d8a-9da44679fc2b",
+      "attempt_id": "9a7bca12-1992-4832-ae7d-f2004f12a754",
+      "occurred_at": "2026-09-10T15:09:55.405Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "70e67cee-86a4-488d-8aa7-8b5bb8cb640f",
+      "attempt_id": "1cf69b0f-7217-49c7-8dd6-8e58fe238e18",
+      "occurred_at": "2026-09-10T15:09:55.454Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8afb5985-5b0f-40a2-83c1-b009da980bde",
+      "attempt_id": "01d56be8-9f2f-47bc-8303-fcfd06504f19",
+      "occurred_at": "2026-09-10T15:09:55.812Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "d936451f-b869-42ef-8afa-eb8f4602a019",
+      "attempt_id": "c7abe68d-ef38-4371-81b1-cbd72f17ba2f",
+      "occurred_at": "2026-09-10T15:09:55.830Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "89245c90-a7bf-43cc-8089-9861f2b93913",
+      "attempt_id": "10679aa7-395c-4f3f-8d9c-25f8a6c82a2a",
+      "occurred_at": "2026-09-10T15:09:57.117Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "ea25c467-60f8-4cc4-8eb2-61aa3cfd570e",
+      "attempt_id": "7926df5f-dff3-4bb2-939a-7b1c3d0eb021",
+      "occurred_at": "2026-09-10T15:09:57.376Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "d936451f-b869-42ef-8afa-eb8f4602a019",
+      "attempt_id": "c7abe68d-ef38-4371-81b1-cbd72f17ba2f",
+      "occurred_at": "2026-09-10T15:10:44.493Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "3aa79695-562b-4a11-8b2d-fdb5b1a33268",
+      "attempt_id": "e19bd2da-f4e8-40a3-b39d-ba6695fa646b",
+      "occurred_at": "2026-09-10T15:10:44.975Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "ea25c467-60f8-4cc4-8eb2-61aa3cfd570e",
+      "attempt_id": "7926df5f-dff3-4bb2-939a-7b1c3d0eb021",
+      "occurred_at": "2026-09-10T15:10:45.492Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1b00db09-d713-40fb-80bd-f2a57c33b4b4",
+      "attempt_id": "29bd8b4a-d815-4484-b852-5be61441bbcb",
+      "occurred_at": "2026-09-10T15:10:45.878Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "specialist_memo_committed",
+      "state_id": "memo-accepted",
+      "job_id": "8afb5985-5b0f-40a2-83c1-b009da980bde",
+      "attempt_id": "01d56be8-9f2f-47bc-8303-fcfd06504f19",
+      "occurred_at": "2026-09-10T15:10:55.381Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "06c21631-5dda-4783-8a0c-7e85ba16bcc8",
+      "attempt_id": "e250a639-e636-48c9-90cb-988382dead7e",
+      "occurred_at": "2026-09-10T15:10:55.658Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "1b00db09-d713-40fb-80bd-f2a57c33b4b4",
+      "attempt_id": "29bd8b4a-d815-4484-b852-5be61441bbcb",
+      "occurred_at": "2026-09-10T15:12:01.055Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "8a76708f-de0b-4bb6-814e-fb34359675fc",
+      "attempt_id": "09fbc117-592c-43a4-b5d6-ed519767d64d",
+      "occurred_at": "2026-09-10T15:12:01.205Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "06c21631-5dda-4783-8a0c-7e85ba16bcc8",
+      "attempt_id": "e250a639-e636-48c9-90cb-988382dead7e",
+      "occurred_at": "2026-09-10T15:12:35.722Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "8a76708f-de0b-4bb6-814e-fb34359675fc",
+      "attempt_id": "09fbc117-592c-43a4-b5d6-ed519767d64d",
+      "occurred_at": "2026-09-10T15:13:06.581Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "department_consolidation_committed",
+      "state_id": "department_consolidation-accepted",
+      "job_id": "3aa79695-562b-4a11-8b2d-fdb5b1a33268",
+      "attempt_id": "a6ec8fce-eadc-4e80-b545-2d280965612a",
+      "occurred_at": "2026-09-10T15:15:04.815Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "1e22060b-6686-4d9f-828a-4917e620e995",
+      "attempt_id": "895fb7c0-3251-4f04-9260-8f2a2ded1e4d",
+      "occurred_at": "2026-09-10T15:15:05.196Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "6cefff1b-f16d-4978-8625-eb5b292f83f2",
+      "attempt_id": "e6fd37a6-fc75-4c9e-993e-f29767e531fa",
+      "occurred_at": "2026-09-10T15:15:05.208Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "6f83b53c-9530-4297-8e2d-1d873e19a012",
+      "attempt_id": "fb581a8c-6bed-40e1-b7a0-a6427bfd1412",
+      "occurred_at": "2026-09-10T15:15:05.217Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "1e22060b-6686-4d9f-828a-4917e620e995",
+      "attempt_id": "895fb7c0-3251-4f04-9260-8f2a2ded1e4d",
+      "occurred_at": "2026-09-10T15:15:34.699Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "a51a22b6-9797-4811-812e-c97ee98113e0",
+      "attempt_id": "1f4462f1-40b9-4519-816c-86deda2f9141",
+      "occurred_at": "2026-09-10T15:15:34.887Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "6cefff1b-f16d-4978-8625-eb5b292f83f2",
+      "attempt_id": "e6fd37a6-fc75-4c9e-993e-f29767e531fa",
+      "occurred_at": "2026-09-10T15:15:39.937Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "6f83b53c-9530-4297-8e2d-1d873e19a012",
+      "attempt_id": "fb581a8c-6bed-40e1-b7a0-a6427bfd1412",
+      "occurred_at": "2026-09-10T15:15:41.913Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "challenge_committed",
+      "state_id": "blind_challenge-accepted",
+      "job_id": "a51a22b6-9797-4811-812e-c97ee98113e0",
+      "attempt_id": "1f4462f1-40b9-4519-816c-86deda2f9141",
+      "occurred_at": "2026-09-10T15:15:47.953Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "2d074c48-6745-4b8f-8ab5-abf2c6fe28b3",
+      "attempt_id": "d388f715-f358-4a9d-b19e-c416d69a941e",
+      "occurred_at": "2026-09-10T15:15:48.263Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "41bd2625-8855-4358-831c-ae226898628c",
+      "attempt_id": "7c53738f-7d2c-4d89-935a-1b5f37487687",
+      "occurred_at": "2026-09-10T15:15:48.273Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "e2c6a6cc-9244-4088-849e-85e8fb0cf5dc",
+      "attempt_id": "a2df3f8b-1511-4b3c-8a46-0be673c512ed",
+      "occurred_at": "2026-09-10T15:15:48.282Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "2d074c48-6745-4b8f-8ab5-abf2c6fe28b3",
+      "attempt_id": "d388f715-f358-4a9d-b19e-c416d69a941e",
+      "occurred_at": "2026-09-10T15:16:23.128Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "7064b215-bdfb-44f1-80ab-7daedd22abc1",
+      "attempt_id": "1d2451c4-e536-4c1c-bdbc-abf41fc7c574",
+      "occurred_at": "2026-09-10T15:16:23.507Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "followup_committed",
+      "state_id": "follow_up-accepted",
+      "job_id": "41bd2625-8855-4358-831c-ae226898628c",
+      "attempt_id": "7c53738f-7d2c-4d89-935a-1b5f37487687",
+      "occurred_at": "2026-09-10T15:16:32.585Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "54ecaee8-6335-4975-85d7-fd7c030864b4",
+      "attempt_id": "4e5ba415-2031-4041-b00a-3d35994ec3b5",
+      "occurred_at": "2026-09-10T15:16:32.714Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "attempt_committed",
+      "state_id": "succeeded",
+      "job_id": "e2c6a6cc-9244-4088-849e-85e8fb0cf5dc",
+      "attempt_id": "a2df3f8b-1511-4b3c-8a46-0be673c512ed",
+      "occurred_at": "2026-09-10T15:16:38.797Z",
+      "code": "optional_followup_unavailable"
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "dc3a34eb-4149-4f99-8191-67b4aa64741d",
+      "attempt_id": "ac3a3b89-fff3-4702-a567-90a1c4b558a1",
+      "occurred_at": "2026-09-10T15:16:38.923Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "7064b215-bdfb-44f1-80ab-7daedd22abc1",
+      "attempt_id": "1d2451c4-e536-4c1c-bdbc-abf41fc7c574",
+      "occurred_at": "2026-09-10T15:16:55.391Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "15751951-343b-49f9-86d6-d20735de05ea",
+      "attempt_id": "25556d48-8268-4a5d-93eb-bf8a5268cd93",
+      "occurred_at": "2026-09-10T15:16:55.729Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "54ecaee8-6335-4975-85d7-fd7c030864b4",
+      "attempt_id": "4e5ba415-2031-4041-b00a-3d35994ec3b5",
+      "occurred_at": "2026-09-10T15:17:00.262Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "dc3a34eb-4149-4f99-8191-67b4aa64741d",
+      "attempt_id": "ac3a3b89-fff3-4702-a567-90a1c4b558a1",
+      "occurred_at": "2026-09-10T15:17:02.106Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "owner_response_committed",
+      "state_id": "owner_response_ballot-accepted",
+      "job_id": "15751951-343b-49f9-86d6-d20735de05ea",
+      "attempt_id": "25556d48-8268-4a5d-93eb-bf8a5268cd93",
+      "occurred_at": "2026-09-10T15:17:28.062Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "structural_audit_completed",
+      "state_id": "structural-audit-completed",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:17:28.899Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "41b6a719-6615-49de-9c7a-e3be6882638e",
+      "attempt_id": "84513f10-0ef1-472a-b386-274ebea3badf",
+      "occurred_at": "2026-09-10T15:17:31.525Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "semantic_audit_committed",
+      "state_id": "semantic_audit-accepted",
+      "job_id": "41b6a719-6615-49de-9c7a-e3be6882638e",
+      "attempt_id": "84513f10-0ef1-472a-b386-274ebea3badf",
+      "occurred_at": "2026-09-10T15:19:18.037Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "spawn_reserved",
+      "state_id": "spawn-reserved",
+      "job_id": "58137e3c-edde-408a-af3e-1d860a1182e3",
+      "attempt_id": "12516951-510e-4652-8e22-fded6c610a84",
+      "occurred_at": "2026-09-10T15:19:19.830Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "chair_synthesis_committed",
+      "state_id": "chair_synthesis-accepted",
+      "job_id": "58137e3c-edde-408a-af3e-1d860a1182e3",
+      "attempt_id": "12516951-510e-4652-8e22-fded6c610a84",
+      "occurred_at": "2026-09-10T15:21:17.496Z",
+      "code": null
+    },
+    {
+      "symbol": "NVDA",
+      "event_type": "report_published",
+      "state_id": "report-published",
+      "job_id": null,
+      "attempt_id": null,
+      "occurred_at": "2026-09-10T15:21:18.919Z",
+      "code": null
+    }
+  ],
+  "auxiliaryUsage": [
+    {
+      "symbol": "NVDA",
+      "purpose": "semantic_news_shortlist",
+      "recorded_at": "2026-09-10T15:05:32.440Z",
+      "input_tokens": 48523,
+      "output_tokens": 11406
+    },
+    {
+      "symbol": "NVDA",
+      "purpose": "semantic_news_detail",
+      "recorded_at": "2026-09-10T15:06:40.209Z",
+      "input_tokens": 20104,
+      "output_tokens": 2530
+    }
+  ],
+  "limitations": [],
+  "attemptTimes": [
+    {
+      "symbol": "NVDA",
+      "logical_key": "collection:initial",
+      "created_at": "2026-09-10T15:01:40.621Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market_news",
+      "created_at": "2026-09-10T15:07:34.962Z",
+      "recorded_at": "2026-09-10T15:08:29.142Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:market",
+      "created_at": "2026-09-10T15:07:34.983Z",
+      "recorded_at": "2026-09-10T15:08:23.421Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T15:07:34.998Z",
+      "recorded_at": "2026-09-10T15:08:31.363Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:valuation",
+      "created_at": "2026-09-10T15:08:23.686Z",
+      "recorded_at": "2026-09-10T15:09:07.632Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_product",
+      "created_at": "2026-09-10T15:08:29.492Z",
+      "recorded_at": "2026-09-10T15:09:11.549Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company",
+      "created_at": "2026-09-10T15:08:31.370Z",
+      "recorded_at": "2026-09-10T15:09:09.483Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:company_competition",
+      "created_at": "2026-09-10T15:09:07.862Z",
+      "recorded_at": "2026-09-10T15:09:55.393Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk_policy",
+      "created_at": "2026-09-10T15:09:09.616Z",
+      "recorded_at": "2026-09-10T15:09:55.446Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:benchmark",
+      "created_at": "2026-09-10T15:09:11.666Z",
+      "recorded_at": "2026-09-10T15:09:57.109Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:risk",
+      "created_at": "2026-09-10T15:09:55.812Z",
+      "recorded_at": "2026-09-10T15:10:55.373Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial",
+      "created_at": "2026-09-10T15:09:55.830Z",
+      "recorded_at": "2026-09-10T15:10:44.468Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "memo:financial_quality",
+      "created_at": "2026-09-10T15:09:57.376Z",
+      "recorded_at": "2026-09-10T15:10:45.483Z",
+      "stage": "memo",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:10:44.975Z",
+      "recorded_at": "2026-09-10T15:11:56.741Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:market",
+      "created_at": "2026-09-10T15:10:45.878Z",
+      "recorded_at": "2026-09-10T15:12:01.052Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:financial",
+      "created_at": "2026-09-10T15:10:55.658Z",
+      "recorded_at": "2026-09-10T15:12:35.719Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:11:56.746Z",
+      "recorded_at": "2026-09-10T15:13:45.111Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:risk",
+      "created_at": "2026-09-10T15:12:01.205Z",
+      "recorded_at": "2026-09-10T15:13:06.576Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "consolidation:company",
+      "created_at": "2026-09-10T15:13:45.114Z",
+      "recorded_at": "2026-09-10T15:15:04.812Z",
+      "stage": "department_consolidation",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:risk",
+      "created_at": "2026-09-10T15:15:05.196Z",
+      "recorded_at": "2026-09-10T15:15:05.208Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:market",
+      "created_at": "2026-09-10T15:15:05.208Z",
+      "recorded_at": "2026-09-10T15:15:05.217Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:company",
+      "created_at": "2026-09-10T15:15:05.217Z",
+      "recorded_at": "2026-09-10T15:15:05.224Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "challenge:financial",
+      "created_at": "2026-09-10T15:15:34.887Z",
+      "recorded_at": "2026-09-10T15:15:34.897Z",
+      "stage": "blind_challenge",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:company",
+      "created_at": "2026-09-10T15:15:48.263Z",
+      "recorded_at": "2026-09-10T15:16:23.125Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:risk",
+      "created_at": "2026-09-10T15:15:48.273Z",
+      "recorded_at": "2026-09-10T15:16:32.582Z",
+      "stage": "follow_up",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "followup:financial",
+      "created_at": "2026-09-10T15:15:48.282Z",
+      "recorded_at": null,
+      "stage": null,
+      "model": null
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:market",
+      "created_at": "2026-09-10T15:16:23.507Z",
+      "recorded_at": "2026-09-10T15:16:55.388Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:company",
+      "created_at": "2026-09-10T15:16:32.714Z",
+      "recorded_at": "2026-09-10T15:17:00.259Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:risk",
+      "created_at": "2026-09-10T15:16:38.923Z",
+      "recorded_at": "2026-09-10T15:17:02.103Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "response_ballot:financial",
+      "created_at": "2026-09-10T15:16:55.729Z",
+      "recorded_at": "2026-09-10T15:17:28.059Z",
+      "stage": "owner_response_ballot",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "semantic_audit:system",
+      "created_at": "2026-09-10T15:17:31.525Z",
+      "recorded_at": "2026-09-10T15:19:18.030Z",
+      "stage": "semantic_audit",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "symbol": "NVDA",
+      "logical_key": "chair_synthesis:chair",
+      "created_at": "2026-09-10T15:19:19.830Z",
+      "recorded_at": "2026-09-10T15:21:17.492Z",
+      "stage": "chair_synthesis",
+      "model": "gpt-5.6-luna"
+    }
+  ],
+  "tokenUsage": [
+    {
+      "input_tokens": 922867,
+      "output_tokens": 49336
+    }
+  ],
+  "verificationContainerRemoved": true,
+  "temporaryEnvironmentRemoved": true,
+  "dataRetained": "/home/ec2-user/stocksembly-single-20260911/data",
+  "comparison": [
+    {
+      "mode": "single",
+      "created": "2026-09-10T15:01:23.655Z",
+      "published": "2026-09-10T15:21:18.919000+00:00",
+      "totalSeconds": 1195,
+      "startupSeconds": 17,
+      "collectionSeconds": 349,
+      "afterCollectionSeconds": 829
+    },
+    {
+      "mode": "four",
+      "created": "2026-09-10T12:43:46.203Z",
+      "published": "2026-09-10T13:07:00.348000+00:00",
+      "totalSeconds": 1394,
+      "startupSeconds": 13,
+      "collectionSeconds": 116,
+      "afterCollectionSeconds": 1265
+    }
+  ],
+  "sampledResources": {
+    "samples": 21,
+    "maxActiveJobs": 3,
+    "peakCpuPercent": 106.26,
+    "peakMemoryMiB": 560.5,
+    "productionActiveRunsMax": 0,
+    "webHttpStatuses": [
+      "200"
+    ]
+  }
+}

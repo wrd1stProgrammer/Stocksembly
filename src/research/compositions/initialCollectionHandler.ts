@@ -106,10 +106,10 @@ const NON_RECOVERABLE_COLLECTION_PREFIXES = [
   "required_market_data_not_configured:",
 ] as const;
 
-function collectionFailure(
+export function collectionFailure(
   error: unknown,
   now: string,
-  attemptOrdinal: number,
+  previousFailures: number,
 ):
   | { readonly kind: "permanent"; readonly code: string }
   | { readonly kind: "incomplete"; readonly code: string }
@@ -118,7 +118,10 @@ function collectionFailure(
       readonly code: string;
       readonly retryAt: string;
     } {
-  const code = error instanceof Error ? error.message : "collection_failed";
+  const code =
+    error instanceof Error && error.message.trim()
+      ? error.message
+      : "collection_failed";
   const secIdentityFailure =
     error instanceof SecIdentityConfigError ||
     SEC_IDENTITY_ERROR_CODES.some((candidate) => code.startsWith(candidate));
@@ -130,12 +133,25 @@ function collectionFailure(
     secIdentityFailure
   )
     return { kind: "permanent", code };
-  if (attemptOrdinal >= 3)
+  if (previousFailures >= 7)
     return {
       kind: "incomplete",
       code: `initial_collection_retry_exhausted:${code}`,
     };
-  return { kind: "transient", code, retryAt: after(now, 10_000) };
+  const suppliedRetryAt =
+    error instanceof Error &&
+    "retryAt" in error &&
+    typeof error.retryAt === "string"
+      ? Date.parse(error.retryAt)
+      : Number.NaN;
+  const backoff = Math.min(5 * 60_000, 10_000 * 2 ** previousFailures);
+  const retryAt = new Date(
+    Math.max(
+      Date.parse(now) + backoff,
+      Number.isFinite(suppliedRetryAt) ? suppliedRetryAt : 0,
+    ),
+  ).toISOString();
+  return { kind: "transient", code, retryAt };
 }
 
 export function normalizeResearchQuestion(
@@ -291,7 +307,16 @@ export function createInitialCollectionHandler(
             }),
         });
       } catch (error) {
-        return collectionFailure(error, clock(), attempt.ordinal);
+        const prior = z
+          .object({ failures: z.number().int().nonnegative() })
+          .optional()
+          .parse(
+            database
+              .prepare(`SELECT COALESCE(json_extract(result_json, '$.failureCount'), 0) AS failures
+            FROM idempotency_records WHERE scope = 'worker-retry' AND idempotency_key = ?`)
+              .get(attempt.jobId),
+          );
+        return collectionFailure(error, clock(), prior?.failures ?? 0);
       }
       const question =
         normalizeResearchQuestion(request.question) ??

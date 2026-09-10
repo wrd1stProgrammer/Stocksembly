@@ -1,0 +1,104 @@
+.research-queue-dialog {
+  box-sizing: border-box;
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 32px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border, #283650);
+  border-radius: 20px;
+  color: var(--color-text, #f7f8fb);
+  background: var(--color-panel, #0b111d);
+  box-shadow: 0 24px 80px #0008;
+  font-family: inherit;
+}
+.research-queue-dialog::backdrop {
+  background: #03060db3;
+  backdrop-filter: blur(6px);
+}
+.research-queue-dialog__icon {
+  color: var(--color-accent-bright, #6e89ff);
+  margin-bottom: 20px;
+}
+.research-queue-dialog__eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted, #a9b4c8);
+}
+.research-queue-dialog h2 {
+  margin: 12px 0;
+  font-size: 23px;
+  line-height: 1.4;
+  letter-spacing: -0.035em;
+}
+.research-queue-dialog p {
+  line-height: 1.65;
+}
+.research-queue-dialog__position {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  margin: 22px 0 12px;
+  border-block: 1px solid var(--color-border, #283650);
+}
+.research-queue-dialog__position span,
+.research-queue-dialog__detail {
+  color: var(--color-text-muted, #a9b4c8);
+  font-size: 13px;
+}
+.research-queue-dialog__position strong {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+.research-queue-dialog__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+.research-queue-dialog__actions button {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.research-queue-dialog__cancel {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--color-border, #283650);
+}
+.research-queue-dialog__keep {
+  background: var(--color-accent, #4268ff);
+  color: #fff;
+  border: 1px solid transparent;
+}
+.research-queue-dialog button:focus-visible,
+.research-queue-notice:focus-visible {
+  outline: 2px solid var(--color-accent-bright, #6e89ff);
+  outline-offset: 3px;
+}
+.research-queue-dialog button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.research-queue-notice {
+  position: fixed;
+  z-index: 100;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border, #283650);
+  background: var(--color-panel, #0b111d);
+  color: var(--color-text, #f7f8fb);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}

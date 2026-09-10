@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { AttemptIdSchema, JobIdSchema, RunIdSchema } from "../../domain/ids";
+import type { ResearchExecutionBackend } from "../../domain/researchExecution";
 import { CodexRunnerError } from "./codexErrors";
 import { verifyPinnedExecutable, verifyPinnedRegularFile } from "./codexOrigin";
 import { assertHostPolicy, productionCodexPlatform } from "./codexPlatform";
@@ -84,6 +85,7 @@ async function artifactsAreClear(
 
 export async function runProductionCodexReadinessProbe(
   scope: ReadinessScope,
+  authentication: ResearchExecutionBackend = "subscription",
 ): Promise<SafeCodexReadinessReport> {
   const nonce = randomUUID();
   const projectSentinel = `PROJECT_${nonce}`;
@@ -100,7 +102,7 @@ export async function runProductionCodexReadinessProbe(
   process.env[environmentName] = environmentSentinel;
   try {
     const platform = await readinessPhase("platform_policy", "profile", () => {
-      const value = productionCodexPlatform();
+      const value = productionCodexPlatform(authentication);
       assertHostPolicy(value.hostEnvironment, value.pins.locale);
       return value;
     });

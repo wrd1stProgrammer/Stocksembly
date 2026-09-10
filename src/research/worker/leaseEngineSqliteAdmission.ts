@@ -2,13 +2,13 @@ import type Database from "better-sqlite3";
 import { z } from "zod";
 import { EventIdSchema, RunIdSchema } from "../domain/ids";
 import { checkRunAdmission } from "../domain/limits";
+import { availableExecutionBackend } from "../server/persistence/sqlite/runExecutionRepository";
 import {
   createRun,
   transitionRun,
 } from "../server/persistence/sqlite/runRepository";
 import type { CreateRunInput } from "../server/persistence/sqlite/types";
 import type { RunAdmissionResult } from "./leaseEngineTypes";
-import { LEASE_ENGINE_DEFAULTS } from "./leaseEngineTypes";
 
 const CountSchema = z.object({ count: z.number().int().nonnegative() });
 const RunRowSchema = z.object({ run_id: RunIdSchema });
@@ -130,14 +130,17 @@ export function activateNextRun(
   return database
     .transaction(() => {
       if (terminalizeOneExhaustedRun(database, eventId, now)) return true;
-      if (activeCount(database) >= LEASE_ENGINE_DEFAULTS.activeRuns)
-        return false;
+      const backend = availableExecutionBackend(database);
+      if (backend === undefined) return false;
       const value = database
         .prepare(`SELECT run_id FROM runs WHERE status = 'queued'
           ORDER BY created_at, run_id LIMIT 1`)
         .get();
       if (value === undefined) return false;
       const runId = RunRowSchema.parse(value).run_id;
+      database
+        .prepare("UPDATE runs SET execution_backend = ? WHERE run_id = ?")
+        .run(backend, runId);
       transitionRun(database, {
         runId,
         fromStatus: "queued",

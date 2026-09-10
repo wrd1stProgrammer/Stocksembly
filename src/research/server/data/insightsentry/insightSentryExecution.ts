@@ -14,6 +14,7 @@ import {
   InsightSentryClientError,
 } from "./insightSentryFailureClassifier";
 import {
+  InsightSentryCooldownError,
   InsightSentryQuotaGovernor,
   writeInsightSentryRetryIntent,
 } from "./insightSentryQuota";
@@ -83,6 +84,7 @@ export function createInsightSentryExecutor(options: {
         ? {}
         : { retryAfter: input.retryAfter }),
     });
+    if (input.code === "rate_limited") governor.coolDown(retryAt);
     await writeInsightSentryRetryIntent(options.dataRoot, {
       cacheKey: input.cacheKey,
       classification: input.code,
@@ -107,95 +109,112 @@ export function createInsightSentryExecutor(options: {
 
   return async (input): Promise<InsightSentryRawResult> => {
     try {
-      return await governor.run(async () => {
-        const url = insightSentryRequestUrl(input.host, input.request);
-        options.onUpstreamRequest?.({
-          cacheKey: input.cacheKey,
-          endpoint: input.request.endpoint,
-          url: url.toString(),
-        });
-        const response = await options.adapter({
-          url,
-          headers: input.headers,
-          method: input.request.method ?? "GET",
-          ...(input.request.requestBody === undefined
-            ? {}
-            : {
-                body: Buffer.from(
-                  JSON.stringify(input.request.requestBody),
-                  "utf8",
-                ),
-              }),
-          timeoutMilliseconds: 30_000,
-        });
-        const observedAt = options.clock.isoNow();
-        const observation = quotaObservationFromHeaders(
-          response.headers,
-          observedAt,
-        );
-        if (observation !== undefined) await governor.observe(observation);
-        if (response.status < 200 || response.status >= 300) {
-          response.abort();
-          const failure = classifyHttpStatus(response.status);
-          if (failure.retry === "durable") {
-            const retryAfter = normalizedInsightSentryHeaders(response.headers)[
-              "retry-after"
-            ];
-            return await durableFailure({
-              code: transientInsightSentryCode(failure.code),
-              request: input.request,
-              cacheKey: input.cacheKey,
-              host: input.host,
-              status: response.status,
-              ...(retryAfter === undefined ? {} : { retryAfter }),
-            });
-          }
-          throw new InsightSentryClientError(
-            failure.code,
-            "never",
-            insightSentryDiagnostics(
-              input.host,
-              input.request,
-              input.cacheKey,
+      return await governor.run(
+        async () => {
+          const url = insightSentryRequestUrl(input.host, input.request);
+          options.onUpstreamRequest?.({
+            cacheKey: input.cacheKey,
+            endpoint: input.request.endpoint,
+            url: url.toString(),
+          });
+          const response = await options.adapter({
+            url,
+            headers: input.headers,
+            method: input.request.method ?? "GET",
+            ...(input.request.requestBody === undefined
+              ? {}
+              : {
+                  body: Buffer.from(
+                    JSON.stringify(input.request.requestBody),
+                    "utf8",
+                  ),
+                }),
+            timeoutMilliseconds: 30_000,
+          });
+          const observedAt = options.clock.isoNow();
+          const observation = quotaObservationFromHeaders(
+            response.headers,
+            observedAt,
+          );
+          if (observation !== undefined) await governor.observe(observation);
+          if (response.status < 200 || response.status >= 300) {
+            response.abort();
+            const failure = classifyHttpStatus(response.status);
+            if (failure.retry === "durable") {
+              const retryAfter = normalizedInsightSentryHeaders(
+                response.headers,
+              )["retry-after"];
+              return await durableFailure({
+                code: transientInsightSentryCode(failure.code),
+                request: input.request,
+                cacheKey: input.cacheKey,
+                host: input.host,
+                status: response.status,
+                ...(retryAfter === undefined ? {} : { retryAfter }),
+              });
+            }
+            throw new InsightSentryClientError(
+              failure.code,
+              "never",
+              insightSentryDiagnostics(
+                input.host,
+                input.request,
+                input.cacheKey,
+                response.status,
+              ),
               response.status,
-            ),
+            );
+          }
+          const details = insightSentryDiagnostics(
+            input.host,
+            input.request,
+            input.cacheKey,
             response.status,
           );
-        }
-        const details = insightSentryDiagnostics(
-          input.host,
-          input.request,
-          input.cacheKey,
-          response.status,
-        );
-        const bytes = await readBoundedInsightSentryBody({
-          response,
-          limitBytes: options.limitBytes,
-          diagnostics: details,
-        });
-        const contentType = (
-          normalizedInsightSentryHeaders(response.headers)["content-type"] ?? ""
-        )
-          .split(";", 1)[0]
-          ?.trim()
-          .toLowerCase();
-        if (
-          contentType !== "application/json" &&
-          !contentType?.endsWith("+json")
-        )
-          throw new InsightSentryClientError(
-            "non_json",
-            "never",
-            details,
-            response.status,
-          );
-        return Object.freeze({
-          bytes,
-          retrievedAt: observedAt,
-          responseBytes: bytes.byteLength,
-        });
-      });
+          const bytes = await readBoundedInsightSentryBody({
+            response,
+            limitBytes: options.limitBytes,
+            diagnostics: details,
+          });
+          const contentType = (
+            normalizedInsightSentryHeaders(response.headers)["content-type"] ??
+            ""
+          )
+            .split(";", 1)[0]
+            ?.trim()
+            .toLowerCase();
+          if (
+            contentType !== "application/json" &&
+            !contentType?.endsWith("+json")
+          )
+            throw new InsightSentryClientError(
+              "non_json",
+              "never",
+              details,
+              response.status,
+            );
+          return Object.freeze({
+            bytes,
+            retrievedAt: observedAt,
+            responseBytes: bytes.byteLength,
+          });
+        },
+        () => options.clock.now(),
+      );
     } catch (error) {
+      if (error instanceof InsightSentryCooldownError)
+        throw new InsightSentryClientError(
+          "rate_limited",
+          "durable",
+          insightSentryDiagnostics(
+            input.host,
+            input.request,
+            input.cacheKey,
+            429,
+          ),
+          429,
+          error.retryAt,
+        );
       if (error instanceof InsightSentryClientError) throw error;
       if (error instanceof InsightSentryTransportError)
         return await durableFailure({

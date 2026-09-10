@@ -2,6 +2,7 @@ import { rmSync } from "node:fs";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { hashCanonical } from "../domain/contractHelpers";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import {
   ArtifactIdSchema,
@@ -39,9 +40,106 @@ import {
   seedAuthoritativeParents,
 } from "./assembleReport.testSupport";
 import { persistAuthoritativeReport } from "./assembleReportPersistence";
+import { StructuralAuditArtifactEnvelopeSchema } from "./structuralAuditPersistenceContracts";
 import { publishableDissent } from "./assembleReportValidation";
 
 describe("persistAuthoritativeReport", () => {
+  it("publishes an audited team-view claim that is absent from the six section bindings", async () => {
+    const base = makeAuthoritativeReportInput();
+    const extraId = ClaimIdSchema.parse("00000000-0000-4000-8000-000000009996");
+    const claim = base.structuralAudit.result.claims[0];
+    const slice = base.structuralAudit.result.fixedEvidenceSlices[0];
+    const verdict = base.semanticAudit.verdicts[0];
+    const editorial = base.editorialClaims[0];
+    if (!claim || !slice || !verdict || !editorial)
+      throw new Error("claim fixture missing");
+    const lineage = {
+      sentenceIds: ["position:financial"],
+      claimIds: [extraId],
+      sourceArtifactIds: base.chair.sourceArtifactIds,
+    };
+    const text = {
+      en: "Liquidity is supported by the reviewed evidence.",
+      ko: "검토된 근거가 유동성을 뒷받침합니다.",
+    };
+    const { claimHash: _originalHash, ...claimContent } = claim;
+    const extraClaim = { ...claimContent, claimId: extraId, text };
+    const input = {
+      ...base,
+      structuralAudit: {
+        ...base.structuralAudit,
+        result: {
+          ...base.structuralAudit.result,
+          claims: [
+            ...base.structuralAudit.result.claims,
+            { ...extraClaim, claimHash: hashCanonical(extraClaim) },
+          ],
+          fixedEvidenceSlices: [
+            ...base.structuralAudit.result.fixedEvidenceSlices,
+            { ...slice, claimId: extraId },
+          ],
+        },
+      },
+      semanticAudit: {
+        ...base.semanticAudit,
+        verdicts: [
+          ...base.semanticAudit.verdicts,
+          { ...verdict, claimId: extraId },
+        ],
+      },
+      editorialClaims: [
+        ...base.editorialClaims,
+        { ...editorial, claimId: extraId, publicThesis: text },
+      ],
+      chairSentences: [
+        ...base.chairSentences,
+        {
+          sentenceId: "position:financial",
+          kind: "position",
+          claimIds: [extraId],
+          sourceArtifactIds: base.chair.sourceArtifactIds,
+          text,
+        },
+      ],
+      chair: {
+        ...base.chair,
+        canonicalNarrativeV3: {
+          ...base.chair.canonicalNarrativeV3,
+          teamViews: base.chair.canonicalNarrativeV3.teamViews.map((view) =>
+            view.departmentId === "financial"
+              ? {
+                  ...view,
+                  position: text.en,
+                  rationale: "Reviewed evidence supports liquidity.",
+                  lineage,
+                }
+              : view,
+          ),
+        },
+      },
+    };
+    const cas = new CountingArtifactCasFake();
+    await seedAuthoritativeParents(cas, base);
+    StructuralAuditArtifactEnvelopeSchema.parse(input.structuralAudit);
+    ChairSynthesisOutputSchema.parse(input.chair);
+    const assembled = assembleReport(input);
+    expect(assembled.kind, JSON.stringify(assembled)).toBe("assembled");
+    if (assembled.kind !== "assembled") return;
+    expect(
+      assembled.report.claims.some((item) => item.claimId === extraId),
+    ).toBe(true);
+    expect(
+      assembled.publicationChair.sections.some((section) =>
+        section.auditedClaimIds.includes(extraId),
+      ),
+    ).toBe(false);
+    const result = await persistAuthoritativeReport(
+      { cas, persistence: reportPersistenceSpy() },
+      input,
+    );
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+  });
+
   it("drops orphaned dissent instead of blocking an otherwise publishable report", () => {
     const supportedClaimId = "00000000-0000-4000-8000-000000000001";
     const orphanedClaimId = "00000000-0000-4000-8000-000000000002";
@@ -394,6 +492,29 @@ describe("persistAuthoritativeReport", () => {
       capability: "canonical_optional_content",
     });
     expect(persistence.saved).toHaveLength(1);
+  });
+
+  it("normalizes a canonical valuation disclaimer without losing its evidence or lineage", () => {
+    const input = makeAuthoritativeReportInput();
+    const assembled = assembleReport(input);
+    if (assembled.kind !== "assembled") throw new TypeError("missing report fixture");
+    const canonical = ChairSynthesisOutputSchema.parse(input.chair).canonicalNarrativeV3;
+    const valuation = canonical?.sections[2];
+    if (canonical === undefined || valuation === undefined)
+      throw new TypeError("missing canonical section fixture");
+    const narrative = "The available valuation evidence is expectation context rather than a complete intrinsic-value range: at $488.26 and forward EPS of $19.63, MSFT implies 24.9x forward P/E. No qualified historical or peer multiple range is available, so valuation should be judged against growth durability, margin stability, and AI investment returns rather than a precise target price.";
+    const projected = workflowV3ReportFromCanonicalNarrative(assembled.report, {
+      ...canonical,
+      sections: canonical.sections.map((section) => section.sectionKey === valuation.sectionKey
+        ? { ...section, narrative }
+        : section),
+    });
+    const section = projected.narrative.sections.find((entry) => entry.id === valuation.sectionKey);
+    expect(section?.body).toBe(narrative.replace("target price", "cited market level"));
+    expect(section?.claimIds).toEqual(assembled.report.locales[canonical.sourceLocale].sections.find((entry) => entry.id === valuation.sectionKey)?.claimIds);
+    expect(section?.sourceIds).toEqual(assembled.report.locales[canonical.sourceLocale].sections.find((entry) => entry.id === valuation.sectionKey)?.sourceIds);
+    expect(projected.narrativeLineage.sections.find((entry) => entry.sectionKey === valuation.sectionKey)?.lineage).toEqual(valuation.lineage);
+    expect(WorkflowV3ResearchReportSchema.safeParse(projected).success).toBe(true);
   });
 
   it("keeps original Q&A identity when canonical coverage omits a middle question", () => {

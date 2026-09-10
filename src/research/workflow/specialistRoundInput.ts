@@ -1,6 +1,9 @@
 import type { z } from "zod";
 import type { SpecialistAssignmentV1 } from "../application/assignAllAgentsContracts";
-import type { EditorialDecisionDimensionSchema } from "../domain/agentOutputsShared";
+import {
+  type EditorialDecisionDimensionSchema,
+  UnknownListSchema,
+} from "../domain/agentOutputsShared";
 import { hashCanonical } from "../domain/contractHelpers";
 import {
   AttemptIdSchema,
@@ -380,6 +383,7 @@ type ClaimSubmissionRequest = {
     readonly form?: string;
   }[];
   readonly validateEvidence?: boolean;
+  readonly allowPartialCoverage?: boolean;
   readonly existingDepartmentTheses?: readonly {
     readonly en: string;
     readonly ko: string;
@@ -474,12 +478,9 @@ function percentageClaimMatchesRegisteredMetrics(input: {
           ))
       )
         return false;
-      const value = Math.abs(Number(record.value));
-      if (!Number.isFinite(value)) return false;
-      return (
-        Math.abs(value - percentage) <= 0.2 ||
-        (record.unit === "ratio" && Math.abs(value * 100 - percentage) <= 0.2)
-      );
+      const registered = registeredPercentage(record);
+      if (registered === undefined) return false;
+      return Math.abs(Math.abs(Number(registered)) - percentage) <= 0.2;
     });
   });
 }
@@ -544,10 +545,13 @@ export function sanitizeSpecialistDecisiveMetricIds(
 
 function registeredPercentage(record: {
   readonly value: string;
+  readonly unit: string;
 }): string | undefined {
   const numeric = Number(record.value);
   if (!Number.isFinite(numeric)) return undefined;
-  return String(numeric);
+  if (record.unit === "percent") return String(numeric);
+  if (record.unit === "ratio") return String(numeric * 100);
+  return undefined;
 }
 
 function groundPercentageText(input: {
@@ -651,6 +655,30 @@ export function sanitizeSpecialistNumericMetricValues(
   };
 }
 
+function appendCoverageNotice(
+  unknowns: readonly { readonly en: string; readonly ko: string }[],
+  notice: { readonly en: string; readonly ko: string },
+): readonly { readonly en: string; readonly ko: string }[] | undefined {
+  if (
+    unknowns.some(
+      (item) => item.en.includes(notice.en) && item.ko.includes(notice.ko),
+    )
+  )
+    return unknowns;
+  if (unknowns.length < 32) return [...unknowns, notice];
+  const index = unknowns.findIndex(
+    (item) =>
+      item.en.length + notice.en.length + 1 <= 4_000 &&
+      item.ko.length + notice.ko.length + 1 <= 4_000,
+  );
+  if (index < 0) return undefined;
+  return unknowns.map((item, itemIndex) =>
+    itemIndex === index
+      ? { en: `${item.en} ${notice.en}`, ko: `${item.ko} ${notice.ko}` }
+      : item,
+  );
+}
+
 export function omitUnboundPercentageSentences(
   candidate: unknown,
   registeredValues: NonNullable<ClaimSubmissionRequest["registeredValues"]>,
@@ -658,7 +686,7 @@ export function omitUnboundPercentageSentences(
   const parsed = SpecialistMemoOutputSchema.safeParse(candidate);
   if (!parsed.success) return candidate;
   let changed = false;
-  const positions = parsed.data.positions.map((position) => {
+  const positions = parsed.data.positions.flatMap((position) => {
     if (
       percentageClaimMatchesRegisteredMetrics({
         text: `${position.publicSummary.en}\n${position.publicSummary.ko}`,
@@ -681,7 +709,16 @@ export function omitUnboundPercentageSentences(
         .trim();
     const en = filter(position.publicSummary.en);
     const ko = filter(position.publicSummary.ko);
-    if (!en || !ko) return position;
+    if (!en || !ko) {
+      if (
+        parsed.data.dissent.some(
+          (dissent) => dissent.claimId === position.claimId,
+        )
+      )
+        return position;
+      changed = true;
+      return [];
+    }
     if (en === position.publicSummary.en && ko === position.publicSummary.ko)
       return position;
     changed = true;
@@ -691,18 +728,13 @@ export function omitUnboundPercentageSentences(
       publicSummary: { en, ko },
     };
   });
-  if (!changed || parsed.data.unknowns.length >= 32) return candidate;
-  return {
-    ...parsed.data,
-    positions,
-    unknowns: [
-      ...parsed.data.unknowns,
-      {
-        en: "Some percentage statements could not be verified and were omitted. The remaining observations still require source verification.",
-        ko: "비율 수치를 확인하지 못한 문장은 제외했습니다. 남은 내용도 원문 근거 검증을 거쳐야 합니다.",
-      },
-    ],
-  };
+  if (!changed || positions.length === 0) return candidate;
+  const unknowns = appendCoverageNotice(parsed.data.unknowns, {
+    en: "Some percentage statements could not be verified and were omitted. The remaining observations still require source verification.",
+    ko: "비율 수치를 확인하지 못한 문장은 제외했습니다. 남은 내용도 원문 근거 검증을 거쳐야 합니다.",
+  });
+  if (unknowns === undefined) return candidate;
+  return { ...parsed.data, positions, unknowns };
 }
 
 function nonOwnershipEvidencePriority(artifact: {
@@ -791,12 +823,17 @@ export function sanitizeSpecialistEvidenceTypeBindings(
   };
 }
 
+const PARTIAL_CLAIM_COVERAGE = {
+  en: "Some planned analytical angles were not supplied or could not be verified and were omitted. This specialist assessment has limited coverage.",
+  ko: "일부 예정된 분석 관점은 제출되지 않았거나 검증할 수 없어 제외했습니다. 이 전문 분석의 범위는 제한적입니다.",
+} as const;
+
 /**
  * Claim ids and ownership fields are preallocated workflow metadata, not model
  * analysis. Normalize a position back to its unique semantic slot when the
  * model makes a copy typo, and drop only surplus positions that do not belong
- * to any allocated slot. The strict validator still rejects missing required
- * slots and ambiguous bindings.
+ * to any allocated slot. Missing coverage is explicitly disclosed; it never
+ * creates a substitute thesis or evidence.
  */
 export function normalizeSpecialistClaimSlotBindings(
   request: Pick<ClaimSubmissionRequest, "roleId" | "claimSlots">,
@@ -846,7 +883,21 @@ export function normalizeSpecialistClaimSlotBindings(
       materiality: slot.materiality,
     });
   }
-  return { ...candidate, positions };
+  const missingCoverage = request.claimSlots.some(
+    (slot) => !slot.optional && !usedSlots.has(slot.claimId),
+  );
+  const unknowns = UnknownListSchema.safeParse(
+    "unknowns" in candidate ? candidate.unknowns : undefined,
+  );
+  const disclosed =
+    missingCoverage && positions.length > 0 && unknowns.success
+      ? appendCoverageNotice(unknowns.data, PARTIAL_CLAIM_COVERAGE)
+      : undefined;
+  return {
+    ...candidate,
+    positions,
+    ...(disclosed === undefined ? {} : { unknowns: disclosed }),
+  };
 }
 
 type ClaimSubmissionValidation =
@@ -1039,6 +1090,22 @@ export function validateSpecialistClaimSubmission(
   if (
     request.claimSlots.some(
       (slot) => !slot.optional && !usedSlots.has(slot.claimId),
+    ) &&
+    !(
+      request.allowPartialCoverage === true &&
+      "unknowns" in candidate &&
+      Array.isArray(candidate.unknowns) &&
+      candidate.unknowns.some(
+        (notice: unknown) =>
+          typeof notice === "object" &&
+          notice !== null &&
+          "en" in notice &&
+          typeof notice.en === "string" &&
+          notice.en.includes(PARTIAL_CLAIM_COVERAGE.en) &&
+          "ko" in notice &&
+          typeof notice.ko === "string" &&
+          notice.ko.includes(PARTIAL_CLAIM_COVERAGE.ko),
+      )
     )
   )
     return { ok: false, reason: "specialist_claim_required_slot_unused" };

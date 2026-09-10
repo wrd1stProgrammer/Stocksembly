@@ -34,6 +34,7 @@ type MeetingUiCopy = {
   readonly startingRecovery: string;
   readonly resume: string;
   readonly retryUnavailable: string;
+  readonly retryBudgetExhausted: string;
   readonly retryForbidden: string;
   readonly retryMissing: string;
   readonly retryFailed: string;
@@ -68,6 +69,8 @@ const en: MeetingUiCopy = {
     "Finished stages were preserved and no research credit was charged. You can resume from the affected stage using the same evidence snapshot.",
   startingRecovery: "Starting recovery",
   resume: "Resume failed stage",
+  retryBudgetExhausted:
+    "This research has reached its retry limit. Please start a new research run.",
   retryUnavailable:
     "This run has no resumable failed stage. Start a new research run.",
   retryForbidden:
@@ -121,6 +124,8 @@ export const researchMeetingUiCopy: Readonly<Record<AppLocale, MeetingUiCopy>> =
         "완료된 단계는 보존되며 리서치 크레딧은 차감되지 않습니다. 같은 데이터 기준으로 실패한 단계부터 다시 진행할 수 있습니다.",
       startingRecovery: "복구 시작 중",
       resume: "실패 단계부터 다시 진행",
+      retryBudgetExhausted:
+        "이 리서치의 재시도 한도에 도달했습니다. 새 리서치를 시작해 주세요.",
       retryUnavailable:
         "이어갈 수 있는 실패 단계가 없습니다. 새 리서치를 시작해 주세요.",
       retryForbidden:
@@ -170,6 +175,8 @@ export const researchMeetingUiCopy: Readonly<Record<AppLocale, MeetingUiCopy>> =
         "完了済みの段階は保存され、クレジットは消費されません。同じ根拠を使って失敗した段階から再開できます。",
       startingRecovery: "再開中",
       resume: "失敗した段階から再開",
+      retryBudgetExhausted:
+        "このリサーチは再試行の上限に達しました。新しいリサーチを開始してください。",
       retryUnavailable:
         "再開できる段階がありません。新しいリサーチを開始してください。",
       retryForbidden:
@@ -216,6 +223,7 @@ export const researchMeetingUiCopy: Readonly<Record<AppLocale, MeetingUiCopy>> =
         "已完成的階段會保留且不扣除點數，可使用相同證據從失敗階段繼續。",
       startingRecovery: "正在恢復",
       resume: "從失敗階段繼續",
+      retryBudgetExhausted: "此研究已達重試上限，請建立新研究。",
       retryUnavailable: "沒有可恢復的階段，請建立新研究。",
       retryForbidden: "研究已在恢復中或已完成，請重新整理。",
       retryMissing: "找不到研究，請從列表重新開啟。",

@@ -297,14 +297,23 @@ describe("MeetingMinutes", () => {
     expect(document.querySelectorAll("[data-agent-thinking]")).toHaveLength(0);
   });
 
-  it("shows the actual recovery rejection instead of blaming credits", async () => {
+  it.each([
+    [
+      "RECOVERY_NOT_AVAILABLE",
+      "이어갈 수 있는 실패 단계가 없습니다. 새 리서치를 시작해 주세요.",
+    ],
+    [
+      "RECOVERY_BUDGET_EXHAUSTED",
+      "이 리서치의 재시도 한도에 도달했습니다. 새 리서치를 시작해 주세요.",
+    ],
+  ])("shows the actual recovery rejection %s", async (code, message) => {
     const active = event(1);
     const onRetry = vi
       .fn()
       .mockRejectedValue(
         new (await import("../../research/client/api")).ResearchRequestError(
           409,
-          "RECOVERY_NOT_AVAILABLE",
+          code,
         ),
       );
     render(
@@ -324,11 +333,7 @@ describe("MeetingMinutes", () => {
       screen.getByRole("button", { name: "실패 단계부터 다시 진행" }),
     );
 
-    expect(
-      await screen.findByText(
-        "이어갈 수 있는 실패 단계가 없습니다. 새 리서치를 시작해 주세요.",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.queryByText(/크레딧과 연결 상태/)).not.toBeInTheDocument();
   });
 });

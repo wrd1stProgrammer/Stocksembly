@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ACTIVE_RESEARCH_ACTIVITY_KINDS } from "../domain/activeResearchActivity";
 import { GroundedAnswerSchema } from "../domain/question";
+import { ResearchQueueStatusSchema } from "../domain/researchExecution";
 import { ResearchProfileSchema } from "../domain/researchProfile";
 import { ResearchTargetSchema } from "../domain/researchTarget";
 import { WorkflowActorIdSchema } from "../domain/roleRegistry";
@@ -60,6 +61,7 @@ export const PublicResearchEventSchema = z
 
 export const PublicRunDetailSchema = z
   .strictObject({
+    queue: ResearchQueueStatusSchema.optional(),
     run: PublicRunSchema,
     events: z.array(PublicResearchEventSchema).readonly(),
     activeAgentIds: z.array(WorkflowActorIdSchema).readonly().optional(),
@@ -121,7 +123,7 @@ export const RecoveredRunResponseSchema = z
       .strictObject({
         runId: UuidSchema,
         snapshotId: UuidSchema,
-        status: z.literal(RUN_STATUS.running),
+        status: z.enum([RUN_STATUS.queued, RUN_STATUS.running]),
         recovery: z.literal("same-run-stage-resume"),
       })
       .readonly(),
