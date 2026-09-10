@@ -70,6 +70,7 @@ export function usStockAnalysisMetadata(locale: AppLocale): Metadata {
     alternates: {
       canonical,
       languages: {
+        en: US_STOCK_ANALYSIS_PATHS.en,
         ...languageAlternates,
         "x-default": US_STOCK_ANALYSIS_PATHS.en,
       },

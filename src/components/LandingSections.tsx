@@ -47,7 +47,10 @@ export function LandingSections({ locale }: LandingSectionsProps) {
   );
 }
 
-export function LandingFooter({ locale }: LandingSectionsProps) {
+export function LandingFooter({
+  locale,
+  localePathSuffix = "",
+}: LandingSectionsProps & { readonly localePathSuffix?: string }) {
   const content = copy[locale].footer;
   const informationLinks = [
     { href: "/about", label: content.about },
@@ -126,9 +129,21 @@ export function LandingFooter({ locale }: LandingSectionsProps) {
             </Link>
           ))}
         </nav>
-        <span className="site-footer__locale">
-          {localeDetails[locale].nativeLabel} · {locales.length} languages
-        </span>
+        <nav
+          className="site-footer__locale"
+          aria-label={copy[locale].a11y.language}
+        >
+          {locales.map((value) => (
+            <Link
+              key={value}
+              href={`/${value}${localePathSuffix}`}
+              hrefLang={localeDetails[value].hreflang}
+              aria-current={value === locale ? "page" : undefined}
+            >
+              {localeDetails[value].nativeLabel}
+            </Link>
+          ))}
+        </nav>
       </div>
       <p className="site-footer__disclaimer">{content.disclaimer}</p>
     </footer>

@@ -59,7 +59,7 @@ export function stockResearchHubMetadata(
     robots: { index: true, follow: true },
     alternates: {
       canonical: paths[locale],
-      languages: { ...languageAlternates, "x-default": paths.en },
+      languages: { ...languageAlternates, en: paths.en, "x-default": paths.en },
     },
     openGraph: {
       title,

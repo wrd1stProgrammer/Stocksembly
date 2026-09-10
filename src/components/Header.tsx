@@ -12,12 +12,14 @@ type HeaderProps = {
   readonly locale: AppLocale;
   readonly onLocaleChange: (locale: AppLocale) => void;
   readonly landingNavigation?: boolean;
+  readonly localePaths?: Partial<Record<AppLocale, string>>;
 };
 
 export function Header({
   locale,
   onLocaleChange,
   landingNavigation = false,
+  localePaths,
 }: HeaderProps) {
   const labels = copy[locale].nav;
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -55,39 +57,49 @@ export function Header({
             type="button"
             className="header-language-slot__trigger"
             aria-expanded={languageOpen}
-            aria-haspopup="listbox"
+            aria-controls="header-language-links"
             aria-label={copy[locale].a11y.language}
             onClick={() => setLanguageOpen((open) => !open)}
           >
             <span>{localeDetails[locale].nativeLabel}</span>
             <ChevronDown size={14} aria-hidden="true" />
           </button>
-          {languageOpen ? (
-            <div
-              className="header-language-slot__menu"
-              role="listbox"
-              aria-label={copy[locale].a11y.language}
-            >
-              {locales.map((value) => (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={locale === value}
-                  className={locale === value ? "is-selected" : undefined}
-                  key={value}
-                  onClick={() => selectLocale(value)}
-                >
-                  <span>
-                    <strong>{localeDetails[value].nativeLabel}</strong>
-                    <small>{localeDetails[value].label}</small>
-                  </span>
-                  {locale === value ? (
-                    <Check size={15} aria-hidden="true" />
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          ) : null}
+          <nav
+            id="header-language-links"
+            hidden={!languageOpen}
+            className="header-language-slot__menu"
+            aria-label={copy[locale].a11y.language}
+          >
+            {locales.map((value) => (
+              <a
+                href={localePaths?.[value] ?? localePaths?.en ?? `/${value}`}
+                hrefLang={localeDetails[value].hreflang}
+                aria-current={locale === value ? "page" : undefined}
+                className={locale === value ? "is-selected" : undefined}
+                key={value}
+                onClick={(event) => {
+                  if (
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return;
+                  event.preventDefault();
+                  selectLocale(value);
+                }}
+              >
+                <span>
+                  <strong>{localeDetails[value].nativeLabel}</strong>
+                  <small>{localeDetails[value].label}</small>
+                </span>
+                {locale === value ? (
+                  <Check size={15} aria-hidden="true" />
+                ) : null}
+              </a>
+            ))}
+          </nav>
         </div>
         <HeaderAuthAction label={labels.getStarted} locale={locale} />
       </div>

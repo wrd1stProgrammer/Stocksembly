@@ -47,7 +47,9 @@ export function SeoLocaleHeader({ locale, paths }: SeoLocaleHeaderProps) {
     [paths, router],
   );
 
-  return <Header locale={locale} onLocaleChange={changeLocale} />;
+  return (
+    <Header locale={locale} onLocaleChange={changeLocale} localePaths={paths} />
+  );
 }
 
 type UsStockAnalysisHeaderProps = Readonly<{

@@ -200,7 +200,7 @@ export function UsStockAnalysisLanding({
           </Link>
         </section>
       </main>
-      <LandingFooter locale={locale} />
+      <LandingFooter locale={locale} localePathSuffix="/us-stock-analysis" />
       <script type="application/ld+json">
         {JSON.stringify(structuredData)}
       </script>

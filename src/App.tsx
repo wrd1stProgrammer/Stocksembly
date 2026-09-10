@@ -5,6 +5,7 @@ import "./components/research/file/committee-report.css";
 import "./styles/landing-experience.css";
 import "./styles/landing-product.css";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { OnboardingDiscoverySource } from "./accounts/onboarding";
 import { configureAmplifyAuth } from "./auth/amplifyClient";
@@ -141,6 +142,7 @@ export function App({
     applyBillingStatus(status);
   }, [applyBillingStatus, signedIn]);
 
+  const router = useRouter();
   const applyLocale = useCallback((nextLocale: AppLocale) => {
     setLocale(nextLocale);
     applyLocalePreference(nextLocale, { updateUrl: true });
@@ -151,8 +153,12 @@ export function App({
       localeSelectionRevision.current += 1;
       applyLocale(nextLocale);
       void persistAccountLocale(nextLocale);
+      const url = new URL(window.location.href);
+      url.pathname = `/${nextLocale}`;
+      url.searchParams.delete("lang");
+      router.push(`${url.pathname}${url.search}${url.hash}`);
     },
-    [applyLocale],
+    [applyLocale, router],
   );
 
   const openSubscriptionModal = useCallback(() => {
