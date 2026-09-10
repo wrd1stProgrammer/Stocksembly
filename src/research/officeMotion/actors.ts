@@ -9,6 +9,7 @@ import {
   spriteParts,
 } from "./actorParts";
 import { surface } from "./actorTextures";
+import { drawRefinedActor } from "./refinedActors";
 import type {
   Action,
   ActorDefinition,
@@ -426,6 +427,10 @@ export function drawActor(
 ): void {
   const image = assets.get(actor.id);
   if (!image) return;
+  if (image.src.includes("/office-v10/")) {
+    drawRefinedActor(context, actor, image, time);
+    return;
+  }
   let raster = actorSurfaces.get(image);
   if (!raster) {
     raster = surface(160, 192);
