@@ -149,9 +149,9 @@ export function ResearchSidebar({
             <MagnifyingGlass size={15} />
           </div>
           <div className="analysis-history__list">
-            {history.map((group, index) => {
-              const symbol = index === 0 ? company.symbol : group.symbol;
-              const companyName = index === 0 ? company.company : group.company;
+            {history.map((group) => {
+              const symbol = group.symbol;
+              const companyName = group.company;
               const isOpen = openHistoryGroups.has(group.symbol);
               const contentId = `history-${group.symbol.toLowerCase()}-runs`;
               return (

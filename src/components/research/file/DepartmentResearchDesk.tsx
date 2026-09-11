@@ -4,7 +4,6 @@ import {
   type WorkflowDepartmentId,
   workflowRoleById,
 } from "../../../research/domain/roleRegistry";
-import { publicStanceLabel } from "../../../research/publicStanceLabels";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 import styles from "./department-research-desk.module.css";
 
@@ -137,23 +136,6 @@ function departmentClaims(
   });
 }
 
-function stanceLabel(
-  stance:
-    | "upside_skewed"
-    | "wait_for_proof"
-    | "downside_skewed"
-    | "balanced"
-    | "insufficient_evidence"
-    | undefined,
-  locale: Locale,
-): string {
-  return stance === undefined
-    ? locale === "ko"
-      ? "조건부 판단"
-      : "Conditional view"
-    : publicStanceLabel(stance, locale);
-}
-
 function contributionLabel(
   contribution: DeskClaim["contribution"],
   locale: Locale,
@@ -231,7 +213,14 @@ export function DepartmentResearchDesk({
       label: ko ? "다음 확인 지점" : "Next checkpoint",
       value: file.nextEvent[locale],
     },
-  ].filter((row) => row.value.trim().length > 0);
+  ].filter(
+    (row, index, rows) =>
+      row.value.trim().length > 0 &&
+      normalize(row.value) !== directAnswerFingerprint &&
+      !rows
+        .slice(0, index)
+        .some((previous) => normalize(previous.value) === normalize(row.value)),
+  );
 
   if (grouped.length === 0 && decisionRows.length === 0) return null;
   return (
@@ -250,70 +239,70 @@ export function DepartmentResearchDesk({
                 : "The core observation and reversal condition for each specialist's mandate."}
             </p>
           </header>
-          <div
-            className={styles["agentGrid"]}
-            data-agent-count={grouped.length}
-          >
-            {grouped.map(({ roleId, claims: roleClaims }) => {
-              const role = ROLE_COPY[roleId] ?? {
-                name: workflowRoleById(roleId)?.name ?? roleId,
-                en: roleId,
-                ko: roleId,
-              };
-              const primary = roleClaims[0]!;
-              return (
-                <article
-                  key={roleId}
-                  className={styles["agentMemo"]}
-                  data-claim-count={Math.min(roleClaims.length, 3)}
-                >
-                  <header>
-                    <img
-                      src={`/research/office-v7/portraits/${roleId}.png`}
-                      alt=""
-                      width={42}
-                      height={42}
-                    />
-                    <div>
-                      <strong>{role.name}</strong>
-                      <span>{role[locale]}</span>
-                    </div>
-                    <em data-contribution={primary.contribution}>
-                      {contributionLabel(primary.contribution, locale)}
-                    </em>
-                  </header>
-                  <ol>
-                    {roleClaims.slice(0, 3).map((claim, index) => (
-                      <li key={claim.id}>
-                        <div>
-                          <span>{String(index + 1).padStart(2, "0")}</span>
-                          <small>
-                            {DIMENSION_COPY[claim.dimension]?.[locale] ??
-                              claim.dimension.replaceAll("_", " ")}
-                          </small>
-                        </div>
-                        <strong>{claim.thesis}</strong>
-                        {claim.falsifier.trim() ===
-                        claim.thesis.trim() ? null : (
-                          <p>
-                            <b>{ko ? "반전 조건" : "Reversal"}</b>
-                            {claim.falsifier}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </article>
-              );
-            })}
-          </div>
-          {team === undefined ? null : (
-            <aside className={styles["arbitration"]}>
-              <span>{ko ? "팀 책임자 판단" : "Team lead view"}</span>
-              <strong>{team.position[locale]}</strong>
-              <p>{team.rationale[locale]}</p>
-            </aside>
-          )}
+          <details className={styles["specialistDetails"]}>
+            <summary>
+              {ko
+                ? `${grouped.length}명 전문가의 근거와 반전 조건 보기`
+                : `Read evidence and reversal conditions from ${grouped.length} specialists`}
+            </summary>
+            <div
+              className={styles["agentGrid"]}
+              data-agent-count={grouped.length}
+            >
+              {grouped.map(({ roleId, claims: roleClaims }) => {
+                const role = ROLE_COPY[roleId] ?? {
+                  name: workflowRoleById(roleId)?.name ?? roleId,
+                  en: roleId,
+                  ko: roleId,
+                };
+                const primary = roleClaims[0]!;
+                return (
+                  <article
+                    key={roleId}
+                    className={styles["agentMemo"]}
+                    data-claim-count={Math.min(roleClaims.length, 3)}
+                  >
+                    <header>
+                      <img
+                        src={`/research/office-v7/portraits/${roleId}.png`}
+                        alt=""
+                        width={64}
+                        height={64}
+                      />
+                      <div>
+                        <strong>{role.name}</strong>
+                        <span>{role[locale]}</span>
+                      </div>
+                      <em data-contribution={primary.contribution}>
+                        {contributionLabel(primary.contribution, locale)}
+                      </em>
+                    </header>
+                    <ol>
+                      {roleClaims.slice(0, 3).map((claim, index) => (
+                        <li key={claim.id}>
+                          <div>
+                            <span>{String(index + 1).padStart(2, "0")}</span>
+                            <small>
+                              {DIMENSION_COPY[claim.dimension]?.[locale] ??
+                                claim.dimension.replaceAll("_", " ")}
+                            </small>
+                          </div>
+                          <strong>{claim.thesis}</strong>
+                          {claim.falsifier.trim() ===
+                          claim.thesis.trim() ? null : (
+                            <p>
+                              <b>{ko ? "반전 조건" : "Reversal"}</b>
+                              {claim.falsifier}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  </article>
+                );
+              })}
+            </div>
+          </details>
         </section>
       )}
 
@@ -325,7 +314,9 @@ export function DepartmentResearchDesk({
         <header className={styles["decisionHeader"]}>
           <div>
             <span>{ko ? "팀 판단" : "TEAM ASSESSMENT"}</span>
-            <h2>{stanceLabel(decision?.stance, locale)}</h2>
+            <h2>
+              {ko ? "근거와 판단 변경 조건" : "Evidence and reassessment"}
+            </h2>
           </div>
         </header>
         <div className={styles["decisionGrid"]}>

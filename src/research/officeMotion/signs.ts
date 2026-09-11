@@ -146,8 +146,11 @@ const signs: readonly {
 export function drawRoomSigns(
   ctx: CanvasRenderingContext2D,
   locale: AppLocale,
+  department?: string,
 ): void {
   for (const sign of signs) {
+    if (department !== undefined && sign.key !== `office.room.${department}`)
+      continue;
     const x = sign.wallLeft + SIGN.insetX;
     const y = sign.wallTop + SIGN.insetY;
     const [title, scope] = translations[locale][sign.key];

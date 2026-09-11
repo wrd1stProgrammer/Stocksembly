@@ -185,6 +185,10 @@ it("publishes accepted/revised/removed adjudication without resurrecting removed
   expect(report.schemaVersion).toBe("workflow-v2");
   if (report.schemaVersion !== "workflow-v2")
     throw new TypeError("missing v2 report");
+  const primary = report.editorialClaims.find((claim) =>
+    report.editorialDecision.primaryClaimIds.includes(claim.claimId),
+  );
+  expect(report.editorialDecision.falsifier).toEqual(primary?.falsifier);
   expect(report.anticipatedQuestions.length).toBeGreaterThan(0);
   expect(report.anticipatedQuestions.length).toBeLessThanOrEqual(10);
   const persistedDatabase = new Database(prepared.options.databasePath, {
@@ -453,7 +457,7 @@ it("publishes a revised strongest claim through its origin disposition", async (
   ).toBe(true);
 });
 
-it("fails closed when the lead position is reused as its rationale", async () => {
+it("publishes with targeted repair when the lead position is reused as its rationale", async () => {
   const root = mkdtempSync(join(tmpdir(), "department-publication-invalid-"));
   roots.push(root);
   const prepared = await stageAcceptedSpecialists(
@@ -486,13 +490,10 @@ it("fails closed when the lead position is reused as its rationale", async () =>
       },
       runId,
     ),
-  ).resolves.toEqual({
-    kind: "incomplete",
-    reason: "department_report_inputs_invalid",
-  });
+  ).resolves.toMatchObject({ kind: "published" });
 });
 
-it("fails closed when lead position and rationale normalize to the same text", async () => {
+it("publishes with targeted repair when lead position and rationale normalize to the same text", async () => {
   const root = mkdtempSync(
     join(tmpdir(), "department-publication-normalized-"),
   );
@@ -527,8 +528,5 @@ it("fails closed when lead position and rationale normalize to the same text", a
       },
       runId,
     ),
-  ).resolves.toEqual({
-    kind: "incomplete",
-    reason: "department_report_inputs_invalid",
-  });
+  ).resolves.toMatchObject({ kind: "published" });
 });

@@ -71,30 +71,30 @@ export function buildCompanyReportProduct(
       ? []
       : qualification.rows.flatMap((row) => {
           if (!row.displayEligibility) return [];
-          const comparableMetrics = row.normalizedMetrics.filter((metric) =>
-            [
-              "revenue_growth",
-              "gross_margin",
-              "operating_margin",
-              "forward_pe",
-              "price_earnings_ttm",
-              "enterprise_value_ebitda_ttm",
-              "enterprise_value_to_revenue_ttm",
-            ].includes(metric.key),
-          );
-          const keys = new Set(comparableMetrics.map((metric) => metric.key));
-          const hasGrowth = keys.has("revenue_growth");
-          const hasMargin =
-            keys.has("gross_margin") || keys.has("operating_margin");
-          const hasValuation = [...keys].some((key) =>
-            [
-              "forward_pe",
-              "price_earnings_ttm",
-              "enterprise_value_ebitda_ttm",
-              "enterprise_value_to_revenue_ttm",
-            ].includes(key),
-          );
-          return !hasGrowth || (!hasMargin && !hasValuation)
+          const comparableMetrics = row.normalizedMetrics
+            .map((metric) => ({
+              ...metric,
+              key:
+                metric.key === "revenue_growth_ttm"
+                  ? "revenue_growth"
+                  : metric.key === "gross_margin_ttm"
+                    ? "gross_margin"
+                    : metric.key === "operating_margin_ttm"
+                      ? "operating_margin"
+                      : metric.key,
+            }))
+            .filter((metric) =>
+              [
+                "revenue_growth",
+                "gross_margin",
+                "operating_margin",
+                "forward_pe",
+                "price_earnings_ttm",
+                "enterprise_value_ebitda_ttm",
+                "enterprise_value_to_revenue_ttm",
+              ].includes(metric.key),
+            );
+          return comparableMetrics.length === 0
             ? []
             : [{ ...row, normalizedMetrics: comparableMetrics }];
         });

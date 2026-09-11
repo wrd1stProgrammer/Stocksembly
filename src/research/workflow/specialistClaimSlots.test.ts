@@ -621,7 +621,7 @@ describe("specialist claim slots", () => {
     ).toEqual({ ok: true });
   });
 
-  it("rebinds an ownership-only non-ownership claim to sealed primary evidence", async () => {
+  it("does not manufacture support by rebinding an ownership-only claim", async () => {
     const harness = await makeSqliteRoundHarness("none");
     const roleId = "valuation" as const;
     const claimSlots = allocateSpecialistClaimSlots({
@@ -663,8 +663,8 @@ describe("specialist claim slots", () => {
 
     expect(repaired).toMatchObject({
       positions: [
-        { evidenceArtifactIds: [currentReport.artifactId] },
-        { evidenceArtifactIds: [currentReport.artifactId] },
+        { evidenceArtifactIds: [ownership.artifactId] },
+        { evidenceArtifactIds: [ownership.artifactId] },
       ],
     });
     expect(
@@ -680,7 +680,7 @@ describe("specialist claim slots", () => {
         },
         repaired,
       ),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: false, reason: "specialist_claim_evidence_type_mismatch" });
   });
 
   it("repairs a copied claim-id typo from its unique semantic slot", async () => {

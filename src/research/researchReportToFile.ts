@@ -191,7 +191,9 @@ function workflowV2ReportToFile(
   );
   const publishableClaimIds = new Set(
     report.claims.flatMap((claim) =>
-      claim.semanticVerdict === "entailed" &&
+      (claim.semanticVerdict === "entailed" ||
+        (report.researchTarget.kind === "department" &&
+          claim.semanticVerdict === "partial")) &&
       claim.sourceIds.length > 0 &&
       claim.sourceIds.every((sourceId) => authenticatedSourceIds.has(sourceId))
         ? [claim.claimId]
@@ -691,7 +693,9 @@ export function researchReportToFile(
     /(?:incorporated|headquarter|common stock|trades? on|issuer|설립|본사|보통주|종목코드|발행사)/iu;
   const displayClaims = report.claims.filter(
     (claim) =>
-      claim.semanticVerdict === "entailed" &&
+      (claim.semanticVerdict === "entailed" ||
+        (report.researchTarget.kind === "department" &&
+          claim.semanticVerdict === "partial")) &&
       claim.sourceIds.length > 0 &&
       claim.sourceIds.every((sourceId) =>
         report.sources.some((source) => source.sourceId === sourceId),

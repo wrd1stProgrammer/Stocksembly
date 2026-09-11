@@ -8,7 +8,7 @@ import type { PeerScreen } from "./insightSentryResearchContracts";
 const DAY = 24 * 60 * 60 * 1_000;
 const SCREENER_TTL = DAY;
 const SELECTION_TTL = 30 * DAY;
-const SELECTOR_VERSION = "peer-selector-v5";
+const SELECTOR_VERSION = "peer-selector-v8";
 const MAX_SCREENER_PAGES = 20;
 const MIN_PEERS = 4;
 const DEFAULT_PEERS = 8;
@@ -69,15 +69,12 @@ type SelectionCache = z.infer<typeof SelectionCacheSchema>;
 const SCREENER_FIELDS = [
   "market_cap",
   "sector",
-  "industry",
   "price_earnings_ttm",
   "enterprise_value_ebitda_ttm",
   "enterprise_value_to_revenue_ttm",
   "total_revenue_yoy_growth_ttm",
   "gross_margin_ttm",
   "operating_margin_ttm",
-  "performance_3_month_market_cap",
-  "performance_year_market_cap",
 ] as const;
 
 function screenerRequest(page: number, asOf: string) {
@@ -230,15 +227,18 @@ function sizeSimilarity(target: ScreenerRow, candidate: ScreenerRow): number {
 }
 
 function mentionScore(
-  normalizedAnnualText: string,
+  annualText: string,
   candidate: ScreenerRow,
 ): { readonly score: number; readonly competitive: boolean } {
-  const ticker = tickerFromCode(candidate.symbol_code).toLowerCase();
+  const normalizedAnnualText = annualText.toLowerCase();
   const identity = companyIdentity(candidate.name);
-  const aliases = [
-    ...(identity.length >= 4 ? [identity] : []),
-    ...(ticker.length >= 3 ? [ticker] : []),
-  ];
+  const aliases =
+    identity.length >= 5 &&
+    !/^(?:first|city|global|united|national|international|general|popular|interface|strategy|innovate|frontier)$/u.test(
+      identity,
+    )
+      ? [identity]
+      : [];
   let mentioned = false;
   let competitive = false;
   for (const alias of aliases) {
@@ -247,8 +247,9 @@ function mentionScore(
       const before = normalizedAnnualText[position - 1] ?? " ";
       const after = normalizedAnnualText[position + alias.length] ?? " ";
       if (
-        alias === ticker &&
-        (/[\p{L}\p{N}]/u.test(before) || /[\p{L}\p{N}]/u.test(after))
+        /[\p{L}\p{N}]/u.test(before) ||
+        /[\p{L}\p{N}]/u.test(after) ||
+        !/[A-Z]/u.test(annualText[position] ?? "")
       ) {
         position = normalizedAnnualText.indexOf(alias, position + alias.length);
         continue;
@@ -383,19 +384,26 @@ async function collectUniverse(
 ): Promise<{
   readonly rows: readonly ScreenerRow[];
   readonly retrievedAt: string;
+  readonly partial: boolean;
 }> {
   const first = await client.get(screenerRequest(1, asOf));
   const totalPages = Math.min(
     MAX_SCREENER_PAGES,
     Math.max(1, first.data.total_page),
   );
-  const remaining = await Promise.all(
+  const remaining = await Promise.allSettled(
     Array.from({ length: totalPages - 1 }, (_, index) =>
       client.get(screenerRequest(index + 2, asOf)),
     ),
   );
-  const responses = [first, ...remaining];
+  const responses = [
+    first,
+    ...remaining.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    ),
+  ];
   return {
+    partial: responses.length < totalPages,
     rows: responses.flatMap((response) => response.data.data),
     retrievedAt:
       responses
@@ -568,7 +576,7 @@ export function createInsightSentryPeerScreen(input: {
     const bySymbol = new Map(
       universe.rows.map((row) => [row.symbol_code.toUpperCase(), row]),
     );
-    const normalizedAnnualText = input.annualText.toLowerCase();
+    const normalizedAnnualText = input.annualText;
     const requested = new Set(
       (input.requestedSymbols ?? []).map((value) => value.toUpperCase()),
     );
@@ -616,7 +624,7 @@ export function createInsightSentryPeerScreen(input: {
           });
     if (selected.length < (customSelection ? 1 : MIN_PEERS))
       throw new RangeError("insufficient comparable companies");
-    if (!customSelection && !useCache) {
+    if (!customSelection && !useCache && !universe.partial) {
       const createdAt = new Date(now).toISOString();
       await writeSelection(input.dataRoot, {
         key,
@@ -637,7 +645,20 @@ export function createInsightSentryPeerScreen(input: {
       subject: toSubjectMetrics(target),
       relativeValuation: relativeValuation(target, selected),
       peers: Object.freeze(
-        selected.map((item) => toPeerRecord(item, item.classification)),
+        selected.map((item) =>
+          toPeerRecord(
+            universe.partial
+              ? {
+                  ...item,
+                  reasons: [
+                    ...item.reasons.slice(0, 3),
+                    "selection based on partial screener coverage",
+                  ],
+                }
+              : item,
+            item.classification,
+          ),
+        ),
       ),
     });
   };

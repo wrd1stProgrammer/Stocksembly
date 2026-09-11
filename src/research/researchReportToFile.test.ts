@@ -13,6 +13,24 @@ import {
 } from "./workflowV2Presentation.testSupport";
 
 describe("researchReportToFile presentation version boundary", () => {
+  it("shows sourced partial team findings without promoting their verdict", () => {
+    const source = departmentWorkflowV2PresentationFixture("market");
+    const report = WorkflowV2ResearchReportSchema.parse({
+      ...source,
+      claims: source.claims.map((claim) => ({
+        ...claim,
+        semanticVerdict: "partial",
+      })),
+    });
+    const file = researchReportToFile(report, "2026-09-11T00:00:00.000Z");
+    expect(file.structuredEditorial?.claims.length).toBeGreaterThan(0);
+    expect(
+      file.structuredEditorial?.claimRegister.every(
+        (claim) => claim.semanticVerdict === "partial",
+      ),
+    ).toBe(true);
+  });
+
   it("preserves legacy-v1 output and never mutates its source artifact", () => {
     // Given
     const report = ResearchReportSchema.parse(validReport());

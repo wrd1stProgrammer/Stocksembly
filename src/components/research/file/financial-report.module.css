@@ -49,8 +49,8 @@
 .diagnostics p {
   margin-top: 10px;
   color: var(--editorial-muted);
-  font-size: 0.66rem;
-  line-height: 1.5;
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
 .snapshot {
@@ -446,6 +446,34 @@
   }
   .claimTests li:nth-child(odd),
   .claimTests li:nth-child(even) {
+    padding-inline: 0;
+    border-right: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .diagnostics[data-financial-diagnostics] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .diagnostics span {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .snapshot,
+  .snapshot[data-financial-snapshot],
+  .claimTests ol,
+  .expectationGroups,
+  .expectationGroups[data-group-count] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .snapshot > * + *,
+  .expectationGroups > section + section {
+    border-left: 0;
+    border-top: 1px solid var(--editorial-rule);
+  }
+  .claimTests li:nth-child(n) {
     padding-inline: 0;
     border-right: 0;
   }

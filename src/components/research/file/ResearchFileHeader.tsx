@@ -102,7 +102,7 @@ export function ResearchFileHeader({
   return (
     <>
       <header
-        className={`research-editorial-cover${decisionCockpit ? " research-editorial-cover--committee" : ""}`}
+        className={`research-editorial-cover${departmentId === undefined ? "" : " research-editorial-cover--department"}${decisionCockpit ? " research-editorial-cover--committee" : ""}`}
         data-report-section="cover"
       >
         <div className="research-editorial-cover__utility">
@@ -143,7 +143,7 @@ export function ResearchFileHeader({
           </fieldset>
         </div>
         <div className="research-editorial-cover__body">
-          <p>{ko ? "사용자 질문" : "Research mandate"}</p>
+          <p>{teamName ?? (ko ? "사용자 질문" : "Research mandate")}</p>
           <h1 id="research-file-title" ref={titleRef} tabIndex={-1}>
             {model.question}
           </h1>
@@ -162,10 +162,12 @@ export function ResearchFileHeader({
                 <h2>{model.directAnswer}</h2>
               </div>
               <dl>
-                <div>
-                  <dt>{ko ? "판단" : "Posture"}</dt>
-                  <dd>{publicConclusionLabel(model, locale)}</dd>
-                </div>
+                {departmentId === undefined ? (
+                  <div>
+                    <dt>{ko ? "판단" : "Posture"}</dt>
+                    <dd>{publicConclusionLabel(model, locale)}</dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt>
                     <ResearchTermHelp
@@ -192,7 +194,14 @@ export function ResearchFileHeader({
                       locale={locale}
                     />
                   </dt>
-                  <dd>{model.evidenceReliability}%</dd>
+                  <dd>
+                    {model.evidenceReliability}%
+                    <small className="research-audit-scope">
+                      {ko
+                        ? "검증 절차 지표 · 정확도 확률 아님"
+                        : "Audit coverage · not an accuracy probability"}
+                    </small>
+                  </dd>
                 </div>
               </dl>
             </div>

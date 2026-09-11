@@ -14,6 +14,7 @@ import { captureAttemptWebEvidence } from "../server/codex/codexWebCapture";
 import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
+import { repairDepartmentPublication } from "./departmentPublicationRepair";
 import {
   DepartmentJobPromptSchema,
   departmentRunnerOutputSchema,
@@ -91,7 +92,9 @@ export function createDepartmentRoundAttemptHandler(
         signal,
         onActivity: activity,
       });
-      candidate = inspectDepartmentCandidate(job, result.candidate) ?? {};
+      candidate = context.departmentAuthority.isFocusedRun(attempt.runId)
+        ? (repairDepartmentPublication(job, result.candidate) ?? {})
+        : (inspectDepartmentCandidate(job, result.candidate) ?? {});
       runnerEvidence = result.evidence;
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;

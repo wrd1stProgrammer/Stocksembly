@@ -1,4 +1,5 @@
 import type { AppLocale } from "../../lib/i18n";
+import { workflowRoleById } from "../domain/roleRegistry";
 import { drawActor } from "./actors";
 import { asset } from "./canvasPrimitives";
 import { type ChairSeat, drawChairBase, drawChairFront } from "./chairs";
@@ -112,6 +113,16 @@ export function drawWorld(
       wall.height,
     );
   }
-  drawRoomSigns(ctx, locale);
+  const departments = new Set(
+    frame.actors.flatMap((actor) => {
+      const department = workflowRoleById(actor.id)?.departmentId;
+      return department && department !== "chair" ? [department] : [];
+    }),
+  );
+  drawRoomSigns(
+    ctx,
+    locale,
+    departments.size === 1 ? [...departments][0] : undefined,
+  );
   ctx.restore();
 }

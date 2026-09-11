@@ -431,7 +431,11 @@ export function inspectDepartmentCandidate(
         falsifier?.ko ?? "",
       )}`,
   );
-  if (new Set(falsifierKeys).size !== falsifierKeys.length) return undefined;
+  if (
+    candidate.publicationMode !== "limited_compilation" &&
+    new Set(falsifierKeys).size !== falsifierKeys.length
+  )
+    return undefined;
   const dissentSummaries = new Map(
     request.memberArtifacts.flatMap((member) =>
       member.memo.dissent.map(
@@ -442,7 +446,10 @@ export function inspectDepartmentCandidate(
   const strongestClaimId = strongestClaimIds[0];
   if (strongestClaimId === undefined) return undefined;
   const canonicalDissent = [...new Set(requiredDissent)]
-    .filter((claimId) => !removedClaimIds.includes(claimId))
+    .filter(
+      (claimId) =>
+        allowedClaims.has(claimId) && !removedClaimIds.includes(claimId),
+    )
     .map((claimId) => {
       const revision = canonicalRevisions.find(
         (item) => item?.originClaimId === claimId,

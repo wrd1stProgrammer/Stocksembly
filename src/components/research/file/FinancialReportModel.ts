@@ -2,7 +2,10 @@ import type { Locale } from "../../../lib/i18n";
 import type { ResearchFileData } from "../../../research/compositions/types";
 import type { ComparatorQualificationResult } from "../../../research/domain/comparatorQualificationContracts";
 import type { ResearchMetricPoint } from "../../../research/domain/metricSnapshot";
-import { metricsSharePeriod } from "../../../research/domain/metricSnapshot";
+import {
+  canCalculateCashFlowRatio,
+  metricsSharePeriod,
+} from "../../../research/domain/metricSnapshot";
 
 export const FINANCIAL_BRIDGE_METRIC_IDS = [
   "revenue_ttm",
@@ -110,17 +113,21 @@ export function selectFinancialDiagnostics(
   const capex = latest("capital_expenditures");
   const grossMargin = latest("gross_margin");
   const operatingMargin = latest("operating_margin");
-  const forwardPe = latest("forward_pe") ?? latest("pe");
+  const forwardPe = latest("forward_pe");
   const diagnostics: FinancialDiagnostic[] = [];
   if (
     revenue !== undefined &&
     revenue.value !== 0 &&
     freeCashFlow !== undefined &&
+    canCalculateCashFlowRatio(metrics) &&
     metricsSharePeriod(revenue, freeCashFlow)
   )
     diagnostics.push({
       id: "free-cash-flow-margin",
-      label: { en: "FCF / revenue", ko: "매출 대비 잉여현금" },
+      label: {
+        en: `${freeCashFlow.label.en} / revenue`,
+        ko: `매출 대비 ${freeCashFlow.label.ko}`,
+      },
       value: (freeCashFlow.value / revenue.value) * 100,
       unit: "percent",
       sourceIds: [revenue.source, freeCashFlow.source],
@@ -142,8 +149,8 @@ export function selectFinancialDiagnostics(
       unit: "percent",
       sourceIds: [revenue.source, capex.source],
       interpretation: {
-        en: "The capital burden required to sustain the current revenue base.",
-        ko: "현재 매출 기반을 유지하는 데 필요한 자본 부담입니다.",
+        en: "Capital spending relative to revenue; includes growth investment, not only maintenance.",
+        ko: "매출 대비 투자 규모로, 유지보수뿐 아니라 성장 투자도 포함합니다.",
       },
     });
   if (

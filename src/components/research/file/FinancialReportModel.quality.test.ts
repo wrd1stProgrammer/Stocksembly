@@ -34,6 +34,43 @@ describe("financial diagnostic period integrity", () => {
     expect(
       diagnostics.find((metric) => metric.id === "free-cash-flow-margin")
         ?.value,
+    ).toBeUndefined();
+    const reconciled = selectFinancialDiagnostics({
+      metricSnapshot: {
+        ...metricSnapshot,
+        metrics: [
+          ...metricSnapshot.metrics.filter(
+            (metric) => metric.id !== "capital_expenditures",
+          ),
+          {
+            id: "operating_cash_flow",
+            label: { en: "OCF", ko: "OCF" },
+            category: "financial",
+            value: 23,
+            unit: "USD",
+            period: "TTM",
+            source: "insightsentry",
+            definition: "provider_reported",
+            observedAt: "2026-09-05T00:00:00.000Z",
+            signal: "contextual",
+          },
+          {
+            id: "capital_expenditures",
+            label: { en: "Capex", ko: "Capex" },
+            category: "financial",
+            value: 3,
+            unit: "USD",
+            period: "TTM",
+            source: "insightsentry",
+            definition: "provider_reported",
+            observedAt: "2026-09-05T00:00:00.000Z",
+            signal: "contextual",
+          },
+        ],
+      },
+    });
+    expect(
+      reconciled.find((metric) => metric.id === "free-cash-flow-margin")?.value,
     ).toBe(20);
   });
 });

@@ -48,6 +48,7 @@ import {
 import { buildTechnicalChart } from "../technical/buildTechnicalChart";
 import { closedChartBars } from "../technical/chartSessions";
 import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
+import { collectComparisonEvidence } from "./comparisonEvidence";
 
 const encoder = new TextEncoder();
 const PROVIDER_DOCS_URL = "https://insightsentry.com/docs";
@@ -928,6 +929,16 @@ export async function collectInsightSentryInitialEvidence(input: {
                   })),
           }),
         };
+  const comparisonEvidence = await collectComparisonEvidence({
+    market,
+    subject: subjectDaily,
+    peers:
+      collectedPeers.status === "available" ? collectedPeers.data : undefined,
+    symbol: input.identity.ticker,
+    asOf: input.asOf,
+    question: input.question ?? "",
+    sectorText: `${collectedPeers.status === "available" ? collectedPeers.data.sector : ""} ${input.question ?? ""}`,
+  });
   const captured = [...responses.values()];
   const evidence: SnapshotEvidence[] = [];
   const sources: SpecialistSourceArtifact[] = [];
@@ -1081,6 +1092,18 @@ export async function collectInsightSentryInitialEvidence(input: {
       peers.data,
       ["stock_screener", "/v3/symbols/{symbol}/series"],
       "relative valuation and return metrics",
+    );
+
+  if (
+    comparisonEvidence.comparisons.length > 0 ||
+    comparisonEvidence.operatingPeers.length > 0
+  )
+    await commit(
+      "insightsentry:comparisons",
+      "insightsentry_peers",
+      comparisonEvidence,
+      ["stock_screener", "/v3/symbols/{symbol}/series"],
+      "matched-session price returns and consolidated peer metrics",
     );
 
   const entries = Object.freeze(

@@ -125,7 +125,14 @@ export function buildMarketReportProduct(
       : [];
   const benchmark = benchmarkRows.flatMap((row) => {
     const byKey = new Map(
-      row.normalizedMetrics.map((item) => [item.key, item]),
+      row.normalizedMetrics.map((item) => [
+        item.key === "performance_3_month"
+          ? "relative_performance_3m"
+          : item.key === "performance_1_year"
+            ? "relative_performance_1y"
+            : item.key,
+        item,
+      ]),
     );
     const points = relative.flatMap(({ point, label }) => {
       const peer = byKey.get(point.id);
@@ -133,7 +140,7 @@ export function buildMarketReportProduct(
         ? []
         : [{ label, subject: point, peer }];
     });
-    return points.length < 2 ? [] : [{ row, points }];
+    return points.length === 0 ? [] : [{ row, points }];
   })[0];
   const priceLevels = metrics.filter(
     (item) =>
@@ -185,11 +192,17 @@ export function buildMarketReportProduct(
       ["regime", "timing", "relative_performance"].includes(claim.dimension),
     ),
     relativePerformance:
-      relative.length >= 2 && benchmark !== undefined
+      relative.length > 0 && benchmark !== undefined
         ? { benchmark, source: qualification?.rawPeerArtifactId }
         : undefined,
     ladder,
-    persistence: relative.length >= 2 ? relative : undefined,
+    persistence:
+      benchmark === undefined
+        ? undefined
+        : benchmark.points.map(({ label, subject, peer }) => ({
+            label,
+            point: { ...subject, value: subject.value - peer.value },
+          })),
     catalysts:
       file.presentationVersion === "workflow-v2"
         ? datedCatalysts(claims)

@@ -70,6 +70,37 @@ export class DepartmentRoundSqliteAuthority {
       .map((value) => MemoRowSchema.parse(value));
   }
 
+  isFocusedRun(runId: string): boolean {
+    const row = z
+      .object({ research_kind: z.string() })
+      .safeParse(
+        this.#database
+          .prepare(
+            "SELECT research_kind FROM research_requests WHERE run_id = ?",
+          )
+          .get(runId),
+      );
+    return row.success && row.data.research_kind === "department";
+  }
+
+  evidenceRows(runId: string, artifactIds: readonly string[]) {
+    const allowed = new Set(artifactIds);
+    return this.#database
+      .prepare(`SELECT artifacts.artifact_id, artifacts.content_hash
+      FROM artifacts JOIN runs ON runs.snapshot_id = artifacts.snapshot_id
+      WHERE runs.run_id = ?`)
+      .all(runId)
+      .map((row) =>
+        z
+          .object({
+            artifact_id: ArtifactIdSchema,
+            content_hash: z.string().regex(/^[a-f0-9]{64}$/),
+          })
+          .parse(row),
+      )
+      .filter((row) => allowed.has(row.artifact_id));
+  }
+
   acceptedMemos(runId: string): readonly AcceptedMemoMetadata[] {
     return this.acceptedMemoRows(runId).map((row) => ({
       roleId: z

@@ -62,6 +62,13 @@ export function CompanyReportBrief(props: DepartmentReportBodyProps) {
         </p>
       </header>
 
+      {engineClaims.length === 0 ? (
+        <p className="research-data-context">
+          {ko
+            ? "채택·성장 지표가 이번 근거에 보존되지 않았습니다. 사업부 비중만으로 고객 확장을 판단하지 않습니다."
+            : "No adoption or growth evidence was retained. Segment mix alone does not establish customer expansion."}
+        </p>
+      ) : null}
       {product.operatingSnapshot.length === 0 ? null : (
         <section
           className={styles.operatingTape}

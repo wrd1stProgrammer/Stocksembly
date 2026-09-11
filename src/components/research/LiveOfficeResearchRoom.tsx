@@ -36,7 +36,10 @@ import { agents } from "../../research/mockResearch";
 import { officeCommitteePresentation } from "../../research/officeCommitteePresentation";
 import { activeIdsForSnapshot } from "../../research/officePlaybackView";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
-import type { OfficeSimulationSnapshot } from "../../research/officeSimulation";
+import { scopeOfficeSnapshot } from "../../research/scopeOfficeSnapshot";
+
+export { shouldScopeDepartmentOffice } from "../../research/scopeOfficeSnapshot";
+
 import { formatSignedPercent } from "../../research/publicPresentation";
 import { researchReportToFile } from "../../research/researchReportToFile";
 import type { ResearchCompany } from "../../research/types";
@@ -138,49 +141,6 @@ export function formatResearchHistoryDate(
   return locale === "ko"
     ? `${year}.${month}.${day}`
     : `${month}.${day}.${year}`;
-}
-
-export function shouldScopeDepartmentOffice(
-  target: PublicRun["researchTarget"],
-  beatId: OfficeSimulationSnapshot["beatId"],
-): boolean {
-  return (
-    target?.kind === "department" &&
-    beatId !== "representative-gathering" &&
-    beatId !== "forum" &&
-    beatId !== "complete"
-  );
-}
-
-function scopeOfficeSnapshot(
-  snapshot: OfficeSimulationSnapshot,
-  run: PublicRun,
-): OfficeSimulationSnapshot {
-  const target = run.researchTarget;
-  if (!shouldScopeDepartmentOffice(target, snapshot.beatId)) return snapshot;
-  if (target === undefined || target.kind !== "department") return snapshot;
-  const selected = new Set<string>(
-    OFFICE_SCENE_MANIFEST.departments[target.departmentId]?.memberIds ?? [],
-  );
-  const actorIds = snapshot.actors
-    .filter((actor) => selected.has(actor.id))
-    .map((actor) => actor.id);
-  return Object.freeze({
-    ...snapshot,
-    actors: Object.freeze(
-      snapshot.actors.filter((actor) => selected.has(actor.id)),
-    ),
-    occupancy: Object.freeze(
-      snapshot.occupancy.filter((entry) => selected.has(entry.actorId)),
-    ),
-    reservations: Object.freeze(
-      snapshot.reservations.filter((entry) => selected.has(entry.actorId)),
-    ),
-    cameraTarget:
-      actorIds.length === 0
-        ? { kind: "overview" as const }
-        : { kind: "actors" as const, actorIds },
-  });
 }
 
 function runLabel(run: PublicRun, ordinal: number, locale: Locale): string {
@@ -346,7 +306,13 @@ export function LiveOfficeResearchRoom({
   const history = useMemo<readonly ResearchHistoryGroup[]>(() => {
     return [...new Set(historyRuns.map((run) => run.symbol))].map((symbol) => {
       const ticker = findTicker(symbol);
-      const runs = historyRuns.filter((run) => run.symbol === symbol);
+      const runs = historyRuns
+        .filter((run) => run.symbol === symbol)
+        .map((run) =>
+          run.runId === projection.snapshot.run.runId
+            ? projection.snapshot.run
+            : run,
+        );
       return {
         symbol,
         company:
@@ -389,7 +355,7 @@ export function LiveOfficeResearchRoom({
     company.symbol,
     historyRuns,
     locale,
-    projection.snapshot.run.runId,
+    projection.snapshot.run,
   ]);
   const completed = projection.state === "published" && report !== undefined;
   const terminal =
@@ -684,9 +650,6 @@ export function LiveOfficeResearchRoom({
         initialTier="unknown"
         onClose={() => setProfileOpen(false)}
       />
-      <span className="sr-only" data-testid="public-ledger">
-        {office.events.length} durable public events · tick {office.tick}
-      </span>
     </div>
   );
 }

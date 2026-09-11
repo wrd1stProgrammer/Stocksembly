@@ -44,6 +44,119 @@ function row(
 }
 
 describe("createInsightSentryPeerScreen", () => {
+  it("retains valid first-page peers when a later page fails without caching a partial selection", async () => {
+    const dataRoot = await mkdtemp(
+      join(tmpdir(), "stocksembly-peers-partial-"),
+    );
+    roots.push(dataRoot);
+    const data = ["NVDA", "AMD", "AVGO", "QCOM", "INTC"].map((symbol) =>
+      row(`NASDAQ:${symbol}`, `${symbol} Corporation`, {
+        marketCap: 1000,
+        growth: 30,
+        grossMargin: 60,
+        operatingMargin: 30,
+      }),
+    );
+    const client: InsightSentryClient = {
+      get: async <T>(
+        request: InsightSentryRequest<T>,
+      ): Promise<InsightSentryResult<T>> => {
+        if (request.requestBody?.["page"] === 2)
+          throw new Error("rate limited");
+        return {
+          data: request.schema.parse({
+            hasNext: true,
+            total_page: 2,
+            current_items: 5,
+            data,
+          }),
+          cacheKey: "fixture",
+          cacheStatus: "miss",
+          retrievedAt: "2026-07-30T00:00:00.000Z",
+          responseBytes: 100,
+        };
+      },
+    };
+    const screen = createInsightSentryPeerScreen({
+      client,
+      dataRoot,
+      asOf: "2026-07-30T00:00:00.000Z",
+      annualAccessionNumber: "fixture",
+      annualText: "",
+    });
+    const first = await screen({ symbol: "NASDAQ:NVDA", limit: 4 });
+    const second = await screen({ symbol: "NASDAQ:NVDA", limit: 4 });
+    expect(first).toMatchObject({
+      selectionCache: "miss",
+      peers: expect.arrayContaining([
+        expect.objectContaining({
+          selectionReasons: expect.arrayContaining([
+            "selection based on partial screener coverage",
+          ]),
+        }),
+      ]),
+    });
+    expect(second).toMatchObject({ selectionCache: "miss" });
+  });
+
+  it("does not treat ordinary words, embedded names, or bare tickers as competitor identities", async () => {
+    const dataRoot = await mkdtemp(
+      join(tmpdir(), "stocksembly-peer-identity-"),
+    );
+    roots.push(dataRoot);
+    const names = [
+      ["MSFT", "Microsoft Corporation"],
+      ["HAS", "Hasbro, Inc."],
+      ["NVMI", "Nova Ltd."],
+      ["CHCO", "City Holding Company"],
+      ["FCF", "First"],
+      ["GOOGL", "Alphabet Inc."],
+      ["BPOP", "Popular, Inc."],
+      ["TILE", "Interface, Inc."],
+      ["MSTR", "Strategy Inc."],
+      ["VATE", "INNOVATE Corp."],
+    ] as const;
+    const data = names.map(([symbol, name]) =>
+      row(`NASDAQ:${symbol}`, name, {
+        marketCap: 1000,
+        growth: 30,
+        grossMargin: 60,
+        operatingMargin: 30,
+      }),
+    );
+    const client: InsightSentryClient = {
+      get: async <T>(
+        request: InsightSentryRequest<T>,
+      ): Promise<InsightSentryResult<T>> => ({
+        data: request.schema.parse({
+          total_page: 1,
+          current_items: data.length,
+          data,
+        }),
+        cacheKey: "fixture",
+        cacheStatus: "miss",
+        retrievedAt: "2026-07-30T00:00:00.000Z",
+        responseBytes: 100,
+      }),
+    };
+    const screen = createInsightSentryPeerScreen({
+      client,
+      dataRoot,
+      asOf: "2026-07-30T00:00:00.000Z",
+      annualAccessionNumber: "fixture",
+      annualText:
+        "Competition has increased through innovation and city expansion, with the first alternative. Popular strategy and interface alternatives innovate rapidly. We compete with Alphabet in cloud services.",
+    });
+    const result = (await screen({ symbol: "NASDAQ:MSFT", limit: 8 })) as {
+      peers: { symbol: string; classification: string }[];
+    };
+    expect(
+      result.peers
+        .filter((peer) => peer.classification === "direct_competitor")
+        .map((peer) => peer.symbol),
+    ).toEqual(["NASDAQ:GOOGL"]);
+  });
+
   it("selects filing-named competitors, retains operating comparables, and caches identities", async () => {
     const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-peers-"));
     roots.push(dataRoot);
@@ -178,6 +291,8 @@ describe("createInsightSentryPeerScreen", () => {
     expect(
       requests.every((request) => {
         const fields = request.requestBody?.["fields"];
+        expect(Array.isArray(fields) && fields.length <= 10).toBe(true);
+        expect(fields).not.toContain("industry");
         return Array.isArray(fields) && fields.includes("price_earnings_ttm");
       }),
     ).toBe(true);
