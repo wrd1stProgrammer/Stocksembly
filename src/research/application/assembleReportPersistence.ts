@@ -25,12 +25,12 @@ import {
 } from "../workflow/chairSynthesisV3";
 import {
   deterministicMetadataRewrite,
-  evaluatePrePublicationEditorialGate,
   gateWithOneTargetedRewrite,
   type PrePublicationEditorialEnvelope,
 } from "../workflow/prePublicationEditorialGate";
 import { assembleReport } from "./assembleReport";
 import type { AssemblyInput } from "./assembleReportContracts";
+import { normalizePublicationWording } from "./publicationWording";
 
 export type AuthoritativeReportCommit = {
   readonly report:
@@ -89,6 +89,7 @@ export async function persistAuthoritativeReport(
     return { kind: "blocked", reason: "workflow_v3_chair_required" };
   const assembled = assembleReport(input);
   if (assembled.kind === "blocked") return assembled;
+  const contentWarnings = [...assembled.contentWarnings];
   const publicationChair = assembled.publicationChair;
   // Team views may retain eligible claims that the six section summaries omit.
   // Ground against the recovered publication register, never section selection.
@@ -100,18 +101,16 @@ export async function persistAuthoritativeReport(
     sourceArtifactIds: publicationChair.sourceArtifactIds,
     sections: publicationChair.sections,
   });
+  const wording = normalizePublicationWording(normalizedCanonical.canonical);
   if (
     !canonicalNarrativeV3IsGrounded({
-      canonical: normalizedCanonical.canonical,
+      canonical: wording.canonical,
       sentences: assembled.publicationSentences,
       auditedClaimIds,
       sourceArtifactIds: publicationChair.sourceArtifactIds,
     })
   )
-    return {
-      kind: "blocked",
-      reason: "workflow_v3_canonical_grounding_invalid",
-    };
+    contentWarnings.push("workflow_v3_canonical_grounding_invalid");
   const recomputedGate = await gateWithOneTargetedRewrite(
     assembled.editorialPublication.candidate,
     async (request) => {
@@ -122,6 +121,7 @@ export async function persistAuthoritativeReport(
         request,
       );
     },
+    { advisory: true },
   );
   const savedEditorialPublication = options.savedEditorialPublication;
   if (
@@ -129,9 +129,7 @@ export async function persistAuthoritativeReport(
     (recomputedGate.kind !== "accepted" ||
       savedEditorialPublication.gateVersion !== "editorial-quality-v1" ||
       hashCanonical(savedEditorialPublication.candidate) !==
-        hashCanonical(recomputedGate.candidate) ||
-      !evaluatePrePublicationEditorialGate(savedEditorialPublication.candidate)
-        .publishable)
+        hashCanonical(recomputedGate.candidate))
   )
     return { kind: "blocked", reason: "saved_editorial_authority_mismatch" };
   const gated =
@@ -147,6 +145,13 @@ export async function persistAuthoritativeReport(
         };
   if (gated.kind === "rejected")
     return { kind: "blocked", reason: gated.reason };
+  contentWarnings.push(
+    ...(recomputedGate.kind === "accepted"
+      ? (recomputedGate.violations?.map(
+          (entry) => `${entry.code}:${entry.path}`,
+        ) ?? [])
+      : []),
+  );
   const editorialPublication = {
     ...assembled.editorialPublication,
     qaPolicy: {
@@ -161,7 +166,7 @@ export async function persistAuthoritativeReport(
   };
   const canonicalPublicationReport = workflowV3ReportFromCanonicalNarrative(
     assembled.report,
-    normalizedCanonical.canonical,
+    wording.canonical,
     new Map(
       gated.candidate.sections.map((section) => [
         section.sectionKey,
@@ -178,29 +183,47 @@ export async function persistAuthoritativeReport(
           technicalChart: input.technicalChart,
         });
   const canonicalWasReduced =
+    wording.changed ||
     normalizedCanonical.reduced ||
     (normalizedCanonical.canonical.publicationReductionReasons?.length ?? 0) >
       0;
-  const publicationReport = canonicalWasReduced
-    ? WorkflowV3ResearchReportSchema.parse({
-        ...projectedPublicationReport,
-        status: "complete_with_limitations",
-        limitations: [
-          ...projectedPublicationReport.limitations,
-          ...(projectedPublicationReport.limitations.some(
-            (limitation) =>
-              limitation.id === "limitation:canonical_publication_reduction",
-          )
-            ? []
-            : [
-                {
-                  id: "limitation:canonical_publication_reduction",
-                  capability: "canonical_optional_content",
-                },
-              ]),
-        ],
-      })
-    : projectedPublicationReport;
+  const publicationReport =
+    canonicalWasReduced || contentWarnings.length > 0
+      ? WorkflowV3ResearchReportSchema.parse({
+          ...projectedPublicationReport,
+          status: "complete_with_limitations",
+          limitations: [
+            ...projectedPublicationReport.limitations,
+            ...(contentWarnings.length > 0 &&
+            !projectedPublicationReport.limitations.some(
+              (entry) => entry.id === "limitation:publication_content_review",
+            )
+              ? [
+                  {
+                    id: "limitation:publication_content_review",
+                    capability: "publication_content_review",
+                  },
+                ]
+              : []),
+            ...(!canonicalWasReduced ||
+            projectedPublicationReport.limitations.some(
+              (limitation) =>
+                limitation.id === "limitation:canonical_publication_reduction",
+            )
+              ? []
+              : [
+                  {
+                    id: "limitation:canonical_publication_reduction",
+                    capability: "canonical_optional_content",
+                  },
+                ]),
+          ],
+        })
+      : projectedPublicationReport;
+  if (contentWarnings.length > 0)
+    process.stderr.write(
+      `${JSON.stringify({ kind: "report_publication_content_warnings", runId: publicationReport.runId, warnings: [...new Set(contentWarnings)] })}\n`,
+    );
   const canonicalQuestionCount = publicationReport.anticipatedQuestions.length;
   const canonicalEditorialPublication = {
     ...editorialPublication,
@@ -302,6 +325,12 @@ export async function persistAuthoritativeReport(
         anticipatedQuestions: publicationReport.anticipatedQuestions,
         editorialPublication: canonicalEditorialPublication,
         recoveryMetadata: assembled.recoveryMetadata,
+        contentReview: {
+          policy: "best-effort-v1",
+          warnings: [...new Set(contentWarnings)],
+          wordingAdjusted: wording.changed,
+          canonicalRepaired: normalizedCanonical.reduced,
+        },
         ...(options.repairMetadata === undefined
           ? {}
           : { repairMetadata: options.repairMetadata }),

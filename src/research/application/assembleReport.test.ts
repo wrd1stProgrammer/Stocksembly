@@ -20,6 +20,7 @@ import {
 } from "../domain/report";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
+import { researchReportToFile } from "../researchReportToFile";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
 import { sqliteReportVersionPersistence } from "../server/persistence/sqlite/sqliteReportPersistence";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
@@ -791,7 +792,7 @@ describe("persistAuthoritativeReport", () => {
     expect(result.kind, JSON.stringify(result)).toBe("published");
   });
 
-  it("does not let a partial-only report drive a core conclusion", async () => {
+  it("publishes a partial-only report with its unresolved verdict and limitations", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
     const valid = makeAuthoritativeReportInput();
@@ -823,11 +824,22 @@ describe("persistAuthoritativeReport", () => {
       input,
     );
 
-    expect(result).toEqual({
-      kind: "blocked",
-      reason: "no_grounded_core_answer",
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    expect(persistence.saved).toHaveLength(1);
+    expect(
+      persistence.saved[0]?.report.claims.some(
+        (claim) => claim.semanticVerdict === "partial",
+      ),
+    ).toBe(true);
+    expect(persistence.saved[0]?.version.status).toBe(
+      "complete_with_limitations",
+    );
+    expect(
+      persistence.saved[0]?.version.publicPayload.contentReview,
+    ).toMatchObject({
+      policy: "best-effort-v1",
+      warnings: expect.arrayContaining([expect.any(String)]),
     });
-    expect(persistence.saved).toHaveLength(0);
   });
 
   it("recovers a numeric revenue scenario from an abbreviated chair sentence", async () => {
@@ -915,7 +927,7 @@ describe("persistAuthoritativeReport", () => {
     expect(result.report.narrative.scenarios).toEqual([]);
   });
 
-  it("removes a contradicted retained-dissent claim from the report register", async () => {
+  it("publishes contradicted claims without upgrading their verdicts", async () => {
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
     const valid = makeAuthoritativeReportInput();
@@ -941,11 +953,22 @@ describe("persistAuthoritativeReport", () => {
       input,
     );
 
-    expect(result).toEqual({
-      kind: "blocked",
-      reason: "no_grounded_core_answer",
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    expect(persistence.saved).toHaveLength(1);
+    expect(
+      persistence.saved[0]?.report.claims.some(
+        (claim) => claim.semanticVerdict === "contradicted",
+      ),
+    ).toBe(true);
+    expect(persistence.saved[0]?.version.status).toBe(
+      "complete_with_limitations",
+    );
+    expect(
+      persistence.saved[0]?.version.publicPayload.contentReview,
+    ).toMatchObject({
+      policy: "best-effort-v1",
+      warnings: expect.arrayContaining([expect.any(String)]),
     });
-    expect(persistence.saved).toHaveLength(0);
   });
 
   it("publishes from the audited retention ledger when chair retention metadata drifts", async () => {
@@ -971,7 +994,7 @@ describe("persistAuthoritativeReport", () => {
     expect(cas.putCount).toBeGreaterThan(0);
   });
 
-  it("writes no CAS blob or version when a quality gate fails", async () => {
+  it("publishes and records warnings when a content quality gate fails", async () => {
     // Given
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -980,6 +1003,7 @@ describe("persistAuthoritativeReport", () => {
       ...valid,
       structuralAudit: {
         ...valid.structuralAudit,
+        publishable: false,
         result: {
           ...valid.structuralAudit.result,
           publishable: false,
@@ -988,6 +1012,8 @@ describe("persistAuthoritativeReport", () => {
       },
     };
 
+    await seedAuthoritativeParents(cas, input);
+
     // When
     const result = await persistAuthoritativeReport(
       { cas, persistence },
@@ -995,9 +1021,21 @@ describe("persistAuthoritativeReport", () => {
     );
 
     // Then
-    expect(result).toEqual({ kind: "blocked", reason: "audit_failed" });
-    expect(persistence.saved).toHaveLength(0);
-    expect(cas.putCount).toBe(0);
+    const saved = persistence.saved[0];
+    if (saved === undefined) throw new Error("missing published report");
+    expect(
+      researchReportToFile(saved.report, "2026-09-11T00:00:00Z")
+        .contentReviewRequired,
+    ).toBe(true);
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    expect(persistence.saved[0]?.version.status).toBe(
+      "complete_with_limitations",
+    );
+    expect(
+      persistence.saved[0]?.version.publicPayload.contentReview,
+    ).toMatchObject({
+      warnings: expect.arrayContaining(["audit_failed", "exact_span"]),
+    });
   });
 
   it("rejects an empty authenticated capability posture before CAS or metadata", async () => {
@@ -1114,7 +1152,7 @@ describe("persistAuthoritativeReport", () => {
     },
   );
 
-  it("rejects caller-forged chair prose not present in the persisted prompt", async () => {
+  it("still rejects unauthenticated parents when content also needs repair", async () => {
     // Given
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -1141,13 +1179,13 @@ describe("persistAuthoritativeReport", () => {
     // Then
     expect(result).toEqual({
       kind: "blocked",
-      reason: "chair_content_mismatch",
+      reason: "parent_artifact_authentication_failed",
     });
     expect(cas.putCount).toBe(0);
     expect(persistence.saved).toHaveLength(0);
   });
 
-  it("rejects a bilingual summary when one locale is not grounded", async () => {
+  it("repairs and publishes a bilingual summary when one locale is not grounded", async () => {
     // Given
     const cas = new CountingArtifactCasFake();
     const persistence = reportPersistenceSpy();
@@ -1176,11 +1214,17 @@ describe("persistAuthoritativeReport", () => {
     );
 
     // Then
-    expect(result).toEqual({
-      kind: "blocked",
-      reason: "chair_content_mismatch",
+    expect(result.kind, JSON.stringify(result)).toBe("published");
+    expect(persistence.saved).toHaveLength(1);
+    expect(persistence.saved[0]?.version.status).toBe(
+      "complete_with_limitations",
+    );
+    expect(
+      persistence.saved[0]?.version.publicPayload.contentReview,
+    ).toMatchObject({
+      policy: "best-effort-v1",
+      warnings: expect.arrayContaining([expect.any(String)]),
     });
-    expect(persistence.saved).toHaveLength(0);
   });
 
   it("rejects an unauthenticated parent digest and non-contiguous version", async () => {

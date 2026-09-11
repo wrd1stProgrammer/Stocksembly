@@ -331,6 +331,9 @@ function workflowV2ReportToFile(
     );
   return {
     presentationVersion: "workflow-v2",
+    contentReviewRequired: report.limitations.some(
+      (item) => item.id === "limitation:publication_content_review",
+    ),
     structuredEditorial: {
       decision: {
         ...report.editorialDecision,

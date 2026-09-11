@@ -83,6 +83,13 @@ export function ResearchReportSurfaceShell({
           decisionCockpit={surface === "committee"}
           {...(surfaceNavigation === undefined ? {} : { surfaceNavigation })}
         />
+        {props.report.contentReviewRequired ? (
+          <p className="research-file-content-notice" role="note">
+            {props.locale === "ko"
+              ? "일부 내용은 추가 확인이 필요합니다. 수치와 판단은 연결된 출처를 함께 확인해 주세요."
+              : "Some content needs further verification. Review the linked sources alongside the figures and conclusions."}
+          </p>
+        ) : null}
         {children}
         {departmentId === undefined ? null : (
           <DepartmentResearchDesk

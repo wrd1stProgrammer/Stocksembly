@@ -35,6 +35,7 @@ export type ReportVersionWrite = {
     readonly anticipatedQuestions?: readonly PublicJson[];
     readonly editorialPublication?: PublicJson;
     readonly recoveryMetadata?: PublicJson;
+    readonly contentReview?: PublicJson;
     readonly sourceLocale?: "en" | "ko";
     readonly narrativeLineage?: WorkflowV3ResearchReport["narrativeLineage"];
   };

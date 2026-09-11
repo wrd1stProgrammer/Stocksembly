@@ -72,8 +72,8 @@ export const editorialPolicyDocument = {
           ko: "필수 작업 아티팩트와 출처 계보가 구조 검사를 통과해야 보고서를 저장할 수 있습니다. 이후 공개 한·영 필드는 근거 소유권, 지원되는 숫자, 비교기업 유형, 예상 질문 근거, 위험한 투자 표현, 반복, 정보량, 내부 메타데이터나 제공자 용어 노출 여부를 검사받습니다.",
         },
         {
-          en: "Hard violations block publication. Some wording or metadata issues may receive one bounded targeted rewrite, but that rewrite cannot introduce new claim identifiers, evidence identifiers, or unsupported numbers. A report may still publish with disclosed limitations or low confidence when the remaining issue is not a hard violation.",
-          ko: "중대 위반은 발행을 차단합니다. 일부 문구나 메타데이터 문제에는 제한된 1회의 표적 수정이 적용될 수 있지만, 새 주장 식별자·근거 식별자·지원되지 않은 숫자를 추가할 수 없습니다. 남은 문제가 중대 위반이 아니라면 제한사항이나 낮은 신뢰도를 공개한 상태로 발행될 수 있습니다.",
+          en: "Content quality findings do not block publication. Targeted repairs and wording normalization use existing evidence without inventing new references or numbers. Remaining concerns are recorded and the report is published with disclosed limitations. Source authentication, run isolation, and storage integrity checks still apply.",
+          ko: "내용 품질 문제는 발행을 차단하지 않습니다. 기존 근거를 활용해 부분 보완과 표현 보정을 수행하며 새로운 출처나 숫자를 만들어내지 않습니다. 남은 문제는 기록하고 제한사항을 표시한 상태로 발행합니다. 출처 원본 확인, 실행 간 데이터 분리, 저장 무결성 검사는 유지합니다.",
         },
       ],
     },

@@ -70,6 +70,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   const chair = ChairSynthesisOutputSchema.safeParse(input.chair);
   if (!structural.success || !semantic.success || !chair.success)
     return { kind: "blocked", reason: "invalid_input" };
+  const contentWarnings: string[] = [];
   const chairRecovery = chair.data.recoveryMetadata;
   const audit = structural.data.result;
   if (
@@ -81,11 +82,12 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
   )
     return { kind: "blocked", reason: "version_lineage_mismatch" };
   if (
+    !structural.data.publishable ||
     !audit.publishable ||
     audit.blockers.length > 0 ||
     audit.metrics.some((metric) => metric.passed !== metric.denominator)
   )
-    return { kind: "blocked", reason: "audit_failed" };
+    contentWarnings.push("audit_failed", ...audit.blockers);
   if (
     semantic.data.runId !== audit.runId ||
     semantic.data.snapshotId !== audit.snapshotId ||
@@ -116,14 +118,13 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     retainedDissentClaimIds,
     retainedOpenQuestionCount: audit.retainedOpenQuestions.length,
   });
-  if (chairReason !== undefined)
-    return { kind: "blocked", reason: chairReason };
+  if (chairReason !== undefined) contentWarnings.push(chairReason);
   if (
     audit.claims.some(
       (claim) => verdicts.get(claim.claimId)?.materiality !== claim.materiality,
     )
   )
-    return { kind: "blocked", reason: "semantic_claim_mismatch" };
+    contentWarnings.push("semantic_claim_mismatch");
   const evidenceByClaim = new Map<string, readonly string[]>(
     audit.fixedEvidenceSlices.map((entry) => [
       entry.claimId,
@@ -142,24 +143,22 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     materiality: "material" | "supporting";
     semanticVerdict: "entailed" | "partial" | "contradicted" | "not_assessable";
     sourceIds: readonly string[];
-  }[] = audit.claims
-    .filter((claim) => verdicts.get(claim.claimId)?.verdict !== "contradicted")
-    .map((claim) => ({
-      claimId: claim.claimId,
-      text: selectedText({
-        en: normalizeReportNarrativeText(
-          claim.text.en,
-          "The authenticated evidence supports this claim with limitations.",
-        ),
-        ko: normalizeReportNarrativeText(
-          claim.text.ko,
-          "인증된 근거는 한계와 함께 이 주장을 뒷받침합니다.",
-        ),
-      }),
-      materiality: claim.materiality,
-      semanticVerdict: verdicts.get(claim.claimId)?.verdict ?? "not_assessable",
-      sourceIds: evidenceByClaim.get(claim.claimId) ?? [],
-    }));
+  }[] = audit.claims.map((claim) => ({
+    claimId: claim.claimId,
+    text: selectedText({
+      en: normalizeReportNarrativeText(
+        claim.text.en,
+        "The authenticated evidence supports this claim with limitations.",
+      ),
+      ko: normalizeReportNarrativeText(
+        claim.text.ko,
+        "인증된 근거는 한계와 함께 이 주장을 뒷받침합니다.",
+      ),
+    }),
+    materiality: claim.materiality,
+    semanticVerdict: verdicts.get(claim.claimId)?.verdict ?? "not_assessable",
+    sourceIds: evidenceByClaim.get(claim.claimId) ?? [],
+  }));
   const registeredClaimIds = new Set(claims.map((claim) => claim.claimId));
   for (const claimId of retainedDissentClaimIds)
     if (!registeredClaimIds.has(claimId)) {
@@ -246,11 +245,22 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       : { repairScenario: input.repairPublicScenario }),
   });
   if (publication.blockers.length > 0)
-    return { kind: "blocked", reason: "no_grounded_core_answer" };
+    contentWarnings.push(...publication.blockers);
+  // Keep the authenticated register when no claim passes the content filter.
+  // Verdicts stay unchanged; unresolved evidence is disclosed, never promoted.
+  const retainedClaims =
+    publication.publishedClaims.length > 0
+      ? publication.publishedClaims
+      : publicationClaims.filter((entry) =>
+          entry.sourceIds.every((id) =>
+            sources.some((source) => source.sourceId === id),
+          ),
+        );
+
   const recoveredClaimIds = new Set(
-    publication.publishedClaims.map((entry) => entry.claim.claimId),
+    retainedClaims.map((entry) => entry.claim.claimId),
   );
-  const recoveredClaims = publication.publishedClaims.flatMap((entry) => {
+  const recoveredClaims = retainedClaims.flatMap((entry) => {
     const registered = claimRegisterById.get(entry.claim.claimId);
     return registered === undefined ? [] : [registered];
   });
@@ -365,7 +375,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
         ]
       : []),
   ];
-  const status =
+  let status: "complete" | "complete_with_limitations" =
     limitations.length > 0 ? "complete_with_limitations" : "complete";
   const quality = evaluatePublicationQuality({
     requestedStatus: status,
@@ -383,8 +393,14 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
     })),
     metrics: [...audit.metrics, ...semantic.data.metrics],
   });
-  if (!quality.publishable)
-    return { kind: "blocked", reason: quality.blockers[0] ?? "quality_failed" };
+  if (!quality.publishable) contentWarnings.push(...quality.blockers);
+  if (contentWarnings.length > 0) {
+    status = "complete_with_limitations";
+    limitations.push({
+      id: "limitation:publication_content_review",
+      capability: "publication_content_review",
+    });
+  }
   const priorClaimIds = new Set<string>(
     input.priorReport?.claims.map((claim) => claim.claimId) ?? [],
   );
@@ -516,6 +532,7 @@ export function assembleReport(input: AssemblyInput): AssembleReportResult {
       publicationChair,
       publicationSentences: publicationNarrative.sentences,
       editorialPublication: composed.envelope,
+      contentWarnings: [...new Set(contentWarnings)],
       recoveryMetadata: {
         ...(chairRecovery === undefined
           ? {}
