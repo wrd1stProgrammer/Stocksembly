@@ -20,6 +20,7 @@ import {
 } from "../domain/report";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
+import { researchReportToFile } from "../researchReportToFile";
 import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
 import { sqliteReportVersionPersistence } from "../server/persistence/sqlite/sqliteReportPersistence";
 import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
@@ -32,7 +33,6 @@ import {
 import { loadChairPrompt } from "../workflow/chairSynthesisInput";
 import type { PrePublicationEditorialEnvelope } from "../workflow/prePublicationEditorialGate";
 import { composeWorkflowV2Report } from "../workflow/workflowV2PublicationComposer";
-import { researchReportToFile } from "../researchReportToFile";
 import { assembleReport } from "./assembleReport";
 import {
   CountingArtifactCasFake,
