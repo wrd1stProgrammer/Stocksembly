@@ -1,62 +1,40 @@
-# Stocksembly 협업 및 릴리즈 흐름
+# Stocksembly 협업 및 릴리즈
 
-`main`은 현재 프로덕션에 배포된 코드를 유지합니다. 기능과 수정 사항은 버전별 `release/x.y.z` 브랜치에 모은 뒤, 릴리즈 PR을 `main`에 병합해 배포합니다.
+기본 흐름은 **최신 main → 작업 브랜치 → main 대상 PR → 리뷰·CI 통과 → squash merge**입니다. main 병합은 프로덕션 배포로 이어질 수 있으므로 PR 생성과 배포 완료를 구분합니다.
 
-## 작업 흐름
+## 작업 시작
 
-1. 작업 전에 GitHub Issue를 만들고 담당자와 완료 조건을 정합니다.
-2. 이번 배포의 `release/x.y.z` 브랜치에서 작업 브랜치를 만듭니다.
-3. 작업 브랜치에서 `release/x.y.z`를 대상으로 PR을 엽니다.
-4. 팀원 리뷰와 CI 통과 후 작업 PR을 병합합니다.
-5. 포함할 작업이 모두 모이면 `release/x.y.z`에서 `main`으로 릴리즈 PR을 엽니다.
-6. 릴리즈 PR에 포함된 이슈를 `Closes #번호`로 나열합니다.
-7. 릴리즈 PR을 병합해 프로덕션을 최신화하고, 완료된 릴리즈 브랜치를 삭제합니다.
+- Issue나 PR에 문제, 담당자, 완료 조건을 남깁니다.
+- 기존 미커밋 작업이 있으면 reset·stash·일괄 삭제로 치우지 않습니다. 소유자를 확인하고 별도 worktree에서 새 작업을 시작합니다.
+- 기능은 `feat/이슈-설명`, 수정은 `fix/이슈-설명`, Codex 작업은 `codex/설명`을 사용합니다.
+- 원격 브랜치가 사라졌어도 로컬에 고유 커밋이나 미커밋 작업이 없는지 확인하기 전 worktree를 지우지 않습니다.
 
-## 브랜치 이름
+## PR과 검증
 
-| 용도 | 형식 | 예시 |
-| --- | --- | --- |
-| 릴리즈 취합 | `release/x.y.z` | `release/0.2.0` |
-| 기능 | `feat/이슈번호-설명` | `feat/123-watchlist` |
-| 버그 수정 | `fix/이슈번호-설명` | `fix/145-login-timeout` |
-| 긴급 수정 | `hotfix/이슈번호-설명` | `hotfix/201-payment-error` |
+1. 한 가지 목적의 변경을 묶고 관련 Issue를 연결합니다.
+2. 명시적인 파일 경로만 stage하고 diff를 확인합니다. `git add .`로 개인 산출물까지 묶지 않습니다.
+3. CI의 `quality` 검사와 변경 범위에 필요한 검증을 통과시킵니다. 검사 실패를 없애기 위해 테스트를 제거하거나 기준을 낮추지 않습니다.
+4. 작성자 외 팀원의 리뷰를 받고, 리뷰 대화를 해결한 뒤 squash merge합니다. 마지막 push 이후 승인 요구도 지킵니다.
+5. 배포가 필요한 변경은 실제 배포/worker 상태를 확인합니다. PR의 CI가 초록이어도 배포가 생략됐을 수 있습니다.
+6. 병합 후 브랜치와 worktree는 미반영 작업이 없을 때만 정리합니다.
 
-버전은 `major.minor.patch` 형식을 사용합니다. 호환되지 않는 큰 변경은 `major`, 기능 추가는 `minor`, 버그 수정은 `patch`를 올립니다.
+## 여러 PR을 모으는 릴리즈
 
-## Issue와 PR 연결
+팀이 명시적으로 합의한 배포 묶음에만 `release/x.y.z`를 사용합니다. 그때 작업 PR의 대상은 해당 release 브랜치이고, 최종 릴리즈 PR은 main을 대상으로 합니다. 팀원이 release 브랜치를 만들었다는 이유만으로 다른 작업의 PR 대상을 자동 변경하지 않습니다.
 
-작업 PR은 기본 브랜치가 아닌 `release/x.y.z`를 대상으로 하므로 `Related to #123`처럼 관련 이슈를 표시합니다. Issue는 실제 프로덕션 배포 전까지 열어둡니다.
+release/*도 사용할 경우 PR·quality 보호 규칙을 별도로 확인합니다. 기본 브랜치만 보호하는 ruleset이 release/*까지 보호한다고 가정하지 않습니다. 긴급 수정은 main에서 시작하고 활성 릴리즈에도 필요한 변경을 반영합니다.
 
-최종 릴리즈 PR은 `main`을 대상으로 하고, `Closes #123` 형식으로 포함된 Issue를 모두 적습니다. 릴리즈 PR이 `main`에 병합되면 해당 Issue가 자동으로 닫힙니다.
+## 담당 영역과 운영 변경
 
-## 릴리즈 브랜치 만들기
+- UI·정적 자산: 실제 소비 화면, 동적 경로, 모바일 표시를 확인합니다.
+- 연구 실행·DB: 재시도, 마이그레이션, 데이터 보존과 워커 복구 영향을 설명합니다.
+- 인증·결제·infra·workflow: 운영 책임자를 리뷰에 포함하고 secret 값을 PR에 넣지 않습니다.
+- 소유권 이전, 권한 변경, 운영 배포는 파일 정리와 구분해 명시적으로 요청된 범위에서 진행합니다.
 
-릴리즈 담당자는 최신 `main`에서 브랜치를 만듭니다.
+Organization 이전은 현재 보류 상태입니다. 팀 핸들이 확정되면 CODEOWNERS와 권한을 실제 담당자에 맞춰 설정합니다.
 
-```bash
-git fetch origin
-git switch main
-git pull --ff-only origin main
-git switch -c release/0.2.0
-git push -u origin release/0.2.0
-```
+## 자료와 생성물
 
-작업자는 해당 릴리즈 브랜치를 최신화한 뒤 작업 브랜치를 만듭니다.
+현재 제품 기준은 [PRODUCT.md](PRODUCT.md), 디자인 진입점은 [DESIGN.md](DESIGN.md), 삭제/복구 기준은 [정리 기록](docs/repository-cleanup.md)을 따릅니다.
 
-```bash
-git fetch origin
-git switch release/0.2.0
-git pull --ff-only origin release/0.2.0
-git switch -c feat/123-watchlist
-```
-
-## 긴급 수정
-
-현재 프로덕션 문제를 바로 수정해야 하면 최신 `main`에서 `hotfix/이슈번호-설명` 브랜치를 만들고 `main` 대상 PR을 엽니다. 배포 후 같은 수정이 빠지지 않도록 활성화된 `release/x.y.z` 브랜치에도 반영합니다.
-
-## 기본 원칙
-
-- `main`과 `release/*`에는 직접 push하지 않습니다.
-- 하나의 Issue는 가능한 한 하나의 작업 PR로 해결합니다.
-- PR은 팀원 한 명 이상의 리뷰를 받은 뒤 병합합니다.
-- 카카오톡에서 결정한 작업도 Issue나 PR에 결과를 남깁니다.
+`.artifacts/`, `.superdesign/`, `experiments/`, 빌드 출력과 개인 발표 자료는 Git에 자동 추가하지 않습니다. 가치 있는 검증 결과는 SHA와 한계를 명시해 `docs/audits/`에 선별합니다. 재생성에 필요한 원본은 검증된 보관본 없이 삭제하지 않습니다.

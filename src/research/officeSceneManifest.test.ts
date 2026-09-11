@@ -3,7 +3,6 @@ import {
   AGENT_IDS,
   LEGACY_AGENT_IDS,
   MEETING_SPOTS,
-  OFFICE_SCENE_ASSETS,
   SEAT_MANIFEST,
   seatFor,
   validateOfficeSceneManifest,
@@ -27,12 +26,6 @@ describe("office scene manifest", () => {
       expect(seat.layers.actor).toBeLessThan(seat.layers.label);
       expect(seat.layers.label).toBeLessThan(seat.layers.bubble);
     }
-  });
-
-  it("uses only v6 full-bleed assets and no committee furniture", () => {
-    expect(OFFICE_SCENE_ASSETS.base).toBe("/research/office-v6/base.png");
-    expect(Object.keys(OFFICE_SCENE_ASSETS)).not.toContain("tableBack");
-    expect(Object.keys(OFFICE_SCENE_ASSETS)).not.toContain("tableFront");
   });
 
   it("keeps the six standing spots separated and inward-facing", () => {

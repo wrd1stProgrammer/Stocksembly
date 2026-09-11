@@ -1,0 +1,321 @@
+{
+  "baseCommit": "47b0b22782ddd043abd6b987f4f2e7b5b51d77b5",
+  "archiveSha256": "db1331f217f898932e4b1177c4bc1eff86b8d9a8a84470a8193a7bf858c097b3",
+  "files": [
+    {
+      "path": ".artifacts/quality-gates/comparator-green.txt",
+      "bytes": 372,
+      "sha256": "be08b819f7581fcfb7903c9c2f03bb7ec09fa899448ff9b9fe541f07ad7da328"
+    },
+    {
+      "path": ".artifacts/quality-gates/comparator-red.txt",
+      "bytes": 353,
+      "sha256": "1aa8596cf0f84876d291694967ae2a3ea22b4281d6e0572d0c3aec7a34a36d14"
+    },
+    {
+      "path": ".artifacts/quality-gates/integrity-green.txt",
+      "bytes": 518,
+      "sha256": "65ba81c1b144c5e3fe6fac585343e812f300ea7d28449b07a3cb05efbd4f8bc0"
+    },
+    {
+      "path": ".artifacts/quality-gates/integrity-red.txt",
+      "bytes": 350,
+      "sha256": "2567d0b667313dec67986007441bc5f58942d5d30c7ca3976395b2b7b0d2652e"
+    },
+    {
+      "path": ".artifacts/quality-gates/nvidia-real-run-scorecard.md",
+      "bytes": 2857,
+      "sha256": "79dfb6663c4b97b769655d5c2e106df58af922c5a51c62d05fcbeab0aee57fae"
+    },
+    {
+      "path": ".artifacts/quality-gates/valuation-green.txt",
+      "bytes": 588,
+      "sha256": "787095516f1287fc2ab1ffd6cbd61dd63b6acffdf5b755e64dc1fc210d92499a"
+    },
+    {
+      "path": ".artifacts/quality-gates/valuation-red.txt",
+      "bytes": 440,
+      "sha256": "4b21dbfc0067ebdc5435c5e752490bcef864f4b50305c549de34e6d89e008e99"
+    },
+    {
+      "path": "assets/research/office-v6-sources/chair-alpha.png",
+      "bytes": 619454,
+      "sha256": "7f19d483366fbdf093d49d99dfff04210fcc4e208ed049f83ed2e94da50c9048"
+    },
+    {
+      "path": "assets/research/office-v6-sources/chair.png",
+      "bytes": 1537162,
+      "sha256": "06b2251995ab2bb5436e3dc3f8d1d0ec2a9ad6b4fecd492ce956fdfda687d1ec"
+    },
+    {
+      "path": "assets/research/office-v6-sources/chairs-alpha.png",
+      "bytes": 270084,
+      "sha256": "f9c8c916b107e90adac6f6cce0647584b44f8aa5689f6fed942e2410103ef96f"
+    },
+    {
+      "path": "assets/research/office-v6-sources/chairs.png",
+      "bytes": 1047157,
+      "sha256": "c8069ac0462c051e77273fbd36fa25c13bc4224ecce59396351f89a75535501a"
+    },
+    {
+      "path": "assets/research/office-v6-sources/company-alpha.png",
+      "bytes": 578998,
+      "sha256": "b62a4dc0b2cec761248b8a4e444a1f25cc3c3cea7cecda5e9ab8e8b930eecbe2"
+    },
+    {
+      "path": "assets/research/office-v6-sources/company.png",
+      "bytes": 1513212,
+      "sha256": "16087c13c21ea1f89951ebe05f067b4c24bd746e2bfa0a10d2803d3bfbc4cf4a"
+    },
+    {
+      "path": "assets/research/office-v6-sources/financial-alpha.png",
+      "bytes": 513062,
+      "sha256": "0a061aa9aa907062e851644db5258530019b8060de31aa03d03088c3aae786ab"
+    },
+    {
+      "path": "assets/research/office-v6-sources/financial.png",
+      "bytes": 1443178,
+      "sha256": "91247e30fa49efa5dc55ae797237b46b4fbe2089effb669d2b92fe4a9aaee982"
+    },
+    {
+      "path": "assets/research/office-v6-sources/market-alpha.png",
+      "bytes": 634347,
+      "sha256": "15163d754eeb464b123349840f3afc1a49806086cd861cfc8e972236b6a766ac"
+    },
+    {
+      "path": "assets/research/office-v6-sources/market.png",
+      "bytes": 1520957,
+      "sha256": "99255c1df03ff4da26fb0ab3ddb1a5af751dddbdd027596e3547adb833a21b2c"
+    },
+    {
+      "path": "assets/research/office-v6-sources/modern-office-south-facing.png",
+      "bytes": 1893202,
+      "sha256": "e6932e361146e6a4ef9818ef8535f59ae4032ec8baf3bebbb805cc005f280ac3"
+    },
+    {
+      "path": "assets/research/office-v6-sources/modern-office.png",
+      "bytes": 1984995,
+      "sha256": "d7789152226d81429f726945ce2fb20f5d11fd32b0a65be1f71b6a94b234b923"
+    },
+    {
+      "path": "assets/research/office-v6-sources/risk-alpha.png",
+      "bytes": 685359,
+      "sha256": "2a536b1bee9788d1db098b75ea8b63469ac1221566d748b8319a591579fc7ebe"
+    },
+    {
+      "path": "assets/research/office-v6-sources/risk.png",
+      "bytes": 1559350,
+      "sha256": "3f8fad52eca322f20fb42049e283fbd54f8757023b11d7c8226109d1d9226e98"
+    },
+    {
+      "path": "assets/research/office-v6-sources/valuation-alpha.png",
+      "bytes": 610756,
+      "sha256": "e662ec60a6672c37dcf4bf637fe4a8675e060e0725c6bc91e00cf4cabf42d6ea"
+    },
+    {
+      "path": "assets/research/office-v6-sources/valuation.png",
+      "bytes": 1479109,
+      "sha256": "7c59161a841c085302cb40182b31e7d97a544f080b2790dff8be39f2332fae9d"
+    },
+    {
+      "path": "design/concepts/research-office-6x5-empty/01-glass-asymmetric-shell.png",
+      "bytes": 2594935,
+      "sha256": "dd8e074821c9cde09613a702d624cb9cebaa3f0996051c6808fbfa456051b4f4"
+    },
+    {
+      "path": "design/concepts/research-office-6x5-empty/02-warm-newsroom-shell.png",
+      "bytes": 2583815,
+      "sha256": "189821338f6cad9f96725d1f758836685878c8bab07102b9b6c7ea1525302b70"
+    },
+    {
+      "path": "design/concepts/research-office-6x5-empty/03-bright-fintech-loft-shell.png",
+      "bytes": 2420045,
+      "sha256": "e706fa391308c3552dca747cfcb4e1688078aab3be5d78628e9d843d25da95b5"
+    },
+    {
+      "path": "design/concepts/research-office-6x5-empty/04-curved-editorial-shell.png",
+      "bytes": 2343445,
+      "sha256": "8cb3fda0319e0888f69e03d62b6c0b7536cc5757b71f0f4943c92b6ee33f40fa"
+    },
+    {
+      "path": "design/concepts/research-office-6x5-empty/05-evening-markets-shell.png",
+      "bytes": 2233584,
+      "sha256": "0016912160b6e29b0d704f95996be5740ec33c920f2ac03eb94fa9b021fc54b5"
+    },
+    {
+      "path": "design/concepts/research-office-6x5/01-glass-research-hub.png",
+      "bytes": 2121546,
+      "sha256": "d04d061e67337dbd6c65cd9b92f33803a3c468f8d9982eeaf7485dfd415685ec"
+    },
+    {
+      "path": "design/concepts/research-office-6x5/02-warm-analyst-studio.png",
+      "bytes": 2310626,
+      "sha256": "938262adf340aed4dddf08fa8a76d87c727a50a3d1b25acc29c68946b7c8df31"
+    },
+    {
+      "path": "design/concepts/research-office-6x5/03-fintech-command-center.png",
+      "bytes": 2113136,
+      "sha256": "583ed0c58ada2ced1aaef443edb7c84e689e76cb83cc7922a54fc1ded7d19898"
+    },
+    {
+      "path": "design/concepts/research-office-6x5/04-bright-creative-lab.png",
+      "bytes": 2019946,
+      "sha256": "f92213ea4009eef602c01bb7362e2d59be3e4947ca0658b78b01a4e96bde46a0"
+    },
+    {
+      "path": "design/concepts/research-office-6x5/05-evening-markets-office.png",
+      "bytes": 2206724,
+      "sha256": "ce7879fa628d519d83418306316ce59e73ce658e85841dac7c472455a97f6c1e"
+    },
+    {
+      "path": "design/concepts/research-office-connected-teams/01-horizontal-corridor.png",
+      "bytes": 1901288,
+      "sha256": "be32afaa2c75aee4a6dd49a02ae73df2a8491bc02009244595da0a99bb86d87f"
+    },
+    {
+      "path": "design/concepts/research-office-connected-teams/02-vertical-spine.png",
+      "bytes": 1946358,
+      "sha256": "8ecc3681c48b557b49069f8e849e3c0d9fe8799bad234917c3106cb81cc2a096"
+    },
+    {
+      "path": "design/concepts/research-office-connected-teams/03-daylight-team-hall.png",
+      "bytes": 1976170,
+      "sha256": "cc338b85bdbee6211b07d49dd98e879aed1e19b0a036b5a6674626604fd0dc46"
+    },
+    {
+      "path": "design/concepts/research-office-connected-teams/04-offset-newsroom.png",
+      "bytes": 2029473,
+      "sha256": "db78feda6c5fa039f007ba8998645402752d161f01c56aff1d09fe33e9cfd872"
+    },
+    {
+      "path": "design/concepts/research-office-connected-teams/05-premium-loop.png",
+      "bytes": 2031841,
+      "sha256": "63227860735bb18b4ec6fb534e7da8e655f6a0734800263e560d9644284baef2"
+    },
+    {
+      "path": "public/research/office-v6/agents/chair.png",
+      "bytes": 282349,
+      "sha256": "bd133589176486c3cf98435b67e1892be6caec7e76d5b9bbf9908e954a11c175"
+    },
+    {
+      "path": "public/research/office-v6/agents/company.png",
+      "bytes": 272566,
+      "sha256": "64ba41d42a02b62a9f788ffc28723c53fcc4fd25e6e79a8cd7041a0f25f2e2ef"
+    },
+    {
+      "path": "public/research/office-v6/agents/financial.png",
+      "bytes": 243989,
+      "sha256": "af0db2b9dac6e05180f44028d607fcdffb6e0e635666774a2f4135895eee743c"
+    },
+    {
+      "path": "public/research/office-v6/agents/market.png",
+      "bytes": 234413,
+      "sha256": "e59e7333ad8d7b9464975d52c1d3f88e2e789b9ce69b8f54e18ebd6a6d444a10"
+    },
+    {
+      "path": "public/research/office-v6/agents/risk.png",
+      "bytes": 278574,
+      "sha256": "bb226704a3d834ece8c77c23cb67da965a087999141a7a087e0a10fc33d36b50"
+    },
+    {
+      "path": "public/research/office-v6/agents/valuation.png",
+      "bytes": 256947,
+      "sha256": "e317c8a056dfbbae70cda2ed149845727f3db55aa92a10545c1fa44b544da206"
+    },
+    {
+      "path": "public/research/office-v6/base.png",
+      "bytes": 2194395,
+      "sha256": "92c51c00feb9ce8614abcd0f2b1fe8cbfd27e45c06544eb35b543739b7246521"
+    },
+    {
+      "path": "public/research/office-v6/furniture/chair-down.png",
+      "bytes": 9450,
+      "sha256": "4f0e9a36eee35161256ebea27646d475dd597d006b16c0074e695eac87db4509"
+    },
+    {
+      "path": "public/research/office-v6/furniture/chair-left.png",
+      "bytes": 7740,
+      "sha256": "99117d4a0c25848731148755ad1a80e89c85b4c1a752b3d02fd7efcaae78bdc2"
+    },
+    {
+      "path": "public/research/office-v6/furniture/chair-right.png",
+      "bytes": 7764,
+      "sha256": "d6b0efc1230813c452bd2d0812dd9706d9d49f77790dfb0a7735a3313584b118"
+    },
+    {
+      "path": "public/research/office-v6/furniture/chair-up.png",
+      "bytes": 9970,
+      "sha256": "bf51495281250b06848c54898735d4346218cdc98e98982860b2a856777b1c7b"
+    },
+    {
+      "path": "public/research/office-v6/portraits/chair.png",
+      "bytes": 41471,
+      "sha256": "89995c485ba899db1201029f0932311d3965cda992a5a09bf5ad02fe29662927"
+    },
+    {
+      "path": "public/research/office-v6/portraits/company.png",
+      "bytes": 42287,
+      "sha256": "ae119eb9d38e3e124f39cf94674f32a5a4eb4e40239d9260015fe6ed3380062d"
+    },
+    {
+      "path": "public/research/office-v6/portraits/financial.png",
+      "bytes": 31157,
+      "sha256": "05f7691b32cb8584c1f51d11606d14d0c997af6d8ca4e9d55d8f42697a3d2548"
+    },
+    {
+      "path": "public/research/office-v6/portraits/market.png",
+      "bytes": 40225,
+      "sha256": "1f408a0cd97ad5c40e5226c61f710e89968b136a28fe480965e8ba04e9d98192"
+    },
+    {
+      "path": "public/research/office-v6/portraits/risk.png",
+      "bytes": 44900,
+      "sha256": "fa14fc4539b6448bb4a943422c6a28f09b8b1e8b148a458f4fdaf3051cb360c1"
+    },
+    {
+      "path": "public/research/office-v6/portraits/valuation.png",
+      "bytes": 42550,
+      "sha256": "3d8eea001b90b93f373ab0feb3dc7b1b6558703bde3f646c55b92ddabf49867a"
+    },
+    {
+      "path": "scripts/final-f3-manual-qa.mjs",
+      "bytes": 6662,
+      "sha256": "53a64cf6d8f142ca30becebd3b9811abfb044642e191f53e10ad07a2eaa67365"
+    },
+    {
+      "path": "scripts/prepare-office-v6-assets.mjs",
+      "bytes": 7426,
+      "sha256": "46ea030c513d0f4f1c52ef64d2d0c06a92609e3db4148be2c64ce0028fd0adc0"
+    },
+    {
+      "path": "scripts/verify-research-quality-plan.mjs",
+      "bytes": 9293,
+      "sha256": "fba3626e2d801cf598856ccb35407e1cd9f4d93e1bdfa1b4a02366be2036711b"
+    },
+    {
+      "path": "scripts/verify-scope-fidelity-contract.mjs",
+      "bytes": 5153,
+      "sha256": "36084c067f79b2e5bed50a432cf59b5e282c74f9a4928523f6d8acb38b6e4d09"
+    },
+    {
+      "path": "scripts/verify-scope-fidelity-core.mjs",
+      "bytes": 4842,
+      "sha256": "8f0e508ebd8d47b97c3040dc3567584223f6100d1dbfd406dd7ef18f2546f3d5"
+    },
+    {
+      "path": "scripts/verify-scope-fidelity.mjs",
+      "bytes": 3031,
+      "sha256": "74464377b1afa2e7e0e2234ad8a5b5e9de588e6f0ab1b2715ced2efdd420045e"
+    },
+    {
+      "path": "scripts/verify-scope-fidelity.test.ts",
+      "bytes": 7803,
+      "sha256": "18127328951e8a791686bfd2651486ce5ffbe3e6c8c880f712eab0714dc55098"
+    },
+    {
+      "path": "src/research/officeAssets.test.ts",
+      "bytes": 4440,
+      "sha256": "6b5e9c06ee21540cf70937ead315477580ef220f9fd1dee8e86382b417a603ef"
+    }
+  ]
+}

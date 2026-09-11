@@ -90,7 +90,6 @@ See the [source-asset guide](../assets/research/README.md) for provenance and cu
 
 | File | Invocation | Source to output and availability |
 | --- | --- | --- |
-| [prepare-office-v6-assets.mjs](prepare-office-v6-assets.mjs) | `node scripts/prepare-office-v6-assets.mjs` | v6 originals to `public/research/office-v6`; historical reproduction |
 | [prepare-office-v7-assets.mjs](prepare-office-v7-assets.mjs) | `node scripts/prepare-office-v7-assets.mjs`; optional `--actors-only` | v7 originals to background, actors, portraits, and furniture still referenced by the application |
 | [prepare-office-v8-pilot-assets.mjs](prepare-office-v8-pilot-assets.mjs) | `node scripts/prepare-office-v8-pilot-assets.mjs` | v8 pilot originals to v8 actors/entities; source directory absent from Git; does not reproduce the entire v8 background |
 | [prepare-office-v9-assets.mjs](prepare-office-v9-assets.mjs) | `node scripts/prepare-office-v9-assets.mjs [agentId ...]` | v9 actor originals and v8 pilot entity originals to v9 output; both input directories absent from Git |
@@ -105,11 +104,6 @@ Browser tools interact with pages; some can start research. Their current select
 | [reference-diff.mjs](reference-diff.mjs) | `pnpm audit:visual-diff` | Compares `docs/lovable-scale-reference.png` with `.omo/evidence/stocksembly-home/home-reference-size.png`; requires the capture first and writes JSON beside it |
 | [capture-visual.mjs](capture-visual.mjs) | `node scripts/capture-visual.mjs` | `CAPTURE_URL` defaults to port 4175; writes `.omo/evidence/stocksembly-home`; includes a Start research click |
 | [capture-research-completion.mjs](capture-research-completion.mjs) | `node scripts/capture-research-completion.mjs` | Accepts `CAPTURE_URL`, `CAPTURE_VIEWPORT`, `CAPTURE_STATE`, `CAPTURE_MODE`, `CAPTURE_LOCALE`, `CAPTURE_EVIDENCE_DIR`; default evidence `.omo/evidence/research-completion`; historical completion presentation checks |
-| [final-f3-manual-qa.mjs](final-f3-manual-qa.mjs) | Historical office-v7 scenario | Fixed URL `http://127.0.0.1:4325`; writes `.omo/evidence/office-v7/final-f3-manual-qa`; not a general smoke entrypoint |
-| [verify-research-quality-plan.mjs](verify-research-quality-plan.mjs) | Historical task/scope/final evidence binding | Requires `--mode`, `--evidence`, and mode-specific task/base/plan inputs; not the current general quality command |
-| [verify-scope-fidelity.mjs](verify-scope-fidelity.mjs) | Historical scope-contract CLI | `--json`, optional `--root`; depends on untracked `.omo/plans` baseline and anchor files; not runnable from a fresh clone alone |
-| [verify-scope-fidelity-contract.mjs](verify-scope-fidelity-contract.mjs) | Contract implementation for the scope CLI | Internal module |
-| [verify-scope-fidelity-core.mjs](verify-scope-fidelity-core.mjs) | Baseline paths, fixed hashes, and parsing | Internal module; do not fabricate replacement baselines to obtain a pass |
 
 ## Script tests
 
@@ -121,10 +115,13 @@ Browser tools interact with pages; some can start research. Their current select
 | [standalone-worker-launchers.test.ts](standalone-worker-launchers.test.ts) | Packaged worker launchers; Vitest |
 | [verify-standalone-worker.test.ts](verify-standalone-worker.test.ts) | Probe verification CLI; Vitest |
 | [verify-standalone-worker.full.test.ts](verify-standalone-worker.full.test.ts) | Full verification CLI; Vitest |
-| [verify-scope-fidelity.test.ts](verify-scope-fidelity.test.ts) | Historical scope verifier contracts; Vitest |
 
 Select a Vitest file with `pnpm exec vitest run scripts/<filename>`. The existence of a test does not mean its target tool is part of production execution.
 
 ## Adding or retiring a script
 
 Document the caller, working directory, required inputs, output location, and any database or remote writes. Add an alias only when it provides a useful supported entrypoint. Before moving a script, inspect package commands, workflow calls, imports, tests, and documentation links. Preserve historical prerequisites explicitly instead of presenting an old tool as fresh-clone setup.
+
+## Retired tools
+
+The v6 asset processor, fixed-port final-F3 capture, and plan/scope verifiers with missing historical baselines were archived and removed with their dedicated tests. They are not current CI commands. See [restoration instructions](../docs/repository-cleanup.md). Current quality fixtures, contract tests, CI helpers and packaged-worker checks remain supported.

@@ -2,7 +2,6 @@
 
 Stocksembly combines a stock-research website, independent research agents, committee synthesis, report publication, and background workers in one repository. Start here to locate implementation code; use the folder READMEs for boundaries and maintenance guidance.
 
-**Inventory baseline:** GitHub [`main` at 3aebe39](https://github.com/wrd1stProgrammer/Stocksembly/tree/3aebe39e0d435f05d4427253163abc5121666872), reviewed September 9, 2026. Maintainer for this documentation pass: Minsik Chae. Untracked files in a developer's checkout are not part of this baseline.
 
 ## Start with the task
 
@@ -34,14 +33,14 @@ Each guide explains the directory's contents, important entry points, dependenci
 | `design/` | Visual exploration and office layout concepts | [Design references](design/README.md) |
 | `.github/` | CI/deployment workflows and collaboration templates | [Automation boundaries](.github/README.md) |
 | `.agents/` | Instructions for developer-facing coding tools | [Development skills](.agents/README.md) |
-| `.artifacts/` | Selected historical quality-gate evidence committed to Git | [Evidence archive](.artifacts/README.md) |
+| `.artifacts/` | Ignored local investigation output (README only tracked) | [Output policy](.artifacts/README.md) |
 
 ## Root files
 
 | File | Purpose and maintenance rule |
 | --- | --- |
 | [PRODUCT.md](PRODUCT.md) | Product requirements and scope. Interpret together with the implementation, not as proof that every feature is shipped. |
-| [DESIGN.md](DESIGN.md) | Design and office presentation contracts. Read when changing layout, animation or character behavior. |
+| [DESIGN.md](DESIGN.md) | Current design entry points and preserved historical specifications. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Collaboration and release conventions. Confirm the intended PR base before publishing a branch. |
 | [design-qa.md](design-qa.md) | Historical design review notes; not a current automated test result. |
 | [package.json](package.json) | Commands, dependencies and Node requirement: `>=20.20.0 <21`. |
@@ -88,6 +87,7 @@ assets/research/*-sources/
 | `.stocksembly-verification/` | Worker bundles, diagnostic builds and local evidence | Git-ignored scratch output |
 | `research-data/` | Local research data when configured there | Persistent data, not disposable source |
 | `test-results/`, `playwright-report/` | Browser test traces and reports | Generated diagnostics |
+| `.artifacts/`, `.superdesign/`, `experiments/` | Local investigations and design exploration | Git-ignored; preserve important evidence before cleanup |
 | `.omo/` | Paths used by some historical tools | Git-ignored; a path name does not require running OMO |
 
 Presentations, source images and other untracked local files must not be removed based solely on this inventory. The [cleanup register](docs/repository-cleanup.md) records what was actually checked.

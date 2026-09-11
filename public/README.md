@@ -10,10 +10,10 @@ Files here are served directly from the website root. `public/brand/stocksembly-
 | --- | --- | --- |
 | `brand/` | Application icon and brand mark | Shared branding and metadata |
 | `editorial/` | Blog and editorial artwork | Editorial pages and cards |
-| `research/office-v6/` | Older scene outputs | Legacy manifest constants and tests |
 | `research/office-v7/` | Character atlases, portraits, background and furniture | Current presentation models, scene configuration and CSS |
 | `research/office-v8/` | Background and pilot resources | Current scene configuration |
 | `research/office-v9/` | Newer actors and entities | Current scene configuration |
+| `research/office-v10/` | Motion-catalog artwork | Reachable office-motion-catalog showcase |
 | `favicon.svg`, `robots.txt` | Browser icon and crawler directives | Browsers/crawlers |
 
 ## Source versus output

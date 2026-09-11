@@ -15,6 +15,16 @@ playwright-report/
 research-data/
 test-results/
 tmp/
-.superdesign/tmp/
+.superdesign/
 tsconfig.tsbuildinfo
 infra/aws/*.outputs
+
+# Local investigations and presentations; curated evidence belongs in docs/audits.
+.artifacts/*
+!.artifacts/README.md
+experiments/
+assets/presentation/
+/*.pptx
+/*.pdf
+/*.pptx.inspect.ndjson
+/*.zip

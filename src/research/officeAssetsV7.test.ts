@@ -167,10 +167,7 @@ describe("office v7 raster assets", () => {
     const expected = OFFICE_SCENE_MANIFEST.roster.flatMap((member) => {
       const sourceId =
         "assetSourceId" in member ? member.assetSourceId : member.id;
-      return [
-        `actors/${sourceId}-chroma.png`,
-        `actors/${sourceId}-alpha.png`,
-      ];
+      return [`actors/${sourceId}-chroma.png`, `actors/${sourceId}-alpha.png`];
     });
 
     // When
@@ -217,14 +214,11 @@ describe("office v7 raster assets", () => {
     expect(sourceId).toBe("chair");
   });
 
-  it("rejects the v6 base when evaluated against the v7 world", () => {
+  it("rejects a base with dimensions that do not match the v7 world", () => {
     // Given
-    const legacy = readPng(
-      path.join(process.cwd(), "public/research/office-v6"),
-      "base.png",
-    );
+    const wrongSize = new PNG({ width: 1, height: 1 });
 
     // When / Then
-    expect(() => expectV7BaseDimensions(legacy)).toThrow();
+    expect(() => expectV7BaseDimensions(wrongSize)).toThrow();
   });
 });

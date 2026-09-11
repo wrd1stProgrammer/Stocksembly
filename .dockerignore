@@ -17,3 +17,13 @@ playwright-report
 research-data
 test-results
 tmp
+
+# Developer tools and local evidence never belong in the build context.
+.agents
+.artifacts
+.superdesign
+experiments
+*.pptx
+/*.pdf
+*.pptx.inspect.ndjson
+*.zip
