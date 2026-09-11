@@ -907,3 +907,35 @@ describe("persisted anticipated Q&A selection", () => {
     ).toBe(selected.questions.length);
   });
 });
+
+describe("advisory publication", () => {
+  it("attempts repair but accepts unresolved content findings", async () => {
+    const candidate = {
+      ...cleanCandidate(),
+      comparators: cleanCandidate().comparators.map((item) => ({
+        ...item,
+        comparableMetricKeys: [],
+      })),
+      position: {
+        en: "Revenue reached $987654321.",
+        ko: "매출은 987654321달러입니다.",
+      },
+    };
+    const rewrite = vi.fn(async () => candidate);
+    const result = await gateWithOneTargetedRewrite(candidate, rewrite, {
+      advisory: true,
+    });
+    expect(rewrite).toHaveBeenCalledOnce();
+    expect(result.kind).toBe("accepted");
+    if (result.kind !== "accepted") throw new Error("publication blocked");
+    expect(result.violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "untyped_comparator" }),
+      ]),
+    );
+    expect(result.candidate.position.en).not.toContain("987654321");
+    expect(result.candidate.permittedClaimIds).toEqual(
+      candidate.permittedClaimIds,
+    );
+  });
+});

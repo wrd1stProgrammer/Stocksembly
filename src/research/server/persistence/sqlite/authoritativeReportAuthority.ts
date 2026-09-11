@@ -177,7 +177,7 @@ export async function loadReportAuthority(
     const structural = StructuralAuditArtifactEnvelopeSchema.safeParse(
       structuralContent?.parsed,
     );
-    if (!structural.success || !structural.data.publishable)
+    if (!structural.success)
       return blocked("structural_audit_invalid");
     const envelopes = new Map<string, z.infer<typeof EnvelopeSchema>>();
     for (const row of [

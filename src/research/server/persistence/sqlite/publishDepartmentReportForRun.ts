@@ -1225,15 +1225,18 @@ async function buildReport(
     },
     candidate,
   };
-  const gated = await gateWithOneTargetedRewrite(candidate, async (request) =>
-    reserveEditorialQualityRewrite({
-      databasePath,
-      runId,
-      inputHash: hashCanonical(request),
-      now,
-    })
-      ? deterministicMetadataRewrite(candidate, request)
-      : candidate,
+  const gated = await gateWithOneTargetedRewrite(
+    candidate,
+    async (request) =>
+      reserveEditorialQualityRewrite({
+        databasePath,
+        runId,
+        inputHash: hashCanonical(request),
+        now,
+      })
+        ? deterministicMetadataRewrite(candidate, request)
+        : candidate,
+    { advisory: true },
   );
   if (gated.kind === "rejected") throw new TypeError(gated.reason);
   const editorialPublication = {
@@ -1269,6 +1272,18 @@ async function buildReport(
       });
   const finalReport = WorkflowV2ResearchReportSchema.parse({
     ...report,
+    ...((gated.violations?.length ?? 0) > 0
+      ? {
+          status: "complete_with_limitations",
+          limitations: [
+            ...report.limitations,
+            {
+              id: "limitation:publication_content_review",
+              capability: "publication_content_review",
+            },
+          ],
+        }
+      : {}),
     teamViews: report.teamViews.map((teamView, index) =>
       index === 0
         ? {

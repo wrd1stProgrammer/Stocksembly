@@ -385,3 +385,13 @@
     transition: none;
   }
 }
+
+.research-file-content-notice {
+  margin: 20px clamp(26px, 3.7vw, 44px);
+  padding: 14px 18px;
+  border-left: 3px solid var(--editorial-accent);
+  color: var(--editorial-muted);
+  background: var(--editorial-paper);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}

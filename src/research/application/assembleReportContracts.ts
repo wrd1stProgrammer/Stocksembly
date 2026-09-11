@@ -62,6 +62,7 @@ export type AssembleReportResult =
       >;
       readonly publicationSentences: AssemblyInput["chairSentences"];
       readonly editorialPublication: PrePublicationEditorialEnvelope;
+      readonly contentWarnings: readonly string[];
       readonly recoveryMetadata: {
         readonly comparatorNormalizationAttemptCount?: number;
         readonly omissions: readonly (

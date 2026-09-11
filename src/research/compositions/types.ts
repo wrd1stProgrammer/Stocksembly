@@ -26,6 +26,7 @@ export type ResearchEvidenceStrength =
   | "unverified";
 
 export type ResearchFileData = {
+  readonly contentReviewRequired?: boolean;
   readonly reportId?: string;
   readonly presentationVersion?: "legacy-v1" | "workflow-v2";
   readonly structuredEditorial?: {

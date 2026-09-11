@@ -602,12 +602,14 @@ export async function gateWithOneTargetedRewrite(
   rewrite: (
     request: TargetedRewriteRequest,
   ) => Promise<PrePublicationEditorialCandidate>,
+  options: Readonly<{ advisory?: boolean }> = {},
 ): Promise<
   Readonly<
     | {
         kind: "accepted";
         candidate: PrePublicationEditorialCandidate;
         rewritten: boolean;
+        violations?: readonly PublicationQualityViolation[];
         fieldLineage: Readonly<
           Record<string, "synthesis" | "targeted_rewrite">
         >;
@@ -709,7 +711,7 @@ export async function gateWithOneTargetedRewrite(
       }),
     );
     const recoveryEvaluation = evaluatePrePublicationEditorialGate(recovered);
-    if (!recoveryEvaluation.publishable)
+    if (!recoveryEvaluation.publishable && !options.advisory)
       return {
         kind: "rejected",
         reason: stableEditorialFailureReason(recoveryEvaluation.hardViolations),
@@ -722,6 +724,9 @@ export async function gateWithOneTargetedRewrite(
     return {
       kind: "accepted",
       candidate: recovered,
+      ...(!recoveryEvaluation.publishable
+        ? { violations: recoveryEvaluation.hardViolations }
+        : {}),
       rewritten: recoveryChangedPaths.length > 0,
       fieldLineage: Object.fromEntries([
         ...candidateFieldPaths(recovered).map(
