@@ -51,3 +51,5 @@ For another retirement, identify runtime and manual consumers, archive and verif
 [CONTRIBUTING.md](../CONTRIBUTING.md) specifies PR-based collaboration. Keep workflow and infrastructure ownership explicit during review. No target Organization or team handles have been selected, so no guessed CODEOWNERS entries or permission changes are introduced.
 
 When transfer resumes, check the actual AWS OIDC trust against the new owner name/ID and repository identity in `infra/aws/stocksembly-cicd.yaml`. Confirm Actions variable/secret access before the first main deployment, and preserve the required `quality` check and main ruleset. Do not change application domains or AWS resources merely because the GitHub owner changes.
+
+The historical document-checker assertion in `src/research/designContract.test.ts` is retired with the checker: it depended on untracked baseline inputs and asserted outdated document values (including unavailable market data). The independent source-backed world, roster, clock, and public-event privacy checks remain. Current workflow contract tests and CI are unchanged.
