@@ -3,8 +3,8 @@
 > Historical architecture note: this document includes earlier WorkflowV1,
 > recovery, and scope-verifier assumptions. For current navigation use the
 > [repository guide](../../README.md) and [full committee pipeline](../full-committee-research-pipeline.ko.md).
-> The scope-fidelity command below requires untracked `.omo/plans` baseline and
-> anchor files; it is not a fresh-clone setup step or the current CI entry point.
+> The scope-fidelity command described below has been retired. Its source is
+> recoverable from the revision recorded in [repository cleanup](../repository-cleanup.md); it is not a current setup or CI step.
 > See [scripts/README.md](../../scripts/README.md) for runnable checks and prerequisites.
 
 This document is the runtime boundary for the local WorkflowV1 research service. It preserves the authored Pixi office as a projection while moving authority to durable application state.

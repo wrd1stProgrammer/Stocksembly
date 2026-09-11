@@ -784,14 +784,6 @@ export type MeetingSpot = {
   readonly direction: OfficeFacing;
 };
 
-export const OFFICE_SCENE_ASSETS = {
-  base: "/research/office-v6/base.png",
-  agent: (agentId: OfficeManifestAgentId) =>
-    `/research/office-v6/agents/${agentId}.png`,
-  chair: (direction: OfficeFacing) =>
-    `/research/office-v6/furniture/chair-${direction}.png`,
-} as const;
-
 const visualOffsets = {
   headOffset: { x: 0, y: -118 },
   labelOffset: { x: 0, y: -146 },

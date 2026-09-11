@@ -1,9 +1,5 @@
 # Product
 
-## Register
-
-brand
-
 ## Users
 
 - Global self-directed investors researching US-listed companies.

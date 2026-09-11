@@ -21,10 +21,12 @@ Use this directory for system explanations, implementation proposals, review rec
 | Directory | Contents | Status and usage |
 | --- | --- | --- |
 | [architecture](architecture/) | Research runtime, admin analytics, system diagrams, AWS HTML diagram | Explanations with different review dates; validate against current implementation |
+| [archive](archive/) | Historical design specifications | Current guidance is in root DESIGN.md |
+| [audits](audits/) | Sanitized research and recovery evidence | Each result is bound to its recorded revision |
 | [reference](reference/) | Project brief and service overview HTML documents | Product and presentation references, not runtime imports |
 | [qa/chart-touch-sidebar](qa/chart-touch-sidebar/) | Desktop and mobile screenshots | Evidence of a specific UI review, not a current regression result |
 
-[research-runtime.md](architecture/research-runtime.md) contains historical WorkflowV1 and scope-verification assumptions. Its opening note points to current navigation and explains the missing baseline required by the old verifier. [admin-analytics.md](architecture/admin-analytics.md) covers the administrative analytics area. The system architecture PNG and SVG are dated exports; keep their source explanation and exports together.
+[research-runtime.md](architecture/research-runtime.md) contains historical WorkflowV1 and scope-verification assumptions. Its opening note points to current navigation and identifies the retired verifier. [admin-analytics.md](architecture/admin-analytics.md) covers the administrative analytics area. The system architecture PNG and SVG are dated exports; keep their source explanation and exports together.
 
 ## Plans and evaluation records
 

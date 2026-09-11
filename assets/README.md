@@ -2,7 +2,7 @@
 
 [Repository guide](../README.md)
 
-This directory stores artwork used as input to asset preparation scripts. The tracked baseline contains `research/`, with v6 and v7 source sets. It is excluded from the Docker context and is not a public web URL directory.
+This directory stores artwork used as input to asset preparation scripts. The tracked baseline contains `research/`, with the retained v7 source set. It is excluded from the Docker context and is not a public web URL directory.
 
 ## Ownership and flow
 
@@ -10,7 +10,7 @@ Read [research/README.md](research/README.md) for version-specific source and ou
 
 ## What belongs here
 
-Keep editable/generated source artwork that is needed to reproduce published assets, along with provenance or processing notes. Runtime-ready assets belong in `public/`. Layout concepts belong in `design/`. QA screenshots belong in a deliberate evidence location such as `docs/qa/`.
+Keep editable/generated source artwork that is needed to reproduce published assets, along with provenance or processing notes. Runtime-ready assets belong in `public/`. Large layout concepts belong in an external asset store; their provenance belongs in `design/`. QA screenshots belong in a deliberate evidence location such as `docs/qa/`.
 
 ## Missing inputs
 

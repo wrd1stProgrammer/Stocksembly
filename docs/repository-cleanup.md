@@ -1,64 +1,53 @@
-# Repository organization and legacy review
+# Repository cleanup and recovery
 
-- Owner: Minsik Chae
-- Review date: September 9, 2026
-- Baseline: [GitHub main `3aebe39`](https://github.com/wrd1stProgrammer/Stocksembly/tree/3aebe39e0d435f05d4427253163abc5121666872)
-- Entry points: [Repository guide](../README.md), [scripts guide](../scripts/README.md), [documentation index](README.md)
+Reviewed and implemented September 11, 2026, from commit `47b0b22782ddd043abd6b987f4f2e7b5b51d77b5`. GitHub Organization transfer is deferred; repository ownership, permissions, workflows and deployment configuration have not been changed.
 
-## Scope and method
+## Removed from the current tree
 
-This review compared tracked files with package commands, CI calls, Docker packaging, source/CSS references, and script inputs and outputs. Local-only originals were not described as GitHub content. The expanded navigation guides are written in English; pre-existing historical Korean documents retain their original content.
-
-Classifications used here:
-
-- **Active:** an identifiable source, CSS, package-command, or CI consumer exists.
-- **Supporting:** serves a manual development or operational task outside required deployment execution.
-- **Historical:** records an earlier design, experiment, or reproduction workflow.
-- **Missing inputs:** the tool is tracked, but required source material or baselines are not.
-
-Absence from a static search is not proof that external or manual use is absent.
-
-## Decisions by item
-
-| Item | Evidence and actual purpose | Decision |
+| Collection | Reason | Recovery |
 | --- | --- | --- |
-| `asset_research` | No tracked path by this name; the relevant directory is `assets/research` | Added an explicit source-asset entrypoint with correct naming |
-| `assets/research/office-v6-sources` | Direct input to the v6 processor; exported resources remain in compatibility constants and tests | Retain as historical reproduction material |
-| `assets/research/office-v7-sources` | Direct processor input; actor/portrait paths are constructed by manifest and report models; CSS references the background | Retain in place as active processing inputs |
-| v8/v9 processors | Read untracked v8 pilot and v9 source directories | Mark missing inputs; preserve active exported assets |
-| `.agents/skills/react-doctor` | Developer skill with an explanation reference; package command exists, CI does not call it | Retain as an optional coding tool and distinguish it from product research agents |
-| `quality-timeseries.ts` usage comment | Referenced a nonexistent package alias, unsupported Node 20 direct-TS invocation, and unavailable design paths | Corrected the comment to the verified Vite bundling route; executable code unchanged |
-| `verify-scope-fidelity*` | Requires fixed baseline/anchor files under `.omo/plans`, absent from Git | Label historical and document prerequisites; add a caveat to the old runtime guide |
-| `verify-research-quality-plan.mjs` | Binds task/scope/final evidence to historical plan inputs | Document separately from normal quality checks |
-| `final-f3-manual-qa.mjs` | Fixed office-v7 scenario on port 4325 | Retain as historical; do not recommend as general smoke coverage |
-| Capture scripts | Browser interaction and older presentation scenarios, sometimes including research start | Document effects and unverified current selector compatibility |
-| `.artifacts/quality-gates`, `design/concepts`, dated plans | Historical evidence and design references, not established general build inputs | Retain with clear navigation and historical status |
+| Fifteen PNGs in `design/concepts/` | Unused visual alternatives, not deployed scenes | External archive or source commit |
+| v6 source and public PNGs, preparation script and raster-only tests | Retired generation; no current rendering consumer of its asset constant | External archive or source commit |
+| `scripts/final-f3-manual-qa.mjs` | Historical fixed-port scenario | External archive or source commit |
+| `scripts/verify-scope-fidelity*` and `verify-research-quality-plan.mjs` | Historical plan/baseline tools, not the current CI path; missing fresh-clone inputs | External archive or source commit |
+| `.artifacts/quality-gates/` | Old experiment logs | External archive or source commit |
 
-## Evidence entry points
+The archive contains 63 files totaling 54,818,189 source bytes (about52.28MiB); use the manifest as the authoritative byte inventory. Each archive member was read back and compared with its original SHA-256 before removal. Existing v6 tests passed before retirement. The mixed V7 wrong-dimension test now uses a synthetic image, preserving rejection coverage without keeping a retired PNG.
 
-| Question | Source |
-| --- | --- |
-| Which images are consumed? | [Manifest](../src/research/officeSceneManifest.ts), [mock data](../src/research/mockResearch.ts), [editorial model](../src/research/researchFileEditorialModel.ts), [CSS](../src/styles/research-workspace-v2.css) |
-| Which originals are required? | [v6 processor](../scripts/prepare-office-v6-assets.mjs), [v7](../scripts/prepare-office-v7-assets.mjs), [v8](../scripts/prepare-office-v8-pilot-assets.mjs), [v9](../scripts/prepare-office-v9-assets.mjs) |
-| Which tools actually run? | [package.json](../package.json), [CI pipeline](../.github/workflows/pipeline.yml) |
-| What ships? | [.dockerignore](../.dockerignore), [Dockerfile](../Dockerfile), [standalone packaging](../scripts/prepare-standalone.mjs) |
-| Why is scope verification not fresh-clone setup? | [Baseline implementation](../scripts/verify-scope-fidelity-core.mjs) |
+Archive name: `retired-assets-and-tools.tar.gz`.
+SHA-256: `db1331f217f898932e4b1177c4bc1eff86b8d9a8a84470a8193a7bf858c097b3`.
+The maintainer holds the verified local archive outside all worktrees; a shared team asset-store location has not been selected. The tracked [file manifest](archive/retired-files-2026-09-11.json) records every original path, size and hash. The original source commit is also retained in Git history.
 
-## Organization delivered
+## Restore without changing your checkout
 
-The root guide maps every tracked root directory and major configuration file. Folder READMEs explain ownership, entrypoints, dependencies, outputs, and maintenance boundaries. Research, report components, and briefing workers have additional source-area guides. The scripts entrypoint accounts for all 38 baseline scripts and tests, including internal modules and historical tools.
+The source commit provides a team-accessible recovery path while no shared archive URL exists:
 
-No asset, skill, or verifier was deleted or moved. Runtime behavior, dependencies, and deployment configuration are unchanged. Keeping these paths avoids breaking regeneration workflows and manual tooling while making their status explicit.
+```sh
+# Run from a clone containing the source commit. Use a new output location.
+git archive --format=tar --output=/tmp/stocksembly-retired-art.tar \
+  47b0b22782ddd043abd6b987f4f2e7b5b51d77b5 \
+  design/concepts assets/research/office-v6-sources public/research/office-v6
+```
 
-## Conditions for future removal
+Use `git show 47b0b22782ddd043abd6b987f4f2e7b5b51d77b5:path/to/file` to inspect any retired tool, or add its manifest path to `git archive`. Extract into a separate directory; do not overwrite a dirty worktree. Moving files out of the current tree does not erase Git history or automatically reduce old clone object storage.
 
-1. Retire v6 only after resolving its compatibility constants, tests, and source-reproduction requirements together.
-2. Locate and document durable storage for v8/v9 originals before claiming fresh-clone regeneration is supported.
-3. Decide whether historical plans and baselines need preservation before removing their verifiers, tests, and references.
-4. Retire React Doctor together with its package command and coding-tool configuration if the team no longer uses it.
+## Preserved boundaries
 
-## Verification boundary
+- V7 portraits/atlases/background/furniture, V8 scene/briefing art, V9 actors/entities and V10 motion-catalog artwork retain current consumers. Dynamic URLs were considered; version suffixes are not deletion evidence.
+- Legacy seat/roster fields remain where active bubble/config code uses them. Only the unused v6 asset constant is removed.
+- V7 generation inputs are retained. V8/V9 originals remain absent from Git; existing local originals were not changed. Arrange durable shared storage before claiming full fresh-clone regeneration.
+- Product policy, current design entry points, recent research audits, test fixtures, database migrations, React Doctor development guidance, CI, AWS deployment and test-account provisioning remain.
+- The accumulated design specifications moved intact to [design history](archive/design-history.md); root [DESIGN.md](../DESIGN.md) now points to current implementation and invariants.
+- Personal presentations, local databases, unfinished worktrees and caches were not deleted. The original dirty checkout is preserved. Ignore rules prevent new local captures from being accidentally added; they do not erase existing files.
 
-Check local documentation links, folder coverage, script-inventory completeness, English prose, and whitespace. The two newly documented TypeScript audit bundling commands were successfully exercised with Node 20.20.2. The timeseries executable code was compared with the baseline and remains identical.
+## Ongoing policy
 
-Database audits, live research generation, production synchronization, image regeneration, and React Doctor fixes are outside this documentation pass and were not executed. Historical evidence is not presented as a current runtime test result.
+Use ignored `.artifacts/` for temporary investigations. Promote only sanitized summaries with command, revision, input and limitations to `docs/audits/`. Keep design exploration and presentation binaries outside Git until deliberately selected. Do not use force-add for raw credentials or production database copies.
+
+For another retirement, identify runtime and manual consumers, archive and verify source material, update connected code/tests/docs, then run the affected checks. Deleting currently failing tests to conceal a regression is not cleanup.
+
+## Collaboration and deferred Organization transfer
+
+[CONTRIBUTING.md](../CONTRIBUTING.md) specifies PR-based collaboration. Keep workflow and infrastructure ownership explicit during review. No target Organization or team handles have been selected, so no guessed CODEOWNERS entries or permission changes are introduced.
+
+When transfer resumes, check the actual AWS OIDC trust against the new owner name/ID and repository identity in `infra/aws/stocksembly-cicd.yaml`. Confirm Actions variable/secret access before the first main deployment, and preserve the required `quality` check and main ruleset. Do not change application domains or AWS resources merely because the GitHub owner changes.
