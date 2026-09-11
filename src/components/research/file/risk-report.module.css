@@ -155,7 +155,7 @@
 }
 .trafficLights > div {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
 }
 .trafficLights article {
   display: grid;
@@ -367,4 +367,18 @@
     border-top: 1px solid var(--editorial-rule);
     border-left: 0;
   }
+}
+
+.trafficLights article[data-signal="unknown"] > span {
+  background: var(--editorial-muted);
+}
+.trafficLights article > small {
+  color: var(--editorial-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.trafficLights article > p {
+  grid-column: 2;
+  font-size: 0.95rem;
+  line-height: 1.7;
 }

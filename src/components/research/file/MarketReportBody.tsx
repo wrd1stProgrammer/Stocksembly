@@ -135,7 +135,13 @@ export function MarketReportBrief(props: DepartmentReportBodyProps) {
         </div>
       </section>
 
-      {product.relativePerformance === undefined ? null : (
+      {product.relativePerformance === undefined ? (
+        <p className="research-data-context">
+          {ko
+            ? "비교 수익률 표는 제공되지 않습니다. 상대성과 판단과 근거의 한계는 아래 분석에서 확인하세요."
+            : "A comparison return table is not available. See the analysis below for relative-performance findings and evidence limitations."}
+        </p>
+      ) : (
         <section
           className={styles.relative}
           data-market-landmark="relative-performance"
@@ -300,7 +306,7 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
             className={styles.persistence}
             data-market-landmark="signal-persistence"
           >
-            <h3 aria-label={ko ? "날짜가 있는 촉매" : "Dated catalyst clock"}>
+            <h3 aria-label={ko ? "신호 지속성" : "Signal persistence"}>
               <ResearchTermHelp
                 term="signalPersistence"
                 label={ko ? "신호 지속성" : "Signal persistence"}
@@ -316,7 +322,7 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
               {product.persistence.map(({ label, point }) => (
                 <li key={point.id}>
                   <span>{label}</span>
-                  <strong>{formatMarketMetric(point, locale)}</strong>
+                  <strong>{point.value.toFixed(1)} pp</strong>
                   <em
                     data-direction={point.value >= 0 ? "positive" : "negative"}
                   >
@@ -342,7 +348,15 @@ export function MarketReportFramework(props: DepartmentReportBodyProps) {
             <h3>
               <ResearchTermHelp
                 term="datedCatalyst"
-                label={ko ? "날짜가 있는 촉매" : "Dated catalyst clock"}
+                label={
+                  product.catalysts.length > 0
+                    ? ko
+                      ? "날짜가 있는 촉매"
+                      : "Dated catalyst clock"
+                    : ko
+                      ? "향후 확인할 촉매"
+                      : "Catalysts to monitor"
+                }
                 locale={locale}
               />
             </h3>

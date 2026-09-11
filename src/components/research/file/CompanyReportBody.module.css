@@ -102,7 +102,7 @@
   gap: 20px;
 }
 .segmentMix h3 {
-  font-size: 0.85rem;
+  font-size: 0.96rem;
 }
 .segmentMix i {
   display: block;
@@ -238,7 +238,7 @@
 .moat li strong {
   display: block;
   margin-top: 0;
-  font-size: 0.86rem;
+  font-size: 0.96rem;
   line-height: 1.5;
 }
 .moat li p {
@@ -400,5 +400,14 @@
   .moat li > div {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+}
+
+@media (max-width: 600px) {
+  .moat li,
+  .moat li > div,
+  .engineGrid > div,
+  .engineGrid article {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

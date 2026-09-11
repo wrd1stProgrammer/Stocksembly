@@ -21,10 +21,11 @@ import type { CodexPort } from "../server/codex/codexRunner";
 
 const LegacyDepartmentRunnerSchema =
   DepartmentConsolidationOutputSchema.unwrap()
-    .omit({ decisionPacket: true })
+    .omit({ decisionPacket: true, publicationMode: true })
     .readonly();
 const CoherentDepartmentRunnerSchema =
   DepartmentConsolidationOutputSchema.unwrap()
+    .omit({ publicationMode: true })
     .extend({ decisionPacket: DepartmentDecisionPacketSchema })
     .readonly();
 
@@ -83,6 +84,18 @@ export const DepartmentJobPromptSchema = z
           })
           .strict(),
       )
+      .optional(),
+    evidenceReview: z
+      .array(
+        z
+          .object({
+            artifactId: ArtifactIdSchema,
+            excerpt: z.string().max(6000),
+            structuredFacts: z.string().max(18000).optional(),
+          })
+          .strict(),
+      )
+      .max(32)
       .optional(),
     editorialBrief: z.string().trim().min(1).max(10_000).optional(),
   })

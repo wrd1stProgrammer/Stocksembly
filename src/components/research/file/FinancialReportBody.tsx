@@ -1,3 +1,4 @@
+import { cashFlowReconciliation } from "../../../research/domain/metricSnapshot";
 import { workflowRoleById } from "../../../research/domain/roleRegistry";
 import { publicDecisionDimensionLabel } from "../../../research/publicPresentation";
 import {
@@ -44,8 +45,8 @@ function financialMetricDescription(metricId: string, locale: "ko" | "en") {
       : "Profit left after operating expenses, indicating core profitability and cost control.";
   if (id.includes("free_cash_flow"))
     return ko
-      ? "영업에서 번 현금에서 설비투자를 뺀 금액입니다. 부채 상환·자사주·배당에 실제로 쓸 수 있는 현금을 봅니다."
-      : "Operating cash flow after capital expenditure, available for debt reduction and shareholder returns.";
+      ? "영업현금흐름에서 자료가 정의한 투자액을 차감한 값입니다. 총·순투자액과 조정 항목에 따라 공시와 공급사 수치가 다를 수 있습니다."
+      : "Operating cash flow after the source-defined investment amount. Gross/net capex and adjustments can differ between issuer and provider definitions.";
   if (id.includes("operating_cash_flow"))
     return ko
       ? "본업이 실제로 만들어낸 현금입니다. 회계상 이익이 현금으로 전환되는지 확인합니다."
@@ -94,6 +95,7 @@ export function FinancialReportBrief({
   const copy = departmentSectionCopy("financial", locale);
   const periods = selectAlignedFinancialPeriods(file);
   const diagnostics = selectFinancialDiagnostics(file);
+  const cashFlow = cashFlowReconciliation(file.metricSnapshot?.metrics ?? []);
   const snapshot = (file.metricSnapshot?.metrics ?? [])
     .filter((metric) => metric.category === "financial")
     .slice(0, 6);
@@ -113,6 +115,59 @@ export function FinancialReportBrief({
         description={copy.primaryDescription}
         help={{ term: "financialLab", locale }}
       />
+      <aside className="research-data-context">
+        {ko
+          ? "지표 카드는 표시된 자료 정의와 기간을 따릅니다. 공시의 순설비투자·FCF와 공급사 수치를 직접 혼합하지 않습니다."
+          : "Metric cards retain their stated source definition and period. Issuer net capex and FCF must not be mixed with provider-defined figures."}
+      </aside>
+      {cashFlow.status === "unavailable" ? null : (
+        <section
+          className={styles["snapshot"]}
+          aria-label={
+            ko ? "동일 기준 현금흐름 연결" : "Cash-flow reconciliation"
+          }
+        >
+          <article>
+            <span>{ko ? "영업현금흐름" : "Operating cash flow"}</span>
+            <strong>{formatFinancialMetric(cashFlow.operating, locale)}</strong>
+            <small>{cashFlow.operating.period}</small>
+          </article>
+          <article>
+            <span>{cashFlow.capex.label[locale]}</span>
+            <strong>
+              −{" "}
+              {formatFinancialMetric(
+                { ...cashFlow.capex, value: Math.abs(cashFlow.capex.value) },
+                locale,
+              )}
+            </strong>
+          </article>
+          <article>
+            <span>{ko ? "위 두 값의 차이" : "Difference of these inputs"}</span>
+            <strong>
+              {formatFinancialMetric(
+                { ...cashFlow.free, value: cashFlow.calculated },
+                locale,
+              )}
+            </strong>
+          </article>
+          {cashFlow.status === "different_definition" ? (
+            <article>
+              <span>
+                {ko
+                  ? "보고 FCF · 정의 확인 필요"
+                  : "Reported FCF · definition differs"}
+              </span>
+              <strong>{formatFinancialMetric(cashFlow.free, locale)}</strong>
+              <small>
+                {ko
+                  ? "자동 계산 비율은 생략합니다."
+                  : "Derived FCF ratios are omitted."}
+              </small>
+            </article>
+          ) : null}
+        </section>
+      )}
       {diagnostics.length === 0 ? null : (
         <section
           className={styles["diagnostics"]}
@@ -282,7 +337,7 @@ export function FinancialReportFramework({
   const structuredTests = (model.structuredClaims ?? []).filter(
     (claim) => workflowRoleById(claim.roleOwner)?.departmentId === "financial",
   );
-  const claimTests =
+  const candidateTests =
     structuredTests.length > 0
       ? structuredTests.map((claim) => ({
           id: claim.claimId,
@@ -294,6 +349,13 @@ export function FinancialReportFramework({
           thesis: row.evidence,
           falsifier: row.checkpoint,
         }));
+  const claimTests = candidateTests.filter(
+    (claim, index, rows) =>
+      claim.falsifier.trim().length > 0 &&
+      rows.findIndex(
+        (other) => other.falsifier.trim() === claim.falsifier.trim(),
+      ) === index,
+  );
   const expectationGroups = [
     {
       id: "earnings" as const,
@@ -404,10 +466,7 @@ export function FinancialReportFramework({
               <li key={claim.id}>
                 <span>TEST {String(index + 1).padStart(2, "0")}</span>
                 <div>
-                  <strong>{claim.thesis}</strong>
-                  {claim.falsifier.trim() === claim.thesis.trim() ? null : (
-                    <p>{claim.falsifier}</p>
-                  )}
+                  <p>{claim.falsifier}</p>
                 </div>
               </li>
             ))}

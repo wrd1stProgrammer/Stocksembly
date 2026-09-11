@@ -15,7 +15,8 @@ export type RankedRisk = {
   readonly priorityScore: number;
   readonly evidenceArtifactIds: readonly string[];
   readonly decisiveMetricIds: readonly string[];
-  readonly signal: "red" | "amber" | "green";
+  readonly signal: "unknown";
+  readonly recovery: string;
 };
 
 const RISK_DIMENSIONS = new Set([
@@ -46,24 +47,19 @@ export function rankStructuredRisks(
           ? 2
           : observability === "observable"
             ? 1
-            : 0) +
-        (claim.stanceContribution === "opposes" ? 1 : 0);
+            : 0);
       return {
         claimId: claim.claimId,
         dimension: claim.decisionDimension,
         thesis: claim.publicThesis[locale],
-        indicator: claim.falsifier[locale],
+        indicator: claim.publicThesis[locale],
+        recovery: claim.falsifier[locale],
         impact,
         observability,
         priorityScore,
         evidenceArtifactIds: claim.evidenceArtifactIds,
         decisiveMetricIds: claim.decisiveMetricIds,
-        signal:
-          claim.stanceContribution === "supports"
-            ? ("red" as const)
-            : claim.stanceContribution === "opposes"
-              ? ("green" as const)
-              : ("amber" as const),
+        signal: "unknown" as const,
       };
     })
     .sort(

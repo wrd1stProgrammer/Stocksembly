@@ -118,6 +118,7 @@ export const DepartmentDecisionPacketSchema = z
 export const DepartmentConsolidationOutputSchema = z
   .object({
     kind: z.literal("department_consolidation"),
+    publicationMode: z.literal("limited_compilation").optional(),
     sourceArtifactIds: SourceArtifactIdsSchema,
     agreementClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
     disagreementClaimIds: z.array(ClaimIdSchema).max(64).readonly(),

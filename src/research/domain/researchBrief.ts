@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EditorialDecisionDimensionSchema } from "./agentOutputsShared";
+import { enrichQuestionEvidence } from "./questionEvidenceRequirements";
 import type { ResearchProfile } from "./researchProfile";
 
 export const ResearchBriefSchema = z
@@ -71,20 +72,22 @@ export function groundedResearchBrief(
           exactQuote: null,
         };
   });
-  return ResearchBriefSchema.parse({
-    ...brief,
-    question,
-    entities,
-    limitations: [
-      ...brief.limitations,
-      ...entities
-        .filter((item) => item.meaning === null)
-        .map(
-          (item) =>
-            `Resolve the exact meaning of '${item.term}' in an issuer primary source before making claims about it.`,
-        ),
-    ].slice(0, 8),
-  });
+  return enrichQuestionEvidence(
+    ResearchBriefSchema.parse({
+      ...brief,
+      question,
+      entities,
+      limitations: [
+        ...brief.limitations,
+        ...entities
+          .filter((item) => item.meaning === null)
+          .map(
+            (item) =>
+              `Resolve the exact meaning of '${item.term}' in an issuer primary source before making claims about it.`,
+          ),
+      ].slice(0, 8),
+    }),
+  );
 }
 
 export function fallbackResearchBrief(
@@ -114,31 +117,33 @@ export function fallbackResearchBrief(
         "Does growth create cash after the required reinvestment?",
         "What performance does the current valuation require and what could invalidate it?",
       ];
-  return ResearchBriefSchema.parse({
-    version: "research-brief-v1",
-    question,
-    objective,
-    decisionFrame: financial
-      ? "Assess financial resilience; answer financial strength directly without substituting a buy/sell verdict."
-      : `Answer the exact question for a ${profile.investmentHorizon} horizon and ${profile.decisionPurpose} purpose.`,
-    priorityDimensions: dimensions,
-    entities: [],
-    cruxes: dimensions.map((dimension, index) => ({
-      question: questions[index],
-      dimension,
-      evidenceNeeded:
-        "Latest issuer filing and comparable fiscal periods; distinguish disclosed facts from assumptions.",
-      searchTerms: financial
-        ? ["cash flow", "operating margin", "liquidity", "debt maturity"]
-        : [
-            "segment revenue",
-            "capital expenditure",
-            "operating margin",
-            "outlook",
-          ],
-    })),
-    limitations: [
-      "Question planning was unavailable. Resolve every product or event name from primary evidence; do not guess from spelling or substitute a different topic.",
-    ],
-  });
+  return enrichQuestionEvidence(
+    ResearchBriefSchema.parse({
+      version: "research-brief-v1",
+      question,
+      objective,
+      decisionFrame: financial
+        ? "Assess financial resilience; answer financial strength directly without substituting a buy/sell verdict."
+        : `Answer the exact question for a ${profile.investmentHorizon} horizon and ${profile.decisionPurpose} purpose.`,
+      priorityDimensions: dimensions,
+      entities: [],
+      cruxes: dimensions.map((dimension, index) => ({
+        question: questions[index],
+        dimension,
+        evidenceNeeded:
+          "Latest issuer filing and comparable fiscal periods; distinguish disclosed facts from assumptions.",
+        searchTerms: financial
+          ? ["cash flow", "operating margin", "liquidity", "debt maturity"]
+          : [
+              "segment revenue",
+              "capital expenditure",
+              "operating margin",
+              "outlook",
+            ],
+      })),
+      limitations: [
+        "Question planning was unavailable. Resolve every product or event name from primary evidence; do not guess from spelling or substitute a different topic.",
+      ],
+    }),
+  );
 }

@@ -53,8 +53,10 @@ export function ResearchFileQuestions({
                 <small>{item.lens[locale]}</small>
               )}
             </header>
-            <h3>{item.question[locale]}</h3>
-            <p>{item.answer[locale]}</p>
+            <details>
+              <summary>{item.question[locale]}</summary>
+              <p>{item.answer[locale]}</p>
+            </details>
           </article>
         ))}
       </div>

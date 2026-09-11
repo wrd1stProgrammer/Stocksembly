@@ -13,7 +13,10 @@ import type {
   ResearchMetricPoint,
   ResearchMetricSnapshot,
 } from "../domain/metricSnapshot";
-import { metricsSharePeriod } from "../domain/metricSnapshot";
+import {
+  canCalculateCashFlowRatio,
+  metricsSharePeriod,
+} from "../domain/metricSnapshot";
 import {
   DEFAULT_RESEARCH_PROFILE,
   type ResearchProfile,
@@ -440,6 +443,7 @@ function calculationCandidates(input: {
     freeCashFlow !== undefined &&
     revenue.value > 0 &&
     cashClaim !== undefined &&
+    canCalculateCashFlowRatio(input.metrics?.metrics ?? []) &&
     metricsSharePeriod(revenue, freeCashFlow)
   ) {
     const margin = (freeCashFlow.value / revenue.value) * 100;
@@ -454,8 +458,8 @@ function calculationCandidates(input: {
         ko: "매출 중 실제 잉여현금흐름으로 남는 비중은 얼마나 되나요?",
       },
       answer: {
-        en: `Free cash flow equals ${marginText}% of trailing revenue. Use that conversion rate as the earnings-quality floor: reported growth deserves less valuation weight if cash conversion falls while revenue expands.`,
-        ko: `잉여현금흐름은 최근 12개월 매출의 ${marginText}%입니다. 이 전환율을 이익의 질을 판단하는 하한선으로 사용해야 하며, 매출이 늘어도 현금 전환율이 낮아지면 보고 성장률의 밸류에이션 가중치를 낮춰야 합니다.`,
+        en: `${freeCashFlow.label.en} equals ${marginText}% of trailing revenue. Use that conversion rate as the earnings-quality floor: reported growth deserves less valuation weight if cash conversion falls while revenue expands.`,
+        ko: `${freeCashFlow.label.ko}은 최근 12개월 매출의 ${marginText}%입니다. 이 전환율을 이익의 질을 판단하는 하한선으로 사용해야 하며, 매출이 늘어도 현금 전환율이 낮아지면 보고 성장률의 밸류에이션 가중치를 낮춰야 합니다.`,
       },
       claims: [cashClaim],
     });
@@ -564,6 +568,7 @@ export function selectGroundedAnticipatedQuestions(
     metricSnapshot?: ResearchMetricSnapshot;
     marketSnapshot?: { readonly lastPrice: number };
     target?: number;
+    focusedTeam?: boolean;
   }>,
 ): Readonly<{
   policy: typeof ANTICIPATED_QUESTIONS_POLICY;
@@ -612,8 +617,8 @@ export function selectGroundedAnticipatedQuestions(
       decisionKey: "decision_breaker",
       priority: 106,
       question: {
-        en: "What single observable result would force the current decision to change?",
-        ko: "어떤 단 하나의 관찰 결과가 나오면 현재 판단을 바꿔야 하나요?",
+        en: "Which observable conditions would change the current assessment?",
+        ko: "어떤 관찰 조건에서 현재 판단을 바꿔야 하나요?",
       },
       answer: input.decision.falsifier,
       claims: decisionClaims,
@@ -636,7 +641,11 @@ export function selectGroundedAnticipatedQuestions(
           88 +
           (claim.materiality === "material" ? 5 : 0) +
           (input.decision.primaryClaimIds.includes(claim.claimId) ? 4 : 0),
-        question: questionFor(claim, "thesis", index % 5),
+        question: questionFor(
+          claim,
+          "thesis",
+          input.focusedTeam ? 0 : index % 5,
+        ),
         answer: claimAnswer(profile, claim, index),
         claims: [claim],
       }),
@@ -650,7 +659,11 @@ export function selectGroundedAnticipatedQuestions(
         ? {}
         : { marketSnapshot: input.marketSnapshot }),
       claims: preferred,
-    }),
+    }).map((candidate) =>
+      input.focusedTeam
+        ? { ...candidate, priority: candidate.priority - 40 }
+        : candidate,
+    ),
     ...preferred
       .filter((claim) => claim.materiality === "material")
       .map(
@@ -665,8 +678,19 @@ export function selectGroundedAnticipatedQuestions(
   ].sort((left, right) => right.priority - left.priority);
   const selected: PersistedQuestion[] = [];
   const primaryCounts = new Map<string, number>();
+  const coveredDimensions = new Set<string>();
   for (const candidate of candidates) {
-    if (selected.length >= target || candidate.claims.length === 0) break;
+    if (selected.length >= target) break;
+    if (candidate.claims.length === 0) continue;
+    const dimension = candidate.claims[0]?.decisionDimension;
+    const isClaimQuestion = /_decision_\d+$/u.test(candidate.decisionKey);
+    if (
+      input.focusedTeam &&
+      isClaimQuestion &&
+      dimension &&
+      coveredDimensions.has(dimension)
+    )
+      continue;
     if (
       candidate.claims.some((claim) => claim.evidenceArtifactIds.length === 0)
     )
@@ -698,6 +722,7 @@ export function selectGroundedAnticipatedQuestions(
         claim.claimId,
         (primaryCounts.get(claim.claimId) ?? 0) + 1,
       );
+    if (isClaimQuestion && dimension) coveredDimensions.add(dimension);
     const primaryClaimIds = candidate.claims.map((claim) => claim.claimId);
     selected.push(
       PersistedQuestionAnswerSchema.parse({

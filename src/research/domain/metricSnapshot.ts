@@ -31,6 +31,15 @@ export const ResearchMetricPointSchema = z
       "shares",
     ]),
     period: z.string().min(1).max(40).optional(),
+    definition: z.enum(["provider_reported", "issuer_reported"]).optional(),
+    periodStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/u)
+      .optional(),
+    periodEnd: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/u)
+      .optional(),
     observedAt: z.string().datetime(),
     source: z.enum(["insightsentry", "sec"]),
     signal: z.enum(["higher_better", "lower_better", "contextual"]),
@@ -105,7 +114,10 @@ const DEFINITIONS: readonly MetricDefinition[] = [
   {
     id: "free_cash_flow",
     providerIds: ["free_cash_flow_ttm", "free_cash_flow_fq"],
-    label: { en: "Free cash flow", ko: "잉여현금흐름" },
+    label: {
+      en: "FCF · provider definition",
+      ko: "잉여현금흐름 · 공급사 정의",
+    },
     category: "financial",
     unit: "USD",
     signal: "higher_better",
@@ -151,7 +163,7 @@ const DEFINITIONS: readonly MetricDefinition[] = [
   {
     id: "capital_expenditures",
     providerIds: ["capital_expenditures_ttm", "capital_expenditures_fq"],
-    label: { en: "Capital expenditure", ko: "설비투자" },
+    label: { en: "Capex · provider definition", ko: "설비투자 · 공급사 정의" },
     category: "financial",
     unit: "USD",
     signal: "contextual",
@@ -380,6 +392,14 @@ const FundamentalsSchema = z
       z.object({
         id: z.string(),
         period: z.string().optional(),
+        periodStart: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/u)
+          .optional(),
+        periodEnd: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/u)
+          .optional(),
         value: z.unknown(),
       }),
     ),
@@ -564,8 +584,13 @@ export function buildResearchMetricSnapshot(input: {
                 indicator.period ??
                 /_(ttm|fq|fy)$/iu.exec(indicator.id)?.[1]?.toUpperCase(),
             }),
+        ...(indicator.periodStart
+          ? { periodStart: indicator.periodStart }
+          : {}),
+        ...(indicator.periodEnd ? { periodEnd: indicator.periodEnd } : {}),
         observedAt: fundamentals.data.providerUpdatedAt,
         source: "insightsentry",
+        definition: "provider_reported",
         signal: definition.signal,
       });
     }
@@ -604,6 +629,7 @@ export function buildResearchMetricSnapshot(input: {
         category: "market",
         value,
         unit: "percent",
+        period: id.endsWith("_3m") ? "trailing_3_months" : "trailing_1_year",
         observedAt: peers.data.providerUpdatedAt,
         source: "insightsentry",
         signal: "higher_better",
@@ -762,8 +788,57 @@ export function metricsSharePeriod(
     (metric) =>
       metric !== undefined &&
       metric.period?.trim().toUpperCase() === period &&
+      metric.periodStart === first.periodStart &&
+      metric.periodEnd === first.periodEnd &&
       (!/^(TTM|FQ|FY)$/u.test(period) ||
         (metric.source === first.source &&
           metric.observedAt === first.observedAt)),
+  );
+}
+
+/** Compare only the same provider/issuer basis; never replace a reported FCF. */
+export function cashFlowReconciliation(
+  metrics: readonly ResearchMetricPoint[],
+) {
+  const latest = (id: string) =>
+    [...metrics].reverse().find((metric) => metric.id === id);
+  const operating = latest("operating_cash_flow");
+  const capex = latest("capital_expenditures");
+  const free = latest("free_cash_flow");
+  if (
+    !operating ||
+    !capex ||
+    !free ||
+    !metricsSharePeriod(operating, capex, free) ||
+    new Set([operating.source, capex.source, free.source]).size !== 1 ||
+    [operating, capex, free].some((metric) => metric.unit !== "USD")
+  ) {
+    return { status: "unavailable" as const };
+  }
+  const calculated = operating.value - Math.abs(capex.value);
+  const difference = free.value - calculated;
+  const tolerance = Math.max(1, Math.abs(operating.value) * 0.0001);
+  return {
+    status:
+      Math.abs(difference) <= tolerance
+        ? ("reconciled" as const)
+        : ("different_definition" as const),
+    operating,
+    capex,
+    free,
+    calculated,
+    difference,
+  };
+}
+
+export function canCalculateCashFlowRatio(
+  metrics: readonly ResearchMetricPoint[],
+): boolean {
+  const free = [...metrics]
+    .reverse()
+    .find((metric) => metric.id === "free_cash_flow");
+  return (
+    cashFlowReconciliation(metrics).status === "reconciled" ||
+    (free?.source === "sec" && free.definition === "issuer_reported")
   );
 }

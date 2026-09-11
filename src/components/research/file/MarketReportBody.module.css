@@ -135,7 +135,7 @@
 .quadrant p {
   grid-column: 1 / -1;
   margin-top: 8px;
-  font-size: 0.84rem;
+  font-size: 0.96rem;
   line-height: 1.6;
 }
 .quadrant article small {
@@ -143,8 +143,8 @@
   display: block;
   margin-top: 1px;
   color: var(--editorial-muted);
-  font-size: 0.68rem;
-  line-height: 1.5;
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
 
 .relative {

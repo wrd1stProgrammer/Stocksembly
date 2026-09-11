@@ -161,7 +161,7 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
           ))}
         </section>
       )}
-      {risks.length === 0 ? (
+      {downside.length === 0 ? (
         <details className={styles["dataNote"]}>
           <summary>
             {ko ? "우선순위 산정 기준" : "Priority-model detail"}
@@ -180,10 +180,10 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
               label={ko ? "영향도 × 관찰 가능성" : "Impact × observability"}
               locale={locale}
             />
-            <small>{ko ? "점수 내림차순" : "Descending evidence score"}</small>
+            <small>{ko ? "영향도·근거 기준" : "Impact and evidence"}</small>
           </header>
           <ol>
-            {risks.map((risk, index) => (
+            {downside.map((risk, index) => (
               <li
                 key={risk.claimId}
                 data-risk-claim-id={risk.claimId}
@@ -197,7 +197,6 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
               >
                 <div>
                   <strong>P{index + 1}</strong>
-                  <span>{risk.priorityScore}/7</span>
                 </div>
                 <p>{risk.thesis}</p>
                 <dl>
@@ -266,7 +265,17 @@ export function RiskReportBrief({ file, locale }: DepartmentReportBodyProps) {
                 data-signal={risk.signal}
                 data-risk-claim-id={risk.claimId}
               >
-                <span role="img" aria-label={risk.signal} />
+                <span
+                  role="img"
+                  aria-label={
+                    ko ? "현재 상태 미확인" : "Current state unconfirmed"
+                  }
+                />
+                <small>
+                  {ko
+                    ? "관찰 조건 · 현재 상태 미확인"
+                    : "Watch condition · current state unconfirmed"}
+                </small>
                 <p>{risk.indicator}</p>
               </article>
             ))}
@@ -308,7 +317,9 @@ export function RiskReportFramework({
           aria-labelledby="escalation-title"
         >
           <h3 id="escalation-title">
-            {ko ? "증거 기반 단계 상향" : "Evidence-led escalation"}
+            {ko
+              ? "관찰 항목과 판단 변경 조건"
+              : "Watchlist and reassessment conditions"}
           </h3>
           {(indicators.length === 0 ? risks : indicators)
             .slice(0, 4)
@@ -317,13 +328,12 @@ export function RiskReportFramework({
                 key={risk.claimId}
                 data-escalation-score={risk.priorityScore}
               >
-                <span>{ko ? `${index + 1}단계` : `Level ${index + 1}`}</span>
+                <span>{ko ? `관찰 ${index + 1}` : `Watch ${index + 1}`}</span>
                 <div>
                   <strong>{risk.indicator}</strong>
                   <small>
-                    {ko
-                      ? `우선순위 ${risk.priorityScore}/7`
-                      : `Priority ${risk.priorityScore}/7`}
+                    {ko ? "판단 변경 조건: " : "Reassessment: "}
+                    {risk.recovery}
                   </small>
                 </div>
               </article>
@@ -383,7 +393,7 @@ export function RiskReportFramework({
         {breaker === undefined ? null : (
           <section data-risk-thesis-breaker={breaker.claimId}>
             <h3>{ko ? "논지 파기 조건" : "Thesis breaker"}</h3>
-            <p>{breaker.indicator}</p>
+            <p>{breaker.recovery}</p>
           </section>
         )}
       </div>

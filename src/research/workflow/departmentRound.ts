@@ -1,4 +1,7 @@
+import { hashBytes } from "../domain/contractHelpers";
+import { researchEvidenceExcerpt } from "../domain/researchEvidenceExcerpt";
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
+import { ArtifactDigestSchema } from "../ports/artifacts";
 import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
 import { createLeaseEngine } from "../worker/leaseEngine";
 import { loadResearchMandateAtPath } from "./chairSynthesisArtifacts";
@@ -14,6 +17,7 @@ import {
 import { DepartmentRoundSqliteAuthority } from "./departmentRoundSqliteAuthority";
 import { createDepartmentRoundAttemptHandler } from "./departmentRoundSqliteHandler";
 import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import { structuredTeamEvidence } from "./teamEvidenceContract";
 
 export type {
   AcceptedMemoMetadata,
@@ -93,11 +97,75 @@ export function createSqliteDepartmentRound(
           kind: "blocked",
           reason: "accepted_specialist_set_incomplete",
         };
+      const mandate = loadResearchMandateAtPath(
+        options.databasePath,
+        input.runId,
+      );
+      const reviewedPrompts = await Promise.all(
+        authenticated.prompts.map(async (prompt) => {
+          const positions = prompt.memberArtifacts.flatMap(
+            (member) => member.memo.positions,
+          );
+          const ids = [
+            ...new Set(
+              positions.flatMap((position) => position.evidenceArtifactIds),
+            ),
+          ];
+          const evidenceReview = [];
+          let remaining = 36000;
+          let remainingFacts = 24000;
+          for (const row of departmentAuthority
+            .evidenceRows(input.runId, ids)
+            .slice(0, 32)) {
+            const source = await options.cas.get(
+              ArtifactDigestSchema.parse(row.content_hash),
+            );
+            if (
+              !source ||
+              source.descriptor.artifactId !== row.artifact_id ||
+              source.descriptor.snapshotId !== first.snapshot_id ||
+              hashBytes(source.bytes) !== row.content_hash
+            )
+              continue;
+            const focus = positions
+              .filter((position) =>
+                position.evidenceArtifactIds.includes(row.artifact_id),
+              )
+              .flatMap((position) => [
+                position.publicSummary.en,
+                position.publicSummary.ko,
+              ]);
+            const sourceText = new TextDecoder().decode(source.bytes);
+            const extractedFacts = structuredTeamEvidence(sourceText);
+            const structuredFacts =
+              extractedFacts &&
+              extractedFacts.length <= Math.min(18000, remainingFacts)
+                ? extractedFacts
+                : undefined;
+            remainingFacts -= structuredFacts?.length ?? 0;
+            const excerpt = researchEvidenceExcerpt(
+              sourceText,
+              focus,
+              Math.min(6000, remaining),
+            );
+            if (!excerpt) break;
+            remaining -= excerpt.length;
+            evidenceReview.push({
+              artifactId: row.artifact_id,
+              excerpt,
+              ...(structuredFacts && structuredFacts.length <= 18000
+                ? { structuredFacts }
+                : {}),
+            });
+          }
+          return { ...prompt, evidenceReview };
+        }),
+      );
       const jobs = departmentJobs(
         input.runId,
         first.snapshot_id,
-        authenticated.prompts,
-        loadResearchMandateAtPath(options.databasePath, input.runId),
+        reviewedPrompts,
+        mandate,
       );
       const staged = departmentAuthority.stageJobs(
         input.runId,

@@ -737,29 +737,8 @@ export function omitUnboundPercentageSentences(
   return { ...parsed.data, positions, unknowns };
 }
 
-function nonOwnershipEvidencePriority(artifact: {
-  readonly dataset: string;
-  readonly form?: string;
-}): number {
-  const form = artifact.form?.trim().toUpperCase();
-  if (form === "8-K") return 0;
-  if (form === "10-Q") return 1;
-  if (form === "10-K") return 2;
-  if (artifact.dataset === "insightsentry_fundamentals") return 3;
-  if (artifact.dataset === "insightsentry_documents") return 4;
-  if (artifact.dataset === "insightsentry_news_company") return 5;
-  return 20;
-}
-
-/**
- * Models sometimes attach ownership filings to every claim merely because
- * those filings were present in the evidence slice. Remove those incidental
- * citations. If the model selected only ownership filings, bind the claim to
- * the strongest non-ownership primary/provider artifacts already sealed into
- * the same specialist request. Later semantic audit still decides whether the
- * claim itself is publishable; this repair only prevents a citation-type copy
- * error from killing an otherwise complete eleven-agent run.
- */
+/** Remove incidental ownership citations without inventing source support.
+ * Ownership-only claims retain their original binding for targeted correction. */
 export function sanitizeSpecialistEvidenceTypeBindings(
   candidate: unknown,
   evidenceArtifacts: NonNullable<ClaimSubmissionRequest["evidenceArtifacts"]>,
@@ -780,19 +759,6 @@ export function sanitizeSpecialistEvidenceTypeBindings(
       )
       .map((artifact) => artifact.evidenceId),
   );
-  const fallbackArtifacts = evidenceArtifacts
-    .filter(
-      (artifact) =>
-        !ownershipArtifacts.has(artifact.evidenceId) &&
-        nonOwnershipEvidencePriority(artifact) < 20,
-    )
-    .sort(
-      (left, right) =>
-        nonOwnershipEvidencePriority(left) -
-        nonOwnershipEvidencePriority(right),
-    )
-    .map((artifact) => artifact.evidenceId)
-    .slice(0, 3);
   return {
     ...candidate,
     positions: candidate.positions.map((position) => {
@@ -816,7 +782,7 @@ export function sanitizeSpecialistEvidenceTypeBindings(
         (artifactId: unknown): artifactId is string =>
           typeof artifactId === "string" && !ownershipArtifacts.has(artifactId),
       );
-      const replacement = permitted.length > 0 ? permitted : fallbackArtifacts;
+      const replacement = permitted;
       if (replacement.length === 0) return position;
       return { ...position, evidenceArtifactIds: replacement };
     }),

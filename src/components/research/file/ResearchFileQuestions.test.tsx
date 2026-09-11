@@ -19,7 +19,7 @@ function persistedQuestions(count: number) {
 }
 
 describe("ResearchFileQuestions persisted workflow-v2 presentation", () => {
-  it("shows all ten ranked investor questions without a disclosure control", () => {
+  it("keeps all ten ranked questions visible with answers available on demand", () => {
     // Given
     const file = {
       ...fixtureData.report,
@@ -39,7 +39,11 @@ describe("ResearchFileQuestions persisted workflow-v2 presentation", () => {
     expect(
       container.querySelectorAll(":scope > section > div > article"),
     ).toHaveLength(10);
-    expect(container.querySelector("details")).toBeNull();
+    const details = container.querySelectorAll("details");
+    expect(details).toHaveLength(10);
+    expect(details[0]?.open).toBe(false);
+    details[0]?.setAttribute("open", "");
+    expect(screen.getByText("Persisted answer 1")).toBeVisible();
   });
 
   it("shows supported answers even when fewer than five exist", () => {

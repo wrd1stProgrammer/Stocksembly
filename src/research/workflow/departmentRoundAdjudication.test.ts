@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import { z as zod } from "zod";
 import type { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
+import { repairDepartmentPublication } from "./departmentPublicationRepair";
 import { departmentCandidate } from "./departmentRoundCandidates.testSupport";
 import type { DepartmentJobPrompt } from "./departmentRoundContracts";
 import {
@@ -419,4 +420,49 @@ describe("department adjudication trust boundary", () => {
       inspectDepartmentCandidate(job(), { ...candidate(), ...mutate() }),
     ).toBeUndefined();
   });
+});
+
+describe("limited final publication recovery", () => {
+  it("recovers malformed synthesis from authenticated claims without new citations", () => {
+    const result = repairDepartmentPublication(job(), { broken: true });
+    expect(result).toBeDefined();
+    expect(result?.decisionPacket?.stanceContribution).toBe("uncertain");
+    expect(result?.publicationMode).toBe("limited_compilation");
+    expect(result?.publicSummary.ko).toContain("최종 종합은 제한적");
+    expect(
+      result?.evidencePriorityArtifactIds.every((id) =>
+        [IDS.evidenceA, IDS.evidenceB].some((known) => known === id),
+      ),
+    ).toBe(true);
+    expect(result?.sourceArtifactIds).toEqual([IDS.memberA, IDS.memberB]);
+  });
+});
+
+it("omits a stale dissent reference without rejecting the surviving report", () => {
+  const req = request();
+  const stale = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const changed = DepartmentJobPromptSchema.parse({
+    ...req,
+    memberArtifacts: req.memberArtifacts.map((member, index) =>
+      index === 0
+        ? {
+            ...member,
+            memo: {
+              ...member.memo,
+              dissent: [
+                {
+                  claimId: stale,
+                  publicSummary: text("Unlinked dissent remains unconfirmed"),
+                },
+              ],
+            },
+          }
+        : member,
+    ),
+  });
+  const currentJob = departmentJobs(IDS.run, IDS.snapshot, [changed])[0];
+  if (!currentJob) throw new Error("missing test job");
+  const repaired = repairDepartmentPublication(currentJob, {});
+  expect(repaired).toBeDefined();
+  expect(repaired?.dissent.some((item) => item.claimId === stale)).toBe(false);
 });

@@ -9,6 +9,7 @@ import type { PublicRun, PublicRunDetail } from "../../research/client/schemas";
 import { useResearchRun } from "../../research/client/useResearchRun";
 import { useLiveOfficeAnimation } from "../../research/liveOfficeAnimation";
 import { liveOfficeProjection } from "../../research/liveOfficeProjection";
+import { scopeOfficeSnapshot } from "../../research/scopeOfficeSnapshot";
 import { useOfficePresentation } from "../../research/useOfficePresentation";
 
 const Office = dynamic(
@@ -103,8 +104,11 @@ function LiveActivity({
               presentation={presentation.presentation}
               currentEvent={presentation.current}
               events={presentation.events}
-              snapshot={animation.snapshot}
-              renderPreviousSnapshot={animation.previousSnapshot}
+              snapshot={scopeOfficeSnapshot(animation.snapshot, run)}
+              renderPreviousSnapshot={scopeOfficeSnapshot(
+                animation.previousSnapshot,
+                run,
+              )}
               renderInterpolationAlpha={animation.interpolation}
               onReady={() => setReady(true)}
             />
