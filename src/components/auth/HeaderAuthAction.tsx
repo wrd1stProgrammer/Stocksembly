@@ -65,11 +65,10 @@ export function HeaderAuthAction({
       <button
         className="sign-in sign-in--button sign-in--signed-in"
         onClick={() => {
-          void signOut()
-            .catch(() => undefined)
-            .then(() => clearResearchSession())
-            .catch(() => undefined)
-            .finally(() => setAuthState("signed-out"));
+          void clearResearchSession()
+            .then(() => signOut())
+            .then(() => setAuthState("signed-out"))
+            .catch(() => undefined);
         }}
         type="button"
       >

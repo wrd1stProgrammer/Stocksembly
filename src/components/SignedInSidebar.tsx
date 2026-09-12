@@ -443,8 +443,8 @@ export function SignedInSidebar({
 
   async function handleSignOut() {
     setProfileOpen(false);
-    await signOut().catch(() => undefined);
-    await clearResearchSession().catch(() => undefined);
+    await clearResearchSession();
+    await signOut();
     onSignedOut();
   }
 
@@ -766,7 +766,7 @@ export function SignedInSidebar({
                     type="button"
                     className="signed-in-sidebar__profile-logout"
                     role="menuitem"
-                    onClick={() => void handleSignOut()}
+                    onClick={() => void handleSignOut().catch(() => undefined)}
                   >
                     <LogOut size={18} />
                     <span>{messages.signOut}</span>
