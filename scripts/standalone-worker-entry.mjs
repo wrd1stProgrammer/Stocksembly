@@ -68,5 +68,15 @@ try {
       resolve,
     ),
   );
+  if (
+    process.argv[2] === "serve" &&
+    code === "CODEX_ISOLATION_FAILED" &&
+    reportedCheck === "login"
+  ) {
+    process.stderr.write(
+      `${JSON.stringify({ kind: "worker_retry_wait", retryAfterMs: 60_000 })}\n`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 60_000));
+  }
   process.exit(1);
 }
