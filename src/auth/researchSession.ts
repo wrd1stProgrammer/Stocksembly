@@ -83,6 +83,7 @@ export async function clearResearchSession(): Promise<boolean> {
   lastSync = 0;
   const response = await fetch("/api/research/session", {
     method: "DELETE",
+    headers: { "content-type": "application/json" },
     credentials: "same-origin",
     cache: "no-store",
   });

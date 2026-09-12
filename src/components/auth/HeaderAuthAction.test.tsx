@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { getCurrentUser } from "aws-amplify/auth";
+import { getCurrentUser, signOut } from "aws-amplify/auth";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
+import { clearResearchSession } from "../../auth/researchSession";
 import { HeaderAuthAction } from "./HeaderAuthAction";
 
 vi.mock("aws-amplify/auth", () => ({
@@ -26,6 +27,7 @@ describe("HeaderAuthAction", () => {
 
   beforeEach(() => {
     bootstrapSession.mockClear();
+    vi.mocked(signOut).mockClear();
     vi.mocked(getCurrentUser).mockResolvedValue({
       username: "member",
       userId: "member-id",
@@ -52,6 +54,25 @@ describe("HeaderAuthAction", () => {
         },
       ]),
     });
+  });
+
+  it("clears the server cookie before Cognito can redirect away", async () => {
+    let finishClear: ((changed: boolean) => void) | undefined;
+    vi.mocked(clearResearchSession).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishClear = resolve;
+        }),
+    );
+    vi.mocked(signOut).mockResolvedValue(undefined);
+    render(<HeaderAuthAction label="Get started" locale="ko" />);
+    fireEvent.click(await screen.findByRole("button", { name: "로그아웃" }));
+    expect(signOut).not.toHaveBeenCalled();
+    finishClear?.(true);
+    await waitFor(() => expect(signOut).toHaveBeenCalledOnce());
+    expect(
+      await screen.findByRole("link", { name: "Get started" }),
+    ).toBeVisible();
   });
 
   it("does not expose the sign-in link while the existing session is loading", () => {
