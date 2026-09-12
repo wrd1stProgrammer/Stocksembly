@@ -26,6 +26,16 @@ fi
 registry="${image%%/*}"
 region="$(cut -d. -f4 <<<"$registry")"
 environment_arguments=(--env-file /etc/stocksembly/aws.env)
+if [[ -s /home/ec2-user/.codex/api/auth.json ]]; then
+  for setting in \
+    STOCKSEMBLY_CODEX_API_ENABLED=1 \
+    STOCKSEMBLY_CODEX_API_AUTH_PATH=/home/ec2-user/.codex/api/auth.json; do
+    key="${setting%%=*}"
+    if ! grep --quiet "^${key}=" /etc/stocksembly/aws.env /etc/stocksembly/app.env 2>/dev/null; then
+      environment_arguments+=(--env "$setting")
+    fi
+  done
+fi
 if [[ -f /etc/stocksembly/app.env ]]; then
   environment_arguments+=(--env-file /etc/stocksembly/app.env)
 fi
