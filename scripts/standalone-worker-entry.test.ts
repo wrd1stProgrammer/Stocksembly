@@ -19,9 +19,12 @@ describe("standalone worker entry", () => {
         await Promise.all([
           mkdir(researchWorkerDirectory, { recursive: true }),
           mkdir(join(fixtureRoot, "briefing-worker"), { recursive: true }),
-          mkdir(join(fixtureRoot, "node_modules/better-sqlite3/build/Release"), {
-            recursive: true,
-          }),
+          mkdir(
+            join(fixtureRoot, "node_modules/better-sqlite3/build/Release"),
+            {
+              recursive: true,
+            },
+          ),
         ]);
         await Promise.all([
           cp(entryScript, join(researchWorkerDirectory, "worker.mjs")),
@@ -63,7 +66,7 @@ describe("standalone worker entry", () => {
           expect(result.error).toBeUndefined();
           expect(result.status, result.stderr).toBe(1);
         }
-        expect(JSON.parse(result.stderr.trim().split("\n")[0]!)).toEqual({
+        expect(JSON.parse(result.stderr.trim().split("\n")[0] ?? "")).toEqual({
           kind: "worker_error",
           code: "CODEX_ISOLATION_FAILED",
           check,
