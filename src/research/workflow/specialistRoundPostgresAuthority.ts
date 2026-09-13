@@ -278,8 +278,10 @@ export class SpecialistRoundPostgresAuthority
           attempts.input_hash, jobs.lease_owner, jobs.lease_token,
           jobs.lease_expires_at
         FROM attempts JOIN jobs USING (job_id)
-        LEFT JOIN research_call_ordinals USING (attempt_id)
-        LEFT JOIN question_call_ordinals USING (attempt_id)
+        LEFT JOIN research_call_ordinals
+          ON research_call_ordinals.attempt_id = attempts.attempt_id
+        LEFT JOIN question_call_ordinals
+          ON question_call_ordinals.attempt_id = attempts.attempt_id
         WHERE attempts.run_id = $1 AND attempts.job_id = $2
           AND attempts.attempt_id = $3
           AND COALESCE(research_call_ordinals.ordinal,

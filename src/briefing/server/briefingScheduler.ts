@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import type { AccountStore } from "../../accounts/server/accountStore";
 import type { Locale } from "../../lib/i18n";
 import type {
@@ -255,6 +256,8 @@ export function createBriefingScheduler(input: {
     },
     async runUntilStopped(signal: AbortSignal): Promise<void> {
       while (!signal.aborted) {
+        const drainFile = process.env["STOCKSEMBLY_WORKER_DRAIN_FILE"];
+        if (drainFile && existsSync(drainFile)) return;
         try {
           const result = await this.tick();
           if (result !== undefined)

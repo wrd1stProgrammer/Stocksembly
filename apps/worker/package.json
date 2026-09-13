@@ -1,0 +1,8 @@
+{
+  "name": "@stocksembly/worker",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "pnpm --dir ../.. build:worker"
+  }
+}

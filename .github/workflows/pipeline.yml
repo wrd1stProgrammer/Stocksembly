@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: stocksembly-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quality:
@@ -36,6 +36,7 @@ jobs:
       STOCKSEMBLY_DATABASE_URL: postgres://stocksembly:stocksembly_ci@127.0.0.1:5432/stocksembly_test
     outputs:
       production_change: ${{ steps.production_change.outputs.required }}
+      runtime_roles: ${{ steps.runtime_roles.outputs.roles }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -45,6 +46,11 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: echo "required=$(bash scripts/ci-production-change.sh "$BASE_SHA")" >> "$GITHUB_OUTPUT"
+      - name: Select changed runtimes
+        id: runtime_roles
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: echo "roles=$(bash scripts/ci-runtime-roles.sh "$BASE_SHA")" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v6
         with:
           version: 10.34.1
@@ -74,9 +80,10 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/ci-lint-changed.sh "$BASE_SHA"
-      - run: pnpm build
+      - run: pnpm build:web
+      - run: pnpm build:worker
       - name: Verify packaged research worker startup
-        working-directory: .next/standalone
+        working-directory: .stocksembly-verification/worker-runtime
         env:
           STOCKSEMBLY_DATA_DIR: ${{ runner.temp }}/stocksembly-worker-smoke
         run: |
@@ -87,15 +94,23 @@ jobs:
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.quality.outputs.production_change == 'true'
     needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        role: ${{ fromJSON(needs.quality.outputs.runtime_roles) }}
+    concurrency:
+      group: production-${{ matrix.role }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
       id-token: write
     env:
       AWS_REGION: us-east-1
       ECR_REPOSITORY: stocksembly
-      INSTANCE_ID: i-030eacac11712c94d
+      INSTANCE_ID: ${{ matrix.role == 'web' && vars.WEB_INSTANCE_ID || vars.WORKER_INSTANCE_ID }}
+      RUNTIME_ROLE: ${{ matrix.role }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -113,6 +128,7 @@ jobs:
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
       - name: Publish optional CloudFront office assets
+        if: matrix.role == 'web'
         env:
           STATIC_ASSET_BUCKET: ${{ vars.STATIC_ASSET_BUCKET }}
           STATIC_CDN_ORIGIN: ${{ vars.STATIC_CDN_ORIGIN }}
@@ -139,21 +155,21 @@ jobs:
           GA_MEASUREMENT_ID: G-YRQDC6R5TL
           META_PIXEL_ID: "1941324473216410"
         run: |
-          image_tag="sha-${GITHUB_SHA}"
+          image_tag="${RUNTIME_ROLE}-sha-${GITHUB_SHA}"
           image="${REGISTRY}/${ECR_REPOSITORY}:${image_tag}"
           if aws ecr describe-images \
             --repository-name "$ECR_REPOSITORY" \
             --image-ids "imageTag=${image_tag}" >/dev/null 2>&1; then
             echo "Reusing existing immutable image: $image"
           else
-            docker build \
+            docker build -f "apps/${RUNTIME_ROLE}/Dockerfile" \
               --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}" \
               --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=${COGNITO_USER_POOL_CLIENT_ID}" \
               --build-arg "NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN}" \
               --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
               --build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}" \
               --build-arg "NEXT_PUBLIC_META_PIXEL_ID=${META_PIXEL_ID}" \
-              --build-arg "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=${NEXT_PUBLIC_STATIC_ASSET_BASE_URL}" \
+              --build-arg "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=${NEXT_PUBLIC_STATIC_ASSET_BASE_URL:-}" \
               --tag "$image" .
             if ! push_output="$(docker push "$image" 2>&1)"; then
               echo "$push_output"
@@ -218,23 +234,23 @@ jobs:
             --instance-id "$INSTANCE_ID"
       - name: Deploy through Systems Manager
         run: |
-          deploy_script="$(base64 -w 0 infra/aws/container-deploy.sh)"
+          deploy_script="$(base64 -w 0 infra/aws/role-deploy.sh)"
           parameters="$(
             jq -nc \
-              --arg command "sudo sed -i -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=/d' -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=/d' /etc/stocksembly/aws.env && printf '%s\\n' 'STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=true' 'STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=true' | sudo tee -a /etc/stocksembly/aws.env >/dev/null && printf '%s' '${deploy_script}' | base64 --decode | sudo tee /usr/local/bin/stocksembly-container-deploy >/dev/null && sudo chmod 0755 /usr/local/bin/stocksembly-container-deploy && sudo /usr/local/bin/stocksembly-container-deploy ${image}" \
+              --arg command "sudo sed -i -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=/d' -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=/d' /etc/stocksembly/aws.env && printf '%s\\n' 'STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=true' 'STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=true' | sudo tee -a /etc/stocksembly/aws.env >/dev/null && printf '%s' '${deploy_script}' | base64 --decode | sudo tee /usr/local/bin/stocksembly-role-deploy >/dev/null && sudo chmod 0755 /usr/local/bin/stocksembly-role-deploy && sudo /usr/local/bin/stocksembly-role-deploy ${RUNTIME_ROLE} ${image}" \
               '{commands:[$command]}'
           )"
           command_id="$(
             aws ssm send-command \
               --instance-ids "$INSTANCE_ID" \
               --document-name AWS-RunShellScript \
-              --timeout-seconds 900 \
+              --timeout-seconds 2400 \
               --parameters "$parameters" \
               --query 'Command.CommandId' \
               --output text
           )"
           status="Pending"
-          for attempt in {1..120}; do
+          for attempt in {1..480}; do
             status="$(
               aws ssm get-command-invocation \
                 --command-id "$command_id" \

@@ -52,7 +52,9 @@
     "audit:visual-diff": "node scripts/reference-diff.mjs",
     "doctor": "npx react-doctor@latest",
     "assets:office": "node scripts/prepare-office-webp.mjs",
-    "predev": "pnpm assets:office"
+    "predev": "pnpm assets:office",
+    "build:web": "pnpm assets:office && next build && node scripts/prepare-standalone.mjs --web-only",
+    "build:worker": "pnpm research:worker:build && pnpm briefing:worker:build && node scripts/prepare-standalone.mjs --worker-only"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",
