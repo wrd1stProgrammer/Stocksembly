@@ -49,12 +49,12 @@ export async function createStockHubFixture(
   roots.push(dataRoot);
   const database = await createApiTestDatabase();
   await database.query(`
-    CREATE TABLE reports(report_id TEXT PRIMARY KEY, state TEXT NOT NULL);
+    CREATE TABLE reports(report_id TEXT PRIMARY KEY, run_id TEXT, state TEXT NOT NULL);
     CREATE TABLE report_versions(
       report_id TEXT NOT NULL, run_id TEXT NOT NULL, version INTEGER NOT NULL,
       artifact_id TEXT NOT NULL, status TEXT NOT NULL, published_at TEXT NOT NULL
     );
-    CREATE TABLE artifacts(artifact_id TEXT PRIMARY KEY);
+    CREATE TABLE artifacts(artifact_id TEXT PRIMARY KEY, run_id TEXT);
     CREATE TABLE research_requests(
       run_id TEXT PRIMARY KEY, symbol TEXT NOT NULL, question TEXT NOT NULL,
       locale TEXT NOT NULL, research_kind TEXT NOT NULL, department_id TEXT

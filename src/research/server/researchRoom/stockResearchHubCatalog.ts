@@ -73,10 +73,10 @@ function selectSql(filterBySymbol: boolean): string {
     research_requests.research_kind, research_requests.department_id,
     report_versions.published_at, report_versions.status
    FROM reports
-   JOIN report_versions USING(report_id)
-   JOIN artifacts USING(artifact_id)
-   JOIN research_requests USING(run_id)
-   JOIN runs USING(run_id)
+   JOIN report_versions ON report_versions.report_id = reports.report_id
+   JOIN artifacts ON artifacts.artifact_id = report_versions.artifact_id
+   JOIN research_requests ON research_requests.run_id = report_versions.run_id
+   JOIN runs ON runs.run_id = report_versions.run_id
    WHERE reports.state = 'published'
      ${symbolFilter}
      AND report_versions.status IN ('complete', 'complete_with_limitations')
@@ -89,10 +89,10 @@ function sitemapSelectSql(): string {
   return `SELECT research_requests.symbol, report_versions.published_at,
     report_versions.status
    FROM reports
-   JOIN report_versions USING(report_id)
-   JOIN artifacts USING(artifact_id)
-   JOIN research_requests USING(run_id)
-   JOIN runs USING(run_id)
+   JOIN report_versions ON report_versions.report_id = reports.report_id
+   JOIN artifacts ON artifacts.artifact_id = report_versions.artifact_id
+   JOIN research_requests ON research_requests.run_id = report_versions.run_id
+   JOIN runs ON runs.run_id = report_versions.run_id
    WHERE reports.state = 'published'
      AND report_versions.status IN ('complete', 'complete_with_limitations')
      AND runs.status IN ('completed', 'complete-with-limitations')
