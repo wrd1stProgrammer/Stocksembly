@@ -84,6 +84,8 @@ export function LandingOfficePreview({
     let controller: OfficeGameController | undefined;
     let stopObserving: () => void = () => undefined;
     let animationFrame: number | undefined;
+    let visible = false;
+    let backgroundTimer: number | undefined;
     let lastStepAt = performance.now();
     let state = createLandingOfficeState();
     let previousSnapshot = landingOfficeSnapshot(state);
@@ -146,10 +148,10 @@ export function LandingOfficePreview({
       });
     };
 
-    // Load the shared renderer and office assets only near the viewport.
+    // Prepare the first frame after page load; visibility only drives motion.
     let initializing = false;
     const initializeOnce = () => {
-      if (initializing) return;
+      if (initializing || abortController.signal.aborted) return;
       initializing = true;
       void initialize()
         .then((createdController) => {
@@ -169,7 +171,7 @@ export function LandingOfficePreview({
           host.setAttribute("data-visible-bubble-count", "0");
           host.setAttribute("data-office-ready", "true");
           setRendererReady(true);
-          if (reducedMotion) controller.setPaused(true);
+          if (reducedMotion || !visible) controller.setPaused(true);
           else start();
         })
         .catch(() => {
@@ -179,7 +181,14 @@ export function LandingOfficePreview({
           }
         });
     };
+    const prepareInBackground = () => {
+      backgroundTimer = window.setTimeout(initializeOnce, 0);
+    };
+    if (document.readyState === "complete") prepareInBackground();
+    else window.addEventListener("load", prepareInBackground, { once: true });
+
     stopObserving = observeVisibility(host, (isVisible) => {
+      visible = isVisible;
       if (!isVisible) {
         stop();
         return;
@@ -190,6 +199,8 @@ export function LandingOfficePreview({
 
     return () => {
       abortController.abort();
+      window.removeEventListener("load", prepareInBackground);
+      window.clearTimeout(backgroundTimer);
       stopObserving();
       stop();
       controller?.destroy();

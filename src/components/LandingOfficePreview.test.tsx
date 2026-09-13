@@ -108,6 +108,28 @@ describe("LandingOfficePreview", () => {
     expect(screen.getByText("Market Lead")).toBeVisible();
   });
 
+  it("prepares an offscreen office after load and keeps its animation paused", async () => {
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const { container } = render(<LandingOfficePreview locale="en" />);
+    act(() => window.dispatchEvent(new Event("load")));
+    await waitFor(() =>
+      expect(state.createOfficeSnapshotRenderer).toHaveBeenCalledOnce(),
+    );
+    await act(async () => state.resolve());
+    await waitFor(() =>
+      expect(
+        container.querySelector(".landing-office-live__world"),
+      ).toHaveAttribute("data-office-ready", "true"),
+    );
+    expect(state.controller.setPaused).toHaveBeenLastCalledWith(true);
+  });
+
   it("enables free pinch zoom and dragging on mobile", async () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: query === "(max-width: 767px)",
