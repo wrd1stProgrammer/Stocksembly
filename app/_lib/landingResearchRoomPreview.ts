@@ -7,10 +7,12 @@ import {
 import type { AppLocale } from "@/src/lib/i18n";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import { getLiveTickerCatalog } from "@/src/research/server/api/liveTickerCatalog";
+import { createPublicMetadataCache } from "@/src/research/server/researchRoom/publicMetadataCache";
 import {
-  listResearchRoomReportPage,
+  listLandingResearchRoomReports,
   type ResearchRoomAccess,
 } from "@/src/research/server/researchRoom/researchRoomCatalog";
+import { isResearchRoomPublicationMature } from "@/src/research/server/researchRoom/researchRoomIndexability";
 import { requestFromPage } from "./pageRequest";
 
 async function lookupCompanyNames(
@@ -21,12 +23,10 @@ async function lookupCompanyNames(
   const entries = await Promise.all(
     symbols.map(async (symbol) => {
       try {
-        const match = (await catalog.search(symbol)).find(
-          (ticker) => ticker.symbol === symbol,
-        );
-        return match === undefined
-          ? undefined
-          : ([symbol, match.company] as const);
+        const match = await catalog.lookup(symbol);
+        return match.kind === "resolved"
+          ? ([symbol, match.symbol.company] as const)
+          : undefined;
       } catch {
         return undefined;
       }
@@ -34,6 +34,19 @@ async function lookupCompanyNames(
   );
   return Object.fromEntries(entries.filter((entry) => entry !== undefined));
 }
+
+const publicPreview = createPublicMetadataCache(async (locale: AppLocale) => {
+  const reports = selectLandingResearchRoomPreview(
+    await listLandingResearchRoomReports(locale),
+  );
+  const companyNames = {
+    ...LANDING_COMPANY_NAME_FALLBACKS,
+    ...(await lookupCompanyNames([
+      ...new Set(reports.map((report) => report.symbol)),
+    ])),
+  };
+  return { reports, companyNames };
+}, 30_000);
 
 // Loads the landing deck on the server so the page arrives with its cards
 // instead of fetching them after hydration. Any failure hides the deck, which
@@ -43,25 +56,22 @@ export async function loadLandingResearchRoomPreview(
   initialAccess?: ResearchRoomAccess,
 ): Promise<LandingResearchRoomPreviewData> {
   try {
-    const api = await getLiveResearchApi();
     const access =
       initialAccess ??
-      (await api.researchRoomAccess(await requestFromPage("/")));
-    const page = await listResearchRoomReportPage(access, {
-      limit: 5,
-      offset: 0,
-      scope: "all",
-      sort: "latest",
-      locale,
-    });
-    const reports = selectLandingResearchRoomPreview(page.reports);
-    const companyNames = {
-      ...LANDING_COMPANY_NAME_FALLBACKS,
-      ...(await lookupCompanyNames([
-        ...new Set(reports.map((report) => report.symbol)),
-      ])),
+      (await (
+        await getLiveResearchApi()
+      ).researchRoomAccess(await requestFromPage("/")));
+    const preview = await publicPreview(locale);
+    const now = new Date();
+    return {
+      ...preview,
+      reports: preview.reports.map((report) => ({
+        ...report,
+        locked:
+          !access.authenticated &&
+          !isResearchRoomPublicationMature(report.publishedAt, now),
+      })),
     };
-    return { reports, companyNames };
   } catch {
     return EMPTY_LANDING_RESEARCH_ROOM_PREVIEW;
   }

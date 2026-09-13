@@ -9,6 +9,7 @@ import {
 } from "../api/postgresApi.testSupport";
 import {
   isResearchRoomIndexable,
+  listLandingResearchRoomReports,
   listResearchRoomReportPage,
   listResearchRoomReports,
   listResearchRoomSitemapEntries,
@@ -480,3 +481,23 @@ describe("research room catalog access", () => {
 vi.mock("../persistence/postgres/researchPool", () => ({
   getResearchPool: async () => currentApiTestDatabase(),
 }));
+
+it("loads landing metadata without writing localizations or reading malformed report bodies", async () => {
+  await catalogFixture([
+    { version: 1, status: "complete", publishedAt: "2026-09-14T00:00:00.000Z" },
+  ]);
+  const database = currentApiTestDatabase();
+  await database.query(
+    `CREATE TABLE research_question_localizations(run_id TEXT, locale TEXT, question TEXT)`,
+  );
+  await database.query(
+    `UPDATE report_versions SET public_payload_json = 'not parsed on landing'`,
+  );
+  const reports = await listLandingResearchRoomReports("ko");
+  expect(reports).toHaveLength(1);
+  expect(reports[0]?.reportId).toBe(reportId);
+  expect(
+    (await database.query(`SELECT * FROM research_question_localizations`))
+      .rows,
+  ).toHaveLength(0);
+});

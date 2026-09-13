@@ -357,6 +357,54 @@ export async function listResearchRoomSitemapEntries(
   );
 }
 
+// Landing only needs public card metadata. Do not load report bodies, facets,
+// counts, or generate/write translations while serving a homepage request.
+export async function listLandingResearchRoomReports(
+  locale: ResearchTranslationLocale,
+): Promise<readonly ResearchRoomCatalogItem[]> {
+  const schema = CatalogRowSchema.pick({
+    report_id: true,
+    symbol: true,
+    question: true,
+    locale: true,
+    research_kind: true,
+    department_id: true,
+    published_at: true,
+    status: true,
+    view_count: true,
+  });
+  return await withDatabase(async (database) => {
+    const result = await database.query(
+      `SELECT catalog.report_id, catalog.symbol,
+        COALESCE(localization.question, catalog.question) AS question,
+        catalog.locale, catalog.research_kind, catalog.department_id,
+        catalog.published_at, catalog.status, catalog.view_count
+       FROM (${selectSql()}) AS catalog
+       LEFT JOIN research_question_localizations AS localization
+         ON localization.run_id = catalog.run_id AND localization.locale = $1
+       ORDER BY catalog.published_at DESC, catalog.report_id DESC LIMIT 5`,
+      [locale],
+    );
+    return result.rows.map((value) => {
+      const row = schema.parse(value);
+      return {
+        reportId: row.report_id,
+        symbol: row.symbol,
+        question: row.question,
+        locale: row.locale,
+        publishedAt: row.published_at,
+        status: row.status,
+        viewCount: row.view_count,
+        locked: true,
+        researchTarget:
+          row.research_kind === "department" && row.department_id !== null
+            ? { kind: "department" as const, departmentId: row.department_id }
+            : { kind: "committee" as const },
+      };
+    });
+  });
+}
+
 export async function listResearchRoomReportPage(
   access: ResearchRoomAccess,
   options: ResearchRoomListOptions = {},

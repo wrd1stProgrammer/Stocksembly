@@ -1,0 +1,7 @@
+[Unit]
+Description=Publish authoritative research queue metrics
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/opt/stocksembly/publish-worker-metrics.sh
+TimeoutStartSec=55

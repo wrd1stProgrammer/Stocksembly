@@ -6,6 +6,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      static_asset_release:
+        description: Existing published CloudFront asset release SHA for the build-only image
+        required: true
+        default: 757f97fb31bdf361ecc973969ea332a65877b658
 
 permissions:
   contents: read
@@ -111,6 +116,7 @@ jobs:
       ECR_REPOSITORY: stocksembly
       INSTANCE_ID: ${{ matrix.role == 'web' && vars.WEB_INSTANCE_ID || vars.WORKER_INSTANCE_ID }}
       RUNTIME_ROLE: ${{ matrix.role }}
+      WEB_ASG_NAME: ${{ vars.WEB_ASG_NAME }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -125,6 +131,15 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Resolve current deployment instances
+        run: |
+          if [[ "$RUNTIME_ROLE" == web && -n "$WEB_ASG_NAME" ]]; then
+            ids="$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$WEB_ASG_NAME" --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' --output text)"
+          else
+            ids="$INSTANCE_ID"
+          fi
+          [[ "$ids" =~ ^i- ]] || { echo 'No serving instances resolved' >&2; exit 78; }
+          echo "INSTANCE_IDS=$ids" >> "$GITHUB_ENV"
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
       - name: Publish optional CloudFront office assets
@@ -223,15 +238,8 @@ jobs:
           parameters="$(jq -nc \
             --arg command "sudo install -d -m 0700 /etc/stocksembly && sudo touch /etc/stocksembly/app.env && sudo chmod 0600 /etc/stocksembly/app.env && sudo sed -i -e '/^WHOP_/d' -e '/^INSIGHTSENTRY_/d' -e '/^META_/d' /etc/stocksembly/app.env && printf '%s' '${encoded_provider_env}' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" \
             '{commands:[$command]}')"
-          command_id="$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name AWS-RunShellScript \
-            --parameters "$parameters" \
-            --query 'Command.CommandId' \
-            --output text)"
-          aws ssm wait command-executed \
-            --command-id "$command_id" \
-            --instance-id "$INSTANCE_ID"
+          jq '. + {executionTimeout:["2400"]}' <<< "$parameters" > "$RUNNER_TEMP/provider-parameters.json"
+          bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/provider-parameters.json"
       - name: Deploy through Systems Manager
         run: |
           deploy_script="$(base64 -w 0 infra/aws/role-deploy.sh)"
@@ -240,34 +248,41 @@ jobs:
               --arg command "sudo sed -i -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=/d' -e '/^STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=/d' /etc/stocksembly/aws.env && printf '%s\\n' 'STOCKSEMBLY_ADMIN_ANALYTICS_READS_ENABLED=true' 'STOCKSEMBLY_ADMIN_ANALYTICS_WRITES_ENABLED=true' | sudo tee -a /etc/stocksembly/aws.env >/dev/null && printf '%s' '${deploy_script}' | base64 --decode | sudo tee /usr/local/bin/stocksembly-role-deploy >/dev/null && sudo chmod 0755 /usr/local/bin/stocksembly-role-deploy && sudo /usr/local/bin/stocksembly-role-deploy ${RUNTIME_ROLE} ${image}" \
               '{commands:[$command]}'
           )"
-          command_id="$(
-            aws ssm send-command \
-              --instance-ids "$INSTANCE_ID" \
-              --document-name AWS-RunShellScript \
-              --timeout-seconds 2400 \
-              --parameters "$parameters" \
-              --query 'Command.CommandId' \
-              --output text
-          )"
-          status="Pending"
-          for attempt in {1..480}; do
-            status="$(
-              aws ssm get-command-invocation \
-                --command-id "$command_id" \
-                --instance-id "$INSTANCE_ID" \
-                --query 'Status' \
-                --output text 2>/dev/null || true
-            )"
-            case "$status" in
-              Success|Failed|Cancelled|TimedOut|Cancelling) break ;;
-            esac
-            sleep 5
-          done
-          aws ssm get-command-invocation \
-            --command-id "$command_id" \
-            --instance-id "$INSTANCE_ID" \
-            --query '{status:Status,stdout:StandardOutputContent,stderr:StandardErrorContent}'
-          if [[ "$status" != "Success" ]]; then
-            echo "production deployment failed with SSM status: $status" >&2
-            exit 1
-          fi
+          jq '. + {executionTimeout:["2400"]}' <<< "$parameters" > "$RUNNER_TEMP/deploy-parameters.json"
+          bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/deploy-parameters.json" deploy
+      - name: Advance the web bootstrap release after successful rollout
+        if: matrix.role == 'web' && env.WEB_ASG_NAME != ''
+        run: |
+          aws s3 cp infra/aws/role-deploy.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/role-deploy.sh --only-show-errors
+          aws s3 cp infra/aws/web-asg-bootstrap.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/web-asg-bootstrap.sh --only-show-errors
+          aws s3 cp infra/aws/web-alb-nginx.conf s3://stocksembly-prod-359463332817-us-east-1/operations/web/web-alb-nginx.conf --only-show-errors
+          aws ssm put-parameter --name /stocksembly/prod/web/image --type String --value "$image" --overwrite
+
+  manual_web_image:
+    if: github.event_name == 'workflow_dispatch'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build a reviewable web image without deploying
+        env:
+          STATIC_CDN_ORIGIN: ${{ vars.STATIC_CDN_ORIGIN }}
+          STATIC_ASSET_RELEASE: ${{ inputs.static_asset_release }}
+        run: |
+          [[ "$STATIC_ASSET_RELEASE" =~ ^[a-f0-9]{40}$ ]] || exit 64
+          docker build -f apps/web/Dockerfile \
+            --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_aBlbfohE8 \
+            --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=5njm1pei6ltopdks0g4a1m5cab \
+            --build-arg NEXT_PUBLIC_COGNITO_DOMAIN=stocksembly-prod-359463332817.auth.us-east-1.amazoncognito.com \
+            --build-arg NEXT_PUBLIC_APP_ORIGIN=https://stocksembly.com \
+            --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=G-YRQDC6R5TL \
+            --build-arg NEXT_PUBLIC_META_PIXEL_ID=1941324473216410 \
+            --build-arg NEXT_PUBLIC_STATIC_ASSET_BASE_URL="$STATIC_CDN_ORIGIN/releases/$STATIC_ASSET_RELEASE" \
+            -t "stocksembly-web:$GITHUB_SHA" .
+          docker save "stocksembly-web:$GITHUB_SHA" | gzip > web-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-image-${{ github.sha }}
+          path: web-image.tar.gz
+          retention-days: 3

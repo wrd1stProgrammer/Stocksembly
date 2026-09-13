@@ -147,8 +147,8 @@ export async function createLiveTickerCatalog(
     search: async (query: string) => {
       const local = await registry.search(query);
       const [provider, reference] = await Promise.all([
-        await providerSymbols(query),
-        await referenceSymbols(query),
+        providerSymbols(query),
+        referenceSymbols(query),
       ]);
       const merged = new Map<string, InsightSentrySymbol>();
       for (const value of local) merged.set(value.providerCode, value);
