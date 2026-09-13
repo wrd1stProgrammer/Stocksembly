@@ -37,7 +37,7 @@ If a role deployment fails, inspect its container logs and health result before 
 
 All 4,109 distinct persisted artifact digests were verified against S3, with zero missing objects and no upload required. A fresh web host with an empty artifact directory returned the historical TSLA report successfully. Separate Linux Docker images were built, and the worker's packaged imports passed without repository dependencies.
 
-The staged reader script uses real HTTPS and certificate verification for the home page, research index and one public historical report. Its 25/50/100/200 simulated readers pause three seconds between requests. It does not represent hundreds of simultaneous model runs, authenticated SSE connections or sustained CPU-credit capacity. Load results and the actual research outcome are recorded after cutover.
+The staged reader script uses real HTTPS and certificate verification for the home page, research index and one public historical report. Its 25/50/100/200 simulated readers pause three seconds between requests. It does not represent hundreds of simultaneous model runs, authenticated SSE connections or sustained CPU-credit capacity. Load results and the actual research outcome are recorded below.
 
 ALB, web replicas, worker autoscaling and Lambda are outside this change.
 
@@ -58,3 +58,25 @@ The first worker-only launch failed its pinned certificate check because the hos
 Browser QA also found a pre-existing onboarding failure: the UI submits `google`, `instagram`, `tiktok` or `x`, while the existing SQL constraint accepts broad categories. Persistence now maps Google to `search` and the social platforms to `social`; existing categories pass through. This preserves the existing schema and rollback compatibility instead of modifying an applied migration or weakening its constraint. The tradeoff is that the stored discovery field remains category-level, not platform-level.
 
 Web memory samples during the reader test peaked at 507 MiB; sampled process CPU reached 104.79% (approximately one vCPU). Sampling is not a continuous peak measurement. Image builds were finished before the reader run. A later web rebuild for the onboarding correction was not included in those measurements.
+
+### Operational incident during final QA
+
+An additional image build was mistakenly started on the already-serving t3.medium web host. During that build, both public HTTP and SSH stopped responding. Traffic was temporarily returned to the preserved legacy web container after its local HTTP check passed, and the new host was restarted. The remaining image build was moved off the new web host. The production CI workflow builds images on GitHub runners; runtime instances only pull and run them. Do not build application images on a serving web instance.
+
+Both EIP associations were subsequently restored to the CloudFormation-declared web/worker assignments, the corrected web image was transferred from the separate build host, and the legacy web container was stopped again. Public HTTPS returned 200 and the new web host passed an actual certificate-renewal dry run for both domains. Available journal evidence does not establish an OOM event; the host unresponsiveness and reader-load degradation occurred in separate runs.
+
+The first real post-split research collected evidence but failed before model launch. Its committed-reservation query joined attempts and jobs, then used an ambiguous `USING (attempt_id)` clause; PostgreSQL returned SQLSTATE 42702, which surfaced as a generic execution-policy failure. Explicit ordinal-to-attempt join conditions fix the query without relaxing reservation checks. The existing specialist integration test now passes through the real PostgreSQL reservation validator before its fake model response.
+
+The next reconciliation exposed a separate internal-input defect: the server-generated editorial instructions plus complete numeric allowlist exceeded the 10,000-character `editorialBrief` cap. That arbitrary internal-string cap was removed; source authentication, member memo validation, numeric grounding and output contracts remain enforced. Instructions and the allowlist are preserved instead of truncated. A regression test stages an over-10,000-character brief without losing its trailing numeric list. The existing run can resume from its accepted memos after the corrected worker starts.
+
+### Live research result
+
+On 2026-09-13 the financial-team MSFT request `1b6ba103-eea3-444c-8f25-9768597870a9` completed with limitations. PostgreSQL recorded `report_published` at 11:23:55 UTC, report `5d88015a-4c5c-4a1c-af7c-3838bd881ef6`. Collection, all three specialist memos and departmental consolidation succeeded. The browser had navigated home during execution. The corrected worker resumed the same accepted memos after its normal drain/redeploy, without manual status changes or a replacement request.
+
+The owner result is available at `/research/MSFT?run=1b6ba103-eea3-444c-8f25-9768597870a9&lang=ko`; `/research-room/<reportId>` is a separate credit-gated catalog route. The result is a qualified publication, not a claim that all research evidence or content quality is complete.
+
+The owner followed the home page’s **View results** link in the authenticated browser. The new web host rendered the financial report, all seven operating metric cards, forward-expectation section, opposing evidence, investor Q&A, eight-source register and published meeting log. The public catalog route separately enforced its existing view-credit gate; no credits or ownership rows were manually changed.
+
+### Handoff
+
+Runtime code CI passed at `f3ab675277d42271325157b26ceae0a71bc42ce6` (GitHub Actions run 34754202474). Targeted PostgreSQL reservation integration, 21 departmental adjudication tests, typecheck, separate Docker builds and live publication were verified. The original worktree was preserved. PR84 must be reviewed and merged before future main-branch releases use the new role deployment workflow; do not run the legacy single-host workflow against the split production environment.

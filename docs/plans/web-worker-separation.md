@@ -23,8 +23,8 @@ Separate the web and research worker inside the existing repository and deploy t
 - CloudFormation EIP-only cutover completed; public IP now targets web. Old web/nginx stopped; worker runs independently.
 - Worker readiness and an actual drain/redeploy passed. Host certificate mount retained; health CLI database cleanup corrected.
 - Reader test reached 25/50/100; 100-reader errors stopped the run before 200. Results and limitations documented.
-- In progress: browser-triggered real research and final publication/read validation. Browser QA exposed a pre-existing onboarding category constraint mismatch, now corrected in source.
-- In progress: final CI and operational handoff evidence.
+- Browser-triggered MSFT financial research published with limitations after navigating home. Its owner result rendered on the separate web host. QA also fixed the pre-existing onboarding category mismatch, ambiguous reservation SQL, and internal editorial length cap.
+- Runtime implementation CI passed at f3ab675. Final documentation records the production split, restored EIPs, certificate renewal, qualified publication and measured load limitations. PR84 remains the required reviewed path for future role-specific main-branch deployments.
 
 ## Acceptance
 
