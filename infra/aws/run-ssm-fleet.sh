@@ -7,17 +7,17 @@ read -r -a instances <<< "${INSTANCE_IDS:?No deployment instances resolved}"
 [[ ${#instances[@]} -gt 0 ]] || exit 78
 for instance in "${instances[@]}"; do
   target_group=""
-  if [[ "$mode" == deploy && "${RUNTIME_ROLE:-}" == web && ${#instances[@]} -gt 1 ]]; then
-    target_group="$(aws ssm get-parameter --name /stocksembly/prod/web/target-group --query Parameter.Value --output text)"
-    aws elbv2 deregister-targets --target-group-arn "$target_group" --targets "Id=$instance"
-    aws elbv2 wait target-deregistered --target-group-arn "$target_group" --targets "Id=$instance"
-  fi
   restore_target() {
     if [[ -n "$target_group" ]]; then
       aws elbv2 register-targets --target-group-arn "$target_group" --targets "Id=$instance"
     fi
   }
   trap restore_target EXIT
+  if [[ "$mode" == deploy && "${RUNTIME_ROLE:-}" == web && ${#instances[@]} -gt 1 ]]; then
+    target_group="$(aws ssm get-parameter --name /stocksembly/prod/web/target-group --query Parameter.Value --output text)"
+    aws elbv2 deregister-targets --target-group-arn "$target_group" --targets "Id=$instance"
+    aws elbv2 wait target-deregistered --target-group-arn "$target_group" --targets "Id=$instance"
+  fi
   command_id="$(aws ssm send-command --instance-ids "$instance" --document-name AWS-RunShellScript --timeout-seconds 2400 --parameters "file://$parameters" --query Command.CommandId --output text)"
   status=Pending
   for attempt in {1..480}; do

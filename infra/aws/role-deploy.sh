@@ -79,7 +79,10 @@ pathlib.Path(sys.argv[1]).write_text(json.dumps({
     "appEnv": pathlib.Path('/etc/stocksembly/app.env').read_text(),
 }))
 PYCONFIG
-        aws secretsmanager put-secret-value --region "$region" --secret-id stocksembly/prod/web-bootstrap --secret-string "file://$config_file" --query ARN --output text
+        if ! aws secretsmanager put-secret-value --region "$region" --secret-id stocksembly/prod/web-bootstrap --secret-string "file://$config_file" --query ARN --output text; then
+          rm -f "$config_file"
+          exit 1
+        fi
         rm -f "$config_file"
       fi
       exit 0

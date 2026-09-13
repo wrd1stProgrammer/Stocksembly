@@ -1,25 +1,19 @@
 import { readFile } from "node:fs/promises";
-import {
-  GetSecretValueCommand,
-  SecretsManagerClient,
-} from "@aws-sdk/client-secrets-manager";
 import { Pool } from "pg";
 
-const secrets = new SecretsManagerClient({ region: process.env.AWS_REGION });
 let pool;
 try {
-  const response = await secrets.send(
-    new GetSecretValueCommand({
-      SecretId: process.env.STOCKSEMBLY_DB_SECRET_ARN,
-    }),
-  );
-  const secret = JSON.parse(response.SecretString);
+  let secretInput = "";
+  for await (const chunk of process.stdin) secretInput += chunk;
+  const secret = JSON.parse(secretInput);
   pool = new Pool({
     host: process.env.STOCKSEMBLY_DB_HOST ?? secret.host,
     port: Number(process.env.STOCKSEMBLY_DB_PORT ?? secret.port ?? 5432),
     user: secret.username,
     password: secret.password,
     database: process.env.STOCKSEMBLY_DB_NAME ?? secret.dbname ?? "stocksembly",
+    options:
+      "-c search_path=research,pg_catalog -c default_transaction_read_only=on",
     max: 1,
     connectionTimeoutMillis: 5000,
     statement_timeout: 5000,
@@ -48,7 +42,8 @@ try {
     WITH completed AS (
       SELECT runs.run_id, runs.created_at::timestamptz AS started,
         MIN(report_versions.published_at::timestamptz) AS finished
-      FROM runs JOIN report_versions USING(run_id) JOIN reports USING(report_id)
+      FROM runs JOIN report_versions ON report_versions.run_id = runs.run_id
+        JOIN reports ON reports.report_id = report_versions.report_id
       WHERE runs.status IN ('completed','complete-with-limitations')
         AND reports.state = 'published' AND report_versions.status IN ('complete','complete_with_limitations')
         AND report_versions.published_at::timestamptz > now() - interval '24 hours'
@@ -77,5 +72,4 @@ try {
   process.stdout.write(JSON.stringify(data));
 } finally {
   await pool?.end();
-  secrets.destroy();
 }

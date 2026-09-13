@@ -5,7 +5,6 @@ DNS alias cutover is deliberately separate, after HTTPS target health is checked
 """
 import base64
 import json
-import pathlib
 import boto3
 
 REGION = 'us-east-1'
@@ -45,7 +44,7 @@ cert = 'arn:aws:acm:us-east-1:359463332817:certificate/8ea1fbf2-d199-4aff-a4c4-5
 if boto3.client('acm',region_name=REGION).describe_certificate(CertificateArn=cert)['Certificate']['Status']=='ISSUED' and not any(x['Port']==443 for x in listeners):
     lb.create_listener(LoadBalancerArn=alb['LoadBalancerArn'],Protocol='HTTPS',Port=443,Certificates=[{'CertificateArn':cert}],SslPolicy='ELBSecurityPolicy-TLS13-1-2-2021-06',DefaultActions=[{'Type':'forward','TargetGroupArn':tg['TargetGroupArn']}])
 
-# Fetch only the pinned bootstrap object; configuration secrets never enter user data.
+# Fetch the managed bootstrap object; configuration secrets never enter user data.
 user_data = f'''#!/bin/bash
 set -euo pipefail
 aws s3 cp s3://{BUCKET}/operations/web/web-asg-bootstrap.sh /run/web-bootstrap.sh --region {REGION} --only-show-errors
@@ -71,7 +70,10 @@ if not groups:
 else:
     auto.update_auto_scaling_group(AutoScalingGroupName=GROUP,LaunchTemplate=lt)
 # Keep scale-out gated at one until the entire bootstrap and rollout are verified.
-auto.put_scaling_policy(AutoScalingGroupName=GROUP,PolicyName='web-cpu-55',PolicyType='TargetTrackingScaling',TargetTrackingConfiguration={'PredefinedMetricSpecification':{'PredefinedMetricType':'ASGAverageCPUUtilization'},'TargetValue':55.0,'DisableScaleIn':False},EstimatedInstanceWarmup=300)
+for policy in auto.describe_policies(AutoScalingGroupName=GROUP)['ScalingPolicies']:
+    if policy['PolicyName'] == 'web-cpu-55':
+        auto.delete_policy(AutoScalingGroupName=GROUP, PolicyName=policy['PolicyName'])
+auto.put_scaling_policy(AutoScalingGroupName=GROUP,PolicyName='web-cpu-35',PolicyType='TargetTrackingScaling',TargetTrackingConfiguration={'PredefinedMetricSpecification':{'PredefinedMetricType':'ASGAverageCPUUtilization'},'TargetValue':35.0,'DisableScaleIn':False},EstimatedInstanceWarmup=300)
 e.monitor_instances(InstanceIds=[WEB])
 e.create_tags(Resources=[WEB],Tags=[{'Key':'stocksembly:role','Value':'web'}])
 print(json.dumps({'alb':alb['LoadBalancerArn'],'dns':alb['DNSName'],'aliasZone':alb['CanonicalHostedZoneId'],'targetGroup':tg['TargetGroupArn'],'group':GROUP,'launchTemplate':lt,'baseline':1}))
