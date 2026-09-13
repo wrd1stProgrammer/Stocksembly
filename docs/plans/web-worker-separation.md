@@ -17,10 +17,14 @@ Separate the web and research worker inside the existing repository and deploy t
 
 ## Progress
 
-- Confirmed authenticated AWS console access and existing t3.large production instance.
-- PR83 merged; implementation branch created from 5db0b53923f95785616486dea482781bd3d5886a.
-- Existing deployment stops and restarts both roles together; must become role-specific.
-- Existing S3 mirror adapter found; publication ordering and all local readers still need investigation.
+- Independent web and worker entry points/images implemented; PR84 created from the merged PR83 release.
+- S3 reconciliation complete: all 4,109 distinct artifact digests exist remotely; fresh web reads work without a populated local cache.
+- Web t3.medium provisioned with scoped IAM, security groups, PEM and shared RDS access. Existing t3.large retained for worker.
+- CloudFormation EIP-only cutover completed; public IP now targets web. Old web/nginx stopped; worker runs independently.
+- Worker readiness and an actual drain/redeploy passed. Host certificate mount retained; health CLI database cleanup corrected.
+- Reader test reached 25/50/100; 100-reader errors stopped the run before 200. Results and limitations documented.
+- In progress: browser-triggered real research and final publication/read validation. Browser QA exposed a pre-existing onboarding category constraint mismatch, now corrected in source.
+- In progress: final CI and operational handoff evidence.
 
 ## Acceptance
 
