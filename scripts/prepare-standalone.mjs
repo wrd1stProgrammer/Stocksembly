@@ -3,6 +3,12 @@ import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
+const webOnly = process.argv.includes("--web-only");
+const workerOnly = process.argv.includes("--worker-only");
+const outputRoot = workerOnly
+  ? ".stocksembly-verification/worker-runtime"
+  : ".next/standalone";
+
 const projectRequire = createRequire(join(process.cwd(), "package.json"));
 const findPackageDirectory = (resolver, specifier) => {
   let directory = dirname(resolver.resolve(specifier));
@@ -29,7 +35,7 @@ async function includePackage(resolver, name) {
 for (const name of ["pg", "zod", "decimal.js"])
   await includePackage(projectRequire, name);
 let nextRuntimePackages = [];
-if (existsSync(".next/standalone/server.js")) {
+if (!workerOnly && existsSync(`${outputRoot}/server.js`)) {
   const nextRequire = createRequire(
     projectRequire.resolve("next/package.json"),
   );
@@ -53,73 +59,83 @@ if (!existsSync(join(migrationsSource, "001_research_baseline.sql"))) {
   );
 }
 await Promise.all([
-  rm(".next/standalone/research-worker", { recursive: true, force: true }),
-  rm(".next/standalone/briefing-worker", { recursive: true, force: true }),
+  rm(`${outputRoot}/research-worker`, { recursive: true, force: true }),
+  rm(`${outputRoot}/briefing-worker`, { recursive: true, force: true }),
   ...(existsSync(migrationsSource)
-    ? [rm(".next/standalone/migrations", { recursive: true, force: true })]
+    ? [rm(`${outputRoot}/migrations`, { recursive: true, force: true })]
     : []),
 ]);
 const optionalCopies = [
   [
     ".stocksembly-verification/research-worker/leaseWorker.js",
-    ".next/standalone/research-worker/leaseWorker.js",
+    `${outputRoot}/research-worker/leaseWorker.js`,
   ],
   [
     ".stocksembly-verification/research-worker/assets",
-    ".next/standalone/research-worker/assets",
+    `${outputRoot}/research-worker/assets`,
   ],
   [
     "scripts/standalone-worker-entry.mjs",
-    ".next/standalone/research-worker/worker.mjs",
+    `${outputRoot}/research-worker/worker.mjs`,
   ],
   [
     ".stocksembly-verification/briefing-worker/briefingWorker.js",
-    ".next/standalone/briefing-worker/briefingWorker.js",
+    `${outputRoot}/briefing-worker/briefingWorker.js`,
   ],
   [
     ".stocksembly-verification/briefing-worker/assets",
-    ".next/standalone/briefing-worker/assets",
+    `${outputRoot}/briefing-worker/assets`,
   ],
   [
     "scripts/standalone-briefing-worker-entry.mjs",
-    ".next/standalone/briefing-worker/worker.mjs",
+    `${outputRoot}/briefing-worker/worker.mjs`,
   ],
-  [migrationsSource, ".next/standalone/migrations"],
+  [migrationsSource, `${outputRoot}/migrations`],
 ].flatMap(([source, destination]) =>
-  existsSync(source) ? [{ source, destination }] : [],
+  existsSync(source) && (!webOnly || source === migrationsSource)
+    ? [{ source, destination }]
+    : [],
 );
 await Promise.all([
-  mkdir(".next/standalone/.next", { recursive: true }),
+  mkdir(`${outputRoot}/.next`, { recursive: true }),
   ...(existsSync(migrationsSource)
     ? []
-    : [mkdir(".next/standalone/migrations", { recursive: true })]),
-  mkdir(".next/standalone/node_modules", { recursive: true }),
-  mkdir(".next/standalone/node_modules/@next", { recursive: true }),
-  mkdir(".next/standalone/node_modules/@swc", { recursive: true }),
+    : [mkdir(`${outputRoot}/migrations`, { recursive: true })]),
+  mkdir(`${outputRoot}/node_modules`, { recursive: true }),
+  mkdir(`${outputRoot}/node_modules/@next`, { recursive: true }),
+  mkdir(`${outputRoot}/node_modules/@swc`, { recursive: true }),
 ]);
 await Promise.all([
-  cp(".next/static", ".next/standalone/.next/static", {
-    recursive: true,
-    force: true,
-  }),
-  cp("public", ".next/standalone/public", {
-    recursive: true,
-    force: true,
-  }),
-  cp(
-    ".stocksembly-verification/research-worker/runtimeProbe.js",
-    ".next/standalone/research-worker/runtimeProbe.js",
-    { force: true },
-  ),
+  ...(!workerOnly
+    ? [
+        cp(".next/static", `${outputRoot}/.next/static`, {
+          recursive: true,
+          force: true,
+        }),
+        cp("public", `${outputRoot}/public`, {
+          recursive: true,
+          force: true,
+        }),
+      ]
+    : []),
+  ...(!webOnly
+    ? [
+        cp(
+          ".stocksembly-verification/research-worker/runtimeProbe.js",
+          `${outputRoot}/research-worker/runtimeProbe.js`,
+          { force: true },
+        ),
+      ]
+    : []),
   ...[...runtimePackages].map(([name, directory]) =>
-    cp(directory, join(".next/standalone/node_modules", name), {
+    cp(directory, join(`${outputRoot}/node_modules`, name), {
       recursive: true,
       force: true,
       dereference: true,
     }),
   ),
   ...nextRuntimePackages.map(({ destination, directory }) =>
-    cp(directory, join(".next/standalone/node_modules", destination), {
+    cp(directory, join(`${outputRoot}/node_modules`, destination), {
       recursive: true,
       force: true,
       dereference: true,

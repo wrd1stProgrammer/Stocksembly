@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Pool } from "pg";
@@ -297,6 +298,11 @@ async function runWorker(
     writeLifecycle({ kind: "worker_started", recovered: recovered.length });
     await engine.runUntilStopped(controller.signal, {
       stopWhenIdle: argumentsValue.stopWhenIdle,
+      shouldDrain: () =>
+        Boolean(
+          process.env["STOCKSEMBLY_WORKER_DRAIN_FILE"] &&
+            existsSync(process.env["STOCKSEMBLY_WORKER_DRAIN_FILE"]),
+        ),
       ...(workSignal === undefined
         ? {}
         : { waitForWork: workSignal.wait.bind(workSignal) }),
