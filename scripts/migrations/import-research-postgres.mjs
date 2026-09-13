@@ -85,11 +85,14 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
     console.log(
-      "Usage: node scripts/migrations/import-research-postgres.mjs --archive DIRECTORY [--commit --expected-sha256 HASH]\nDefault: import and verify inside a rolled-back transaction. Destination must already have PostgreSQL research migrations applied and contain no research.",
+      "Usage: node scripts/migrations/import-research-postgres.mjs --archive DIRECTORY [--commit --expected-sha256 HASH] [--preserve-unmatched-principals FILE]\nDefault: import and verify inside a rolled-back transaction. Destination must already have PostgreSQL research migrations applied and contain no research.",
     );
     return;
   }
-  const allowed = new Set(["--archive", "--expected-sha256", "--commit"]);
+  const allowed = new Set([
+    "--archive", "--expected-sha256", "--commit",
+    "--preserve-unmatched-principals",
+  ]);
   const options = {};
   for (let i = 0; i < args.length; i++) {
     const key = args[i];
@@ -108,6 +111,18 @@ async function main() {
   const digest = hash(raw);
   if (options.commit && options["--expected-sha256"] !== digest)
     throw new Error("Commit requires the reviewed manifest SHA-256");
+  let preservedPrincipals = [];
+  if (options["--preserve-unmatched-principals"]) {
+    const review = JSON.parse(await readFile(
+      resolve(options["--preserve-unmatched-principals"]), "utf8",
+    ));
+    if (review.manifestSha256 !== digest || !Array.isArray(review.principals) ||
+        !review.principals.length || review.principals.some((id) => typeof id !== "string" || !id) ||
+        new Set(review.principals).size !== review.principals.length) {
+      throw new Error("Invalid unmatched-principal review for this archive");
+    }
+    preservedPrincipals = review.principals;
+  }
   const manifest = JSON.parse(raw);
   if (
     manifest.format !== "stocksembly-research-transfer-v1" ||
@@ -322,9 +337,11 @@ async function main() {
     );
     if (accounts.rows[0].accounts) {
       const orphan = await client.query(
-        "SELECT r.run_id FROM research.research_requests r LEFT JOIN public.app_users a ON a.principal_id=r.principal_id WHERE a.principal_id IS NULL LIMIT 1",
+        "SELECT DISTINCT r.principal_id FROM research.research_requests r LEFT JOIN public.app_users a ON a.principal_id=r.principal_id WHERE a.principal_id IS NULL",
       );
-      if (orphan.rowCount)
+      const unmatched = orphan.rows.map((row) => row.principal_id);
+      if (unmatched.length !== preservedPrincipals.length ||
+          unmatched.some((id) => !preservedPrincipals.includes(id)))
         throw new Error(
           "Imported research references an account absent from PostgreSQL",
         );
@@ -366,6 +383,7 @@ async function main() {
       JSON.stringify({
         status: options.commit ? "imported" : "dry_run_verified",
         manifestSha256: digest,
+        preservedUnmatchedPrincipals: preservedPrincipals.length,
         tables: manifest.tables.length,
         rows: manifest.tables.reduce((sum, table) => sum + table.rows, 0),
       }),

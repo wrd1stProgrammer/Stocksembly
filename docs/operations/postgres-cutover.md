@@ -4,7 +4,7 @@
 
 This release replaces the application's SQLite storage with PostgreSQL. Accounts retain the existing RDS account tables; research uses the `research` schema in the same configured database. Web and worker remain on the existing host. Machine separation, additional CDN routes, and moving all artifact reads to S3 are separate work.
 
-Production has **not** been switched by the local migration rehearsal. Do not enable the new release until the final export is reconciled. Both production startup and deployment require `STOCKSEMBLY_RESEARCH_POSTGRES_READY=true`; this is an operator-controlled cutover marker, not a migration command.
+The production cutover completed on 2026-09-13 after the final export was reconciled. For any future cutover, do not enable the new release before reconciliation. Both production startup and deployment require `STOCKSEMBLY_RESEARCH_POSTGRES_READY=true`; this is an operator-controlled cutover marker, not a migration command.
 
 ## Tools and prerequisites
 
@@ -53,3 +53,15 @@ If the protected pipeline attempts deployment before step 5, its guard intention
 An uncommitted import rolls back its rows and temporary constraint/trigger changes. Keep writes disabled, investigate the mismatch, and rerun against the reviewed source. A repeated committed manifest returns `already_imported`; confirm the receipt rather than creating a second copy.
 
 Before any PostgreSQL application writes, rollback can restore the previous runtime against the preserved, consistent legacy data under controlled maintenance. **After PostgreSQL writes begin, the old SQLite copy is stale.** Stop writes and reconcile all new research, ownership, events, and credit effects before deciding to roll back. Prefer repairing the PostgreSQL deployment or restoring/recovering PostgreSQL with an explicit data-loss assessment. Never restart the old binary on the stale database as a quick fallback.
+
+## Historical owners absent from the account database
+
+The default import rejects research whose principal has no current account. If investigation establishes that historical records must be retained unchanged, an operator can supply `--preserve-unmatched-principals /private/review.json`. The JSON must contain `manifestSha256` for the exact archive and `principals`, an exact, unique list of the unmatched principal IDs. Missing, extra, or unreviewed principals still fail. This option preserves original identifiers; it does not create accounts, ownership grants, entitlements, or change report visibility. Existing ownership conflicts remain fatal. Keep the review and import output with the private backup, and do not commit principal IDs.
+
+## Production execution: 2026-09-13
+
+- Imported 34 tables and 74,936 rows into RDS PostgreSQL 18.3. Final archive SHA-256: `6a2c0eb3523c20a7838582540ad5e36f847d38010d72cbf94244a4934d470b4c`.
+- Application-reader verification passed for 87 runs, 63 reports and 2,849 events. Nine historical runs retain two unmatched original principals through a manifest-bound private review; no account or ownership grants were created.
+- Full pre-import logical RDS backup and consistent final SQLite/news snapshots are retained in the private server backup directory. Legacy files are recovery material, not active storage.
+- The readiness marker was enabled only after verification. PR #82's production workflow rerun succeeded. Web and worker use the PostgreSQL image, and worker health reports three applied migrations.
+- Live public-catalog QA found ambiguous PostgreSQL `USING(run_id)` joins hidden by simplified test schemas. Explicit version-qualified joins restore catalog, detail, hub and sitemap queries. The test schemas now include overlapping production column names. A backed-up correction was applied to the running web container; merge this source fix before any subsequent deployment replaces that container. The latest report correctly showed its member-access gate; a historical public report was also checked in the browser.

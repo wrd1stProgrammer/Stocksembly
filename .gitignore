@@ -28,3 +28,8 @@ assets/presentation/
 /*.pdf
 /*.pptx.inspect.ndjson
 /*.zip
+
+# Generated from PNG originals during development, build and CDN publishing.
+/public/research/office-v8/base.webp
+/public/research/office-v9/entities/*.webp
+/public/research/office-v10/agents/*.webp

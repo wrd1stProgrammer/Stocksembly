@@ -17,6 +17,7 @@ staging="$(mktemp -d)"
 trap 'rm -rf "$staging"' EXIT
 # Archive from Git so unrelated local files cannot be published.
 git archive "$revision" -- public/research/office-v7 public/research/office-v8 public/research/office-v9 public/research/office-v10 | tar -x -C "$staging"
+node scripts/prepare-office-webp.mjs "$staging/public"
 aws s3 sync "$staging/public/research/" "s3://${bucket}/releases/${revision}/research/" \
   --cache-control 'public,max-age=31536000,immutable' \
   --only-show-errors ${arguments[@]+"${arguments[@]}"}

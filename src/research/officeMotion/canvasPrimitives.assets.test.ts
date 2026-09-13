@@ -25,7 +25,7 @@ it("retries the local original when CDN decoding fails", async () => {
   const { loadAssets } = await import("./canvasPrimitives");
   const assets = await loadAssets(["office"]);
   expect(attempts).toEqual([
-    "https://cdn.example/releases/sha/research/office-v8/base.png",
+    "https://cdn.example/releases/sha/research/office-v8/base.webp",
     "/research/office-v8/base.png",
   ]);
   expect(assets.get("office")?.src).toBe("/research/office-v8/base.png");

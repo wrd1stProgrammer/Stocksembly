@@ -81,3 +81,13 @@ Raw local comparison evidence is retained outside Git under `~/.codex/visualizat
 - [AWS Budgets resource](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-budgets-budget.html)
 - [AWS Budgets pricing](https://aws.amazon.com/aws-cost-management/aws-budgets/pricing/)
 - [Managed response headers policies](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-response-headers-policies.html)
+
+## Canvas CORS and transfer size correction (2026-09-13)
+
+Canvas images use anonymous CORS. The managed response policy only attaches CORS headers to Origin-bearing requests, allowing browser image-cache reuse to encounter a response without the required header. A viewer-response CloudFront Function consistently adds `Access-Control-Allow-Origin: *` and `Timing-Allow-Origin: *` to the existing public-image distribution. S3 remains private and the origin scope excludes application APIs and report data. CloudFront rejects CORS headers inside a response policy's CustomHeadersConfig; use the checked-in function implementation.
+
+The 16 active office PNGs total 21,816,361 bytes. `pnpm assets:office` creates WebP derivatives with unchanged dimensions and full alpha quality, totaling 1,869,742 bytes for the current assets. Development, application builds and CDN publication regenerate derivatives from the original PNGs. Publication uses an archive of the exact release commit, and the original PNG remains the decoder/network fallback. Generated WebP files are not committed.
+
+Production browser checks after the CORS correction showed all 16 images loading from CloudFront with no original-server fallback. The remaining 8–10 second cold transfer was attributable to the approximately 22MB payload, so the WebP client/build change is also required. Preserve immutable release prefixes; do not overwrite original PNG objects to apply this optimization.
+
+Production verification after WebP rollout: a Chrome run with browser cache disabled loaded all 16 WebP images from CloudFront in a 1.45-second transfer window (1.87MB payload), with `data-office-ready=true`, no origin fallback and no console errors. Before WebP, the same office transferred PNGs in 8.5–10.2 seconds. These are image-download timings from the Korean test connection, not a global guarantee or total page-load measurement. Visual inspection confirmed the office and animated characters rendered correctly. The active release received the optimized objects and a backed-up runtime asset-reference correction; merge this source change to preserve it across deployments.

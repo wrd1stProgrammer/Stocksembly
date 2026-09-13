@@ -73,22 +73,22 @@ export function asset(assets: Assets, id: string): HTMLImageElement {
 }
 
 export const OFFICE_ASSET_PATHS: Readonly<Record<string, string>> = {
-  office: "/research/office-v8/base.png",
-  desk: "/research/office-v9/entities/workstation-single-table.png",
-  "chair-up": "/research/office-v9/entities/analyst-chair-up.png",
-  "chair-down": "/research/office-v9/entities/analyst-chair-down.png",
-  market: "/research/office-v10/agents/market.png",
-  market_news: "/research/office-v10/agents/market_news.png",
-  benchmark: "/research/office-v10/agents/benchmark.png",
-  company: "/research/office-v10/agents/company.png",
-  company_product: "/research/office-v10/agents/company_product.png",
-  company_competition: "/research/office-v10/agents/company_competition.png",
-  financial: "/research/office-v10/agents/financial.png",
-  valuation: "/research/office-v10/agents/valuation.png",
-  financial_quality: "/research/office-v10/agents/financial_quality.png",
-  risk: "/research/office-v10/agents/risk.png",
-  risk_policy: "/research/office-v10/agents/risk_policy.png",
-  chair: "/research/office-v10/agents/chair.png",
+  office: "/research/office-v8/base.webp",
+  desk: "/research/office-v9/entities/workstation-single-table.webp",
+  "chair-up": "/research/office-v9/entities/analyst-chair-up.webp",
+  "chair-down": "/research/office-v9/entities/analyst-chair-down.webp",
+  market: "/research/office-v10/agents/market.webp",
+  market_news: "/research/office-v10/agents/market_news.webp",
+  benchmark: "/research/office-v10/agents/benchmark.webp",
+  company: "/research/office-v10/agents/company.webp",
+  company_product: "/research/office-v10/agents/company_product.webp",
+  company_competition: "/research/office-v10/agents/company_competition.webp",
+  financial: "/research/office-v10/agents/financial.webp",
+  valuation: "/research/office-v10/agents/valuation.webp",
+  financial_quality: "/research/office-v10/agents/financial_quality.webp",
+  risk: "/research/office-v10/agents/risk.webp",
+  risk_policy: "/research/office-v10/agents/risk_policy.webp",
+  chair: "/research/office-v10/agents/chair.webp",
 };
 
 export async function loadAssets(
@@ -104,8 +104,8 @@ export async function loadAssets(
       try {
         await image.decode();
       } catch (error) {
-        if (staticAsset(path) === path) throw error;
-        image.src = path;
+        if (staticAsset(path) === path && !path.endsWith(".webp")) throw error;
+        image.src = path.replace(/\.webp$/, ".png");
         await image.decode();
       }
       return [id, image] as const;

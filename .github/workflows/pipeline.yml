@@ -61,6 +61,10 @@ jobs:
         run: bash scripts/ci-static-assets-workflow.test.sh
       - name: Verify static asset routing and fallback
         run: pnpm exec vitest run src/lib/staticAsset.test.ts src/research/officeMotion/canvasPrimitives.assets.test.ts
+      - name: Verify PostgreSQL public catalogs
+        env:
+          STOCKSEMBLY_API_TEST_DATABASE_URL: postgres://stocksembly:stocksembly_ci@127.0.0.1:5432/stocksembly_test
+        run: pnpm exec vitest run src/research/server/researchRoom/researchRoomCatalog.test.ts src/research/server/researchRoom/stockResearchHubCatalog.test.ts
       - name: Verify Bash 3 changed-file lint portability
         run: /bin/bash scripts/ci-lint-changed.test.sh
       - name: Verify production change classification
@@ -94,6 +98,14 @@ jobs:
       INSTANCE_ID: i-030eacac11712c94d
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - uses: aws-actions/configure-aws-credentials@v6.1.1
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -114,7 +126,7 @@ jobs:
             }
             bash scripts/publish-static-assets.sh "$STATIC_ASSET_BUCKET" "$GITHUB_SHA"
             asset_base="$STATIC_CDN_ORIGIN/releases/$GITHUB_SHA"
-            curl --fail --silent --show-error --connect-timeout 10 --max-time 60 --retry 3 --output /dev/null "$asset_base/research/office-v8/base.png"
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 60 --retry 3 --output /dev/null "$asset_base/research/office-v8/base.webp"
             echo "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=$asset_base" >> "$GITHUB_ENV"
           fi
       - name: Build and push immutable image

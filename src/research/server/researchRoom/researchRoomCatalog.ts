@@ -210,11 +210,11 @@ function selectSql(where = "") {
     COALESCE(research_room_views.view_count, 0) AS view_count,
     runs.last_event_seq, runs.created_at, runs.status AS run_status
     FROM reports
-    JOIN report_versions USING(report_id)
-    JOIN artifacts USING(artifact_id)
-    JOIN research_requests USING(run_id)
-    JOIN runs USING(run_id)
-    LEFT JOIN research_room_views USING(report_id)
+    JOIN report_versions ON report_versions.report_id = reports.report_id
+    JOIN artifacts ON artifacts.artifact_id = report_versions.artifact_id
+    JOIN research_requests ON research_requests.run_id = report_versions.run_id
+    JOIN runs ON runs.run_id = report_versions.run_id
+    LEFT JOIN research_room_views ON research_room_views.report_id = reports.report_id
     WHERE reports.state = 'published'
       AND report_versions.status IN ('complete', 'complete_with_limitations')
       AND runs.status IN ('completed', 'complete-with-limitations')
@@ -225,9 +225,9 @@ function selectSql(where = "") {
 function sitemapSelectSql() {
   return `SELECT reports.report_id, report_versions.published_at
     FROM reports
-    JOIN report_versions USING(report_id)
-    JOIN artifacts USING(artifact_id)
-    JOIN runs USING(run_id)
+    JOIN report_versions ON report_versions.report_id = reports.report_id
+    JOIN artifacts ON artifacts.artifact_id = report_versions.artifact_id
+    JOIN runs ON runs.run_id = report_versions.run_id
     WHERE reports.state = 'published'
       AND report_versions.status IN ('complete', 'complete_with_limitations')
       AND runs.status IN ('completed', 'complete-with-limitations')
@@ -388,10 +388,10 @@ export async function listResearchRoomReportPage(
       await database.query(
         `SELECT research_requests.symbol AS symbol, CAST(COUNT(*) AS integer) AS count
          FROM reports
-         JOIN report_versions USING(report_id)
-         JOIN artifacts USING(artifact_id)
-         JOIN research_requests USING(run_id)
-         JOIN runs USING(run_id)
+         JOIN report_versions ON report_versions.report_id = reports.report_id
+         JOIN artifacts ON artifacts.artifact_id = report_versions.artifact_id
+         JOIN research_requests ON research_requests.run_id = report_versions.run_id
+         JOIN runs ON runs.run_id = report_versions.run_id
          WHERE reports.state = 'published'
            AND report_versions.status IN ('complete', 'complete_with_limitations')
            AND runs.status IN ('completed', 'complete-with-limitations')

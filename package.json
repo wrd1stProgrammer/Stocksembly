@@ -15,7 +15,7 @@
     "db:verify:build": "vite build --config vite.worker.config.ts --ssr scripts/migrations/verify-research-postgres.ts --outDir .stocksembly-verification/postgres-verify",
     "db:verify": "pnpm db:verify:build && node --env-file-if-exists=.env.local .stocksembly-verification/postgres-verify/verify-research-postgres.js",
     "dev": "LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 next dev",
-    "build": "pnpm research:worker:build && pnpm briefing:worker:build && next build",
+    "build": "pnpm assets:office && pnpm research:worker:build && pnpm briefing:worker:build && next build",
     "postbuild": "node scripts/prepare-standalone.mjs",
     "start": "pnpm start:local",
     "start:local": "node --env-file-if-exists=.env.local scripts/start-local.mjs",
@@ -50,7 +50,9 @@
     "test:e2e": "playwright test",
     "audit:lighthouse": "node scripts/lighthouse-audit.mjs",
     "audit:visual-diff": "node scripts/reference-diff.mjs",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "assets:office": "node scripts/prepare-office-webp.mjs",
+    "predev": "pnpm assets:office"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",
@@ -103,6 +105,7 @@
     "playwright": "^1.61.1",
     "pngjs": "7.0.0",
     "react-grab": "^0.1.48",
+    "sharp": "0.34.5",
     "tailwindcss": "^4.3.3",
     "typescript": "5.9.3",
     "vite": "8.1.4",
