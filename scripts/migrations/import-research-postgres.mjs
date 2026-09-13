@@ -90,7 +90,9 @@ async function main() {
     return;
   }
   const allowed = new Set([
-    "--archive", "--expected-sha256", "--commit",
+    "--archive",
+    "--expected-sha256",
+    "--commit",
     "--preserve-unmatched-principals",
   ]);
   const options = {};
@@ -113,12 +115,19 @@ async function main() {
     throw new Error("Commit requires the reviewed manifest SHA-256");
   let preservedPrincipals = [];
   if (options["--preserve-unmatched-principals"]) {
-    const review = JSON.parse(await readFile(
-      resolve(options["--preserve-unmatched-principals"]), "utf8",
-    ));
-    if (review.manifestSha256 !== digest || !Array.isArray(review.principals) ||
-        !review.principals.length || review.principals.some((id) => typeof id !== "string" || !id) ||
-        new Set(review.principals).size !== review.principals.length) {
+    const review = JSON.parse(
+      await readFile(
+        resolve(options["--preserve-unmatched-principals"]),
+        "utf8",
+      ),
+    );
+    if (
+      review.manifestSha256 !== digest ||
+      !Array.isArray(review.principals) ||
+      !review.principals.length ||
+      review.principals.some((id) => typeof id !== "string" || !id) ||
+      new Set(review.principals).size !== review.principals.length
+    ) {
       throw new Error("Invalid unmatched-principal review for this archive");
     }
     preservedPrincipals = review.principals;
@@ -340,8 +349,10 @@ async function main() {
         "SELECT DISTINCT r.principal_id FROM research.research_requests r LEFT JOIN public.app_users a ON a.principal_id=r.principal_id WHERE a.principal_id IS NULL",
       );
       const unmatched = orphan.rows.map((row) => row.principal_id);
-      if (unmatched.length !== preservedPrincipals.length ||
-          unmatched.some((id) => !preservedPrincipals.includes(id)))
+      if (
+        unmatched.length !== preservedPrincipals.length ||
+        unmatched.some((id) => !preservedPrincipals.includes(id))
+      )
         throw new Error(
           "Imported research references an account absent from PostgreSQL",
         );
