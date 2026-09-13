@@ -41,6 +41,8 @@ jobs:
         run: pnpm research:quality
       - name: Verify focused research contracts
         run: pnpm research:quality:contracts
+      - name: Verify static asset routing and fallback
+        run: pnpm exec vitest run src/lib/staticAsset.test.ts src/research/officeMotion/canvasPrimitives.assets.test.ts
       - name: Verify Bash 3 changed-file lint portability
         run: /bin/bash scripts/ci-lint-changed.test.sh
       - name: Verify production change classification
@@ -80,6 +82,22 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
+      - name: Publish optional CloudFront office assets
+        env:
+          STATIC_ASSET_BUCKET: ${{ vars.STATIC_ASSET_BUCKET }}
+          STATIC_CDN_ORIGIN: ${{ vars.STATIC_CDN_ORIGIN }}
+        run: |
+          if [[ -z "$STATIC_ASSET_BUCKET" && -z "$STATIC_CDN_ORIGIN" ]]; then
+            echo "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=" >> "$GITHUB_ENV"
+          else
+            [[ -n "$STATIC_ASSET_BUCKET" && "$STATIC_CDN_ORIGIN" =~ ^https://[a-z0-9]+\.cloudfront\.net$ ]] || {
+              echo "Configure both STATIC_ASSET_BUCKET and STATIC_CDN_ORIGIN" >&2
+              exit 1
+            }
+            bash scripts/publish-static-assets.sh "$STATIC_ASSET_BUCKET" "$GITHUB_SHA"
+            asset_base="$STATIC_CDN_ORIGIN/releases/$GITHUB_SHA"
+            curl --fail --silent --show-error --connect-timeout 10 --max-time 60 --retry 3 --output /dev/null "$asset_base/research/office-v8/base.png"
+            echo "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=$asset_base" >> "$GITHUB_ENV"
       - name: Build and push immutable image
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
@@ -104,6 +122,7 @@ jobs:
               --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
               --build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}" \
               --build-arg "NEXT_PUBLIC_META_PIXEL_ID=${META_PIXEL_ID}" \
+              --build-arg "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=${NEXT_PUBLIC_STATIC_ASSET_BASE_URL}" \
               --tag "$image" .
             if ! push_output="$(docker push "$image" 2>&1)"; then
               echo "$push_output"

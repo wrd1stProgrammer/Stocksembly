@@ -2,6 +2,7 @@
 
 import { X } from "@phosphor-icons/react";
 import Image from "next/image";
+import { staticAsset, staticAssetCdnEnabled } from "@/src/lib/staticAsset";
 import type { Locale } from "../../lib/i18n";
 import type { OfficeSceneManifestContract } from "../../research/officeSceneManifest";
 import type { ResearchEvent } from "../../research/types";
@@ -38,7 +39,8 @@ export function OfficeAgentInfoPanel({
     >
       <header>
         <Image
-          src={`/research/office-v7/portraits/${member.id}.png`}
+          src={staticAsset(`/research/office-v7/portraits/${member.id}.png`)}
+          unoptimized={staticAssetCdnEnabled}
           alt=""
           width={56}
           height={84}

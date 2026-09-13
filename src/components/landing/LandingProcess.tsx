@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
+import { staticAsset, staticAssetCdnEnabled } from "@/src/lib/staticAsset";
 import type { AppLocale } from "../../lib/i18n";
 import { researchLocale } from "../../lib/i18n";
 import { OFFICE_SCENE_MANIFEST } from "../../research/officeSceneManifest";
@@ -172,7 +173,10 @@ export function LandingProcess({ locale }: { readonly locale: AppLocale }) {
                       .map((member) => (
                         <div key={member.id}>
                           <Image
-                            src={`/research/office-v7/portraits/${member.id}.png`}
+                            src={staticAsset(
+                              `/research/office-v7/portraits/${member.id}.png`,
+                            )}
+                            unoptimized={staticAssetCdnEnabled}
                             alt=""
                             width={44}
                             height={44}
@@ -242,7 +246,10 @@ export function LandingProcess({ locale }: { readonly locale: AppLocale }) {
               ].map(([from, to, question]) => (
                 <div key={from}>
                   <Image
-                    src={`/research/office-v7/portraits/${from}.png`}
+                    src={staticAsset(
+                      `/research/office-v7/portraits/${from}.png`,
+                    )}
+                    unoptimized={staticAssetCdnEnabled}
                     alt={from ?? ""}
                     width={44}
                     height={44}
@@ -268,7 +275,8 @@ export function LandingProcess({ locale }: { readonly locale: AppLocale }) {
                     <p>{question}</p>
                   </div>
                   <Image
-                    src={`/research/office-v7/portraits/${to}.png`}
+                    src={staticAsset(`/research/office-v7/portraits/${to}.png`)}
+                    unoptimized={staticAssetCdnEnabled}
                     alt={to ?? ""}
                     width={36}
                     height={36}
@@ -287,7 +295,10 @@ export function LandingProcess({ locale }: { readonly locale: AppLocale }) {
                 {departments.map((department) => (
                   <Image
                     key={department}
-                    src={`/research/office-v7/portraits/${department}.png`}
+                    src={staticAsset(
+                      `/research/office-v7/portraits/${department}.png`,
+                    )}
+                    unoptimized={staticAssetCdnEnabled}
                     alt=""
                     width={48}
                     height={48}
@@ -301,7 +312,8 @@ export function LandingProcess({ locale }: { readonly locale: AppLocale }) {
               </span>
               <ArrowDown size={18} />
               <Image
-                src="/research/office-v7/portraits/chair.png"
+                src={staticAsset("/research/office-v7/portraits/chair.png")}
+                unoptimized={staticAssetCdnEnabled}
                 alt={ko ? "리서치 의장" : "Research chair"}
                 width={64}
                 height={64}
