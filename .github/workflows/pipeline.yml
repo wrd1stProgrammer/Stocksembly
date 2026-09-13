@@ -41,6 +41,8 @@ jobs:
         run: pnpm research:quality
       - name: Verify focused research contracts
         run: pnpm research:quality:contracts
+      - name: Verify CloudFront deployment shell syntax
+        run: bash scripts/ci-static-assets-workflow.test.sh
       - name: Verify static asset routing and fallback
         run: pnpm exec vitest run src/lib/staticAsset.test.ts src/research/officeMotion/canvasPrimitives.assets.test.ts
       - name: Verify Bash 3 changed-file lint portability
@@ -98,6 +100,7 @@ jobs:
             asset_base="$STATIC_CDN_ORIGIN/releases/$GITHUB_SHA"
             curl --fail --silent --show-error --connect-timeout 10 --max-time 60 --retry 3 --output /dev/null "$asset_base/research/office-v8/base.png"
             echo "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=$asset_base" >> "$GITHUB_ENV"
+          fi
       - name: Build and push immutable image
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
