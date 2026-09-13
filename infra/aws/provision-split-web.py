@@ -51,3 +51,16 @@ if instances:
 else:
     instance=ec2.run_instances(ImageId='ami-0006118602dfc1c09',InstanceType='t3.medium',MinCount=1,MaxCount=1,KeyName='stocksembly-web-worker-20260913',IamInstanceProfile={'Name':role},NetworkInterfaces=[{'DeviceIndex':0,'SubnetId':'subnet-07e12ce381ada71f7','Groups':[sg],'AssociatePublicIpAddress':True}],MetadataOptions={'HttpTokens':'required','HttpPutResponseHopLimit':2},BlockDeviceMappings=[{'DeviceName':'/dev/xvda','Ebs':{'VolumeSize':40,'VolumeType':'gp3','Encrypted':True,'DeleteOnTermination':True}}],UserData=user_data,ClientToken='stocksembly-split-web-20260913',TagSpecifications=[{'ResourceType':'instance','Tags':[{'Key':'Name','Value':'stocksembly-web'},{'Key':'Application','Value':'Stocksembly'},{'Key':'Role','Value':'web'}]}])['Instances'][0]
 print(json.dumps({'instanceId':instance['InstanceId'],'privateIp':instance.get('PrivateIpAddress'),'publicIp':instance.get('PublicIpAddress'),'securityGroup':sg}))
+
+# Preserve existing deployment permissions and add only this web target.
+deploy_role = "stocksembly-github-deploy"
+deploy_policy = "stocksembly-build-and-deploy"
+document = iam.get_role_policy(RoleName=deploy_role, PolicyName=deploy_policy)["PolicyDocument"]
+for statement in document["Statement"]:
+    if "ssm:SendCommand" in statement["Action"]:
+        resource = f"arn:aws:ec2:us-east-1:359463332817:instance/{instance['InstanceId']}"
+        if resource not in statement["Resource"]:
+            statement["Resource"].append(resource)
+    if "ecr:PutImage" in statement["Action"] and "ecr:DescribeImages" not in statement["Action"]:
+        statement["Action"].append("ecr:DescribeImages")
+iam.put_role_policy(RoleName=deploy_role, PolicyName=deploy_policy, PolicyDocument=json.dumps(document))

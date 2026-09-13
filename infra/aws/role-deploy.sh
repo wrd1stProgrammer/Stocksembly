@@ -19,15 +19,18 @@ done
 ready="$(sed -n 's/^STOCKSEMBLY_RESEARCH_POSTGRES_READY=//p' /etc/stocksembly/aws.env /etc/stocksembly/app.env | tail -1)"
 [[ "$ready" == true ]] || { echo 'PostgreSQL cutover is not verified' >&2; exit 78; }
 previous="$(docker inspect --format '{{.Config.Image}}' "$name" 2>/dev/null || true)"
-aws ecr get-login-password --region "$region" | docker login --username AWS --password-stdin "$registry"
-docker pull "$image"
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+  aws ecr get-login-password --region "$region" | docker login --username AWS --password-stdin "$registry"
+  docker pull "$image"
+fi
 start_role() {
   local target="$1"
   docker rm --force "$name" >/dev/null 2>&1 || true
   local mounts=(--volume /var/lib/stocksembly/research:/var/lib/stocksembly/research)
   local command=(node server.js)
   if [[ "$role" == worker ]]; then
-    mounts+=(--volume /home/ec2-user/.codex:/home/ec2-user/.codex)
+    mounts+=(--volume /home/ec2-user/.codex:/home/ec2-user/.codex
+      --volume /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:ro)
     command=(node research-worker/worker.mjs serve)
   fi
   docker run --detach --name "$name" --restart always --network host \

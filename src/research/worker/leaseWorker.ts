@@ -33,6 +33,8 @@ import {
   WorkerRuntimeError,
 } from "./runtimeLifecycle";
 
+export { closeResearchPool };
+
 const LegacyArgumentsSchema = z.tuple([
   z.literal("--owner"),
   z.string().trim().min(1).max(200),

@@ -30,7 +30,11 @@ try {
     });
     process.exit(0);
   } else {
-    await worker.runLeaseWorkerProcess(argumentsValue);
+    try {
+      await worker.runLeaseWorkerProcess(argumentsValue);
+    } finally {
+      await worker.closeResearchPool();
+    }
   }
 } catch (error) {
   const reportedCode =
