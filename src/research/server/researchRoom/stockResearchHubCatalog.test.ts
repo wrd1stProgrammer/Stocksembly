@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { currentApiTestDatabase } from "../api/postgresApi.testSupport";
 import { StockSymbolSchema } from "./researchRoomPublicCatalog";
 import { loadStockResearchHub } from "./stockResearchHubCatalog";
 import {
@@ -176,3 +177,7 @@ describe("stock research hub catalog", () => {
     expect(hub).toBeUndefined();
   });
 });
+
+vi.mock("../persistence/postgres/researchPool", () => ({
+  getResearchPool: async () => currentApiTestDatabase(),
+}));

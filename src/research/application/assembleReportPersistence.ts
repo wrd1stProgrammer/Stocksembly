@@ -43,14 +43,16 @@ export type AuthoritativeReportCommit = {
 };
 
 export type ReportVersionPersistence = {
-  readonly save: (input: AuthoritativeReportCommit) => number;
+  readonly save: (input: AuthoritativeReportCommit) => number | Promise<number>;
 };
 
 type PersistenceOptions = {
   readonly cas: ArtifactCasPort;
   readonly persistence: ReportVersionPersistence;
   readonly now?: () => string;
-  readonly reserveEditorialRewrite?: (inputHash: string) => boolean;
+  readonly reserveEditorialRewrite?: (
+    inputHash: string,
+  ) => boolean | Promise<boolean>;
   readonly savedEditorialPublication?: PrePublicationEditorialEnvelope;
   readonly repairMetadata?: Readonly<{
     authorizationHash: string;
@@ -114,7 +116,10 @@ export async function persistAuthoritativeReport(
   const recomputedGate = await gateWithOneTargetedRewrite(
     assembled.editorialPublication.candidate,
     async (request) => {
-      if (options.reserveEditorialRewrite?.(hashCanonical(request)) === false)
+      if (
+        (await options.reserveEditorialRewrite?.(hashCanonical(request))) ===
+        false
+      )
         return assembled.editorialPublication.candidate;
       return deterministicMetadataRewrite(
         assembled.editorialPublication.candidate,
@@ -297,7 +302,7 @@ export async function persistAuthoritativeReport(
     parentDigests: parsedDigests,
     bytes,
   });
-  options.persistence.save({
+  await options.persistence.save({
     report: publicationReport,
     descriptor,
     parentArtifactIds: input.parentArtifacts.map((parent) => parent.artifactId),

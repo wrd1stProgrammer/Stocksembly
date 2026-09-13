@@ -6,28 +6,37 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { createResearchTestDatabase } from "../../test/researchPostgres";
+import * as pools from "../server/persistence/postgres/researchPool";
 import {
   acquireWorkerLease,
   inspectWorkerHealth,
   type WorkerRuntime,
 } from "./runtimeLifecycle";
 
-async function fixture(): Promise<WorkerRuntime> {
+async function fixture() {
+  const database = await createResearchTestDatabase();
   const dataDirectory = await realpath(
     await mkdtemp(join(tmpdir(), "worker-lease-")),
   );
-  return {
+  const runtime: WorkerRuntime = {
     dataDirectory,
-    databasePath: join(dataDirectory, "research.sqlite"),
-    migrationsDirectory: "",
+    database: database.pool,
     migrationsApplied: 0,
     casDigest: "",
   };
+  return {
+    runtime,
+    close: async () => {
+      await database.close();
+      await rm(dataDirectory, { recursive: true, force: true });
+    },
+  };
 }
 
-describe("worker data-directory lease", () => {
-  it("recovers a stale container lock even when its PID has been reused", async () => {
-    const runtime = await fixture();
+describe("worker PostgreSQL session lease", () => {
+  it("ignores a stale container marker even when its PID has been reused", async () => {
+    const { runtime, close } = await fixture();
     await writeFile(
       join(runtime.dataDirectory, "worker.lock"),
       JSON.stringify({
@@ -40,26 +49,29 @@ describe("worker data-directory lease", () => {
       const lease = await acquireWorkerLease(runtime);
       await lease.release();
     } finally {
-      await rm(runtime.dataDirectory, { recursive: true, force: true });
+      await close();
     }
   });
   it("denies a real active process and reacquires its lease after SIGKILL", async () => {
-    const runtime = await fixture();
+    const { runtime, close } = await fixture();
     const child = spawn(
       process.execPath,
       [
         "-e",
         `
-      const Database = require(process.argv[1]);
-      const database = new Database(process.argv[2], { timeout: 0 });
-      database.exec("BEGIN IMMEDIATE");
-      process.send("locked");
-      setInterval(() => {}, 1000);
+      const { Client } = require(process.argv[1]);
+      const client = new Client({connectionString:process.env.STOCKSEMBLY_DATABASE_URL});
+      (async () => { await client.connect(); await client.query('SELECT pg_advisory_lock(73921401)'); process.send('locked'); })().catch(error => { console.error(error); process.exit(1); });
     `,
-        createRequire(import.meta.url).resolve("better-sqlite3"),
-        join(runtime.dataDirectory, "worker-lease.sqlite"),
+        createRequire(import.meta.url).resolve("pg"),
       ],
-      { stdio: ["ignore", "ignore", "pipe", "ipc"] },
+      {
+        stdio: ["ignore", "ignore", "pipe", "ipc"],
+        env: {
+          ...process.env,
+          STOCKSEMBLY_DATABASE_URL: runtime.database.options.connectionString,
+        },
+      },
     );
     try {
       await once(child, "message");
@@ -81,12 +93,13 @@ describe("worker data-directory lease", () => {
         child.kill("SIGKILL");
         await exited;
       }
-      await rm(runtime.dataDirectory, { recursive: true, force: true });
+      await close();
     }
   });
-  it("health checks require a held OS lease rather than a living recycled PID", async () => {
-    const runtime = await fixture();
+  it("health requires a held database lease rather than a recycled PID", async () => {
+    const { runtime, close } = await fixture();
     vi.stubEnv("STOCKSEMBLY_DATA_DIR", runtime.dataDirectory);
+    vi.spyOn(pools, "getResearchPool").mockResolvedValue(runtime.database);
     try {
       await writeFile(
         join(runtime.dataDirectory, "worker.lock"),
@@ -111,8 +124,9 @@ describe("worker data-directory lease", () => {
         code: "WORKER_NOT_RUNNING",
       });
     } finally {
+      vi.restoreAllMocks();
       vi.unstubAllEnvs();
-      await rm(runtime.dataDirectory, { recursive: true, force: true });
+      await close();
     }
   });
 });

@@ -1,7 +1,8 @@
-import type Database from "better-sqlite3";
 import { z } from "zod";
 import { GroundedAnswerSchema } from "../../domain/question";
 import { questionLookupPlan } from "../../domain/questionLookupPlan";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
 import {
   type CommandIds,
   type CommandResult,
@@ -54,20 +55,29 @@ type QuestionContext = {
   readonly grounding: QuestionGrounding;
 };
 
-export function replayResearchQuestion(
-  database: Database.Database,
+export async function replayResearchQuestion(
+  database: ResearchDatabase,
   reportId: string,
   principalId: string,
   idempotencyKey: string,
   command: QuestionCommand,
-): CommandResult<PublicQuestion> | { readonly kind: "missing" } {
+): Promise<CommandResult<PublicQuestion> | { readonly kind: "missing" }> {
   const scope = `research-question:${principalId}:${reportId}`;
   const requestHash = commandDigest({ reportId, ...command });
-  const replay = replayCommand(database, scope, idempotencyKey, requestHash);
+  const replay = await replayCommand(
+    database,
+    scope,
+    idempotencyKey,
+    requestHash,
+  );
   if (replay.kind === "missing") return replay;
   if (replay.kind === "conflict") return replay;
   const replayed = ReplaySchema.parse(replay.value);
-  const value = findPublicQuestion(database, principalId, replayed.questionId);
+  const value = await findPublicQuestion(
+    database,
+    principalId,
+    replayed.questionId,
+  );
   return value === undefined
     ? { kind: "not_found" }
     : { kind: "replayed", value };
@@ -102,66 +112,76 @@ export function publicQuestionFromRow(input: unknown): PublicQuestion {
   });
 }
 
-function questionRow(
-  database: Database.Database,
+async function questionRow(
+  database: ResearchDatabase,
   principalId: string,
   questionId: string,
-): unknown {
-  return database
-    .prepare(`SELECT questions.question_id, questions.retry_of_question_id,
+): Promise<unknown> {
+  return (
+    await database.query(
+      `SELECT questions.question_id, questions.retry_of_question_id,
       questions.report_id, questions.report_version_id,
       questions.attempt_ordinal, questions.status, questions.question_json,
       questions.answer_json, questions.created_at
       FROM questions JOIN research_requests USING(run_id)
-      WHERE questions.question_id = ? AND research_requests.principal_id = ?`)
-    .get(questionId, principalId);
+      WHERE questions.question_id = $1 AND research_requests.principal_id = $2`,
+      [questionId, principalId],
+    )
+  ).rows[0];
 }
 
-export function findPublicQuestion(
-  database: Database.Database,
+export async function findPublicQuestion(
+  database: ResearchDatabase,
   principalId: string,
   questionId: string,
-): PublicQuestion | undefined {
-  const value = questionRow(database, principalId, questionId);
+): Promise<PublicQuestion | undefined> {
+  const value = await questionRow(database, principalId, questionId);
   return value === undefined ? undefined : publicQuestionFromRow(value);
 }
 
-export function listPublicQuestions(
-  database: Database.Database,
+export async function listPublicQuestions(
+  database: ResearchDatabase,
   principalId: string,
   reportId: string,
-): readonly PublicQuestion[] {
-  return database
-    .prepare(`SELECT questions.question_id, questions.retry_of_question_id,
+): Promise<readonly PublicQuestion[]> {
+  return (
+    await database.query(
+      `SELECT questions.question_id, questions.retry_of_question_id,
       questions.report_id, questions.report_version_id,
       questions.attempt_ordinal, questions.status, questions.question_json,
       questions.answer_json, questions.created_at
       FROM questions JOIN research_requests USING(run_id)
-      WHERE questions.report_id = ? AND research_requests.principal_id = ?
-      ORDER BY questions.attempt_ordinal ASC`)
-    .all(reportId, principalId)
-    .map(publicQuestionFromRow);
+      WHERE questions.report_id = $1 AND research_requests.principal_id = $2
+      ORDER BY questions.attempt_ordinal ASC`,
+      [reportId, principalId],
+    )
+  ).rows.map(publicQuestionFromRow);
 }
 
-export function createResearchQuestion(
-  database: Database.Database,
+export async function createResearchQuestion(
+  database: ResearchDatabase,
   reportId: string,
   context: QuestionContext,
-): CommandResult<PublicQuestion> {
-  return database
-    .transaction((): CommandResult<PublicQuestion> => {
+): Promise<CommandResult<PublicQuestion>> {
+  return await researchTransaction(
+    database,
+    async (transaction): Promise<CommandResult<PublicQuestion>> => {
+      await transaction.query(
+        "SELECT pg_advisory_xact_lock(hashtext('research-admission'))",
+      );
       const scope = `research-question:${context.principalId}:${reportId}`;
       const requestHash = commandDigest({ reportId, ...context.command });
-      const replay = replayResearchQuestion(
-        database,
+      const replay = await replayResearchQuestion(
+        transaction,
         reportId,
         context.principalId,
         context.idempotencyKey,
         context.command,
       );
       if (replay.kind !== "missing") return replay;
-      const bindingValue = database
-        .prepare(`SELECT reports.report_id, report_versions.version_id,
+      const bindingValue = (
+        await transaction.query(
+          `SELECT reports.report_id, report_versions.version_id,
         report_versions.run_id, report_versions.snapshot_id,
         report_versions.artifact_id, artifacts.content_hash,
         runs.status AS run_status
@@ -169,10 +189,12 @@ export function createResearchQuestion(
         JOIN artifacts USING(artifact_id)
         JOIN runs ON runs.run_id = report_versions.run_id
         JOIN research_requests ON research_requests.run_id = reports.run_id
-        WHERE reports.report_id = ? AND reports.state = 'published'
-          AND research_requests.principal_id = ?
-        ORDER BY report_versions.version DESC LIMIT 1`)
-        .get(reportId, context.principalId);
+        WHERE reports.report_id = $1 AND reports.state = 'published'
+          AND research_requests.principal_id = $2
+        ORDER BY report_versions.version DESC LIMIT 1`,
+          [reportId, context.principalId],
+        )
+      ).rows[0];
       if (bindingValue === undefined) return { kind: "not_found" };
       const binding = ReportBindingSchema.parse(bindingValue);
       if (
@@ -186,25 +208,32 @@ export function createResearchQuestion(
       )
         return { kind: "illegal_state" };
       const active = CountSchema.parse(
-        database
-          .prepare(`SELECT COUNT(*) AS count FROM questions WHERE report_id = ?
-          AND status IN ('pending', 'spawn_reserved', 'running')`)
-          .get(reportId),
+        (
+          await transaction.query(
+            `SELECT CAST(COUNT(*) AS integer) AS count FROM questions WHERE report_id = $1
+          AND status IN ('pending', 'spawn_reserved', 'running')`,
+            [reportId],
+          )
+        ).rows[0],
       ).count;
       if (active > 0) return { kind: "active_question" };
       const used = CountSchema.parse(
-        database
-          .prepare(
-            "SELECT COUNT(*) AS count FROM questions WHERE report_id = ?",
+        (
+          await transaction.query(
+            "SELECT CAST(COUNT(*) AS integer) AS count FROM questions WHERE report_id = $1",
+            [reportId],
           )
-          .get(reportId),
+        ).rows[0],
       ).count;
       if (used >= 20) return { kind: "quota_exhausted" };
       if (context.command.retryOfQuestionId !== undefined) {
-        const retry = database
-          .prepare(`SELECT status FROM questions
-          WHERE question_id = ? AND report_id = ?`)
-          .get(context.command.retryOfQuestionId, reportId);
+        const retry = (
+          await transaction.query(
+            `SELECT status FROM questions
+          WHERE question_id = $1 AND report_id = $2`,
+            [context.command.retryOfQuestionId, reportId],
+          )
+        ).rows[0];
         const parsed = z.object({ status: z.string() }).safeParse(retry);
         if (!parsed.success || parsed.data.status !== "failed")
           return { kind: "illegal_state" };
@@ -212,24 +241,25 @@ export function createResearchQuestion(
       const attemptOrdinal = used + 1;
       const localized = context.grounding.question;
       const inputHash = context.grounding.inputHash;
-      database
-        .prepare(`INSERT INTO jobs(job_id, run_id, snapshot_id, kind,
-        logical_key, input_hash, status, created_at) VALUES (?, ?, ?, 'qa', ?, ?,
-        'queued', ?)`)
-        .run(
+      await transaction.query(
+        `INSERT INTO jobs(job_id, run_id, snapshot_id, kind,
+        logical_key, input_hash, status, created_at) VALUES ($1, $2, $3, 'qa', $4, $5,
+        'queued', $6)`,
+        [
           context.ids.jobId,
           binding.run_id,
           binding.snapshot_id,
           `question:${context.ids.questionId}`,
           inputHash,
           context.now,
-        );
-      database
-        .prepare(`INSERT INTO questions(question_id, retry_of_question_id,
+        ],
+      );
+      await transaction.query(
+        `INSERT INTO questions(question_id, retry_of_question_id,
         report_id, report_version_id, run_id, snapshot_id, job_id,
         attempt_ordinal, status, question_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`)
-        .run(
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10)`,
+        [
           context.ids.questionId,
           context.command.retryOfQuestionId ?? null,
           reportId,
@@ -240,14 +270,15 @@ export function createResearchQuestion(
           attemptOrdinal,
           JSON.stringify(localized),
           context.now,
-        );
-      const created = findPublicQuestion(
-        database,
+        ],
+      );
+      const created = await findPublicQuestion(
+        transaction,
         context.principalId,
         context.ids.questionId,
       );
       if (created === undefined) return { kind: "not_found" };
-      commitCommand(database, {
+      await commitCommand(transaction, {
         scope,
         key: context.idempotencyKey,
         requestHash,
@@ -255,6 +286,6 @@ export function createResearchQuestion(
         now: context.now,
       });
       return { kind: "created", value: created };
-    })
-    .immediate();
+    },
+  );
 }

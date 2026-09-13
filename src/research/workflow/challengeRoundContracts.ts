@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 import { z } from "zod";
 import { BlindChallengeOutputSchema } from "../domain/agentOutputs";
 import { BilingualPublicTextSchema } from "../domain/agentOutputsShared";
@@ -153,9 +154,9 @@ export type ChallengeRoundReplay = {
   readonly eventSequences: readonly number[];
 };
 
-export type SqliteChallengeRoundOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+export type PostgresChallengeRoundOptions = {
+  readonly database: Pool;
+
   readonly attemptRoot: string;
   readonly ownerId: string;
   readonly cas: ArtifactCasPort;
@@ -163,8 +164,8 @@ export type SqliteChallengeRoundOptions = {
   readonly now?: () => string;
 };
 
-export interface SqliteChallengeRound {
-  readonly authority: "sqlite-worker-trusted-commit";
+export interface PostgresChallengeRound {
+  readonly authority: "postgres-worker-trusted-commit";
   readonly stage: (input: {
     readonly runId: z.infer<typeof RunIdSchema>;
     readonly consolidationArtifactIds: readonly z.infer<
@@ -172,6 +173,6 @@ export interface SqliteChallengeRound {
     >[];
   }) => Promise<StageChallengeRoundResult>;
   readonly drain: (runId: string) => Promise<ChallengeRoundReplay>;
-  readonly replay: (runId: string) => ChallengeRoundReplay;
+  readonly replay: (runId: string) => Promise<ChallengeRoundReplay>;
   readonly close: () => Promise<void>;
 }

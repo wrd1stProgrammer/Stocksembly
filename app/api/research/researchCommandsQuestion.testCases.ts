@@ -18,14 +18,14 @@ export function registerResearchQuestionCommandTests(
     const harness = harnessValue();
     const run = await createRun(harness, "question-parent");
     const publication = await publishRun(harness, run);
-    const eventCountBefore = databaseScalar(
+    const eventCountBefore = await databaseScalar(
       harness,
-      "SELECT COUNT(*) FROM run_events WHERE run_id = ?",
+      "SELECT COUNT(*) FROM run_events WHERE run_id = $1",
       run.runId,
     );
-    const highWaterBefore = databaseScalar(
+    const highWaterBefore = await databaseScalar(
       harness,
-      "SELECT last_event_seq FROM runs WHERE run_id = ?",
+      "SELECT last_event_seq FROM runs WHERE run_id = $1",
       run.runId,
     );
 
@@ -63,23 +63,23 @@ export function registerResearchQuestionCommandTests(
       /inputHash|artifactDigest|lease|prompt|principal|secret|token/i,
     );
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM runs WHERE run_id = ?",
+        "SELECT status FROM runs WHERE run_id = $1",
         run.runId,
       ),
     ).toBe("completed");
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT last_event_seq FROM runs WHERE run_id = ?",
+        "SELECT last_event_seq FROM runs WHERE run_id = $1",
         run.runId,
       ),
     ).toBe(highWaterBefore);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT COUNT(*) FROM run_events WHERE run_id = ?",
+        "SELECT COUNT(*) FROM run_events WHERE run_id = $1",
         run.runId,
       ),
     ).toBe(eventCountBefore);
@@ -123,9 +123,9 @@ export function registerResearchQuestionCommandTests(
     ]).toEqual([202, 202, 409]);
     expect(replay.body).toEqual(first.body);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT COUNT(*) FROM questions WHERE report_id = ?",
+        "SELECT COUNT(*) FROM questions WHERE report_id = $1",
         publication.reportId,
       ),
     ).toBe(1);
@@ -146,7 +146,7 @@ export function registerResearchQuestionCommandTests(
       },
     );
     const firstId = first.question?.questionId ?? "";
-    failQuestion(harness, firstId);
+    await failQuestion(harness, firstId);
 
     // When
     const retry = await postQuestion(
@@ -168,9 +168,9 @@ export function registerResearchQuestionCommandTests(
     });
     expect(retry.question?.questionId).not.toBe(firstId);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM questions WHERE question_id = ?",
+        "SELECT status FROM questions WHERE question_id = $1",
         firstId,
       ),
     ).toBe("failed");
@@ -191,7 +191,7 @@ export function registerResearchQuestionCommandTests(
       );
       expect(attempt.question?.attemptOrdinal).toBe(ordinal);
       latestId = attempt.question?.questionId ?? "";
-      failQuestion(harness, latestId);
+      await failQuestion(harness, latestId);
     }
 
     // When
@@ -208,9 +208,9 @@ export function registerResearchQuestionCommandTests(
       error: { code: "QUESTION_QUOTA_EXHAUSTED" },
     });
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT COUNT(*) FROM questions WHERE report_id = ?",
+        "SELECT COUNT(*) FROM questions WHERE report_id = $1",
         publication.reportId,
       ),
     ).toBe(20);
@@ -258,9 +258,9 @@ export function registerResearchQuestionCommandTests(
       forbidden.status,
     ]).toEqual([409, 400, 403]);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT COUNT(*) FROM questions WHERE report_id = ?",
+        "SELECT COUNT(*) FROM questions WHERE report_id = $1",
         publication.reportId,
       ),
     ).toBe(0);

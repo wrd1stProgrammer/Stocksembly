@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import {
   auditStructuralClaims,
@@ -8,7 +7,6 @@ import { StructuralAuditInputSchema } from "../application/structuralAuditContra
 import {
   type PersistStructuralAuditResult,
   StructuralAuditArtifactEnvelopeSchema,
-  type StructuralAuditPersistenceOptions,
   StructuralAuditResultSchema,
 } from "../application/structuralAuditPersistenceContracts";
 import { hashCanonical } from "../domain/contractHelpers";
@@ -16,8 +14,9 @@ import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { WORKFLOW_V1_REQUIRED_ARTIFACT_SLOTS } from "../domain/roleRegistryArtifacts";
 import { ArtifactDigestSchema } from "../ports/artifacts";
-import { applyOrderedMigrations } from "../server/persistence/sqlite/migrations";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import type { StructuralAuditPersistenceOptions } from "../server/persistence/postgres/persistenceOptions";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
 import {
   replayStructuralAudit,
   writeStructuralAudit,
@@ -45,7 +44,7 @@ const ArtifactRowSchema = z.object({
   content_hash: ArtifactDigestSchema,
   locator_json: z.string(),
 });
-type DatabaseHandle = Database.Database;
+type DatabaseHandle = ResearchDatabase;
 
 function blocked(
   reason: Extract<PersistStructuralAuditResult, { kind: "blocked" }>["reason"],
@@ -53,25 +52,27 @@ function blocked(
   return { kind: "blocked", reason };
 }
 
-function acceptedWorkflow(
+async function acceptedWorkflow(
   database: DatabaseHandle,
   runId: string,
   snapshotId: string,
 ) {
-  const rows = database
-    .prepare(`SELECT agent_output_commits.artifact_id, attempts.run_id,
+  const rows = (
+    await database.query(
+      `SELECT agent_output_commits.artifact_id, attempts.run_id,
       attempts.snapshot_id, attempts.logical_artifact_key,
       artifacts.content_hash
     FROM agent_output_commits JOIN attempts USING (attempt_id)
     JOIN artifacts ON artifacts.artifact_id = agent_output_commits.artifact_id
-    WHERE attempts.run_id = ? AND (
+    WHERE attempts.run_id = $1 AND (
       attempts.logical_artifact_key LIKE 'memo:%' OR
       attempts.logical_artifact_key LIKE 'consolidation:%' OR
       attempts.logical_artifact_key LIKE 'challenge:%' OR
       attempts.logical_artifact_key LIKE 'response_ballot:%')
-    ORDER BY attempts.logical_artifact_key`)
-    .all(runId)
-    .map((row) => WorkflowRowSchema.parse(row));
+    ORDER BY attempts.logical_artifact_key`,
+      [runId],
+    )
+  ).rows.map((row) => WorkflowRowSchema.parse(row));
   const memoRows = rows.filter((row) =>
     row.logical_artifact_key.startsWith("memo:"),
   );
@@ -127,13 +128,16 @@ async function verifyEvidence(
 ): Promise<PersistStructuralAuditResult | undefined> {
   for (const evidence of input.evidence) {
     const parsed = ArtifactRowSchema.safeParse(
-      database
-        .prepare(`SELECT artifacts.artifact_id, artifacts.run_id,
+      (
+        await database.query(
+          `SELECT artifacts.artifact_id, artifacts.run_id,
           artifacts.snapshot_id, artifacts.content_hash,
           artifact_citation_metadata.locator_json
         FROM artifacts JOIN artifact_citation_metadata USING (artifact_id)
-        WHERE artifacts.artifact_id = ?`)
-        .get(evidence.artifactId),
+        WHERE artifacts.artifact_id = $1`,
+          [evidence.artifactId],
+        )
+      ).rows[0],
     );
     if (!parsed.success) return blocked("evidence_artifact_missing");
     const row = parsed.data;
@@ -158,99 +162,94 @@ export async function persistStructuralAudit(
 ): Promise<PersistStructuralAuditResult> {
   const parsed = StructuralAuditInputSchema.safeParse(raw);
   if (!parsed.success) return blocked("invalid_input");
-  const database = new Database(options.databasePath, { timeout: 5_000 });
-  database.pragma("journal_mode = WAL");
-  database.pragma("foreign_keys = ON");
-  database.pragma("synchronous = FULL");
-  database.pragma("busy_timeout = 5000");
-  try {
-    applyOrderedMigrations(database, options.migrationsDirectory);
-    const run = RunRowSchema.safeParse(
-      database
-        .prepare(`SELECT runs.snapshot_id, runs.status,
+  const database = options.database;
+
+  const run = RunRowSchema.safeParse(
+    (
+      await database.query(
+        `SELECT runs.snapshot_id, runs.status,
           snapshots.state AS snapshot_state FROM runs
           JOIN snapshots ON snapshots.snapshot_id = runs.snapshot_id
-          WHERE runs.run_id = ?`)
-        .get(parsed.data.runId),
-    );
-    if (!run.success || run.data.snapshot_id !== parsed.data.snapshotId)
-      return blocked("run_not_ready");
-    const workflow = acceptedWorkflow(
-      database,
-      parsed.data.runId,
-      parsed.data.snapshotId,
-    );
-    if (workflow === undefined)
-      return blocked("accepted_workflow_set_incomplete");
-    const retention = await authenticatedWorkflowRetentionRegister(
-      options.cas,
-      workflow.references,
-      parsed.data.runId,
-      parsed.data.snapshotId,
-    );
-    if (retention === undefined)
-      return blocked("workflow_artifact_authentication_failed");
-    const structuralClaimIds = new Set(
-      parsed.data.claims.map((candidate) => candidate.claim.claimId),
-    );
-    const retainedDissentClaimIds = retention.dissentClaimIds.filter(
-      (claimId) => structuralClaimIds.has(claimId),
-    );
-    const evidenceFailure = await verifyEvidence(
-      database,
-      options,
-      parsed.data,
-    );
-    if (evidenceFailure !== undefined) return evidenceFailure;
-    let trustedInput = StructuralAuditInputSchema.parse({
-      ...parsed.data,
-      acceptedMemos: workflow.memos,
-      sourceDissentClaimIds: retainedDissentClaimIds,
-      sourceOpenQuestionIds: retention.openQuestions.map(
-        (question) => question.questionId,
-      ),
-      sourceOpenQuestions: retention.openQuestions,
-    });
-    let result = StructuralAuditResultSchema.parse(
-      auditStructuralClaims(trustedInput),
-    );
-    if (!result.publishable) {
-      const repairedInput = retainStructurallyValidClaims(trustedInput);
-      if (
-        repairedInput !== undefined &&
-        repairedInput.claims.length < trustedInput.claims.length
-      ) {
-        const repairedResult = StructuralAuditResultSchema.parse(
-          auditStructuralClaims(repairedInput),
-        );
-        if (repairedResult.publishable) {
-          trustedInput = repairedInput;
-          result = repairedResult;
-        }
+          WHERE runs.run_id = $1`,
+        [parsed.data.runId],
+      )
+    ).rows[0],
+  );
+  if (!run.success || run.data.snapshot_id !== parsed.data.snapshotId)
+    return blocked("run_not_ready");
+  const workflow = await acceptedWorkflow(
+    database,
+    parsed.data.runId,
+    parsed.data.snapshotId,
+  );
+  if (workflow === undefined)
+    return blocked("accepted_workflow_set_incomplete");
+  const retention = await authenticatedWorkflowRetentionRegister(
+    options.cas,
+    workflow.references,
+    parsed.data.runId,
+    parsed.data.snapshotId,
+  );
+  if (retention === undefined)
+    return blocked("workflow_artifact_authentication_failed");
+  const structuralClaimIds = new Set(
+    parsed.data.claims.map((candidate) => candidate.claim.claimId),
+  );
+  const retainedDissentClaimIds = retention.dissentClaimIds.filter((claimId) =>
+    structuralClaimIds.has(claimId),
+  );
+  const evidenceFailure = await verifyEvidence(database, options, parsed.data);
+  if (evidenceFailure !== undefined) return evidenceFailure;
+  let trustedInput = StructuralAuditInputSchema.parse({
+    ...parsed.data,
+    acceptedMemos: workflow.memos,
+    sourceDissentClaimIds: retainedDissentClaimIds,
+    sourceOpenQuestionIds: retention.openQuestions.map(
+      (question) => question.questionId,
+    ),
+    sourceOpenQuestions: retention.openQuestions,
+  });
+  let result = StructuralAuditResultSchema.parse(
+    auditStructuralClaims(trustedInput),
+  );
+  if (!result.publishable) {
+    const repairedInput = retainStructurallyValidClaims(trustedInput);
+    if (
+      repairedInput !== undefined &&
+      repairedInput.claims.length < trustedInput.claims.length
+    ) {
+      const repairedResult = StructuralAuditResultSchema.parse(
+        auditStructuralClaims(repairedInput),
+      );
+      if (repairedResult.publishable) {
+        trustedInput = repairedInput;
+        result = repairedResult;
       }
     }
-    const envelope = StructuralAuditArtifactEnvelopeSchema.parse({
-      kind: "structural_audit",
-      schemaVersion: "workflow-v1",
-      runId: result.runId,
-      snapshotId: result.snapshotId,
-      auditHash: result.auditHash,
-      claimSetHash: result.claimSetHash,
-      publishable: result.publishable,
-      result,
-    });
-    const requestHash = hashCanonical(trustedInput);
-    const existing = replayStructuralAudit(database, result.runId, requestHash);
-    if (existing !== undefined) return existing;
-    return await writeStructuralAudit({
-      database,
-      options,
-      input: trustedInput,
-      envelope,
-      requestHash,
-      workflowArtifactIds: workflow.artifactIds,
-    });
-  } finally {
-    database.close();
   }
+  const envelope = StructuralAuditArtifactEnvelopeSchema.parse({
+    kind: "structural_audit",
+    schemaVersion: "workflow-v1",
+    runId: result.runId,
+    snapshotId: result.snapshotId,
+    auditHash: result.auditHash,
+    claimSetHash: result.claimSetHash,
+    publishable: result.publishable,
+    result,
+  });
+  const requestHash = hashCanonical(trustedInput);
+  const existing = await replayStructuralAudit(
+    database,
+    result.runId,
+    requestHash,
+  );
+  if (existing !== undefined) return existing;
+  return await writeStructuralAudit({
+    database,
+    options,
+    input: trustedInput,
+    envelope,
+    requestHash,
+    workflowArtifactIds: workflow.artifactIds,
+  });
 }

@@ -1,24 +1,21 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createAtomicClaim } from "../domain/claims";
 import { hashBytes } from "../domain/contractHelpers";
 import { ArtifactIdSchema, ClaimIdSchema, RunIdSchema } from "../domain/ids";
 import { ArtifactDigestSchema } from "../ports/artifacts";
-import { createSqliteChallengeRound } from "../workflow/challengeRound";
+import type { StructuralAuditPersistenceOptions } from "../server/persistence/postgres/persistenceOptions";
+import { createPostgresChallengeRound } from "../workflow/challengeRound";
 import { stageAcceptedDepartments } from "../workflow/challengeRound.testSupport";
-import { createSqliteFollowupAndResponseRound } from "../workflow/followupAndResponseRound";
+import { createPostgresFollowupAndResponseRound } from "../workflow/followupAndResponseRound";
 import { FollowupResponseCodexFake } from "../workflow/followupAndResponseRound.testSupport";
 import { persistStructuralAudit } from "../workflow/structuralAuditPersistence";
 import { workflowOpenQuestion } from "../workflow/structuralAuditWorkflowRegister";
 import { makePersistableStructuralInput } from "./structuralAuditPersistence.testSupport";
-import {
-  StructuralAuditArtifactEnvelopeSchema,
-  type StructuralAuditPersistenceOptions,
-} from "./structuralAuditPersistenceContracts";
+import { StructuralAuditArtifactEnvelopeSchema } from "./structuralAuditPersistenceContracts";
 
 const roots: string[] = [];
 
@@ -28,7 +25,7 @@ async function fixture(completeWorkflow = true) {
   const codex = new FollowupResponseCodexFake("none");
   const prepared = await stageAcceptedDepartments(root, "none", codex);
   if (completeWorkflow) {
-    const challenges = createSqliteChallengeRound(prepared.options);
+    const challenges = createPostgresChallengeRound(prepared.options);
     await challenges.stage({
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       consolidationArtifactIds: prepared.departmentReplay.artifactIds.map(
@@ -39,7 +36,7 @@ async function fixture(completeWorkflow = true) {
       prepared.harness.input.mandate.runId,
     );
     await challenges.close();
-    const responses = createSqliteFollowupAndResponseRound(prepared.options);
+    const responses = createPostgresFollowupAndResponseRound(prepared.options);
     await responses.stage({
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       challengeArtifactIds: challengeReplay.artifactIds.map((artifactId) =>
@@ -50,7 +47,7 @@ async function fixture(completeWorkflow = true) {
     await responses.close();
   }
   const options: StructuralAuditPersistenceOptions = {
-    databasePath: prepared.options.databasePath,
+    database: prepared.options.database,
     cas: prepared.harness.cas,
     now: () => "2026-07-23T00:01:00.000Z",
   };
@@ -93,19 +90,21 @@ describe("persisted structural audit authority", () => {
     expect(envelope.result.fixedEvidenceSlices[0]?.evidence[0]?.exactText).toBe(
       input.evidence[0]?.content,
     );
-    const database = new Database(options.databasePath);
-    const counts = database
-      .prepare(`SELECT
-        (SELECT COUNT(*) FROM artifacts
+    const database = options.database;
+    const counts = (
+      await database.query(
+        `SELECT
+        (SELECT COUNT(*)::integer FROM artifacts
           WHERE logical_key = 'structural_audit:system') AS artifacts,
-        (SELECT COUNT(*) FROM run_events
+        (SELECT COUNT(*)::integer FROM run_events
           WHERE event_type = 'structural_audit_completed') AS events,
         (SELECT payload_json FROM run_events
           WHERE event_type = 'structural_audit_completed') AS payload_json,
-        (SELECT COUNT(*) FROM artifact_edges
-          WHERE child_artifact_id = ?) AS edges`)
-      .get(first.structuralAuditArtifactId);
-    database.close();
+        (SELECT COUNT(*)::integer FROM artifact_edges
+          WHERE child_artifact_id = $1) AS edges`,
+        [first.structuralAuditArtifactId],
+      )
+    ).rows[0];
     expect(counts).toMatchObject({ artifacts: 1, events: 1, edges: 24 });
     const payload = JSON.parse(
       z.object({ payload_json: z.string() }).parse(counts).payload_json,
@@ -197,16 +196,16 @@ describe("persisted structural audit authority", () => {
   it("rejects parent metadata that no longer binds to its CAS envelope", async () => {
     // Given
     const { options, input } = await fixture();
-    const database = new Database(options.databasePath);
-    database
-      .prepare(`UPDATE artifacts SET content_hash = ?
+    const database = options.database;
+    await database.query(
+      `UPDATE artifacts SET content_hash = $1
         WHERE artifact_id = (
           SELECT agent_output_commits.artifact_id
           FROM agent_output_commits JOIN attempts USING(attempt_id)
           WHERE attempts.logical_artifact_key = 'memo:market'
-        )`)
-      .run("f".repeat(64));
-    database.close();
+        )`,
+      ["f".repeat(64)],
+    );
 
     // When
     const result = await persistStructuralAudit(options, input);

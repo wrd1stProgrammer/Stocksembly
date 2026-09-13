@@ -8,7 +8,6 @@ export default defineConfig({
       /^@smithy\//u,
       "cheerio",
       "fast-xml-parser",
-      "pg",
       "strnum",
       "tslib",
     ],

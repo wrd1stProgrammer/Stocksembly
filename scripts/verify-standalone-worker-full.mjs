@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { executePackagedOfficialJob } from "./standalone-official-handler-fixture.mjs";
+import { createStandaloneTestDatabase } from "./standalone-postgres-fixture.mjs";
 import {
   ProcessVerificationError,
   reserveLoopbackPort,
@@ -22,7 +23,7 @@ const workerReadySchema = z.object({
   kind: z.literal("worker_ready"),
   status: z.literal("ready"),
   migrationsApplied: z.number().int().positive(),
-  nativeSqlite: z.literal("loaded"),
+  database: z.literal("postgresql"),
   casDigest: z.string().regex(/^[a-f0-9]{64}$/),
 });
 const workerStatusSchema = z.object({
@@ -33,6 +34,11 @@ const workerStatusSchema = z.object({
 });
 export const verifyStandaloneFull = async (sourcePackageRoot) => {
   const verificationRoot = await mkdtemp(join(tmpdir(), "stocksembly-full-"));
+  const database = await createStandaloneTestDatabase();
+  const previousDatabaseUrl = process.env.STOCKSEMBLY_DATABASE_URL;
+  const previousTestUrl = process.env.STOCKSEMBLY_TEST_DATABASE_URL;
+  process.env.STOCKSEMBLY_DATABASE_URL = database.url;
+  process.env.STOCKSEMBLY_TEST_DATABASE_URL = database.url;
   let web;
   let worker;
   try {
@@ -50,6 +56,7 @@ export const verifyStandaloneFull = async (sourcePackageRoot) => {
       HOSTNAME: "127.0.0.1",
       PORT: String(port),
       STOCKSEMBLY_DATA_DIR: dataRoot,
+      STOCKSEMBLY_RESEARCH_POSTGRES_READY: "true",
     };
     web = startProcess(process.execPath, ["server.js"], {
       cwd: packageRoot,
@@ -140,7 +147,7 @@ export const verifyStandaloneFull = async (sourcePackageRoot) => {
       worker: { status: workerReady.status },
       persistence: {
         migrationsApplied: restartedWorker.migrationsApplied,
-        nativeSqlite: "loaded",
+        database: "postgresql",
         cas: "written",
         casDigest: restartedWorker.casDigest,
         jobExecuted,
@@ -158,6 +165,13 @@ export const verifyStandaloneFull = async (sourcePackageRoot) => {
     if (worker !== undefined) await stopProcess(worker);
     if (web !== undefined) await stopProcess(web);
     await rm(verificationRoot, { recursive: true, force: true });
+    await database.close();
+    if (previousDatabaseUrl === undefined)
+      delete process.env.STOCKSEMBLY_DATABASE_URL;
+    else process.env.STOCKSEMBLY_DATABASE_URL = previousDatabaseUrl;
+    if (previousTestUrl === undefined)
+      delete process.env.STOCKSEMBLY_TEST_DATABASE_URL;
+    else process.env.STOCKSEMBLY_TEST_DATABASE_URL = previousTestUrl;
   }
 };
 
@@ -166,8 +180,8 @@ const assertPackage = async (packageRoot) => {
     "server.js",
     "research-worker/worker.mjs",
     "research-worker/leaseWorker.js",
-    "migrations/001_workflow_core.sql",
-    "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
+    "migrations/001_research_baseline.sql",
+    "node_modules/pg/package.json",
   ];
   const statuses = await Promise.all(
     files.map((file) => stat(join(packageRoot, file))),

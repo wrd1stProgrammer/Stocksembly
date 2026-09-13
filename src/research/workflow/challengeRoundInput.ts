@@ -16,11 +16,11 @@ import {
   PersistedChallengeJobSchema,
   type StageChallengeRoundResult,
 } from "./challengeRoundContracts";
+import type { AcceptedChallengeInputRow } from "./challengeRoundPostgresAuthority";
 import {
   challengePromptIsBlindSafe,
   projectChallengePrompt,
 } from "./challengeRoundProjection";
-import type { AcceptedChallengeInputRow } from "./challengeRoundSqliteAuthority";
 
 const MemoEnvelopeSchema = z
   .object({

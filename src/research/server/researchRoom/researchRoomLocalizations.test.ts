@@ -2,11 +2,14 @@ import { writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { PublicRunDetailSchema } from "../../client/schemas";
 import { researchReportToFile } from "../../researchReportToFile";
 import { workflowV3PresentationFixture } from "../../workflowV3Presentation.testSupport";
+import {
+  cleanupApiTestDatabases,
+  createApiTestDatabase,
+} from "../api/postgresApi.testSupport";
 import {
   publicResearchTranslationItems,
   RESEARCH_TRANSLATION_SCHEMA_VERSION,
@@ -27,6 +30,7 @@ const hashA = "a".repeat(64);
 const hashB = "b".repeat(64);
 
 afterEach(async () => {
+  await cleanupApiTestDatabases();
   await Promise.all(
     roots.splice(0).map(async (root) => await rm(root, { recursive: true })),
   );
@@ -35,10 +39,8 @@ afterEach(async () => {
 async function translationDatabase() {
   const root = await mkdtemp(join(tmpdir(), "stocksembly-translation-test-"));
   roots.push(root);
-  const path = join(root, "research.sqlite");
-  const database = new Database(path);
-  database.exec(`
-    PRAGMA foreign_keys = ON;
+  const database = await createApiTestDatabase();
+  await database.query(`
     CREATE TABLE reports(report_id TEXT PRIMARY KEY);
     CREATE TABLE artifacts(
       artifact_id TEXT PRIMARY KEY, content_hash TEXT NOT NULL
@@ -80,8 +82,8 @@ async function translationDatabase() {
     INSERT INTO report_versions(report_id, run_id, version, artifact_id)
       VALUES ('${reportId}', '${runId}', 1, 'artifact-a');
   `);
-  database.close();
-  return path;
+  // Pool is cleaned up after the test.
+  return database;
 }
 
 function fixture() {
@@ -141,13 +143,14 @@ describe("versioned research translation projections", () => {
   it("records exact planned batches once and serves identical cache bytes without a call", async () => {
     const databasePath = await translationDatabase();
     const source = fixture();
-    const database = new Database(databasePath);
-    database
-      .prepare(`INSERT INTO research_report_translations(
+    const database = databasePath;
+    await database.query(
+      `INSERT INTO research_report_translations(
         report_id, locale, file_json, created_at
-      ) VALUES (?, 'ja', ?, '2026-08-01T00:00:00.000Z')`)
-      .run(reportId, JSON.stringify({ schemaVersion: 1, file: source.file }));
-    database.close();
+      ) VALUES ($1, 'ja', $2, '2026-08-01T00:00:00.000Z')`,
+      [reportId, JSON.stringify({ schemaVersion: 1, file: source.file })],
+    );
+    // Pool is cleaned up after the test.
     let actualInvocationCount = 0;
     const exactPlan = planResearchTranslationBatches(
       publicResearchTranslationItems(
@@ -165,9 +168,8 @@ describe("versioned research translation projections", () => {
       return invokeBatch(items);
     };
 
-    const beforeFirst = researchTranslationModelCalls(
-      databasePath,
-      cacheKey(hashA),
+    const beforeFirst = (
+      await researchTranslationModelCalls(databasePath, cacheKey(hashA))
     ).length;
     const first = await translatedResearchProjection(
       databasePath,
@@ -181,7 +183,7 @@ describe("versioned research translation projections", () => {
       "ja",
       { invokeBatch: instrumentedInvoke },
     );
-    const afterFirstRows = researchTranslationModelCalls(
+    const afterFirstRows = await researchTranslationModelCalls(
       databasePath,
       cacheKey(hashA),
     );
@@ -199,9 +201,8 @@ describe("versioned research translation projections", () => {
       "ja",
       { invokeBatch: instrumentedInvoke },
     );
-    const afterSecond = researchTranslationModelCalls(
-      databasePath,
-      cacheKey(hashA),
+    const afterSecond = (
+      await researchTranslationModelCalls(databasePath, cacheKey(hashA))
     ).length;
 
     expect(expectedBatchCount).toBeGreaterThan(1);
@@ -282,13 +283,12 @@ describe("versioned research translation projections", () => {
     );
     const firstPlan = planResearchTranslationBatches(capturedItems);
     capturedItems = [];
-    const database = new Database(databasePath);
-    database
-      .prepare(
-        `UPDATE artifacts SET content_hash = ? WHERE artifact_id = 'artifact-a'`,
-      )
-      .run(hashB);
-    database.close();
+    const database = databasePath;
+    await database.query(
+      `UPDATE artifacts SET content_hash = $1 WHERE artifact_id = 'artifact-a'`,
+      [hashB],
+    );
+    // Pool is cleaned up after the test.
     await translatedResearchProjection(
       databasePath,
       reportId,
@@ -301,7 +301,7 @@ describe("versioned research translation projections", () => {
       "ja",
       { invokeBatch: captureInvoke },
     );
-    const changedHashRows = researchTranslationModelCalls(
+    const changedHashRows = await researchTranslationModelCalls(
       databasePath,
       cacheKey(hashB),
     );
@@ -328,7 +328,7 @@ describe("versioned research translation projections", () => {
       },
     );
     expect(
-      researchTranslationModelCalls(
+      await researchTranslationModelCalls(
         databasePath,
         cacheKey(hashB, {
           translationSchemaVersion: RESEARCH_TRANSLATION_SCHEMA_VERSION + 1,

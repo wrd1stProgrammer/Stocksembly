@@ -1,31 +1,29 @@
-import { rmSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { ArtifactDigestSchema } from "../ports/artifacts";
+import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
 import {
   at,
   createRunFixture,
   fixture,
   hash,
   temporaryDatabase,
-} from "../server/persistence/sqlite/sqliteStore.contractFixtures";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+} from "../server/persistence/postgres/postgresStore.contractFixtures";
 import { CommittedArtifactMetadata } from "./officialWorkerMetadata";
 
-const directories: string[] = [];
+const cleanups: (() => Promise<void>)[] = [];
 
-afterEach(() => {
-  for (const directory of directories.splice(0))
-    rmSync(directory, { recursive: true, force: true });
+afterEach(async () => {
+  for (const close of cleanups.splice(0)) await close();
 });
 
 describe("CommittedArtifactMetadata", () => {
   it("keeps the committed descriptor when a same-digest retry is staged", async () => {
-    const temporary = temporaryDatabase();
-    directories.push(temporary.directory);
+    const temporary = await temporaryDatabase();
+    cleanups.push(temporary.close);
     const ids = fixture(90);
-    const store = openSqliteStore(temporary.path);
-    store.createRun(createRunFixture(90));
-    store.saveArtifactMetadata({
+    const store = await openPostgresStore(temporary.path);
+    await store.createRun(createRunFixture(90));
+    await store.saveArtifactMetadata({
       artifactId: ids.artifactId,
       runId: ids.runId,
       snapshotId: ids.snapshotId,
@@ -52,6 +50,6 @@ describe("CommittedArtifactMetadata", () => {
       metadata.find(ArtifactDigestSchema.parse(hash(1))),
     ).resolves.toMatchObject({ artifactId: ids.artifactId });
     metadata.close();
-    store.close();
+    await store.close();
   });
 });

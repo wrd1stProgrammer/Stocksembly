@@ -47,7 +47,7 @@ import {
 } from "../server/data/insightsentry/peerIssuerIdentityResolver";
 import { buildTechnicalChart } from "../technical/buildTechnicalChart";
 import { closedChartBars } from "../technical/chartSessions";
-import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
+import type { SpecialistSourceArtifact } from "../workflow/specialistRoundPostgres";
 import { collectComparisonEvidence } from "./comparisonEvidence";
 
 const encoder = new TextEncoder();

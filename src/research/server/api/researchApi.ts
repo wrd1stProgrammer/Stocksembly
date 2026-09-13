@@ -55,6 +55,8 @@ import type { ResearchDispatchQueue } from "../../ports/researchQueue";
 import { ensureLocalAuth, rotateLocalAuth } from "../http/localAuth";
 import { enforceRequestPolicy } from "../http/requestPolicy";
 import { createResearchAuth, type ResearchAuth } from "../http/researchAuth";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { getResearchPool } from "../persistence/postgres/researchPool";
 import { questionInputHash } from "../qa/questionAnswerContracts";
 import { collectQuestionMarketEvidence } from "../qa/questionMarketEvidence";
 import {
@@ -89,8 +91,8 @@ export type AdminAnalyticsReadResult<T> =
 
 export type CreateResearchApiOptions = {
   readonly dataRoot: string;
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database?: ResearchDatabase;
+
   readonly allowedHost: string;
   readonly allowedOrigin: string;
   readonly readiness: () => Promise<boolean>;
@@ -395,7 +397,11 @@ async function listRuns(
       if (parsed.success) remoteValues = parsed.data.runs;
     }
   }
-  const localValues = context.repository.listRuns(principal, limit + 1, cursor);
+  const localValues = await context.repository.listRuns(
+    principal,
+    limit + 1,
+    cursor,
+  );
   const storedValues =
     (await context.options.accountStore
       ?.listResearchRuns?.(principal, limit + 1, cursor)
@@ -435,9 +441,9 @@ async function questionHistory(
 ): Promise<Response> {
   if (!UuidSchema.safeParse(reportId).success)
     return apiError(404, "NOT_FOUND");
-  if (context.repository.report(principal, reportId) === undefined)
+  if ((await context.repository.report(principal, reportId)) === undefined)
     return apiError(404, "NOT_FOUND");
-  const localQuestions = context.commands.questions(principal, reportId);
+  const localQuestions = await context.commands.questions(principal, reportId);
   await Promise.all(
     localQuestions.map(async (question) => {
       await context.options.accountStore?.recordConsultation?.(
@@ -472,7 +478,7 @@ async function runDetail(
   runId: string,
 ): Promise<Response> {
   if (!UuidSchema.safeParse(runId).success) return apiError(404, "NOT_FOUND");
-  const detail = context.repository.detail(principal, runId);
+  const detail = await context.repository.detail(principal, runId);
   if (detail !== undefined) {
     await context.options.accountStore?.recordResearchRun(
       principal,
@@ -489,9 +495,9 @@ async function reportDetail(
 ): Promise<Response> {
   if (!UuidSchema.safeParse(reportId).success)
     return apiError(404, "NOT_FOUND");
-  const report = context.repository.report(principal, reportId);
+  const report = await context.repository.report(principal, reportId);
   if (report === undefined) return apiError(404, "NOT_FOUND");
-  const run = context.repository.findRun(principal, report.runId);
+  const run = await context.repository.findRun(principal, report.runId);
   if (run !== undefined) {
     await context.options.accountStore?.recordResearchRun(principal, run);
   }
@@ -500,7 +506,7 @@ async function reportDetail(
     return apiJson({ report: report.payload });
   const loaded = await context.options.loadReport(report);
   if (loaded === undefined) return apiError(404, "NOT_FOUND");
-  const previousPublication = context.repository.previousComparableReport(
+  const previousPublication = await context.repository.previousComparableReport(
     principal,
     reportId,
   );
@@ -534,7 +540,7 @@ async function dispatch(
     now: context.options.now ?? (() => new Date().toISOString()),
     createId: context.options.createId ?? randomUUID,
     onRetry: async (runId) => {
-      const run = context.repository.findRun(principal, runId);
+      const run = await context.repository.findRun(principal, runId);
       if (run === undefined) return;
       const effects: Promise<unknown>[] = [];
       if (context.options.accountStore !== undefined)
@@ -575,7 +581,7 @@ async function dispatch(
       );
     },
     prepareQuestion: async (reportId, questionId, question) => {
-      const publication = context.repository.report(principal, reportId);
+      const publication = await context.repository.report(principal, reportId);
       if (publication === undefined || context.options.loadReport === undefined)
         return undefined;
       const report = await context.options.loadReport(publication);
@@ -618,12 +624,12 @@ async function dispatch(
     return await runDetail(context, principal, run);
   const runEvents = path.match(/^\/api\/research\/runs\/([^/]+)\/events$/)?.[1];
   if (runEvents !== undefined && request.method === "GET")
-    return context.runEvents.response(
+    return await context.runEvents.response(
       request,
       principal,
       runEvents,
       async () => {
-        const detail = context.repository.detail(principal, runEvents);
+        const detail = await context.repository.detail(principal, runEvents);
         if (detail === undefined) return;
         try {
           await context.options.accountStore?.recordResearchRun(
@@ -645,25 +651,17 @@ export async function createResearchApi(
   options: CreateResearchApiOptions,
 ): Promise<ResearchApi> {
   const localAuth = await ensureLocalAuth(options.dataRoot);
+  const database = options.database ?? (await getResearchPool());
   const context: ApiContext = {
     options,
     repository: new ResearchApiRepository({
-      databasePath: options.databasePath,
-      ...(options.migrationsDirectory === undefined
-        ? {}
-        : { migrationsDirectory: options.migrationsDirectory }),
+      database,
     }),
     commands: new ResearchCommandRepository({
-      databasePath: options.databasePath,
-      ...(options.migrationsDirectory === undefined
-        ? {}
-        : { migrationsDirectory: options.migrationsDirectory }),
+      database,
     }),
     runEvents: new RunEventsSse({
-      databasePath: options.databasePath,
-      ...(options.migrationsDirectory === undefined
-        ? {}
-        : { migrationsDirectory: options.migrationsDirectory }),
+      database,
     }),
     auth: createResearchAuth(
       localAuth,

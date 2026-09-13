@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ArtifactIdSchema, RunIdSchema } from "../domain/ids";
-import { createSqliteChallengeRound } from "./challengeRound";
+import { createPostgresChallengeRound } from "./challengeRound";
 import type { ChallengeFault } from "./challengeRound.testSupport";
 import { stageAcceptedDepartments } from "./challengeRound.testSupport";
 
@@ -24,7 +24,7 @@ afterEach(() => {
 
 async function stage(fault: ChallengeFault) {
   const prepared = await stageAcceptedDepartments(temporaryRoot(), fault);
-  const round = createSqliteChallengeRound(prepared.options);
+  const round = createPostgresChallengeRound(prepared.options);
   const result = await round.stage({
     runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
     consolidationArtifactIds: prepared.departmentReplay.artifactIds.map((id) =>

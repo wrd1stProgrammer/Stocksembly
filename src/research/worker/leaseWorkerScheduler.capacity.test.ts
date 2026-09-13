@@ -17,8 +17,8 @@ describe("continuous research scheduling", () => {
     }, 150);
     await runLeaseWorkerScheduler(
       {
-        heartbeat: () => 0,
-        recoverExpired: () => [],
+        heartbeat: async () => 0,
+        recoverExpired: async () => [],
         reconcile: async () => true,
         poll: () => {
           polls += 1;

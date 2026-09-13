@@ -1,0 +1,426 @@
+import { randomUUID } from "node:crypto";
+import { hashBytes } from "../domain/contractHelpers";
+import { EventIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
+import { questionEvidenceRequirements } from "../domain/questionEvidenceRequirements";
+import { researchEvidenceExcerpt } from "../domain/researchEvidenceExcerpt";
+import { researchFinancialBoard } from "../domain/researchFinancialBoard";
+import { analyticalResearchProfile } from "../domain/researchProfile";
+import { workflowRoleById } from "../domain/roleRegistry";
+import { TEAM_CORE_DATA } from "../domain/teamCoreData";
+import { TechnicalChartSnapshotSchema } from "../domain/technicalChart";
+import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
+import { codexInputHash } from "../server/codex/codexRunner";
+import type { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
+import type { openPostgresStore } from "../server/persistence/postgres/postgresStore";
+import { technicalChartPromptSummary } from "../technical/buildTechnicalChart";
+import { qualifyComparatorsBeforeSynthesis } from "./preSynthesisComparatorQualification";
+import type { SpecialistRoundInput } from "./specialistRound";
+import {
+  type SpecialistJobRequest,
+  SpecialistMemoOutputSchema,
+} from "./specialistRoundContracts";
+import {
+  specialistRequest,
+  validateSpecialistRoundInput,
+} from "./specialistRoundInput";
+import type { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
+import type {
+  PersistedSpecialistJob,
+  PostgresSpecialistRoundOptions,
+  SpecialistSourceArtifact,
+} from "./specialistRoundPostgresContracts";
+
+type PostgresStore = Awaited<ReturnType<typeof openPostgresStore>>;
+
+export function permittedSpecialistInlineArtifact(artifact: {
+  readonly dataset: string;
+}): boolean {
+  return (
+    artifact.dataset !== "insightsentry_peers" &&
+    artifact.dataset !== "insightsentry_request_ledger"
+  );
+}
+
+type StageContext = {
+  readonly options: PostgresSpecialistRoundOptions;
+  readonly store: PostgresStore;
+  readonly commitStore: PostgresAgentOutputCommitStore;
+  readonly authority: SpecialistRoundPostgresAuthority;
+};
+
+export function specialistPromptRequest(request: SpecialistJobRequest) {
+  return {
+    ...request,
+    registeredValues: request.registeredValues.map((value) => ({
+      valueId: value.valueId,
+      metric: value.metric,
+      value: value.value,
+      unit: value.unit,
+      period: value.period,
+      source: value.source,
+      accession: value.accession,
+      form: value.form,
+      acceptedAt: value.acceptedAt,
+      formula: value.formula,
+    })),
+  };
+}
+
+const MAX_INLINE_EVIDENCE_BYTES = 72_000;
+const MAX_INLINE_SOURCE_CHARS = 12_000;
+const SPECIALIST_PROMPT_HEADROOM_BYTES = 16 * 1_024;
+
+export function specialistInlineEvidenceBudget(
+  basePromptBytes: number,
+): number {
+  return Math.min(
+    MAX_INLINE_EVIDENCE_BYTES,
+    Math.max(
+      0,
+      CODEX_RUNTIME_POLICY.maxPromptBytes -
+        SPECIALIST_PROMPT_HEADROOM_BYTES -
+        basePromptBytes -
+        1,
+    ),
+  );
+}
+
+function inlineSource(
+  source: SpecialistSourceArtifact,
+  focusAreas: readonly string[],
+  maxChars: number,
+): string {
+  const decoded = new TextDecoder().decode(source.bytes);
+  try {
+    const parsed = JSON.parse(decoded) as {
+      readonly technicalChart?: unknown;
+      readonly value?: {
+        readonly text?: unknown;
+        readonly selectedFacts?: unknown;
+        readonly technicalChart?: unknown;
+        readonly treasury?: unknown;
+        readonly bls?: unknown;
+      };
+    };
+    const chart = TechnicalChartSnapshotSchema.safeParse(
+      parsed.value?.technicalChart ?? parsed.technicalChart,
+    );
+    if (chart.success)
+      return JSON.stringify(technicalChartPromptSummary(chart.data));
+    if (typeof parsed.value?.text === "string")
+      return researchEvidenceExcerpt(parsed.value.text, focusAreas, maxChars);
+    if (parsed.value?.selectedFacts !== undefined)
+      return "Use the registeredValues in the request for normalized financial evidence.";
+    return JSON.stringify(parsed.value ?? parsed).slice(0, maxChars);
+  } catch {
+    return decoded.slice(0, maxChars);
+  }
+}
+
+export function specialistJobSeed(
+  job: PersistedSpecialistJob,
+  createdAt: string,
+) {
+  return {
+    jobId: job.jobId,
+    kind: "research" as const,
+    logicalKey: job.logicalArtifactId,
+    inputHash: job.inputHash,
+    inputManifestHash: job.inputManifestHash,
+    createdAt,
+  };
+}
+
+function event(type: string, occurredAt: string) {
+  return {
+    eventId: EventIdSchema.parse(randomUUID()),
+    type,
+    stateId: type,
+    occurredAt,
+  };
+}
+
+export async function persistSpecialistSources(
+  context: StageContext,
+  jobs: readonly PersistedSpecialistJob[],
+  sources: readonly SpecialistSourceArtifact[],
+  first: PersistedSpecialistJob,
+): Promise<void> {
+  for (const source of sources) {
+    const descriptor = await context.options.cas.put({
+      artifactId: source.artifactId,
+      runId: first.runId,
+      snapshotId: first.snapshotId,
+      mediaType: source.mediaType,
+      parentDigests: [],
+      bytes: source.bytes,
+    });
+    await context.store.saveArtifactMetadata({
+      ...descriptor,
+      contentHash: descriptor.digest,
+      logicalKey: `evidence:${source.evidenceId}`,
+      inputHash: descriptor.digest,
+      createdAt: new Date().toISOString(),
+      locator: source.locator,
+    });
+  }
+  for (const job of jobs)
+    for (const artifactId of job.sourceArtifactIds)
+      await context.commitStore.bindJobInputArtifact({
+        jobId: job.jobId,
+        artifactId,
+      });
+}
+
+export async function stagePostgresSpecialistRound(
+  context: StageContext,
+  input: SpecialistRoundInput,
+  sources: readonly SpecialistSourceArtifact[],
+): Promise<void> {
+  const jobs = prepareSpecialistJobs(input, sources);
+  const first = jobs[0];
+  if (first === undefined) throw new TypeError("specialist roster is empty");
+  await context.store.createRun({
+    runId: first.runId,
+    snapshotId: first.snapshotId,
+    requestedAt: input.snapshot.requestedAt,
+    initialJob: specialistJobSeed(first, input.snapshot.snapshotSealedAt),
+    initialEvent: event("run_created", input.snapshot.requestedAt),
+  });
+  await context.authority.sealSnapshot(
+    first.snapshotId,
+    input.snapshot.evidenceCutoffAt,
+    input.snapshot.snapshotSealedAt,
+  );
+  await context.store.transitionRun({
+    runId: first.runId,
+    fromStatus: "queued",
+    toStatus: "running",
+    nextJobs: jobs
+      .slice(1)
+      .map((job) => specialistJobSeed(job, input.snapshot.snapshotSealedAt)),
+    event: event("specialist_jobs_staged", input.mandate.mandateSealedAt),
+  });
+  await context.authority.persistJobs(jobs, input.mandate.mandateSealedAt);
+  await persistSpecialistSources(context, jobs, sources, first);
+}
+
+export function prepareSpecialistJobs(
+  input: SpecialistRoundInput,
+  sources: readonly SpecialistSourceArtifact[],
+): readonly PersistedSpecialistJob[] {
+  const assignments = validateSpecialistRoundInput(input);
+  if (assignments === undefined)
+    throw new TypeError("specialist round input is not sealed");
+  const sourceByEvidence = new Map(
+    sources.map((source) => [source.evidenceId, source]),
+  );
+  for (const source of sources) {
+    const manifest = input.snapshot.artifacts.find(
+      (artifact) => artifact.evidenceId === source.evidenceId,
+    );
+    if (
+      manifest === undefined ||
+      hashBytes(source.bytes) !== (manifest.normalizedHash ?? manifest.rawHash)
+    )
+      throw new TypeError("source bytes do not match the sealed snapshot");
+  }
+  const qualifiedInput =
+    input.comparatorQualification === undefined
+      ? {
+          ...input,
+          comparatorQualification: qualifyComparatorsBeforeSynthesis(sources),
+        }
+      : input;
+  return assignments.map((assignment, index) => {
+    const request = specialistRequest(qualifiedInput, assignment, {
+      ordinal: index + 1,
+      purpose: "mandatory_first",
+    });
+    const role = workflowRoleById(assignment.roleId);
+    if (role === undefined || role.departmentId === "chair")
+      throw new TypeError("specialist team data contract is unavailable");
+    const teamData = TEAM_CORE_DATA[role.departmentId];
+    const sourceArtifactIds = assignment.evidenceSlice.artifacts.map(
+      (artifact) => {
+        const source = sourceByEvidence.get(artifact.evidenceId);
+        if (source === undefined)
+          throw new TypeError("sealed source artifact is missing");
+        return source.artifactId;
+      },
+    );
+    const promptSections = [
+      JSON.stringify({
+        request: specialistPromptRequest(request),
+        sourceArtifactIds,
+        citationBindings: assignment.evidenceSlice.artifacts.map(
+          (artifact) => ({
+            evidenceId: artifact.evidenceId,
+            artifactId: sourceByEvidence.get(artifact.evidenceId)!.artifactId,
+            dataset: artifact.dataset,
+          }),
+        ),
+      }),
+      assignment.roleId === "market_news"
+        ? `You are June, the chart-structure specialist. Read the supplied technical chart snapshot from weekly context to daily structure, four-hour setup and hourly confirmation. Use confirmed drawing IDs and closing conditions. Do not treat four correlated timeframes as votes or assert a probability. Your existing positions must explain structure, next-candle confirmation and invalidation. Price calculations are supplied; never invent future candles or targets. In chartCommentaryJson, return a JSON string with synthesis:{en,ko}, frames:[{timeframe,focusDrawingIds,observation:{en,ko}}], or null when unavailable. Write qualitative explanations without numerals, price amounts, percentage signs or win-rate claims; the page adds exact supplied prices separately. Explain why the chosen drawings matter for the next candle and what invalidates that reading. Use words such as hourly/four-hour/daily/weekly in prose, and the exact enum values in timeframe. This optional text does not replace the required positions.`
+        : "Set chartCommentaryJson to null; June owns the optional chart commentary.",
+      "",
+      "Permitted sealed evidence excerpts are inlined below. Native hosted web search may be used for public context; do not call any other tool or read files.",
+      "For sourceArtifactIds and evidenceArtifactIds, copy only exact UUIDs from the top-level sourceArtifactIds allowlist. contentHash, rawHash, and normalizedHash values are integrity metadata, not citation IDs, and must never be cited or converted into UUIDs.",
+      "If insightsentry:comparisons is supplied, use its matched-session returns for relative-strength questions: name the comparator, dates, lookback and excess percentage points. Do not claim benchmark absence when valid windows exist. A semiconductor ETF is an industry proxy, not a corporate competitor. Use operatingPeers for named company comparisons, explicitly limiting consolidated metrics versus product/segment adoption. Never turn a 20-session historical return into a four-week forecast.",
+      "Bind each assertion to the CITABLE_ARTIFACT_ID printed beside the exact supporting excerpt. citationBindings is the authoritative identity map, not an ordered list to guess from. A CPI, employment or Treasury source cannot support a company-specific regulation, product launch or adoption claim. Hosted search context without a supplied citable evidence binding must remain an explicitly unverified question, never a factual assertion backed by an unrelated sealed source.",
+      "Preserve metric entity and segment scope: provider operating_margin is consolidated company operating margin, never an automotive, cloud or other segment margin unless the metric explicitly names that segment. Preserve units and round displayed percentages to at most two decimal places. Do not call a forecast, guidance or unfinished fiscal period a completed result. State actual versus forecast and the period end explicitly when ambiguous.",
+      "The explicit time horizon in the user question overrides the default profile horizon. A four-week question must not acquire a two-to-four-quarter checkpoint. For earnings quality, inspect nonoperating gains, investment remeasurement, tax items and stock compensation as well as OCF/capex; preserve a material one-off gain rather than presenting net income as operating performance.",
+      "Fill every required preallocated request.claimSlots item owned by this role. Each slot includes an analyticalAngle and must produce one decision-relevant atomic claim that directly answers that angle. Optional supporting slots may remain unused only when the evidence cannot support a distinct claim.",
+      "For each filled slot, preserve its claimId and decisionDimension, set roleOwner to request.role.id, cite evidence, select no more than three decisive metric IDs, state the single strongest contrary observation, and give a claim-specific observable falsifier.",
+      "Claims from the same role must not restate one another. Give each slot a different mechanism, metric combination, investor implication, and falsifier; do not split one sentence into several cosmetic claims.",
+      `CUSTOM RESEARCH PROFILE ${JSON.stringify(analyticalResearchProfile(request.mandate.researchProfile))}`,
+      "Keep each publicSummary to two or three concise sentences: quantified observation, mechanism, implication. Put the distinct reversal condition only in falsifier rather than repeating it at the end of every paragraph. English fields must be English and Korean fields Korean; never mirror Korean into English.",
+      "The explanationMode metadata is reserved for final reader-facing copy. It must not reduce evidence breadth, analytical rigor, disagreement, or falsification work in this specialist stage.",
+      "Use mandate.researchBrief as the shared investigation plan, not as a factual source. Resolve its unknown entities through an issuer primary document before interpreting them. Preserve the original product/event subject across languages. Investigate the role-owned crux, including the best opposing explanation. If a decision-changing business KPI is missing, use at most two focused hosted searches, open the primary issuer source and report the result or precise unresolved item. Do not use an older annual figure to stand in for an available latest quarter. Distinguish management claims, disclosed results and your interpretation.",
+      "Build each thesis as observation -> causal mechanism -> economic implication for this question. For capital investment, distinguish spending from realized return; for cash conversion, inspect working capital and period comparability; for valuation, identify what observed price requires and separate calculated assumptions from consensus. A ratio alone is not a causal explanation.",
+      "Before submitting a falsifier, assume its event happened: it must weaken this exact thesis, not strengthen it. State both the observation and the resulting change in judgment. Never compare quarterly EPS with annual or next-twelve-month EPS. Use observable direction when no defensible numerical threshold exists; do not invent a threshold to fill the field.",
+      "The user's question defines the decision being researched. For financial-health questions, assess earnings quality, liquidity, debt and cash conversion; do not turn financial strength into a buy recommendation. For long-term position sizing, intraday price action is entry context and cannot be the decisive investment thesis.",
+      "Every financial observation must state its fiscal period and accounting basis. The retrieval date is not the fiscal period. Latest means the greatest period end for that metric, not the last array entry. For cash conversion, use operating cash flow and net income for the exact same quarter; distinguish a registered quarter_from_ytd calculation from reported YTD. Never describe an older available ratio as the latest quarter. Do not divide FQ by TTM or mix GAAP and adjusted earnings; retain the magnitude when translating billion/million into 억/조.",
+      "Apply the custom profile to analysis, not merely wording. short emphasizes the next catalyst and timing; medium emphasizes the next two to four reporting periods; long emphasizes moat, reinvestment, and terminal economics. new_entry requires entry prerequisites and valuation tolerance; holding_review requires thesis health and hold-or-reassess triggers; position_sizing requires asymmetry, concentration risk, and add/reduce conditions; earnings requires the dated earnings calendar, available estimates, recent filing, and the metric most likely to move the thesis before versus after the release.",
+      "When counterargumentIntensity is strong, spend material analytical weight on the strongest evidence-backed opposing case and identify what the consensus view may be missing. Do not manufacture symmetry when one side is better supported.",
+      "When analysisDepth is core, prioritize the single decisive claim and only add a distinct supporting claim when it changes the decision. For standard, cover every required slot. For deep, fill every slot and connect the mechanism to a measurable investor implication.",
+      request.mandate.researchProfile.comparisonSymbols.length === 0
+        ? "For valuation peer medians use the automatically qualified peer set only when request.comparatorQualification supports it. Dated insightsentry:comparisons price returns and named operating metrics are separate permitted evidence. If it does not, do not create a claim, public summary, dissent, or unknown whose thesis is missing, malformed, corrupt, or unusable peer data. Analyze absolute price action, operating performance, and valuation instead; when the user explicitly asks for relative performance, state once in the main answer that the relative comparison is unresolved; absolute performance cannot substitute for it."
+        : `Prioritize these user-selected comparison symbols when the qualified comparator evidence supports them: ${request.mandate.researchProfile.comparisonSymbols.join(", ")}. The automatically qualified set may provide sector context, but never substitute an unqualified company for a requested comparator.`,
+      ...(request.mandate.researchProfile.comparisonSymbols.length > 0
+        ? [
+            `This is a direct company-choice mandate. Compare the subject company with ${request.mandate.researchProfile.comparisonSymbols.join(", ")} inside this role's owned decision dimensions and state which company has the stronger evidence for the selected horizon and purpose. A tie is allowed only when one explicit observable condition would reverse the choice; generic balance language is not an answer.`,
+          ]
+        : []),
+      "Connect the role's most material claim directly to the user's question, selected horizon, and decision purpose. End that claim with the concrete investor implication: what should be watched, what evidence justifies waiting, or what observable result would strengthen or weaken the case. Do not repeat the question verbatim.",
+      "Use only exact request.registeredValues[].valueId values in decisiveMetricIds. If no registered value directly supports the claim, return decisiveMetricIds as an empty array.",
+      "Every percentage in publicSummary must equal a selected registered value for the same metric and period. Never infer a growth rate from an unrelated total, a different period, or prose context; omit the percentage when no matching registered value exists.",
+      `TEAM DATA CONTRACT ${JSON.stringify(teamData)}`,
+      `COMPARABLE FINANCIAL SERIES ${JSON.stringify(researchFinancialBoard(request.registeredValues))}`,
+      "The financial series references the same registeredValues, sorted newest first within each metric. Compare the latest quarter with a comparable prior quarter and year-ago quarter where available; FY, Q, YTD, TTM and instant records are separate. Explain drivers of change rather than relabeling a historical level as a current trend. Do not calculate a new percentage unless its exact registry value exists.",
+      "Use the available team datasets and metrics in that contract as the team's decision board. Check all inlined evidence before deciding a contracted metric is absent; when it is absent, name the concrete observable trigger that would resolve the claim.",
+      "Licensed news is an event input, not a summary assignment. State what changed, connect it to this role's owned metric or mechanism, and give the next observable confirmation. Never restate a headline as analysis.",
+      "A material event may be routed to several departments. Stay inside this role's decision dimensions and do not reproduce another team's likely interpretation: market owns price, volume, and relative reaction; company owns demand, product, customer, and competition; financial owns revenue, margin, cash flow, estimates, and capital allocation; risk owns downside transmission and mitigants.",
+      ...(["benchmark", "company_competition", "valuation"].includes(
+        assignment.roleId,
+      )
+        ? [
+            "Use request.comparatorQualification as the only permitted valuation-peer median input. insightsentry:comparisons separately permits dated price-performance and named consolidated operating comparisons; these do not imply valuation eligibility. Never infer a valuation peer median from an ETF, price returns or an unqualified business competitor.",
+          ]
+        : []),
+      ...((["market", "risk", "risk_policy"] as const).includes(
+        assignment.roleId as "market" | "risk" | "risk_policy",
+      )
+        ? [
+            "Use the expanded BLS pack as a regime, not a data dump: distinguish headline versus core inflation, employment level and unemployment, wage pressure, and producer-price pressure. Explain the transmission into demand, margins, discount rates, or downside triggers.",
+          ]
+        : []),
+      ...((
+        [
+          "market",
+          "company",
+          "company_product",
+          "company_competition",
+          "financial",
+          "financial_quality",
+          "risk",
+          "risk_policy",
+          "valuation",
+        ] as const
+      ).includes(
+        assignment.roleId as
+          | "market"
+          | "company"
+          | "company_product"
+          | "company_competition"
+          | "financial"
+          | "financial_quality"
+          | "risk"
+          | "risk_policy"
+          | "valuation",
+      )
+        ? [
+            "For SEC ownership evidence, separate open-market insider purchases or sales from grants, exercises, tax withholding, and planned dispositions. Treat Schedule 13D/G as material beneficial-owner disclosure, not as a complete institutional-flow feed; focus on changes that alter incentives, concentration, or governance risk.",
+            "Forms 3, 4, and 5 may support only explicit insider-ownership or insider-transaction claims. Never cite them for revenue, margin, cash flow, valuation, demand, competition, or price-performance claims.",
+          ]
+        : []),
+      `QUESTION EVIDENCE CHECKLIST ${JSON.stringify(questionEvidenceRequirements(request.mandate.question ?? ""))}`,
+      "For every numeric claim preserve metric name, unit, fiscal period and accounting definition. Provider FCF and issuer FCF may use different capex offsets; explicitly name the basis. Never subtract pre-tax investment gains directly from net income. Check OCF minus capex arithmetic before writing. Quote observations and closed-candle prices need their own timestamps.",
+      `ROLE-OWNED DECISION DIMENSIONS ${JSON.stringify(request.claimSlots.map((slot) => slot.decisionDimension))}`,
+      "Keep each claim publicSummary atomic and concise: one short thesis per locale.",
+      "Make the position distinct to this specialist role. Do not repeat a generic growth-is-strong-but-uncertain template when the evidence supports a more specific demand, moat, margin, valuation, market, or risk judgment.",
+      "Unknowns are not disclaimer storage. Return at most two unknowns and phrase each as the observable metric, threshold, filing line, or dated event that would resolve the uncertainty.",
+      "Public text must state concrete real-world observations and verification conditions only.",
+      "Return only JSON that matches the required output schema.",
+    ];
+    const basePrompt = promptSections.join("\n");
+    let remainingEvidenceBytes = specialistInlineEvidenceBudget(
+      Buffer.byteLength(basePrompt),
+    );
+    const inlineEvidence = assignment.evidenceSlice.artifacts
+      .filter(permittedSpecialistInlineArtifact)
+      .sort(
+        (left, right) =>
+          Number(right.evidenceId === "insightsentry:comparisons") -
+            Number(left.evidenceId === "insightsentry:comparisons") ||
+          (assignment.roleId === "market_news"
+            ? Number(right.dataset === "market_bars") -
+              Number(left.dataset === "market_bars")
+            : 0),
+      )
+      .flatMap((artifact) => {
+        const source = sourceByEvidence.get(artifact.evidenceId);
+        if (source === undefined)
+          throw new TypeError("sealed source artifact is missing");
+        const prefix = [
+          `EVIDENCE ${artifact.evidenceId}`,
+          `CITABLE_ARTIFACT_ID ${source.artifactId}`,
+          `DATASET ${artifact.dataset}`,
+          `CONTENT_HASH ${artifact.normalizedHash ?? artifact.rawHash}`,
+        ].join("\n");
+        const prefixBytes = Buffer.byteLength(prefix) + 1;
+        if (remainingEvidenceBytes <= prefixBytes) return [];
+        const availableChars = Math.min(
+          MAX_INLINE_SOURCE_CHARS,
+          Math.max(0, Math.floor((remainingEvidenceBytes - prefixBytes) / 3)),
+        );
+        const content = inlineSource(
+          source,
+          [
+            ...(request.mandate.researchBrief?.cruxes.flatMap(
+              (crux) => crux.searchTerms,
+            ) ?? []),
+            ...questionEvidenceRequirements(
+              request.mandate.question ?? "",
+            ).flatMap((item) => item.searchTerms),
+            request.mandate.question ?? "",
+            ...assignment.focusAreas,
+          ],
+          availableChars,
+        );
+        const block = [prefix, content].join("\n");
+        const blockBytes = Buffer.byteLength(block);
+        if (blockBytes > remainingEvidenceBytes) return [];
+        remainingEvidenceBytes -= blockBytes;
+        return [block];
+      });
+    const prompt = [...promptSections, ...inlineEvidence].join("\n");
+    return {
+      runId: RunIdSchema.parse(input.mandate.runId),
+      snapshotId: SnapshotIdSchema.parse(input.snapshot.snapshotId),
+      roleId: assignment.roleId,
+      jobId: request.attempt.jobId,
+      logicalArtifactId: `memo:${assignment.roleId}`,
+      prompt,
+      inputHash: codexInputHash({
+        stage: "memo",
+        prompt,
+        outputSchema: SpecialistMemoOutputSchema,
+      }),
+      inputManifestHash: assignment.evidenceSlice.sliceHash,
+      sourceArtifactIds,
+      comparatorQualification: request.comparatorQualification,
+    } satisfies PersistedSpecialistJob;
+  });
+}

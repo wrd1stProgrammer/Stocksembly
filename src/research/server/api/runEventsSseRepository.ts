@@ -1,10 +1,10 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { RunIdSchema } from "../../domain/ids";
 import { RunStatusSchema } from "../../domain/runStateContracts";
 import { WORKFLOW_PUBLIC_EVENT_KINDS } from "../../workflow/publicEventsContracts";
-import { applyOrderedMigrations } from "../persistence/sqlite/migrations";
-import { parseSafeJson } from "../persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
+import { parseSafeJson } from "../persistence/postgres/safeJson";
 import type { PublicResearchEvent } from "./researchApiContracts";
 import { EventPayloadSchema, EventRowSchema } from "./researchApiRows";
 
@@ -64,45 +64,47 @@ function streamEntry(input: unknown): RunEventStreamEntry {
 }
 
 export class RunEventsSseRepository {
-  readonly #database: Database.Database;
+  readonly #database: ResearchDatabase;
 
   constructor(options: {
-    readonly databasePath: string;
-    readonly migrationsDirectory?: string;
+    readonly database: ResearchDatabase;
   }) {
-    this.#database = new Database(options.databasePath, { timeout: 5_000 });
-    this.#database.pragma("journal_mode = WAL");
-    this.#database.pragma("foreign_keys = ON");
-    this.#database.pragma("busy_timeout = 5000");
-    applyOrderedMigrations(this.#database, options.migrationsDirectory);
+    this.#database = options.database;
   }
 
-  snapshot(
+  async snapshot(
     principalId: string,
     runId: string,
     after: number,
-  ): RunEventSnapshot | undefined {
-    return this.#database.transaction(() => {
-      const rawSnapshot = this.#database
-        .prepare(`SELECT runs.status, runs.last_event_seq FROM runs
+  ): Promise<RunEventSnapshot | undefined> {
+    return await researchTransaction(this.#database, async (transaction) => {
+      const rawSnapshot = (
+        await transaction.query(
+          `SELECT runs.status, runs.last_event_seq FROM runs
           JOIN research_requests USING(run_id)
-          WHERE runs.run_id = ? AND research_requests.principal_id = ?`)
-        .get(RunIdSchema.parse(runId), principalId);
+          WHERE runs.run_id = $1 AND research_requests.principal_id = $2 FOR SHARE OF runs`,
+          [RunIdSchema.parse(runId), principalId],
+        )
+      ).rows[0];
       if (rawSnapshot === undefined) return undefined;
       const snapshot = SnapshotRowSchema.parse(rawSnapshot);
       const retention = MinimumRowSchema.parse(
-        this.#database
-          .prepare(
-            `SELECT MIN(sequence) AS minimum, COUNT(*) AS retained_count
-            FROM run_events WHERE run_id = ?`,
+        (
+          await transaction.query(
+            `SELECT MIN(sequence) AS minimum, CAST(COUNT(*) AS integer) AS retained_count
+            FROM run_events WHERE run_id = $1`,
+            [runId],
           )
-          .get(runId),
+        ).rows[0],
       );
-      const rows = this.#database
-        .prepare(`SELECT sequence, event_type, state_id, occurred_at, payload_json
-          FROM run_events WHERE run_id = ? AND sequence > ?
-          AND sequence <= ? ORDER BY sequence`)
-        .all(runId, after, snapshot.last_event_seq);
+      const rows = (
+        await transaction.query(
+          `SELECT sequence, event_type, state_id, occurred_at, payload_json
+          FROM run_events WHERE run_id = $1 AND sequence > $2
+          AND sequence <= $3 ORDER BY sequence`,
+          [runId, after, snapshot.last_event_seq],
+        )
+      ).rows;
       const entries = rows.map(streamEntry);
       return {
         status: snapshot.status,
@@ -116,10 +118,10 @@ export class RunEventsSseRepository {
               snapshot.last_event_seq - retention.minimum + 1) &&
           rows.length === Math.max(0, snapshot.last_event_seq - after),
       };
-    })();
+    });
   }
 
   close(): void {
-    if (this.#database.open) this.#database.close();
+    // The process owns the shared pool.
   }
 }

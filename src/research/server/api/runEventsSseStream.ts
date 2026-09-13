@@ -104,7 +104,7 @@ export function createRunEventsStream(input: {
           input.serviceSignal,
         ]);
         if (disposed) break;
-        const next = input.repository.snapshot(
+        const next = await input.repository.snapshot(
           input.principalId,
           input.runId,
           cursor,

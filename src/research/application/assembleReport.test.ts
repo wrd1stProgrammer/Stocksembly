@@ -1,7 +1,6 @@
-import { rmSync } from "node:fs";
-import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { createResearchTestDatabase } from "../../test/researchPostgres";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
 import {
@@ -21,11 +20,10 @@ import {
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import { researchReportToFile } from "../researchReportToFile";
-import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
-import { sqliteReportVersionPersistence } from "../server/persistence/sqlite/sqliteReportPersistence";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
-import { temporaryDatabase } from "../server/persistence/sqlite/sqliteStore.contractFixtures";
-import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
+import { postgresReportVersionPersistence } from "../server/persistence/postgres/postgresReportPersistence";
+import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
+import { publishAuthoritativeReportForRun } from "../server/persistence/postgres/publishAuthoritativeReportForRun";
+import { createPostgresChairSynthesis } from "../workflow/chairSynthesis";
 import {
   corruptAcceptedEnvelope,
   createPreparedChairRound,
@@ -1265,14 +1263,14 @@ describe("persistAuthoritativeReport", () => {
     expect(persistence.saved).toHaveLength(0);
   });
 
-  it("atomically links the CAS report, all parents, and contiguous SQLite version one", async () => {
+  it("atomically links the CAS report, all parents, and contiguous PostgreSQL version one", async () => {
     // Given
-    const temporary = temporaryDatabase();
-    const store = openSqliteStore(temporary.path);
+    const temporary = await createResearchTestDatabase();
+    const store = await openPostgresStore(temporary.pool);
     const cas = new CountingArtifactCasFake();
     const input = makeAuthoritativeReportInput();
     await seedAuthoritativeParents(cas, input);
-    store.createRun({
+    await store.createRun({
       runId: RunIdSchema.parse(input.structuralAudit.runId),
       snapshotId: SnapshotIdSchema.parse(input.structuralAudit.snapshotId),
       requestedAt: "2026-07-23T00:00:00.000Z",
@@ -1291,7 +1289,7 @@ describe("persistAuthoritativeReport", () => {
       },
     });
     for (const parent of input.parentArtifacts)
-      store.saveArtifactMetadata({
+      await store.saveArtifactMetadata({
         artifactId: ArtifactIdSchema.parse(parent.artifactId),
         runId: RunIdSchema.parse(input.structuralAudit.runId),
         snapshotId: SnapshotIdSchema.parse(input.structuralAudit.snapshotId),
@@ -1305,23 +1303,27 @@ describe("persistAuthoritativeReport", () => {
 
     // When
     const result = await persistAuthoritativeReport(
-      { cas, persistence: sqliteReportVersionPersistence(store) },
+      { cas, persistence: postgresReportVersionPersistence(store) },
       input,
     );
 
     // Then
-    const database = new Database(temporary.path);
-    const counts = database
-      .prepare(`SELECT
-        (SELECT COUNT(*) FROM report_versions) AS versions,
-        (SELECT COUNT(*) FROM artifact_edges WHERE relation = 'derived-from') AS edges,
-        (SELECT version FROM report_versions LIMIT 1) AS version`)
-      .get();
-    const storedVersion = database
-      .prepare(
-        "SELECT public_payload_json AS publicPayload FROM report_versions LIMIT 1",
+    const database = temporary.pool;
+    const counts = (
+      await database.query(
+        `SELECT
+        (SELECT COUNT(*)::integer FROM report_versions) AS versions,
+        (SELECT COUNT(*)::integer FROM artifact_edges WHERE relation = 'derived-from') AS edges,
+        (SELECT version FROM report_versions LIMIT 1) AS version`,
+        [],
       )
-      .get() as { readonly publicPayload: string };
+    ).rows[0];
+    const storedVersion = (
+      await database.query(
+        'SELECT public_payload_json AS "publicPayload" FROM report_versions LIMIT 1',
+        [],
+      )
+    ).rows[0] as { readonly publicPayload: string };
     const publicPayload = JSON.parse(storedVersion.publicPayload) as {
       readonly anticipatedQuestions: readonly unknown[];
       readonly editorialPublication: {
@@ -1330,9 +1332,8 @@ describe("persistAuthoritativeReport", () => {
         };
       };
     };
-    database.close();
-    store.close();
-    rmSync(temporary.directory, { recursive: true, force: true });
+    await store.close();
+    await temporary.close();
     expect(result.kind).toBe("published");
     expect(counts).toEqual({ versions: 1, edges: 14, version: 1 });
     expect(publicPayload.anticipatedQuestions).toHaveLength(10);
@@ -1341,14 +1342,14 @@ describe("persistAuthoritativeReport", () => {
     ).toHaveLength(10);
   });
 
-  it("rolls back SQLite report metadata and version when a parent edge is missing", async () => {
+  it("rolls back PostgreSQL report metadata and version when a parent edge is missing", async () => {
     // Given
-    const temporary = temporaryDatabase();
-    const store = openSqliteStore(temporary.path);
+    const temporary = await createResearchTestDatabase();
+    const store = await openPostgresStore(temporary.pool);
     const cas = new CountingArtifactCasFake();
     const input = makeAuthoritativeReportInput();
     await seedAuthoritativeParents(cas, input);
-    store.createRun({
+    await store.createRun({
       runId: RunIdSchema.parse(input.structuralAudit.runId),
       snapshotId: SnapshotIdSchema.parse(input.structuralAudit.snapshotId),
       requestedAt: "2026-07-23T00:00:00.000Z",
@@ -1367,7 +1368,7 @@ describe("persistAuthoritativeReport", () => {
       },
     });
     for (const parent of input.parentArtifacts.slice(1))
-      store.saveArtifactMetadata({
+      await store.saveArtifactMetadata({
         artifactId: ArtifactIdSchema.parse(parent.artifactId),
         runId: RunIdSchema.parse(input.structuralAudit.runId),
         snapshotId: SnapshotIdSchema.parse(input.structuralAudit.snapshotId),
@@ -1382,35 +1383,37 @@ describe("persistAuthoritativeReport", () => {
     // When
     const action = async () =>
       await persistAuthoritativeReport(
-        { cas, persistence: sqliteReportVersionPersistence(store) },
+        { cas, persistence: postgresReportVersionPersistence(store) },
         input,
       );
 
     // Then
-    await expect(action).rejects.toThrow(/FOREIGN KEY/);
-    const database = new Database(temporary.path);
-    const counts = database
-      .prepare(`SELECT
-        (SELECT COUNT(*) FROM report_versions) AS versions,
-        (SELECT COUNT(*) FROM artifacts WHERE logical_key LIKE 'report_version:%') AS reports`)
-      .get();
-    database.close();
-    store.close();
-    rmSync(temporary.directory, { recursive: true, force: true });
+    await expect(action).rejects.toThrow(/foreign key/i);
+    const database = temporary.pool;
+    const counts = (
+      await database.query(
+        `SELECT
+        (SELECT COUNT(*)::integer FROM report_versions) AS versions,
+        (SELECT COUNT(*)::integer FROM artifacts WHERE logical_key LIKE 'report_version:%') AS reports`,
+        [],
+      )
+    ).rows[0];
+    await store.close();
+    await temporary.close();
     expect(counts).toEqual({ versions: 0, reports: 0 });
   });
 
   it("publishes only the authenticated accepted chair and terminates the real run atomically", async () => {
     // Given
     const prepared = await createPreparedChairRound("none");
-    const chair = createSqliteChairSynthesis({
+    const chair = createPostgresChairSynthesis({
       ...prepared.options,
       workflowVersion: "workflow-v3",
     });
     await chair.stage({ runId: prepared.runId });
     await chair.drain(prepared.runId);
     await chair.close();
-    const database = new Database(prepared.options.databasePath);
+    const database = prepared.options.database;
     const fence = z
       .object({
         artifact_id: z.string().uuid(),
@@ -1422,14 +1425,17 @@ describe("persistAuthoritativeReport", () => {
         envelope_json: z.string(),
       })
       .parse(
-        database
-          .prepare(`SELECT agent_output_commits.artifact_id,
+        (
+          await database.query(
+            `SELECT agent_output_commits.artifact_id,
       agent_output_commits.owner_id, agent_output_commits.fence_token,
       agent_output_commits.ordinal, agent_output_commits.envelope_json,
       attempts.job_id, attempts.attempt_id
       FROM agent_output_commits JOIN attempts USING(attempt_id)
-      WHERE attempts.run_id = ? AND attempts.logical_artifact_key = 'chair_synthesis:chair'`)
-          .get(prepared.runId),
+      WHERE attempts.run_id = $1 AND attempts.logical_artifact_key = 'chair_synthesis:chair'`,
+            [prepared.runId],
+          )
+        ).rows[0],
       );
     const chairOutput = ChairSynthesisOutputSchema.parse(
       z
@@ -1443,12 +1449,11 @@ describe("persistAuthoritativeReport", () => {
       prepared.runId,
     );
     if (prompt === undefined) throw new TypeError("missing chair prompt");
-    database.close();
 
     // When
     const result = await publishAuthoritativeReportForRun(
       {
-        databasePath: prepared.options.databasePath,
+        database: prepared.options.database,
         cas: prepared.options.cas,
         now: () => "2026-07-23T00:10:00.000Z",
       },
@@ -1466,18 +1471,20 @@ describe("persistAuthoritativeReport", () => {
     );
 
     // Then
-    const published = new Database(prepared.options.databasePath);
-    const state = published
-      .prepare(`SELECT runs.status, runs.report_id,
+    const published = prepared.options.database;
+    const state = (
+      await published.query(
+        `SELECT runs.status, runs.report_id,
       runs.report_published_at,
-      (SELECT COUNT(*) FROM report_versions) AS versions,
-      (SELECT COUNT(*) FROM run_events WHERE event_type = 'report_published') AS events,
+      (SELECT COUNT(*)::integer FROM report_versions) AS versions,
+      (SELECT COUNT(*)::integer FROM run_events WHERE event_type = 'report_published') AS events,
       (SELECT public_payload_json FROM report_versions LIMIT 1) AS version_payload_json,
       (SELECT payload_json FROM run_events
         WHERE event_type = 'report_published') AS payload_json
-      FROM runs WHERE run_id = ?`)
-      .get(prepared.runId);
-    published.close();
+      FROM runs WHERE run_id = $1`,
+        [prepared.runId],
+      )
+    ).rows[0];
     expect(result).toMatchObject({ kind: "published" });
     if (result.kind !== "published") return;
     const storedReport = await prepared.options.cas.get(
@@ -1563,7 +1570,7 @@ describe("persistAuthoritativeReport", () => {
       sourceIds: report.sources.map((source) => source.sourceId),
       limitationIds: report.limitations.map((limitation) => limitation.id),
     });
-    prepared.cleanup();
+    await prepared.cleanup();
   }, 20_000);
 
   it.each(["stale_fence", "wrong_artifact"])(
@@ -1571,11 +1578,11 @@ describe("persistAuthoritativeReport", () => {
     async (fault) => {
       // Given
       const prepared = await createPreparedChairRound("none");
-      const chair = createSqliteChairSynthesis(prepared.options);
+      const chair = createPostgresChairSynthesis(prepared.options);
       await chair.stage({ runId: prepared.runId });
       await chair.drain(prepared.runId);
       await chair.close();
-      const database = new Database(prepared.options.databasePath);
+      const database = prepared.options.database;
       const accepted = z
         .object({
           artifact_id: z.string().uuid(),
@@ -1586,20 +1593,22 @@ describe("persistAuthoritativeReport", () => {
           attempt_id: z.string().uuid(),
         })
         .parse(
-          database
-            .prepare(`SELECT agent_output_commits.artifact_id,
+          (
+            await database.query(
+              `SELECT agent_output_commits.artifact_id,
               agent_output_commits.owner_id, agent_output_commits.fence_token,
               agent_output_commits.ordinal, attempts.job_id, attempts.attempt_id
               FROM agent_output_commits JOIN attempts USING(attempt_id)
-              WHERE attempts.run_id = ? AND attempts.logical_artifact_key = 'chair_synthesis:chair'`)
-            .get(prepared.runId),
+              WHERE attempts.run_id = $1 AND attempts.logical_artifact_key = 'chair_synthesis:chair'`,
+              [prepared.runId],
+            )
+          ).rows[0],
         );
-      database.close();
 
       // When
       const result = await publishAuthoritativeReportForRun(
         {
-          databasePath: prepared.options.databasePath,
+          database: prepared.options.database,
           cas: prepared.options.cas,
         },
         {
@@ -1622,15 +1631,17 @@ describe("persistAuthoritativeReport", () => {
       );
 
       // Then
-      const stored = new Database(prepared.options.databasePath);
-      const state = stored
-        .prepare(`SELECT runs.status, runs.report_id,
-          (SELECT COUNT(*) FROM report_versions) AS versions,
-          (SELECT COUNT(*) FROM run_events WHERE event_type = 'report_published') AS events
-          FROM runs WHERE run_id = ?`)
-        .get(prepared.runId);
-      stored.close();
-      prepared.cleanup();
+      const stored = prepared.options.database;
+      const state = (
+        await stored.query(
+          `SELECT runs.status, runs.report_id,
+          (SELECT COUNT(*)::integer FROM report_versions) AS versions,
+          (SELECT COUNT(*)::integer FROM run_events WHERE event_type = 'report_published') AS events
+          FROM runs WHERE run_id = $1`,
+          [prepared.runId],
+        )
+      ).rows[0];
+      await prepared.cleanup();
       expect(result).toEqual({
         kind: "incomplete",
         reason: "authority_authentication_failed",
@@ -1648,11 +1659,11 @@ describe("persistAuthoritativeReport", () => {
   it("leaves zero publication state when a post-chair authenticated source is tampered", async () => {
     // Given
     const prepared = await createPreparedChairRound("none");
-    const chair = createSqliteChairSynthesis(prepared.options);
+    const chair = createPostgresChairSynthesis(prepared.options);
     await chair.stage({ runId: prepared.runId });
     await chair.drain(prepared.runId);
     await chair.close();
-    const database = new Database(prepared.options.databasePath);
+    const database = prepared.options.database;
     const accepted = z
       .object({
         artifact_id: z.string().uuid(),
@@ -1663,23 +1674,28 @@ describe("persistAuthoritativeReport", () => {
         attempt_id: z.string().uuid(),
       })
       .parse(
-        database
-          .prepare(`SELECT agent_output_commits.artifact_id,
+        (
+          await database.query(
+            `SELECT agent_output_commits.artifact_id,
           agent_output_commits.owner_id, agent_output_commits.fence_token,
           agent_output_commits.ordinal, attempts.job_id, attempts.attempt_id
           FROM agent_output_commits JOIN attempts USING(attempt_id)
-          WHERE attempts.run_id = ? AND attempts.logical_artifact_key = 'chair_synthesis:chair'`)
-          .get(prepared.runId),
+          WHERE attempts.run_id = $1 AND attempts.logical_artifact_key = 'chair_synthesis:chair'`,
+            [prepared.runId],
+          )
+        ).rows[0],
       );
     const source = z.object({ logical_key: z.string() }).parse(
-      database
-        .prepare(`SELECT logical_key FROM artifacts WHERE run_id = ?
-          AND logical_key LIKE 'consolidation:%' ORDER BY logical_key LIMIT 1`)
-        .get(prepared.runId),
+      (
+        await database.query(
+          `SELECT logical_key FROM artifacts WHERE run_id = $1
+          AND logical_key LIKE 'consolidation:%' ORDER BY logical_key LIMIT 1`,
+          [prepared.runId],
+        )
+      ).rows[0],
     );
-    database.close();
     await corruptAcceptedEnvelope(
-      prepared.options.databasePath,
+      prepared.options.database,
       prepared.options.cas,
       prepared.runId,
       source.logical_key,
@@ -1688,7 +1704,7 @@ describe("persistAuthoritativeReport", () => {
     // When
     const result = await publishAuthoritativeReportForRun(
       {
-        databasePath: prepared.options.databasePath,
+        database: prepared.options.database,
         cas: prepared.options.cas,
       },
       {
@@ -1705,15 +1721,17 @@ describe("persistAuthoritativeReport", () => {
     );
 
     // Then
-    const stored = new Database(prepared.options.databasePath);
-    const state = stored
-      .prepare(`SELECT runs.status, runs.report_id,
-      (SELECT COUNT(*) FROM report_versions) AS versions,
-      (SELECT COUNT(*) FROM run_events WHERE event_type = 'report_published') AS events
-      FROM runs WHERE run_id = ?`)
-      .get(prepared.runId);
-    stored.close();
-    prepared.cleanup();
+    const stored = prepared.options.database;
+    const state = (
+      await stored.query(
+        `SELECT runs.status, runs.report_id,
+      (SELECT COUNT(*)::integer FROM report_versions) AS versions,
+      (SELECT COUNT(*)::integer FROM run_events WHERE event_type = 'report_published') AS events
+      FROM runs WHERE run_id = $1`,
+        [prepared.runId],
+      )
+    ).rows[0];
+    await prepared.cleanup();
     expect(result).toEqual({
       kind: "incomplete",
       reason: "authority_authentication_failed",

@@ -1,13 +1,13 @@
-import { rmSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { createResearchTestDatabase } from "../../test/researchPostgres";
+import { CALL_BUDGET_POLICY } from "../domain/callBudget";
+import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
 import {
   at,
   createRunFixture,
   fixture,
   hash,
-  temporaryDatabase,
-} from "../server/persistence/sqlite/sqliteStore.contractFixtures";
+} from "../server/persistence/postgres/postgresStore.contractFixtures";
 import {
   reanalyzeRun,
   reanalyzeStoredRun,
@@ -52,7 +52,7 @@ describe("reanalyzeRun", () => {
   it("terminalizes incomplete before spawn when base, optional, and replacement work cannot fit", () => {
     // Given
     const request = {
-      burnedOrdinals: 24,
+      burnedOrdinals: CALL_BUDGET_POLICY.maxPhysicalLaunches - 6,
       remainingBaseCalls: 0,
       requestedOptionalCalls: 3,
       requestedReplacementCalls: 4,
@@ -67,8 +67,8 @@ describe("reanalyzeRun", () => {
       status: "incomplete",
       publicLimitation: {
         code: "physical_launch_budget_exhausted",
-        maximum: 30,
-        required: 31,
+        maximum: CALL_BUDGET_POLICY.maxPhysicalLaunches,
+        required: CALL_BUDGET_POLICY.maxPhysicalLaunches + 1,
       },
     });
   });
@@ -78,7 +78,7 @@ describe("reanalyzeRun", () => {
     ["late response", 20, 4, 3, 3],
     ["chair", 23, 1, 3, 3],
   ])(
-    "never permits more than 30 launches for %s",
+    "accounts for all 30 requested launches for %s",
     (_phase, burned, base, optional, replacement) => {
       // Given
       const request = {
@@ -98,14 +98,14 @@ describe("reanalyzeRun", () => {
     },
   );
 
-  it("persists a new-snapshot child and retains its parent's published report", () => {
+  it("persists a new-snapshot child and retains its parent's published report", async () => {
     // Given
-    const temporary = temporaryDatabase();
-    const store = openSqliteStore(temporary.path);
+    const temporary = await createResearchTestDatabase();
+    const store = await openPostgresStore(temporary.pool);
     const parentIds = fixture(130);
     const childIds = fixture(131);
-    store.createRun(createRunFixture(130));
-    store.saveArtifactMetadata({
+    await store.createRun(createRunFixture(130));
+    await store.saveArtifactMetadata({
       artifactId: parentIds.artifactId,
       runId: parentIds.runId,
       snapshotId: parentIds.snapshotId,
@@ -116,7 +116,7 @@ describe("reanalyzeRun", () => {
       inputHash: hash(131),
       createdAt: at(1),
     });
-    store.saveReportVersion({
+    await store.saveReportVersion({
       reportId: parentIds.reportId,
       versionId: parentIds.versionId,
       runId: parentIds.runId,
@@ -126,7 +126,7 @@ describe("reanalyzeRun", () => {
       publishedAt: at(1),
       publicPayload: { status: "complete" },
     });
-    store.transitionRun({
+    await store.transitionRun({
       runId: parentIds.runId,
       fromStatus: "queued",
       toStatus: "completed",
@@ -141,7 +141,7 @@ describe("reanalyzeRun", () => {
 
     try {
       // When
-      const child = reanalyzeStoredRun(store, {
+      const child = await reanalyzeStoredRun(store, {
         parentRunId: parentIds.runId,
         priorReportId: parentIds.reportId,
         childRunId: childIds.runId,
@@ -171,14 +171,14 @@ describe("reanalyzeRun", () => {
         },
         priorReportId: parentIds.reportId,
       });
-      expect(store.findRun(parentIds.runId)).toMatchObject({
+      expect(await store.findRun(parentIds.runId)).toMatchObject({
         status: "completed",
         reportId: parentIds.reportId,
       });
-      expect(store.researchOrdinals(childIds.runId)).toEqual([]);
+      expect(await store.researchOrdinals(childIds.runId)).toEqual([]);
     } finally {
-      store.close();
-      rmSync(temporary.directory, { recursive: true, force: true });
+      await store.close();
+      await temporary.close();
     }
   });
 });

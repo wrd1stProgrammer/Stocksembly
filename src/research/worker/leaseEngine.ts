@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
+import type { Pool } from "pg";
 import { AttemptIdSchema, EventIdSchema, type RunId } from "../domain/ids";
 import { CodexRunnerError } from "../server/codex/codexErrors";
-import type { CreateRunInput } from "../server/persistence/sqlite/types";
+import type { CreateRunInput } from "../server/persistence/postgres/types";
 import { routeRunnerFailure } from "./leaseEngineFailureRouting";
-import { SqliteLeaseEngineStore } from "./leaseEngineSqlite";
-import type { ClaimedJob, LeaseEngineStore } from "./leaseEngineSqliteTypes";
+import { PostgresLeaseEngineStore } from "./leaseEnginePostgres";
+import type { ClaimedJob, LeaseEngineStore } from "./leaseEnginePostgresTypes";
 import {
   type AttemptHandler,
   type AttemptOutcome,
@@ -23,8 +24,7 @@ import {
 } from "./leaseWorkerScheduler";
 
 export type LeaseEngineOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly pool: Pool;
   readonly ownerId: string;
   readonly handler: AttemptHandler;
   readonly clock?: WorkerClock;
@@ -55,6 +55,7 @@ export class LeaseEngine {
   readonly #tasksByAttempt = new Map<string, Promise<PollResult>>();
   readonly #tasks = new Set<Promise<PollResult>>();
   readonly #activityAt = new Map<string, string>();
+  readonly #pollTasks = new Set<Promise<PollResult>>();
   #stopping = false;
 
   constructor(options: LeaseEngineOptions) {
@@ -63,33 +64,40 @@ export class LeaseEngine {
     this.#clock = options.clock ?? systemClock;
     this.#identities = options.identities ?? randomIdentities;
     this.#retryRandom = options.retryRandom ?? Math.random;
-    this.#store =
-      options.store ??
-      new SqliteLeaseEngineStore(
-        options.databasePath,
-        options.migrationsDirectory,
-      );
+    this.#store = options.store ?? new PostgresLeaseEngineStore(options.pool);
   }
 
   poll(): Promise<PollResult> {
+    const task = this.pollNext();
+    this.#pollTasks.add(task);
+    const remove = () => this.#pollTasks.delete(task);
+    void task.then(remove, remove);
+    return task;
+  }
+
+  private async pollNext(): Promise<PollResult> {
     if (this.#stopping) return Promise.resolve({ kind: "stopping" });
     const now = this.#clock.now();
-    this.#store.activateNextRun(this.#identities.eventId(), now);
-    const claim = this.#store.claim(
+    await this.#store.activateNextRun(this.#identities.eventId(), now);
+    const claim = await this.#store.claim(
       this.#ownerId,
       now,
       after(now, LEASE_ENGINE_DEFAULTS.leaseMs),
     );
     if (claim === undefined) return Promise.resolve({ kind: "idle" });
+    if (this.#stopping) {
+      await this.#store.release(claim);
+      return { kind: "stopping" };
+    }
     const attemptId = this.#identities.attemptId();
-    const reservation = this.#store.reserve({
+    const reservation = await this.#store.reserve({
       claim,
       attemptId,
       eventId: this.#identities.eventId(),
       now,
     });
     if (reservation.kind === "capacity") {
-      this.#store.release(claim);
+      await this.#store.release(claim);
       return Promise.resolve({ kind: "capacity" });
     }
     if (reservation.kind === "incomplete")
@@ -103,6 +111,7 @@ export class LeaseEngine {
       ordinal: reservation.ordinal,
     };
     const controller = new AbortController();
+    if (this.#stopping) controller.abort();
     this.#active.set(attemptId, claim);
     this.#controllers.set(attemptId, controller);
     this.#activityAt.set(attemptId, now);
@@ -133,15 +142,15 @@ export class LeaseEngine {
     }
   }
 
-  admit(input: CreateRunInput): RunAdmissionResult {
+  async admit(input: CreateRunInput): Promise<RunAdmissionResult> {
     return this.#store.admit(input);
   }
 
-  heartbeat(): number {
+  async heartbeat(): Promise<number> {
     const now = this.#clock.now();
     let extended = 0;
     for (const [attemptId, claim] of this.#active) {
-      if (this.#store.cancellationRequested(claim)) {
+      if (await this.#store.cancellationRequested(claim)) {
         this.#controllers.get(attemptId)?.abort();
         continue;
       }
@@ -155,33 +164,34 @@ export class LeaseEngine {
         continue;
       }
       if (
-        this.#store.heartbeat(
+        await this.#store.heartbeat(
           claim,
           now,
           after(now, LEASE_ENGINE_DEFAULTS.leaseMs),
         )
       )
         extended += 1;
+      else this.#controllers.get(attemptId)?.abort();
     }
     return extended;
   }
 
-  recoverExpired(): readonly string[] {
+  async recoverExpired(): Promise<readonly string[]> {
     return this.#store.recoverExpired(this.#clock.now());
   }
 
-  recoverCircuit(runId: RunId): boolean {
+  async recoverCircuit(runId: RunId): Promise<boolean> {
     return this.#store.recoverCircuit(runId, this.#clock.now());
   }
 
-  capacity(): CapacityState {
+  async capacity(): Promise<CapacityState> {
     return this.#store.capacity();
   }
 
   async cancel(runId: RunId): Promise<{
     readonly kind: "cancelled" | "terminal_immutable" | "race_lost";
   }> {
-    const request = this.#store.requestCancellation({
+    const request = await this.#store.requestCancellation({
       runId,
       eventId: EventIdSchema.parse(this.#identities.eventId()),
       terminalEventId: EventIdSchema.parse(this.#identities.eventId()),
@@ -196,7 +206,7 @@ export class LeaseEngine {
     });
     await Promise.all(tasks);
     if (request.activeAttemptIds.length === 0) return { kind: "cancelled" };
-    const finalized = this.#store.finalizeCancellation({
+    const finalized = await this.#store.finalizeCancellation({
       runId,
       expectedVersion: request.version,
       eventId: EventIdSchema.parse(this.#identities.eventId()),
@@ -215,8 +225,8 @@ export class LeaseEngine {
   async shutdown(): Promise<void> {
     this.#stopping = true;
     for (const controller of this.#controllers.values()) controller.abort();
-    await Promise.all(this.#tasks);
-    this.#store.close();
+    await Promise.all([...this.#tasks, ...this.#pollTasks]);
+    await this.#store.close();
   }
 
   private async execute(
@@ -274,7 +284,7 @@ export class LeaseEngine {
       outcome.kind === "incomplete" &&
       outcome.code === "cancelled" &&
       this.#controllers.get(attempt.attemptId)?.signal.aborted &&
-      !this.#store.cancellationRequested(claim)
+      !(await this.#store.cancellationRequested(claim))
     ) {
       outcome = {
         kind: "transient",
@@ -284,7 +294,7 @@ export class LeaseEngine {
         retryAt: after(this.#clock.now(), 30_000),
       };
     }
-    const committed = this.#store.commit({
+    const committed = await this.#store.commit({
       claim,
       attemptId: attempt.attemptId,
       eventId: this.#identities.eventId(),

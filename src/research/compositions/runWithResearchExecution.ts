@@ -1,13 +1,14 @@
 import { codexExecutionContext } from "../server/codex/codexExecutionContext";
-import { readRunExecutionBackend } from "../server/persistence/sqlite/runExecutionRepository";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { readRunExecutionBackend } from "../server/persistence/postgres/runExecutionRepository";
 
-export function runWithResearchExecution<Value>(
-  databasePath: string,
+export async function runWithResearchExecution<Value>(
+  database: ResearchDatabase,
   runId: string,
   action: () => Value,
-): Value {
+): Promise<Value> {
   return codexExecutionContext.run(
-    readRunExecutionBackend(databasePath, runId),
+    await readRunExecutionBackend(database, runId),
     action,
   );
 }

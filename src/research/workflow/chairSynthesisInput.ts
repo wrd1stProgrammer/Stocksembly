@@ -1,8 +1,8 @@
-import type Database from "better-sqlite3";
 import { StructuralAuditArtifactEnvelopeSchema } from "../application/structuralAuditPersistenceContracts";
 import { SemanticAuditOutputSchema } from "../domain/agentOutputs";
 import { hashCanonical } from "../domain/contractHelpers";
 import type { ArtifactCasPort } from "../ports/artifacts";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
 import {
   chairAgentPayload,
   chairArtifactJson,
@@ -87,11 +87,11 @@ function withoutComparatorAbsence(text: {
 }
 
 export async function loadChairPrompt(
-  database: Database.Database,
+  database: ResearchDatabase,
   cas: ArtifactCasPort,
   runId: string,
 ): Promise<ChairSynthesisPrompt | undefined> {
-  const allRows = chairArtifactRows(database, runId);
+  const allRows = await chairArtifactRows(database, runId);
   const structuralRow = allRows.find(
     (row) => row.logical_key === "structural_audit:system",
   );
@@ -144,7 +144,7 @@ export async function loadChairPrompt(
       [...new Set(slice.evidence.map((evidence) => evidence.artifactId))],
     ]),
   );
-  const mandate = loadChairMandate(database, runId);
+  const mandate = await loadChairMandate(database, runId);
   if (mandate === undefined) return undefined;
   const relations = await loadChairRelations({
     database,

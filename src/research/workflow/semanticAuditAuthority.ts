@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { SemanticAuditOutputSchema } from "../domain/agentOutputs";
 import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
@@ -8,8 +7,9 @@ import { ArtifactIdSchema, JobIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { evaluatePublicClaimEligibilityReport } from "../domain/publicClaimEligibility";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { codexInputHash } from "../server/codex/codexRunner";
-import { applyOrderedMigrations } from "../server/persistence/sqlite/migrations";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { withResearchTransaction } from "../server/persistence/postgres/database";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
 import {
   type PersistedSemanticAuditJob,
   PersistedSemanticAuditJobSchema,
@@ -68,35 +68,33 @@ export function semanticPublicationBlockers(
   }).blockers;
 }
 
-export class SemanticAuditSqliteAuthority {
-  readonly #database: Database.Database;
+export class SemanticAuditPostgresAuthority {
+  readonly #database: ResearchDatabase;
   constructor(
-    path: string,
+    database: ResearchDatabase,
     private readonly options: {
       readonly cas: ArtifactCasPort;
-      readonly migrationsDirectory?: string;
     },
   ) {
-    this.#database = new Database(path, { timeout: 5_000 });
-    this.#database.pragma("journal_mode = WAL");
-    this.#database.pragma("foreign_keys = ON");
-    this.#database.pragma("synchronous = FULL");
-    this.#database.pragma("busy_timeout = 5000");
-    applyOrderedMigrations(this.#database, options.migrationsDirectory);
+    this.#database = database;
   }
-  loadJob(runId: string): PersistedSemanticAuditJob | undefined {
-    return loadSemanticAuditJob(this.#database, runId);
+  async loadJob(
+    runId: string,
+    database: ResearchDatabase = this.#database,
+  ): Promise<PersistedSemanticAuditJob | undefined> {
+    return await loadSemanticAuditJob(database, runId);
   }
   async stage(
     input: SemanticAuditStageInput,
     at: string,
   ): Promise<true | SemanticAuditStageBlockedReason> {
     const run = RunSchema.safeParse(
-      this.#database
-        .prepare(
-          "SELECT runs.snapshot_id, runs.status, snapshots.state AS snapshot_state FROM runs JOIN snapshots ON snapshots.snapshot_id = runs.snapshot_id WHERE runs.run_id = ?",
+      (
+        await this.#database.query(
+          "SELECT runs.snapshot_id, runs.status, snapshots.state AS snapshot_state FROM runs JOIN snapshots ON snapshots.snapshot_id = runs.snapshot_id WHERE runs.run_id = $1",
+          [input.runId],
         )
-        .get(input.runId),
+      ).rows[0],
     );
     if (!run.success) return "accepted_workflow_set_incomplete";
     const loaded = await loadSemanticPrompt(
@@ -117,7 +115,7 @@ export class SemanticAuditSqliteAuthority {
       outputSchema: SemanticAuditModelOutputSchema,
     });
     const requestHash = hashCanonical(input);
-    const existing = this.loadJob(input.runId);
+    const existing = await this.loadJob(input.runId);
     if (existing !== undefined)
       return existing.requestHash === requestHash
         ? true
@@ -138,45 +136,59 @@ export class SemanticAuditSqliteAuthority {
       inputManifestHash: hashCanonical(citableArtifactIds),
       citableArtifactIds,
     });
-    return this.#database
-      .transaction(() => {
-        const existing = this.loadJob(input.runId);
+    return await withResearchTransaction(
+      this.#database,
+      async (transaction) => {
+        await transaction.query(
+          "SELECT run_id FROM runs WHERE run_id = $1 FOR UPDATE",
+          [input.runId],
+        );
+        const existing = await this.loadJob(input.runId, transaction);
         if (existing !== undefined)
           return existing.requestHash === requestHash
             ? true
             : "claim_set_immutable";
-        this.#database
-          .prepare(
-            "INSERT INTO jobs(job_id, run_id, snapshot_id, kind, logical_key, input_hash, input_manifest_hash, status, created_at) VALUES (@jobId, @runId, @snapshotId, 'research', @logicalArtifactId, @inputHash, @inputManifestHash, 'queued', @at)",
-          )
-          .run({ ...job, at });
-        this.#database
-          .prepare(
-            "INSERT INTO idempotency_records(scope, idempotency_key, request_hash, result_json, created_at) VALUES ('semantic-audit-job', @runId, @inputHash, @resultJson, @at)",
-          )
-          .run({ ...job, resultJson: JSON.stringify(job), at });
-        const bind = this.#database.prepare(
-          "INSERT INTO job_input_artifacts(job_id, artifact_id) VALUES (?, ?)",
+        await transaction.query(
+          "INSERT INTO jobs(job_id, run_id, snapshot_id, kind, logical_key, input_hash, input_manifest_hash, status, created_at) VALUES ($1, $2, $3, 'research', $4, $5, $6, 'queued', $7)",
+          [
+            job.jobId,
+            job.runId,
+            job.snapshotId,
+            job.logicalArtifactId,
+            job.inputHash,
+            job.inputManifestHash,
+            at,
+          ],
         );
+        await transaction.query(
+          "INSERT INTO idempotency_records(scope, idempotency_key, request_hash, result_json, created_at) VALUES ('semantic-audit-job', $1, $2, $3, $4)",
+          [job.runId, job.inputHash, JSON.stringify(job), at],
+        );
+        const bind =
+          "INSERT INTO job_input_artifacts(job_id, artifact_id) VALUES ($1, $2)";
         for (const artifactId of job.citableArtifactIds)
-          bind.run(job.jobId, artifactId);
+          await transaction.query(bind, [job.jobId, artifactId]);
         return true;
-      })
-      .immediate();
+      },
+    );
   }
-  replay(runId: string): SemanticAuditReplay {
+  async replay(runId: string): Promise<SemanticAuditReplay> {
     const snapshotId = z
       .object({ snapshot_id: SnapshotIdSchema })
       .parse(
-        this.#database
-          .prepare("SELECT snapshot_id FROM runs WHERE run_id = ?")
-          .get(runId),
+        (
+          await this.#database.query(
+            "SELECT snapshot_id FROM runs WHERE run_id = $1",
+            [runId],
+          )
+        ).rows[0],
       ).snapshot_id;
-    const receipts = this.#database
-      .prepare(
-        "SELECT research_call_ordinals.ordinal, attempts.outcome, CASE WHEN agent_runner_evidence.attempt_id IS NULL THEN 0 ELSE 1 END AS evidence_recorded FROM research_call_ordinals JOIN attempts USING (attempt_id) LEFT JOIN agent_runner_evidence USING (attempt_id) WHERE research_call_ordinals.run_id = ? AND research_call_ordinals.logical_artifact_key = 'semantic_audit:system' ORDER BY ordinal",
+    const receipts = (
+      await this.#database.query(
+        "SELECT research_call_ordinals.ordinal, attempts.outcome, CASE WHEN agent_runner_evidence.attempt_id IS NULL THEN 0 ELSE 1 END AS evidence_recorded FROM research_call_ordinals JOIN attempts USING (attempt_id) LEFT JOIN agent_runner_evidence USING (attempt_id) WHERE research_call_ordinals.run_id = $1 AND research_call_ordinals.logical_artifact_key = 'semantic_audit:system' ORDER BY ordinal",
+        [runId],
       )
-      .all(runId)
+    ).rows
       .map((row) => ReceiptSchema.parse(row))
       .map((row) => ({
         ordinal: row.ordinal,
@@ -186,16 +198,16 @@ export class SemanticAuditSqliteAuthority {
             : (row.outcome ?? "reserved"),
         evidenceRecorded: row.evidence_recorded === 1,
       }));
-    const accepted = this.#database
-      .prepare(
-        "SELECT agent_output_commits.artifact_id, agent_output_commits.envelope_json FROM agent_output_commits JOIN attempts USING (attempt_id) WHERE attempts.run_id = ? AND attempts.logical_artifact_key = 'semantic_audit:system'",
+    const accepted = (
+      await this.#database.query(
+        "SELECT agent_output_commits.artifact_id, agent_output_commits.envelope_json FROM agent_output_commits JOIN attempts USING (attempt_id) WHERE attempts.run_id = $1 AND attempts.logical_artifact_key = 'semantic_audit:system'",
+        [runId],
       )
-      .all(runId)
-      .map((row) =>
-        z
-          .object({ artifact_id: ArtifactIdSchema, envelope_json: z.string() })
-          .parse(row),
-      );
+    ).rows.map((row) =>
+      z
+        .object({ artifact_id: ArtifactIdSchema, envelope_json: z.string() })
+        .parse(row),
+    );
     const payload = accepted
       .flatMap((row) => {
         const envelope = EnvelopeSchema.safeParse(
@@ -204,7 +216,7 @@ export class SemanticAuditSqliteAuthority {
         return envelope.success ? [envelope.data.payload] : [];
       })
       .at(0);
-    const request = this.loadJob(runId);
+    const request = await this.loadJob(runId);
     const input =
       request === undefined
         ? undefined
@@ -241,11 +253,14 @@ export class SemanticAuditSqliteAuthority {
     );
     const retryPending =
       payload === undefined &&
-      this.#database
-        .prepare(`SELECT 1 FROM jobs WHERE run_id = ?
+      (
+        await this.#database.query(
+          `SELECT 1 FROM jobs WHERE run_id = $1
           AND logical_key = 'semantic_audit:system'
-          AND status = 'retry-wait' LIMIT 1`)
-        .get(runId) !== undefined;
+          AND status = 'retry-wait' LIMIT 1`,
+          [runId],
+        )
+      ).rows[0] !== undefined;
     const incompleteReason =
       payload === undefined
         ? retryPending
@@ -271,7 +286,5 @@ export class SemanticAuditSqliteAuthority {
       incompleteReason,
     };
   }
-  close(): void {
-    if (this.#database.open) this.#database.close();
-  }
+  close(): void {}
 }

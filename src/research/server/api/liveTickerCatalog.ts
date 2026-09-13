@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import {
   prepareArtifactPaths,
   resolveStocksemblyDataDirectory,
@@ -22,6 +21,7 @@ import {
   type TickerReferenceSearchItem,
 } from "../data/sec/issuerResolverReference";
 import { createSecClient } from "../data/sec/secClient";
+import type { ResearchDatabase } from "../persistence/postgres/database";
 
 export type LiveTickerCatalog = {
   readonly search: (query: string) => Promise<readonly InsightSentrySymbol[]>;
@@ -30,13 +30,13 @@ export type LiveTickerCatalog = {
   ) => Promise<
     "supported" | "unsupported" | "etf" | "ambiguous" | "unavailable"
   >;
-  readonly lookup: (symbol: string) => SymbolRegistryResolution;
+  readonly lookup: (symbol: string) => Promise<SymbolRegistryResolution>;
   readonly quote?: (symbol: string) => Promise<InsightSentryQuote | undefined>;
   readonly close: () => void;
 };
 
 type LiveTickerCatalogOptions = {
-  readonly databasePath: string;
+  readonly database?: ResearchDatabase;
   readonly market: Pick<InsightSentryMarket, "searchSymbols"> &
     Partial<Pick<InsightSentryMarket, "quote">>;
   readonly searchReference: (
@@ -109,14 +109,16 @@ function relevance(query: string, value: InsightSentrySymbol): number {
   return 4;
 }
 
-export function createLiveTickerCatalog(
+export async function createLiveTickerCatalog(
   options: LiveTickerCatalogOptions,
-): LiveTickerCatalog {
-  const registry = openSymbolRegistry(options.databasePath);
+): Promise<LiveTickerCatalog> {
+  const registry = await openSymbolRegistry(options.database);
   const now = options.now ?? (() => new Date().toISOString());
 
-  function persist(values: readonly InsightSentrySymbol[]): void {
-    for (const value of values) registry.upsert(value, now());
+  async function persist(
+    values: readonly InsightSentrySymbol[],
+  ): Promise<void> {
+    for (const value of values) await registry.upsert(value, now());
   }
 
   async function providerSymbols(
@@ -142,11 +144,11 @@ export function createLiveTickerCatalog(
   }
 
   return Object.freeze({
-    search: async (query) => {
-      const local = registry.search(query);
+    search: async (query: string) => {
+      const local = await registry.search(query);
       const [provider, reference] = await Promise.all([
-        providerSymbols(query),
-        referenceSymbols(query),
+        await providerSymbols(query),
+        await referenceSymbols(query),
       ]);
       const merged = new Map<string, InsightSentrySymbol>();
       for (const value of local) merged.set(value.providerCode, value);
@@ -161,7 +163,7 @@ export function createLiveTickerCatalog(
           mergeSymbol(merged.get(value.providerCode), value),
         );
       const values = Object.freeze([...merged.values()]);
-      persist(values);
+      await persist(values);
       return [
         ...unambiguous(
           [...merged.values()].filter((item) => item.status === "active"),
@@ -172,24 +174,24 @@ export function createLiveTickerCatalog(
           left.symbol.localeCompare(right.symbol),
       );
     },
-    resolve: async (symbol) => {
+    resolve: async (symbol: string) => {
       const normalized = symbol.trim().toUpperCase();
       if (isExplicitlyUnsupportedEtf(normalized)) return "etf";
-      const known = resolutionStatus(registry.resolve(normalized));
+      const known = resolutionStatus(await registry.resolve(normalized));
       if (known !== undefined) return known;
       const provider = await providerSymbols(normalized);
-      persist(provider);
-      const refreshed = resolutionStatus(registry.resolve(normalized));
+      await persist(provider);
+      const refreshed = resolutionStatus(await registry.resolve(normalized));
       if (refreshed !== undefined) return refreshed;
       return await options.resolveReference(normalized);
     },
-    lookup: (symbol) => registry.resolve(symbol),
-    quote: async (symbol) => {
+    lookup: (symbol: string) => registry.resolve(symbol),
+    quote: async (symbol: string) => {
       const normalized = symbol.trim().toUpperCase();
-      let resolution = registry.resolve(normalized);
+      let resolution = await registry.resolve(normalized);
       if (resolution.kind === "missing") {
-        persist(await providerSymbols(normalized));
-        resolution = registry.resolve(normalized);
+        await persist(await providerSymbols(normalized));
+        resolution = await registry.resolve(normalized);
       }
       if (resolution.kind !== "resolved" || options.market.quote === undefined)
         return undefined;
@@ -218,8 +220,7 @@ async function createProductionCatalog(): Promise<LiveTickerCatalog> {
       throw error;
     });
   };
-  return createLiveTickerCatalog({
-    databasePath: join(paths.root, "research.sqlite"),
+  return await createLiveTickerCatalog({
     market: createInsightSentryMarket(insightSentryClient),
     searchReference: async (query) =>
       searchTickerReference(await load(), query),
@@ -237,7 +238,7 @@ async function createProductionCatalog(): Promise<LiveTickerCatalog> {
   });
 }
 
-export function getLiveTickerCatalog(): Promise<LiveTickerCatalog> {
+export async function getLiveTickerCatalog(): Promise<LiveTickerCatalog> {
   instance ??= createProductionCatalog();
   return instance;
 }

@@ -69,7 +69,7 @@ describe("actual Codex runner launch evidence", () => {
     );
   });
 
-  it("refuses to persist mismatched successful runner evidence", () => {
+  it("refuses to persist mismatched successful runner evidence", async () => {
     // Given
     const store = new RecordingEvidenceStore();
     const forged = {
@@ -78,14 +78,18 @@ describe("actual Codex runner launch evidence", () => {
     } as const;
 
     // When
-    const recorded = recordSuccessfulRunnerEvidence(store, binding, forged);
+    const recorded = await recordSuccessfulRunnerEvidence(
+      store,
+      binding,
+      forged,
+    );
 
     // Then
     expect(recorded).toBe(false);
     expect(store.inputs).toEqual([]);
   });
 
-  it("persists Luna low evidence when the assigned specialist runtime matches", () => {
+  it("persists Luna low evidence when the assigned specialist runtime matches", async () => {
     const store = new RecordingEvidenceStore();
     const lunaEvidence = {
       ...validResult.evidence,
@@ -95,7 +99,7 @@ describe("actual Codex runner launch evidence", () => {
       browsingPolicy: "audited_web",
     } as const;
 
-    const recorded = recordSuccessfulRunnerEvidence(
+    const recorded = await recordSuccessfulRunnerEvidence(
       store,
       {
         ...binding,

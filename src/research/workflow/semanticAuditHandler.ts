@@ -12,26 +12,26 @@ import {
 } from "../domain/ids";
 import { CodexRunnerError } from "../server/codex/codexErrors";
 import type { SafeCodexEvidence } from "../server/codex/codexTypes";
-import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
+import type { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
-import type { SemanticAuditSqliteAuthority } from "./semanticAuditAuthority";
+import type { SemanticAuditPostgresAuthority } from "./semanticAuditAuthority";
 import {
+  type PostgresSemanticAuditOptions,
   SemanticAuditModelOutputSchema,
   SemanticAuditPromptSchema,
-  type SqliteSemanticAuditOptions,
 } from "./semanticAuditContracts";
 import { retryRejectedCommit } from "./specialistCommitRetry";
-import type { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import type { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 
 type Context = {
   readonly options: Pick<
-    SqliteSemanticAuditOptions,
+    PostgresSemanticAuditOptions,
     "attemptRoot" | "cas" | "codex" | "now"
   >;
-  readonly authority: SemanticAuditSqliteAuthority;
-  readonly workflowAuthority: SpecialistRoundSqliteAuthority;
-  readonly commitStore: SqliteAgentOutputCommitStore;
+  readonly authority: SemanticAuditPostgresAuthority;
+  readonly workflowAuthority: SpecialistRoundPostgresAuthority;
+  readonly commitStore: PostgresAgentOutputCommitStore;
 };
 function validCandidate(promptJson: string, input: unknown): unknown {
   const prompt = SemanticAuditPromptSchema.parse(JSON.parse(promptJson));
@@ -84,8 +84,10 @@ export function createSemanticAuditAttemptHandler(
     signal: AbortSignal,
     activity: () => void,
   ): Promise<"accepted" | "commit_rejected" | "incomplete"> => {
-    const job = context.authority.loadJob(attempt.runId);
-    const claim = context.workflowAuthority.claimForAttempt(attempt.attemptId);
+    const job = await context.authority.loadJob(attempt.runId);
+    const claim = await context.workflowAuthority.claimForAttempt(
+      attempt.attemptId,
+    );
     if (job === undefined || claim === undefined) return "incomplete";
     const key = {
       runId: attempt.runId,
@@ -119,7 +121,7 @@ export function createSemanticAuditAttemptHandler(
       if (error instanceof Error) throw new CodexRunnerError("process_failed");
       throw error;
     }
-    const recorded = recordSuccessfulRunnerEvidence(
+    const recorded = await recordSuccessfulRunnerEvidence(
       context.commitStore,
       {
         runId: attempt.runId,
@@ -160,8 +162,10 @@ export function createSemanticAuditAttemptHandler(
       return "accepted";
     if (committed.kind === "rejected") return "commit_rejected";
     if (committed.kind !== "replacement_reserved") return "incomplete";
-    context.workflowAuthority.consumeReplacementBudget(attempt.runId);
-    context.workflowAuthority.markReplacementRunning(ids.replacementAttemptId);
+    await context.workflowAuthority.consumeReplacementBudget(attempt.runId);
+    await context.workflowAuthority.markReplacementRunning(
+      ids.replacementAttemptId,
+    );
     return await execute(
       {
         ...attempt,

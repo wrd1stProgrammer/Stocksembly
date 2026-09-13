@@ -55,8 +55,8 @@ describe("durable run event SSE cursor and policy", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2, kind: "run_started" });
-    appendEvent(value, runId, { sequence: 3 });
+    await appendEvent(value, runId, { sequence: 2, kind: "run_started" });
+    await appendEvent(value, runId, { sequence: 3 });
 
     // When
     const response = await value.api.handle(
@@ -85,8 +85,8 @@ describe("durable run event SSE cursor and policy", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
 
     // When
     const response = await value.api.handle(
@@ -103,8 +103,8 @@ describe("durable run event SSE cursor and policy", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
 
     // When
     const response = await value.api.handle(
@@ -128,8 +128,8 @@ describe("durable run event SSE cursor and policy", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
 
     // When
     const response = await value.api.handle(
@@ -149,9 +149,9 @@ describe("durable run event SSE cursor and policy", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
-    pruneEvents(value, runId, 2);
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
+    await pruneEvents(value, runId, 2);
     const forbiddenRequest = streamRequest(value, runId);
     forbiddenRequest.headers.set("host", "evil.example");
 
@@ -182,9 +182,9 @@ describe("durable run event SSE cursor and policy", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
-    pruneEvents(value, runId, 2);
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
+    await pruneEvents(value, runId, 2);
 
     // When
     const response = await value.api.handle(
@@ -201,9 +201,9 @@ describe("durable run event SSE cursor and policy", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
-    pruneSequence(value, runId, 2);
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
+    await pruneSequence(value, runId, 2);
 
     // When
     const response = await value.api.handle(

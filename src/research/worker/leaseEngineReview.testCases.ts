@@ -6,13 +6,25 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
-import type { CreateRunInput } from "../server/persistence/sqlite/types";
+import type { CreateRunInput } from "../server/persistence/postgres/types";
 import {
   createLeaseEngineFixture,
   hash,
   uuid,
 } from "./leaseEngine.testSupport";
 import type { AttemptHandler } from "./leaseEngineTypes";
+
+let workerBuilt = false;
+function ensureBuiltWorker(): void {
+  if (workerBuilt) return;
+  const build = spawnSync("pnpm", ["research:worker:build"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: 60_000,
+  });
+  expect(build.status, build.stdout + build.stderr).toBe(0);
+  workerBuilt = true;
+}
 
 function admissionInput(value: number): CreateRunInput {
   const base = value * 100;
@@ -39,9 +51,9 @@ function admissionInput(value: number): CreateRunInput {
 export function registerLeaseEngineReviewTests(): void {
   it("atomically enforces the fifty-run waiting queue while research is active", async () => {
     // Given
-    const fixture = createLeaseEngineFixture();
-    fixture.seedResearchJobs(2, 100);
-    fixture.seedResearchJobs(2, 200);
+    const fixture = await createLeaseEngineFixture();
+    await fixture.seedResearchJobs(2, 100);
+    await fixture.seedResearchJobs(2, 200);
     const engines = Array.from({ length: 51 }, (_, index) =>
       fixture.openEngine(`admission-worker-${index}`),
     );
@@ -49,8 +61,8 @@ export function registerLeaseEngineReviewTests(): void {
     try {
       // When
       const results = await Promise.all(
-        engines.map((engine, index) =>
-          Promise.resolve(engine.admit(admissionInput(300 + index))),
+        engines.map(async (engine, index) =>
+          Promise.resolve(await engine.admit(admissionInput(300 + index))),
         ),
       );
 
@@ -63,13 +75,13 @@ export function registerLeaseEngineReviewTests(): void {
       ).toHaveLength(1);
     } finally {
       await Promise.all(engines.map((engine) => engine.shutdown()));
-      fixture.cleanup();
+      await fixture.cleanup();
     }
   });
 
   it("polls long-lived work and heartbeats until graceful abort", async () => {
     // Given
-    const fixture = createLeaseEngineFixture();
+    const fixture = await createLeaseEngineFixture();
     const controller = new AbortController();
     let markStarted: (() => void) | undefined;
     const started = new Promise<void>((resolve) => {
@@ -90,7 +102,7 @@ export function registerLeaseEngineReviewTests(): void {
         return { kind: "accepted" };
       },
     });
-    const seed = fixture.seedResearchJob(500);
+    const seed = await fixture.seedResearchJob(500);
 
     try {
       // When
@@ -109,7 +121,7 @@ export function registerLeaseEngineReviewTests(): void {
       await completion;
 
       // Then
-      expect(fixture.job(seed.jobId)).toMatchObject({
+      expect(await fixture.job(seed.jobId)).toMatchObject({
         status: "succeeded",
         lease_expires_at: null,
       });
@@ -117,13 +129,13 @@ export function registerLeaseEngineReviewTests(): void {
       releaseAttempt?.();
       controller.abort();
       await engine.shutdown();
-      fixture.cleanup();
+      await fixture.cleanup();
     }
   });
 
   it("reconciles durable workflow progress after an advancement failure", async () => {
     // Given
-    const fixture = createLeaseEngineFixture();
+    const fixture = await createLeaseEngineFixture();
     const controller = new AbortController();
     let reconciliations = 0;
     let advancementAttempts = 0;
@@ -134,12 +146,13 @@ export function registerLeaseEngineReviewTests(): void {
         throw new TypeError("coordinator unavailable");
       },
       reconcile: async () => {
+        if (advancementAttempts === 0) return;
         reconciliations += 1;
         if (reconciliations === 2) controller.abort();
       },
     } satisfies AttemptHandler & { readonly reconcile: () => Promise<void> };
     const engine = fixture.openEngine("scheduler-recovery-worker", handler);
-    const seed = fixture.seedResearchJob(501);
+    const seed = await fixture.seedResearchJob(501);
 
     try {
       // When
@@ -151,75 +164,70 @@ export function registerLeaseEngineReviewTests(): void {
       // Then
       expect(advancementAttempts).toBe(1);
       expect(reconciliations).toBe(2);
-      expect(fixture.job(seed.jobId).status).toBe("succeeded");
+      expect((await fixture.job(seed.jobId)).status).toBe("succeeded");
     } finally {
       controller.abort();
       await engine.shutdown();
-      fixture.cleanup();
+      await fixture.cleanup();
     }
   });
 
-  it("runs the built worker executable against the durable SQLite queue", () => {
+  it("runs the built worker executable against the durable PostgreSQL queue", async () => {
+    ensureBuiltWorker();
     // Given
-    const fixture = createLeaseEngineFixture();
-    const seed = fixture.seedResearchJob(600);
-    const build = spawnSync("pnpm", ["research:worker:build"], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-    });
+    const fixture = await createLeaseEngineFixture();
+    const seed = await fixture.seedResearchJob(600);
 
     try {
-      expect(build.status, build.stderr).toBe(0);
-
       // When
       const result = spawnSync(
         process.execPath,
         [
           `${process.cwd()}/.stocksembly-verification/research-worker/leaseWorker.js`,
-          "--database",
-          fixture.databasePath,
           "--owner",
           "process-worker",
           "--verification-outcome",
           "accepted",
           "--drain",
         ],
-        { cwd: process.cwd(), encoding: "utf8" },
+        {
+          cwd: process.cwd(),
+          encoding: "utf8",
+          env: fixture.processEnvironment(),
+        },
       );
 
       // Then
       expect(result.status, result.stderr).toBe(0);
-      expect(fixture.job(seed.jobId)).toMatchObject({
+      expect(await fixture.job(seed.jobId)).toMatchObject({
         status: "succeeded",
         lease_expires_at: null,
       });
       expect(result.stdout).toContain('"kind":"worker_started"');
       expect(result.stdout).toContain('"kind":"worker_stopped"');
     } finally {
-      fixture.cleanup();
+      await fixture.cleanup();
     }
-  });
+  }, 60_000);
 
   it("handles SIGTERM and restarts from the same database with a new ordinal", async () => {
+    ensureBuiltWorker();
     // Given
-    const fixture = createLeaseEngineFixture();
-    const seed = fixture.seedResearchJob(700);
-    const build = spawnSync("pnpm", ["research:worker:build"], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-    });
-    expect(build.status, build.stderr).toBe(0);
+    const fixture = await createLeaseEngineFixture();
+    const seed = await fixture.seedResearchJob(700);
     const binary = `${process.cwd()}/.stocksembly-verification/research-worker/leaseWorker.js`;
-    const child = spawn(process.execPath, [
-      binary,
-      "--database",
-      fixture.databasePath,
-      "--owner",
-      "signal-worker",
-      "--verification-outcome",
-      "wait-for-signal",
-      "--serve",
-    ]);
+    const child = spawn(
+      process.execPath,
+      [
+        binary,
+        "--owner",
+        "signal-worker",
+        "--verification-outcome",
+        "wait-for-signal",
+        "--serve",
+      ],
+      { env: fixture.processEnvironment() },
+    );
     let stdout = "";
     let stderr = "";
     child.stdout.setEncoding("utf8");
@@ -249,31 +257,29 @@ export function registerLeaseEngineReviewTests(): void {
         process.execPath,
         [
           binary,
-          "--database",
-          fixture.databasePath,
           "--owner",
           "restart-worker",
           "--verification-outcome",
           "accepted",
           "--drain",
         ],
-        { encoding: "utf8" },
+        { encoding: "utf8", env: fixture.processEnvironment() },
       );
 
       // Then
       expect(exitCode, stderr).toBe(0);
       expect(stdout).toContain('"kind":"worker_stopped"');
       expect(restart.status, restart.stderr).toBe(0);
-      expect(fixture.launches(seed.runId).map((row) => row.ordinal)).toEqual([
-        1, 2,
-      ]);
-      expect(fixture.job(seed.jobId)).toMatchObject({
+      expect(
+        (await fixture.launches(seed.runId)).map((row) => row.ordinal),
+      ).toEqual([1, 2]);
+      expect(await fixture.job(seed.jobId)).toMatchObject({
         status: "succeeded",
         lease_expires_at: null,
       });
     } finally {
       if (child.exitCode === null) child.kill("SIGKILL");
-      fixture.cleanup();
+      await fixture.cleanup();
     }
-  });
+  }, 60_000);
 }

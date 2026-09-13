@@ -6,10 +6,11 @@ import type { AccountStore } from "../../../src/accounts/server/accountStore";
 import type { ResearchApi } from "../../../src/research/server/api/researchApi";
 import { createResearchApi } from "../../../src/research/server/api/researchApi";
 import { loadPublicResearchReport } from "../../../src/research/server/api/researchApiReportReader";
+import { createResearchTestDatabase } from "../../../src/test/researchPostgres";
 
 export type ApiHarness = {
   readonly root: string;
-  readonly databasePath: string;
+  readonly database: import("pg").Pool;
   readonly allowedHost: string;
   readonly allowedOrigin: string;
   readonly api: ResearchApi;
@@ -31,7 +32,8 @@ export async function createApiHarness(
   const root = await mkdtemp(join(tmpdir(), "stocksembly-research-api-"));
   const allowedHost = "127.0.0.1:3000";
   const allowedOrigin = `http://${allowedHost}`;
-  const databasePath = join(root, "research.sqlite");
+  const testDatabase = await createResearchTestDatabase();
+  const database = testDatabase.pool;
   const supportedSymbols = new Set([
     "NVDA",
     "AAPL",
@@ -44,7 +46,7 @@ export async function createApiHarness(
   ]);
   const api = await createResearchApi({
     dataRoot: root,
-    databasePath,
+    database,
     allowedHost,
     allowedOrigin,
     readiness,
@@ -68,7 +70,7 @@ export async function createApiHarness(
   const cookie = (await api.bootstrapSession()).split(";", 1)[0] ?? "";
   return {
     root,
-    databasePath,
+    database,
     allowedHost,
     allowedOrigin,
     api,
@@ -82,6 +84,7 @@ export async function createApiHarness(
     },
     close: async () => {
       await api.close();
+      await testDatabase.close();
       await rm(root, { recursive: true, force: true });
     },
   };

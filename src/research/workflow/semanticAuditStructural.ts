@@ -1,4 +1,3 @@
-import type Database from "better-sqlite3";
 import { z } from "zod";
 import {
   type StructuralAuditArtifactEnvelope,
@@ -11,7 +10,8 @@ import {
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { type ArtifactCasPort, ArtifactDigestSchema } from "../ports/artifacts";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
 import {
   chairAgentPayload,
   chairArtifactRows,
@@ -209,18 +209,21 @@ async function readCas(
   }
 }
 
-function artifactRow(
-  database: Database.Database,
+async function artifactRow(
+  database: ResearchDatabase,
   artifactId: string,
-): ArtifactRow | undefined {
+): Promise<ArtifactRow | undefined> {
   const row = ArtifactRowSchema.safeParse(
-    database
-      .prepare(`SELECT artifacts.artifact_id, artifacts.run_id,
+    (
+      await database.query(
+        `SELECT artifacts.artifact_id, artifacts.run_id,
         artifacts.snapshot_id, artifacts.content_hash, artifacts.logical_key,
         artifact_citation_metadata.locator_json
       FROM artifacts LEFT JOIN artifact_citation_metadata USING (artifact_id)
-      WHERE artifacts.artifact_id = ?`)
-      .get(artifactId),
+      WHERE artifacts.artifact_id = $1`,
+        [artifactId],
+      )
+    ).rows[0],
   );
   return row.success ? row.data : undefined;
 }
@@ -280,13 +283,13 @@ function uniqueClaimsById<T extends { readonly claimId: string }>(
 }
 
 async function verifySlice(
-  database: Database.Database,
+  database: ResearchDatabase,
   cas: ArtifactCasPort,
   input: SemanticAuditStageInput,
   snapshotId: string,
   evidence: StructuralAuditArtifactEnvelope["result"]["fixedEvidenceSlices"][number]["evidence"][number],
 ): Promise<SemanticAuditStageBlockedReason | undefined> {
-  const row = artifactRow(database, evidence.artifactId);
+  const row = await artifactRow(database, evidence.artifactId);
   if (row === undefined) return "evidence_artifact_missing";
   if (row.run_id !== input.runId || row.snapshot_id !== snapshotId)
     return "cross_run_or_snapshot_evidence";
@@ -312,23 +315,23 @@ async function verifySlice(
 }
 
 export async function loadSemanticPrompt(
-  database: Database.Database,
+  database: ResearchDatabase,
   cas: ArtifactCasPort,
   input: SemanticAuditStageInput,
   snapshotId: string,
 ): Promise<LoadResult> {
-  const row = artifactRow(database, input.structuralAuditArtifactId);
+  const row = await artifactRow(database, input.structuralAuditArtifactId);
   if (row === undefined || row.logical_key !== "structural_audit:system")
     return { kind: "blocked", reason: "structural_artifact_missing" };
   if (row.run_id !== input.runId || row.snapshot_id !== snapshotId)
     return { kind: "blocked", reason: "cross_run_or_snapshot_structural" };
   if (
-    !hasSealedWorkflowParents(
+    !(await hasSealedWorkflowParents(
       database,
       input.structuralAuditArtifactId,
       input.runId,
       snapshotId,
-    )
+    ))
   )
     return { kind: "blocked", reason: "accepted_workflow_set_incomplete" };
   const stored = await readCas(cas, row.content_hash);
@@ -380,7 +383,7 @@ export async function loadSemanticPrompt(
       );
       if (reason !== undefined) return { kind: "blocked", reason };
     }
-  const mandate = loadChairMandate(database, input.runId);
+  const mandate = await loadChairMandate(database, input.runId);
   const memoPositions = new Map<
     string,
     {
@@ -396,8 +399,8 @@ export async function loadSemanticPrompt(
       readonly falsifier: { readonly en: string; readonly ko: string };
     }
   >();
-  for (const row of chairArtifactRows(database, input.runId).filter((item) =>
-    /^(memo|consolidation):/u.test(item.logical_key),
+  for (const row of (await chairArtifactRows(database, input.runId)).filter(
+    (item) => /^(memo|consolidation):/u.test(item.logical_key),
   )) {
     const payload = await chairAgentPayload(cas, row, row.logical_key);
     if (row.logical_key.startsWith("memo:")) {

@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import {
@@ -7,6 +6,7 @@ import {
   ArtifactDigestSchema,
 } from "../ports/artifacts";
 import type { ArtifactMetadataTransactions } from "../server/artifacts/filesystemArtifactStore";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
 
 const ArtifactRowSchema = z.object({
   artifact_id: ArtifactIdSchema,
@@ -19,29 +19,23 @@ const ArtifactRowSchema = z.object({
 const ParentRowSchema = z.object({ content_hash: ArtifactDigestSchema });
 
 export class CommittedArtifactMetadata implements ArtifactMetadataTransactions {
-  readonly #database: Database.Database;
+  readonly #database: ResearchDatabase;
   readonly #pending = new Map<ArtifactDigest, ArtifactDescriptor>();
 
-  constructor(databasePath: string) {
-    this.#database = new Database(databasePath, {
-      readonly: true,
-      fileMustExist: true,
-      timeout: 5_000,
-    });
-    this.#database.pragma("busy_timeout = 5000");
+  constructor(database: ResearchDatabase) {
+    this.#database = database;
   }
 
-  commit(descriptor: ArtifactDescriptor): Promise<void> {
-    const existing = z
-      .object({ snapshot_id: SnapshotIdSchema })
-      .safeParse(
-        this.#database
-          .prepare(
-            `SELECT snapshot_id FROM artifacts WHERE content_hash = ?
+  async commit(descriptor: ArtifactDescriptor): Promise<void> {
+    const existing = z.object({ snapshot_id: SnapshotIdSchema }).safeParse(
+      (
+        await this.#database.query(
+          `SELECT snapshot_id FROM artifacts WHERE content_hash = $1
             ORDER BY created_at DESC LIMIT 1`,
-          )
-          .get(descriptor.digest),
-      );
+          [descriptor.digest],
+        )
+      ).rows[0],
+    );
     if (
       !this.#pending.has(descriptor.digest) &&
       (!existing.success || existing.data.snapshot_id !== descriptor.snapshotId)
@@ -50,25 +44,30 @@ export class CommittedArtifactMetadata implements ArtifactMetadataTransactions {
     return Promise.resolve();
   }
 
-  find(digest: ArtifactDigest): Promise<ArtifactDescriptor | undefined> {
+  async find(digest: ArtifactDigest): Promise<ArtifactDescriptor | undefined> {
     const pending = this.#pending.get(digest);
     if (pending !== undefined) return Promise.resolve(pending);
-    const result = this.#database
-      .prepare(`SELECT artifact_id, run_id, snapshot_id, content_hash,
-        byte_length, media_type FROM artifacts WHERE content_hash = ?
-        ORDER BY created_at DESC LIMIT 1`)
-      .get(digest);
+    const result = (
+      await this.#database.query(
+        `SELECT artifact_id, run_id, snapshot_id, content_hash,
+        byte_length, media_type FROM artifacts WHERE content_hash = $1
+        ORDER BY created_at DESC LIMIT 1`,
+        [digest],
+      )
+    ).rows[0];
     if (result === undefined) return Promise.resolve(undefined);
     const row = ArtifactRowSchema.parse(result);
-    const parents = this.#database
-      .prepare(`SELECT parent.content_hash FROM artifact_edges
+    const parents = (
+      await this.#database.query(
+        `SELECT parent.content_hash FROM artifact_edges
         JOIN artifacts AS child
           ON child.artifact_id = artifact_edges.child_artifact_id
         JOIN artifacts AS parent
           ON parent.artifact_id = artifact_edges.parent_artifact_id
-        WHERE child.artifact_id = ? ORDER BY parent.content_hash`)
-      .all(row.artifact_id)
-      .map((value) => ParentRowSchema.parse(value).content_hash);
+        WHERE child.artifact_id = $1 ORDER BY parent.content_hash`,
+        [row.artifact_id],
+      )
+    ).rows.map((value) => ParentRowSchema.parse(value).content_hash);
     return Promise.resolve({
       artifactId: row.artifact_id,
       runId: row.run_id,
@@ -82,7 +81,6 @@ export class CommittedArtifactMetadata implements ArtifactMetadataTransactions {
 
   close(): void {
     this.#pending.clear();
-    if (this.#database.open) this.#database.close();
   }
 }
 

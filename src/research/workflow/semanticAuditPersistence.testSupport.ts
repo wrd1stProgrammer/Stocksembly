@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import {
   type StructuralAuditArtifactEnvelope,
@@ -7,9 +6,10 @@ import {
 import { canonicalJson, hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { type ArtifactCasPort, ArtifactDigestSchema } from "../ports/artifacts";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
 
 type Context = {
-  readonly databasePath: string;
+  readonly database: ResearchDatabase;
   readonly cas: ArtifactCasPort;
   readonly structuralArtifactId: string;
 };
@@ -20,12 +20,13 @@ export async function rewriteStructuralEnvelope(
     envelope: StructuralAuditArtifactEnvelope,
   ) => StructuralAuditArtifactEnvelope,
 ): Promise<void> {
-  const database = new Database(context.databasePath);
-  const row = database
-    .prepare(
-      "SELECT run_id, snapshot_id, content_hash FROM artifacts WHERE artifact_id = ?",
+  const database = context.database;
+  const row = (
+    await database.query(
+      "SELECT run_id, snapshot_id, content_hash FROM artifacts WHERE artifact_id = $1",
+      [context.structuralArtifactId],
     )
-    .get(context.structuralArtifactId);
+  ).rows[0];
   const metadata = ArtifactMetadataSchema.parse(row);
   const stored = await context.cas.get(metadata.content_hash);
   if (stored === undefined)
@@ -42,16 +43,10 @@ export async function rewriteStructuralEnvelope(
     parentDigests: stored.descriptor.parentDigests,
     bytes,
   });
-  database
-    .prepare(
-      "UPDATE artifacts SET content_hash = ?, byte_length = ? WHERE artifact_id = ?",
-    )
-    .run(
-      descriptor.digest,
-      descriptor.byteLength,
-      context.structuralArtifactId,
-    );
-  database.close();
+  await database.query(
+    "UPDATE artifacts SET content_hash = $1, byte_length = $2 WHERE artifact_id = $3",
+    [descriptor.digest, descriptor.byteLength, context.structuralArtifactId],
+  );
 }
 
 const ArtifactMetadataSchema = z.object({

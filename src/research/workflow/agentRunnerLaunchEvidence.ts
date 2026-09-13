@@ -25,17 +25,17 @@ type EvidenceBinding = Omit<
   }>;
 };
 
-type SynchronousEvidenceRecorder = {
+type EvidenceRecorder = {
   readonly recordRunnerEvidence: (
     input: RecordAgentRunnerEvidenceInput,
-  ) => boolean;
+  ) => boolean | Promise<boolean>;
 };
 
-export function recordSuccessfulRunnerEvidence(
-  store: SynchronousEvidenceRecorder,
+export async function recordSuccessfulRunnerEvidence(
+  store: EvidenceRecorder,
   input: EvidenceBinding,
   evidence: SafeCodexEvidence,
-): boolean {
+): Promise<boolean> {
   const expectedRuntime = input.expectedRuntime ?? {
     model: TRUSTED_AGENT_RUNTIME_POLICY.model,
     reasoning: TRUSTED_AGENT_RUNTIME_POLICY.reasoningByStage[input.stage],
@@ -55,7 +55,7 @@ export function recordSuccessfulRunnerEvidence(
   )
     return false;
   const { expectedRuntime: _expectedRuntime, ...binding } = input;
-  return store.recordRunnerEvidence({
+  return await store.recordRunnerEvidence({
     ...binding,
     schemaHash: evidence.schemaHash,
     binaryHash: evidence.binaryHash,
@@ -78,7 +78,7 @@ export function recordSuccessfulRunnerEvidence(
 }
 
 export async function runAndRecordSuccessfulRunnerEvidence<Candidate>(
-  store: SynchronousEvidenceRecorder,
+  store: EvidenceRecorder,
   input: EvidenceBinding,
   run: () => Promise<CodexRunResult<Candidate>>,
 ): Promise<CodexRunResult<Candidate> | undefined> {
@@ -90,7 +90,7 @@ export async function runAndRecordSuccessfulRunnerEvidence<Candidate>(
     if (error instanceof Error) return undefined;
     throw error;
   }
-  return recordSuccessfulRunnerEvidence(store, input, result.evidence)
+  return (await recordSuccessfulRunnerEvidence(store, input, result.evidence))
     ? result
     : undefined;
 }

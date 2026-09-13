@@ -1,33 +1,24 @@
-import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
+import { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import { createLeaseEngine } from "../worker/leaseEngine";
-import { ChairSynthesisSqliteAuthority } from "./chairSynthesisAuthority";
+import { ChairSynthesisPostgresAuthority } from "./chairSynthesisAuthority";
 import type {
-  SqliteChairSynthesis,
-  SqliteChairSynthesisOptions,
+  PostgresChairSynthesis,
+  PostgresChairSynthesisOptions,
 } from "./chairSynthesisContracts";
 import { createChairSynthesisAttemptHandler } from "./chairSynthesisHandler";
-import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 
-export function createSqliteChairSynthesis(
-  options: SqliteChairSynthesisOptions,
-): SqliteChairSynthesis {
-  const migrationOptions =
-    options.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: options.migrationsDirectory };
-  const authority = new ChairSynthesisSqliteAuthority(options.databasePath, {
+export function createPostgresChairSynthesis(
+  options: PostgresChairSynthesisOptions,
+): PostgresChairSynthesis {
+  const authority = new ChairSynthesisPostgresAuthority(options.database, {
     cas: options.cas,
     workflowVersion: options.workflowVersion ?? "workflow-v3",
-    ...migrationOptions,
   });
-  const workflowAuthority = new SpecialistRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+  const workflowAuthority = new SpecialistRoundPostgresAuthority(
+    options.database,
   );
-  const commitStore = new SqliteAgentOutputCommitStore(
-    options.databasePath,
-    migrationOptions,
-  );
+  const commitStore = new PostgresAgentOutputCommitStore(options.database);
   const handler = createChairSynthesisAttemptHandler({
     options,
     authority,
@@ -36,7 +27,7 @@ export function createSqliteChairSynthesis(
   });
   const now = options.now ?? (() => new Date().toISOString());
   return {
-    authority: "sqlite-worker-trusted-commit",
+    authority: "postgres-worker-trusted-commit",
     async stage(input) {
       const result = await authority.stage(input.runId, now());
       return result === true
@@ -45,7 +36,7 @@ export function createSqliteChairSynthesis(
     },
     async drain(runId) {
       const engine = createLeaseEngine({
-        databasePath: options.databasePath,
+        pool: options.database,
         ownerId: options.ownerId,
         handler,
         clock: { now },
@@ -59,11 +50,11 @@ export function createSqliteChairSynthesis(
         if (results.every((result) => result.kind === "idle")) break;
       }
       await engine.shutdown();
-      return authority.replay(runId);
+      return await authority.replay(runId);
     },
-    replay: (runId) => authority.replay(runId),
+    replay: async (runId) => await authority.replay(runId),
     async close() {
-      commitStore.close();
+      await commitStore.close();
       workflowAuthority.close();
       authority.close();
     },
@@ -73,6 +64,6 @@ export function createSqliteChairSynthesis(
 export type {
   ChairSynthesisPrompt,
   ChairSynthesisReplay,
-  SqliteChairSynthesis,
-  SqliteChairSynthesisOptions,
+  PostgresChairSynthesis,
+  PostgresChairSynthesisOptions,
 } from "./chairSynthesisContracts";

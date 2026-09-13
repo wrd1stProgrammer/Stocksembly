@@ -18,6 +18,22 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: stocksembly
+          POSTGRES_PASSWORD: stocksembly_ci
+          POSTGRES_DB: stocksembly_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stocksembly -d stocksembly_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      STOCKSEMBLY_RESEARCH_POSTGRES_READY: "true"
+      STOCKSEMBLY_TEST_DATABASE_URL: postgres://stocksembly:stocksembly_ci@127.0.0.1:5432/stocksembly_test
+      STOCKSEMBLY_DATABASE_URL: postgres://stocksembly:stocksembly_ci@127.0.0.1:5432/stocksembly_test
     outputs:
       production_change: ${{ steps.production_change.outputs.required }}
     steps:

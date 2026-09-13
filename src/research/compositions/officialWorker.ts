@@ -1,5 +1,6 @@
 import { mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
+import type { Pool } from "pg";
 import { LIMITS } from "../domain/limits.constants";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { createFilesystemArtifactStore } from "../server/artifacts/filesystemArtifactStore";
@@ -9,30 +10,30 @@ import {
 } from "../server/artifacts/s3ArtifactArchive";
 import { productionCodexPlatform } from "../server/codex/codexPlatform";
 import { type CodexPort, createCodexPort } from "../server/codex/codexRunner";
-import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
-import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
+import { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
+import { publishAuthoritativeReportForRun } from "../server/persistence/postgres/publishAuthoritativeReportForRun";
 import { createQuestionAnswerHandler } from "../server/qa/questionAnswerHandler";
-import { QuestionAnswerSqliteAuthority } from "../server/qa/questionAnswerSqliteAuthority";
+import { QuestionAnswerPostgresAuthority } from "../server/qa/questionAnswerPostgresAuthority";
 import {
   backfillPublishedResearchQuestionLocalizations,
   ensurePublishedResearchQuestionLocalizations,
 } from "../server/researchRoom/researchRoomLocalizations";
 import type { AttemptHandler } from "../worker/leaseEngine";
-import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
-import type { SqliteChairSynthesisOptions } from "../workflow/chairSynthesisContracts";
-import { createSqliteChallengeRound } from "../workflow/challengeRound";
-import { ChallengeRoundSqliteAuthority } from "../workflow/challengeRoundSqliteAuthority";
-import { createChallengeRoundAttemptHandler } from "../workflow/challengeRoundSqliteHandler";
-import { createSqliteDepartmentRound } from "../workflow/departmentRound";
-import { DepartmentRoundSqliteAuthority } from "../workflow/departmentRoundSqliteAuthority";
-import { createDepartmentRoundAttemptHandler } from "../workflow/departmentRoundSqliteHandler";
-import { createSqliteFollowupAndResponseRound } from "../workflow/followupAndResponseRound";
-import { FollowupAndResponseRoundSqliteAuthority } from "../workflow/followupAndResponseRoundSqliteAuthority";
-import { createFollowupAndResponseAttemptHandler } from "../workflow/followupAndResponseRoundSqliteHandler";
-import { createSqliteSemanticAudit } from "../workflow/semanticAudit";
-import { createSqliteSpecialistRound } from "../workflow/specialistRoundSqlite";
-import { SpecialistRoundSqliteAuthority } from "../workflow/specialistRoundSqliteAuthority";
-import { createSpecialistRoundAttemptHandler } from "../workflow/specialistRoundSqliteHandler";
+import { createPostgresChairSynthesis } from "../workflow/chairSynthesis";
+import type { PostgresChairSynthesisOptions } from "../workflow/chairSynthesisContracts";
+import { createPostgresChallengeRound } from "../workflow/challengeRound";
+import { ChallengeRoundPostgresAuthority } from "../workflow/challengeRoundPostgresAuthority";
+import { createChallengeRoundAttemptHandler } from "../workflow/challengeRoundPostgresHandler";
+import { createPostgresDepartmentRound } from "../workflow/departmentRound";
+import { DepartmentRoundPostgresAuthority } from "../workflow/departmentRoundPostgresAuthority";
+import { createDepartmentRoundAttemptHandler } from "../workflow/departmentRoundPostgresHandler";
+import { createPostgresFollowupAndResponseRound } from "../workflow/followupAndResponseRound";
+import { FollowupAndResponseRoundPostgresAuthority } from "../workflow/followupAndResponseRoundPostgresAuthority";
+import { createFollowupAndResponseAttemptHandler } from "../workflow/followupAndResponseRoundPostgresHandler";
+import { createPostgresSemanticAudit } from "../workflow/semanticAudit";
+import { createPostgresSpecialistRound } from "../workflow/specialistRoundPostgres";
+import { SpecialistRoundPostgresAuthority } from "../workflow/specialistRoundPostgresAuthority";
+import { createSpecialistRoundAttemptHandler } from "../workflow/specialistRoundPostgresHandler";
 import { createInitialCollectionHandler } from "./initialCollectionHandler";
 import { createOfficialChairSynthesisRuntime } from "./officialChairSynthesis";
 import { createOfficialSemanticAuditRuntime } from "./officialSemanticAudit";
@@ -45,16 +46,15 @@ import { runWithResearchExecution } from "./runWithResearchExecution";
 
 export type OfficialAttemptHandlerOptions = {
   readonly dataDirectory: string;
-  readonly databasePath: string;
+  readonly database: Pool;
   readonly ownerId: string;
-  readonly migrationsDirectory?: string;
 };
 
 export type OfficialAttemptHandlerOverrides = {
   readonly cas?: ArtifactCasPort;
   readonly codex?: CodexPort;
   readonly now?: () => string;
-  readonly publishReport?: SqliteChairSynthesisOptions["publishReport"];
+  readonly publishReport?: PostgresChairSynthesisOptions["publishReport"];
   readonly ensurePublishedLocalizations?: typeof ensurePublishedResearchQuestionLocalizations;
 };
 
@@ -69,21 +69,11 @@ export async function createOfficialAttemptHandler(
 ): Promise<OfficialAttemptHandler> {
   if (options.ownerId.trim() === "")
     throw new TypeError("official worker ownerId is required");
-  const migrationOptions =
-    options.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: options.migrationsDirectory };
-  const authority = new SpecialistRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
-  );
-  const commitStore = new SqliteAgentOutputCommitStore(
-    options.databasePath,
-    migrationOptions,
-  );
+  const authority = new SpecialistRoundPostgresAuthority(options.database);
+  const commitStore = new PostgresAgentOutputCommitStore(options.database);
   const metadata =
     overrides.cas === undefined
-      ? new CommittedArtifactMetadata(options.databasePath)
+      ? new CommittedArtifactMetadata(options.database)
       : undefined;
   const archive =
     overrides.cas === undefined ? createLiveS3ArtifactArchive() : undefined;
@@ -115,10 +105,9 @@ export async function createOfficialAttemptHandler(
   );
   mkdirSync(attemptRootCandidate, { recursive: true, mode: 0o700 });
   const attemptRoot = realpathSync(attemptRootCandidate);
-  const questionAuthority = new QuestionAnswerSqliteAuthority(
-    options.databasePath,
+  const questionAuthority = new QuestionAnswerPostgresAuthority(
+    options.database,
     cas,
-    options.migrationsDirectory,
   );
   const questionHandler = createQuestionAnswerHandler({
     attemptRoot,
@@ -131,14 +120,14 @@ export async function createOfficialAttemptHandler(
   });
   const publishReport =
     overrides.publishReport ??
-    ((
+    (async (
       request: Parameters<
-        NonNullable<SqliteChairSynthesisOptions["publishReport"]>
+        NonNullable<PostgresChairSynthesisOptions["publishReport"]>
       >[0],
     ) =>
-      publishAuthoritativeReportForRun(
+      await publishAuthoritativeReportForRun(
         {
-          databasePath: options.databasePath,
+          database: options.database,
           cas,
           ...(overrides.now === undefined ? {} : { now: overrides.now }),
         },
@@ -154,18 +143,16 @@ export async function createOfficialAttemptHandler(
     authority,
     commitStore,
   });
-  const collectionHandler = createInitialCollectionHandler({
+  const collectionHandler = await createInitialCollectionHandler({
     dataRoot: options.dataDirectory,
-    databasePath: options.databasePath,
-    ...migrationOptions,
+    database: options.database,
     cas,
     authority,
     commitStore,
     ...(overrides.now === undefined ? {} : { now: overrides.now }),
   });
-  const departmentAuthority = new DepartmentRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+  const departmentAuthority = new DepartmentRoundPostgresAuthority(
+    options.database,
   );
   const departmentHandler = createDepartmentRoundAttemptHandler({
     options: {
@@ -178,9 +165,8 @@ export async function createOfficialAttemptHandler(
     departmentAuthority,
     commitStore,
   });
-  const challengeAuthority = new ChallengeRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+  const challengeAuthority = new ChallengeRoundPostgresAuthority(
+    options.database,
   );
   const challengeHandler = createChallengeRoundAttemptHandler({
     options: {
@@ -193,10 +179,8 @@ export async function createOfficialAttemptHandler(
     challengeAuthority,
     commitStore,
   });
-  const followupResponseAuthority = new FollowupAndResponseRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
-  );
+  const followupResponseAuthority =
+    new FollowupAndResponseRoundPostgresAuthority(options.database);
   const followupResponseHandler = createFollowupAndResponseAttemptHandler({
     options: {
       attemptRoot,
@@ -209,8 +193,7 @@ export async function createOfficialAttemptHandler(
     commitStore,
   });
   const semantic = createOfficialSemanticAuditRuntime({
-    databasePath: options.databasePath,
-    ...migrationOptions,
+    database: options.database,
     attemptRoot,
     cas,
     codex,
@@ -219,8 +202,7 @@ export async function createOfficialAttemptHandler(
     commitStore,
   });
   const chair = createOfficialChairSynthesisRuntime({
-    databasePath: options.databasePath,
-    ...migrationOptions,
+    database: options.database,
     attemptRoot,
     cas,
     codex,
@@ -229,8 +211,7 @@ export async function createOfficialAttemptHandler(
     commitStore,
   });
   const coordinator = createOfficialWorkflowCoordinator({
-    databasePath: options.databasePath,
-    ...migrationOptions,
+    database: options.database,
     ownerId: options.ownerId,
     cas,
     codex,
@@ -239,7 +220,7 @@ export async function createOfficialAttemptHandler(
   });
   const handler: AttemptHandler = {
     run: async (attempt, signal, activity) => {
-      const logicalArtifactId = authority.logicalArtifactForAttempt(
+      const logicalArtifactId = await authority.logicalArtifactForAttempt(
         attempt.attemptId,
       );
       if (logicalArtifactId === "collection:initial") {
@@ -285,22 +266,22 @@ export async function createOfficialAttemptHandler(
         await (
           overrides.ensurePublishedLocalizations ??
           ensurePublishedResearchQuestionLocalizations
-        )(options.databasePath, attempt.runId);
+        )(options.database, attempt.runId);
       }
     },
     reconcile: async () => await coordinator.resumeActiveRuns(),
   };
   await coordinator.resumeActiveRuns();
-  await backfillPublishedResearchQuestionLocalizations(options.databasePath);
+  await backfillPublishedResearchQuestionLocalizations(options.database);
   return {
     handler: {
-      run: (attempt, signal, activity) =>
-        runWithResearchExecution(options.databasePath, attempt.runId, () =>
+      run: async (attempt, signal, activity) =>
+        await runWithResearchExecution(options.database, attempt.runId, () =>
           handler.run(attempt, signal, activity),
         ),
-      afterCommit: (attempt, outcome) =>
-        runWithResearchExecution(
-          options.databasePath,
+      afterCommit: async (attempt, outcome) =>
+        await runWithResearchExecution(
+          options.database,
           attempt.runId,
           async () => {
             await handler.afterCommit?.(attempt, outcome);
@@ -319,7 +300,7 @@ export async function createOfficialAttemptHandler(
       followupResponseAuthority.close();
       challengeAuthority.close();
       departmentAuthority.close();
-      commitStore.close();
+      await commitStore.close();
       authority.close();
     },
   };
@@ -332,10 +313,10 @@ function requireCas(cas: ArtifactCasPort | undefined): ArtifactCasPort {
 }
 
 export {
-  createSqliteChairSynthesis as createOfficialChairSynthesis,
-  createSqliteChallengeRound as createOfficialChallengeRound,
-  createSqliteDepartmentRound as createOfficialDepartmentRound,
-  createSqliteFollowupAndResponseRound as createOfficialFollowupAndResponseRound,
-  createSqliteSemanticAudit as createOfficialSemanticAudit,
-  createSqliteSpecialistRound as createOfficialSpecialistRound,
+  createPostgresChairSynthesis as createOfficialChairSynthesis,
+  createPostgresChallengeRound as createOfficialChallengeRound,
+  createPostgresDepartmentRound as createOfficialDepartmentRound,
+  createPostgresFollowupAndResponseRound as createOfficialFollowupAndResponseRound,
+  createPostgresSemanticAudit as createOfficialSemanticAudit,
+  createPostgresSpecialistRound as createOfficialSpecialistRound,
 };

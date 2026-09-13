@@ -19,7 +19,7 @@ describe("GET /api/research/tickers", () => {
     const get = createTickerRoute(async () => ({
       search,
       resolve: async () => "supported",
-      lookup: () => ({ kind: "missing" }),
+      lookup: async () => ({ kind: "missing" }),
       close: () => undefined,
     }));
 
@@ -50,7 +50,7 @@ describe("GET /api/research/tickers", () => {
     const get = createTickerRoute(async () => ({
       search,
       resolve: async () => "unavailable",
-      lookup: () => ({ kind: "missing" }),
+      lookup: async () => ({ kind: "missing" }),
       close: () => undefined,
     }));
 

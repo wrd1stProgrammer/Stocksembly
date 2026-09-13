@@ -1,11 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import {
-  GetSecretValueCommand,
-  SecretsManagerClient,
-} from "@aws-sdk/client-secrets-manager";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
-import { z } from "zod";
 import { acquisitionChannel } from "../../admin/acquisitionAttribution";
 import { adminAnalyticsWritesEnabled } from "../../admin/adminAnalyticsFlags";
 import type {
@@ -67,6 +61,7 @@ import {
   PublicQuestionSchema,
 } from "../../research/server/api/researchCommandContracts";
 import type { ResearchPrincipal } from "../../research/server/http/researchAuth";
+import { postgresPoolConfiguration } from "../../server/database/postgresConfiguration";
 import type { OnboardingDiscoverySource } from "../onboarding";
 import {
   type AccountBillingStatus,
@@ -75,15 +70,6 @@ import {
   type CreditAvailability,
 } from "./accountStore";
 import { applyPostgresAccountMigrations } from "./postgresAccountMigrations";
-import { rotatingDatabasePassword } from "./rotatingDatabasePassword";
-
-const SecretSchema = z.object({
-  host: z.string().min(1).optional(),
-  port: z.coerce.number().int().positive().optional(),
-  username: z.string().min(1),
-  password: z.string().min(1),
-  dbname: z.string().min(1).optional(),
-});
 
 const BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT = 10;
 
@@ -551,64 +537,6 @@ function isoTimestamp(value: string | undefined, fallback: Date): string {
   return Number.isFinite(parsed)
     ? new Date(parsed).toISOString()
     : fallback.toISOString();
-}
-
-async function poolConfiguration(): Promise<PoolConfig | undefined> {
-  const connectionString = process.env["STOCKSEMBLY_DATABASE_URL"];
-  if (connectionString) {
-    return {
-      connectionString,
-      max: 4,
-      connectionTimeoutMillis: 5_000,
-      idleTimeoutMillis: 30_000,
-      ...(process.env["STOCKSEMBLY_DATABASE_SSL"] === "true"
-        ? { ssl: { rejectUnauthorized: true } }
-        : {}),
-    };
-  }
-
-  const secretArn = process.env["STOCKSEMBLY_DB_SECRET_ARN"];
-  if (!secretArn) return undefined;
-  const region = process.env["AWS_REGION"];
-  if (!region) throw new Error("AWS_REGION_REQUIRED_FOR_DATABASE_SECRET");
-  const loadSecret = async () => {
-    const secrets = new SecretsManagerClient({ region });
-    try {
-      const response = await secrets.send(
-        new GetSecretValueCommand({ SecretId: secretArn }),
-      );
-      if (!response.SecretString) throw new Error("DATABASE_SECRET_EMPTY");
-      return SecretSchema.parse(JSON.parse(response.SecretString));
-    } finally {
-      secrets.destroy();
-    }
-  };
-  const secret = await loadSecret();
-  const host = process.env["STOCKSEMBLY_DB_HOST"] ?? secret.host;
-  if (!host) throw new Error("STOCKSEMBLY_DB_HOST_REQUIRED");
-  const certificateAuthority = await readFile(
-    process.env["STOCKSEMBLY_DB_CA_PATH"] ??
-      "/etc/ssl/certs/aws-rds-global-bundle.pem",
-    "utf8",
-  );
-  return {
-    host,
-    port:
-      Number.parseInt(process.env["STOCKSEMBLY_DB_PORT"] ?? "", 10) ||
-      secret.port ||
-      5432,
-    user: secret.username,
-    password: rotatingDatabasePassword(
-      secret.password,
-      async () => (await loadSecret()).password,
-    ),
-    database:
-      process.env["STOCKSEMBLY_DB_NAME"] ?? secret.dbname ?? "stocksembly",
-    ssl: { ca: certificateAuthority, rejectUnauthorized: true },
-    max: 4,
-    connectionTimeoutMillis: 5_000,
-    idleTimeoutMillis: 30_000,
-  };
 }
 
 export class PostgresAccountStore implements AccountStore {
@@ -2642,7 +2570,7 @@ export class PostgresAccountStore implements AccountStore {
 export async function createLiveAccountStore(): Promise<
   PostgresAccountStore | undefined
 > {
-  const configuration = await poolConfiguration();
+  const configuration = await postgresPoolConfiguration();
   return configuration === undefined
     ? undefined
     : await PostgresAccountStore.create(configuration);

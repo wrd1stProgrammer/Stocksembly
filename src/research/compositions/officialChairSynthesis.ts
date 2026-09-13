@@ -1,30 +1,28 @@
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
-import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
-import { ChairSynthesisSqliteAuthority } from "../workflow/chairSynthesisAuthority";
-import type { SqliteChairSynthesisOptions } from "../workflow/chairSynthesisContracts";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import type { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
+import { ChairSynthesisPostgresAuthority } from "../workflow/chairSynthesisAuthority";
+import type { PostgresChairSynthesisOptions } from "../workflow/chairSynthesisContracts";
 import { createChairSynthesisAttemptHandler } from "../workflow/chairSynthesisHandler";
-import type { SpecialistRoundSqliteAuthority } from "../workflow/specialistRoundSqliteAuthority";
+import type { SpecialistRoundPostgresAuthority } from "../workflow/specialistRoundPostgresAuthority";
 
 type Context = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database: ResearchDatabase;
+
   readonly attemptRoot: string;
   readonly cas: ArtifactCasPort;
   readonly codex: CodexPort;
   readonly now?: () => string;
-  readonly publishReport?: SqliteChairSynthesisOptions["publishReport"];
-  readonly workflowAuthority: SpecialistRoundSqliteAuthority;
-  readonly commitStore: SqliteAgentOutputCommitStore;
+  readonly publishReport?: PostgresChairSynthesisOptions["publishReport"];
+  readonly workflowAuthority: SpecialistRoundPostgresAuthority;
+  readonly commitStore: PostgresAgentOutputCommitStore;
 };
 
 export function createOfficialChairSynthesisRuntime(context: Context) {
-  const authority = new ChairSynthesisSqliteAuthority(context.databasePath, {
+  const authority = new ChairSynthesisPostgresAuthority(context.database, {
     cas: context.cas,
     workflowVersion: "workflow-v3",
-    ...(context.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: context.migrationsDirectory }),
   });
   const handler = createChairSynthesisAttemptHandler({
     options: {

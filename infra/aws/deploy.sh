@@ -49,6 +49,11 @@ scp -i "$key_path" -o StrictHostKeyChecking=accept-new \
 ssh -i "$key_path" -o StrictHostKeyChecking=accept-new "ec2-user@${host}" \
   'bash -se' -- "$public_origin" <<'REMOTE'
    public_origin="$1"
+   postgres_ready="$(sudo sed -n 's/^STOCKSEMBLY_RESEARCH_POSTGRES_READY=//p' /etc/stocksembly/aws.env /etc/stocksembly/app.env 2>/dev/null | tail -1)"
+   if [[ "$postgres_ready" != "true" ]]; then
+     echo "PostgreSQL cutover is not verified; existing services remain running." >&2
+     exit 78
+   fi
    sudo systemctl stop stocksembly-web stocksembly-worker 2>/dev/null || true
    sudo dnf install -y gcc-c++ make python3
    sudo rm -rf /opt/stocksembly/app

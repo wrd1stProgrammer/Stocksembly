@@ -19,14 +19,14 @@ export function registerResearchQuestionWorkerTests(
     const harness = harnessValue();
     const run = await createRun(harness, "question-worker-parent");
     const publication = await publishRun(harness, run);
-    const eventCountBefore = databaseScalar(
+    const eventCountBefore = await databaseScalar(
       harness,
-      "SELECT COUNT(*) FROM run_events WHERE run_id = ?",
+      "SELECT COUNT(*) FROM run_events WHERE run_id = $1",
       run.runId,
     );
-    const highWaterBefore = databaseScalar(
+    const highWaterBefore = await databaseScalar(
       harness,
-      "SELECT last_event_seq FROM runs WHERE run_id = ?",
+      "SELECT last_event_seq FROM runs WHERE run_id = $1",
       run.runId,
     );
     const created = await postQuestion(
@@ -39,13 +39,13 @@ export function registerResearchQuestionWorkerTests(
     const official = await createOfficialAttemptHandler(
       {
         dataDirectory: harness.root,
-        databasePath: harness.databasePath,
+        database: harness.database,
         ownerId: "api-question-worker",
       },
       { codex, now: () => "2026-07-23T06:00:00.000Z" },
     );
     const engine = createLeaseEngine({
-      databasePath: harness.databasePath,
+      pool: harness.database,
       ownerId: "api-question-worker",
       handler: official.handler,
       clock: { now: () => "2026-07-23T06:00:00.000Z" },
@@ -76,25 +76,28 @@ export function registerResearchQuestionWorkerTests(
         },
       });
       expect(
-        databaseScalar(harness, "SELECT COUNT(*) FROM question_call_ordinals"),
+        await databaseScalar(
+          harness,
+          "SELECT COUNT(*) FROM question_call_ordinals",
+        ),
       ).toBe(1);
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
           "SELECT COUNT(*) FROM question_runner_evidence",
         ),
       ).toBe(1);
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT COUNT(*) FROM run_events WHERE run_id = ?",
+          "SELECT COUNT(*) FROM run_events WHERE run_id = $1",
           run.runId,
         ),
       ).toBe(eventCountBefore);
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT last_event_seq FROM runs WHERE run_id = ?",
+          "SELECT last_event_seq FROM runs WHERE run_id = $1",
           run.runId,
         ),
       ).toBe(highWaterBefore);
@@ -108,7 +111,7 @@ export function registerResearchQuestionWorkerTests(
     const harness = harnessValue();
     const run = await createRun(harness, "question-failed-published-run");
     const publication = await publishRun(harness, run);
-    setRunStatus(harness, run.runId, "failed");
+    await setRunStatus(harness, run.runId, "failed");
 
     const rejected = await postQuestion(
       harness,
@@ -119,9 +122,14 @@ export function registerResearchQuestionWorkerTests(
 
     expect(rejected.response.status).toBe(409);
     expect(rejected.body).toEqual({ error: { code: "COMMAND_NOT_ALLOWED" } });
-    expect(databaseScalar(harness, "SELECT COUNT(*) FROM questions")).toBe(0);
     expect(
-      databaseScalar(harness, "SELECT COUNT(*) FROM jobs WHERE kind = 'qa'"),
+      await databaseScalar(harness, "SELECT COUNT(*) FROM questions"),
+    ).toBe(0);
+    expect(
+      await databaseScalar(
+        harness,
+        "SELECT COUNT(*) FROM jobs WHERE kind = 'qa'",
+      ),
     ).toBe(0);
   });
 }

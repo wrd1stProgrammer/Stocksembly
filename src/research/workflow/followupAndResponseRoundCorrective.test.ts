@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createOfficialAttemptHandler } from "../compositions/officialWorker";
+import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type {
   ArtifactCasPort,
@@ -14,11 +14,12 @@ import type {
   ArtifactWrite,
 } from "../ports/artifacts";
 import { ArtifactDigestSchema } from "../ports/artifacts";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
 import { createLeaseEngine } from "../worker/leaseEngine";
-import { createSqliteChallengeRound } from "./challengeRound";
+import { createPostgresChallengeRound } from "./challengeRound";
 import { stageAcceptedDepartments } from "./challengeRound.testSupport";
 import {
-  createSqliteFollowupAndResponseRound,
+  createPostgresFollowupAndResponseRound,
   followupAllowance,
 } from "./followupAndResponseRound";
 import { FollowupResponseCodexFake } from "./followupAndResponseRound.testSupport";
@@ -96,7 +97,7 @@ async function stagedRound(
 ) {
   const fixture = await preparedChallenges(eligibleFollowups, options);
   const { root, codex, prepared, challengeReplay } = fixture;
-  const round = createSqliteFollowupAndResponseRound({
+  const round = createPostgresFollowupAndResponseRound({
     ...prepared.options,
     cas:
       casFault === undefined
@@ -122,7 +123,7 @@ async function preparedChallenges(
     ...options,
   });
   const prepared = await stageAcceptedDepartments(root, "none", codex);
-  const challenges = createSqliteChallengeRound(prepared.options);
+  const challenges = createPostgresChallengeRound(prepared.options);
   await challenges.stage({
     runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
     consolidationArtifactIds: prepared.departmentReplay.artifactIds.map((id) =>
@@ -136,24 +137,19 @@ async function preparedChallenges(
   return { root, codex, prepared, challengeReplay };
 }
 
-function persistReplacementHistory(
-  databasePath: string,
+async function persistReplacementHistory(
+  database: ResearchDatabase,
   runId: string,
   count: number,
-): void {
-  const database = new Database(databasePath);
-  const baseAttempts = database
-    .prepare(`SELECT attempt_id, job_id, snapshot_id, logical_artifact_key,
-      input_hash, input_manifest_hash FROM attempts WHERE run_id = ?
-      AND replacement_of_attempt_id IS NULL ORDER BY created_at, attempt_id LIMIT ?`)
-    .all(runId, count);
+): Promise<void> {
+  const baseAttempts = (
+    await database.query(
+      "SELECT attempt_id, job_id, snapshot_id, logical_artifact_key,\n      input_hash, input_manifest_hash FROM attempts WHERE run_id = $1\n      AND replacement_of_attempt_id IS NULL ORDER BY created_at, attempt_id LIMIT $2",
+      [runId, count],
+    )
+  ).rows;
   const insert =
-    database.prepare(`INSERT INTO attempts(attempt_id, job_id, run_id,
-    snapshot_id, kind, status, logical_artifact_key, input_hash,
-    input_manifest_hash, replacement_of_attempt_id, created_at, outcome)
-    VALUES (@attemptId, @jobId, @runId, @snapshotId, 'research', 'failed',
-      @logicalArtifactKey, @inputHash, @inputManifestHash,
-      @replacementOfAttemptId, '2026-07-23T00:00:01.000Z', 'failed')`);
+    "INSERT INTO attempts(attempt_id, job_id, run_id,\n    snapshot_id, kind, status, logical_artifact_key, input_hash,\n    input_manifest_hash, replacement_of_attempt_id, created_at, outcome)\n    VALUES ($1, $2, $3, $4, 'research', 'failed',\n      $5, $6, $7,\n      $8, '2026-07-23T00:00:01.000Z', 'failed')";
   for (const value of baseAttempts) {
     const row = z
       .object({
@@ -165,18 +161,89 @@ function persistReplacementHistory(
         input_manifest_hash: z.string(),
       })
       .parse(value);
-    insert.run({
-      attemptId: randomUUID(),
-      jobId: row.job_id,
-      runId,
-      snapshotId: row.snapshot_id,
-      logicalArtifactKey: row.logical_artifact_key,
-      inputHash: row.input_hash,
-      inputManifestHash: row.input_manifest_hash,
-      replacementOfAttemptId: row.attempt_id,
-    });
+    await database.query(insert, [
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.attemptId,
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.jobId,
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.runId,
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.snapshotId,
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.logicalArtifactKey,
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.inputHash,
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.inputManifestHash,
+      {
+        attemptId: randomUUID(),
+        jobId: row.job_id,
+        runId,
+        snapshotId: row.snapshot_id,
+        logicalArtifactKey: row.logical_artifact_key,
+        inputHash: row.input_hash,
+        inputManifestHash: row.input_manifest_hash,
+        replacementOfAttemptId: row.attempt_id,
+      }.replacementOfAttemptId,
+    ]);
   }
-  database.close();
 }
 
 describe("follow-up and response corrective boundaries", () => {
@@ -202,7 +269,7 @@ describe("follow-up and response corrective boundaries", () => {
     expect(result).toEqual([material, supporting]);
   });
 
-  it("uses the locked replacement formula and fails closed after five replacements", () => {
+  it("uses the locked replacement formula and fails closed after the configured replacement budget", () => {
     // Given / When / Then
     expect(
       [0, 4, 5].map((used) => [followupAllowance(used), 26 + used + 3]),
@@ -211,7 +278,9 @@ describe("follow-up and response corrective boundaries", () => {
       [3, 33],
       [3, 34],
     ]);
-    expect(followupAllowance(6)).toBe("incomplete");
+    expect(
+      followupAllowance(CALL_BUDGET_POLICY.maxRequiredReplacements + 1),
+    ).toBe("incomplete");
   });
 
   it.each([
@@ -223,12 +292,12 @@ describe("follow-up and response corrective boundaries", () => {
     async (replacements, projected) => {
       // Given
       const fixture = await preparedChallenges(4);
-      persistReplacementHistory(
-        fixture.prepared.options.databasePath,
+      await persistReplacementHistory(
+        fixture.prepared.options.database,
         fixture.prepared.harness.input.mandate.runId,
         replacements,
       );
-      const round = createSqliteFollowupAndResponseRound(
+      const round = createPostgresFollowupAndResponseRound(
         fixture.prepared.options,
       );
 
@@ -286,22 +355,18 @@ describe("follow-up and response corrective boundaries", () => {
     const runId = fixture.prepared.harness.input.mandate.runId;
 
     await fixture.round.advance(runId);
-    const database = new Database(fixture.prepared.options.databasePath, {
-      readonly: true,
-    });
+    const database = fixture.prepared.options.database;
     const counts = z
       .object({ followups: z.number(), ballots: z.number() })
       .parse(
-        database
-          .prepare(`SELECT
-            SUM(CASE WHEN logical_key LIKE 'followup:%' THEN 1 ELSE 0 END) AS followups,
-            SUM(CASE WHEN logical_key LIKE 'response_ballot:%' THEN 1 ELSE 0 END) AS ballots
-          FROM jobs WHERE run_id = ? AND (
-            logical_key LIKE 'followup:%' OR logical_key LIKE 'response_ballot:%'
-          )`)
-          .get(runId),
+        (
+          await database.query(
+            "SELECT\n            SUM(CASE WHEN logical_key LIKE 'followup:%' THEN 1 ELSE 0 END)::integer AS followups,\n            SUM(CASE WHEN logical_key LIKE 'response_ballot:%' THEN 1 ELSE 0 END)::integer AS ballots\n          FROM jobs WHERE run_id = $1 AND (\n            logical_key LIKE 'followup:%' OR logical_key LIKE 'response_ballot:%'\n          )",
+            [runId],
+          )
+        ).rows[0],
       );
-    database.close();
+
     await fixture.round.close();
 
     expect(counts).toEqual({ followups: 1, ballots: 3 });
@@ -358,7 +423,7 @@ describe("follow-up and response corrective boundaries", () => {
     // Given
     const fixture = await stagedRound(0);
     await fixture.round.close();
-    const round = createSqliteFollowupAndResponseRound(
+    const round = createPostgresFollowupAndResponseRound(
       fixture.prepared.options,
     );
     const ids = fixture.challengeReplay.artifactIds.map((id) =>
@@ -401,7 +466,7 @@ describe("follow-up and response corrective boundaries", () => {
     // Given
     const fixture = await stagedRound(2);
     await fixture.round.close();
-    const resumed = createSqliteFollowupAndResponseRound(
+    const resumed = createPostgresFollowupAndResponseRound(
       fixture.prepared.options,
     );
 
@@ -421,7 +486,7 @@ describe("follow-up and response corrective boundaries", () => {
   it("fails closed when drain is called before a durable follow-up plan is staged", async () => {
     // Given
     const fixture = await preparedChallenges(3);
-    const round = createSqliteFollowupAndResponseRound(
+    const round = createPostgresFollowupAndResponseRound(
       fixture.prepared.options,
     );
 
@@ -513,7 +578,9 @@ describe("follow-up and response corrective boundaries", () => {
     await fixture.round.close();
 
     // Then
-    expect(fixture.codex.responseLaunches).toBe(5);
+    expect(fixture.codex.responseLaunches).toBe(
+      3 + CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
+    );
     expect(replay.ballotArtifactIds).toHaveLength(3);
     expect(replay.consensus).toBe("incomplete");
     expect(
@@ -523,7 +590,7 @@ describe("follow-up and response corrective boundaries", () => {
       replay.receipts.filter(
         (item) => item.logicalArtifactId === "response_ballot:market",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact);
   });
 
   it("dispatches a persisted optional job through the real official worker composition", async () => {
@@ -532,7 +599,7 @@ describe("follow-up and response corrective boundaries", () => {
     const official = await createOfficialAttemptHandler(
       {
         dataDirectory: fixture.root,
-        databasePath: fixture.prepared.options.databasePath,
+        database: fixture.prepared.options.database,
         ownerId: fixture.prepared.options.ownerId,
       },
       {
@@ -542,7 +609,7 @@ describe("follow-up and response corrective boundaries", () => {
       },
     );
     const engine = createLeaseEngine({
-      databasePath: fixture.prepared.options.databasePath,
+      pool: fixture.prepared.options.database,
       ownerId: fixture.prepared.options.ownerId,
       handler: official.handler,
       clock: { now: fixture.prepared.options.now },
@@ -552,7 +619,7 @@ describe("follow-up and response corrective boundaries", () => {
     const handled = await engine.poll();
     await engine.shutdown();
     await official.close();
-    const replay = fixture.round.replay(
+    const replay = await fixture.round.replay(
       fixture.prepared.harness.input.mandate.runId,
     );
     await fixture.round.close();

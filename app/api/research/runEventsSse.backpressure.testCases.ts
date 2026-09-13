@@ -17,10 +17,10 @@ describe("durable run event SSE backpressure", () => {
     vi.useFakeTimers();
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
     const response = await value.api.handle(streamRequest(value, runId));
-    appendEvent(value, runId, { sequence: 4 });
+    await appendEvent(value, runId, { sequence: 4 });
 
     // When
     await vi.advanceTimersByTimeAsync(5_000);

@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 import { z } from "zod";
 import {
   ChairConflictAdjudicationSchema,
@@ -339,10 +340,10 @@ export type ChairSynthesisReplay = {
     | "retry_pending"
     | null;
 };
-export type SqliteChairSynthesisOptions = {
+export type PostgresChairSynthesisOptions = {
   readonly workflowVersion?: "workflow-v2" | "workflow-v3";
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database: Pool;
+
   readonly attemptRoot: string;
   readonly ownerId: string;
   readonly cas: ArtifactCasPort;
@@ -363,8 +364,8 @@ export type SqliteChairSynthesisOptions = {
     | { readonly kind: "incomplete"; readonly reason?: string }
   >;
 };
-export interface SqliteChairSynthesis {
-  readonly authority: "sqlite-worker-trusted-commit";
+export interface PostgresChairSynthesis {
+  readonly authority: "postgres-worker-trusted-commit";
   readonly stage: (input: {
     readonly runId: z.infer<typeof RunIdSchema>;
   }) => Promise<
@@ -372,7 +373,7 @@ export interface SqliteChairSynthesis {
     | { readonly kind: "blocked"; readonly reason: string }
   >;
   readonly drain: (runId: string) => Promise<ChairSynthesisReplay>;
-  readonly replay: (runId: string) => ChairSynthesisReplay;
+  readonly replay: (runId: string) => Promise<ChairSynthesisReplay>;
   readonly close: () => Promise<void>;
 }
 

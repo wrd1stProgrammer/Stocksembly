@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import Database from "better-sqlite3";
 import { z } from "zod";
+import { researchTransaction } from "../../../src/research/server/persistence/postgres/database";
 import { seedPublishedReport } from "./researchReportRoute.testSupport";
 import {
   type ApiHarness,
@@ -30,22 +30,19 @@ export async function createRun(harness: ApiHarness, key: string) {
   return RunResponseSchema.parse(await json(response)).run;
 }
 
-export function setRunStatus(
+export async function setRunStatus(
   harness: ApiHarness,
   runId: string,
   status: "failed" | "incomplete" | "completed",
-): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare("UPDATE runs SET status = ? WHERE run_id = ?")
-      .run(status, runId);
-  } finally {
-    database.close();
-  }
+): Promise<void> {
+  const database = harness.database;
+  await database.query("UPDATE runs SET status = $1 WHERE run_id = $2", [
+    status,
+    runId,
+  ]);
 }
 
-export function setInitialResearchJobStatus(
+export async function setInitialResearchJobStatus(
   harness: ApiHarness,
   runId: string,
   status:
@@ -55,51 +52,46 @@ export function setInitialResearchJobStatus(
     | "spawn-reserved"
     | "running"
     | "succeeded",
-): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare(`UPDATE jobs SET status = ?
-        WHERE run_id = ? AND kind = 'research'
-          AND logical_key = 'collection:initial'`)
-      .run(status, runId);
-  } finally {
-    database.close();
-  }
+): Promise<void> {
+  const database = harness.database;
+  await database.query(
+    `UPDATE jobs SET status = $1
+        WHERE run_id = $2 AND kind = 'research'
+          AND logical_key = 'collection:initial'`,
+    [status, runId],
+  );
 }
 
-export function interruptInitialResearchJob(
+export async function interruptInitialResearchJob(
   harness: ApiHarness,
   runId: string,
   status: "spawn-reserved" | "running",
-): string {
-  const database = new Database(harness.databasePath);
+): Promise<string> {
+  const database = harness.database;
   const attemptId = randomUUID();
-  try {
-    database.transaction(() => {
-      database
-        .prepare(`INSERT INTO attempts(attempt_id, job_id, run_id, snapshot_id,
+  await researchTransaction(database, async (database) => {
+    await database.query(
+      `INSERT INTO attempts(attempt_id, job_id, run_id, snapshot_id,
           kind, status, logical_artifact_key, input_hash, created_at)
-          SELECT @attemptId, job_id, run_id, snapshot_id, kind, @status,
+          SELECT $1, job_id, run_id, snapshot_id, kind, $2,
             logical_key, input_hash, created_at
-          FROM jobs WHERE run_id = @runId AND kind = 'research'
-            AND logical_key = 'collection:initial'`)
-        .run({ attemptId, runId, status });
-      database
-        .prepare(`UPDATE jobs SET status = @status, attempt_id = @attemptId,
+          FROM jobs WHERE run_id = $3 AND kind = 'research'
+            AND logical_key = 'collection:initial'`,
+      [attemptId, status, runId],
+    );
+    await database.query(
+      `UPDATE jobs SET status = $1, attempt_id = $2,
           lease_owner = 'interrupted-worker', lease_token = 1,
           lease_expires_at = '2099-01-01T00:00:00.000Z'
-          WHERE run_id = @runId AND kind = 'research'
-            AND logical_key = 'collection:initial'`)
-        .run({ attemptId, runId, status });
-    })();
-    return attemptId;
-  } finally {
-    database.close();
-  }
+          WHERE run_id = $3 AND kind = 'research'
+            AND logical_key = 'collection:initial'`,
+      [status, attemptId, runId],
+    );
+  });
+  return attemptId;
 }
 
-export function setInitialResearchJobRetry(
+export async function setInitialResearchJobRetry(
   harness: ApiHarness,
   runId: string,
   input: {
@@ -107,48 +99,37 @@ export function setInitialResearchJobRetry(
     readonly failureCount: number;
     readonly circuitOpen: boolean;
   },
-): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare(`INSERT INTO idempotency_records(scope, idempotency_key,
+): Promise<void> {
+  const database = harness.database;
+  await database.query(
+    `INSERT INTO idempotency_records(scope, idempotency_key,
         request_hash, result_json, created_at)
         SELECT 'worker-retry', job_id, input_hash,
-          json_object('retryAt', @retryAt, 'failureCount', @failureCount,
-            'circuitOpen', json(@circuitOpen),
+          jsonb_build_object('retryAt', $1::text, 'failureCount', $2::integer,
+            'circuitOpen', $3::boolean,
             'classification', 'transient', 'code', 'codex_process_failed'),
-          @retryAt
-        FROM jobs WHERE run_id = @runId AND kind = 'research'
+          $1
+        FROM jobs WHERE run_id = $4 AND kind = 'research'
           AND logical_key = 'collection:initial'
         ON CONFLICT(scope, idempotency_key) DO UPDATE SET
           result_json = excluded.result_json,
-          created_at = excluded.created_at`)
-      .run({
-        runId,
-        retryAt: input.retryAt,
-        failureCount: input.failureCount,
-        circuitOpen: input.circuitOpen ? "true" : "false",
-      });
-  } finally {
-    database.close();
-  }
+          created_at = excluded.created_at`,
+    [input.retryAt, input.failureCount, input.circuitOpen, runId],
+  );
 }
 
-export function setResearchTarget(
+export async function setResearchTarget(
   harness: ApiHarness,
   runId: string,
   departmentId: "market" | "company" | "financial" | "risk",
-): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare(`UPDATE research_requests
-        SET research_kind = 'department', department_id = ?
-        WHERE run_id = ?`)
-      .run(departmentId, runId);
-  } finally {
-    database.close();
-  }
+): Promise<void> {
+  const database = harness.database;
+  await database.query(
+    `UPDATE research_requests
+        SET research_kind = 'department', department_id = $1
+        WHERE run_id = $2`,
+    [departmentId, runId],
+  );
 }
 
 export async function publishRun(
@@ -159,15 +140,12 @@ export async function publishRun(
   },
 ) {
   const publication = await seedPublishedReport(harness, run);
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare(`UPDATE runs SET status = 'completed', report_id = ?,
-        report_published_at = ? WHERE run_id = ?`)
-      .run(publication.reportId, "2026-07-23T06:00:00.000Z", run.runId);
-  } finally {
-    database.close();
-  }
+  const database = harness.database;
+  await database.query(
+    `UPDATE runs SET status = 'completed', report_id = $1,
+        report_published_at = $2 WHERE run_id = $3`,
+    [publication.reportId, "2026-07-23T06:00:00.000Z", run.runId],
+  );
   return publication;
 }
 
@@ -219,34 +197,36 @@ export async function postQuestion(
   };
 }
 
-export function failQuestion(harness: ApiHarness, questionId: string): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare(`UPDATE questions SET status = 'failed', answer_json = NULL
-        WHERE question_id = ?`)
-      .run(questionId);
-    database
-      .prepare(`UPDATE jobs SET status = 'failed'
-        WHERE job_id = (SELECT job_id FROM questions WHERE question_id = ?)`)
-      .run(questionId);
-  } finally {
-    database.close();
-  }
+export async function failQuestion(
+  harness: ApiHarness,
+  questionId: string,
+): Promise<void> {
+  const database = harness.database;
+  await database.query(
+    `UPDATE questions SET status = 'failed', answer_json = NULL
+        WHERE question_id = $1`,
+    [questionId],
+  );
+  await database.query(
+    `UPDATE jobs SET status = 'failed'
+        WHERE job_id = (SELECT job_id FROM questions WHERE question_id = $1)`,
+    [questionId],
+  );
 }
 
-export function databaseScalar(
+export async function databaseScalar(
   harness: ApiHarness,
   sql: string,
   ...parameters: readonly string[]
-): unknown {
-  const database = new Database(harness.databasePath);
-  try {
-    return database
-      .prepare(sql)
-      .pluck()
-      .get(...parameters);
-  } finally {
-    database.close();
+): Promise<unknown> {
+  const database = harness.database;
+  {
+    const result = await database.query(sql, [...parameters]);
+    const value = Object.values(result.rows[0] ?? {})[0];
+    return typeof value === "string" &&
+      /^\d+$/.test(value) &&
+      /count\(/i.test(sql)
+      ? Number(value)
+      : value;
   }
 }

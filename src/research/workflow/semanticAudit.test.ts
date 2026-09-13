@@ -1,11 +1,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { makePersistableStructuralInput } from "../application/structuralAuditPersistence.testSupport";
 import { StructuralAuditArtifactEnvelopeSchema } from "../application/structuralAuditPersistenceContracts";
+import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, QuestionIdSchema, RunIdSchema } from "../domain/ids";
 import {
@@ -24,11 +24,11 @@ import type {
   CodexRunResult,
 } from "../server/codex/codexRunner";
 import { CodexRunnerError } from "../server/codex/codexRunner";
-import { createSqliteChallengeRound } from "./challengeRound";
+import { createPostgresChallengeRound } from "./challengeRound";
 import { stageAcceptedDepartments } from "./challengeRound.testSupport";
-import { createSqliteFollowupAndResponseRound } from "./followupAndResponseRound";
+import { createPostgresFollowupAndResponseRound } from "./followupAndResponseRound";
 import { FollowupResponseCodexFake } from "./followupAndResponseRound.testSupport";
-import { createSqliteSemanticAudit } from "./semanticAudit";
+import { createPostgresSemanticAudit } from "./semanticAudit";
 import {
   SemanticAuditPromptSchema,
   SemanticAuditStageInputSchema,
@@ -234,7 +234,7 @@ async function preparedRound(
   roots.push(root);
   const codex = new SemanticCodexFake(fault);
   const prepared = await stageAcceptedDepartments(root, "none", codex);
-  const challenges = createSqliteChallengeRound(prepared.options);
+  const challenges = createPostgresChallengeRound(prepared.options);
   await challenges.stage({
     runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
     consolidationArtifactIds: prepared.departmentReplay.artifactIds.map((id) =>
@@ -245,7 +245,7 @@ async function preparedRound(
     prepared.harness.input.mandate.runId,
   );
   await challenges.close();
-  const responses = createSqliteFollowupAndResponseRound(prepared.options);
+  const responses = createPostgresFollowupAndResponseRound(prepared.options);
   await responses.stage({
     runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
     challengeArtifactIds: challengeReplay.artifactIds.map((id) =>
@@ -254,7 +254,7 @@ async function preparedRound(
   });
   await responses.drain(prepared.harness.input.mandate.runId);
   await responses.close();
-  const database = new Database(prepared.options.databasePath);
+  const database = prepared.options.database;
   const workflowReferences = z
     .array(
       z.object({
@@ -264,21 +264,14 @@ async function preparedRound(
       }),
     )
     .parse(
-      database
-        .prepare(`SELECT agent_output_commits.artifact_id AS artifactId,
-          attempts.logical_artifact_key AS logicalArtifactKey,
-          artifacts.content_hash AS contentHash
-        FROM agent_output_commits JOIN attempts USING (attempt_id)
-        JOIN artifacts ON artifacts.artifact_id = agent_output_commits.artifact_id
-        WHERE attempts.run_id = ? AND (
-          attempts.logical_artifact_key LIKE 'memo:%' OR
-          attempts.logical_artifact_key LIKE 'consolidation:%' OR
-          attempts.logical_artifact_key LIKE 'challenge:%' OR
-          attempts.logical_artifact_key LIKE 'response_ballot:%')
-        ORDER BY attempts.logical_artifact_key`)
-        .all(prepared.harness.input.mandate.runId),
+      (
+        await database.query(
+          "SELECT agent_output_commits.artifact_id AS \"artifactId\",\n          attempts.logical_artifact_key AS \"logicalArtifactKey\",\n          artifacts.content_hash AS \"contentHash\"\n        FROM agent_output_commits JOIN attempts USING (attempt_id)\n        JOIN artifacts ON artifacts.artifact_id = agent_output_commits.artifact_id\n        WHERE attempts.run_id = $1 AND (\n          attempts.logical_artifact_key LIKE 'memo:%' OR\n          attempts.logical_artifact_key LIKE 'consolidation:%' OR\n          attempts.logical_artifact_key LIKE 'challenge:%' OR\n          attempts.logical_artifact_key LIKE 'response_ballot:%')\n        ORDER BY attempts.logical_artifact_key",
+          [prepared.harness.input.mandate.runId],
+        )
+      ).rows,
     );
-  database.close();
+
   const retention = await authenticatedWorkflowRetentionRegister(
     prepared.harness.cas,
     workflowReferences,
@@ -303,7 +296,7 @@ async function preparedRound(
   };
   const structuralAudit = await persistStructuralAudit(
     {
-      databasePath: prepared.options.databasePath,
+      database: prepared.options.database,
       cas: prepared.harness.cas,
       now: () => "2026-07-23T00:01:00.000Z",
     },
@@ -358,7 +351,7 @@ async function preparedRound(
     };
     await rewriteStructuralEnvelope(
       {
-        databasePath: prepared.options.databasePath,
+        database: prepared.options.database,
         cas: prepared.harness.cas,
         structuralArtifactId: structuralAudit.structuralAuditArtifactId,
       },
@@ -372,7 +365,7 @@ async function preparedRound(
 }
 
 async function stageAudit(
-  audit: ReturnType<typeof createSqliteSemanticAudit>,
+  audit: ReturnType<typeof createPostgresSemanticAudit>,
   runId: ReturnType<typeof RunIdSchema.parse>,
   structuralAuditArtifactId: string,
   questionIds: readonly ReturnType<typeof QuestionIdSchema.parse>[],
@@ -436,7 +429,7 @@ describe("schema-bound semantic evidence verifier", () => {
     expect(envelope.publishable, JSON.stringify(envelope.result.blockers)).toBe(
       true,
     );
-    const audit = createSqliteSemanticAudit(prepared.options);
+    const audit = createPostgresSemanticAudit(prepared.options);
 
     // When
     const staged = await stageAudit(
@@ -457,7 +450,7 @@ describe("schema-bound semantic evidence verifier", () => {
       prepared.harness.cas,
       ArtifactDigestSchema.parse(structuralAudit.structuralAuditContentHash),
     );
-    const audit = createSqliteSemanticAudit({ ...prepared.options, cas });
+    const audit = createPostgresSemanticAudit({ ...prepared.options, cas });
 
     const staged = await stageAudit(
       audit,
@@ -474,7 +467,7 @@ describe("schema-bound semantic evidence verifier", () => {
     // Given
     const { codex, prepared, structuralAudit, envelope, questionIds } =
       await preparedRound();
-    const audit = createSqliteSemanticAudit(prepared.options);
+    const audit = createPostgresSemanticAudit(prepared.options);
     const claimId = envelope.result.claims[0]?.claimId;
     if (claimId === undefined)
       throw new TypeError("semantic fixture requires one structural claim");
@@ -512,7 +505,7 @@ describe("schema-bound semantic evidence verifier", () => {
       // Given
       const { codex, prepared, structuralAudit, questionIds } =
         await preparedRound(fault);
-      const audit = createSqliteSemanticAudit(prepared.options);
+      const audit = createPostgresSemanticAudit(prepared.options);
       await stageAudit(
         audit,
         RunIdSchema.parse(prepared.harness.input.mandate.runId),
@@ -549,7 +542,7 @@ describe("schema-bound semantic evidence verifier", () => {
       // Given
       const { codex, prepared, structuralAudit, questionIds } =
         await preparedRound(fault);
-      const audit = createSqliteSemanticAudit(prepared.options);
+      const audit = createPostgresSemanticAudit(prepared.options);
       await stageAudit(
         audit,
         RunIdSchema.parse(prepared.harness.input.mandate.runId),
@@ -576,7 +569,7 @@ describe("schema-bound semantic evidence verifier", () => {
     async (fault) => {
       const { codex, prepared, structuralAudit, questionIds } =
         await preparedRound(fault);
-      const audit = createSqliteSemanticAudit(prepared.options);
+      const audit = createPostgresSemanticAudit(prepared.options);
       await stageAudit(
         audit,
         RunIdSchema.parse(prepared.harness.input.mandate.runId),
@@ -597,7 +590,7 @@ describe("schema-bound semantic evidence verifier", () => {
     // Given
     const { prepared, structuralAudit, questionIds } =
       await preparedRound("contradicted");
-    const audit = createSqliteSemanticAudit(prepared.options);
+    const audit = createPostgresSemanticAudit(prepared.options);
     await stageAudit(
       audit,
       RunIdSchema.parse(prepared.harness.input.mandate.runId),
@@ -618,7 +611,7 @@ describe("schema-bound semantic evidence verifier", () => {
   it("does not manufacture uncovered coverage when no actionable question exists", async () => {
     const { prepared, structuralAudit, questionIds } =
       await preparedRound("uncovered");
-    const audit = createSqliteSemanticAudit(prepared.options);
+    const audit = createPostgresSemanticAudit(prepared.options);
     await stageAudit(
       audit,
       RunIdSchema.parse(prepared.harness.input.mandate.runId),
@@ -639,7 +632,7 @@ describe("schema-bound semantic evidence verifier", () => {
       // Given
       const { prepared, structuralAudit, questionIds } =
         await preparedRound(fault);
-      const audit = createSqliteSemanticAudit(prepared.options);
+      const audit = createPostgresSemanticAudit(prepared.options);
       await stageAudit(
         audit,
         RunIdSchema.parse(prepared.harness.input.mandate.runId),
@@ -662,7 +655,7 @@ describe("schema-bound semantic evidence verifier", () => {
   it("freezes a staged structural artifact and refuses changed questions", async () => {
     // Given
     const { prepared, structuralAudit, questionIds } = await preparedRound();
-    const audit = createSqliteSemanticAudit(prepared.options);
+    const audit = createPostgresSemanticAudit(prepared.options);
     const runId = RunIdSchema.parse(prepared.harness.input.mandate.runId);
 
     // When
@@ -672,7 +665,7 @@ describe("schema-bound semantic evidence verifier", () => {
       structuralAudit.structuralAuditArtifactId,
       questionIds,
     );
-    const replay = audit.replay(runId);
+    const replay = await audit.replay(runId);
     const same = await stageAudit(
       audit,
       runId,
@@ -706,7 +699,7 @@ describe("schema-bound semantic evidence verifier", () => {
       // Given
       const { codex, prepared, structuralAudit, questionIds } =
         await preparedRound(fault);
-      const audit = createSqliteSemanticAudit(prepared.options);
+      const audit = createPostgresSemanticAudit(prepared.options);
       await stageAudit(
         audit,
         RunIdSchema.parse(prepared.harness.input.mandate.runId),
@@ -719,22 +712,27 @@ describe("schema-bound semantic evidence verifier", () => {
       await audit.close();
 
       // Then
-      expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual([
-        24, 25,
-      ]);
+      expect(replay.receipts.map((receipt) => receipt.ordinal)).toEqual(
+        Array.from(
+          { length: CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact },
+          (_, index) => 24 + index,
+        ),
+      );
       expect(replay.incompleteReason).toBe("replacement_exhausted");
       expect(replay.artifactIds).toHaveLength(0);
       expect(replay.receipts.every((receipt) => receipt.ordinal <= 34)).toBe(
         true,
       );
-      expect(codex.semanticLaunches).toBe(2);
+      expect(codex.semanticLaunches).toBe(
+        CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
+      );
     },
   );
 
   it("rejects a missing persisted structural artifact before a verifier launch", async () => {
     // Given
     const { codex, prepared } = await preparedRound();
-    const audit = createSqliteSemanticAudit(prepared.options);
+    const audit = createPostgresSemanticAudit(prepared.options);
 
     // When
     const staged = await audit.stage({
@@ -759,7 +757,7 @@ describe("schema-bound semantic evidence verifier", () => {
   it("rejects caller text for a sealed question identity", async () => {
     // Given
     const { codex, prepared, structuralAudit } = await preparedRound();
-    const audit = createSqliteSemanticAudit(prepared.options);
+    const audit = createPostgresSemanticAudit(prepared.options);
     const questionId = QuestionIdSchema.parse(
       "00000000-0000-4000-8000-000000000905",
     );

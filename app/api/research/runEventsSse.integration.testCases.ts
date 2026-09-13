@@ -24,9 +24,9 @@ describe("durable run event SSE command integration", () => {
     const value = await harness();
     const run = await createCommandRun(value, "sse-question-parent");
     const publication = await publishRun(value, run);
-    const highWater = databaseScalar(
+    const highWater = await databaseScalar(
       value,
-      "SELECT last_event_seq FROM runs WHERE run_id = ?",
+      "SELECT last_event_seq FROM runs WHERE run_id = $1",
       run.runId,
     );
 
@@ -46,9 +46,9 @@ describe("durable run event SSE command integration", () => {
     expect(eventId((await readChunk(reader)) ?? "")).toBe(1);
     expect((await reader.read()).done).toBe(true);
     expect(
-      databaseScalar(
+      await databaseScalar(
         value,
-        "SELECT last_event_seq FROM runs WHERE run_id = ?",
+        "SELECT last_event_seq FROM runs WHERE run_id = $1",
         run.runId,
       ),
     ).toBe(highWater);
@@ -92,7 +92,7 @@ describe("durable run event SSE command integration", () => {
       markStarted = resolve;
     });
     const engine = createLeaseEngine({
-      databasePath: value.databasePath,
+      pool: value.database,
       ownerId: "sse-worker-cancel",
       handler: {
         run: async (_attempt, signal) => {
@@ -119,10 +119,10 @@ describe("durable run event SSE command integration", () => {
       const spawnCursor = await readChunk(reader);
       const cancelling = await readChunk(reader);
       const terminal = await readChunk(reader);
-      const eventKinds = databaseScalar(
+      const eventKinds = await databaseScalar(
         value,
-        `SELECT group_concat(event_type, ',') FROM run_events
-        WHERE run_id = ? ORDER BY sequence`,
+        `SELECT string_agg(event_type, ',' ORDER BY sequence) FROM run_events
+        WHERE run_id = $1`,
         run.runId,
       );
 
@@ -148,7 +148,7 @@ describe("durable run event SSE command integration", () => {
     const value = await harness();
     const run = await createCommandRun(value, "sse-runtime-retry-parent");
     const engine = createLeaseEngine({
-      databasePath: value.databasePath,
+      pool: value.database,
       ownerId: "sse-runtime-retry",
       handler: {
         run: async () => ({

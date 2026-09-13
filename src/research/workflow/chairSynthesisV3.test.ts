@@ -1,8 +1,7 @@
-import Database from "better-sqlite3";
 import { describe, expect, it, vi } from "vitest";
 import { ArtifactDigestSchema } from "../ports/artifacts";
-import { publishAuthoritativeReportForRun } from "../server/persistence/sqlite/publishAuthoritativeReportForRun";
-import { createSqliteChairSynthesis } from "./chairSynthesis";
+import { publishAuthoritativeReportForRun } from "../server/persistence/postgres/publishAuthoritativeReportForRun";
+import { createPostgresChairSynthesis } from "./chairSynthesis";
 import { createPreparedChairRound } from "./chairSynthesis.testSupport";
 import {
   ChairSynthesisV3ModelOutputSchema,
@@ -250,7 +249,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     async (sourceLocale) => {
       const prepared = await createPreparedChairRound("none", sourceLocale);
       try {
-        const chair = createSqliteChairSynthesis({
+        const chair = createPostgresChairSynthesis({
           ...prepared.options,
           workflowVersion: "workflow-v3",
         });
@@ -266,14 +265,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
         expect(prepared.codex.chairPrompts[0]).toContain(
           `"sourceLocale":"${sourceLocale}"`,
         );
-        const database = new Database(prepared.options.databasePath, {
-          readonly: true,
-        });
-        const row = database
-          .prepare(`SELECT artifacts.content_hash FROM artifacts
-          WHERE artifacts.artifact_id = ?`)
-          .get(replay.artifactIds[0]) as { readonly content_hash: string };
-        database.close();
+        const database = prepared.options.database;
+        const row = (
+          await database.query(
+            "SELECT artifacts.content_hash FROM artifacts\n          WHERE artifacts.artifact_id = $1",
+            [replay.artifactIds[0]],
+          )
+        ).rows[0] as { readonly content_hash: string };
+
         const stored = await prepared.options.cas.get(
           ArtifactDigestSchema.parse(row.content_hash),
         );
@@ -309,7 +308,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
         ko: source,
       });
       try {
-        const chair = createSqliteChairSynthesis({
+        const chair = createPostgresChairSynthesis({
           ...prepared.options,
           workflowVersion: "workflow-v3",
         });
@@ -318,15 +317,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
         await chair.close();
         expect(replay.publishable, JSON.stringify(replay)).toBe(true);
         expect(prepared.codex.chairLaunches).toBe(1);
-        const database = new Database(prepared.options.databasePath, {
-          readonly: true,
-        });
-        const row = database
-          .prepare(
-            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+        const database = prepared.options.database;
+        const row = (
+          await database.query(
+            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = $1",
+            [replay.artifactIds[0]],
           )
-          .get(replay.artifactIds[0]) as { readonly envelope_json: string };
-        database.close();
+        ).rows[0] as { readonly envelope_json: string };
+
         const payload = JSON.parse(row.envelope_json).payload;
         const brief = payload.sections.find(
           (section: { readonly sectionKey: string }) =>
@@ -356,38 +354,38 @@ describe("workflow-v3 canonical chair synthesis", () => {
         en: text,
         ko: text,
       });
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
-        publishReport: (request) =>
-          publishAuthoritativeReportForRun(prepared.options, request),
+        publishReport: async (request) =>
+          await publishAuthoritativeReportForRun(prepared.options, request),
       });
       try {
         expect(await chair.stage({ runId: prepared.runId })).toEqual({
           kind: "staged",
         });
         await chair.drain(prepared.runId);
-        const database = new Database(prepared.options.databasePath, {
-          readonly: true,
-        });
+        const database = prepared.options.database;
         try {
           expect(
-            database
-              .prepare(`SELECT status, report_id,
-            (SELECT COUNT(*) FROM report_versions) AS versions,
-            (SELECT COUNT(*) FROM run_events WHERE event_type = 'report_published') AS publications
-            FROM runs WHERE run_id = ?`)
-              .get(prepared.runId),
+            (
+              await database.query(
+                "SELECT status, report_id,\n            (SELECT COUNT(*)::integer FROM report_versions) AS versions,\n            (SELECT COUNT(*)::integer FROM run_events WHERE event_type = 'report_published') AS publications\n            FROM runs WHERE run_id = $1",
+                [prepared.runId],
+              )
+            ).rows[0],
           ).toMatchObject({
             status: "complete-with-limitations",
             report_id: expect.any(String),
             versions: 1,
             publications: 1,
           });
-          const row = database
-            .prepare(`SELECT envelope_json FROM agent_output_commits
-            JOIN artifacts USING(artifact_id) WHERE logical_key = 'chair_synthesis:chair'`)
-            .get() as { envelope_json: string };
+          const row = (
+            await database.query(
+              "SELECT envelope_json FROM agent_output_commits\n            JOIN artifacts USING(artifact_id) WHERE logical_key = 'chair_synthesis:chair'",
+              [],
+            )
+          ).rows[0] as { envelope_json: string };
           const payload = JSON.parse(row.envelope_json).payload;
           expect(payload.decisionBrief.decisiveReason[sourceLocale]).toContain(
             "66.24%",
@@ -397,7 +395,6 @@ describe("workflow-v3 canonical chair synthesis", () => {
           );
           expect(prepared.codex.chairLaunches).toBe(1);
         } finally {
-          database.close();
         }
       } finally {
         await chair.close();
@@ -418,7 +415,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     async (fault, expectedText) => {
       const prepared = await createPreparedChairRound(fault);
       try {
-        const chair = createSqliteChairSynthesis({
+        const chair = createPostgresChairSynthesis({
           ...prepared.options,
           workflowVersion: "workflow-v3",
         });
@@ -427,15 +424,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
         await chair.close();
         expect(replay.publishable, JSON.stringify(replay)).toBe(true);
         expect(prepared.codex.chairLaunches).toBe(1);
-        const database = new Database(prepared.options.databasePath, {
-          readonly: true,
-        });
-        const row = database
-          .prepare(
-            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+        const database = prepared.options.database;
+        const row = (
+          await database.query(
+            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = $1",
+            [replay.artifactIds[0]],
           )
-          .get(replay.artifactIds[0]) as { readonly envelope_json: string };
-        database.close();
+        ).rows[0] as { readonly envelope_json: string };
+
         const canonical = JSON.parse(row.envelope_json).payload
           .canonicalNarrativeV3;
         expect(JSON.stringify(canonical)).not.toMatch(/buy now/iu);
@@ -454,7 +450,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     async (fault, forbidden) => {
       const prepared = await createPreparedChairRound(fault);
       try {
-        const chair = createSqliteChairSynthesis({
+        const chair = createPostgresChairSynthesis({
           ...prepared.options,
           workflowVersion: "workflow-v3",
         });
@@ -462,15 +458,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
         const replay = await chair.drain(prepared.runId);
         await chair.close();
         expect(replay.publishable, JSON.stringify(replay)).toBe(true);
-        const database = new Database(prepared.options.databasePath, {
-          readonly: true,
-        });
-        const row = database
-          .prepare(
-            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+        const database = prepared.options.database;
+        const row = (
+          await database.query(
+            "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = $1",
+            [replay.artifactIds[0]],
           )
-          .get(replay.artifactIds[0]) as { readonly envelope_json: string };
-        database.close();
+        ).rows[0] as { readonly envelope_json: string };
+
         const canonical = JSON.parse(row.envelope_json).payload
           .canonicalNarrativeV3;
         expect(JSON.stringify(canonical)).not.toMatch(forbidden);
@@ -489,7 +484,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
       "v3_lineage_metadata_mismatch",
     );
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });
@@ -505,7 +500,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
   it("preserves substantive caution instead of replacing it with a generic verdict", async () => {
     const prepared = await createPreparedChairRound("v3_hedge_twice");
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });
@@ -514,15 +509,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
       await chair.close();
       expect(replay.publishable, JSON.stringify(replay)).toBe(true);
       expect(prepared.codex.chairLaunches).toBe(1);
-      const database = new Database(prepared.options.databasePath, {
-        readonly: true,
-      });
-      const row = database
-        .prepare(
-          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+      const database = prepared.options.database;
+      const row = (
+        await database.query(
+          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = $1",
+          [replay.artifactIds[0]],
         )
-        .get(replay.artifactIds[0]) as { readonly envelope_json: string };
-      database.close();
+      ).rows[0] as { readonly envelope_json: string };
+
       const canonical = JSON.parse(row.envelope_json).payload
         .canonicalNarrativeV3;
       const publishedCore = [
@@ -550,7 +544,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
           "chair_v3_grounding_failed:invalid_directional_brief",
         );
       });
-    const chair = createSqliteChairSynthesis({
+    const chair = createPostgresChairSynthesis({
       ...prepared.options,
       workflowVersion: "workflow-v3",
     });
@@ -559,15 +553,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
       await chair.drain(prepared.runId);
       expect(projection).toHaveBeenCalledTimes(2);
       expect(prepared.codex.chairLaunches).toBe(1);
-      const database = new Database(prepared.options.databasePath, {
-        readonly: true,
-      });
+      const database = prepared.options.database;
       try {
-        const events = database
-          .prepare(
-            "SELECT event_type, payload_json FROM run_events WHERE run_id = ?",
+        const events = (
+          await database.query(
+            "SELECT event_type, payload_json FROM run_events WHERE run_id = $1",
+            [prepared.runId],
           )
-          .all(prepared.runId);
+        ).rows;
         expect(JSON.stringify(events)).toContain(
           "chair_v3_grounding_failed:invalid_directional_brief",
         );
@@ -575,12 +568,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
           "logical_artifact_replacement_exhausted",
         );
         expect(
-          database
-            .prepare("SELECT report_id FROM runs WHERE run_id = ?")
-            .get(prepared.runId),
+          (
+            await database.query(
+              "SELECT report_id FROM runs WHERE run_id = $1",
+              [prepared.runId],
+            )
+          ).rows[0],
         ).toEqual({ report_id: null });
       } finally {
-        database.close();
       }
     } finally {
       projection.mockRestore();
@@ -592,7 +587,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
   it("publishes a grounded deterministic chair fallback when model output is invalid", async () => {
     const prepared = await createPreparedChairRound("invalid");
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });
@@ -605,15 +600,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
       // Regression guard for the deterministicChairV3Fallback double-assignment
       // fix: every team view's rationale must come from a source distinct
       // from its position, never a duplicate of it.
-      const database = new Database(prepared.options.databasePath, {
-        readonly: true,
-      });
-      const row = database
-        .prepare(
-          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+      const database = prepared.options.database;
+      const row = (
+        await database.query(
+          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = $1",
+          [replay.artifactIds[0]],
         )
-        .get(replay.artifactIds[0]) as { readonly envelope_json: string };
-      database.close();
+      ).rows[0] as { readonly envelope_json: string };
+
       const teamViews = JSON.parse(row.envelope_json).payload
         .canonicalNarrativeV3.teamViews as readonly {
         readonly departmentId: string;
@@ -643,7 +637,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
       .spyOn(process.stdout, "write")
       .mockImplementation(() => true);
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });
@@ -665,15 +659,14 @@ describe("workflow-v3 canonical chair synthesis", () => {
       expect(recoveredEvents[0]).toContain(
         "chair_v3_team_view_position_rationale_duplicate:market",
       );
-      const database = new Database(prepared.options.databasePath, {
-        readonly: true,
-      });
-      const row = database
-        .prepare(
-          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = ?",
+      const database = prepared.options.database;
+      const row = (
+        await database.query(
+          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = $1",
+          [replay.artifactIds[0]],
         )
-        .get(replay.artifactIds[0]) as { readonly envelope_json: string };
-      database.close();
+      ).rows[0] as { readonly envelope_json: string };
+
       const teamViews = JSON.parse(row.envelope_json).payload
         .canonicalNarrativeV3.teamViews as readonly {
         readonly departmentId: string;
@@ -701,7 +694,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     // sentence), not the archived duplicate.
     const prepared = await createPreparedChairRound("none");
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });
@@ -750,7 +743,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     // fail loud (chair_v3_-prefixed throw), never fabricate a third value.
     const prepared = await createPreparedChairRound("none");
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });
@@ -808,7 +801,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     // position's.
     const prepared = await createPreparedChairRound("none");
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });
@@ -895,7 +888,7 @@ describe("workflow-v3 canonical chair synthesis", () => {
     // rewrite in this function uses.
     const prepared = await createPreparedChairRound("none");
     try {
-      const chair = createSqliteChairSynthesis({
+      const chair = createPostgresChairSynthesis({
         ...prepared.options,
         workflowVersion: "workflow-v3",
       });

@@ -58,8 +58,8 @@ const adversarialFixtures = [
       "src/research/client.ts":
         '"use client";\nimport "@/src/research/clientBridge";\n',
       "src/research/clientBridge.ts":
-        'import "@/src/research/server/sqliteAdapter";\n',
-      "src/research/server/sqliteAdapter.ts": "export const adapter = 1;\n",
+        'import "@/src/research/server/postgresAdapter";\n',
+      "src/research/server/postgresAdapter.ts": "export const adapter = 1;\n",
     },
     violation: "CLIENT_SERVER_ADAPTER_IMPORT",
   },
@@ -68,7 +68,7 @@ const adversarialFixtures = [
     files: {
       "src/research/domain/model.ts": 'import "@/src/research/domainBridge";\n',
       "src/research/domainBridge.ts":
-        'import "next";\nimport "node:fs";\nimport "better-sqlite3";\nimport "commander";\n',
+        'import "next";\nimport "node:fs";\nimport "pg";\nimport "commander";\n',
     },
     violation: "DOMAIN_INFRASTRUCTURE_IMPORT",
   },
@@ -89,7 +89,7 @@ const adversarialFixtures = [
   {
     name: "adapter calls a transitively re-exported aliased workflow transition",
     files: {
-      "src/research/adapters/sqlite.ts":
+      "src/research/adapters/postgres.ts":
         'import { apply } from "../sharedTransition";\napply();\n',
       "src/research/sharedTransition.ts":
         'export { transitionRun as apply } from "./domain/runStateTransitions";\n',
@@ -179,7 +179,7 @@ describe("live research architecture boundaries", () => {
   it("allows adapter transition tokens in comments and type positions", async () => {
     // Given
     const rootDir = await createProject({
-      "src/research/adapters/sqlite.ts":
+      "src/research/adapters/postgres.ts":
         "export type TransitionShape = { readonly transitionRun: string };\n// transitionJob is application-owned.\n",
     });
 

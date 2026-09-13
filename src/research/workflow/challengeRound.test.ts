@@ -3,11 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createOfficialAttemptHandler } from "../compositions/officialWorker";
+import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { ArtifactIdSchema, RunIdSchema } from "../domain/ids";
 import { createLeaseEngine } from "../worker/leaseEngine";
 import {
   CHALLENGE_ASSIGNMENTS,
-  createSqliteChallengeRound,
+  createPostgresChallengeRound,
 } from "./challengeRound";
 import {
   type ChallengeFault,
@@ -34,7 +35,7 @@ describe("blind challenge round", () => {
   it("commits exactly four assigned blind material challenges with bounded follow-ups", async () => {
     // Given
     const prepared = await stageAcceptedDepartments(temporaryRoot(), "none");
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
 
     // When
     const staged = await round.stage({
@@ -133,7 +134,7 @@ describe("blind challenge round", () => {
   it("blocks a cross-run or unknown consolidation before any challenge launch", async () => {
     // Given
     const prepared = await stageAcceptedDepartments(temporaryRoot(), "none");
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
     const ids = prepared.departmentReplay.artifactIds.map((id) =>
       ArtifactIdSchema.parse(id),
     );
@@ -144,7 +145,7 @@ describe("blind challenge round", () => {
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       consolidationArtifactIds: ids,
     });
-    const replay = round.replay(prepared.harness.input.mandate.runId);
+    const replay = await round.replay(prepared.harness.input.mandate.runId);
     await round.close();
 
     // Then
@@ -160,7 +161,7 @@ describe("blind challenge round", () => {
   it("rejects an attempted fifth challenge before durable staging", async () => {
     // Given
     const prepared = await stageAcceptedDepartments(temporaryRoot(), "none");
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
     const ids = prepared.departmentReplay.artifactIds.map((id) =>
       ArtifactIdSchema.parse(id),
     );
@@ -173,7 +174,7 @@ describe("blind challenge round", () => {
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       consolidationArtifactIds: [...ids, first],
     });
-    const replay = round.replay(prepared.harness.input.mandate.runId);
+    const replay = await round.replay(prepared.harness.input.mandate.runId);
     await round.close();
 
     // Then
@@ -197,7 +198,7 @@ describe("blind challenge round", () => {
     async (fault: ChallengeFault) => {
       // Given
       const prepared = await stageAcceptedDepartments(temporaryRoot(), fault);
-      const round = createSqliteChallengeRound(prepared.options);
+      const round = createPostgresChallengeRound(prepared.options);
       await round.stage({
         runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
         consolidationArtifactIds: prepared.departmentReplay.artifactIds.map(
@@ -213,10 +214,12 @@ describe("blind challenge round", () => {
       expect(replay.responseStartAllowed).toBe(false);
       expect(replay.committedChallengerIds).not.toContain("market");
       expect(replay.artifactIds).toHaveLength(3);
-      expect(replay.receipts).toHaveLength(5);
+      expect(replay.receipts).toHaveLength(
+        3 + CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
+      );
       expect(
         replay.receipts.filter((receipt) => receipt.challengerId === "market"),
-      ).toHaveLength(2);
+      ).toHaveLength(CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact);
       expect(replay.eventSequences).toHaveLength(3);
     },
   );
@@ -225,7 +228,7 @@ describe("blind challenge round", () => {
     // Given
     const root = temporaryRoot();
     const prepared = await stageAcceptedDepartments(root, "none");
-    const staging = createSqliteChallengeRound(prepared.options);
+    const staging = createPostgresChallengeRound(prepared.options);
     await staging.stage({
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       consolidationArtifactIds: prepared.departmentReplay.artifactIds.map(
@@ -236,7 +239,7 @@ describe("blind challenge round", () => {
     const official = await createOfficialAttemptHandler(
       {
         dataDirectory: root,
-        databasePath: prepared.options.databasePath,
+        database: prepared.options.database,
         ownerId: prepared.options.ownerId,
       },
       {
@@ -246,7 +249,7 @@ describe("blind challenge round", () => {
       },
     );
     const engine = createLeaseEngine({
-      databasePath: prepared.options.databasePath,
+      pool: prepared.options.database,
       ownerId: prepared.options.ownerId,
       handler: official.handler,
       clock: { now: prepared.options.now },
@@ -256,8 +259,10 @@ describe("blind challenge round", () => {
     const result = await engine.poll();
     await engine.shutdown();
     await official.close();
-    const verification = createSqliteChallengeRound(prepared.options);
-    const replay = verification.replay(prepared.harness.input.mandate.runId);
+    const verification = createPostgresChallengeRound(prepared.options);
+    const replay = await verification.replay(
+      prepared.harness.input.mandate.runId,
+    );
     await verification.close();
 
     // Then

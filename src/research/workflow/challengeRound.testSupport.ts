@@ -21,14 +21,15 @@ import {
 } from "./challengeRoundBlindness.testSupport";
 import type { ChallengeJobPrompt } from "./challengeRoundContracts";
 import { ChallengeJobPromptSchema } from "./challengeRoundContracts";
-import { createSqliteDepartmentRound } from "./departmentRound";
+import { createPostgresDepartmentRound } from "./departmentRound";
 import {
   departmentCandidate,
   specialistCandidate,
 } from "./departmentRoundCandidates.testSupport";
 import { DepartmentJobPromptSchema } from "./departmentRoundContracts";
-import { createSqliteSpecialistRound } from "./specialistRoundSqlite";
-import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
+import { workflowTestDatabase } from "./postgresDatabase.testSupport";
+import { createPostgresSpecialistRound } from "./specialistRoundPostgres";
+import { makePostgresRoundHarness } from "./specialistRoundPostgres.testSupport";
 
 export type { ChallengeFault } from "./challengeRoundBlindness.testSupport";
 
@@ -162,7 +163,7 @@ export class ChallengeCodexFake implements CodexPort {
   ): Promise<CodexRunResult<Candidate>> {
     this.active += 1;
     this.maximumActive = Math.max(this.maximumActive, this.active);
-    await Promise.resolve();
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
     let rawCandidate: unknown;
     if (input.stage === "department_consolidation") {
       const request = DepartmentJobPromptSchema.parse(JSON.parse(input.prompt));
@@ -246,26 +247,26 @@ async function stageAcceptedDepartmentsBase(
   fault: ChallengeFault,
   providedCodex?: CodexPort,
 ) {
-  const harness = await makeSqliteRoundHarness("none");
+  const harness = await makePostgresRoundHarness("none");
   const codex = providedCodex ?? new ChallengeCodexFake(fault);
   const options = {
-    databasePath: `${root}/research.sqlite`,
+    database: await workflowTestDatabase(),
     attemptRoot: `${root}/attempts`,
     ownerId: "challenge-worker",
     cas: harness.cas,
     codex,
     now: () => "2026-07-23T00:00:00.000Z",
   };
-  const specialists = createSqliteSpecialistRound(options);
+  const specialists = await createPostgresSpecialistRound(options);
   await specialists.stage(harness.input, harness.sources);
   await specialists.drain(harness.input.mandate.runId);
   await specialists.close();
-  const departments = createSqliteDepartmentRound(options);
+  const departments = createPostgresDepartmentRound(options);
   await departments.stage({
     runId: RunIdSchema.parse(harness.input.mandate.runId),
-    memberArtifactIds: departments
-      .acceptedMemos(harness.input.mandate.runId)
-      .map((memo) => memo.artifactId),
+    memberArtifactIds: (
+      await departments.acceptedMemos(harness.input.mandate.runId)
+    ).map((memo) => memo.artifactId),
   });
   const departmentReplay = await departments.drain(harness.input.mandate.runId);
   await departments.close();

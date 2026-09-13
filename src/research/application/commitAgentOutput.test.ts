@@ -1,8 +1,5 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
+import { createResearchTestDatabase } from "../../test/researchPostgres";
 import { MemoOutputSchema } from "../domain/agentOutputs";
 import { canonicalJson, hashBytes } from "../domain/contractHelpers";
 import {
@@ -22,9 +19,9 @@ import type {
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { StrictArtifactCasFake } from "../ports/test/serviceFakes";
 import { CODEX_RUNTIME_PINS } from "../server/codex/codexPolicy";
-import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
-import { SqliteLeaseEngineStore } from "../worker/leaseEngineSqlite";
+import { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
+import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
+import { PostgresLeaseEngineStore } from "../worker/leaseEnginePostgres";
 import { commitAgentOutput } from "./commitAgentOutput";
 
 const id = (value: number): string =>
@@ -190,15 +187,15 @@ class MemoryCommitStore implements AgentOutputCommitStorePort {
   }
 }
 
-function createSqliteCommitFixture(
-  prefix: string,
+async function createPostgresCommitFixture(
+  _prefix: string,
   eventBase: number,
   transcriptHash = "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
 ) {
-  const directory = mkdtempSync(join(tmpdir(), prefix));
-  const path = join(directory, "workflow.sqlite");
-  const store = openSqliteStore(path);
-  store.createRun({
+  const temporary = await createResearchTestDatabase();
+  const database = temporary.pool;
+  const store = await openPostgresStore(database);
+  await store.createRun({
     runId: ids.runId,
     snapshotId: ids.snapshotId,
     requestedAt: "2026-07-23T00:00:00.000Z",
@@ -217,7 +214,7 @@ function createSqliteCommitFixture(
       occurredAt: "2026-07-23T00:00:00.000Z",
     },
   });
-  store.saveArtifactMetadata({
+  await store.saveArtifactMetadata({
     artifactId: ids.sourceArtifactId,
     runId: ids.runId,
     snapshotId: ids.snapshotId,
@@ -229,35 +226,35 @@ function createSqliteCommitFixture(
     createdAt: "2026-07-23T00:00:00.000Z",
     locator,
   });
-  const citationBindingStore = new SqliteAgentOutputCommitStore(path);
-  citationBindingStore.bindJobInputArtifact({
+  const citationBindingStore = new PostgresAgentOutputCommitStore(database);
+  await citationBindingStore.bindJobInputArtifact({
     jobId: ids.jobId,
     artifactId: ids.sourceArtifactId,
   });
-  citationBindingStore.close();
-  store.close();
-  const engine = new SqliteLeaseEngineStore(path);
+  await citationBindingStore.close();
+  await store.close();
+  const engine = new PostgresLeaseEngineStore(database);
   expect(
-    engine.activateNextRun(id(eventBase + 1), "2026-07-23T00:00:01.000Z"),
+    await engine.activateNextRun(id(eventBase + 1), "2026-07-23T00:00:01.000Z"),
   ).toBe(true);
-  const claim = engine.claim(
+  const claim = await engine.claim(
     "worker-a",
     "2026-07-23T00:00:01.000Z",
     "2026-07-23T00:01:00.000Z",
   );
   if (claim === undefined) throw new RangeError("fixture lease missing");
   expect(
-    engine.reserve({
+    await engine.reserve({
       claim,
       attemptId: ids.attemptId,
       eventId: id(eventBase + 2),
       now: "2026-07-23T00:00:02.000Z",
     }),
   ).toEqual({ kind: "reserved", ordinal: 1 });
-  engine.close();
-  const commitStore = new SqliteAgentOutputCommitStore(path);
+  await engine.close();
+  const commitStore = new PostgresAgentOutputCommitStore(database);
   expect(
-    commitStore.recordRunnerEvidence({
+    await commitStore.recordRunnerEvidence({
       runId: ids.runId,
       jobId: ids.jobId,
       attemptId: ids.attemptId,
@@ -278,10 +275,10 @@ function createSqliteCommitFixture(
     }),
   ).toBe(true);
   return {
-    directory,
-    path,
+    database,
+    close: temporary.close,
     commitStore,
-    sqliteCommand: {
+    postgresCommand: {
       ...command(),
       claim: {
         key: command().claim.key,
@@ -296,7 +293,7 @@ describe("commitAgentOutput", () => {
   it("commits a citation only when its web artifact is fenced to the attempt transcript", async () => {
     // Given
     const transcriptHash = hash("9");
-    const fixture = createSqliteCommitFixture(
+    const fixture = await createPostgresCommitFixture(
       "stocksembly-web-citation-",
       80,
       transcriptHash,
@@ -313,8 +310,8 @@ describe("commitAgentOutput", () => {
       bytes: webBytes,
     });
     expect(
-      fixture.commitStore.registerAttemptWebEvidence({
-        claim: fixture.sqliteCommand.claim,
+      await fixture.commitStore.registerAttemptWebEvidence({
+        claim: fixture.postgresCommand.claim,
         transcriptHash,
         now: "2026-07-23T00:00:02.750Z",
         artifacts: [
@@ -342,20 +339,20 @@ describe("commitAgentOutput", () => {
       // When
       const result = await commitAgentOutput(
         { cas, store: fixture.commitStore },
-        { ...fixture.sqliteCommand, candidate: webCandidate },
+        { ...fixture.postgresCommand, candidate: webCandidate },
       );
 
       // Then
       expect(result).toMatchObject({ kind: "committed" });
     } finally {
-      fixture.commitStore.close();
-      rmSync(fixture.directory, { recursive: true, force: true });
+      await fixture.commitStore.close();
+      await fixture.close();
     }
   });
 
   it("reserves a corrective attempt for a citation that was not bound to the attempt", async () => {
     // Given
-    const fixture = createSqliteCommitFixture(
+    const fixture = await createPostgresCommitFixture(
       "stocksembly-uncaptured-web-",
       90,
       hash("9"),
@@ -383,7 +380,7 @@ describe("commitAgentOutput", () => {
       // When
       const result = await commitAgentOutput(
         { cas, store: fixture.commitStore },
-        { ...fixture.sqliteCommand, candidate: webCandidate },
+        { ...fixture.postgresCommand, candidate: webCandidate },
       );
 
       // Then
@@ -394,8 +391,8 @@ describe("commitAgentOutput", () => {
         allowedArtifactIds: [ids.sourceArtifactId],
       });
     } finally {
-      fixture.commitStore.close();
-      rmSync(fixture.directory, { recursive: true, force: true });
+      await fixture.commitStore.close();
+      await fixture.close();
     }
   });
 
@@ -750,12 +747,12 @@ describe("commitAgentOutput", () => {
     expect(store.events).toEqual([]);
   });
 
-  it("commits CAS metadata, edges, fenced states, and one event in real SQLite", async () => {
+  it("commits CAS metadata, edges, fenced states, and one event in real PostgreSQL", async () => {
     // Given
-    const directory = mkdtempSync(join(tmpdir(), "stocksembly-agent-commit-"));
-    const path = join(directory, "workflow.sqlite");
-    const store = openSqliteStore(path);
-    store.createRun({
+    const temporary = await createResearchTestDatabase();
+    const database = temporary.pool;
+    const store = await openPostgresStore(database);
+    await store.createRun({
       runId: ids.runId,
       snapshotId: ids.snapshotId,
       requestedAt: "2026-07-23T00:00:00.000Z",
@@ -774,7 +771,7 @@ describe("commitAgentOutput", () => {
         occurredAt: "2026-07-23T00:00:00.000Z",
       },
     });
-    store.saveArtifactMetadata({
+    await store.saveArtifactMetadata({
       artifactId: ids.sourceArtifactId,
       runId: ids.runId,
       snapshotId: ids.snapshotId,
@@ -786,34 +783,34 @@ describe("commitAgentOutput", () => {
       createdAt: "2026-07-23T00:00:00.000Z",
       locator,
     });
-    const citationBindingStore = new SqliteAgentOutputCommitStore(path);
-    citationBindingStore.bindJobInputArtifact({
+    const citationBindingStore = new PostgresAgentOutputCommitStore(database);
+    await citationBindingStore.bindJobInputArtifact({
       jobId: ids.jobId,
       artifactId: ids.sourceArtifactId,
     });
-    citationBindingStore.close();
-    store.close();
-    const engine = new SqliteLeaseEngineStore(path);
-    expect(engine.activateNextRun(id(42), "2026-07-23T00:00:01.000Z")).toBe(
-      true,
-    );
-    const claim = engine.claim(
+    await citationBindingStore.close();
+    await store.close();
+    const engine = new PostgresLeaseEngineStore(database);
+    expect(
+      await engine.activateNextRun(id(42), "2026-07-23T00:00:01.000Z"),
+    ).toBe(true);
+    const claim = await engine.claim(
       "worker-a",
       "2026-07-23T00:00:01.000Z",
       "2026-07-23T00:01:00.000Z",
     );
     if (claim === undefined) throw new RangeError("fixture lease missing");
-    const reservation = engine.reserve({
+    const reservation = await engine.reserve({
       claim,
       attemptId: ids.attemptId,
       eventId: id(41),
       now: "2026-07-23T00:00:02.000Z",
     });
     expect(reservation).toEqual({ kind: "reserved", ordinal: 1 });
-    engine.close();
-    const commitStore = new SqliteAgentOutputCommitStore(path);
+    await engine.close();
+    const commitStore = new PostgresAgentOutputCommitStore(database);
     expect(
-      commitStore.recordRunnerEvidence({
+      await commitStore.recordRunnerEvidence({
         runId: ids.runId,
         jobId: ids.jobId,
         attemptId: ids.attemptId,
@@ -834,8 +831,8 @@ describe("commitAgentOutput", () => {
           "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
       }),
     ).toBe(true);
-    const verificationStore = openSqliteStore(path);
-    const sqliteCommand = {
+    const verificationStore = await openPostgresStore(database);
+    const postgresCommand = {
       ...command(),
       claim: {
         key: command().claim.key,
@@ -849,24 +846,24 @@ describe("commitAgentOutput", () => {
       const cas = await casWithSource();
       const result = await commitAgentOutput(
         { cas, store: commitStore },
-        sqliteCommand,
+        postgresCommand,
       );
       const replay = await commitAgentOutput(
         { cas, store: commitStore },
-        sqliteCommand,
+        postgresCommand,
       );
 
       // Then
       expect(result).toEqual({ kind: "committed", sequence: 4 });
       expect(replay).toEqual({ kind: "duplicate" });
-      expect(verificationStore.findAttempt(ids.attemptId)).toMatchObject({
+      expect(await verificationStore.findAttempt(ids.attemptId)).toMatchObject({
         status: "succeeded",
         outcome: "accepted",
         ordinal: 1,
       });
-      const publicCommit = verificationStore
-        .eventsAfter(ids.runId, 0)
-        .find((event) => event.type === "specialist_memo_committed");
+      const publicCommit = (
+        await verificationStore.eventsAfter(ids.runId, 0)
+      ).find((event) => event.type === "specialist_memo_committed");
       expect(publicCommit?.payload).toEqual({
         schemaVersion: "workflow-v1",
         artifactId: ids.artifactId,
@@ -885,75 +882,60 @@ describe("commitAgentOutput", () => {
       expect(JSON.stringify(publicCommit?.payload)).not.toMatch(
         /prompt|reasoning|stderr|token/i,
       );
-      const provenanceDatabase = new Database(path, { readonly: true });
-      try {
-        expect(
-          provenanceDatabase
-            .prepare<
-              [string],
-              {
-                model: string;
-                reasoning: string;
-                browsing_policy: string;
-                tool_transcript_hash: string;
-              }
-            >(`SELECT model, reasoning, browsing_policy, tool_transcript_hash
-              FROM agent_runner_evidence WHERE attempt_id = ?`)
-            .get(ids.attemptId),
-        ).toEqual({
-          model: "gpt-5.6-luna",
-          reasoning: "low",
-          browsing_policy: "audited_web",
-          tool_transcript_hash:
-            "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
-        });
-      } finally {
-        provenanceDatabase.close();
-      }
+      const provenanceDatabase = database;
+      expect(
+        (
+          await provenanceDatabase.query(
+            `SELECT model, reasoning, browsing_policy, tool_transcript_hash
+              FROM agent_runner_evidence WHERE attempt_id = $1`,
+            [ids.attemptId],
+          )
+        ).rows[0],
+      ).toEqual({
+        model: "gpt-5.6-luna",
+        reasoning: "low",
+        browsing_policy: "audited_web",
+        tool_transcript_hash:
+          "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      });
     } finally {
-      commitStore.close();
-      verificationStore.close();
-      rmSync(directory, { recursive: true, force: true });
+      await commitStore.close();
+      await verificationStore.close();
+      await temporary.close();
     }
   });
 
-  it("rejects a durable SQLite manifest mismatch without mutating workflow state", async () => {
+  it("rejects a durable PostgreSQL manifest mismatch without mutating workflow state", async () => {
     // Given
-    const fixture = createSqliteCommitFixture(
+    const fixture = await createPostgresCommitFixture(
       "stocksembly-agent-manifest-mismatch-",
       60,
     );
-    const database = new Database(fixture.path);
-    database
-      .prepare(
-        "UPDATE attempts SET input_manifest_hash = ? WHERE attempt_id = ?",
-      )
-      .run(hash("9"), ids.attemptId);
+    const database = fixture.database;
+    await database.query(
+      "UPDATE attempts SET input_manifest_hash = $1 WHERE attempt_id = $2",
+      [hash("9"), ids.attemptId],
+    );
 
     try {
       // When
       const result = await commitAgentOutput(
         { cas: await casWithSource(), store: fixture.commitStore },
-        fixture.sqliteCommand,
+        fixture.postgresCommand,
       );
 
       // Then
       expect(result).toEqual({ kind: "rejected" });
       expect(
-        database
-          .prepare<
-            [string],
-            {
-              attempt_status: string;
-              outcome: string | null;
-              job_status: string;
-              result_artifact_id: string | null;
-            }
-          >(`SELECT attempts.status AS attempt_status, attempts.outcome,
+        (
+          await database.query(
+            `SELECT attempts.status AS attempt_status, attempts.outcome,
             jobs.status AS job_status, jobs.result_artifact_id
             FROM attempts JOIN jobs USING (job_id)
-            WHERE attempts.attempt_id = ?`)
-          .get(ids.attemptId),
+            WHERE attempts.attempt_id = $1`,
+            [ids.attemptId],
+          )
+        ).rows[0],
       ).toEqual({
         attempt_status: "running",
         outcome: null,
@@ -961,71 +943,71 @@ describe("commitAgentOutput", () => {
         result_artifact_id: null,
       });
       expect(
-        database
-          .prepare<[string], { count: number }>(
-            "SELECT COUNT(*) AS count FROM artifacts WHERE artifact_id = ?",
+        (
+          await database.query(
+            "SELECT COUNT(*)::integer AS count FROM artifacts WHERE artifact_id = $1",
+            [ids.artifactId],
           )
-          .get(ids.artifactId),
+        ).rows[0],
       ).toEqual({ count: 0 });
       expect(
-        database
-          .prepare<[string], { count: number }>(
-            "SELECT COUNT(*) AS count FROM run_events WHERE event_type = ?",
+        (
+          await database.query(
+            "SELECT COUNT(*)::integer AS count FROM run_events WHERE event_type = $1",
+            ["specialist_memo_committed"],
           )
-          .get("specialist_memo_committed"),
+        ).rows[0],
       ).toEqual({ count: 0 });
     } finally {
-      database.close();
-      fixture.commitStore.close();
-      rmSync(fixture.directory, { recursive: true, force: true });
+      await fixture.commitStore.close();
+      await fixture.close();
     }
   });
 
-  it("rejects stale SQLite launch evidence without policy provenance", async () => {
+  it("rejects stale PostgreSQL launch evidence without policy provenance", async () => {
     // Given
-    const fixture = createSqliteCommitFixture(
+    const fixture = await createPostgresCommitFixture(
       "stocksembly-agent-stale-provenance-",
       65,
     );
-    const database = new Database(fixture.path);
-    database
-      .prepare(
-        "UPDATE agent_runner_evidence SET model = NULL WHERE attempt_id = ?",
-      )
-      .run(ids.attemptId);
+    const database = fixture.database;
+    await database.query(
+      "UPDATE agent_runner_evidence SET model = NULL WHERE attempt_id = $1",
+      [ids.attemptId],
+    );
 
     try {
       // When
       const result = await commitAgentOutput(
         { cas: await casWithSource(), store: fixture.commitStore },
-        fixture.sqliteCommand,
+        fixture.postgresCommand,
       );
 
       // Then
       expect(result).toEqual({ kind: "rejected" });
       expect(
-        database
-          .prepare<[string], { count: number }>(
-            "SELECT COUNT(*) AS count FROM agent_output_commits WHERE attempt_id = ?",
+        (
+          await database.query(
+            "SELECT COUNT(*)::integer AS count FROM agent_output_commits WHERE attempt_id = $1",
+            [ids.attemptId],
           )
-          .get(ids.attemptId),
+        ).rows[0],
       ).toEqual({ count: 0 });
     } finally {
-      database.close();
-      fixture.commitStore.close();
-      rmSync(fixture.directory, { recursive: true, force: true });
+      await fixture.commitStore.close();
+      await fixture.close();
     }
   });
 
-  it("rolls back every SQLite commit mutation when the final event insert fails", async () => {
+  it("rolls back every PostgreSQL commit mutation when the final event insert fails", async () => {
     // Given
-    const fixture = createSqliteCommitFixture(
+    const fixture = await createPostgresCommitFixture(
       "stocksembly-agent-transaction-rollback-",
       70,
     );
-    const database = new Database(fixture.path);
+    const database = fixture.database;
     const duplicateEventCommand = {
-      ...fixture.sqliteCommand,
+      ...fixture.postgresCommand,
       eventId: EventIdSchema.parse(id(70)),
     } as const;
 
@@ -1036,22 +1018,17 @@ describe("commitAgentOutput", () => {
           { cas: await casWithSource(), store: fixture.commitStore },
           duplicateEventCommand,
         ),
-      ).rejects.toThrow(/UNIQUE constraint failed: run_events\.event_id/);
+      ).rejects.toThrow(/duplicate key/);
       expect(
-        database
-          .prepare<
-            [string],
-            {
-              attempt_status: string;
-              outcome: string | null;
-              job_status: string;
-              result_artifact_id: string | null;
-            }
-          >(`SELECT attempts.status AS attempt_status, attempts.outcome,
+        (
+          await database.query(
+            `SELECT attempts.status AS attempt_status, attempts.outcome,
             jobs.status AS job_status, jobs.result_artifact_id
             FROM attempts JOIN jobs USING (job_id)
-            WHERE attempts.attempt_id = ?`)
-          .get(ids.attemptId),
+            WHERE attempts.attempt_id = $1`,
+            [ids.attemptId],
+          )
+        ).rows[0],
       ).toEqual({
         attempt_status: "running",
         outcome: null,
@@ -1070,33 +1047,34 @@ describe("commitAgentOutput", () => {
               ? "child_artifact_id"
               : "artifact_id";
         expect(
-          database
-            .prepare<[string], { count: number }>(
-              `SELECT COUNT(*) AS count FROM ${table} WHERE ${where} = ?`,
+          (
+            await database.query(
+              `SELECT COUNT(*)::integer AS count FROM ${table} WHERE ${where} = $1`,
+              [ids.artifactId],
             )
-            .get(ids.artifactId),
+          ).rows[0],
         ).toEqual({ count: 0 });
       }
       expect(
-        database
-          .prepare<[string], { count: number }>(
-            "SELECT COUNT(*) AS count FROM run_events WHERE event_type = ?",
+        (
+          await database.query(
+            "SELECT COUNT(*)::integer AS count FROM run_events WHERE event_type = $1",
+            ["specialist_memo_committed"],
           )
-          .get("specialist_memo_committed"),
+        ).rows[0],
       ).toEqual({ count: 0 });
     } finally {
-      database.close();
-      fixture.commitStore.close();
-      rmSync(fixture.directory, { recursive: true, force: true });
+      await fixture.commitStore.close();
+      await fixture.close();
     }
   });
 
   it("persists a malformed ordinal burn and one event-free replacement", async () => {
     // Given
-    const directory = mkdtempSync(join(tmpdir(), "stocksembly-agent-reject-"));
-    const path = join(directory, "workflow.sqlite");
-    const store = openSqliteStore(path);
-    store.createRun({
+    const temporary = await createResearchTestDatabase();
+    const database = temporary.pool;
+    const store = await openPostgresStore(database);
+    await store.createRun({
       runId: ids.runId,
       snapshotId: ids.snapshotId,
       requestedAt: "2026-07-23T00:00:00.000Z",
@@ -1115,25 +1093,25 @@ describe("commitAgentOutput", () => {
         occurredAt: "2026-07-23T00:00:00.000Z",
       },
     });
-    store.close();
-    const engine = new SqliteLeaseEngineStore(path);
-    engine.activateNextRun(id(51), "2026-07-23T00:00:01.000Z");
-    const claim = engine.claim(
+    await store.close();
+    const engine = new PostgresLeaseEngineStore(database);
+    await engine.activateNextRun(id(51), "2026-07-23T00:00:01.000Z");
+    const claim = await engine.claim(
       "worker-a",
       "2026-07-23T00:00:01.000Z",
       "2026-07-23T00:01:00.000Z",
     );
     if (claim === undefined) throw new RangeError("fixture lease missing");
-    engine.reserve({
+    await engine.reserve({
       claim,
       attemptId: ids.attemptId,
       eventId: id(52),
       now: "2026-07-23T00:00:02.000Z",
     });
-    engine.close();
-    const commitStore = new SqliteAgentOutputCommitStore(path);
+    await engine.close();
+    const commitStore = new PostgresAgentOutputCommitStore(database);
     expect(
-      commitStore.recordRunnerEvidence({
+      await commitStore.recordRunnerEvidence({
         runId: ids.runId,
         jobId: ids.jobId,
         attemptId: ids.attemptId,
@@ -1154,7 +1132,7 @@ describe("commitAgentOutput", () => {
           "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
       }),
     ).toBe(true);
-    const verificationStore = openSqliteStore(path);
+    const verificationStore = await openPostgresStore(database);
     const malformedCommand = {
       ...command({ ...candidate, claimedRole: "chair" }),
       claim: {
@@ -1173,17 +1151,19 @@ describe("commitAgentOutput", () => {
 
       // Then
       expect(result).toEqual({ kind: "replacement_reserved", ordinal: 2 });
-      expect(verificationStore.researchOrdinals(ids.runId)).toEqual([1, 2]);
-      expect(verificationStore.findAttempt(ids.attemptId)).toMatchObject({
+      expect(await verificationStore.researchOrdinals(ids.runId)).toEqual([
+        1, 2,
+      ]);
+      expect(await verificationStore.findAttempt(ids.attemptId)).toMatchObject({
         status: "failed",
         outcome: "failed",
         ordinal: 1,
       });
-      expect(verificationStore.eventsAfter(ids.runId, 3)).toEqual([]);
+      expect(await verificationStore.eventsAfter(ids.runId, 3)).toEqual([]);
     } finally {
-      commitStore.close();
-      verificationStore.close();
-      rmSync(directory, { recursive: true, force: true });
+      await commitStore.close();
+      await verificationStore.close();
+      await temporary.close();
     }
   });
 });

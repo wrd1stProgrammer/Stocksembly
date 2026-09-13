@@ -1,43 +1,44 @@
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   activeExecutionCounts,
   researchQueueStatus,
-} from "../server/persistence/sqlite/runExecutionRepository";
-import { LeaseEngineFixture, uuid } from "./leaseEngine.testSupport";
-import { activateNextRun } from "./leaseEngineSqliteAdmission";
-import { claimNextJob } from "./leaseEngineSqliteClaim";
+} from "../server/persistence/postgres/runExecutionRepository";
+import { createLeaseEngineFixture, uuid } from "./leaseEngine.testSupport";
+import { activateNextRun } from "./leaseEnginePostgresAdmission";
+import { claimNextJob } from "./leaseEnginePostgresClaim";
 
 afterEach(() => vi.unstubAllEnvs());
 
 describe("durable research capacity", () => {
-  it("leases ten jobs per subscription run fairly and leaves excess jobs queued", () => {
+  it("leases ten jobs per subscription run fairly and leaves excess jobs queued", async () => {
     vi.stubEnv("STOCKSEMBLY_CODEX_API_ENABLED", "0");
-    const fixture = new LeaseEngineFixture();
-    const db = new Database(fixture.databasePath);
+    const fixture = await createLeaseEngineFixture();
+    const db = fixture.pool;
     try {
-      for (let i = 1; i <= 4; i += 1) fixture.seedResearchJobs(11, i);
-      const claims = Array.from({ length: 40 }, (_, index) =>
-        claimNextJob(
-          db,
-          `load-worker-${index}`,
-          fixture.clock.now(),
-          "2099-01-01T00:00:00.000Z",
-        ),
-      );
+      for (let i = 1; i <= 4; i += 1) await fixture.seedResearchJobs(11, i);
+      const claims = [];
+      for (let index = 0; index < 40; index += 1)
+        claims.push(
+          await claimNextJob(
+            db,
+            `load-worker-${index}`,
+            fixture.clock.now(),
+            "2099-01-01T00:00:00.000Z",
+          ),
+        );
       expect(claims.every((claim) => claim !== undefined)).toBe(true);
       expect(
         new Set(claims.slice(0, 4).map((claim) => claim?.runId)).size,
       ).toBe(4);
       expect(
-        db
-          .prepare(
-            "SELECT COUNT(*) n FROM jobs WHERE status = 'leased' GROUP BY run_id",
+        (
+          await db.query(
+            "SELECT COUNT(*)::integer n FROM jobs WHERE status='leased' GROUP BY run_id",
           )
-          .all(),
+        ).rows,
       ).toEqual([{ n: 10 }, { n: 10 }, { n: 10 }, { n: 10 }]);
       expect(
-        claimNextJob(
+        await claimNextJob(
           db,
           "excess",
           fixture.clock.now(),
@@ -45,67 +46,82 @@ describe("durable research capacity", () => {
         ),
       ).toBeUndefined();
     } finally {
-      db.close();
-      fixture.cleanup();
+      await fixture.cleanup();
     }
   });
 
-  it("assigns four subscription runs and six API runs, then queues the eleventh", () => {
+  it("assigns four subscription runs and six API runs, then queues the eleventh", async () => {
     vi.stubEnv("STOCKSEMBLY_CODEX_API_ENABLED", "1");
     vi.stubEnv(
       "STOCKSEMBLY_CODEX_API_AUTH_PATH",
       "/private/test-api-auth.json",
     );
-    const fixture = new LeaseEngineFixture();
-    const db = new Database(fixture.databasePath);
+    const fixture = await createLeaseEngineFixture();
+    const db = fixture.pool;
     try {
-      const runs = Array.from({ length: 11 }, (_, i) =>
-        fixture.seedResearchJob(i + 1),
+      const runs = await Promise.all(
+        Array.from(
+          { length: 11 },
+          async (_, i) => await fixture.seedResearchJob(i + 1),
+        ),
       );
       for (let i = 0; i < 11; i += 1)
-        activateNextRun(db, uuid(900000 + i), fixture.clock.now());
-      expect(activeExecutionCounts(db)).toEqual({ subscription: 4, api: 6 });
-      const claims = Array.from({ length: 10 }, (_, index) =>
-        claimNextJob(
-          db,
-          `fair-worker-${index}`,
-          fixture.clock.now(),
-          "2099-01-01T00:00:00.000Z",
+        await activateNextRun(db, uuid(900000 + i), fixture.clock.now());
+      expect(await activeExecutionCounts(db)).toEqual({
+        subscription: 4,
+        api: 6,
+      });
+      const claims = await Promise.all(
+        Array.from(
+          { length: 10 },
+          async (_, index) =>
+            await claimNextJob(
+              db,
+              `fair-worker-${index}`,
+              fixture.clock.now(),
+              "2099-01-01T00:00:00.000Z",
+            ),
         ),
       );
       expect(new Set(claims.map((claim) => claim?.runId)).size).toBe(10);
       expect(claims.every((claim) => claim !== undefined)).toBe(true);
       const last = runs.at(-1);
       if (last === undefined) throw new Error("missing fixture run");
-      expect(researchQueueStatus(db, last.runId)).toEqual({
+      expect(await researchQueueStatus(db, last.runId)).toEqual({
         position: 1,
         activeRuns: 10,
         capacity: 10,
       });
-      db.prepare("UPDATE runs SET status = 'cancelled' WHERE run_id = ?").run(
+      await db.query("UPDATE runs SET status = 'cancelled' WHERE run_id = $1", [
         runs[0]?.runId,
+      ]);
+      expect(await activateNextRun(db, uuid(900050), fixture.clock.now())).toBe(
+        true,
       );
-      expect(activateNextRun(db, uuid(900050), fixture.clock.now())).toBe(true);
-      expect(activeExecutionCounts(db)).toEqual({ subscription: 4, api: 6 });
-      expect(researchQueueStatus(db, last.runId)).toBeUndefined();
+      expect(await activeExecutionCounts(db)).toEqual({
+        subscription: 4,
+        api: 6,
+      });
+      expect(await researchQueueStatus(db, last.runId)).toBeUndefined();
     } finally {
-      db.close();
-      fixture.cleanup();
+      await fixture.cleanup();
     }
   });
 
-  it("keeps additional runs queued while API billing is disabled", () => {
+  it("keeps additional runs queued while API billing is disabled", async () => {
     vi.stubEnv("STOCKSEMBLY_CODEX_API_ENABLED", "0");
-    const fixture = new LeaseEngineFixture();
-    const db = new Database(fixture.databasePath);
+    const fixture = await createLeaseEngineFixture();
+    const db = fixture.pool;
     try {
-      for (let i = 1; i <= 5; i += 1) fixture.seedResearchJob(i);
+      for (let i = 1; i <= 5; i += 1) await fixture.seedResearchJob(i);
       for (let i = 0; i < 5; i += 1)
-        activateNextRun(db, uuid(900100 + i), fixture.clock.now());
-      expect(activeExecutionCounts(db)).toEqual({ subscription: 4, api: 0 });
+        await activateNextRun(db, uuid(900100 + i), fixture.clock.now());
+      expect(await activeExecutionCounts(db)).toEqual({
+        subscription: 4,
+        api: 0,
+      });
     } finally {
-      db.close();
-      fixture.cleanup();
+      await fixture.cleanup();
     }
   });
 });

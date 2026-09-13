@@ -3,7 +3,7 @@ import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import type { SourceLocator } from "../domain/evidenceCoreSchemas";
 import type { SpecialistRoundInput } from "../workflow/specialistRound";
 import { specialistRequest } from "../workflow/specialistRoundInput";
-import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
+import type { SpecialistSourceArtifact } from "../workflow/specialistRoundPostgres";
 import type { WorkflowRetentionRegister } from "../workflow/structuralAuditWorkflowRegister";
 
 type Harness = {

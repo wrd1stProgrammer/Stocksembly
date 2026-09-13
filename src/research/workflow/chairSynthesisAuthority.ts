@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { ChairSynthesisOutputSchema } from "../domain/agentOutputs";
 import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
@@ -7,8 +6,9 @@ import { hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, JobIdSchema, SnapshotIdSchema } from "../domain/ids";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { codexInputHash } from "../server/codex/codexRunner";
-import { applyOrderedMigrations } from "../server/persistence/sqlite/migrations";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { withResearchTransaction } from "../server/persistence/postgres/database";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
 import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisModelOutputSchema,
@@ -36,60 +36,61 @@ const AcceptedSchema = z.object({
   envelope_json: z.string(),
 });
 
-export class ChairSynthesisSqliteAuthority {
-  readonly #database: Database.Database;
+export class ChairSynthesisPostgresAuthority {
+  readonly #database: ResearchDatabase;
   constructor(
-    path: string,
+    database: ResearchDatabase,
     private readonly options: {
       readonly cas: ArtifactCasPort;
       readonly workflowVersion?: "workflow-v2" | "workflow-v3";
-      readonly migrationsDirectory?: string;
     },
   ) {
-    this.#database = new Database(path, { timeout: 5_000 });
-    this.#database.pragma("journal_mode = WAL");
-    this.#database.pragma("foreign_keys = ON");
-    this.#database.pragma("synchronous = FULL");
-    this.#database.pragma("busy_timeout = 5000");
-    applyOrderedMigrations(this.#database, options.migrationsDirectory);
+    this.#database = database;
   }
 
-  loadJob(runId: string): PersistedChairJob | undefined {
+  async loadJob(runId: string): Promise<PersistedChairJob | undefined> {
     const row = z
       .object({ result_json: z.string() })
       .safeParse(
-        this.#database
-          .prepare(
-            "SELECT result_json FROM idempotency_records WHERE scope = 'chair-synthesis-job' AND idempotency_key = ?",
+        (
+          await this.#database.query(
+            "SELECT result_json FROM idempotency_records WHERE scope = 'chair-synthesis-job' AND idempotency_key = $1",
+            [runId],
           )
-          .get(runId),
+        ).rows[0],
       );
     return row.success
       ? PersistedChairJobSchema.parse(parseSafeJson(row.data.result_json))
       : undefined;
   }
 
-  acceptedArtifactId(
+  async acceptedArtifactId(
     runId: string,
-  ): z.infer<typeof ArtifactIdSchema> | undefined {
+  ): Promise<z.infer<typeof ArtifactIdSchema> | undefined> {
     const row = z.object({ artifact_id: ArtifactIdSchema }).safeParse(
-      this.#database
-        .prepare(`SELECT agent_output_commits.artifact_id
+      (
+        await this.#database.query(
+          `SELECT agent_output_commits.artifact_id
         FROM agent_output_commits JOIN attempts USING(attempt_id)
-        WHERE attempts.run_id = ? AND attempts.logical_artifact_key = 'chair_synthesis:chair'`)
-        .get(runId),
+        WHERE attempts.run_id = $1 AND attempts.logical_artifact_key = 'chair_synthesis:chair'`,
+          [runId],
+        )
+      ).rows[0],
     );
     return row.success ? row.data.artifact_id : undefined;
   }
 
   async stage(runId: string, at: string): Promise<true | string> {
     const run = RunSchema.safeParse(
-      this.#database
-        .prepare(`SELECT runs.snapshot_id, runs.status,
+      (
+        await this.#database.query(
+          `SELECT runs.snapshot_id, runs.status,
       snapshots.state AS snapshot_state FROM runs
       JOIN snapshots ON snapshots.snapshot_id = runs.snapshot_id
-      WHERE runs.run_id = ?`)
-        .get(runId),
+      WHERE runs.run_id = $1`,
+          [runId],
+        )
+      ).rows[0],
     );
     if (!run.success) return "run_not_ready";
     const prompt = await loadChairPrompt(
@@ -114,7 +115,7 @@ export class ChairSynthesisSqliteAuthority {
           ? ChairSynthesisV3RunnerOutputSchema
           : ChairSynthesisModelOutputSchema,
     });
-    const existing = this.loadJob(runId);
+    const existing = await this.loadJob(runId);
     if (existing !== undefined) {
       if (existing.inputHash === inputHash) return true;
       const sourceManifestHash = hashCanonical(prompt.sourceArtifactIds);
@@ -126,47 +127,46 @@ export class ChairSynthesisSqliteAuthority {
           hashCanonical(prompt.sourceArtifactIds)
       )
         return "chair_input_immutable";
-      return this.#database
-        .transaction(() => {
-          const updatedJob = this.#database
-            .prepare(`UPDATE jobs SET input_hash = @inputHash
-              WHERE job_id = @jobId AND run_id = @runId
+      return await withResearchTransaction(
+        this.#database,
+        async (transaction) => {
+          const updatedJob = (
+            await transaction.query(
+              `UPDATE jobs SET input_hash = $1
+              WHERE job_id = $2 AND run_id = $3
                 AND logical_key = 'chair_synthesis:chair'
                 AND status IN ('queued', 'retry-wait')
                 AND lease_owner IS NULL
                 AND NOT EXISTS (SELECT 1 FROM agent_output_commits
-                  WHERE agent_output_commits.attempt_id = jobs.attempt_id)`)
-            .run({ ...existing, inputHash }).changes;
+                  WHERE agent_output_commits.attempt_id = jobs.attempt_id)`,
+              [inputHash, existing.jobId, existing.runId],
+            )
+          ).rowCount;
           if (updatedJob !== 1) return "chair_input_immutable" as const;
           const refreshed = PersistedChairJobSchema.parse({
             ...existing,
             inputHash,
           });
-          const updatedRecord = this.#database
-            .prepare(`UPDATE idempotency_records SET request_hash = @inputHash,
-              result_json = @resultJson, created_at = @at
+          const updatedRecord = (
+            await transaction.query(
+              `UPDATE idempotency_records SET request_hash = $1,
+              result_json = $2, created_at = $3
               WHERE scope = 'chair-synthesis-job'
-                AND idempotency_key = @runId`)
-            .run({
-              runId,
-              inputHash,
-              resultJson: JSON.stringify(refreshed),
-              at,
-            }).changes;
+                AND idempotency_key = $4`,
+              [inputHash, JSON.stringify(refreshed), at, runId],
+            )
+          ).rowCount;
           if (updatedRecord !== 1)
             throw new TypeError("chair job refresh was incomplete");
-          this.#database
-            .prepare(`UPDATE idempotency_records SET request_hash = @inputHash,
-              result_json = json_set(result_json,
-                '$.retryAt', @at, '$.failureCount', 0,
-                '$.circuitOpen', json('false'),
-                '$.classification', 'transient',
-                '$.code', 'schema_contract_refreshed'), created_at = @at
-              WHERE scope = 'worker-retry' AND idempotency_key = @jobId`)
-            .run({ jobId: existing.jobId, inputHash, at });
+          await transaction.query(
+            `UPDATE idempotency_records SET request_hash = $1,
+              result_json = (result_json::jsonb || jsonb_build_object('retryAt', $2::text, 'failureCount', 0, 'circuitOpen', false, 'classification', 'transient', 'code', 'schema_contract_refreshed'))::text, created_at = $2
+              WHERE scope = 'worker-retry' AND idempotency_key = $3`,
+            [inputHash, at, existing.jobId],
+          );
           return true as const;
-        })
-        .immediate();
+        },
+      );
     }
     const job = PersistedChairJobSchema.parse({
       runId,
@@ -179,45 +179,61 @@ export class ChairSynthesisSqliteAuthority {
       inputManifestHash: hashCanonical(prompt.sourceArtifactIds),
       citableArtifactIds: prompt.sourceArtifactIds,
     });
-    return this.#database
-      .transaction(() => {
-        this.#database
-          .prepare(`INSERT INTO jobs(job_id, run_id, snapshot_id, kind,
+    return await withResearchTransaction(
+      this.#database,
+      async (transaction) => {
+        await transaction.query(
+          `INSERT INTO jobs(job_id, run_id, snapshot_id, kind,
         logical_key, input_hash, input_manifest_hash, status, created_at)
-        VALUES (@jobId, @runId, @snapshotId, 'research', @logicalArtifactId,
-        @inputHash, @inputManifestHash, 'queued', @at)`)
-          .run({ ...job, at });
-        this.#database
-          .prepare(`INSERT INTO idempotency_records(scope,
-        idempotency_key, request_hash, result_json, created_at)
-        VALUES ('chair-synthesis-job', @runId, @inputHash, @resultJson, @at)`)
-          .run({ ...job, resultJson: JSON.stringify(job), at });
-        const bind = this.#database.prepare(
-          "INSERT INTO job_input_artifacts(job_id, artifact_id) VALUES (?, ?)",
+        VALUES ($1, $2, $3, 'research', $4,
+        $5, $6, 'queued', $7)`,
+          [
+            job.jobId,
+            job.runId,
+            job.snapshotId,
+            job.logicalArtifactId,
+            job.inputHash,
+            job.inputManifestHash,
+            at,
+          ],
         );
+        await transaction.query(
+          `INSERT INTO idempotency_records(scope,
+        idempotency_key, request_hash, result_json, created_at)
+        VALUES ('chair-synthesis-job', $1, $2, $3, $4)`,
+          [job.runId, job.inputHash, JSON.stringify(job), at],
+        );
+        const bind =
+          "INSERT INTO job_input_artifacts(job_id, artifact_id) VALUES ($1, $2)";
         for (const artifactId of job.citableArtifactIds)
-          bind.run(job.jobId, artifactId);
+          await transaction.query(bind, [job.jobId, artifactId]);
         return true as const;
-      })
-      .immediate();
+      },
+    );
   }
 
-  replay(runId: string): ChairSynthesisReplay {
+  async replay(runId: string): Promise<ChairSynthesisReplay> {
     const snapshotId = z
       .object({ snapshot_id: SnapshotIdSchema })
       .parse(
-        this.#database
-          .prepare("SELECT snapshot_id FROM runs WHERE run_id = ?")
-          .get(runId),
+        (
+          await this.#database.query(
+            "SELECT snapshot_id FROM runs WHERE run_id = $1",
+            [runId],
+          )
+        ).rows[0],
       ).snapshot_id;
-    const receipts = this.#database
-      .prepare(`SELECT research_call_ordinals.ordinal,
+    const receipts = (
+      await this.#database.query(
+        `SELECT research_call_ordinals.ordinal,
       attempts.outcome, CASE WHEN agent_runner_evidence.attempt_id IS NULL THEN 0 ELSE 1 END AS evidence_recorded
       FROM research_call_ordinals JOIN attempts USING(attempt_id)
       LEFT JOIN agent_runner_evidence USING(attempt_id)
-      WHERE research_call_ordinals.run_id = ? AND research_call_ordinals.logical_artifact_key = 'chair_synthesis:chair'
-      ORDER BY ordinal`)
-      .all(runId)
+      WHERE research_call_ordinals.run_id = $1 AND research_call_ordinals.logical_artifact_key = 'chair_synthesis:chair'
+      ORDER BY ordinal`,
+        [runId],
+      )
+    ).rows
       .map((row) => ReceiptSchema.parse(row))
       .map((row) => ({
         ordinal: row.ordinal,
@@ -227,12 +243,14 @@ export class ChairSynthesisSqliteAuthority {
             : (row.outcome ?? "reserved"),
         evidenceRecorded: row.evidence_recorded === 1,
       }));
-    const accepted = this.#database
-      .prepare(`SELECT agent_output_commits.artifact_id,
+    const accepted = (
+      await this.#database.query(
+        `SELECT agent_output_commits.artifact_id,
       agent_output_commits.envelope_json FROM agent_output_commits JOIN attempts USING(attempt_id)
-      WHERE attempts.run_id = ? AND attempts.logical_artifact_key = 'chair_synthesis:chair'`)
-      .all(runId)
-      .map((row) => AcceptedSchema.parse(row));
+      WHERE attempts.run_id = $1 AND attempts.logical_artifact_key = 'chair_synthesis:chair'`,
+        [runId],
+      )
+    ).rows.map((row) => AcceptedSchema.parse(row));
     const output = accepted
       .flatMap((row) => {
         const envelope = z
@@ -244,11 +262,14 @@ export class ChairSynthesisSqliteAuthority {
       .at(0);
     const retryPending =
       output === undefined &&
-      this.#database
-        .prepare(`SELECT 1 FROM jobs WHERE run_id = ?
+      (
+        await this.#database.query(
+          `SELECT 1 FROM jobs WHERE run_id = $1
           AND logical_key = 'chair_synthesis:chair'
-          AND status = 'retry-wait' LIMIT 1`)
-        .get(runId) !== undefined;
+          AND status = 'retry-wait' LIMIT 1`,
+          [runId],
+        )
+      ).rows[0] !== undefined;
     const incompleteReason =
       output === undefined
         ? retryPending
@@ -272,7 +293,5 @@ export class ChairSynthesisSqliteAuthority {
     };
   }
 
-  close(): void {
-    if (this.#database.open) this.#database.close();
-  }
+  close(): void {}
 }

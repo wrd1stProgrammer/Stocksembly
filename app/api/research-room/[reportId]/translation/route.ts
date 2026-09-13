@@ -93,7 +93,7 @@ export async function POST(
   try {
     const runtime = await prepareLiveResearchRuntime();
     projection = await translatedResearchProjection(
-      runtime.databasePath,
+      runtime.database,
       reportId,
       report.runDetail.run.runId,
       report.file,

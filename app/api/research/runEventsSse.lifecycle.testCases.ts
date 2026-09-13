@@ -19,12 +19,12 @@ describe("durable run event SSE lifecycle", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
     await value.api.close();
     const restarted = await createResearchApi({
       dataRoot: value.root,
-      databasePath: value.databasePath,
+      database: value.database,
       allowedHost: value.allowedHost,
       allowedOrigin: value.allowedOrigin,
       readiness: () => Promise.resolve(true),
@@ -58,8 +58,8 @@ describe("durable run event SSE lifecycle", () => {
     vi.useFakeTimers();
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, { sequence: 2 });
-    appendEvent(value, runId, { sequence: 3 });
+    await appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 3 });
     const response = await value.api.handle(
       streamRequest(value, runId, "?after=1", { "last-event-id": "3" }),
     );
@@ -67,7 +67,7 @@ describe("durable run event SSE lifecycle", () => {
     const pending = readChunk(reader);
 
     // When
-    appendEvent(value, runId, { sequence: 4 });
+    await appendEvent(value, runId, { sequence: 4 });
     await vi.advanceTimersByTimeAsync(1_000);
 
     // Then
@@ -79,7 +79,7 @@ describe("durable run event SSE lifecycle", () => {
     // Given
     const value = await harness();
     const runId = await createRun(value);
-    appendEvent(value, runId, {
+    await appendEvent(value, runId, {
       sequence: 2,
       kind: "run_failed",
       status: "failed",
@@ -94,7 +94,7 @@ describe("durable run event SSE lifecycle", () => {
     // Then
     expect(eventId((await readChunk(reader)) ?? "")).toBe(2);
     expect((await reader.read()).done).toBe(true);
-    expect(runStatus(value, runId)).toBe("failed");
+    expect(await runStatus(value, runId)).toBe("failed");
   });
 
   it("observes an event committed after the snapshot without loss", async () => {
@@ -109,7 +109,7 @@ describe("durable run event SSE lifecycle", () => {
     const pending = readChunk(reader);
 
     // When
-    appendEvent(value, runId, { sequence: 2 });
+    await appendEvent(value, runId, { sequence: 2 });
     await vi.advanceTimersByTimeAsync(1_000);
 
     // Then
@@ -117,7 +117,7 @@ describe("durable run event SSE lifecycle", () => {
     await reader.cancel();
   });
 
-  it("does not emit an event before its SQLite transaction commits", async () => {
+  it("does not emit an event before its PostgreSQL transaction commits", async () => {
     // Given
     vi.useFakeTimers();
     const value = await harness();
@@ -131,7 +131,7 @@ describe("durable run event SSE lifecycle", () => {
     pending.then(() => {
       settled = true;
     });
-    const transaction = beginPendingEvent(value, runId, { sequence: 2 });
+    const transaction = await beginPendingEvent(value, runId, { sequence: 2 });
 
     try {
       // When
@@ -186,7 +186,7 @@ describe("durable run event SSE lifecycle", () => {
 
     // Then
     expect((await pending).done).toBe(true);
-    expect(runStatus(value, runId)).toBe("queued");
+    expect(await runStatus(value, runId)).toBe("queued");
   });
 
   it("rejects stale credentials after explicit identity rotation", async () => {

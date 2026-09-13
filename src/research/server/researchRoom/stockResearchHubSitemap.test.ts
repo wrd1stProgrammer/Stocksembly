@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { currentApiTestDatabase } from "../api/postgresApi.testSupport";
 import { listStockResearchHubSitemapEntries } from "./stockResearchHubCatalog";
 import {
   cleanupStockHubFixtures,
@@ -86,3 +87,7 @@ describe("stock research hub sitemap projection", () => {
     ]);
   });
 });
+
+vi.mock("../persistence/postgres/researchPool", () => ({
+  getResearchPool: async () => currentApiTestDatabase(),
+}));

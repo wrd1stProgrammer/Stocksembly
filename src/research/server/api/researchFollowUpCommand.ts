@@ -1,5 +1,6 @@
-import type Database from "better-sqlite3";
 import { z } from "zod";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
 import {
   type ChildRun,
   ChildRunSchema,
@@ -28,20 +29,24 @@ type FollowUpContext = {
   readonly question?: string;
 };
 
-export function createResearchFollowUp(
-  database: Database.Database,
+export async function createResearchFollowUp(
+  database: ResearchDatabase,
   reportId: string,
   context: FollowUpContext,
-): CommandResult<ChildRun> {
-  return database
-    .transaction((): CommandResult<ChildRun> => {
+): Promise<CommandResult<ChildRun>> {
+  return await researchTransaction(
+    database,
+    async (transaction): Promise<CommandResult<ChildRun>> => {
+      await transaction.query(
+        "SELECT pg_advisory_xact_lock(hashtext('research-admission'))",
+      );
       const scope = `research-follow-up:${context.principalId}:${reportId}`;
       const requestHash = commandDigest({
         reportId,
         question: context.question ?? null,
       });
-      const replay = replayCommand(
-        database,
+      const replay = await replayCommand(
+        transaction,
         scope,
         context.idempotencyKey,
         requestHash,
@@ -49,16 +54,19 @@ export function createResearchFollowUp(
       if (replay.kind === "conflict") return { kind: "conflict" };
       if (replay.kind === "replayed")
         return { kind: "replayed", value: ChildRunSchema.parse(replay.value) };
-      const value = database
-        .prepare(`SELECT reports.report_id, reports.run_id, reports.state
+      const value = (
+        await transaction.query(
+          `SELECT reports.report_id, reports.run_id, reports.state
         FROM reports JOIN research_requests USING(run_id)
-        WHERE reports.report_id = ? AND research_requests.principal_id = ?`)
-        .get(reportId, context.principalId);
+        WHERE reports.report_id = $1 AND research_requests.principal_id = $2`,
+          [reportId, context.principalId],
+        )
+      ).rows[0];
       if (value === undefined) return { kind: "not_found" };
       const report = ReportRowSchema.safeParse(value);
       if (!report.success) return { kind: "illegal_state" };
-      const parent = parentRow(
-        database,
+      const parent = await parentRow(
+        transaction,
         context.principalId,
         report.data.run_id,
       );
@@ -68,30 +76,35 @@ export function createResearchFollowUp(
           parent.status !== "complete-with-limitations")
       )
         return { kind: "illegal_state" };
-      database
-        .prepare(`INSERT INTO snapshots(snapshot_id, run_id, state, requested_at)
-        VALUES (?, ?, 'collecting', ?)`)
-        .run(context.ids.snapshotId, context.ids.runId, context.now);
-      insertChild(database, parent, context, {
+      await transaction.query(
+        `INSERT INTO snapshots(snapshot_id, run_id, state, requested_at)
+        VALUES ($1, $2, 'collecting', $3)`,
+        [context.ids.snapshotId, context.ids.runId, context.now],
+      );
+      await insertChild(transaction, parent, context, {
         snapshotId: context.ids.snapshotId,
         lineage: "new-snapshot-follow-up",
         priorReportId: reportId,
         question: context.question ?? parent.question,
       });
       const latest = VersionRowSchema.parse(
-        database
-          .prepare(`SELECT MAX(version) AS version FROM (
-          SELECT version FROM report_versions WHERE report_id = ?
-          UNION ALL SELECT version FROM report_follow_up_versions WHERE report_id = ?
-        )`)
-          .get(reportId, reportId),
+        (
+          await transaction.query(
+            `SELECT MAX(version) AS version FROM (
+          SELECT version FROM report_versions WHERE report_id = $1
+          UNION ALL SELECT version FROM report_follow_up_versions WHERE report_id = $2
+        )`,
+            [reportId, reportId],
+          )
+        ).rows[0],
       ).version;
       const version = latest + 1;
-      database
-        .prepare(`INSERT INTO report_follow_up_versions(
+      await transaction.query(
+        `INSERT INTO report_follow_up_versions(
         report_id, version, child_run_id, created_at
-      ) VALUES (?, ?, ?, ?)`)
-        .run(reportId, version, context.ids.runId, context.now);
+      ) VALUES ($1, $2, $3, $4)`,
+        [reportId, version, context.ids.runId, context.now],
+      );
       const child = ChildRunSchema.parse({
         runId: context.ids.runId,
         snapshotId: context.ids.snapshotId,
@@ -101,7 +114,7 @@ export function createResearchFollowUp(
         reportId,
         version,
       });
-      commitCommand(database, {
+      await commitCommand(transaction, {
         scope,
         key: context.idempotencyKey,
         requestHash,
@@ -117,6 +130,6 @@ export function createResearchFollowUp(
         now: context.now,
       });
       return { kind: "created", value: child };
-    })
-    .immediate();
+    },
+  );
 }

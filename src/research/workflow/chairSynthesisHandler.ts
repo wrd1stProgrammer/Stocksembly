@@ -12,16 +12,16 @@ import { CodexRunnerError } from "../server/codex/codexErrors";
 import { codexInputHash } from "../server/codex/codexReservation";
 import type { SafeCodexEvidence } from "../server/codex/codexTypes";
 import { CodexIsolationError } from "../server/codex/readiness";
-import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
+import type { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
-import type { ChairSynthesisSqliteAuthority } from "./chairSynthesisAuthority";
+import type { ChairSynthesisPostgresAuthority } from "./chairSynthesisAuthority";
 import {
   ChairSectionRewriteSchema,
   ChairSynthesisModelOutputSchema,
   ChairSynthesisPromptSchema,
   ChairSynthesisV3RunnerOutputSchema,
-  type SqliteChairSynthesisOptions,
+  type PostgresChairSynthesisOptions,
 } from "./chairSynthesisContracts";
 import { chairSectionRewritePrompt } from "./chairSynthesisPrompts";
 import {
@@ -37,11 +37,11 @@ import {
   validChairCandidate,
 } from "./chairSynthesisValidation";
 import { retryRejectedCommit } from "./specialistCommitRetry";
-import type { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import type { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 
 type Context = {
   readonly options: Pick<
-    SqliteChairSynthesisOptions,
+    PostgresChairSynthesisOptions,
     | "attemptRoot"
     | "cas"
     | "codex"
@@ -49,9 +49,9 @@ type Context = {
     | "publishReport"
     | "workflowVersion"
   >;
-  readonly authority: ChairSynthesisSqliteAuthority;
-  readonly workflowAuthority: SpecialistRoundSqliteAuthority;
-  readonly commitStore: SqliteAgentOutputCommitStore;
+  readonly authority: ChairSynthesisPostgresAuthority;
+  readonly workflowAuthority: SpecialistRoundPostgresAuthority;
+  readonly commitStore: PostgresAgentOutputCommitStore;
 };
 
 export { validChairCandidate } from "./chairSynthesisValidation";
@@ -81,8 +81,10 @@ export function createChairSynthesisAttemptHandler(
         readonly reason: CodexIsolationError["reason"];
       }
   > => {
-    const job = context.authority.loadJob(attempt.runId);
-    const claim = context.workflowAuthority.claimForAttempt(attempt.attemptId);
+    const job = await context.authority.loadJob(attempt.runId);
+    const claim = await context.workflowAuthority.claimForAttempt(
+      attempt.attemptId,
+    );
     if (job === undefined || claim === undefined) return "incomplete";
     const key = {
       runId: attempt.runId,
@@ -133,14 +135,14 @@ export function createChairSynthesisAttemptHandler(
             });
       if (
         rewrite !== undefined &&
-        !context.workflowAuthority.rebindReplacementInput(
+        !(await context.workflowAuthority.rebindReplacementInput(
           attempt.attemptId,
           codexInputHash({
             stage: "chair_synthesis",
             prompt: runnerPrompt,
             outputSchema: ChairSectionRewriteSchema,
           }),
-        )
+        ))
       )
         return "incomplete";
       let v3RunnerEvidence: SafeCodexEvidence | undefined;
@@ -327,7 +329,7 @@ export function createChairSynthesisAttemptHandler(
       );
       return "incomplete";
     }
-    const recorded = recordSuccessfulRunnerEvidence(
+    const recorded = await recordSuccessfulRunnerEvidence(
       context.commitStore,
       {
         ...key,
@@ -337,8 +339,9 @@ export function createChairSynthesisAttemptHandler(
         stage: "chair_synthesis",
         promptHash: hashCanonical(runnerPrompt),
         inputHash:
-          context.workflowAuthority.inputHashForAttempt(attempt.attemptId) ??
-          job.inputHash,
+          (await context.workflowAuthority.inputHashForAttempt(
+            attempt.attemptId,
+          )) ?? job.inputHash,
       },
       runnerEvidence,
     );
@@ -375,7 +378,7 @@ export function createChairSynthesisAttemptHandler(
       const acceptedChairArtifactId =
         committed.kind === "committed"
           ? ids.artifactId
-          : context.authority.acceptedArtifactId(attempt.runId);
+          : await context.authority.acceptedArtifactId(attempt.runId);
       if (acceptedChairArtifactId === undefined) return "incomplete";
       let published:
         | { readonly kind: "published" }
@@ -413,8 +416,10 @@ export function createChairSynthesisAttemptHandler(
     }
     if (committed.kind === "rejected") return "commit_rejected";
     if (committed.kind !== "replacement_reserved") return "incomplete";
-    context.workflowAuthority.consumeReplacementBudget(attempt.runId);
-    context.workflowAuthority.markReplacementRunning(ids.replacementAttemptId);
+    await context.workflowAuthority.consumeReplacementBudget(attempt.runId);
+    await context.workflowAuthority.markReplacementRunning(
+      ids.replacementAttemptId,
+    );
     return await execute(
       {
         ...attempt,

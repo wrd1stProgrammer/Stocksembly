@@ -1,7 +1,7 @@
 import type { SnapshotId } from "../../domain/ids";
 import { ArtifactIdSchema } from "../../domain/ids";
 import type { ArtifactCasPort } from "../../ports/artifacts";
-import type { RegisteredWebEvidence } from "../persistence/sqlite/attemptWebEvidenceRepository";
+import type { RegisteredWebEvidence } from "../persistence/postgres/attemptWebEvidenceRepository";
 import type { AttemptWebEvidenceCapture } from "./codexTypes";
 
 type AttemptWebEvidenceRegistrar = {
@@ -10,7 +10,7 @@ type AttemptWebEvidenceRegistrar = {
     readonly transcriptHash: string;
     readonly now: string;
     readonly artifacts: readonly RegisteredWebEvidence[];
-  }) => boolean;
+  }) => Promise<boolean>;
 };
 
 export async function captureAttemptWebEvidence(

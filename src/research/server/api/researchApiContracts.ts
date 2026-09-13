@@ -116,7 +116,7 @@ export type PublicReport = {
   readonly version: number;
   readonly status: "complete" | "complete_with_limitations" | "incomplete";
   readonly publishedAt: string;
-  readonly payload: import("../persistence/sqlite/safeJson").JsonValue;
+  readonly payload: import("../persistence/postgres/safeJson").JsonValue;
 };
 
 export type PublicReportLoader = (

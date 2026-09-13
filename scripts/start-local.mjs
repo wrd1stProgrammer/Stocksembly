@@ -1,15 +1,16 @@
 import { spawn } from "node:child_process";
 
+if (
+  !process.env.STOCKSEMBLY_DATABASE_URL &&
+  !process.env.STOCKSEMBLY_DB_SECRET_ARN
+) {
+  throw new Error(
+    "PostgreSQL is required. Start docker compose -f compose.postgres.yaml up -d and set STOCKSEMBLY_DATABASE_URL, or configure the existing RDS secret. No local database fallback is available.",
+  );
+}
+
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const productionSyncConfigured = Boolean(
-  process.env.STOCKSEMBLY_PRODUCTION_SYNC_HOST &&
-    process.env.STOCKSEMBLY_PRODUCTION_SYNC_SSH_KEY,
-);
-const serviceScripts = [
-  "start:web",
-  "start:worker",
-  ...(productionSyncConfigured ? ["research:production-sync"] : []),
-];
+const serviceScripts = ["start:web", "start:worker"];
 const children = serviceScripts.map((script) =>
   spawn(pnpm, [script], {
     env: process.env,

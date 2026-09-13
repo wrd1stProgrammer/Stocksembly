@@ -1,4 +1,11 @@
 import { describe, expect, it } from "vitest";
+import {
+  AttemptIdSchema,
+  JobIdSchema,
+  RunIdSchema,
+  SnapshotIdSchema,
+} from "../domain/ids";
+import { uuid } from "./leaseEngine.testSupport";
 import { runLeaseWorkerScheduler } from "./leaseWorkerScheduler";
 
 describe("lease worker scheduler", () => {
@@ -9,7 +16,7 @@ describe("lease worker scheduler", () => {
     let recovered = false;
     let reconciliations = 0;
     const engine = {
-      recoverExpired: () => {
+      recoverExpired: async () => {
         if (leaseExpired) recovered = true;
         return [];
       },
@@ -23,7 +30,7 @@ describe("lease worker scheduler", () => {
         if (recovered) controller.abort();
         return { kind: "idle" as const };
       },
-      heartbeat: () => 0,
+      heartbeat: async () => 0,
     };
 
     // When
@@ -41,13 +48,13 @@ describe("lease worker scheduler", () => {
     let polls = 0;
     let waits = 0;
     const engine = {
-      recoverExpired: () => [],
+      recoverExpired: async () => [],
       reconcile: () => Promise.resolve(true),
       poll: () => {
         polls += 1;
         return Promise.resolve({ kind: "idle" as const });
       },
-      heartbeat: () => 0,
+      heartbeat: async () => 0,
     };
 
     await runLeaseWorkerScheduler(engine, controller.signal, {
@@ -62,4 +69,70 @@ describe("lease worker scheduler", () => {
     expect(waits).toBe(2);
     expect(polls).toBeGreaterThan(1);
   });
+});
+
+it("drains when PostgreSQL-style asynchronous polls all resolve idle", async () => {
+  let polls = 0;
+  const controller = new AbortController();
+  await runLeaseWorkerScheduler(
+    {
+      heartbeat: async () => 0,
+      recoverExpired: async () => [],
+      reconcile: async () => true,
+      poll: async () => {
+        polls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 2));
+        return { kind: "idle" };
+      },
+    },
+    controller.signal,
+    { stopWhenIdle: true, pollIntervalMs: 5 },
+  );
+  expect(polls).toBeGreaterThan(0);
+  expect(controller.signal.aborted).toBe(false);
+});
+
+it("drains successor work created by a completed asynchronous attempt before stopping", async () => {
+  const controller = new AbortController();
+  let claimed = false;
+  let successor = false;
+  let successorProcessed = false;
+  const result = {
+    kind: "handled" as const,
+    attempt: {
+      attemptId: AttemptIdSchema.parse(uuid(1)),
+      jobId: JobIdSchema.parse(uuid(2)),
+      runId: RunIdSchema.parse(uuid(3)),
+      snapshotId: SnapshotIdSchema.parse(uuid(4)),
+      kind: "research" as const,
+      ordinal: 1,
+    },
+    outcome: { kind: "accepted" as const },
+    committed: true,
+    coordinationPending: false,
+  };
+  await runLeaseWorkerScheduler(
+    {
+      heartbeat: async () => 0,
+      recoverExpired: async () => [],
+      reconcile: async () => true,
+      poll: async () => {
+        if (!claimed) {
+          claimed = true;
+          await new Promise((resolve) => setTimeout(resolve, 2));
+          successor = true;
+          return result;
+        }
+        if (successor && !successorProcessed) {
+          successorProcessed = true;
+          return result;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 3));
+        return { kind: "idle" };
+      },
+    },
+    controller.signal,
+    { stopWhenIdle: true, pollIntervalMs: 5 },
+  );
+  expect(successorProcessed).toBe(true);
 });

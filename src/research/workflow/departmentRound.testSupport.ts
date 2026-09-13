@@ -17,8 +17,9 @@ import {
 } from "./departmentRoundCandidates.testSupport";
 import type { DepartmentJobPrompt } from "./departmentRoundContracts";
 import { DepartmentJobPromptSchema } from "./departmentRoundContracts";
-import { createSqliteSpecialistRound } from "./specialistRoundSqlite";
-import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
+import { workflowTestDatabase } from "./postgresDatabase.testSupport";
+import { createPostgresSpecialistRound } from "./specialistRoundPostgres";
+import { makePostgresRoundHarness } from "./specialistRoundPostgres.testSupport";
 
 function evidenceFor<Candidate>(
   input: CodexRunInput<Candidate>,
@@ -67,7 +68,7 @@ export class DepartmentCodexFake implements CodexPort {
   ): Promise<CodexRunResult<Candidate>> {
     this.active += 1;
     this.maximumActive = Math.max(this.maximumActive, this.active);
-    await Promise.resolve();
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
     const rawCandidate =
       input.stage === "department_consolidation"
         ? this.departmentOutput(input.prompt)
@@ -91,18 +92,18 @@ export async function stageAcceptedSpecialists(
   root: string,
   fault: DepartmentFault,
 ) {
-  const harness = await makeSqliteRoundHarness("none");
+  const harness = await makePostgresRoundHarness("none");
   const codex = new DepartmentCodexFake(fault);
-  const databasePath = `${root}/research.sqlite`;
+  const database = await workflowTestDatabase();
   const options = {
-    databasePath,
+    database,
     attemptRoot: `${root}/attempts`,
     ownerId: "department-worker",
     cas: harness.cas,
     codex,
     now: () => "2026-07-23T00:00:00.000Z",
   };
-  const round = createSqliteSpecialistRound(options);
+  const round = await createPostgresSpecialistRound(options);
   await round.stage(harness.input, harness.sources);
   const replay = await round.drain(harness.input.mandate.runId);
   await round.close();

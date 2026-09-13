@@ -3,13 +3,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { codexInputHash } from "../server/codex/codexReservation";
+import { workflowTestDatabase } from "./postgresDatabase.testSupport";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
-import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 
 describe("durable specialist repair prompt", () => {
-  it("replays an exact citation corrective prompt after the authority restarts", () => {
+  it("replays an exact citation corrective prompt after the authority restarts", async () => {
     const root = mkdtempSync(join(tmpdir(), "specialist-repair-prompt-"));
-    const databasePath = join(root, "research.sqlite");
+    const database = await workflowTestDatabase();
     const jobId = "00000000-0000-4000-8000-000000000001";
     const prompt = `BASE PROMPT
 
@@ -25,8 +26,8 @@ Cite only artifact IDs from this allowlist:
     });
 
     try {
-      const first = new SpecialistRoundSqliteAuthority(databasePath);
-      first.persistRepairPrompt({
+      const first = new SpecialistRoundPostgresAuthority(database);
+      await first.persistRepairPrompt({
         jobId,
         inputHash,
         prompt,
@@ -35,8 +36,8 @@ Cite only artifact IDs from this allowlist:
       });
       first.close();
 
-      const recovered = new SpecialistRoundSqliteAuthority(databasePath);
-      expect(recovered.repairPromptForInput(jobId, inputHash)).toEqual({
+      const recovered = new SpecialistRoundPostgresAuthority(database);
+      expect(await recovered.repairPromptForInput(jobId, inputHash)).toEqual({
         prompt,
         validationCode: "specialist_claim_evidence_type_mismatch",
       });

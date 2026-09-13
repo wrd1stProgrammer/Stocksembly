@@ -25,7 +25,7 @@ const DurableRowSchema = z.object({
   commits: z.literal(1),
   artifact_id: z.string().uuid(),
   content_hash: z.string().regex(/^[a-f0-9]{64}$/),
-  byte_length: z.number().int().positive(),
+  byte_length: z.coerce.number().int().positive(),
   events: z.literal(3),
 });
 
@@ -78,36 +78,37 @@ async function writeSourceBlob(dataRoot) {
 }
 
 export const seedDurableJob = async (packageRoot, dataRoot) => {
+  requireTestDatabase();
   await writeSourceBlob(dataRoot);
-  const Database = createRequire(join(packageRoot, "package.json"))(
-    "better-sqlite3",
-  );
-  const database = new Database(join(dataRoot, "research.sqlite"));
+  const { Client } = createRequire(join(packageRoot, "package.json"))("pg");
+  const database = new Client({
+    connectionString: process.env.STOCKSEMBLY_TEST_DATABASE_URL,
+    options: "-c search_path=research,pg_catalog",
+  });
+  await database.connect();
   try {
-    database.exec("BEGIN IMMEDIATE");
-    database
-      .prepare(`INSERT INTO runs(run_id, snapshot_id, status, last_event_seq, created_at)
-      VALUES (?, ?, 'running', 1, ?)`)
-      .run(
-        DURABLE_FIXTURE.runId,
-        DURABLE_FIXTURE.snapshotId,
-        DURABLE_FIXTURE.at,
-      );
-    database
-      .prepare(`INSERT INTO snapshots(snapshot_id, run_id, state, requested_at,
-      evidence_cutoff_at, sealed_at) VALUES (?, ?, 'sealed', ?, ?, ?)`)
-      .run(
+    await database.query("BEGIN");
+    await database.query(
+      `INSERT INTO runs(run_id, snapshot_id, status, last_event_seq, created_at)
+      VALUES ($1, $2, 'running', 1, $3)`,
+      [DURABLE_FIXTURE.runId, DURABLE_FIXTURE.snapshotId, DURABLE_FIXTURE.at],
+    );
+    await database.query(
+      `INSERT INTO snapshots(snapshot_id, run_id, state, requested_at,
+      evidence_cutoff_at, sealed_at) VALUES ($1, $2, 'sealed', $3, $4, $5)`,
+      [
         DURABLE_FIXTURE.snapshotId,
         DURABLE_FIXTURE.runId,
         DURABLE_FIXTURE.at,
         DURABLE_FIXTURE.at,
         DURABLE_FIXTURE.at,
-      );
-    database
-      .prepare(`INSERT INTO jobs(job_id, run_id, snapshot_id, kind, logical_key,
+      ],
+    );
+    await database.query(
+      `INSERT INTO jobs(job_id, run_id, snapshot_id, kind, logical_key,
       input_hash, input_manifest_hash, status, created_at)
-      VALUES (?, ?, ?, 'research', ?, ?, ?, 'queued', ?)`)
-      .run(
+      VALUES ($1, $2, $3, 'research', $4, $5, $6, 'queued', $7)`,
+      [
         DURABLE_FIXTURE.jobId,
         DURABLE_FIXTURE.runId,
         DURABLE_FIXTURE.snapshotId,
@@ -115,31 +116,34 @@ export const seedDurableJob = async (packageRoot, dataRoot) => {
         DURABLE_FIXTURE.inputHash,
         DURABLE_FIXTURE.inputManifestHash,
         DURABLE_FIXTURE.at,
-      );
-    database
-      .prepare(`INSERT INTO idempotency_records(scope, idempotency_key,
+      ],
+    );
+    await database.query(
+      `INSERT INTO idempotency_records(scope, idempotency_key,
       request_hash, result_json, created_at)
-      VALUES ('specialist-round-job', ?, ?, ?, ?)`)
-      .run(
+      VALUES ('specialist-round-job', $1, $2, $3, $4)`,
+      [
         `${DURABLE_FIXTURE.runId}:${DURABLE_FIXTURE.logicalKey}`,
         DURABLE_FIXTURE.inputHash,
         JSON.stringify(persistedJob()),
         DURABLE_FIXTURE.at,
-      );
-    database
-      .prepare(`INSERT INTO run_events(run_id, sequence, event_id, event_type,
-      state_id, occurred_at, payload_json) VALUES (?, 1, ?, 'run_created',
-      'running', ?, '{}')`)
-      .run(
+      ],
+    );
+    await database.query(
+      `INSERT INTO run_events(run_id, sequence, event_id, event_type,
+      state_id, occurred_at, payload_json) VALUES ($1, 1, $2, 'run_created',
+      'running', $3, '{}')`,
+      [
         DURABLE_FIXTURE.runId,
         "00000000-0000-4000-8000-000000000322",
         DURABLE_FIXTURE.at,
-      );
-    database
-      .prepare(`INSERT INTO artifacts(artifact_id, run_id, snapshot_id,
+      ],
+    );
+    await database.query(
+      `INSERT INTO artifacts(artifact_id, run_id, snapshot_id,
       content_hash, byte_length, media_type, logical_key, input_hash, created_at)
-      VALUES (?, ?, ?, ?, ?, 'application/json', 'evidence:standalone', ?, ?)`)
-      .run(
+      VALUES ($1, $2, $3, $4, $5, 'application/json', 'evidence:standalone', $6, $7)`,
+      [
         DURABLE_FIXTURE.sourceArtifactId,
         DURABLE_FIXTURE.runId,
         DURABLE_FIXTURE.snapshotId,
@@ -147,47 +151,52 @@ export const seedDurableJob = async (packageRoot, dataRoot) => {
         sourceBytes.byteLength,
         sourceDigest,
         DURABLE_FIXTURE.at,
-      );
-    database
-      .prepare(`INSERT INTO artifact_citation_metadata(artifact_id, locator_json)
-      VALUES (?, ?)`)
-      .run(DURABLE_FIXTURE.sourceArtifactId, JSON.stringify(sourceLocator));
-    database
-      .prepare(
-        `INSERT INTO job_input_artifacts(job_id, artifact_id) VALUES (?, ?)`,
-      )
-      .run(DURABLE_FIXTURE.jobId, DURABLE_FIXTURE.sourceArtifactId);
-    database.exec("COMMIT");
+      ],
+    );
+    await database.query(
+      `INSERT INTO artifact_citation_metadata(artifact_id, locator_json)
+      VALUES ($1, $2)`,
+      [DURABLE_FIXTURE.sourceArtifactId, JSON.stringify(sourceLocator)],
+    );
+    await database.query(
+      `INSERT INTO job_input_artifacts(job_id, artifact_id) VALUES ($1, $2)`,
+      [DURABLE_FIXTURE.jobId, DURABLE_FIXTURE.sourceArtifactId],
+    );
+    await database.query("COMMIT");
   } catch (error) {
-    if (database.inTransaction) database.exec("ROLLBACK");
+    await database.query("ROLLBACK");
     throw error;
   } finally {
-    database.close();
+    await database.end();
   }
 };
 
 export const readDurableJob = async (packageRoot, dataRoot) => {
-  const Database = createRequire(join(packageRoot, "package.json"))(
-    "better-sqlite3",
-  );
-  const database = new Database(join(dataRoot, "research.sqlite"), {
-    readonly: true,
+  requireTestDatabase();
+  const { Client } = createRequire(join(packageRoot, "package.json"))("pg");
+  const database = new Client({
+    connectionString: process.env.STOCKSEMBLY_TEST_DATABASE_URL,
+    options: "-c search_path=research,pg_catalog",
   });
+  await database.connect();
   try {
     const row = DurableRowSchema.parse(
-      database
-        .prepare(`SELECT jobs.status, attempts.attempt_id, attempts.outcome,
-        (SELECT COUNT(*) FROM attempts a WHERE a.job_id = jobs.job_id) attempts,
-        (SELECT COUNT(*) FROM agent_runner_evidence e
+      (
+        await database.query(
+          `SELECT jobs.status, attempts.attempt_id, attempts.outcome,
+        (SELECT COUNT(*)::integer FROM attempts a WHERE a.job_id = jobs.job_id) attempts,
+        (SELECT COUNT(*)::integer FROM agent_runner_evidence e
           WHERE e.attempt_id = attempts.attempt_id) runner_evidence,
-        (SELECT COUNT(*) FROM agent_output_commits c
+        (SELECT COUNT(*)::integer FROM agent_output_commits c
           WHERE c.attempt_id = attempts.attempt_id) commits,
         artifacts.artifact_id, artifacts.content_hash, artifacts.byte_length,
-        (SELECT COUNT(*) FROM run_events r WHERE r.run_id = jobs.run_id) events
+        (SELECT COUNT(*)::integer FROM run_events r WHERE r.run_id = jobs.run_id) events
         FROM jobs JOIN attempts ON attempts.attempt_id = jobs.attempt_id
         JOIN artifacts ON artifacts.artifact_id = jobs.result_artifact_id
-        WHERE jobs.job_id = ?`)
-        .get(DURABLE_FIXTURE.jobId),
+        WHERE jobs.job_id = $1`,
+          [DURABLE_FIXTURE.jobId],
+        )
+      ).rows[0],
     );
     const artifact = await stat(
       join(
@@ -211,6 +220,20 @@ export const readDurableJob = async (packageRoot, dataRoot) => {
       artifactPresent: artifact.isFile() && artifact.size === row.byte_length,
     };
   } finally {
-    database.close();
+    await database.end();
   }
 };
+
+function requireTestDatabase() {
+  const url = new URL(
+    process.env.STOCKSEMBLY_TEST_DATABASE_URL ?? "postgres://invalid/invalid",
+  );
+  if (
+    !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
+    !url.pathname.endsWith("_test")
+  ) {
+    throw new Error(
+      "Standalone fixtures require a loopback STOCKSEMBLY_TEST_DATABASE_URL ending in _test",
+    );
+  }
+}

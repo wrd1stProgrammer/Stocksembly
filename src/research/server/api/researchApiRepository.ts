@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import Database from "better-sqlite3";
 import { z } from "zod";
 import type {
   ActiveResearchActivity,
@@ -19,12 +18,13 @@ import {
   type WorkflowActorId,
   WorkflowActorIdSchema,
 } from "../../domain/roleRegistry";
-import { applyOrderedMigrations } from "../persistence/sqlite/migrations";
-import { researchQueueStatus } from "../persistence/sqlite/runExecutionRepository";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
+import { researchQueueStatus } from "../persistence/postgres/runExecutionRepository";
 import {
   parseSafeJson,
   serializeSafeJson,
-} from "../persistence/sqlite/safeJson";
+} from "../persistence/postgres/safeJson";
 import type {
   CreateResearchRunCommand,
   CreateResearchRunResult,
@@ -50,8 +50,7 @@ import {
 } from "./researchApiRows";
 
 export type ResearchApiRepositoryOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database: ResearchDatabase;
 };
 
 function runFromRow(input: unknown): PublicRun {
@@ -142,147 +141,157 @@ function activeJobActivity(logicalKey: string): ActiveResearchActivityKind {
 }
 
 export class ResearchApiRepository {
-  readonly #database: Database.Database;
+  readonly #database: ResearchDatabase;
 
   constructor(options: ResearchApiRepositoryOptions) {
-    this.#database = new Database(options.databasePath, { timeout: 5_000 });
-    this.#database.pragma("journal_mode = WAL");
-    this.#database.pragma("foreign_keys = ON");
-    this.#database.pragma("synchronous = FULL");
-    this.#database.pragma("busy_timeout = 5000");
-    applyOrderedMigrations(this.#database, options.migrationsDirectory);
+    this.#database = options.database;
   }
 
-  create(command: CreateResearchRunCommand): CreateResearchRunResult {
+  async create(
+    command: CreateResearchRunCommand,
+  ): Promise<CreateResearchRunResult> {
     const { principalId, request, ids, now } = command;
     const key = command.idempotencyKey;
     const requestHash = digest(request);
     const scope = `research-run:${principalId}`;
-    return this.#database
-      .transaction(() => {
-        const existing = this.#database
-          .prepare(`SELECT request_hash, result_json FROM idempotency_records
-          WHERE scope = ? AND idempotency_key = ?`)
-          .get(scope, key);
-        if (existing !== undefined) {
-          const row = IdempotencyRowSchema.parse(existing);
-          if (row.request_hash !== requestHash)
-            return { kind: "idempotency_conflict" } as const;
-          return {
-            kind: "replayed",
-            run: PublicRunSchema.parse(parseSafeJson(row.result_json)),
-          } as const;
-        }
-        const active = this.count(`status IN ('running', 'cancelling')
+    return await researchTransaction(this.#database, async (transaction) => {
+      await transaction.query(
+        "SELECT pg_advisory_xact_lock(hashtext('research-admission'))",
+      );
+      const existing = (
+        await transaction.query(
+          `SELECT request_hash, result_json FROM idempotency_records
+          WHERE scope = $1 AND idempotency_key = $2`,
+          [scope, key],
+        )
+      ).rows[0];
+      if (existing !== undefined) {
+        const row = IdempotencyRowSchema.parse(existing);
+        if (row.request_hash !== requestHash)
+          return { kind: "idempotency_conflict" } as const;
+        return {
+          kind: "replayed",
+          run: PublicRunSchema.parse(parseSafeJson(row.result_json)),
+        } as const;
+      }
+      const active = await this.count(
+        transaction,
+        `status IN ('running', 'cancelling')
           AND EXISTS (
             SELECT 1 FROM jobs
             WHERE jobs.run_id = runs.run_id
               AND jobs.kind = 'research'
               AND jobs.status NOT IN ('cancelled', 'succeeded', 'failed')
-          )`);
-        const queued = this.count("status = 'queued'");
-        if (checkRunAdmission(active, queued).kind !== "accepted")
-          return { kind: "queue_full" } as const;
-        const runId = RunIdSchema.parse(ids.runId);
-        const snapshotId = SnapshotIdSchema.parse(ids.snapshotId);
-        const jobId = JobIdSchema.parse(ids.jobId);
-        const eventId = EventIdSchema.parse(ids.eventId);
-        this.#database
-          .prepare(`INSERT INTO runs(
+          )`,
+      );
+      const queued = await this.count(transaction, "status = 'queued'");
+      if (checkRunAdmission(active, queued).kind !== "accepted")
+        return { kind: "queue_full" } as const;
+      const runId = RunIdSchema.parse(ids.runId);
+      const snapshotId = SnapshotIdSchema.parse(ids.snapshotId);
+      const jobId = JobIdSchema.parse(ids.jobId);
+      const eventId = EventIdSchema.parse(ids.eventId);
+      await transaction.query(
+        `INSERT INTO runs(
         run_id, snapshot_id, status, last_event_seq, created_at,
         remaining_base_calls, requested_optional_calls, requested_replacement_calls
-      ) VALUES (?, ?, 'queued', 1, ?, ?, ?, ?)`)
-          .run(
-            runId,
-            snapshotId,
-            now,
-            CALL_BUDGET_POLICY.mandatoryFirstAttempts,
-            CALL_BUDGET_POLICY.maxOptionalFollowups,
-            CALL_BUDGET_POLICY.maxRequiredReplacements,
-          );
-        this.#database
-          .prepare(`INSERT INTO snapshots(
+      ) VALUES ($1, $2, 'queued', 1, $3, $4, $5, $6)`,
+        [
+          runId,
+          snapshotId,
+          now,
+          CALL_BUDGET_POLICY.mandatoryFirstAttempts,
+          CALL_BUDGET_POLICY.maxOptionalFollowups,
+          CALL_BUDGET_POLICY.maxRequiredReplacements,
+        ],
+      );
+      await transaction.query(
+        `INSERT INTO snapshots(
         snapshot_id, run_id, state, requested_at
-      ) VALUES (?, ?, 'collecting', ?)`)
-          .run(snapshotId, runId, now);
-        this.#database
-          .prepare(`INSERT INTO jobs(
+      ) VALUES ($1, $2, 'collecting', $3)`,
+        [snapshotId, runId, now],
+      );
+      await transaction.query(
+        `INSERT INTO jobs(
         job_id, run_id, snapshot_id, kind, logical_key, input_hash,
         status, created_at
-      ) VALUES (?, ?, ?, 'research', 'collection:initial', ?, 'queued', ?)`)
-          .run(jobId, runId, snapshotId, requestHash, now);
-        this.#database
-          .prepare(`INSERT INTO run_events(
+      ) VALUES ($1, $2, $3, 'research', 'collection:initial', $4, 'queued', $5)`,
+        [jobId, runId, snapshotId, requestHash, now],
+      );
+      await transaction.query(
+        `INSERT INTO run_events(
         run_id, sequence, event_id, event_type, state_id, occurred_at, payload_json
-      ) VALUES (?, 1, ?, 'run_created', 'run_created', ?, ?)`)
-          .run(
-            runId,
-            eventId,
-            now,
-            serializeSafeJson({
-              schemaVersion: "workflow-v1",
-              participantIds: [],
-              claimIds: [],
-              sourceIds: [],
-              limitationIds: [],
-              summary: {
-                en: `${request.symbol} research was queued.`,
-                ko: `${request.symbol} 리서치가 대기열에 등록됐습니다.`,
-              },
-            }),
-          );
-        this.#database
-          .prepare(`INSERT INTO research_requests(
+      ) VALUES ($1, 1, $2, 'run_created', 'run_created', $3, $4)`,
+        [
+          runId,
+          eventId,
+          now,
+          serializeSafeJson({
+            schemaVersion: "workflow-v1",
+            participantIds: [],
+            claimIds: [],
+            sourceIds: [],
+            limitationIds: [],
+            summary: {
+              en: `${request.symbol} research was queued.`,
+              ko: `${request.symbol} 리서치가 대기열에 등록됐습니다.`,
+            },
+          }),
+        ],
+      );
+      await transaction.query(
+        `INSERT INTO research_requests(
         run_id, principal_id, symbol, question, locale, request_hash, created_at,
         research_kind, department_id, research_profile_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-          .run(
-            runId,
-            principalId,
-            request.symbol,
-            request.question,
-            request.locale,
-            requestHash,
-            now,
-            request.researchTarget.kind,
-            request.researchTarget.kind === "department"
-              ? request.researchTarget.departmentId
-              : null,
-            serializeSafeJson(request.researchProfile),
-          );
-        if (request.question.length > 0)
-          this.#database
-            .prepare(`INSERT INTO research_question_localizations(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          runId,
+          principalId,
+          request.symbol,
+          request.question,
+          request.locale,
+          requestHash,
+          now,
+          request.researchTarget.kind,
+          request.researchTarget.kind === "department"
+            ? request.researchTarget.departmentId
+            : null,
+          serializeSafeJson(request.researchProfile),
+        ],
+      );
+      if (request.question.length > 0)
+        await transaction.query(
+          `INSERT INTO research_question_localizations(
               run_id, locale, question, created_at
-            ) VALUES (?, ?, ?, ?)
-            ON CONFLICT(run_id, locale) DO NOTHING`)
-            .run(runId, request.locale, request.question, now);
-        const run = runFromRow(this.runRow(principalId, runId));
-        this.#database
-          .prepare(`INSERT INTO idempotency_records(
+            ) VALUES ($1, $2, $3, $4)
+            ON CONFLICT(run_id, locale) DO NOTHING`,
+          [runId, request.locale, request.question, now],
+        );
+      const run = runFromRow(
+        await this.runRow(principalId, runId, transaction),
+      );
+      await transaction.query(
+        `INSERT INTO idempotency_records(
         scope, idempotency_key, request_hash, result_json, created_at
-      ) VALUES (?, ?, ?, ?, ?)`)
-          .run(
-            scope,
-            key,
-            requestHash,
-            serializeSafeJson(publicRunJson(run)),
-            now,
-          );
-        return { kind: "created", run } as const;
-      })
-      .immediate();
+      ) VALUES ($1, $2, $3, $4, $5)`,
+        [scope, key, requestHash, serializeSafeJson(publicRunJson(run)), now],
+      );
+      return { kind: "created", run } as const;
+    });
   }
 
-  lookupIdempotency(
+  async lookupIdempotency(
     principalId: string,
     key: string,
     request: NormalizedResearchRequest,
-  ): ResearchIdempotencyLookup {
-    const value = this.#database
-      .prepare(`SELECT request_hash, result_json FROM idempotency_records
-        WHERE scope = ? AND idempotency_key = ?`)
-      .get(`research-run:${principalId}`, key);
+  ): Promise<ResearchIdempotencyLookup> {
+    const value = (
+      await this.#database.query(
+        `SELECT request_hash, result_json FROM idempotency_records
+        WHERE scope = $1 AND idempotency_key = $2`,
+        [`research-run:${principalId}`, key],
+      )
+    ).rows[0];
     if (value === undefined) return { kind: "missing" };
     const row = IdempotencyRowSchema.parse(value);
     return row.request_hash === digest(request)
@@ -293,9 +302,14 @@ export class ResearchApiRepository {
       : { kind: "conflict" };
   }
 
-  runRow(principalId: string, runId: string): unknown {
-    return this.#database
-      .prepare(`SELECT runs.run_id, runs.snapshot_id,
+  async runRow(
+    principalId: string,
+    runId: string,
+    database: ResearchDatabase = this.#database,
+  ): Promise<unknown> {
+    return (
+      await database.query(
+        `SELECT runs.run_id, runs.snapshot_id,
       research_requests.symbol, research_requests.question,
       research_requests.locale,
       research_requests.research_kind, research_requests.department_id,
@@ -303,42 +317,52 @@ export class ResearchApiRepository {
       runs.status,
       runs.last_event_seq, runs.created_at, runs.report_id FROM runs
       JOIN research_requests USING(run_id)
-      WHERE runs.run_id = ? AND research_requests.principal_id = ?`)
-      .get(runId, principalId);
+      WHERE runs.run_id = $1 AND research_requests.principal_id = $2`,
+        [runId, principalId],
+      )
+    ).rows[0];
   }
 
-  findRun(principalId: string, runId: string): PublicRun | undefined {
-    return findPublicRun(this.#database, principalId, runId);
+  async findRun(
+    principalId: string,
+    runId: string,
+  ): Promise<PublicRun | undefined> {
+    return await findPublicRun(this.#database, principalId, runId);
   }
 
-  listRuns(
+  async listRuns(
     principalId: string,
     limit: number,
     cursor?: RunCursor,
-  ): readonly PublicRun[] {
-    return listPublicRuns(this.#database, principalId, limit, cursor);
+  ): Promise<readonly PublicRun[]> {
+    return await listPublicRuns(this.#database, principalId, limit, cursor);
   }
 
-  events(
+  async events(
     principalId: string,
     runId: string,
-  ): readonly PublicResearchEvent[] | undefined {
-    return listPublicEvents(this.#database, principalId, runId);
+  ): Promise<readonly PublicResearchEvent[] | undefined> {
+    return await listPublicEvents(this.#database, principalId, runId);
   }
 
-  detail(principalId: string, runId: string): PublicRunDetail | undefined {
-    return this.#database.transaction(() => {
-      const run = findPublicRun(this.#database, principalId, runId);
+  async detail(
+    principalId: string,
+    runId: string,
+  ): Promise<PublicRunDetail | undefined> {
+    return await researchTransaction(this.#database, async (transaction) => {
+      const run = await findPublicRun(transaction, principalId, runId);
       if (run === undefined) return undefined;
-      const events = listPublicEvents(this.#database, principalId, runId);
+      const events = await listPublicEvents(transaction, principalId, runId);
       if (events === undefined) return undefined;
-      const activeRows = this.#database
-        .prepare(`SELECT logical_key FROM jobs
-              WHERE run_id = ? AND kind = 'research'
+      const activeRows = (
+        await transaction.query(
+          `SELECT logical_key FROM jobs
+              WHERE run_id = $1 AND kind = 'research'
                 AND status IN ('leased', 'spawn-reserved', 'running', 'cancel-requested')
-              ORDER BY created_at, job_id`)
-        .all(runId)
-        .map((row) => ActiveResearchJobRowSchema.parse(row).logical_key);
+              ORDER BY created_at, job_id`,
+          [runId],
+        )
+      ).rows.map((row) => ActiveResearchJobRowSchema.parse(row).logical_key);
       const activeActivities = [
         ...new Map(
           activeRows.flatMap((logicalKey) => {
@@ -357,7 +381,7 @@ export class ResearchApiRepository {
       const activeAgentIds = [
         ...new Set(activeActivities.map((activity) => activity.actorId)),
       ];
-      const queue = researchQueueStatus(this.#database, runId);
+      const queue = await researchQueueStatus(transaction, runId);
       return {
         run,
         events,
@@ -365,27 +389,31 @@ export class ResearchApiRepository {
         activeActivities,
         ...(queue === undefined ? {} : { queue }),
       };
-    })();
+    });
   }
 
-  report(principalId: string, reportId: string): PublicReport | undefined {
-    return findPublicReport(this.#database, principalId, reportId);
-  }
-
-  previousComparableReport(
+  async report(
     principalId: string,
     reportId: string,
-  ): PublicReport | undefined {
+  ): Promise<PublicReport | undefined> {
+    return await findPublicReport(this.#database, principalId, reportId);
+  }
+
+  async previousComparableReport(
+    principalId: string,
+    reportId: string,
+  ): Promise<PublicReport | undefined> {
     const row = z.object({ report_id: z.string().uuid() }).safeParse(
-      this.#database
-        .prepare(`WITH current_report AS (
+      (
+        await this.#database.query(
+          `WITH current_report AS (
             SELECT research_requests.principal_id,
               research_requests.symbol, research_requests.research_kind,
               research_requests.department_id, runs.created_at
             FROM reports
             JOIN runs USING(run_id)
             JOIN research_requests USING(run_id)
-            WHERE reports.report_id = ? AND research_requests.principal_id = ?
+            WHERE reports.report_id = $1 AND research_requests.principal_id = $2
           )
           SELECT prior_reports.report_id
           FROM current_report
@@ -401,23 +429,31 @@ export class ResearchApiRepository {
            AND prior_reports.state = 'published'
           WHERE prior_runs.created_at < current_report.created_at
           ORDER BY prior_runs.created_at DESC, prior_runs.run_id DESC
-          LIMIT 1`)
-        .get(reportId, principalId),
+          LIMIT 1`,
+          [reportId, principalId],
+        )
+      ).rows[0],
     );
     return row.success
-      ? findPublicReport(this.#database, principalId, row.data.report_id)
+      ? await findPublicReport(this.#database, principalId, row.data.report_id)
       : undefined;
   }
 
   close(): void {
-    if (this.#database.open) this.#database.close();
+    // The process owns the shared pool.
   }
 
-  private count(predicate: string): number {
+  private async count(
+    database: ResearchDatabase,
+    predicate: string,
+  ): Promise<number> {
     return CountRowSchema.parse(
-      this.#database
-        .prepare(`SELECT COUNT(*) AS count FROM runs WHERE ${predicate}`)
-        .get(),
+      (
+        await database.query(
+          `SELECT CAST(COUNT(*) AS integer) AS count FROM runs WHERE ${predicate}`,
+          [],
+        )
+      ).rows[0],
     ).count;
   }
 }

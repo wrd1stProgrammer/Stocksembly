@@ -1,7 +1,6 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { ArtifactIdSchema, EventIdSchema, JobIdSchema } from "../domain/ids";
 import {
   type ResearchReport,
@@ -17,8 +16,9 @@ import type {
   CodexRunResult,
 } from "../server/codex/codexRunner";
 import { CodexRunnerError } from "../server/codex/codexRunner";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
 import { questionInputHash } from "../server/qa/questionAnswerContracts";
+import { workflowTestDatabase } from "./postgresDatabase.testSupport";
 
 const ids = {
   job: JobIdSchema.parse("00000000-0000-4000-8000-000000000101"),
@@ -195,7 +195,7 @@ export async function createQuestionAnswerFixture(
   } = {},
 ) {
   const root = mkdtempSync(join(tmpdir(), "stocksembly-question-answer-"));
-  const databasePath = join(root, "workflow.sqlite");
+  const database = await workflowTestDatabase();
   const cas = new StrictArtifactCasFake();
   const report = options.report ?? ResearchReportSchema.parse(validReport());
   const specialistQuestion = {
@@ -245,8 +245,8 @@ export async function createQuestionAnswerFixture(
           ko: "공시가 새로운 목표주가를 뒷받침했나요?",
         };
   const inputHash = questionInputHash(report, ids.question, question);
-  const store = openSqliteStore(databasePath);
-  store.createRun({
+  const store = await openPostgresStore(database);
+  await store.createRun({
     runId: report.runId,
     snapshotId: report.snapshotId,
     requestedAt: now,
@@ -264,7 +264,7 @@ export async function createQuestionAnswerFixture(
       occurredAt: now,
     },
   });
-  store.close();
+  await store.close();
   const storedReport = options.reportIdMismatch
     ? { ...report, reportId: "00000000-0000-4000-8000-000000000198" }
     : report;
@@ -277,13 +277,10 @@ export async function createQuestionAnswerFixture(
     parentDigests: [],
     bytes,
   });
-  const database = new Database(databasePath);
-  database.pragma("foreign_keys = ON");
-  database
-    .prepare(`INSERT INTO artifacts(artifact_id, run_id, snapshot_id,
-      content_hash, byte_length, media_type, logical_key, input_hash, created_at)
-      VALUES (?, ?, ?, ?, ?, 'application/json', 'report:published', ?, ?)`)
-    .run(
+
+  await database.query(
+    "INSERT INTO artifacts(artifact_id, run_id, snapshot_id,\n      content_hash, byte_length, media_type, logical_key, input_hash, created_at)\n      VALUES ($1, $2, $3, $4, $5, 'application/json', 'report:published', $6, $7)",
+    [
       ids.artifact,
       report.runId,
       report.snapshotId,
@@ -291,28 +288,26 @@ export async function createQuestionAnswerFixture(
       descriptor.byteLength,
       "f".repeat(64),
       now,
-    );
-  database
-    .prepare(`INSERT INTO reports(report_id, run_id, snapshot_id, state, created_at)
-      VALUES (?, ?, ?, 'published', ?)`)
-    .run(report.reportId, report.runId, report.snapshotId, now);
-  database
-    .prepare(`INSERT INTO report_versions(version_id, report_id, run_id,
-      snapshot_id, version, artifact_id, status, published_at, public_payload_json)
-      VALUES (?, ?, ?, ?, 1, ?, 'complete_with_limitations', ?, '{}')`)
-    .run(
+    ],
+  );
+  await database.query(
+    "INSERT INTO reports(report_id, run_id, snapshot_id, state, created_at)\n      VALUES ($1, $2, $3, 'published', $4)",
+    [report.reportId, report.runId, report.snapshotId, now],
+  );
+  await database.query(
+    "INSERT INTO report_versions(version_id, report_id, run_id,\n      snapshot_id, version, artifact_id, status, published_at, public_payload_json)\n      VALUES ($1, $2, $3, $4, 1, $5, 'complete_with_limitations', $6, '{}')",
+    [
       report.versionId,
       report.reportId,
       report.runId,
       report.snapshotId,
       ids.artifact,
       now,
-    );
-  database
-    .prepare(`INSERT INTO questions(question_id, report_id, report_version_id,
-      run_id, snapshot_id, job_id, attempt_ordinal, status, question_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 1, 'pending', ?, ?)`)
-    .run(
+    ],
+  );
+  await database.query(
+    "INSERT INTO questions(question_id, report_id, report_version_id,\n      run_id, snapshot_id, job_id, attempt_ordinal, status, question_json, created_at)\n      VALUES ($1, $2, $3, $4, $5, $6, 1, 'pending', $7, $8)",
+    [
       ids.question,
       report.reportId,
       report.versionId,
@@ -321,11 +316,12 @@ export async function createQuestionAnswerFixture(
       ids.job,
       JSON.stringify(question),
       now,
-    );
-  database.close();
+    ],
+  );
+
   return {
     root,
-    databasePath,
+    database,
     cas,
     codex: options.codex ?? new QuestionCodexFake(),
     questionId: ids.question,

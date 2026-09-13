@@ -5,7 +5,7 @@ import type {
   SafeProcessDiagnostics,
 } from "../server/codex/codexErrors";
 import type { SafeReadinessDiagnostics } from "../server/codex/readiness";
-import type { JsonValue } from "../server/persistence/sqlite/safeJson";
+import type { JsonValue } from "../server/persistence/postgres/safeJson";
 
 export const LEASE_ENGINE_DEFAULTS = {
   activeRuns: LIMITS.admission.activeRuns,
