@@ -2,6 +2,12 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Low-cost Stocksembly production foundation for the AWS sandbox.
 
 Parameters:
+  SeparateWebInstanceId:
+    Type: String
+    Default: ""
+  PinnedApplicationAmi:
+    Type: AWS::EC2::Image::Id
+    Default: ami-0006118602dfc1c09
   AdminCidr:
     Type: String
     Description: IPv4 CIDR allowed to SSH to the application host.
@@ -12,6 +18,9 @@ Parameters:
   LatestAmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Conditions:
+  HasSeparateWeb: !Not [!Equals [!Ref SeparateWebInstanceId, ""]]
 
 Resources:
   Network:
@@ -365,7 +374,7 @@ Resources:
             VolumeSize: 50
             VolumeType: gp3
       IamInstanceProfile: !Ref ApplicationInstanceProfile
-      ImageId: !Ref LatestAmiId
+      ImageId: !Ref PinnedApplicationAmi
       InstanceType: t3.large
       KeyName: !Ref KeyPairName
       MetadataOptions:
@@ -441,10 +450,20 @@ Resources:
     DependsOn: InternetGatewayAttachment
     Properties:
       Domain: vpc
-      InstanceId: !Ref ApplicationInstance
+      InstanceId: !If [HasSeparateWeb, !Ref SeparateWebInstanceId, !Ref ApplicationInstance]
       Tags:
         - Key: Name
           Value: stocksembly-prod
+
+  WorkerAddress:
+    Type: AWS::EC2::EIP
+    Condition: HasSeparateWeb
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref ApplicationInstance
+      Tags:
+        - Key: Name
+          Value: stocksembly-worker
 
 Outputs:
   ApplicationInstanceId:

@@ -40,3 +40,13 @@ export const ONBOARDING_DISCOVERY_SOURCE_LABELS_KO: Readonly<
   other: "기타",
   prefer_not_to_say: "응답하지 않음",
 };
+
+/** Store new platform choices in the existing database's discovery categories. */
+export function storedOnboardingDiscoverySource(
+  source: OnboardingDiscoverySource,
+): OnboardingDiscoverySource {
+  if (source === "google") return "search";
+  if (source === "instagram" || source === "tiktok" || source === "x")
+    return "social";
+  return source;
+}

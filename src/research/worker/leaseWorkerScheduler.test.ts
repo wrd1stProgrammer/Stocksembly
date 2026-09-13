@@ -136,3 +136,35 @@ it("drains successor work created by a completed asynchronous attempt before sto
   );
   expect(successorProcessed).toBe(true);
 });
+
+it("drains active work without aborting it or claiming another job", async () => {
+  const controller = new AbortController();
+  let draining = false;
+  let completed = false;
+  let heartbeats = 0;
+  let pollsAfterDrain = 0;
+  await runLeaseWorkerScheduler(
+    {
+      recoverExpired: async () => [],
+      reconcile: async () => true,
+      heartbeat: async () => {
+        heartbeats += 1;
+        return 1;
+      },
+      poll: async () => {
+        if (draining) pollsAfterDrain += 1;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        draining = true;
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        completed = true;
+        return { kind: "idle" };
+      },
+    },
+    controller.signal,
+    { shouldDrain: () => draining, pollIntervalMs: 2, heartbeatIntervalMs: 3 },
+  );
+  expect(completed).toBe(true);
+  expect(pollsAfterDrain).toBe(0);
+  expect(heartbeats).toBeGreaterThan(1);
+  expect(controller.signal.aborted).toBe(false);
+});

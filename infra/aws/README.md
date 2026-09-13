@@ -1,5 +1,15 @@
 # Stocksembly AWS sandbox
 
+## Current production deployment
+
+Web and worker now have separate EC2 instances and images. Follow [the role deployment runbook](../../docs/operations/web-worker-separation.md) for instance IDs, IAM, EIPs, keys, certificate renewal, health checks and recovery. GitHub Actions builds the images; runtime instances only pull and run them. Do not build on a serving web host.
+
+- `provision-split-web.py`: web instance, security groups and scoped IAM additions, run from authenticated AWS CloudShell.
+- `role-deploy.sh <web|worker> <image>`: replace one runtime, with worker draining and health rollback.
+- `stocksembly-sandbox.yaml`: existing shared foundation and EIP ownership; keep `PinnedApplicationAmi` fixed when changing only networking.
+
+The single-host `deploy.sh` instructions below describe the original bootstrap. They are not the current production rollout procedure and must not be used to recombine the roles.
+
 This stack is the low-cost production foundation for the five-month AWS
 Innovation Sandbox. It is region-neutral and creates one application host, a private PostgreSQL
 database, an artifact bucket, a research queue with a dead-letter queue, and a

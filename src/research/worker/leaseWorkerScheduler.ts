@@ -10,6 +10,7 @@ export type LeaseWorkerSchedulerOptions = {
   readonly pollIntervalMs?: number;
   readonly heartbeatIntervalMs?: number;
   readonly stopWhenIdle?: boolean;
+  readonly shouldDrain?: () => boolean;
   readonly lifecycle?: LeaseWorkerLifecycle;
   readonly waitForWork?: (signal: AbortSignal) => Promise<boolean>;
 };
@@ -66,6 +67,11 @@ export async function runLeaseWorkerScheduler(
   try {
     while (!signal.aborted) {
       if (failures.length > 0) throw failures[0];
+      if (options.shouldDrain?.()) {
+        if (inFlight.size === 0) return;
+        await wait(pollIntervalMs, signal);
+        continue;
+      }
       await engine.recoverExpired();
       if (!(await engine.reconcile())) {
         options.lifecycle?.result?.({ kind: "recovery-pending" });

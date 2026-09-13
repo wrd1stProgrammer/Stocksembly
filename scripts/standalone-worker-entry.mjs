@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { rm, stat, writeFile } from "node:fs/promises";
 
 let driverValidated = false;
 try {
@@ -12,12 +12,29 @@ try {
   const argumentsValue = process.argv.slice(2);
   if (argumentsValue[0] === "serve") {
     const briefing = await import("../briefing-worker/briefingWorker.js");
+    const drainFile = "/tmp/stocksembly-worker-drain";
+    process.env.STOCKSEMBLY_WORKER_DRAIN_FILE = drainFile;
+    await Promise.all([
+      rm(drainFile, { force: true }),
+      rm(`${drainFile}.ready`, { force: true }),
+    ]);
     await Promise.all([
       worker.runLeaseWorkerProcess(argumentsValue),
       briefing.runBriefingWorkerProcess(argumentsValue),
     ]);
+    await writeFile(`${drainFile}.ready`, "ready", { mode: 0o600 });
+    await new Promise((resolve) => {
+      process.once("SIGTERM", resolve);
+      process.once("SIGINT", resolve);
+      setInterval(() => {}, 60_000);
+    });
+    process.exit(0);
   } else {
-    await worker.runLeaseWorkerProcess(argumentsValue);
+    try {
+      await worker.runLeaseWorkerProcess(argumentsValue);
+    } finally {
+      await worker.closeResearchPool();
+    }
   }
 } catch (error) {
   const reportedCode =

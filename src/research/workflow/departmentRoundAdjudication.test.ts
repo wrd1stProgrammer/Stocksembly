@@ -143,6 +143,14 @@ function candidate(): Record<string, unknown> {
 }
 
 describe("department adjudication trust boundary", () => {
+  it("preserves a complete internal editorial brief and numeric allowlist beyond 10,000 characters", () => {
+    const editorialBrief = `${"Retain the authenticated source scope and period. ".repeat(220)}Allowed numeric tokens: ["495.63", "2026"]`;
+    const [staged] = departmentJobs(IDS.run, IDS.snapshot, [
+      { ...request(), editorialBrief },
+    ]);
+    expect(JSON.parse(staged!.prompt).editorialBrief).toBe(editorialBrief);
+  });
+
   it("uses a required decision packet in the provider schema while preserving legacy jobs", () => {
     const current = zod.toJSONSchema(
       departmentRunnerOutputSchema({

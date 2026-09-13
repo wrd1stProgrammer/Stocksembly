@@ -98,7 +98,7 @@ export const DepartmentJobPromptSchema = z
       )
       .max(32)
       .optional(),
-    editorialBrief: z.string().trim().min(1).max(10_000).optional(),
+    editorialBrief: z.string().trim().min(1).optional(),
   })
   .strict()
   .readonly();

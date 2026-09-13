@@ -62,7 +62,10 @@ import {
 } from "../../research/server/api/researchCommandContracts";
 import type { ResearchPrincipal } from "../../research/server/http/researchAuth";
 import { postgresPoolConfiguration } from "../../server/database/postgresConfiguration";
-import type { OnboardingDiscoverySource } from "../onboarding";
+import {
+  type OnboardingDiscoverySource,
+  storedOnboardingDiscoverySource,
+} from "../onboarding";
 import {
   type AccountBillingStatus,
   type AccountStore,
@@ -2552,7 +2555,11 @@ export class PostgresAccountStore implements AccountStore {
              ),
              updated_at = now()
          WHERE principal_id = $1`,
-        [principalId, version, discoverySource],
+        [
+          principalId,
+          version,
+          storedOnboardingDiscoverySource(discoverySource),
+        ],
       );
     } catch (error) {
       throw new AccountStoreUnavailableError(

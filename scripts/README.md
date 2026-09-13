@@ -137,3 +137,15 @@ Document the caller, working directory, required inputs, output location, and an
 ## Retired tools
 
 The v6 asset processor, fixed-port final-F3 capture, and plan/scope verifiers with missing historical baselines were archived and removed with their dedicated tests. They are not current CI commands. See [restoration instructions](../docs/repository-cleanup.md). Current quality fixtures, contract tests, CI helpers and packaged-worker checks remain supported.
+
+## Separate runtime operations
+
+| Entry point | Purpose | Operational effect |
+| --- | --- | --- |
+| `ci-runtime-roles.sh <base-sha>` | Select web, worker or both from changed paths | Read-only Git inspection; shared changes select both |
+| `prepare-standalone.mjs --web-only` | Package the Next.js runtime without worker bundles | Replaces generated web packaging files |
+| `prepare-standalone.mjs --worker-only` | Package worker bundles and dependencies without Next.js/public assets | Replaces `.stocksembly-verification/worker-runtime` |
+| `storage/reconcile-s3-artifacts.ts` | Verify each persisted artifact digest exists in private S3 | Default is read-only; `--commit` uploads missing verified local objects, never deletes/overwrites |
+| `performance/web-readers.mjs WEB_IP [seconds]` | Stage HTTPS reads at 25/50/100/200 simulated readers | Sends real HTTP requests; stops subsequent stages when errors exceed 2% after 50 observations; does not generate model calls |
+
+Runbooks and measured limits are in [web/worker operations](../docs/operations/web-worker-separation.md). Performance testing uses the stocksembly.com TLS name and three explicit public routes; choose a controlled window and do not infer authenticated or model-execution capacity from it.
