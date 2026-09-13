@@ -7,7 +7,11 @@ import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { LIMITS } from "../domain/limits.constants";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
-import { codexInputHash } from "../server/codex/codexReservation";
+import {
+  codexInputHash,
+  verifyLaunchReservation,
+} from "../server/codex/codexReservation";
+import type { CodexPort } from "../server/codex/codexRunner";
 import { buildTechnicalChart } from "../technical/buildTechnicalChart";
 import { createLeaseEngine } from "../worker/leaseEngine";
 import {
@@ -19,6 +23,7 @@ import { workflowTestDatabase } from "./postgresDatabase.testSupport";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import { createPostgresSpecialistRound } from "./specialistRoundPostgres";
 import { makePostgresRoundHarness } from "./specialistRoundPostgres.testSupport";
+import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 import { prepareSpecialistJobs } from "./specialistRoundPostgresStage";
 
 const temporaryRoots: string[] = [];
@@ -151,12 +156,26 @@ describe("official PostgreSQL specialist round", () => {
     const root = mkdtempSync(join(tmpdir(), "specialist-round-postgres-"));
     temporaryRoots.push(root);
     const harness = await makePostgresRoundHarness("none");
+    const database = await workflowTestDatabase();
+    const authority = new SpecialistRoundPostgresAuthority(database);
+    const codex: CodexPort = {
+      id: harness.codex.id,
+      kind: harness.codex.kind,
+      async run(input) {
+        await verifyLaunchReservation(
+          input.reservation,
+          authority,
+          codexInputHash(input),
+        );
+        return harness.codex.run(input);
+      },
+    };
     const options = {
-      database: await workflowTestDatabase(),
+      database,
       attemptRoot: join(root, "attempts"),
       ownerId: "specialist-worker-a",
       cas: harness.cas,
-      codex: harness.codex,
+      codex,
       now: () => "2026-07-23T00:00:00.000Z",
     };
     const round = await createPostgresSpecialistRound(options);
