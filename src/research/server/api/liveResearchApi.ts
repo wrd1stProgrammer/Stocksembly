@@ -1,11 +1,11 @@
 import { statfs } from "node:fs/promises";
-import { join } from "node:path";
 import { createLiveAccountStore } from "../../../accounts/server/postgresAccountStore";
 import {
   prepareArtifactPaths,
   resolveStocksemblyDataDirectory,
 } from "../artifacts/filesystemArtifactPaths";
 import { createLiveS3ArtifactArchive } from "../artifacts/s3ArtifactArchive";
+import { getResearchPool } from "../persistence/postgres/researchPool";
 import { createLiveResearchQueue } from "../queue/sqsResearchQueue";
 import { getLiveTickerCatalog } from "./liveTickerCatalog";
 import { createResearchApi, type ResearchApi } from "./researchApi";
@@ -25,7 +25,7 @@ export async function prepareLiveResearchRuntime() {
   return {
     paths,
     dataRoot: paths.root,
-    databasePath: join(paths.root, "research.sqlite"),
+    database: await getResearchPool(),
   } as const;
 }
 
@@ -57,7 +57,6 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
   const billingRequired = accountStore !== undefined || !loopback;
   return await createResearchApi({
     dataRoot: paths.root,
-    databasePath: runtime.databasePath,
     billingRequired,
     allowedHost: publicOrigin.host,
     allowedOrigin: publicOrigin.origin,
@@ -95,7 +94,7 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
   });
 }
 
-export function getLiveResearchApi(): Promise<ResearchApi> {
+export async function getLiveResearchApi(): Promise<ResearchApi> {
   instance ??= createLiveResearchApi();
   return instance;
 }

@@ -2,9 +2,9 @@
 
 [Repository guide](../README.md) · [Cleanup record](../docs/repository-cleanup.md)
 
-Reviewed against GitHub main `3aebe39` on September 9, 2026. Run commands from the repository root. The project requires Node `>=20.20.0 <21`; CI uses pnpm 10.34.1. Install dependencies with `pnpm install --frozen-lockfile`.
+Database entry points updated for the PostgreSQL-only migration; production cutover is separately controlled. Run commands from the repository root. The project requires Node `>=20.20.0 <21`; CI uses pnpm 10.34.1. Install dependencies with `pnpm install --frozen-lockfile`.
 
-This inventory covers all 38 tracked scripts and tests at that revision. It distinguishes direct commands, internal modules, packaged entrypoints, and historical tools. Do not run every file as a maintenance routine.
+This inventory covers supported script entry points and their test/fixture helpers. It distinguishes direct commands, internal modules, packaged entrypoints, and historical tools. Do not run every file as a maintenance routine.
 
 ## Common tasks
 
@@ -12,7 +12,7 @@ This inventory covers all 38 tracked scripts and tests at that revision. It dist
 | --- | --- | --- |
 | Develop the web application | `pnpm dev` | Starts the Next development server |
 | Build deployment output | `pnpm build` | Builds both workers and Next; postbuild assembles the standalone package |
-| Start the local runtime | `pnpm start:local` | Requires build output; starts web and research worker, with conditional synchronization |
+| Start the local runtime | `pnpm start:local` | Requires build output; starts web and research worker, using configured PostgreSQL |
 | Check types or unit tests | `pnpm typecheck`, `pnpm test` | Scope is defined by TypeScript and Vitest configuration |
 | Check research quality contracts | `pnpm research:quality`, `pnpm research:quality:contracts` | Deterministic checks also used by CI |
 | Inspect worker readiness | `pnpm research:worker:readiness`, `pnpm research:worker:health` | Requires built worker entrypoints |
@@ -20,15 +20,28 @@ This inventory covers all 38 tracked scripts and tests at that revision. It dist
 | Configure SEC identity | `pnpm research:configure-sec-identity`, `pnpm research:require-sec-identity` | Configure writes local settings; require checks them |
 | Diagnose React code | `pnpm doctor` | Runs external `react-doctor@latest`; not a required CI step |
 
-**Production synchronization:** when both `STOCKSEMBLY_PRODUCTION_SYNC_HOST` and `STOCKSEMBLY_PRODUCTION_SYNC_SSH_KEY` are set, the local launcher also starts production synchronization. This merges local published research into the remote production store. It is not a download-only tool. Use an isolated environment without these settings for local QA.
+Local launch no longer synchronizes reports into production. Use isolated PostgreSQL credentials for QA. See [the cutover runbook](../docs/operations/postgres-cutover.md) before handling historical data.
+
+## Database commands and transfer tools
+
+| Command / file | Inputs, effects, and boundary |
+| --- | --- |
+| `pnpm db:local:up` / `pnpm db:local:stop` | Starts/stops the PostgreSQL 16 Compose service; stop preserves its named volume. |
+| `pnpm db:prepare` / [prepare-research-postgres.mjs](migrations/prepare-research-postgres.mjs) | Loads `.env.local` if present and applies ordered, checksum-verified research migrations to the configured PostgreSQL database. Does not enable production cutover. |
+| `pnpm db:export-legacy` / [export-legacy-research.py](migrations/export-legacy-research.py) | Python 3, `--research PATH [--news PATH] --output NEW_DIRECTORY`; read-only version-32 legacy export with private JSONL files and manifest. Only this offline utility uses standard-library SQLite. |
+| `pnpm db:verify` / [verify-research-postgres.ts](migrations/verify-research-postgres.ts) | Builds via `db:verify:build`, then accepts `--data-root DIRECTORY`; read-only application-reader verification of every run/event/published report and matching artifacts in the selected PostgreSQL database. |
+| `pnpm db:import` / [import-research-postgres.mjs](migrations/import-research-postgres.mjs) | `--archive DIRECTORY`; default imports/verifies then rolls back. `--commit --expected-sha256 HASH` commits the reviewed archive into an empty migrated research target. Never blindly merges active datasets. |
+| [standalone-postgres-fixture.mjs](standalone-postgres-fixture.mjs) | Internal verifier helper; creates/drops only a UUID-named test DB through a loopback `_test` connection. |
+
+All transfer tools support `--help`. Final production export requires drained/stopped writers, account-ownership reconciliation, retained recovery backups, and protected release deployment. A successful local rehearsal does not switch RDS.
 
 ## Runtime startup and packaging
 
 | File | Caller and responsibility | Inputs and outputs |
 | --- | --- | --- |
-| [start-local.mjs](start-local.mjs) | Launcher for `start:local`, `start`, and `preview` | Starts web, research worker, and conditional sync; manages child shutdown. Does not start the briefing worker |
+| [start-local.mjs](start-local.mjs) | Launcher for `start:local`, `start`, and `preview` | Starts web and packaged worker; manages child shutdown. Packaged serve mode also starts the briefing worker |
 | [prepare-standalone.mjs](prepare-standalone.mjs) | `postbuild` packaging | Copies public/static files, workers, required dependencies, and migrations into `.next/standalone`; replaces generated subdirectories |
-| [standalone-worker-entry.mjs](standalone-worker-entry.mjs) | Copied as `research-worker/worker.mjs` | Checks native SQLite bindings and invokes `leaseWorker.js`; run the packaged copy, not this source file |
+| [standalone-worker-entry.mjs](standalone-worker-entry.mjs) | Copied as `research-worker/worker.mjs` | Checks packaged PostgreSQL driver availability and invokes `leaseWorker.js`; run the packaged copy, not this source file |
 | [standalone-briefing-worker-entry.mjs](standalone-briefing-worker-entry.mjs) | Copied as `briefing-worker/worker.mjs` | Passes CLI arguments to `briefingWorker.js`; depends on the packaged layout |
 
 ## CI and standalone verification
@@ -37,7 +50,7 @@ This inventory covers all 38 tracked scripts and tests at that revision. It dist
 | --- | --- | --- |
 | [ci-lint-changed.sh](ci-lint-changed.sh) | Biome checks for changed files | `bash scripts/ci-lint-changed.sh <base-sha>`; skips when the base is invalid |
 | [ci-production-change.sh](ci-production-change.sh) | Prints whether deployment is needed | `bash scripts/ci-production-change.sh <base-sha>`; compares against `GITHUB_SHA` or HEAD; invalid base returns true |
-| [verify-standalone-worker.mjs](verify-standalone-worker.mjs) | Standalone verification CLI | `node scripts/verify-standalone-worker.mjs --probe` or `--full`; optional `--package-root <path>`; requires build output and the expected macOS protected runtime |
+| [verify-standalone-worker.mjs](verify-standalone-worker.mjs) | Standalone verification CLI | `node scripts/verify-standalone-worker.mjs --probe` or `--full`; optional `--package-root <path>`; requires build output, a real PostgreSQL test connection, and the platform-specific protected runtime |
 | [verify-standalone-worker-full.mjs](verify-standalone-worker-full.mjs) | Full verification implementation | Called by the CLI; temporary packages, databases, and processes |
 | [verify-standalone-worker-failures.mjs](verify-standalone-worker-failures.mjs) | Failure-condition verification | Used by full verification; creates temporary permission and port failure conditions |
 | [standalone-process.mjs](standalone-process.mjs) | Process, port, and HTTP wait utilities | Internal module, not a direct CLI |
@@ -52,10 +65,9 @@ The [pipeline](../.github/workflows/pipeline.yml) is authoritative for actual CI
 | --- | --- | --- |
 | [research-codex-probe.mjs](research-codex-probe.mjs) | Temporarily compiles and runs the readiness command | `pnpm research:codex:probe`; temporary output under `.stocksembly-verification`; checks the actual execution environment |
 | [research-sec-identity.mjs](research-sec-identity.mjs) | Compiles the SEC identity CLI | `configure` or `require`; delegates to `src/research/server/data/sec/secIdentityConfigCommand.ts` |
-| [research-production-sync.mjs](research-production-sync.mjs) | Merges local published research into production over SSH | Direct mode defaults to `once`; also accepts `watch`. The package alias selects watch. Requires both SSH variables; reads `STOCKSEMBLY_DATA_DIR`, changes remote database/artifacts, and creates backups; default interval 30 seconds |
 | [run-research-quality-live.ts](run-research-quality-live.ts) | Runs actual NVDA and TSLA research, publication, and translation checks | `pnpm research:quality:live`; external provider/model calls and local writes; requires the environment below |
-| [audit-official-five-reports.ts](audit-official-five-reports.ts) | Audits stored committee, market, company, financial, and risk reports from a ledger | Arguments `<ledger.json> <output-dir>`; reads the database/artifacts selected by `STOCKSEMBLY_DATA_DIR`; writes `official-content-audit.json` |
-| [quality-timeseries.ts](quality-timeseries.ts) | Recalculates quality scores for stored report versions offline | Reads a database copy and artifacts; optional `[outputDir]`, default `.stocksembly-verification/quality-archive`; writes dated JSON/Markdown, not production score updates |
+| [audit-official-five-reports.ts](audit-official-five-reports.ts) | Audits stored committee, market, company, financial, and risk reports from a ledger | Arguments `<ledger.json> <output-dir>`; reads configured PostgreSQL and artifacts selected by `STOCKSEMBLY_DATA_DIR`; writes `official-content-audit.json` |
+| [quality-timeseries.ts](quality-timeseries.ts) | Recalculates quality scores for stored report versions offline | Reads configured PostgreSQL and matching artifacts; optional `[outputDir]`, default `.stocksembly-verification/quality-archive`; writes dated JSON/Markdown, not production score updates |
 
 ### Run the TypeScript audit tools
 
@@ -63,13 +75,13 @@ These two audit tools do not have package aliases. On Node 20, bundle them with 
 
 ```bash
 pnpm exec vite build --config vite.worker.config.ts --ssr scripts/quality-timeseries.ts --outDir .stocksembly-verification/quality-timeseries-cli
-STOCKSEMBLY_DATA_DIR=/absolute/path/to/research-copy node .stocksembly-verification/quality-timeseries-cli/quality-timeseries.js
+STOCKSEMBLY_DATABASE_URL=postgresql://127.0.0.1:5432/stocksembly_audit STOCKSEMBLY_DATA_DIR=/absolute/path/to/artifact-copy node .stocksembly-verification/quality-timeseries-cli/quality-timeseries.js
 
 pnpm exec vite build --config vite.worker.config.ts --ssr scripts/audit-official-five-reports.ts --outDir .stocksembly-verification/official-audit-cli
-STOCKSEMBLY_DATA_DIR=/absolute/path/to/research-copy node .stocksembly-verification/official-audit-cli/audit-official-five-reports.js /absolute/path/to/ledger.json .stocksembly-verification/official-audit
+STOCKSEMBLY_DATABASE_URL=postgresql://127.0.0.1:5432/stocksembly_audit STOCKSEMBLY_DATA_DIR=/absolute/path/to/artifact-copy node .stocksembly-verification/official-audit-cli/audit-official-five-reports.js /absolute/path/to/ledger.json .stocksembly-verification/official-audit
 ```
 
-Both bundle commands were checked with Node 20.20.2 during this documentation pass. Database auditing itself was not run. Prepare matching artifacts along with the database copy; copying only the database can leave artifact lookups unresolved. Example paths above are placeholders, not bundled datasets.
+Both bundle commands were checked with Node 20.20.2 during this documentation pass. That earlier documentation pass did not run database auditing. Select an isolated PostgreSQL database and matching artifacts; database records alone can leave artifact lookups unresolved. Example paths above are placeholders, not bundled datasets.
 
 ### Live quality environment
 

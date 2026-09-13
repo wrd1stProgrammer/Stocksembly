@@ -1,7 +1,8 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import type { ResearchTarget } from "../../domain/researchTarget";
-import { prepareLiveResearchRuntime } from "../api/liveResearchApi";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
+import { getResearchPool } from "../persistence/postgres/researchPool";
 import { isResearchRoomIndexable } from "./researchRoomIndexability";
 import {
   LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE,
@@ -57,7 +58,9 @@ function researchTarget(
 }
 
 function selectSql(filterBySymbol: boolean): string {
-  const symbolFilter = filterBySymbol ? "AND research_requests.symbol = ?" : "";
+  const symbolFilter = filterBySymbol
+    ? "AND research_requests.symbol = $1"
+    : "";
   return `SELECT reports.report_id, research_requests.symbol,
     COALESCE(
       (SELECT symbol_registry.name FROM symbol_registry
@@ -97,27 +100,22 @@ function sitemapSelectSql(): string {
    ORDER BY report_versions.published_at DESC, research_requests.symbol ASC`;
 }
 
-async function withDatabase<T>(read: (database: Database.Database) => T) {
-  const runtime = await prepareLiveResearchRuntime();
-  const database = new Database(runtime.databasePath, {
-    readonly: true,
-    fileMustExist: true,
-  });
-  try {
-    return read(database);
-  } finally {
-    database.close();
-  }
+async function withDatabase<T>(
+  read: (database: ResearchDatabase) => Promise<T>,
+) {
+  return await researchTransaction(await getResearchPool(), read);
 }
 
 async function loadEligibleRows(
   symbol: StockSymbol | undefined,
   now: Date,
 ): Promise<readonly z.infer<typeof StockResearchHubRowSchema>[]> {
-  return await withDatabase((database) => {
-    const statement = database.prepare(selectSql(symbol !== undefined));
+  return await withDatabase(async (database) => {
     const values =
-      symbol === undefined ? statement.all() : statement.all(symbol);
+      symbol === undefined
+        ? (await database.query(selectSql(symbol !== undefined), [])).rows
+        : (await database.query(selectSql(symbol !== undefined), [symbol]))
+            .rows;
     return values.flatMap(
       (value): readonly z.infer<typeof StockResearchHubRowSchema>[] => {
         const row = StockResearchHubRowSchema.safeParse(value);
@@ -155,21 +153,16 @@ export async function loadStockResearchHub(
 export async function listStockResearchHubSitemapEntries(
   now = new Date(),
 ): Promise<readonly StockResearchHubSitemapEntry[]> {
-  const rows = await withDatabase((database) =>
-    database
-      .prepare(sitemapSelectSql())
-      .all()
-      .flatMap(
-        (
-          value,
-        ): readonly z.infer<typeof StockResearchHubSitemapRowSchema>[] => {
-          const row = StockResearchHubSitemapRowSchema.safeParse(value);
-          return row.success &&
-            isResearchRoomIndexable(row.data.status, row.data.published_at, now)
-            ? [row.data]
-            : [];
-        },
-      ),
+  const rows = await withDatabase(async (database) =>
+    (await database.query(sitemapSelectSql(), [])).rows.flatMap(
+      (value): readonly z.infer<typeof StockResearchHubSitemapRowSchema>[] => {
+        const row = StockResearchHubSitemapRowSchema.safeParse(value);
+        return row.success &&
+          isResearchRoomIndexable(row.data.status, row.data.published_at, now)
+          ? [row.data]
+          : [];
+      },
+    ),
   );
   // Mutable by design: reduce multiple reports to one latest entry per symbol.
   const latestBySymbol = new Map<StockSymbol, string>();

@@ -3,7 +3,6 @@ import {
   cp,
   mkdir,
   mkdtemp,
-  realpath,
   rm,
   stat,
   symlink,
@@ -24,13 +23,12 @@ const verifiedProbeSchema = z.object({
   kind: z.literal("standalone_worker_verified"),
   probe: z.object({
     kind: z.literal("runtime_probe_ok"),
-    journalMode: z.literal("wal"),
-    foreignKeys: z.literal(1),
+    database: z.literal("postgresql"),
     row: z.object({
       id: z.literal("stocksembly-runtime-probe-v1"),
-      value: z.literal("native-sqlite-ok"),
+      value: z.literal("postgresql-ok"),
     }),
-    sandboxExec: z.literal("/usr/bin/sandbox-exec"),
+    sandboxExec: z.literal("/usr/bin/sandbox-exec").nullable(),
     databaseCleaned: z.literal(true),
   }),
 });
@@ -62,6 +60,19 @@ const createPrepareFixture = async (): Promise<string> => {
     mkdir(join(fixtureRoot, "node_modules"), { recursive: true }),
   ]);
   await Promise.all([
+    cp(
+      join(process.cwd(), ".stocksembly-verification/research-worker/assets"),
+      join(fixtureRoot, ".stocksembly-verification/research-worker/assets"),
+      { recursive: true },
+    ),
+    cp(
+      join(
+        process.cwd(),
+        "src/research/server/persistence/postgres/migrations",
+      ),
+      join(fixtureRoot, "src/research/server/persistence/postgres/migrations"),
+      { recursive: true },
+    ),
     writeFile(join(fixtureRoot, ".next/static/fixture.txt"), "static"),
     writeFile(
       join(fixtureRoot, ".next/standalone/package.json"),
@@ -79,8 +90,13 @@ const createPrepareFixture = async (): Promise<string> => {
       ),
     ),
     symlink(
-      join(process.cwd(), "node_modules/better-sqlite3"),
-      join(fixtureRoot, "node_modules/better-sqlite3"),
+      join(process.cwd(), "node_modules/pg"),
+      join(fixtureRoot, "node_modules/pg"),
+      "dir",
+    ),
+    symlink(
+      join(process.cwd(), "node_modules/decimal.js"),
+      join(fixtureRoot, "node_modules/decimal.js"),
       "dir",
     ),
     symlink(
@@ -124,7 +140,7 @@ describe("standalone worker packaging", () => {
     }
   });
 
-  it("packages the native SQLite binding and its runtime dependencies", async () => {
+  it("packages the PostgreSQL driver and its runtime dependencies", async () => {
     // Given
     const fixtureRoot = await createPrepareFixture();
 
@@ -134,11 +150,11 @@ describe("standalone worker packaging", () => {
 
       // Then
       expect(result.status, result.stderr).toBe(0);
-      const nativeArtifacts = await Promise.all(
+      const runtimeArtifacts = await Promise.all(
         [
-          "better-sqlite3/build/Release/better_sqlite3.node",
-          "bindings/package.json",
-          "file-uri-to-path/package.json",
+          "pg/package.json",
+          "pg-pool/package.json",
+          "pg-protocol/package.json",
           "zod/package.json",
         ].map((artifactPath) =>
           stat(
@@ -146,7 +162,7 @@ describe("standalone worker packaging", () => {
           ),
         ),
       );
-      expect(nativeArtifacts.map((artifact) => artifact.isFile())).toEqual([
+      expect(runtimeArtifacts.map((artifact) => artifact.isFile())).toEqual([
         true,
         true,
         true,
@@ -157,12 +173,11 @@ describe("standalone worker packaging", () => {
     }
   });
 
-  it("runs the packaged native worker probe from an explicit standalone root", async () => {
+  it("runs the packaged PostgreSQL worker probe from an explicit standalone root", async () => {
     // Given
     const fixtureRoot = await createPrepareFixture();
 
     try {
-      expect(await realpath(fixtureRoot)).not.toBe(fixtureRoot);
       const prepareResult = prepareFixture(fixtureRoot);
       expect(prepareResult.status, prepareResult.stderr).toBe(0);
 
@@ -175,7 +190,20 @@ describe("standalone worker packaging", () => {
           "--package-root",
           join(fixtureRoot, ".next/standalone"),
         ],
-        { cwd: fixtureRoot, encoding: "utf8" },
+        {
+          cwd: fixtureRoot,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            STOCKSEMBLY_DATABASE_URL:
+              process.env.STOCKSEMBLY_TEST_DATABASE_URL ??
+              "postgresql://127.0.0.1:55432/stocksembly_migration_test",
+            STOCKSEMBLY_MIGRATIONS_DIR: join(
+              fixtureRoot,
+              ".next/standalone/migrations",
+            ),
+          },
+        },
       );
 
       // Then
@@ -188,13 +216,13 @@ describe("standalone worker packaging", () => {
         kind: "standalone_worker_verified",
         probe: {
           kind: "runtime_probe_ok",
-          journalMode: "wal",
-          foreignKeys: 1,
+          database: "postgresql",
           row: {
             id: "stocksembly-runtime-probe-v1",
-            value: "native-sqlite-ok",
+            value: "postgresql-ok",
           },
-          sandboxExec: "/usr/bin/sandbox-exec",
+          sandboxExec:
+            process.platform === "darwin" ? "/usr/bin/sandbox-exec" : null,
           databaseCleaned: true,
         },
       });
@@ -203,7 +231,7 @@ describe("standalone worker packaging", () => {
     }
   });
 
-  it("rejects a copied package when only its native SQLite binding is removed", async () => {
+  it("rejects a copied package when only its PostgreSQL driver is removed", async () => {
     // Given
     const fixtureRoot = await createPrepareFixture();
 
@@ -211,18 +239,26 @@ describe("standalone worker packaging", () => {
       const prepareResult = prepareFixture(fixtureRoot);
       expect(prepareResult.status, prepareResult.stderr).toBe(0);
       const packageRoot = join(fixtureRoot, ".next/standalone");
-      await rm(
-        join(
-          packageRoot,
-          "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
-        ),
-      );
+      await rm(join(packageRoot, "node_modules/pg/package.json"));
 
       // When
       const result = spawnSync(
         process.execPath,
         [verifierScript, "--probe", "--package-root", packageRoot],
-        { cwd: fixtureRoot, encoding: "utf8" },
+        {
+          cwd: fixtureRoot,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            STOCKSEMBLY_DATABASE_URL:
+              process.env.STOCKSEMBLY_TEST_DATABASE_URL ??
+              "postgresql://127.0.0.1:55432/stocksembly_migration_test",
+            STOCKSEMBLY_MIGRATIONS_DIR: join(
+              fixtureRoot,
+              ".next/standalone/migrations",
+            ),
+          },
+        },
       );
 
       // Then
@@ -233,7 +269,7 @@ describe("standalone worker packaging", () => {
       const outputValue: unknown = JSON.parse(outputLine);
       expect(standaloneErrorSchema.parse(outputValue)).toMatchObject({
         kind: "standalone_worker_error",
-        code: "SQLITE_NATIVE_UNAVAILABLE",
+        code: "POSTGRES_DRIVER_UNAVAILABLE",
       });
     } finally {
       await rm(fixtureRoot, { recursive: true, force: true });
@@ -256,7 +292,20 @@ describe("standalone worker packaging", () => {
           "--package-root",
           join(fixtureRoot, "missing"),
         ],
-        { cwd: fixtureRoot, encoding: "utf8" },
+        {
+          cwd: fixtureRoot,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            STOCKSEMBLY_DATABASE_URL:
+              process.env.STOCKSEMBLY_TEST_DATABASE_URL ??
+              "postgresql://127.0.0.1:55432/stocksembly_migration_test",
+            STOCKSEMBLY_MIGRATIONS_DIR: join(
+              fixtureRoot,
+              ".next/standalone/migrations",
+            ),
+          },
+        },
       );
 
       // Then

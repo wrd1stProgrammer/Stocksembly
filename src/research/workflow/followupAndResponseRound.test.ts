@@ -3,11 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ArtifactIdSchema, RunIdSchema } from "../domain/ids";
-import { createSqliteChallengeRound } from "./challengeRound";
+import { createPostgresChallengeRound } from "./challengeRound";
 import { stageAcceptedDepartments } from "./challengeRound.testSupport";
 import {
   committeeConsensus,
-  createSqliteFollowupAndResponseRound,
+  createPostgresFollowupAndResponseRound,
 } from "./followupAndResponseRound";
 import { FollowupResponseCodexFake } from "./followupAndResponseRound.testSupport";
 
@@ -33,7 +33,7 @@ describe("bounded follow-up and owner-response round", () => {
     const root = temporaryRoot();
     const codex = new FollowupResponseCodexFake("none");
     const prepared = await stageAcceptedDepartments(root, "none", codex);
-    const challenges = createSqliteChallengeRound(prepared.options);
+    const challenges = createPostgresChallengeRound(prepared.options);
     await challenges.stage({
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       consolidationArtifactIds: prepared.departmentReplay.artifactIds.map(
@@ -44,7 +44,7 @@ describe("bounded follow-up and owner-response round", () => {
       prepared.harness.input.mandate.runId,
     );
     await challenges.close();
-    const round = createSqliteFollowupAndResponseRound(prepared.options);
+    const round = createPostgresFollowupAndResponseRound(prepared.options);
 
     // When
     const staged = await round.stage({

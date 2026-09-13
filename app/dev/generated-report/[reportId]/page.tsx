@@ -19,13 +19,13 @@ export default async function GeneratedReportPreviewPage({
   const runtime = await prepareLiveResearchRuntime();
   const auth = await ensureLocalAuth(runtime.dataRoot);
   const repository = new ResearchApiRepository({
-    databasePath: runtime.databasePath,
+    database: runtime.database,
   });
 
   try {
-    const publication = repository.report(auth.principal.id, reportId);
+    const publication = await repository.report(auth.principal.id, reportId);
     if (publication === undefined) notFound();
-    const run = repository.findRun(auth.principal.id, publication.runId);
+    const run = await repository.findRun(auth.principal.id, publication.runId);
     if (run === undefined || run.reportId !== reportId) notFound();
     const report = await loadPublicResearchReport(
       { dataRoot: runtime.dataRoot },

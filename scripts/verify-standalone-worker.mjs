@@ -31,15 +31,14 @@ const argumentsSchema = z.union([
 const probeResultSchema = z
   .object({
     kind: z.literal("runtime_probe_ok"),
-    platform: z.literal("darwin"),
+    platform: z.enum(["darwin", "linux"]),
     architecture: z.string().min(1),
-    journalMode: z.literal("wal"),
-    foreignKeys: z.literal(1),
+    database: z.literal("postgresql"),
     row: z.object({
       id: z.literal("stocksembly-runtime-probe-v1"),
-      value: z.literal("native-sqlite-ok"),
+      value: z.literal("postgresql-ok"),
     }),
-    sandboxExec: z.literal("/usr/bin/sandbox-exec"),
+    sandboxExec: z.literal("/usr/bin/sandbox-exec").nullable(),
     databaseCleaned: z.literal(true),
   })
   .strict();
@@ -68,10 +67,7 @@ const parseLastJsonLine = (output, schema) => {
 const verifyPackageRoot = async (packageRoot) => {
   const workerPath = join(packageRoot, "research-worker/runtimeProbe.js");
   const migrationsPath = join(packageRoot, "migrations");
-  const nativeBindingPath = join(
-    packageRoot,
-    "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
-  );
+  const driverPath = join(packageRoot, "node_modules/pg/package.json");
 
   try {
     const [workerFile, migrationsDirectory] = await Promise.all([
@@ -96,11 +92,11 @@ const verifyPackageRoot = async (packageRoot) => {
   }
 
   try {
-    const nativeBinding = await stat(nativeBindingPath);
-    if (!nativeBinding.isFile()) {
+    const driver = await stat(driverPath);
+    if (!driver.isFile()) {
       throw new StandaloneVerificationError(
-        "SQLITE_NATIVE_UNAVAILABLE",
-        "The packaged better-sqlite3 native binding is unavailable",
+        "POSTGRES_DRIVER_UNAVAILABLE",
+        "The packaged PostgreSQL driver is unavailable",
       );
     }
   } catch (error) {
@@ -108,8 +104,8 @@ const verifyPackageRoot = async (packageRoot) => {
       throw error;
     }
     throw new StandaloneVerificationError(
-      "SQLITE_NATIVE_UNAVAILABLE",
-      "The packaged better-sqlite3 native binding is unavailable",
+      "POSTGRES_DRIVER_UNAVAILABLE",
+      "The packaged PostgreSQL driver is unavailable",
       { cause: error },
     );
   }

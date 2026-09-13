@@ -2,13 +2,16 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import Database from "better-sqlite3";
 import ky from "ky";
 import { z } from "zod";
 import { createResearchClient } from "../src/research/client/api";
 import { PublicRunDetailSchema } from "../src/research/client/schemas";
 import { liveQuality } from "../src/research/quality/liveReportQuality";
-import { ResearchQualityMetricsSchema } from "../src/research/server/persistence/sqlite/researchQualityObservations";
+import {
+  closeResearchPool,
+  getResearchPool,
+} from "../src/research/server/persistence/postgres/researchPool";
+import { ResearchQualityMetricsSchema } from "../src/research/server/persistence/postgres/researchQualityObservations";
 import { loadResearchRoomReport } from "../src/research/server/researchRoom/researchRoomCatalog";
 import {
   publicResearchTranslationItems,
@@ -46,9 +49,9 @@ const ReportProofRowSchema = z.object({
   reason_codes_json: z.string().nullable(),
 });
 const UsageRowSchema = z.object({
-  modelCalls: z.number().int().nonnegative(),
-  inputTokens: z.number().int().nonnegative(),
-  outputTokens: z.number().int().nonnegative(),
+  modelCalls: z.coerce.number().int().nonnegative(),
+  inputTokens: z.coerce.number().int().nonnegative(),
+  outputTokens: z.coerce.number().int().nonnegative(),
 });
 const TerminalEventRowSchema = z.object({ payload_json: z.string() });
 const TerminalPayloadSchema = z.looseObject({
@@ -290,19 +293,20 @@ const RUNS = [
   },
 ] as const;
 
-function terminalEvidence(
-  database: Database.Database,
+async function terminalEvidence(
+  database: import("pg").Pool,
   runId: string,
-): {
+): Promise<{
   readonly terminalReason: string | null;
   readonly chargeDisposition: "not_charged" | "unknown";
-} {
+}> {
   const row = TerminalEventRowSchema.safeParse(
-    database
-      .prepare(
-        "SELECT payload_json FROM run_events WHERE run_id = ? ORDER BY sequence DESC LIMIT 1",
+    (
+      await database.query(
+        "SELECT payload_json FROM run_events WHERE run_id = $1 ORDER BY sequence DESC LIMIT 1",
+        [runId],
       )
-      .get(runId),
+    ).rows[0],
   );
   if (!row.success)
     return { terminalReason: null, chargeDisposition: "unknown" };
@@ -345,7 +349,7 @@ async function main(): Promise<void> {
   const env = EnvSchema.parse(process.env);
   const evidenceDir = path.resolve(env.RESEARCH_QUALITY_EVIDENCE_DIR);
   const ledgerPath = path.resolve(env.QUALITY_RUN_LEDGER);
-  const databasePath = path.join(env.STOCKSEMBLY_DATA_DIR, "research.sqlite");
+
   const invocationId = randomUUID();
   const invocationDir = path.join(evidenceDir, "invocations", invocationId);
   await mkdir(path.join(invocationDir, "scorecards"), { recursive: true });
@@ -397,11 +401,11 @@ async function main(): Promise<void> {
       return { definition, detail: current };
     }),
   );
-  const database = new Database(databasePath, { readonly: true });
+  const database = await getResearchPool();
   const entries: LedgerEntry[] = [];
   for (const value of completed) {
     const runId = value.detail.run.runId;
-    const terminal = terminalEvidence(database, runId);
+    const terminal = await terminalEvidence(database, runId);
     const terminalReason =
       terminal.terminalReason ??
       (TERMINAL.has(value.detail.run.status)
@@ -457,12 +461,15 @@ async function main(): Promise<void> {
     if (report === undefined || report === "locked")
       throw new TypeError(`${value.definition.symbol}_REPORT_UNAVAILABLE`);
     const row = ReportProofRowSchema.parse(
-      database
-        .prepare(`SELECT report_versions.version, artifacts.content_hash, artifacts.byte_length,
+      (
+        await database.query(
+          `SELECT report_versions.version, artifacts.content_hash, artifacts.byte_length,
       report_versions.published_at, research_quality_observations.outcome, research_quality_observations.metrics_json,
       research_quality_observations.reason_codes_json FROM report_versions JOIN artifacts USING(artifact_id)
-      LEFT JOIN research_quality_observations USING(run_id) WHERE report_versions.run_id = ? ORDER BY version DESC LIMIT 1`)
-        .get(runId),
+      LEFT JOIN research_quality_observations USING(run_id) WHERE report_versions.run_id = $1 ORDER BY version DESC LIMIT 1`,
+          [runId],
+        )
+      ).rows[0],
     );
     const sourceUrls = report.file.evidenceIndex.flatMap((source) =>
       source.url === undefined ? [] : [source.url],
@@ -473,15 +480,18 @@ async function main(): Promise<void> {
       );
     const quality = liveQuality(report.file, report.item.locale);
     const usage = UsageRowSchema.parse(
-      database
-        .prepare(`SELECT
-          (SELECT COUNT(*) FROM agent_runner_evidence JOIN attempts USING(attempt_id) WHERE attempts.run_id = @runId) +
-          (SELECT COUNT(*) FROM auxiliary_codex_usage WHERE run_id = @runId) AS modelCalls,
-          COALESCE((SELECT SUM(input_tokens) FROM agent_runner_evidence JOIN attempts USING(attempt_id) WHERE attempts.run_id = @runId), 0) +
-          COALESCE((SELECT SUM(input_tokens) FROM auxiliary_codex_usage WHERE run_id = @runId), 0) AS inputTokens,
-          COALESCE((SELECT SUM(output_tokens) FROM agent_runner_evidence JOIN attempts USING(attempt_id) WHERE attempts.run_id = @runId), 0) +
-          COALESCE((SELECT SUM(output_tokens) FROM auxiliary_codex_usage WHERE run_id = @runId), 0) AS outputTokens`)
-        .get({ runId }),
+      (
+        await database.query(
+          `SELECT
+          (SELECT COUNT(*) FROM agent_runner_evidence JOIN attempts USING(attempt_id) WHERE attempts.run_id = $1) +
+          (SELECT COUNT(*) FROM auxiliary_codex_usage WHERE run_id = $1) AS "modelCalls",
+          COALESCE((SELECT SUM(input_tokens) FROM agent_runner_evidence JOIN attempts USING(attempt_id) WHERE attempts.run_id = $1), 0) +
+          COALESCE((SELECT SUM(input_tokens) FROM auxiliary_codex_usage WHERE run_id = $1), 0) AS "inputTokens",
+          COALESCE((SELECT SUM(output_tokens) FROM agent_runner_evidence JOIN attempts USING(attempt_id) WHERE attempts.run_id = $1), 0) +
+          COALESCE((SELECT SUM(output_tokens) FROM auxiliary_codex_usage WHERE run_id = $1), 0) AS "outputTokens"`,
+          [runId],
+        )
+      ).rows[0],
     );
     const artifactHash = row.content_hash;
     const artifactPath = path.join(
@@ -593,7 +603,7 @@ async function main(): Promise<void> {
       scorecardMarkdownPath: scorecardPath.replace(/\.json$/u, ".md"),
     });
   }
-  database.close();
+
   const selectedEntry = entries.find(
     (entry): entry is PublishedLedgerEntry => entry.scoreStatus === "computed",
   );
@@ -625,9 +635,8 @@ async function main(): Promise<void> {
         translationReport.item.locale,
       ),
     );
-    const beforeFirst = researchTranslationModelCalls(
-      databasePath,
-      cacheKey,
+    const beforeFirst = (
+      await researchTranslationModelCalls(database, cacheKey)
     ).length;
     const translationUrl = `${env.STOCKSEMBLY_PUBLIC_ORIGIN}/api/research-room/${selectedEntry.reportId}/translation`;
     await ky
@@ -642,8 +651,8 @@ async function main(): Promise<void> {
         retry: 0,
       })
       .json();
-    const afterFirstRows = researchTranslationModelCalls(
-      databasePath,
+    const afterFirstRows = await researchTranslationModelCalls(
+      database,
       cacheKey,
     );
     const beforeSecond = afterFirstRows.length;
@@ -659,9 +668,8 @@ async function main(): Promise<void> {
         retry: 0,
       })
       .json();
-    const afterSecond = researchTranslationModelCalls(
-      databasePath,
-      cacheKey,
+    const afterSecond = (
+      await researchTranslationModelCalls(database, cacheKey)
     ).length;
     translationProof = {
       cacheKey,
@@ -730,5 +738,10 @@ const entryPath = process.argv[1];
 if (
   entryPath !== undefined &&
   import.meta.url === pathToFileURL(path.resolve(entryPath)).href
-)
-  await main();
+) {
+  try {
+    await main();
+  } finally {
+    await closeResearchPool();
+  }
+}

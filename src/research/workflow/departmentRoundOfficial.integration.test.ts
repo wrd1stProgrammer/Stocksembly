@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createOfficialAttemptHandler } from "../compositions/officialWorker";
 import { RunIdSchema } from "../domain/ids";
 import { createLeaseEngine } from "../worker/leaseEngine";
-import { createSqliteDepartmentRound } from "./departmentRound";
+import { createPostgresDepartmentRound } from "./departmentRound";
 import { stageAcceptedSpecialists } from "./departmentRound.testSupport";
 
 const roots: string[] = [];
@@ -23,18 +23,18 @@ describe("official department worker dispatch", () => {
     const root = mkdtempSync(join(tmpdir(), "department-official-"));
     roots.push(root);
     const prepared = await stageAcceptedSpecialists(root, "none");
-    const staging = createSqliteDepartmentRound(prepared.options);
+    const staging = createPostgresDepartmentRound(prepared.options);
     await staging.stage({
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
-      memberArtifactIds: staging
-        .acceptedMemos(prepared.harness.input.mandate.runId)
-        .map((memo) => memo.artifactId),
+      memberArtifactIds: (
+        await staging.acceptedMemos(prepared.harness.input.mandate.runId)
+      ).map((memo) => memo.artifactId),
     });
     await staging.close();
     const official = await createOfficialAttemptHandler(
       {
         dataDirectory: root,
-        databasePath: prepared.options.databasePath,
+        database: prepared.options.database,
         ownerId: prepared.options.ownerId,
       },
       {
@@ -44,7 +44,7 @@ describe("official department worker dispatch", () => {
       },
     );
     const engine = createLeaseEngine({
-      databasePath: prepared.options.databasePath,
+      pool: prepared.options.database,
       ownerId: prepared.options.ownerId,
       handler: official.handler,
       clock: { now: prepared.options.now },
@@ -54,8 +54,10 @@ describe("official department worker dispatch", () => {
     const result = await engine.poll();
     await engine.shutdown();
     await official.close();
-    const verification = createSqliteDepartmentRound(prepared.options);
-    const replay = verification.replay(prepared.harness.input.mandate.runId);
+    const verification = createPostgresDepartmentRound(prepared.options);
+    const replay = await verification.replay(
+      prepared.harness.input.mandate.runId,
+    );
     await verification.close();
 
     // Then

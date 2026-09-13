@@ -1,11 +1,11 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { hashBytes, hashCanonical } from "../domain/contractHelpers";
 import { ArtifactIdSchema, RunIdSchema, SnapshotIdSchema } from "../domain/ids";
 import { ResearchBriefSchema } from "../domain/researchBrief";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { ArtifactDigestSchema } from "../ports/artifacts";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
 
 const ArtifactRowSchema = z.object({
   artifact_id: ArtifactIdSchema,
@@ -63,16 +63,18 @@ const SpecialistJobSchema = z
   })
   .passthrough();
 
-export function chairArtifactRows(
-  database: Database.Database,
+export async function chairArtifactRows(
+  database: ResearchDatabase,
   runId: string,
-): readonly ChairArtifactRow[] {
-  return database
-    .prepare(`SELECT artifacts.artifact_id, artifacts.run_id,
+): Promise<readonly ChairArtifactRow[]> {
+  return (
+    await database.query(
+      `SELECT artifacts.artifact_id, artifacts.run_id,
       artifacts.snapshot_id, artifacts.content_hash, artifacts.logical_key
-      FROM artifacts WHERE artifacts.run_id = ?`)
-    .all(runId)
-    .map((row) => ArtifactRowSchema.parse(row));
+      FROM artifacts WHERE artifacts.run_id = $1`,
+      [runId],
+    )
+  ).rows.map((row) => ArtifactRowSchema.parse(row));
 }
 
 export async function chairArtifactJson(
@@ -115,13 +117,19 @@ export async function chairAgentPayload(
   return envelope.data.payload;
 }
 
-export function loadChairMandate(database: Database.Database, runId: string) {
+export async function loadChairMandate(
+  database: ResearchDatabase,
+  runId: string,
+) {
   const row = z.object({ result_json: z.string() }).safeParse(
-    database
-      .prepare(`SELECT result_json FROM idempotency_records
-        WHERE scope = 'specialist-round-job' AND idempotency_key LIKE ?
-        ORDER BY idempotency_key LIMIT 1`)
-      .get(`${runId}:%`),
+    (
+      await database.query(
+        `SELECT result_json FROM idempotency_records
+        WHERE scope = 'specialist-round-job' AND idempotency_key LIKE $1
+        ORDER BY idempotency_key LIMIT 1`,
+        [`${runId}:%`],
+      )
+    ).rows[0],
   );
   if (!row.success) return undefined;
   const job = z
@@ -135,14 +143,9 @@ export function loadChairMandate(database: Database.Database, runId: string) {
     ?.request.mandate;
 }
 
-export function loadResearchMandateAtPath(databasePath: string, runId: string) {
-  const database = new Database(databasePath, {
-    readonly: true,
-    fileMustExist: true,
-  });
-  try {
-    return loadChairMandate(database, runId);
-  } finally {
-    database.close();
-  }
+export async function loadResearchMandateAtPath(
+  database: ResearchDatabase,
+  runId: string,
+) {
+  return await loadChairMandate(database, runId);
 }

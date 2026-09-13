@@ -10,7 +10,7 @@ import type {
   ArtifactRead,
   ArtifactWrite,
 } from "../ports/artifacts";
-import { createSqliteChallengeRound } from "./challengeRound";
+import { createPostgresChallengeRound } from "./challengeRound";
 import { stageAcceptedDepartments } from "./challengeRound.testSupport";
 import { committedChallengeArtifacts } from "./challengeRoundArtifact.testSupport";
 
@@ -62,7 +62,7 @@ describe("blind challenge corrective trust boundary", () => {
   ] as const)("blocks %s before prompt launch", async (_label, fault) => {
     // Given
     const prepared = await stageAcceptedDepartments(temporaryRoot(), fault);
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
 
     // When
     const result = await round.stage({
@@ -85,7 +85,7 @@ describe("blind challenge corrective trust boundary", () => {
       temporaryRoot(),
       "persona_rhetoric_source",
     );
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
 
     // When
     const result = await round.stage({
@@ -108,7 +108,7 @@ describe("blind challenge corrective trust boundary", () => {
       temporaryRoot(),
       "generic_finance_source",
     );
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
 
     // When
     const result = await round.stage({
@@ -130,7 +130,7 @@ describe("blind challenge corrective trust boundary", () => {
       temporaryRoot(),
       "max_public_summary",
     );
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
     await round.stage({
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       consolidationArtifactIds: prepared.departmentReplay.artifactIds.map(
@@ -141,7 +141,7 @@ describe("blind challenge corrective trust boundary", () => {
     // When
     const replay = await round.drain(prepared.harness.input.mandate.runId);
     const artifacts = await committedChallengeArtifacts(
-      prepared.options.databasePath,
+      prepared.options.database,
       prepared.options.cas,
     );
     await round.close();
@@ -168,7 +168,7 @@ describe("blind challenge corrective trust boundary", () => {
   it("blocks a tampered authenticated memo parent before challenge staging", async () => {
     // Given
     const prepared = await stageAcceptedDepartments(temporaryRoot(), "none");
-    const round = createSqliteChallengeRound({
+    const round = createPostgresChallengeRound({
       ...prepared.options,
       cas: new FirstReadTamperingCas(prepared.options.cas),
     });
@@ -196,7 +196,7 @@ describe("blind challenge corrective trust boundary", () => {
       temporaryRoot(),
       "support_only",
     );
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
 
     // When
     const result = await round.stage({
@@ -218,7 +218,7 @@ describe("blind challenge corrective trust boundary", () => {
   it("requires complete memo parents and an actual rebuttal instead of copied target prose", async () => {
     // Given
     const prepared = await stageAcceptedDepartments(temporaryRoot(), "none");
-    const round = createSqliteChallengeRound(prepared.options);
+    const round = createPostgresChallengeRound(prepared.options);
     await round.stage({
       runId: RunIdSchema.parse(prepared.harness.input.mandate.runId),
       consolidationArtifactIds: prepared.departmentReplay.artifactIds.map(
@@ -229,7 +229,7 @@ describe("blind challenge corrective trust boundary", () => {
     // When
     const replay = await round.drain(prepared.harness.input.mandate.runId);
     const artifacts = await committedChallengeArtifacts(
-      prepared.options.databasePath,
+      prepared.options.database,
       prepared.options.cas,
     );
     await round.close();

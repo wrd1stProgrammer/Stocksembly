@@ -40,9 +40,9 @@ async function runRetrySideEffect(
   try {
     await effect(runId);
   } catch (error) {
-    // The durable command has already resumed the SQLite-backed job. Account
+    // The durable command has already resumed the PostgreSQL-backed job. Account
     // projection or queue-wakeup failures must not turn that success into an
-    // HTTP 500; the worker also polls SQLite when no wake signal is available.
+    // HTTP 500; the worker also polls PostgreSQL when no wake signal is available.
     process.stderr.write(
       `${JSON.stringify({
         kind: "research_retry_side_effect_failed",
@@ -119,7 +119,7 @@ async function handleMutation(
   if (target.kind === "cancel") {
     const parsed = parseEmptyCommand(body);
     if (!parsed.success) return apiError(400, "REQUEST_INVALID");
-    const result = context.repository.cancel(target.id, command);
+    const result = await context.repository.cancel(target.id, command);
     if (result.kind !== "created" && result.kind !== "replayed")
       return commandFailure(result.kind);
     return apiJson(
@@ -130,7 +130,7 @@ async function handleMutation(
   if (target.kind === "retry") {
     const parsed = parseEmptyCommand(body);
     if (!parsed.success) return apiError(400, "REQUEST_INVALID");
-    const replay = context.repository.replayRetry(
+    const replay = await context.repository.replayRetry(
       target.id,
       context.principalId,
       key,
@@ -140,7 +140,7 @@ async function handleMutation(
       await runRetrySideEffect(context.onRetry, replay.value.runId);
       return apiJson({ run: replay.value }, 202);
     }
-    const result = context.repository.retry(target.id, command);
+    const result = await context.repository.retry(target.id, command);
     if (result.kind === "illegal_state")
       return apiError(409, "RECOVERY_NOT_AVAILABLE");
     if (result.kind !== "created" && result.kind !== "replayed")
@@ -151,14 +151,18 @@ async function handleMutation(
   if (target.kind === "follow_up") {
     const parsed = parseFollowUpCommand(body);
     if (!parsed.success) return apiError(400, "REQUEST_INVALID");
-    const result = context.repository.followUp(target.id, parsed.data, command);
+    const result = await context.repository.followUp(
+      target.id,
+      parsed.data,
+      command,
+    );
     return result.kind === "created" || result.kind === "replayed"
       ? apiJson({ run: result.value }, 202)
       : commandFailure(result.kind);
   }
   const parsed = parseQuestionCommand(body);
   if (!parsed.success) return apiError(400, "QUESTION_INVALID");
-  const replay = context.repository.replayQuestion(
+  const replay = await context.repository.replayQuestion(
     target.id,
     parsed.data,
     command,
@@ -181,7 +185,7 @@ async function handleMutation(
     return apiError(503, "QUESTION_GROUNDING_UNAVAILABLE");
   if (context.beforeQuestion !== undefined && !(await context.beforeQuestion()))
     return apiError(402, "CREDITS_INSUFFICIENT");
-  const result = context.repository.createQuestion(
+  const result = await context.repository.createQuestion(
     target.id,
     parsed.data,
     grounding,
@@ -202,7 +206,7 @@ export async function handleResearchCommand(
   if (questionId !== undefined && context.request.method === "GET") {
     if (!UuidSchema.safeParse(questionId).success)
       return apiError(404, "NOT_FOUND");
-    const question = context.repository.question(
+    const question = await context.repository.question(
       context.principalId,
       questionId,
     );

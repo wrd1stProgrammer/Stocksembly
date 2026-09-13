@@ -1,5 +1,3 @@
-import { join } from "node:path";
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { LIMITS } from "../../domain/limits.constants";
 import {
@@ -15,7 +13,9 @@ import {
   isMissing,
   resolveArtifactBlobPath,
 } from "../artifacts/filesystemArtifactPaths";
-import { parseDepartmentMarketSnapshot } from "../persistence/sqlite/publishDepartmentReportForRun";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { parseDepartmentMarketSnapshot } from "../persistence/postgres/publishDepartmentReportForRun";
+import { getResearchPool } from "../persistence/postgres/researchPool";
 import type { PublicReport } from "./researchApiContracts";
 
 const PublicationPointerSchema = z
@@ -33,6 +33,7 @@ const PublicationPointerSchema = z
 
 export type ResearchReportReaderOptions = {
   readonly dataRoot: string;
+  readonly database?: ResearchDatabase;
   readonly remoteArtifacts?: {
     readonly get: (
       digest: z.infer<typeof ArtifactDigestSchema>,
@@ -57,24 +58,20 @@ async function restoreDepartmentMarketSnapshot(
     return report;
   let row: z.infer<typeof QuoteArtifactRowSchema> | undefined;
   try {
-    const database = new Database(join(options.dataRoot, "research.sqlite"), {
-      readonly: true,
-      fileMustExist: true,
-    });
-    try {
-      row = QuoteArtifactRowSchema.optional().parse(
-        database
-          .prepare(`SELECT artifacts.artifact_id, artifacts.content_hash,
+    const database = options.database ?? (await getResearchPool());
+    row = QuoteArtifactRowSchema.optional().parse(
+      (
+        await database.query(
+          `SELECT artifacts.artifact_id, artifacts.content_hash,
             artifact_citation_metadata.locator_json
             FROM artifacts JOIN artifact_citation_metadata USING(artifact_id)
-            WHERE artifacts.run_id = ?
+            WHERE artifacts.run_id = $1
               AND artifacts.logical_key = 'evidence:insightsentry:quote'
-            LIMIT 1`)
-          .get(report.runId),
-      );
-    } finally {
-      database.close();
-    }
+            LIMIT 1`,
+          [report.runId],
+        )
+      ).rows[0],
+    );
   } catch {
     return report;
   }

@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 import { z } from "zod";
 import { BilingualPublicTextSchema } from "../domain/agentOutputsShared";
 import { HashSchema } from "../domain/evidenceSchemas";
@@ -131,22 +132,22 @@ export type StageFollowupAndResponseResult =
         | "physical_launch_budget_exhausted";
     };
 export type FollowupAndResponseRoundOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database: Pool;
+
   readonly attemptRoot: string;
   readonly ownerId: string;
   readonly cas: ArtifactCasPort;
   readonly codex: CodexPort;
   readonly now?: () => string;
 };
-export interface SqliteFollowupAndResponseRound {
-  readonly authority: "sqlite-worker-trusted-commit";
+export interface PostgresFollowupAndResponseRound {
+  readonly authority: "postgres-worker-trusted-commit";
   readonly stage: (input: {
     readonly runId: z.infer<typeof RunIdSchema>;
     readonly challengeArtifactIds: readonly z.infer<typeof ArtifactIdSchema>[];
   }) => Promise<StageFollowupAndResponseResult>;
   readonly advance: (runId: string) => Promise<FollowupAndResponseReplay>;
   readonly drain: (runId: string) => Promise<FollowupAndResponseReplay>;
-  readonly replay: (runId: string) => FollowupAndResponseReplay;
+  readonly replay: (runId: string) => Promise<FollowupAndResponseReplay>;
   readonly close: () => Promise<void>;
 }

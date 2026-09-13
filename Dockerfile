@@ -43,6 +43,7 @@ ENV LC_ALL=en_US.UTF-8
 ENV HOSTNAME=127.0.0.1
 ENV PORT=3000
 ENV HOME=/home/ec2-user
+ENV STOCKSEMBLY_MIGRATIONS_DIR=/app/migrations
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl locales \

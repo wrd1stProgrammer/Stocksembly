@@ -3,8 +3,8 @@ import {
   qualifyComparatorsBeforeSynthesis,
   sealComparatorContextForChair,
 } from "./preSynthesisComparatorQualification";
-import { isSpecialistAttemptReadableSource } from "./specialistRoundSqliteHandler";
-import { permittedSpecialistInlineArtifact } from "./specialistRoundSqliteStage";
+import { isSpecialistAttemptReadableSource } from "./specialistRoundPostgresHandler";
+import { permittedSpecialistInlineArtifact } from "./specialistRoundPostgresStage";
 
 const peerEvidence = {
   providerUpdatedAt: "2026-07-30T00:00:00.000Z",

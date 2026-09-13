@@ -43,26 +43,26 @@ export function registerResearchCancellationCommandTests(
     ]).toEqual([200, 200, 409]);
     expect(replay.body).toEqual(first.body);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM runs WHERE run_id = ?",
+        "SELECT status FROM runs WHERE run_id = $1",
         run.runId,
       ),
     ).toBe("cancelled");
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        `SELECT GROUP_CONCAT(event_type, ',') FROM (
-          SELECT event_type FROM run_events WHERE run_id = ? ORDER BY sequence
+        `SELECT string_agg(event_type, ',') FROM (
+          SELECT event_type FROM run_events WHERE run_id = $1 ORDER BY sequence
         )`,
         run.runId,
       ),
     ).toBe("run_created,run_cancelling,run_cancelled");
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        `SELECT json_extract(payload_json, '$.summary.ko') FROM run_events
-          WHERE run_id = ? AND event_type = 'run_cancelling'`,
+        `SELECT payload_json::jsonb #>> '{summary,ko}' FROM run_events
+          WHERE run_id = $1 AND event_type = 'run_cancelling'`,
         run.runId,
       ),
     ).toContain("취소");
@@ -83,9 +83,9 @@ export function registerResearchCancellationCommandTests(
 
     expect(response.status).toBe(403);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM runs WHERE run_id = ?",
+        "SELECT status FROM runs WHERE run_id = $1",
         run.runId,
       ),
     ).toBe("queued");
@@ -99,18 +99,24 @@ export function registerResearchCancellationCommandTests(
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
+    let started: (() => void) | undefined;
+    const didStart = new Promise<void>((resolve) => {
+      started = resolve;
+    });
     const engine = createLeaseEngine({
-      databasePath: harness.databasePath,
+      pool: harness.database,
       ownerId: "command-cancellation-worker",
       handler: {
         run: async (_attempt, signal) => {
           observedSignal = signal;
+          started?.();
           await gate;
           return { kind: "incomplete", code: "cancelled" };
         },
       },
     });
     const active = engine.poll();
+    await didStart;
 
     try {
       const cancelled = await harness.api.handle(
@@ -120,14 +126,14 @@ export function registerResearchCancellationCommandTests(
           "cancel-active-now",
         ),
       );
-      engine.heartbeat();
+      await engine.heartbeat();
 
       expect(cancelled.status).toBe(202);
       expect(observedSignal?.aborted).toBe(true);
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          `SELECT event_type FROM run_events WHERE run_id = ?
+          `SELECT event_type FROM run_events WHERE run_id = $1
             ORDER BY sequence DESC LIMIT 1`,
           run.runId,
         ),
@@ -135,16 +141,16 @@ export function registerResearchCancellationCommandTests(
       release?.();
       await active;
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT status FROM runs WHERE run_id = ?",
+          "SELECT status FROM runs WHERE run_id = $1",
           run.runId,
         ),
       ).toBe("cancelled");
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT report_id FROM runs WHERE run_id = ?",
+          "SELECT report_id FROM runs WHERE run_id = $1",
           run.runId,
         ),
       ).toBeNull();
@@ -157,26 +163,26 @@ export function registerResearchCancellationCommandTests(
   it("replays worker cancellation through SSE with only safe bilingual public events", async () => {
     const harness = harnessValue();
     const run = await createRun(harness, "worker-cancel-sse");
-    const principal = databaseScalar(
+    const principal = await databaseScalar(
       harness,
-      "SELECT principal_id FROM research_requests WHERE run_id = ?",
+      "SELECT principal_id FROM research_requests WHERE run_id = $1",
       run.runId,
     );
     if (typeof principal !== "string") throw new TypeError("principal missing");
     const engine = createLeaseEngine({
-      databasePath: harness.databasePath,
+      pool: harness.database,
       ownerId: "worker-cancel-sse",
       handler: { run: async () => ({ kind: "accepted" }) },
     });
     const events = new RunEventsSseRepository({
-      databasePath: harness.databasePath,
+      database: harness.database,
     });
 
     try {
       expect(await engine.cancel(RunIdSchema.parse(run.runId))).toEqual({
         kind: "cancelled",
       });
-      const snapshot = events.snapshot(principal, run.runId, 0);
+      const snapshot = await events.snapshot(principal, run.runId, 0);
       const publicEvents = snapshot?.entries.flatMap((entry) =>
         entry.kind === "public" ? [entry.event] : [],
       );
@@ -210,18 +216,24 @@ export function registerResearchCancellationCommandTests(
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
+    let started: (() => void) | undefined;
+    const didStart = new Promise<void>((resolve) => {
+      started = resolve;
+    });
     const engine = createLeaseEngine({
-      databasePath: harness.databasePath,
+      pool: harness.database,
       ownerId: "crashed-cancel-worker",
       clock: { now: () => workerNow },
       handler: {
         run: async () => {
+          started?.();
           await gate;
           throw new WorkerCrashError("crashed after cancellation request");
         },
       },
     });
     const active = engine.poll();
+    await didStart;
 
     try {
       const cancelled = await harness.api.handle(
@@ -237,18 +249,18 @@ export function registerResearchCancellationCommandTests(
 
       expect(cancelled.status).toBe(202);
       expect(crashed.kind).toBe("crashed");
-      expect(engine.recoverExpired()).toHaveLength(1);
+      expect(await engine.recoverExpired()).toHaveLength(1);
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT status FROM runs WHERE run_id = ?",
+          "SELECT status FROM runs WHERE run_id = $1",
           run.runId,
         ),
       ).toBe("cancelled");
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          `SELECT event_type FROM run_events WHERE run_id = ?
+          `SELECT event_type FROM run_events WHERE run_id = $1
             ORDER BY sequence DESC LIMIT 1`,
           run.runId,
         ),

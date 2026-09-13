@@ -2,8 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
 import { RunIdSchema } from "../domain/ids";
-import { createSqliteDepartmentRound } from "./departmentRound";
+import { createPostgresDepartmentRound } from "./departmentRound";
 import { stageAcceptedSpecialists } from "./departmentRound.testSupport";
 import type { DepartmentFault } from "./departmentRoundCandidates.testSupport";
 
@@ -41,8 +42,8 @@ describe("department consolidation trust boundary", () => {
     async (fault) => {
       // Given
       const prepared = await stageAcceptedSpecialists(temporaryRoot(), fault);
-      const round = createSqliteDepartmentRound(prepared.options);
-      const accepted = round.acceptedMemos(
+      const round = createPostgresDepartmentRound(prepared.options);
+      const accepted = await round.acceptedMemos(
         prepared.harness.input.mandate.runId,
       );
       await round.stage({
@@ -67,8 +68,8 @@ describe("department consolidation trust boundary", () => {
     async (fault) => {
       // Given
       const prepared = await stageAcceptedSpecialists(temporaryRoot(), fault);
-      const round = createSqliteDepartmentRound(prepared.options);
-      const accepted = round.acceptedMemos(
+      const round = createPostgresDepartmentRound(prepared.options);
+      const accepted = await round.acceptedMemos(
         prepared.harness.input.mandate.runId,
       );
       await round.stage({
@@ -88,8 +89,10 @@ describe("department consolidation trust boundary", () => {
         replay.receipts.filter(
           (receipt) => receipt.departmentId === "financial",
         ),
-      ).toHaveLength(2);
-      expect(prepared.codex.departmentLaunches).toBe(5);
+      ).toHaveLength(CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact);
+      expect(prepared.codex.departmentLaunches).toBe(
+        3 + CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
+      );
     },
   );
 });

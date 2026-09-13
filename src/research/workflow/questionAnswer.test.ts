@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { createOfficialAttemptHandler } from "../compositions/officialWorker";
 import { createLeaseEngine } from "../worker/leaseEngine";
@@ -20,13 +19,13 @@ async function runOne(
   const official = await createOfficialAttemptHandler(
     {
       dataDirectory: fixture.root,
-      databasePath: fixture.databasePath,
+      database: fixture.database,
       ownerId: "official-question-worker",
     },
     { cas: fixture.cas, codex: fixture.codex, now: fixture.now },
   );
   const engine = createLeaseEngine({
-    databasePath: fixture.databasePath,
+    pool: fixture.database,
     ownerId: "official-question-worker",
     handler: official.handler,
     clock: { now: fixture.now },
@@ -42,23 +41,22 @@ describe("official grounded question answering", () => {
     // When
     const handled = await runtime.engine.poll();
     const replay = await runtime.engine.poll();
-    const database = new Database(runtime.fixture.databasePath, {
-      readonly: true,
-    });
-    const question = database
-      .prepare(
-        "SELECT status, answer_json FROM questions WHERE question_id = ?",
+    const database = runtime.fixture.database;
+    const question = (
+      await database.query(
+        "SELECT status, answer_json FROM questions WHERE question_id = $1",
+        [runtime.fixture.questionId],
       )
-      .get(runtime.fixture.questionId) as {
+    ).rows[0] as {
       readonly status: string;
       readonly answer_json: string;
     };
-    const counts = database
-      .prepare(`SELECT
-        (SELECT COUNT(*) FROM question_call_ordinals) AS launches,
-        (SELECT COUNT(*) FROM question_runner_evidence) AS evidence`)
-      .get();
-    database.close();
+    const counts = (
+      await database.query(
+        "SELECT\n        (SELECT COUNT(*)::integer FROM question_call_ordinals) AS launches,\n        (SELECT COUNT(*)::integer FROM question_runner_evidence) AS evidence",
+        [],
+      )
+    ).rows[0];
 
     // Then
     expect(handled).toMatchObject({ kind: "handled", committed: true });
@@ -98,21 +96,22 @@ describe("official grounded question answering", () => {
 
     // When
     const handled = await runtime.engine.poll();
-    const database = new Database(runtime.fixture.databasePath, {
-      readonly: true,
-    });
-    const question = database
-      .prepare(
-        "SELECT status, answer_json FROM questions WHERE question_id = ?",
+    const database = runtime.fixture.database;
+    const question = (
+      await database.query(
+        "SELECT status, answer_json FROM questions WHERE question_id = $1",
+        [runtime.fixture.questionId],
       )
-      .get(runtime.fixture.questionId) as {
+    ).rows[0] as {
       readonly status: string;
       readonly answer_json: string;
     };
-    const webEvidence = database
-      .prepare("SELECT COUNT(*) AS count FROM attempt_web_evidence")
-      .get();
-    database.close();
+    const webEvidence = (
+      await database.query(
+        "SELECT COUNT(*)::integer AS count FROM attempt_web_evidence",
+        [],
+      )
+    ).rows[0];
 
     // Then
     expect(handled).toMatchObject({ kind: "handled", committed: true });
@@ -162,13 +161,13 @@ describe("official grounded question answering", () => {
 
     // When
     const handled = await runtime.engine.poll();
-    const database = new Database(runtime.fixture.databasePath, {
-      readonly: true,
-    });
-    const question = database
-      .prepare("SELECT answer_json FROM questions WHERE question_id = ?")
-      .get(runtime.fixture.questionId) as { readonly answer_json: string };
-    database.close();
+    const database = runtime.fixture.database;
+    const question = (
+      await database.query(
+        "SELECT answer_json FROM questions WHERE question_id = $1",
+        [runtime.fixture.questionId],
+      )
+    ).rows[0] as { readonly answer_json: string };
 
     // Then
     expect(handled).toMatchObject({ kind: "handled", committed: true });
@@ -193,15 +192,13 @@ describe("official grounded question answering", () => {
     // When
     const handled = await runtime.engine.poll();
     const replay = await runtime.engine.poll();
-    const database = new Database(runtime.fixture.databasePath, {
-      readonly: true,
-    });
-    const question = database
-      .prepare(
-        "SELECT status, answer_json FROM questions WHERE question_id = ?",
+    const database = runtime.fixture.database;
+    const question = (
+      await database.query(
+        "SELECT status, answer_json FROM questions WHERE question_id = $1",
+        [runtime.fixture.questionId],
       )
-      .get(runtime.fixture.questionId);
-    database.close();
+    ).rows[0];
 
     // Then
     expect(handled).toMatchObject({
@@ -246,15 +243,13 @@ describe("official grounded question answering", () => {
     // When
     const handled = await runtime.engine.poll();
     const replay = await runtime.engine.poll();
-    const database = new Database(runtime.fixture.databasePath, {
-      readonly: true,
-    });
-    const persisted = database
-      .prepare(`SELECT questions.status,
-        (SELECT COUNT(*) FROM question_call_ordinals) AS launches
-        FROM questions WHERE question_id = ?`)
-      .get(runtime.fixture.questionId);
-    database.close();
+    const database = runtime.fixture.database;
+    const persisted = (
+      await database.query(
+        "SELECT questions.status,\n        (SELECT COUNT(*)::integer FROM question_call_ordinals) AS launches\n        FROM questions WHERE question_id = $1",
+        [runtime.fixture.questionId],
+      )
+    ).rows[0];
 
     // Then
     expect(handled).toMatchObject({

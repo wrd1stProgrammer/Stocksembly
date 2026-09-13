@@ -3,7 +3,6 @@ import { AtomicClaimSchema } from "../domain/claims";
 import { EVIDENCE_SOURCES } from "../domain/evidenceSchemas";
 import { ResearchMetricSnapshotSchema } from "../domain/metricSnapshot";
 import { WORKFLOW_V1_SPECIALIST_IDS } from "../domain/roleRegistry";
-import type { ArtifactCasPort } from "../ports/artifacts";
 
 const UuidSchema = z.string().uuid();
 const HashSchema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -167,10 +166,3 @@ export type StructuralAuditArtifactEnvelope = z.infer<
 export type PersistStructuralAuditResult = z.infer<
   typeof PersistStructuralAuditResultSchema
 >;
-
-export type StructuralAuditPersistenceOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
-  readonly cas: ArtifactCasPort;
-  readonly now?: () => string;
-};

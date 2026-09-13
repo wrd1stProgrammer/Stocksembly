@@ -32,7 +32,7 @@ import {
   type SecFetchResult,
 } from "../server/data/sec/secClient";
 import { isRegistrationFinancialForm } from "../server/data/sec/secFilingForms";
-import type { SpecialistSourceArtifact } from "../workflow/specialistRoundSqlite";
+import type { SpecialistSourceArtifact } from "../workflow/specialistRoundPostgres";
 import {
   collectInsightSentryInitialEvidence,
   type InsightSentryInitialCollection,

@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
@@ -6,7 +5,7 @@ import {
   createOfficialChairSynthesis,
 } from "../compositions/officialWorker";
 import { createLeaseEngine } from "../worker/leaseEngine";
-import { createSqliteChairSynthesis } from "./chairSynthesis";
+import { createPostgresChairSynthesis } from "./chairSynthesis";
 import {
   corruptAcceptedEnvelope,
   createPreparedChairRound,
@@ -18,7 +17,7 @@ import { rewriteStructuralEnvelope } from "./semanticAuditPersistence.testSuppor
 
 async function runFault(fault: Parameters<typeof createPreparedChairRound>[0]) {
   const fixture = await createPreparedChairRound(fault);
-  const chair = createSqliteChairSynthesis(fixture.options);
+  const chair = createPostgresChairSynthesis(fixture.options);
   try {
     const staged = await chair.stage({ runId: fixture.runId });
     const replay = await chair.drain(fixture.runId);
@@ -33,7 +32,7 @@ describe("Dr. Park constrained chair synthesis", () => {
   it("commits one ID-bound bilingual synthesis after the accepted audit", async () => {
     // Given
     const fixture = await createPreparedChairRound("none");
-    const chair = createSqliteChairSynthesis(fixture.options);
+    const chair = createPostgresChairSynthesis(fixture.options);
 
     // When
     const staged = await chair.stage({ runId: fixture.runId });
@@ -100,29 +99,22 @@ describe("Dr. Park constrained chair synthesis", () => {
 
   it("rebinds the targeted rewrite to its exact durable input hash", async () => {
     const fixture = await createPreparedChairRound("invent_claim");
-    const chair = createSqliteChairSynthesis(fixture.options);
+    const chair = createPostgresChairSynthesis(fixture.options);
     try {
       await chair.stage({ runId: fixture.runId });
       await chair.drain(fixture.runId);
-      const database = new Database(fixture.options.databasePath, {
-        readonly: true,
-      });
-      const rows = database
-        .prepare(`SELECT attempts.replacement_of_attempt_id AS replacementOf,
-          attempts.input_hash AS attemptHash, jobs.input_hash AS jobHash,
-          research_call_ordinals.input_hash AS ordinalHash
-          FROM attempts JOIN jobs USING(job_id)
-          JOIN research_call_ordinals USING(attempt_id)
-          WHERE attempts.run_id = ?
-            AND attempts.logical_artifact_key = 'chair_synthesis:chair'
-          ORDER BY research_call_ordinals.ordinal`)
-        .all(fixture.runId) as readonly {
+      const database = fixture.options.database;
+      const rows = (
+        await database.query(
+          'SELECT attempts.replacement_of_attempt_id AS "replacementOf",\n          attempts.input_hash AS "attemptHash", jobs.input_hash AS "jobHash",\n          research_call_ordinals.input_hash AS "ordinalHash"\n          FROM attempts JOIN jobs USING(job_id)\n          JOIN research_call_ordinals ON research_call_ordinals.attempt_id = attempts.attempt_id\n          WHERE attempts.run_id = $1\n            AND attempts.logical_artifact_key = \'chair_synthesis:chair\'\n          ORDER BY research_call_ordinals.ordinal',
+          [fixture.runId],
+        )
+      ).rows as readonly {
         replacementOf: string | null;
         attemptHash: string;
         jobHash: string;
         ordinalHash: string;
       }[];
-      database.close();
 
       expect(rows).toHaveLength(2);
       expect(rows[1]?.replacementOf).not.toBeNull();
@@ -203,7 +195,7 @@ describe("Dr. Park constrained chair synthesis", () => {
     const official = await createOfficialAttemptHandler(
       {
         dataDirectory: fixture.root,
-        databasePath: fixture.options.databasePath,
+        database: fixture.options.database,
         ownerId: "official-chair-worker",
       },
       {
@@ -217,7 +209,7 @@ describe("Dr. Park constrained chair synthesis", () => {
       },
     );
     const engine = createLeaseEngine({
-      databasePath: fixture.options.databasePath,
+      pool: fixture.options.database,
       ownerId: "official-chair-worker",
       handler: official.handler,
       clock: { now: fixture.options.now },
@@ -232,7 +224,7 @@ describe("Dr. Park constrained chair synthesis", () => {
       ...fixture.options,
       workflowVersion: "workflow-v3",
     });
-    const replay = replayReader.replay(fixture.runId);
+    const replay = await replayReader.replay(fixture.runId);
 
     // Then
     expect(replay.artifactIds).toHaveLength(1);
@@ -259,7 +251,7 @@ describe("Dr. Park constrained chair synthesis", () => {
     const official = await createOfficialAttemptHandler(
       {
         dataDirectory: fixture.root,
-        databasePath: fixture.options.databasePath,
+        database: fixture.options.database,
         ownerId: "official-chair-publisher",
       },
       {
@@ -270,7 +262,7 @@ describe("Dr. Park constrained chair synthesis", () => {
       },
     );
     const engine = createLeaseEngine({
-      databasePath: fixture.options.databasePath,
+      pool: fixture.options.database,
       ownerId: "official-chair-publisher",
       handler: official.handler,
       clock: { now: fixture.options.now },
@@ -281,15 +273,13 @@ describe("Dr. Park constrained chair synthesis", () => {
       const result = await engine.poll();
       if (result.kind === "idle") break;
     }
-    const database = new Database(fixture.options.databasePath);
-    const publication = database
-      .prepare(`SELECT runs.status, runs.report_id,
-        (SELECT COUNT(*) FROM report_versions) AS versions,
-        (SELECT COUNT(*) FROM run_events
-          WHERE event_type = 'report_published') AS events
-        FROM runs WHERE run_id = ?`)
-      .get(fixture.runId);
-    database.close();
+    const database = fixture.options.database;
+    const publication = (
+      await database.query(
+        "SELECT runs.status, runs.report_id,\n        (SELECT COUNT(*)::integer FROM report_versions) AS versions,\n        (SELECT COUNT(*)::integer FROM run_events\n          WHERE event_type = 'report_published') AS events\n        FROM runs WHERE run_id = $1",
+        [fixture.runId],
+      )
+    ).rows[0];
 
     // Then
     expect(publication).toMatchObject({
@@ -306,8 +296,11 @@ describe("Dr. Park constrained chair synthesis", () => {
   it("finishes incomplete without a replacement when the shared budget is exhausted", async () => {
     // Given
     const fixture = await createPreparedChairRound("invalid_first");
-    exhaustChairReplacementBudget(fixture.options.databasePath, fixture.runId);
-    const chair = createSqliteChairSynthesis(fixture.options);
+    await exhaustChairReplacementBudget(
+      fixture.options.database,
+      fixture.runId,
+    );
+    const chair = createPostgresChairSynthesis(fixture.options);
     await chair.stage({ runId: fixture.runId });
 
     // When
@@ -329,16 +322,16 @@ describe("Dr. Park constrained chair synthesis", () => {
       // Given
       const fixture = await createPreparedChairRound("none");
       await corruptAcceptedEnvelope(
-        fixture.options.databasePath,
+        fixture.options.database,
         fixture.options.cas,
         fixture.runId,
         logicalKey,
       );
-      const chair = createSqliteChairSynthesis(fixture.options);
+      const chair = createPostgresChairSynthesis(fixture.options);
 
       // When
       const staged = await chair.stage({ runId: fixture.runId });
-      const replay = chair.replay(fixture.runId);
+      const replay = await chair.replay(fixture.runId);
 
       // Then
       expect(staged).toEqual({
@@ -356,26 +349,27 @@ describe("Dr. Park constrained chair synthesis", () => {
   it("rejects a structural audit whose persisted envelope hash no longer authenticates", async () => {
     // Given
     const fixture = await createPreparedChairRound("none");
-    const database = new Database(fixture.options.databasePath);
+    const database = fixture.options.database;
     const row = z
       .object({ artifact_id: z.string().uuid() })
       .parse(
-        database
-          .prepare(
-            "SELECT artifact_id FROM artifacts WHERE run_id = ? AND logical_key = 'structural_audit:system'",
+        (
+          await database.query(
+            "SELECT artifact_id FROM artifacts WHERE run_id = $1 AND logical_key = 'structural_audit:system'",
+            [fixture.runId],
           )
-          .get(fixture.runId),
+        ).rows[0],
       );
-    database.close();
+
     await rewriteStructuralEnvelope(
       {
-        databasePath: fixture.options.databasePath,
+        database: fixture.options.database,
         cas: fixture.options.cas,
         structuralArtifactId: row.artifact_id,
       },
       (envelope) => ({ ...envelope, auditHash: "f".repeat(64) }),
     );
-    const chair = createSqliteChairSynthesis(fixture.options);
+    const chair = createPostgresChairSynthesis(fixture.options);
 
     // When
     const staged = await chair.stage({ runId: fixture.runId });
@@ -563,7 +557,7 @@ describe("Dr. Park constrained chair synthesis", () => {
     // Given
     const fixture = await createPreparedChairRound("none");
     let publicationCalls = 0;
-    const chair = createSqliteChairSynthesis({
+    const chair = createPostgresChairSynthesis({
       ...fixture.options,
       publishReport: () => {
         publicationCalls += 1;
@@ -574,15 +568,17 @@ describe("Dr. Park constrained chair synthesis", () => {
 
     // When
     const replay = await chair.drain(fixture.runId);
-    const database = new Database(fixture.options.databasePath);
-    const state = z.object({ versions: z.number(), events: z.number() }).parse(
-      database
-        .prepare(`SELECT
-            (SELECT COUNT(*) FROM report_versions) AS versions,
-            (SELECT COUNT(*) FROM run_events WHERE event_type = 'report_published') AS events`)
-        .get(),
-    );
-    database.close();
+    const database = fixture.options.database;
+    const state = z
+      .object({ versions: z.number(), events: z.number() })
+      .parse(
+        (
+          await database.query(
+            "SELECT\n            (SELECT COUNT(*)::integer FROM report_versions) AS versions,\n            (SELECT COUNT(*)::integer FROM run_events WHERE event_type = 'report_published') AS events",
+            [],
+          )
+        ).rows[0],
+      );
 
     // Then
     expect(publicationCalls).toBe(1);

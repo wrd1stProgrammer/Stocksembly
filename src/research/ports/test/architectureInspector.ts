@@ -12,6 +12,7 @@ const forbiddenDomainImports = [
   "next",
   "react",
   "better-sqlite3",
+  "pg",
   "commander",
 ] as const;
 const forbiddenNodeBuiltinFamilies = ["fs", "child_process"] as const;

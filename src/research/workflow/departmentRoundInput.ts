@@ -21,7 +21,7 @@ import {
   departmentRunnerOutputSchema,
   PersistedDepartmentJobSchema,
 } from "./departmentRoundContracts";
-import type { AcceptedMemoRow } from "./departmentRoundSqliteAuthority";
+import type { AcceptedMemoRow } from "./departmentRoundPostgresAuthority";
 
 const MemoEnvelopeSchema = z
   .object({

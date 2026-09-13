@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { Pool } from "pg";
 import { z } from "zod";
 import {
   createOfficialAttemptHandler,
@@ -12,6 +13,10 @@ import {
   runProductionCodexWorkerAdmission,
   runProductionReadinessDiagnostic,
 } from "../server/codex/codexRunner";
+import {
+  closeResearchPool,
+  getResearchPool,
+} from "../server/persistence/postgres/researchPool";
 import { createLiveResearchQueue } from "../server/queue/sqsResearchQueue";
 import { resumeCommitteeChair } from "./chairResume";
 import {
@@ -28,8 +33,6 @@ import {
 } from "./runtimeLifecycle";
 
 const LegacyArgumentsSchema = z.tuple([
-  z.literal("--database"),
-  z.string().trim().min(1),
   z.literal("--owner"),
   z.string().trim().min(1).max(200),
   z.literal("--verification-outcome"),
@@ -44,7 +47,6 @@ const ErrorCodeSchema = z.object({ code: z.string() });
 
 type LegacyWorkerArguments = {
   readonly kind: "legacy";
-  readonly databasePath: string;
   readonly ownerId: string;
   readonly verificationOutcome: "accepted" | "wait-for-signal";
   readonly stopWhenIdle: boolean;
@@ -87,10 +89,9 @@ function parseArguments(values: readonly string[]): WorkerArguments {
     throw new LeaseWorkerCliError("Invalid lease worker arguments");
   return {
     kind: "legacy",
-    databasePath: legacy.data[1],
-    ownerId: legacy.data[3],
-    verificationOutcome: legacy.data[5],
-    stopWhenIdle: legacy.data[6] === "--drain",
+    ownerId: legacy.data[1],
+    verificationOutcome: legacy.data[3],
+    stopWhenIdle: legacy.data[4] === "--drain",
   };
 }
 
@@ -175,8 +176,8 @@ async function runRuntimeCommand(
   const { command } = argumentsValue;
   if (command === "resume-chair") {
     const runtime = await prepareWorkerRuntime();
-    const result = resumeCommitteeChair({
-      databasePath: runtime.databasePath,
+    const result = await resumeCommitteeChair({
+      pool: runtime.database,
       runId: argumentsValue.runId,
       authorizationId: argumentsValue.authorizationId,
       now: new Date().toISOString(),
@@ -227,28 +228,27 @@ async function runRuntimeCommand(
   try {
     workflow = await createRuntimeAttemptHandler({
       dataDirectory: runtime.dataDirectory,
-      databasePath: runtime.databasePath,
-      migrationsDirectory: runtime.migrationsDirectory,
+      database: runtime.database,
       ownerId: lease.ownerId,
     });
     writeLifecycle({
       kind: "worker_ready",
       status: "ready",
       migrationsApplied: runtime.migrationsApplied,
-      nativeSqlite: "loaded",
+      database: "postgresql",
       casDigest: runtime.casDigest,
     });
     await runWorker(
       {
         kind: "legacy",
-        databasePath: runtime.databasePath,
         ownerId: lease.ownerId,
         verificationOutcome: "accepted",
         stopWhenIdle: false,
       },
-      runtime.migrationsDirectory,
+      runtime.database,
       workflow.handler,
       workSignal,
+      lease.signal,
     );
   } finally {
     workSignal?.close();
@@ -263,24 +263,26 @@ async function runtimeDetails(): Promise<
   const runtime = await prepareWorkerRuntime();
   return {
     migrationsApplied: runtime.migrationsApplied,
-    nativeSqlite: "loaded",
+    database: "postgresql",
     casDigest: runtime.casDigest,
   };
 }
 
 async function runWorker(
   argumentsValue: LegacyWorkerArguments,
-  migrationsDirectory?: string,
+  pool?: Pool,
   handler?: AttemptHandler,
   workSignal?: ResearchWorkSignal,
+  leaseSignal?: AbortSignal,
 ): Promise<void> {
   const controller = new AbortController();
   const stop = () => controller.abort();
+  leaseSignal?.addEventListener("abort", stop, { once: true });
+  if (leaseSignal?.aborted) controller.abort();
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
   const engine = createLeaseEngine({
-    databasePath: argumentsValue.databasePath,
-    ...(migrationsDirectory === undefined ? {} : { migrationsDirectory }),
+    pool: pool ?? (await getResearchPool()),
     ownerId: argumentsValue.ownerId,
     handler:
       handler ??
@@ -291,7 +293,7 @@ async function runWorker(
   });
 
   try {
-    const recovered = engine.recoverExpired();
+    const recovered = await engine.recoverExpired();
     writeLifecycle({ kind: "worker_started", recovered: recovered.length });
     await engine.runUntilStopped(controller.signal, {
       stopWhenIdle: argumentsValue.stopWhenIdle,
@@ -333,6 +335,7 @@ async function runWorker(
   } finally {
     controller.abort();
     await engine.shutdown();
+    leaseSignal?.removeEventListener("abort", stop);
     process.removeListener("SIGTERM", stop);
     process.removeListener("SIGINT", stop);
     writeLifecycle({ kind: "worker_stopped" });
@@ -356,6 +359,8 @@ async function main(): Promise<void> {
       })}\n`,
     );
     process.exitCode = 1;
+  } finally {
+    await closeResearchPool();
   }
 }
 

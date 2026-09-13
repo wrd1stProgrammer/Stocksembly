@@ -1,4 +1,5 @@
 import { RunIdSchema } from "../../domain/ids";
+import type { ResearchDatabase } from "../persistence/postgres/database";
 import { apiError } from "./researchApiResponses";
 import { resolveSseCursor } from "./runEventsSseCursor";
 import { RunEventsSseRepository } from "./runEventsSseRepository";
@@ -20,8 +21,8 @@ export class RunEventsSse {
   readonly #heartbeatIntervalMs: number;
 
   constructor(options: {
-    readonly databasePath: string;
-    readonly migrationsDirectory?: string;
+    readonly database: ResearchDatabase;
+
     readonly pollIntervalMs?: number;
     readonly heartbeatIntervalMs?: number;
   }) {
@@ -30,17 +31,17 @@ export class RunEventsSse {
     this.#heartbeatIntervalMs = options.heartbeatIntervalMs ?? 15_000;
   }
 
-  response(
+  async response(
     request: Request,
     principalId: string,
     runId: string,
     onTerminal?: () => Promise<void>,
-  ): Response {
+  ): Promise<Response> {
     if (!RunIdSchema.safeParse(runId).success)
       return apiError(404, "NOT_FOUND");
     const parsed = resolveSseCursor(request);
     if (parsed.kind === "invalid") return apiError(400, "EVENT_CURSOR_INVALID");
-    const snapshot = this.#repository.snapshot(
+    const snapshot = await this.#repository.snapshot(
       principalId,
       runId,
       parsed.cursor,

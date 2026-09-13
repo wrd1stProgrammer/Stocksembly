@@ -10,8 +10,8 @@ import {
 } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import { ArtifactDigestSchema } from "../ports/artifacts";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
-import type { AcceptedChallengeInputRow } from "./challengeRoundSqliteAuthority";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
+import type { AcceptedChallengeInputRow } from "./challengeRoundPostgresAuthority";
 
 const EnvelopeSchema = z
   .object({

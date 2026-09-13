@@ -1,7 +1,6 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { makePersistableStructuralInput } from "../application/structuralAuditPersistence.testSupport";
 import { StructuralAuditArtifactEnvelopeSchema } from "../application/structuralAuditPersistenceContracts";
@@ -29,15 +28,16 @@ import type {
   CodexRunResult,
 } from "../server/codex/codexRunner";
 import { CodexIsolationError } from "../server/codex/readiness";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
 import {
   CHAIR_SECTION_KEYS,
   ChairSynthesisPromptSchema,
 } from "./chairSynthesisContracts";
-import { createSqliteChallengeRound } from "./challengeRound";
+import { createPostgresChallengeRound } from "./challengeRound";
 import { stageAcceptedDepartments } from "./challengeRound.testSupport";
-import { createSqliteFollowupAndResponseRound } from "./followupAndResponseRound";
+import { createPostgresFollowupAndResponseRound } from "./followupAndResponseRound";
 import { FollowupResponseCodexFake } from "./followupAndResponseRound.testSupport";
-import { createSqliteSemanticAudit } from "./semanticAudit";
+import { createPostgresSemanticAudit } from "./semanticAudit";
 import { specialistRequest } from "./specialistRoundInput";
 import { persistStructuralAudit } from "./structuralAuditPersistence";
 import { authenticatedWorkflowRetentionRegister } from "./structuralAuditWorkflowRegister";
@@ -645,32 +645,32 @@ export async function createPreparedChairRound(
   const root = mkdtempSync(join(tmpdir(), "chair-synthesis-"));
   const prepared = await stageAcceptedDepartments(root, "none", codex);
   const runId = RunIdSchema.parse(prepared.harness.input.mandate.runId);
-  const requestDatabase = new Database(prepared.options.databasePath);
-  requestDatabase
-    .prepare(`INSERT OR IGNORE INTO research_requests(
-      run_id, principal_id, symbol, question, locale, request_hash, created_at)
-      VALUES (?, ?, 'TEST', 'Evaluate authenticated committee evidence', ?, ?, ?)`)
-    .run(
+  const requestDatabase = prepared.options.database;
+  await requestDatabase.query(
+    "INSERT INTO research_requests(\n      run_id, principal_id, symbol, question, locale, request_hash, created_at)\n      VALUES ($1, $2, 'TEST', 'Evaluate authenticated committee evidence', $3, $4, $5) ON CONFLICT DO NOTHING",
+    [
       runId,
       "a".repeat(64),
       sourceLocale,
       hashCanonical({ runId, kind: "chair-test-request" }),
       "2026-07-23T00:00:00.000Z",
-    );
-  requestDatabase
-    .prepare("UPDATE research_requests SET locale = ? WHERE run_id = ?")
-    .run(sourceLocale, runId);
-  const specialistJobs = requestDatabase
-    .prepare(`SELECT idempotency_key, result_json FROM idempotency_records
-      WHERE scope = 'specialist-round-job' AND idempotency_key LIKE ?`)
-    .all(`${runId}:%`) as readonly {
+    ],
+  );
+  await requestDatabase.query(
+    "UPDATE research_requests SET locale = $1 WHERE run_id = $2",
+    [sourceLocale, runId],
+  );
+  const specialistJobs = (
+    await requestDatabase.query(
+      "SELECT idempotency_key, result_json FROM idempotency_records\n      WHERE scope = 'specialist-round-job' AND idempotency_key LIKE $1",
+      [`${runId}:%`],
+    )
+  ).rows as readonly {
     readonly idempotency_key: string;
     readonly result_json: string;
   }[];
-  const updateSpecialistJob = requestDatabase.prepare(
-    `UPDATE idempotency_records SET result_json = ?
-      WHERE scope = 'specialist-round-job' AND idempotency_key = ?`,
-  );
+  const updateSpecialistJob =
+    "UPDATE idempotency_records SET result_json = $1\n      WHERE scope = 'specialist-round-job' AND idempotency_key = $2";
   for (const row of specialistJobs) {
     const job = JSON.parse(row.result_json) as { prompt: string };
     const [sealed = "", ...rest] = job.prompt.split("\n");
@@ -678,16 +678,16 @@ export async function createPreparedChairRound(
       request: { mandate: { locale: "en" | "ko" } };
     };
     request.request.mandate.locale = sourceLocale;
-    updateSpecialistJob.run(
+    await requestDatabase.query(updateSpecialistJob, [
       JSON.stringify({
         ...job,
         prompt: [JSON.stringify(request), ...rest].join("\n"),
       }),
       row.idempotency_key,
-    );
+    ]);
   }
-  requestDatabase.close();
-  const challenges = createSqliteChallengeRound(prepared.options);
+
+  const challenges = createPostgresChallengeRound(prepared.options);
   await challenges.stage({
     runId,
     consolidationArtifactIds: prepared.departmentReplay.artifactIds.map((id) =>
@@ -696,7 +696,7 @@ export async function createPreparedChairRound(
   });
   const challengeReplay = await challenges.drain(runId);
   await challenges.close();
-  const responses = createSqliteFollowupAndResponseRound(prepared.options);
+  const responses = createPostgresFollowupAndResponseRound(prepared.options);
   await responses.stage({
     runId,
     challengeArtifactIds: challengeReplay.artifactIds.map((id) =>
@@ -705,22 +705,13 @@ export async function createPreparedChairRound(
   });
   await responses.drain(runId);
   await responses.close();
-  const retentionDatabase = new Database(prepared.options.databasePath, {
-    readonly: true,
-  });
-  const workflowReferences = retentionDatabase
-    .prepare(`SELECT artifacts.artifact_id,
-      artifacts.logical_key, artifacts.content_hash
-      FROM agent_output_commits
-      JOIN artifacts USING(artifact_id)
-      JOIN attempts USING(attempt_id)
-      WHERE attempts.run_id = ? AND (
-        artifacts.logical_key LIKE 'memo:%' OR
-        artifacts.logical_key LIKE 'consolidation:%' OR
-        artifacts.logical_key LIKE 'challenge:%' OR
-        artifacts.logical_key LIKE 'response_ballot:%'
-      )`)
-    .all(runId)
+  const retentionDatabase = prepared.options.database;
+  const workflowReferences = (
+    await retentionDatabase.query(
+      "SELECT artifacts.artifact_id,\n      artifacts.logical_key, artifacts.content_hash\n      FROM agent_output_commits\n      JOIN artifacts USING(artifact_id)\n      JOIN attempts USING(attempt_id)\n      WHERE attempts.run_id = $1 AND (\n        artifacts.logical_key LIKE 'memo:%' OR\n        artifacts.logical_key LIKE 'consolidation:%' OR\n        artifacts.logical_key LIKE 'challenge:%' OR\n        artifacts.logical_key LIKE 'response_ballot:%'\n      )",
+      [runId],
+    )
+  ).rows
     .map((row) =>
       z
         .object({
@@ -735,7 +726,7 @@ export async function createPreparedChairRound(
       logicalArtifactKey: row.logical_key,
       contentHash: row.content_hash,
     }));
-  retentionDatabase.close();
+
   const retention = await authenticatedWorkflowRetentionRegister(
     prepared.harness.cas,
     workflowReferences,
@@ -818,7 +809,7 @@ export async function createPreparedChairRound(
     retainedOpenQuestions: retention.openQuestions,
   };
   const structural = await persistStructuralAudit(
-    { databasePath: prepared.options.databasePath, cas: prepared.harness.cas },
+    { database: prepared.options.database, cas: prepared.harness.cas },
     {
       ...structuralInput,
       capabilities: [
@@ -827,18 +818,14 @@ export async function createPreparedChairRound(
     },
   );
   if (structural.kind !== "persisted") {
-    const inspection = new Database(prepared.options.databasePath, {
-      readonly: true,
-    });
-    const state = inspection
-      .prepare(`SELECT runs.status, snapshots.state AS snapshot_state,
-        (SELECT group_concat(logical_key || ':' || jobs.status || ':' ||
-          COALESCE((SELECT attempts.outcome FROM attempts
-            WHERE attempts.attempt_id = jobs.attempt_id), 'none'), '|') FROM jobs
-          WHERE jobs.run_id = runs.run_id) AS jobs
-        FROM runs JOIN snapshots USING(snapshot_id) WHERE runs.run_id = ?`)
-      .get(runId);
-    inspection.close();
+    const inspection = prepared.options.database;
+    const state = (
+      await inspection.query(
+        "SELECT runs.status, snapshots.state AS snapshot_state,\n        (SELECT group_concat(logical_key || ':' || jobs.status || ':' ||\n          COALESCE((SELECT attempts.outcome FROM attempts\n            WHERE attempts.attempt_id = jobs.attempt_id), 'none'), '|') FROM jobs\n          WHERE jobs.run_id = runs.run_id) AS jobs\n        FROM runs JOIN snapshots USING(snapshot_id) WHERE runs.run_id = $1",
+        [runId],
+      )
+    ).rows[0];
+
     throw new TypeError(
       `structural fixture blocked: ${structural.reason}:${JSON.stringify(state)}`,
     );
@@ -860,7 +847,7 @@ export async function createPreparedChairRound(
     throw new TypeError(
       `structural fixture is not publishable:${JSON.stringify(envelope.result.blockers)}`,
     );
-  const semantic = createSqliteSemanticAudit(prepared.options);
+  const semantic = createPostgresSemanticAudit(prepared.options);
   const semanticStage = await semantic.stage({
     runId,
     structuralAuditArtifactId: ArtifactIdSchema.parse(
@@ -885,24 +872,22 @@ export async function createPreparedChairRound(
   };
 }
 
-export function exhaustChairReplacementBudget(
-  databasePath: string,
+export async function exhaustChairReplacementBudget(
+  database: ResearchDatabase,
   runId: string,
-): void {
-  const database = new Database(databasePath);
-  database
-    .prepare("UPDATE runs SET requested_replacement_calls = 0 WHERE run_id = ?")
-    .run(runId);
-  database.close();
+): Promise<void> {
+  await database.query(
+    "UPDATE runs SET requested_replacement_calls = 0 WHERE run_id = $1",
+    [runId],
+  );
 }
 
 export async function corruptAcceptedEnvelope(
-  databasePath: string,
+  database: ResearchDatabase,
   cas: ArtifactCasPort,
   runId: string,
   logicalKey: string,
 ): Promise<void> {
-  const database = new Database(databasePath);
   const row = z
     .object({
       artifact_id: ArtifactIdSchema,
@@ -910,10 +895,12 @@ export async function corruptAcceptedEnvelope(
       content_hash: ArtifactDigestSchema,
     })
     .parse(
-      database
-        .prepare(`SELECT artifact_id, snapshot_id, content_hash
-    FROM artifacts WHERE run_id = ? AND logical_key = ?`)
-        .get(runId, logicalKey),
+      (
+        await database.query(
+          "SELECT artifact_id, snapshot_id, content_hash\n    FROM artifacts WHERE run_id = $1 AND logical_key = $2",
+          [runId, logicalKey],
+        )
+      ).rows[0],
     );
   const stored = await cas.get(row.content_hash);
   if (stored === undefined)
@@ -933,12 +920,10 @@ export async function corruptAcceptedEnvelope(
     parentDigests: stored.descriptor.parentDigests,
     bytes,
   });
-  database
-    .prepare(
-      "UPDATE artifacts SET content_hash = ?, byte_length = ? WHERE artifact_id = ?",
-    )
-    .run(descriptor.digest, descriptor.byteLength, row.artifact_id);
-  database.close();
+  await database.query(
+    "UPDATE artifacts SET content_hash = $1, byte_length = $2 WHERE artifact_id = $3",
+    [descriptor.digest, descriptor.byteLength, row.artifact_id],
+  );
 }
 
 export function mixedClaimValidationFixture() {

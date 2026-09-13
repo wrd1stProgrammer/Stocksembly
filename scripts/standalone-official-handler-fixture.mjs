@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
@@ -73,11 +74,15 @@ export const executePackagedOfficialJob = async (packageRoot, dataRoot) => {
       "PACKAGED_HANDLER_UNAVAILABLE",
       "The packaged official handler injection seam is unavailable",
     );
+  const { Pool } = createRequire(join(packageRoot, "package.json"))("pg");
+  const database = new Pool({
+    connectionString: process.env.STOCKSEMBLY_TEST_DATABASE_URL,
+    options: "-c search_path=research,pg_catalog",
+  });
   const runtime = await worker.createRuntimeAttemptHandler(
     {
       dataDirectory: dataRoot,
-      databasePath: join(dataRoot, "research.sqlite"),
-      migrationsDirectory: join(packageRoot, "migrations"),
+      database,
       ownerId: "standalone-verifier-worker",
     },
     { codex: deterministicCodex, now: () => new Date().toISOString() },
@@ -85,8 +90,6 @@ export const executePackagedOfficialJob = async (packageRoot, dataRoot) => {
   try {
     await worker.runLeaseWorkerProcess(
       [
-        "--database",
-        join(dataRoot, "research.sqlite"),
         "--owner",
         "standalone-verifier-worker",
         "--verification-outcome",
@@ -97,5 +100,6 @@ export const executePackagedOfficialJob = async (packageRoot, dataRoot) => {
     );
   } finally {
     await runtime.close();
+    await database.end();
   }
 };

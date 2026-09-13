@@ -24,7 +24,7 @@ function item(
 }
 
 // Local preview of the research room catalog with fixture reports. The real
-// page reads the SQLite archive, which developer machines rarely have.
+// page reads the PostgreSQL archive, which developer machines rarely have.
 export default function ResearchRoomPreviewPage() {
   if (process.env.NODE_ENV === "production") notFound();
   const reports = [

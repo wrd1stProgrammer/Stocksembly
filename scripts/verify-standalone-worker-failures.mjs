@@ -74,14 +74,14 @@ const verifyWebOnlyRejection = async (packageRoot, dataRoot) => {
       cwd: packageRoot,
       env: environment,
     });
-    const workerCode = assertError(worker, "SQLITE_NATIVE_UNAVAILABLE");
+    const workerCode = assertError(worker, "POSTGRES_DRIVER_UNAVAILABLE");
     const combinedReady =
       httpStatus >= 200 && httpStatus < 500 && worker.status === 0;
     const rejected =
       httpStatus >= 200 &&
       httpStatus < 500 &&
       worker.status !== 0 &&
-      workerCode === "SQLITE_NATIVE_UNAVAILABLE" &&
+      workerCode === "POSTGRES_DRIVER_UNAVAILABLE" &&
       !combinedReady;
     if (!rejected)
       throw new ProcessVerificationError(
@@ -141,26 +141,21 @@ export const verifyStandaloneFailures = async (
     await stopProcess(holder);
   }
 
-  const native = await copyPackage(
+  const missingDriver = await copyPackage(
     sourceRoot,
     verificationRoot,
-    "missing-native",
+    "missing-driver",
   );
-  await rm(
-    join(
-      native,
-      "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
-    ),
-  );
+  await rm(join(missingDriver, "node_modules/pg/package.json"));
   const webOnly = await verifyWebOnlyRejection(
-    native,
-    join(verificationRoot, "native-data"),
+    missingDriver,
+    join(verificationRoot, "driver-data"),
   );
   return {
     missingMigrations: missingCode,
     readOnlyDataRoot: readonlyCode,
     occupiedWorkerLease: occupiedCode,
-    missingNativeBinding: webOnly.workerCode,
+    missingPostgresDriver: webOnly.workerCode,
     webOnlySuccessRejected: webOnly.rejected,
     webOnly: {
       httpStatus: webOnly.httpStatus,

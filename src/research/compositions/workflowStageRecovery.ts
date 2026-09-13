@@ -1,9 +1,10 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { withResearchTransaction } from "../server/persistence/postgres/database";
 import {
   EMPTY_RESEARCH_QUALITY_METRICS,
   persistResearchQualityObservation,
-} from "../server/persistence/sqlite/researchQualityObservations";
+} from "../server/persistence/postgres/researchQualityObservations";
 
 const StageRecoveryRowSchema = z.object({
   failure_count: z.number().int().nonnegative(),
@@ -51,125 +52,112 @@ export function isRecoverableWorkflowFailure(reason: string): boolean {
   );
 }
 
-export function stageRecoveryState(
-  databasePath: string,
+export async function stageRecoveryState(
+  database: ResearchDatabase,
   runId: string,
   stage: string,
   now: string,
-): StageRecoveryState {
-  const database = new Database(databasePath, { readonly: true });
-  try {
-    const parsed = StageRecoveryRowSchema.safeParse(
-      database
-        .prepare(`SELECT failure_count, next_retry_at, exhausted
-          FROM run_stage_recoveries WHERE run_id = ? AND stage = ?`)
-        .get(runId, stage),
-    );
-    if (!parsed.success) return "ready";
-    if (parsed.data.exhausted === 1) return "exhausted";
-    return parsed.data.next_retry_at <= now ? "ready" : "waiting";
-  } finally {
-    database.close();
-  }
+): Promise<StageRecoveryState> {
+  const parsed = StageRecoveryRowSchema.safeParse(
+    (
+      await database.query(
+        `SELECT failure_count, next_retry_at, exhausted
+          FROM run_stage_recoveries WHERE run_id = $1 AND stage = $2`,
+        [runId, stage],
+      )
+    ).rows[0],
+  );
+  if (!parsed.success) return "ready";
+  if (parsed.data.exhausted === 1) return "exhausted";
+  return parsed.data.next_retry_at <= now ? "ready" : "waiting";
 }
 
-export function scheduleStageRecovery(input: {
-  readonly databasePath: string;
+export async function scheduleStageRecovery(input: {
+  readonly database: ResearchDatabase;
   readonly runId: string;
   readonly stage: string;
   readonly reason: string;
   readonly now: string;
-}): "scheduled" | "exhausted" {
-  const database = new Database(input.databasePath);
-  try {
-    return database.transaction(() => {
-      const existing = StageRecoveryRowSchema.safeParse(
-        database
-          .prepare(`SELECT failure_count, next_retry_at, exhausted
-            FROM run_stage_recoveries WHERE run_id = ? AND stage = ?`)
-          .get(input.runId, input.stage),
-      );
-      const failureCount =
-        (existing.success ? existing.data.failure_count : 0) + 1;
-      const exhausted = failureCount >= MAX_STAGE_FAILURES;
-      const delay =
-        RETRY_DELAYS_MS[
-          Math.min(failureCount - 1, RETRY_DELAYS_MS.length - 1)
-        ] ?? 300_000;
-      const nextRetryAt = new Date(Date.parse(input.now) + delay).toISOString();
-      database
-        .prepare(`INSERT INTO run_stage_recoveries(
+}): Promise<"scheduled" | "exhausted"> {
+  const database = input.database;
+  return await withResearchTransaction(database, async (transaction) => {
+    const existing = StageRecoveryRowSchema.safeParse(
+      (
+        await transaction.query(
+          `SELECT failure_count, next_retry_at, exhausted
+            FROM run_stage_recoveries WHERE run_id = $1 AND stage = $2`,
+          [input.runId, input.stage],
+        )
+      ).rows[0],
+    );
+    const failureCount =
+      (existing.success ? existing.data.failure_count : 0) + 1;
+    const exhausted = failureCount >= MAX_STAGE_FAILURES;
+    const delay =
+      RETRY_DELAYS_MS[Math.min(failureCount - 1, RETRY_DELAYS_MS.length - 1)] ??
+      300_000;
+    const nextRetryAt = new Date(Date.parse(input.now) + delay).toISOString();
+    await transaction.query(
+      `INSERT INTO run_stage_recoveries(
           run_id, stage, failure_count, last_code, next_retry_at, exhausted,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT(run_id, stage) DO UPDATE SET
           failure_count = excluded.failure_count,
           last_code = excluded.last_code,
           next_retry_at = excluded.next_retry_at,
           exhausted = excluded.exhausted,
-          updated_at = excluded.updated_at`)
-        .run(
-          input.runId,
-          input.stage,
-          failureCount,
-          input.reason,
-          nextRetryAt,
-          exhausted ? 1 : 0,
-          input.now,
-        );
-      return exhausted ? "exhausted" : "scheduled";
-    })();
-  } finally {
-    database.close();
-  }
+          updated_at = excluded.updated_at`,
+      [
+        input.runId,
+        input.stage,
+        failureCount,
+        input.reason,
+        nextRetryAt,
+        exhausted ? 1 : 0,
+        input.now,
+      ],
+    );
+    return exhausted ? "exhausted" : "scheduled";
+  });
 }
 
-export function persistWorkflowQualityOutcome(input: {
-  readonly databasePath: string;
+export async function persistWorkflowQualityOutcome(input: {
+  readonly database: ResearchDatabase;
   readonly runId: string;
   readonly outcome: "item_omitted" | "quality_degraded" | "run_failed";
   readonly reason: string;
   readonly observedAt: string;
-}): void {
-  const database = new Database(input.databasePath);
-  try {
-    persistResearchQualityObservation(database, {
-      runId: input.runId,
-      workflowVersion: "workflow-v3",
-      reportVersion: "unpublished",
-      outcome: input.outcome,
-      observedAt: input.observedAt,
-      metrics: {
-        ...EMPTY_RESEARCH_QUALITY_METRICS,
-        omittedClaims:
-          input.outcome === "item_omitted" &&
-          !/(?:source|peer|scenario)/u.test(input.reason)
-            ? 1
-            : 0,
-        omittedSources: /source/u.test(input.reason) ? 1 : 0,
-        omittedPeers: /peer/u.test(input.reason) ? 1 : 0,
-        omittedScenarios: /scenario/u.test(input.reason) ? 1 : 0,
-      },
-      reasonCodes: [input.reason],
-    });
-  } finally {
-    database.close();
-  }
+}): Promise<void> {
+  const database = input.database;
+  await persistResearchQualityObservation(database, {
+    runId: input.runId,
+    workflowVersion: "workflow-v3",
+    reportVersion: "unpublished",
+    outcome: input.outcome,
+    observedAt: input.observedAt,
+    metrics: {
+      ...EMPTY_RESEARCH_QUALITY_METRICS,
+      omittedClaims:
+        input.outcome === "item_omitted" &&
+        !/(?:source|peer|scenario)/u.test(input.reason)
+          ? 1
+          : 0,
+      omittedSources: /source/u.test(input.reason) ? 1 : 0,
+      omittedPeers: /peer/u.test(input.reason) ? 1 : 0,
+      omittedScenarios: /scenario/u.test(input.reason) ? 1 : 0,
+    },
+    reasonCodes: [input.reason],
+  });
 }
 
-export function clearStageRecovery(
-  databasePath: string,
+export async function clearStageRecovery(
+  database: ResearchDatabase,
   runId: string,
   stage: string,
-): void {
-  const database = new Database(databasePath);
-  try {
-    database
-      .prepare(
-        "DELETE FROM run_stage_recoveries WHERE run_id = ? AND stage = ?",
-      )
-      .run(runId, stage);
-  } finally {
-    database.close();
-  }
+): Promise<void> {
+  await database.query(
+    "DELETE FROM run_stage_recoveries WHERE run_id = $1 AND stage = $2",
+    [runId, stage],
+  );
 }

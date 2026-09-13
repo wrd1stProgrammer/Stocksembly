@@ -47,6 +47,7 @@ Each guide explains the directory's contents, important entry points, dependenci
 | [pnpm-lock.yaml](pnpm-lock.yaml), [pnpm-workspace.yaml](pnpm-workspace.yaml) | Installation resolution and pnpm settings. CI currently selects pnpm 10.34.1. |
 | [.env.example](.env.example) | Environment variable examples. Real credentials belong outside Git. |
 | [.gitignore](.gitignore), [.dockerignore](.dockerignore) | Git exclusions and Docker context exclusions respectively; these are not interchangeable. |
+| [compose.postgres.yaml](compose.postgres.yaml) | Local PostgreSQL 16 service and persistent volume, bound to loopback. |
 | [Dockerfile](Dockerfile) | Dependency installation, build, and standalone runtime image. |
 | [next.config.ts](next.config.ts), [next.config.test.ts](next.config.test.ts) | Next configuration and its regression tests. |
 | [proxy.ts](proxy.ts), [proxy.test.ts](proxy.test.ts) | Request-boundary behavior and tests. |
@@ -74,9 +75,15 @@ assets/research/*-sources/
   → URLs consumed by components, CSS and scene manifests
 ```
 
-`pnpm dev` starts the Next development server, not the research worker. After a build, `pnpm start:local` starts the web and research-worker processes. It does not automatically start the briefing worker.
+`pnpm dev` starts the Next development server. After a build, `pnpm start:local` starts the web and packaged worker processes; the worker entry also starts briefing work in serve mode. Both use the configured PostgreSQL database. Local startup does not synchronize records into production.
 
-**Important:** when both production-sync SSH variables are present, `start:local` also starts production synchronization. That tool merges local published research into the remote production store. Read [scripts/README.md](scripts/README.md) before using a production-connected environment for local QA.
+## Local database setup
+
+PostgreSQL 16 or later is required. Run `pnpm db:local:up` to start the loopback-only Compose service, then set `STOCKSEMBLY_DATABASE_URL=postgresql://stocksembly:stocksembly_local@127.0.0.1:5432/stocksembly` in your untracked `.env.local`. Run `pnpm db:prepare` before building/starting the local runtime. For a local production build, set `STOCKSEMBLY_RESEARCH_POSTGRES_READY=true` only after that local database is ready. Keep production credentials out of local QA.
+
+See [database setup and test isolation](src/server/database/README.md) for native PostgreSQL and disposable test database options. `pnpm db:local:stop` preserves the local DB volume. Research DB migrations and data import are separate operations; production cutover follows the [drain/import/release runbook](docs/operations/postgres-cutover.md).
+
+The application and tests no longer use SQLite. A read-only offline exporter is retained solely to transfer historical backups. Existing artifact files remain in the configured data directory; this DB migration does not move web/worker to separate machines.
 
 ## Generated and local-only directories
 
@@ -85,7 +92,7 @@ assets/research/*-sources/
 | `.next/` | Next output and assembled standalone package | Generated; do not edit as source |
 | `node_modules/` | Installed dependencies | Generated from package and lock files |
 | `.stocksembly-verification/` | Worker bundles, diagnostic builds and local evidence | Git-ignored scratch output |
-| `research-data/` | Local research data when configured there | Persistent data, not disposable source |
+| `research-data/` | Local artifacts and worker scratch files when configured there | Persistent data, not disposable source |
 | `test-results/`, `playwright-report/` | Browser test traces and reports | Generated diagnostics |
 | `.artifacts/`, `.superdesign/`, `experiments/` | Local investigations and design exploration | Git-ignored; preserve important evidence before cleanup |
 | `.omo/` | Paths used by some historical tools | Git-ignored; a path name does not require running OMO |

@@ -4,10 +4,6 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingIncludes: {
     "/*": [
-      "./node_modules/better-sqlite3/**/*",
-      "./node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/**/*",
-      "./node_modules/.pnpm/bindings@*/node_modules/bindings/**/*",
-      "./node_modules/.pnpm/file-uri-to-path@*/node_modules/file-uri-to-path/**/*",
       "./node_modules/zod/**/*",
       "./node_modules/.pnpm/zod@*/node_modules/zod/**/*",
       "./node_modules/.pnpm/@swc+helpers@*/node_modules/@swc/helpers/**/*",
@@ -24,7 +20,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   reactStrictMode: true,
-  serverExternalPackages: ["better-sqlite3", "pdfmake"],
+  serverExternalPackages: ["pg", "pdfmake"],
   async redirects() {
     return [
       {

@@ -1,10 +1,11 @@
-import type Database from "better-sqlite3";
 import { z } from "zod";
 import { CALL_BUDGET_POLICY } from "../../domain/callBudgetContracts";
 import { EventIdSchema, RunIdSchema } from "../../domain/ids";
 import { LIMITS } from "../../domain/limits.constants";
-import { appendRunEvent } from "../persistence/sqlite/runRepository";
-import { serializeSafeJson } from "../persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
+import { appendRunEvent } from "../persistence/postgres/runRepository";
+import { serializeSafeJson } from "../persistence/postgres/safeJson";
 import {
   type CommandIds,
   type CommandResult,
@@ -48,15 +49,16 @@ type CommandContext = {
   readonly ids: CommandIds;
 };
 
-export function replayResearchRunRetry(
-  database: Database.Database,
+export async function replayResearchRunRetry(
+  database: ResearchDatabase,
   parentRunId: string,
   principalId: string,
   idempotencyKey: string,
-):
+): Promise<
   | { readonly kind: "missing" | "conflict" }
-  | { readonly kind: "replayed"; readonly value: RecoveredRun } {
-  const replay = replayCommand(
+  | { readonly kind: "replayed"; readonly value: RecoveredRun }
+> {
+  const replay = await replayCommand(
     database,
     `research-retry:${principalId}:${parentRunId}`,
     idempotencyKey,
@@ -67,34 +69,41 @@ export function replayResearchRunRetry(
     : replay;
 }
 
-function parentRow(
-  database: Database.Database,
+async function parentRow(
+  database: ResearchDatabase,
   principalId: string,
   runId: string,
-): z.infer<typeof ParentRowSchema> | undefined {
-  const value = database
-    .prepare(`SELECT runs.run_id, runs.snapshot_id, runs.status, runs.version,
+): Promise<z.infer<typeof ParentRowSchema> | undefined> {
+  const value = (
+    await database.query(
+      `SELECT runs.run_id, runs.snapshot_id, runs.status, runs.version,
       runs.report_id, research_requests.symbol, research_requests.question,
       research_requests.locale, research_requests.request_hash,
       research_requests.research_kind, research_requests.department_id,
       research_requests.research_profile_json
       FROM runs JOIN research_requests USING(run_id)
-      WHERE runs.run_id = ? AND research_requests.principal_id = ?`)
-    .get(runId, principalId);
+      WHERE runs.run_id = $1 AND research_requests.principal_id = $2 FOR UPDATE OF runs`,
+      [runId, principalId],
+    )
+  ).rows[0];
   return value === undefined ? undefined : ParentRowSchema.parse(value);
 }
 
-export function retryResearchRun(
-  database: Database.Database,
+export async function retryResearchRun(
+  database: ResearchDatabase,
   parentRunId: string,
   context: CommandContext,
-): CommandResult<RecoveredRun> {
-  return database
-    .transaction((): CommandResult<RecoveredRun> => {
+): Promise<CommandResult<RecoveredRun>> {
+  return await researchTransaction(
+    database,
+    async (transaction): Promise<CommandResult<RecoveredRun>> => {
+      await transaction.query(
+        "SELECT pg_advisory_xact_lock(hashtext('research-admission'))",
+      );
       const scope = `research-retry:${context.principalId}:${parentRunId}`;
       const requestHash = commandDigest({ parentRunId });
-      const replay = replayCommand(
-        database,
+      const replay = await replayCommand(
+        transaction,
         scope,
         context.idempotencyKey,
         requestHash,
@@ -105,34 +114,44 @@ export function retryResearchRun(
           kind: "replayed",
           value: RecoveredRunSchema.parse(replay.value),
         };
-      const parent = parentRow(database, context.principalId, parentRunId);
+      const parent = await parentRow(
+        transaction,
+        context.principalId,
+        parentRunId,
+      );
       if (parent === undefined) return { kind: "not_found" };
       if (parent.status !== "failed" && parent.status !== "incomplete")
         return { kind: "illegal_state" };
-      const rightsFailure = database
-        .prepare(`SELECT 1 FROM run_public_limitations
-        WHERE run_id = ? AND code = 'rights_failure'`)
-        .get(parentRunId);
+      const rightsFailure = (
+        await transaction.query(
+          `SELECT 1 FROM run_public_limitations
+        WHERE run_id = $1 AND code = 'rights_failure'`,
+          [parentRunId],
+        )
+      ).rows[0];
       if (rightsFailure !== undefined) return { kind: "illegal_state" };
       const recovery = RecoveryEligibilitySchema.parse(
-        database
-          .prepare(`SELECT
-            COUNT(*) FILTER (WHERE kind = 'research'
+        (
+          await transaction.query(
+            `SELECT
+            (COUNT(*) FILTER (WHERE kind = 'research'
               AND status IN ('queued', 'leased', 'spawn-reserved', 'running',
-                'retry-wait')) AS resumable_jobs,
-            COUNT(*) FILTER (WHERE kind = 'research') AS total_research_jobs,
-            COUNT(*) FILTER (WHERE kind = 'research'
-              AND status = 'succeeded') AS succeeded_research_jobs,
-            COUNT(*) FILTER (WHERE kind = 'research' AND status = 'failed'
+                'retry-wait')))::integer AS resumable_jobs,
+            (COUNT(*) FILTER (WHERE kind = 'research'))::integer AS total_research_jobs,
+            (COUNT(*) FILTER (WHERE kind = 'research'
+              AND status = 'succeeded'))::integer AS succeeded_research_jobs,
+            (COUNT(*) FILTER (WHERE kind = 'research' AND status = 'failed'
               AND EXISTS (SELECT 1 FROM idempotency_records retry
                 WHERE retry.scope = 'worker-retry'
                   AND retry.idempotency_key = jobs.job_id
-                  AND json_extract(retry.result_json, '$.classification') =
-                    'transient')) AS retryable_failed_jobs,
-            COUNT(*) FILTER (WHERE kind = 'research'
-              AND status = 'failed') AS failed_research_jobs
-          FROM jobs WHERE run_id = ?`)
-          .get(parentRunId),
+                  AND (retry.result_json::jsonb ->> 'classification') =
+                    'transient')))::integer AS retryable_failed_jobs,
+            (COUNT(*) FILTER (WHERE kind = 'research'
+              AND status = 'failed'))::integer AS failed_research_jobs
+          FROM jobs WHERE run_id = $1`,
+            [parentRunId],
+          )
+        ).rows[0],
       );
       const publicationOnlyRecovery =
         recovery.total_research_jobs > 0 &&
@@ -147,11 +166,12 @@ export function retryResearchRun(
       const used = z
         .object({ count: z.number().int().nonnegative() })
         .parse(
-          database
-            .prepare(
-              "SELECT COUNT(*) AS count FROM research_call_ordinals WHERE run_id=?",
+          (
+            await transaction.query(
+              "SELECT CAST(COUNT(*) AS integer) AS count FROM research_call_ordinals WHERE run_id=$1",
+              [parentRunId],
             )
-            .get(parentRunId),
+          ).rows[0],
         );
       if (
         !publicationOnlyRecovery &&
@@ -161,40 +181,45 @@ export function retryResearchRun(
       const queued = z
         .object({ count: z.number().int().nonnegative() })
         .parse(
-          database
-            .prepare(
-              "SELECT COUNT(*) AS count FROM runs WHERE status = 'queued'",
+          (
+            await transaction.query(
+              "SELECT CAST(COUNT(*) AS integer) AS count FROM runs WHERE status = 'queued'",
+              [],
             )
-            .get(),
+          ).rows[0],
         );
       if (queued.count >= LIMITS.admission.queuedRuns)
         return { kind: "queue_full" };
-      const updated = database
-        .prepare(`UPDATE runs SET status = 'queued', version = version + 1
-          WHERE run_id = ? AND status IN ('failed', 'incomplete')
-            AND report_id IS NULL`)
-        .run(parentRunId).changes;
+      const updated = (
+        await transaction.query(
+          `UPDATE runs SET status = 'queued', version = version + 1
+          WHERE run_id = $1 AND status IN ('failed', 'incomplete')
+            AND report_id IS NULL`,
+          [parentRunId],
+        )
+      ).rowCount;
       if (updated !== 1) return { kind: "illegal_state" };
-      requeueInterruptedResearchJobs(database, parentRunId);
-      database
-        .prepare(`UPDATE jobs SET status = 'retry-wait', lease_owner = NULL,
+      await requeueInterruptedResearchJobs(transaction, parentRunId);
+      await transaction.query(
+        `UPDATE jobs SET status = 'retry-wait', lease_owner = NULL,
           lease_expires_at = NULL
-          WHERE run_id = @runId AND kind = 'research' AND status = 'failed'`)
-        .run({ runId: parentRunId });
-      database
-        .prepare(`UPDATE idempotency_records SET result_json = json_set(
-          result_json, '$.retryAt', @now, '$.failureCount', 0,
-          '$.circuitOpen', json('false'), '$.classification', 'transient'),
-          created_at = @now
+          WHERE run_id = $1 AND kind = 'research' AND status = 'failed'`,
+        [parentRunId],
+      );
+      await transaction.query(
+        `UPDATE idempotency_records SET result_json = (result_json::jsonb || jsonb_build_object('retryAt', $1::text, 'failureCount', 0, 'circuitOpen', false, 'classification', 'transient'))::text,
+          created_at = $1
           WHERE scope = 'worker-retry' AND idempotency_key IN (
-            SELECT job_id FROM jobs WHERE run_id = @runId
+            SELECT job_id FROM jobs WHERE run_id = $2
               AND status = 'retry-wait'
-          )`)
-        .run({ runId: parentRunId, now: context.now });
-      database
-        .prepare("DELETE FROM run_stage_recoveries WHERE run_id = ?")
-        .run(parentRunId);
-      appendRunEvent(database, {
+          )`,
+        [context.now, parentRunId],
+      );
+      await transaction.query(
+        "DELETE FROM run_stage_recoveries WHERE run_id = $1",
+        [parentRunId],
+      );
+      await appendRunEvent(transaction, {
         runId: RunIdSchema.parse(parentRunId),
         event: {
           eventId: EventIdSchema.parse(context.ids.eventId),
@@ -216,7 +241,7 @@ export function retryResearchRun(
         status: "queued",
         recovery: "same-run-stage-resume",
       });
-      commitCommand(database, {
+      await commitCommand(transaction, {
         scope,
         key: context.idempotencyKey,
         requestHash,
@@ -229,8 +254,8 @@ export function retryResearchRun(
         now: context.now,
       });
       return { kind: "created", value };
-    })
-    .immediate();
+    },
+  );
 }
 
 type ChildInsert = {
@@ -240,46 +265,48 @@ type ChildInsert = {
   readonly question: string;
 };
 
-export function insertChild(
-  database: Database.Database,
+export async function insertChild(
+  database: ResearchDatabase,
   parent: z.infer<typeof ParentRowSchema>,
   context: CommandContext,
   input: ChildInsert,
-): void {
+): Promise<void> {
   const childHash = commandDigest({
     parentRunId: parent.run_id,
     snapshotId: input.snapshotId,
     question: input.question,
     lineage: input.lineage,
   });
-  database
-    .prepare(`INSERT INTO runs(run_id, snapshot_id, status, last_event_seq,
+  await database.query(
+    `INSERT INTO runs(run_id, snapshot_id, status, last_event_seq,
       created_at, remaining_base_calls, requested_optional_calls,
-      requested_replacement_calls) VALUES (?, ?, 'queued', 1, ?, ?, ?, ?)`)
-    .run(
+      requested_replacement_calls) VALUES ($1, $2, 'queued', 1, $3, $4, $5, $6)`,
+    [
       context.ids.runId,
       input.snapshotId,
       context.now,
       CALL_BUDGET_POLICY.mandatoryFirstAttempts,
       CALL_BUDGET_POLICY.maxOptionalFollowups,
       CALL_BUDGET_POLICY.maxRequiredReplacements,
-    );
-  database
-    .prepare(`INSERT INTO jobs(job_id, run_id, snapshot_id, kind, logical_key,
-      input_hash, status, created_at) VALUES (?, ?, ?, 'research',
-      'collection:initial', ?, 'queued', ?)`)
-    .run(
+    ],
+  );
+  await database.query(
+    `INSERT INTO jobs(job_id, run_id, snapshot_id, kind, logical_key,
+      input_hash, status, created_at) VALUES ($1, $2, $3, 'research',
+      'collection:initial', $4, 'queued', $5)`,
+    [
       context.ids.jobId,
       context.ids.runId,
       input.snapshotId,
       childHash,
       context.now,
-    );
-  database
-    .prepare(`INSERT INTO run_events(run_id, sequence, event_id, event_type,
-      state_id, occurred_at, payload_json) VALUES (?, 1, ?, 'run_created',
-      'run_created', ?, ?)`)
-    .run(
+    ],
+  );
+  await database.query(
+    `INSERT INTO run_events(run_id, sequence, event_id, event_type,
+      state_id, occurred_at, payload_json) VALUES ($1, 1, $2, 'run_created',
+      'run_created', $3, $4)`,
+    [
       context.ids.runId,
       context.ids.eventId,
       context.now,
@@ -290,13 +317,14 @@ export function insertChild(
         sourceIds: [],
         limitationIds: [],
       }),
-    );
-  database
-    .prepare(`INSERT INTO research_requests(run_id, principal_id, symbol,
+    ],
+  );
+  await database.query(
+    `INSERT INTO research_requests(run_id, principal_id, symbol,
       question, locale, request_hash, created_at, research_kind, department_id,
       research_profile_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [
       context.ids.runId,
       context.principalId,
       parent.symbol,
@@ -307,24 +335,27 @@ export function insertChild(
       parent.research_kind,
       parent.department_id,
       parent.research_profile_json,
-    );
-  database
-    .prepare(`INSERT INTO research_question_localizations(
+    ],
+  );
+  await database.query(
+    `INSERT INTO research_question_localizations(
       run_id, locale, question, created_at
-    ) VALUES (?, ?, ?, ?)
-    ON CONFLICT(run_id, locale) DO NOTHING`)
-    .run(context.ids.runId, parent.locale, input.question, context.now);
-  database
-    .prepare(`INSERT INTO run_lineage(child_run_id, parent_run_id, kind,
-      effective_snapshot_id, prior_report_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(
+    ) VALUES ($1, $2, $3, $4)
+    ON CONFLICT(run_id, locale) DO NOTHING`,
+    [context.ids.runId, parent.locale, input.question, context.now],
+  );
+  await database.query(
+    `INSERT INTO run_lineage(child_run_id, parent_run_id, kind,
+      effective_snapshot_id, prior_report_id, created_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
       context.ids.runId,
       parent.run_id,
       input.lineage,
       input.snapshotId,
       input.priorReportId,
       context.now,
-    );
+    ],
+  );
 }
 
 export { parentRow };

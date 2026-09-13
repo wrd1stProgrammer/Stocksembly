@@ -1,21 +1,21 @@
 import { spawnSync } from "node:child_process";
 import { constants } from "node:fs";
-import { access, mkdtemp, realpath, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { access, realpath, stat } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import Database from "better-sqlite3";
+import type { Pool } from "pg";
 import { z } from "zod";
+import {
+  closeResearchPool,
+  getResearchPool,
+} from "../server/persistence/postgres/researchPool";
 
 const SANDBOX_EXEC_PATH = "/usr/bin/sandbox-exec" as const;
 const PROBE_ROW = {
   id: "stocksembly-runtime-probe-v1",
-  value: "native-sqlite-ok",
+  value: "postgresql-ok",
 } as const;
 
 const runtimeProbeArgumentsSchema = z.tuple([z.literal("runtime-probe")]);
-const journalModeSchema = z.literal("wal");
-const foreignKeysSchema = z.literal(1);
 const probeRowsSchema = z.tuple([
   z.object({
     id: z.literal(PROBE_ROW.id),
@@ -27,9 +27,8 @@ const RUNTIME_PROBE_ERROR_CODES = [
   "RUNTIME_PROBE_INVALID_ARGUMENT",
   "RUNTIME_PLATFORM_UNSUPPORTED",
   "SANDBOX_EXEC_UNAVAILABLE",
-  "SQLITE_NATIVE_UNAVAILABLE",
-  "SQLITE_CONFIGURATION_INVALID",
-  "SQLITE_ROW_MISMATCH",
+  "POSTGRESQL_UNAVAILABLE",
+  "POSTGRESQL_ROW_MISMATCH",
   "RUNTIME_PROBE_FAILED",
 ] as const;
 
@@ -39,8 +38,7 @@ type RuntimeProbeResult = {
   readonly kind: "runtime_probe_ok";
   readonly platform: "darwin" | "linux";
   readonly architecture: string;
-  readonly journalMode: "wal";
-  readonly foreignKeys: 1;
+  readonly database: "postgresql";
   readonly row: typeof PROBE_ROW;
   readonly sandboxExec: typeof SANDBOX_EXEC_PATH | null;
   readonly databaseCleaned: true;
@@ -58,7 +56,9 @@ export class RuntimeProbeError extends Error {
   }
 }
 
-export const runRuntimeProbe = async (): Promise<RuntimeProbeResult> => {
+export const runRuntimeProbe = async (
+  pool?: Pool,
+): Promise<RuntimeProbeResult> => {
   if (process.platform !== "darwin" && process.platform !== "linux") {
     throw new RuntimeProbeError(
       "RUNTIME_PLATFORM_UNSUPPORTED",
@@ -103,70 +103,41 @@ export const runRuntimeProbe = async (): Promise<RuntimeProbeResult> => {
     }
   }
 
-  const probeDirectory = await mkdtemp(
-    join(tmpdir(), "stocksembly-runtime-probe-"),
-  );
-  let database: Database.Database | undefined;
+  const database = pool ?? (await getResearchPool());
+  const client = await database.connect();
   try {
-    try {
-      database = new Database(join(probeDirectory, "runtime-probe.sqlite"));
-    } catch (error) {
+    await client.query("BEGIN");
+    await client.query(
+      "CREATE TEMP TABLE runtime_probe (id TEXT PRIMARY KEY, value TEXT NOT NULL) ON COMMIT DROP",
+    );
+    await client.query(
+      "INSERT INTO runtime_probe (id, value) VALUES ($1, $2)",
+      [PROBE_ROW.id, PROBE_ROW.value],
+    );
+    const rows = await client.query(
+      "SELECT id, value FROM runtime_probe ORDER BY id",
+    );
+    const result = probeRowsSchema.safeParse(rows.rows);
+    if (!result.success)
       throw new RuntimeProbeError(
-        "SQLITE_NATIVE_UNAVAILABLE",
-        "The better-sqlite3 native binding could not be loaded",
-        { cause: error },
+        "POSTGRESQL_ROW_MISMATCH",
+        "PostgreSQL did not round-trip the exact runtime probe row",
       );
-    }
-
-    const journalModeResult = journalModeSchema.safeParse(
-      database.pragma("journal_mode = WAL", { simple: true }),
-    );
-    database.pragma("foreign_keys = ON");
-    const foreignKeysResult = foreignKeysSchema.safeParse(
-      database.pragma("foreign_keys", { simple: true }),
-    );
-    if (!journalModeResult.success || !foreignKeysResult.success) {
-      throw new RuntimeProbeError(
-        "SQLITE_CONFIGURATION_INVALID",
-        "SQLite did not enable the mandatory WAL and foreign-key pragmas",
-      );
-    }
-
-    database.exec(
-      "CREATE TABLE runtime_probe (id TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL) STRICT",
-    );
-    database
-      .prepare("INSERT INTO runtime_probe (id, value) VALUES (?, ?)")
-      .run(PROBE_ROW.id, PROBE_ROW.value);
-    const rowsResult = probeRowsSchema.safeParse(
-      database.prepare("SELECT id, value FROM runtime_probe ORDER BY id").all(),
-    );
-    if (!rowsResult.success) {
-      throw new RuntimeProbeError(
-        "SQLITE_ROW_MISMATCH",
-        "SQLite did not round-trip the exact runtime probe row",
-      );
-    }
-
+    await client.query("ROLLBACK");
     return {
       kind: "runtime_probe_ok",
       platform: process.platform,
       architecture: process.arch,
-      journalMode: journalModeResult.data,
-      foreignKeys: foreignKeysResult.data,
-      row: rowsResult.data[0],
-      sandboxExec:
-        process.platform === "darwin" ? SANDBOX_EXEC_PATH : null,
+      database: "postgresql",
+      row: result.data[0],
+      sandboxExec: process.platform === "darwin" ? SANDBOX_EXEC_PATH : null,
       databaseCleaned: true,
     };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
   } finally {
-    try {
-      if (database?.open === true) {
-        database.close();
-      }
-    } finally {
-      await rm(probeDirectory, { recursive: true, force: true });
-    }
+    client.release();
   }
 };
 
@@ -198,6 +169,8 @@ const main = async (): Promise<void> => {
       `${JSON.stringify({ kind: "runtime_probe_error", code: failure.code, message: failure.message })}\n`,
     );
     process.exitCode = 1;
+  } finally {
+    await closeResearchPool();
   }
 };
 

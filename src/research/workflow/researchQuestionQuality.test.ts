@@ -15,15 +15,15 @@ import {
   semanticAuditModelPrompt,
 } from "./semanticAuditContracts";
 import { allocateSpecialistClaimSlots } from "./specialistRoundInput";
-import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
-import { prepareSpecialistJobs } from "./specialistRoundSqliteStage";
+import { makePostgresRoundHarness } from "./specialistRoundPostgres.testSupport";
+import { prepareSpecialistJobs } from "./specialistRoundPostgresStage";
 
 const id = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 describe("question-specific research boundaries", () => {
   it("preserves every financial citation and measurement when compacting repeated metadata", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const jobs = prepareSpecialistJobs(harness.input, harness.sources);
     const values = harness.input.snapshot.valueRegistry.records;
     for (const job of jobs) {

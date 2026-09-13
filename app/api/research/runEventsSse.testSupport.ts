@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import Database from "better-sqlite3";
 import { afterEach, vi } from "vitest";
-import { serializeSafeJson } from "../../../src/research/server/persistence/sqlite/safeJson";
+import { researchTransaction } from "../../../src/research/server/persistence/postgres/database";
+import { serializeSafeJson } from "../../../src/research/server/persistence/postgres/safeJson";
 import {
   type ApiHarness,
   createApiHarness,
@@ -21,97 +21,89 @@ export type TestEventInput = {
     | "incomplete";
 };
 
-export function appendEvent(
+export async function appendEvent(
   harness: ApiHarness,
   runId: string,
   input: TestEventInput,
-): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .transaction(() => {
-        database
-          .prepare(
-            "UPDATE runs SET last_event_seq = ?, status = ? WHERE run_id = ?",
-          )
-          .run(input.sequence, input.status ?? "running", runId);
-        database
-          .prepare(`INSERT INTO run_events(
+): Promise<void> {
+  const database = harness.database;
+  await researchTransaction(database, async (database) => {
+    await database.query(
+      "UPDATE runs SET last_event_seq = $1, status = $2 WHERE run_id = $3",
+      [input.sequence, input.status ?? "running", runId],
+    );
+    await database.query(
+      `INSERT INTO run_events(
             run_id, sequence, event_id, event_type, state_id,
             occurred_at, payload_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-          .run(
-            runId,
-            input.sequence,
-            randomUUID(),
-            input.kind ?? "collection_started",
-            `state-${input.sequence}`,
-            `2026-07-23T06:00:${String(input.sequence).padStart(2, "0")}.000Z`,
-            serializeSafeJson({
-              participantIds: [],
-              claimIds: [],
-              sourceIds: [],
-              limitationIds: [],
-              summary: {
-                en: `Public event ${input.sequence}`,
-                ko: `공개 이벤트 ${input.sequence}`,
-              },
-              privateThought: "must never cross the boundary",
-            }),
-          );
-      })
-      .immediate();
-  } finally {
-    database.close();
-  }
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        runId,
+        input.sequence,
+        randomUUID(),
+        input.kind ?? "collection_started",
+        `state-${input.sequence}`,
+        `2026-07-23T06:00:${String(input.sequence).padStart(2, "0")}.000Z`,
+        serializeSafeJson({
+          participantIds: [],
+          claimIds: [],
+          sourceIds: [],
+          limitationIds: [],
+          summary: {
+            en: `Public event ${input.sequence}`,
+            ko: `공개 이벤트 ${input.sequence}`,
+          },
+          privateThought: "must never cross the boundary",
+        }),
+      ],
+    );
+  });
 }
 
-export function pruneEvents(
+export async function pruneEvents(
   harness: ApiHarness,
   runId: string,
   through: number,
-): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare("DELETE FROM run_events WHERE run_id = ? AND sequence <= ?")
-      .run(runId, through);
-  } finally {
-    database.close();
-  }
+): Promise<void> {
+  const database = harness.database;
+  await database.query(
+    "DELETE FROM run_events WHERE run_id = $1 AND sequence <= $2",
+    [runId, through],
+  );
 }
 
-export function pruneSequence(
+export async function pruneSequence(
   harness: ApiHarness,
   runId: string,
   sequence: number,
-): void {
-  const database = new Database(harness.databasePath);
-  try {
-    database
-      .prepare("DELETE FROM run_events WHERE run_id = ? AND sequence = ?")
-      .run(runId, sequence);
-  } finally {
-    database.close();
-  }
+): Promise<void> {
+  const database = harness.database;
+  await database.query(
+    "DELETE FROM run_events WHERE run_id = $1 AND sequence = $2",
+    [runId, sequence],
+  );
 }
 
-export function beginPendingEvent(
+export async function beginPendingEvent(
   harness: ApiHarness,
   runId: string,
   input: TestEventInput,
-): { readonly commit: () => void; readonly rollback: () => void } {
-  const database = new Database(harness.databasePath);
-  database.exec("BEGIN IMMEDIATE");
-  database
-    .prepare("UPDATE runs SET last_event_seq = ?, status = ? WHERE run_id = ?")
-    .run(input.sequence, input.status ?? "running", runId);
-  database
-    .prepare(`INSERT INTO run_events(
+): Promise<{
+  readonly commit: () => Promise<void>;
+  readonly rollback: () => Promise<void>;
+}> {
+  const database = await harness.database.connect();
+  await database.query("BEGIN");
+  await database.query(
+    "UPDATE runs SET last_event_seq = $1, status = $2 WHERE run_id = $3",
+    [input.sequence, input.status ?? "running", runId],
+  );
+  await database.query(
+    `INSERT INTO run_events(
       run_id, sequence, event_id, event_type, state_id,
       occurred_at, payload_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
       runId,
       input.sequence,
       randomUUID(),
@@ -125,11 +117,17 @@ export function beginPendingEvent(
         limitationIds: [],
         summary: { en: "Committed public event", ko: "커밋된 공개 이벤트" },
       }),
-    );
-  const finish = (statement: "COMMIT" | "ROLLBACK") => {
-    if (!database.open) return;
-    database.exec(statement);
-    database.close();
+    ],
+  );
+  let finished = false;
+  const finish = async (statement: "COMMIT" | "ROLLBACK") => {
+    if (finished) return;
+    finished = true;
+    try {
+      await database.query(statement);
+    } finally {
+      database.release();
+    }
   };
   return {
     commit: () => finish("COMMIT"),
@@ -137,17 +135,21 @@ export function beginPendingEvent(
   };
 }
 
-export function runStatus(harness: ApiHarness, runId: string): string {
-  const database = new Database(harness.databasePath, { readonly: true });
-  try {
-    const value: unknown = database
-      .prepare("SELECT status FROM runs WHERE run_id = ?")
-      .pluck()
-      .get(runId);
+export async function runStatus(
+  harness: ApiHarness,
+  runId: string,
+): Promise<string> {
+  const database = harness.database;
+  {
+    const value: unknown = Object.values(
+      (
+        await database.query("SELECT status FROM runs WHERE run_id = $1", [
+          runId,
+        ])
+      ).rows[0] ?? {},
+    )[0];
     if (typeof value !== "string") throw new TypeError("Expected run status");
     return value;
-  } finally {
-    database.close();
   }
 }
 

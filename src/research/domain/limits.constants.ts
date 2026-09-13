@@ -55,7 +55,6 @@ export const LIMITS = {
   runtime: {
     leaseSeconds: 30,
     heartbeatSeconds: 10,
-    sqliteBusyTimeoutSeconds: 5,
     ssePollSeconds: 1,
     sseHeartbeatSeconds: 15,
   },

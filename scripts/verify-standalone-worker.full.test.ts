@@ -9,7 +9,7 @@ const verifiedFullSchema = z.object({
   worker: z.object({ status: z.literal("ready") }),
   persistence: z.object({
     migrationsApplied: z.number().int().positive(),
-    nativeSqlite: z.literal("loaded"),
+    database: z.literal("postgresql"),
     cas: z.literal("written"),
     jobExecuted: z.literal(true),
     jobPreserved: z.literal(true),
@@ -25,7 +25,7 @@ const verifiedFullSchema = z.object({
     webOnly: z.object({
       httpStatus: z.number().int().min(200).max(499),
       workerStatus: z.number().int().positive(),
-      workerCode: z.literal("SQLITE_NATIVE_UNAVAILABLE"),
+      workerCode: z.literal("POSTGRES_DRIVER_UNAVAILABLE"),
       combinedReady: z.literal(false),
     }),
   }),
@@ -55,7 +55,7 @@ describe("standalone worker full lifecycle", () => {
       web: { status: "ready", host: "127.0.0.1" },
       worker: { status: "ready" },
       persistence: {
-        nativeSqlite: "loaded",
+        database: "postgresql",
         cas: "written",
         jobExecuted: true,
         jobPreserved: true,
@@ -67,7 +67,7 @@ describe("standalone worker full lifecycle", () => {
       failures: {
         webOnlySuccessRejected: true,
         webOnly: {
-          workerCode: "SQLITE_NATIVE_UNAVAILABLE",
+          workerCode: "POSTGRES_DRIVER_UNAVAILABLE",
           combinedReady: false,
         },
       },

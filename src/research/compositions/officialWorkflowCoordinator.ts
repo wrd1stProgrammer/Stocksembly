@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
+import type { Pool } from "pg";
 import { z } from "zod";
 import {
   ArtifactIdSchema,
@@ -19,14 +19,15 @@ import {
 } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
 import type { CodexPort } from "../server/codex/codexRunner";
-import { publishDepartmentReportForRun } from "../server/persistence/sqlite/publishDepartmentReportForRun";
-import { transitionRun } from "../server/persistence/sqlite/runRepository";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { publishDepartmentReportForRun } from "../server/persistence/postgres/publishDepartmentReportForRun";
+import { transitionRun } from "../server/persistence/postgres/runRepository";
 import { chairResumeReceiptExceptionAvailable } from "../workflow/chairResumePermit";
-import { createSqliteChairSynthesis } from "../workflow/chairSynthesis";
-import { createSqliteChallengeRound } from "../workflow/challengeRound";
-import { createSqliteDepartmentRound } from "../workflow/departmentRound";
-import { createSqliteFollowupAndResponseRound } from "../workflow/followupAndResponseRound";
-import { createSqliteSemanticAudit } from "../workflow/semanticAudit";
+import { createPostgresChairSynthesis } from "../workflow/chairSynthesis";
+import { createPostgresChallengeRound } from "../workflow/challengeRound";
+import { createPostgresDepartmentRound } from "../workflow/departmentRound";
+import { createPostgresFollowupAndResponseRound } from "../workflow/followupAndResponseRound";
+import { createPostgresSemanticAudit } from "../workflow/semanticAudit";
 import { persistStructuralAudit } from "../workflow/structuralAuditPersistence";
 import { buildOfficialStructuralAuditInput } from "./officialStructuralAuditInput";
 import { runWithResearchExecution } from "./runWithResearchExecution";
@@ -40,14 +41,14 @@ import {
 } from "./workflowStageRecovery";
 
 type CoordinatorOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database: Pool;
+
   readonly ownerId: string;
   readonly cas: ArtifactCasPort;
   readonly codex: CodexPort;
   readonly now?: () => string;
   readonly publishReport: NonNullable<
-    Parameters<typeof createSqliteChairSynthesis>[0]["publishReport"]
+    Parameters<typeof createPostgresChairSynthesis>[0]["publishReport"]
   >;
 };
 
@@ -57,112 +58,108 @@ function reportBlocked(stage: string, reason: string): void {
   );
 }
 
-function terminalizeLegacyPublication(
-  databasePath: string,
+async function terminalizeLegacyPublication(
+  database: ResearchDatabase,
   runId: string,
   occurredAt: string,
-): boolean {
-  const database = new Database(databasePath);
-  try {
-    const row = z
-      .object({ status: z.string(), version: z.number().int().nonnegative() })
-      .safeParse(
-        database
-          .prepare(`SELECT status, version FROM runs WHERE run_id = ?
+): Promise<boolean> {
+  const row = z
+    .object({ status: z.string(), version: z.number().int().nonnegative() })
+    .safeParse(
+      (
+        await database.query(
+          `SELECT status, version FROM runs WHERE run_id = $1
           AND NOT EXISTS (
             SELECT 1 FROM artifacts
             WHERE artifacts.run_id = runs.run_id
               AND artifacts.logical_key = 'memo:benchmark'
-          )`)
-          .get(runId),
-      );
-    if (!row.success || row.data.status !== "running") return false;
-    transitionRun(database, {
-      runId: RunIdSchema.parse(runId),
-      fromStatus: "running",
-      toStatus: "incomplete",
-      expectedVersion: row.data.version,
-      nextJobs: [],
-      event: {
-        eventId: EventIdSchema.parse(randomUUID()),
-        type: "run_incomplete",
-        stateId: "incomplete",
-        occurredAt,
-        payload: {
-          code: "workflow_version_superseded",
-          summary: {
-            en: "This earlier run used the retired research roster. Start a new analysis to include the benchmark and cross-asset review.",
-            ko: "이 실행은 이전 에이전트 구성으로 시작됐습니다. 벤치마크·교차자산 검토를 포함하려면 새 분석을 시작해 주세요.",
-          },
+          )`,
+          [runId],
+        )
+      ).rows[0],
+    );
+  if (!row.success || row.data.status !== "running") return false;
+  await transitionRun(database, {
+    runId: RunIdSchema.parse(runId),
+    fromStatus: "running",
+    toStatus: "incomplete",
+    expectedVersion: row.data.version,
+    nextJobs: [],
+    event: {
+      eventId: EventIdSchema.parse(randomUUID()),
+      type: "run_incomplete",
+      stateId: "incomplete",
+      occurredAt,
+      payload: {
+        code: "workflow_version_superseded",
+        summary: {
+          en: "This earlier run used the retired research roster. Start a new analysis to include the benchmark and cross-asset review.",
+          ko: "이 실행은 이전 에이전트 구성으로 시작됐습니다. 벤치마크·교차자산 검토를 포함하려면 새 분석을 시작해 주세요.",
         },
       },
-    });
-    return true;
-  } finally {
-    database.close();
-  }
+    },
+  });
+  return true;
 }
 
-function terminalizeWorkflowFailure(
-  databasePath: string,
+async function terminalizeWorkflowFailure(
+  database: ResearchDatabase,
   runId: string,
   stage: string,
   reason: string,
   occurredAt: string,
-): boolean {
-  const database = new Database(databasePath);
-  try {
-    const row = z
-      .object({ status: z.string(), version: z.number().int().nonnegative() })
-      .safeParse(
-        database
-          .prepare("SELECT status, version FROM runs WHERE run_id = ?")
-          .get(runId),
-      );
-    if (!row.success || row.data.status !== "running") return false;
-    const publicationOnlyFailure = stage === "report_publication";
-    transitionRun(database, {
-      runId: RunIdSchema.parse(runId),
-      fromStatus: "running",
-      toStatus: "incomplete",
-      expectedVersion: row.data.version,
-      nextJobs: [],
-      event: {
-        eventId: EventIdSchema.parse(randomUUID()),
-        type: "run_incomplete",
-        stateId: "incomplete",
-        occurredAt,
-        payload: {
-          code: workflowFailureCode(stage, reason),
-          summary: publicationOnlyFailure
-            ? {
-                en: "The analysis was completed, but the report could not be published. Finished analysis was preserved and no research credit was charged.",
-                ko: "분석은 완료됐지만 보고서를 발행하지 못했습니다. 완료된 분석은 보존되며 리서치 크레딧은 차감되지 않습니다.",
-              }
-            : {
-                en: "Research could not be completed. Finished stages were preserved and no research credit was charged.",
-                ko: "리서치를 완성하지 못했습니다. 완료된 단계는 보존되며 리서치 크레딧은 차감되지 않습니다.",
-              },
-        },
+): Promise<boolean> {
+  const row = z
+    .object({ status: z.string(), version: z.number().int().nonnegative() })
+    .safeParse(
+      (
+        await database.query(
+          "SELECT status, version FROM runs WHERE run_id = $1",
+          [runId],
+        )
+      ).rows[0],
+    );
+  if (!row.success || row.data.status !== "running") return false;
+  const publicationOnlyFailure = stage === "report_publication";
+  await transitionRun(database, {
+    runId: RunIdSchema.parse(runId),
+    fromStatus: "running",
+    toStatus: "incomplete",
+    expectedVersion: row.data.version,
+    nextJobs: [],
+    event: {
+      eventId: EventIdSchema.parse(randomUUID()),
+      type: "run_incomplete",
+      stateId: "incomplete",
+      occurredAt,
+      payload: {
+        code: workflowFailureCode(stage, reason),
+        summary: publicationOnlyFailure
+          ? {
+              en: "The analysis was completed, but the report could not be published. Finished analysis was preserved and no research credit was charged.",
+              ko: "분석은 완료됐지만 보고서를 발행하지 못했습니다. 완료된 분석은 보존되며 리서치 크레딧은 차감되지 않습니다.",
+            }
+          : {
+              en: "Research could not be completed. Finished stages were preserved and no research credit was charged.",
+              ko: "리서치를 완성하지 못했습니다. 완료된 단계는 보존되며 리서치 크레딧은 차감되지 않습니다.",
+            },
       },
-    });
-    return true;
-  } finally {
-    database.close();
-  }
+    },
+  });
+  return true;
 }
 
-function recoverOrTerminalize(
-  databasePath: string,
+async function recoverOrTerminalize(
+  database: ResearchDatabase,
   runId: string,
   stage: string,
   reason: string,
   occurredAt: string,
-): void {
+): Promise<void> {
   const disposition = workflowFailureDisposition(reason);
   if (disposition === "item_omitted" || disposition === "quality_degraded") {
-    persistWorkflowQualityOutcome({
-      databasePath,
+    await persistWorkflowQualityOutcome({
+      database,
       runId,
       outcome: disposition,
       reason,
@@ -175,26 +172,32 @@ function recoverOrTerminalize(
   }
   if (disposition === "run_failed" || !isRecoverableWorkflowFailure(reason)) {
     if (disposition === "run_failed")
-      persistWorkflowQualityOutcome({
-        databasePath,
+      await persistWorkflowQualityOutcome({
+        database,
         runId,
         outcome: disposition,
         reason,
         observedAt: occurredAt,
       });
-    terminalizeWorkflowFailure(databasePath, runId, stage, reason, occurredAt);
+    await terminalizeWorkflowFailure(
+      database,
+      runId,
+      stage,
+      reason,
+      occurredAt,
+    );
     return;
   }
-  const recovery = scheduleStageRecovery({
-    databasePath,
+  const recovery = await scheduleStageRecovery({
+    database,
     runId,
     stage,
     reason,
     now: occurredAt,
   });
   if (recovery === "exhausted")
-    terminalizeWorkflowFailure(
-      databasePath,
+    await terminalizeWorkflowFailure(
+      database,
       runId,
       stage,
       "automatic_recovery_exhausted",
@@ -202,15 +205,15 @@ function recoverOrTerminalize(
     );
 }
 
-export function routeOfficialWorkflowFailure(input: {
-  readonly databasePath: string;
+export async function routeOfficialWorkflowFailure(input: {
+  readonly database: Pool;
   readonly runId: string;
   readonly stage: string;
   readonly reason: string;
   readonly occurredAt: string;
-}): void {
-  recoverOrTerminalize(
-    input.databasePath,
+}): Promise<void> {
+  await recoverOrTerminalize(
+    input.database,
     input.runId,
     input.stage,
     input.reason,
@@ -260,81 +263,71 @@ const StructuralAuditRowSchema = z.object({
   artifactId: ArtifactIdSchema,
 });
 
-function acceptedStructuralAudit(
-  databasePath: string,
+async function acceptedStructuralAudit(
+  database: ResearchDatabase,
   runId: string,
-): z.infer<typeof ArtifactIdSchema> | undefined {
-  const database = new Database(databasePath, { readonly: true });
-  try {
-    const row = StructuralAuditRowSchema.safeParse(
-      database
-        .prepare(`SELECT artifacts.artifact_id AS artifactId
+): Promise<z.infer<typeof ArtifactIdSchema> | undefined> {
+  const row = StructuralAuditRowSchema.safeParse(
+    (
+      await database.query(
+        `SELECT artifacts.artifact_id AS "artifactId"
           FROM idempotency_records
-          JOIN artifacts ON artifacts.artifact_id = json_extract(
-            idempotency_records.result_json,
-            '$.structuralAuditArtifactId'
-          )
+          JOIN artifacts ON artifacts.artifact_id = (idempotency_records.result_json::jsonb ->> 'structuralAuditArtifactId')
           WHERE idempotency_records.scope = 'structural-audit'
-            AND idempotency_records.idempotency_key = ?
-            AND json_extract(idempotency_records.result_json,
-              '$.publishable') = 1
-            AND artifacts.run_id = ?
+            AND idempotency_records.idempotency_key = $1
+            AND (idempotency_records.result_json::jsonb ->> 'publishable')::boolean = true
+            AND artifacts.run_id = $2
             AND artifacts.logical_key = 'structural_audit:system'
-          LIMIT 1`)
-        .get(runId, runId),
-    );
-    return row.success ? row.data.artifactId : undefined;
-  } finally {
-    database.close();
-  }
+          LIMIT 1`,
+        [runId, runId],
+      )
+    ).rows[0],
+  );
+  return row.success ? row.data.artifactId : undefined;
 }
 
-function acceptedChair(databasePath: string, runId: string) {
-  const database = new Database(databasePath, { readonly: true });
-  try {
-    return AcceptedChairSchema.parse(
-      database
-        .prepare(`SELECT agent_output_commits.artifact_id AS artifactId,
-          attempts.job_id AS jobId, attempts.attempt_id AS attemptId,
-          agent_output_commits.ordinal, agent_output_commits.owner_id AS ownerId,
+async function acceptedChair(database: ResearchDatabase, runId: string) {
+  return AcceptedChairSchema.parse(
+    (
+      await database.query(
+        `SELECT agent_output_commits.artifact_id AS "artifactId",
+          attempts.job_id AS "jobId", attempts.attempt_id AS "attemptId",
+          agent_output_commits.ordinal, agent_output_commits.owner_id AS "ownerId",
           agent_output_commits.fence_token AS token
         FROM agent_output_commits JOIN attempts USING(attempt_id)
-        WHERE attempts.run_id = ?
-          AND attempts.logical_artifact_key = 'chair_synthesis:chair'`)
-        .get(runId),
-    );
-  } finally {
-    database.close();
-  }
+        WHERE attempts.run_id = $1
+          AND attempts.logical_artifact_key = 'chair_synthesis:chair'`,
+        [runId],
+      )
+    ).rows[0],
+  );
 }
 
-function departmentTargetForRun(
-  databasePath: string,
+async function departmentTargetForRun(
+  database: ResearchDatabase,
   runId: string,
-): WorkflowDepartmentId | undefined {
-  const database = new Database(databasePath, { readonly: true });
-  try {
-    const row = z
-      .object({
-        research_kind: z.enum(["committee", "department"]),
-        department_id: z
-          .enum(["market", "company", "financial", "risk"])
-          .nullable(),
-      })
-      .safeParse(
-        database
-          .prepare(`SELECT research_kind, department_id
-            FROM research_requests WHERE run_id = ?`)
-          .get(runId),
-      );
-    if (!row.success) return undefined;
-    return row.data.research_kind === "department" &&
-      row.data.department_id !== null
-      ? row.data.department_id
-      : undefined;
-  } finally {
-    database.close();
-  }
+): Promise<WorkflowDepartmentId | undefined> {
+  const row = z
+    .object({
+      research_kind: z.enum(["committee", "department"]),
+      department_id: z
+        .enum(["market", "company", "financial", "risk"])
+        .nullable(),
+    })
+    .safeParse(
+      (
+        await database.query(
+          `SELECT research_kind, department_id
+            FROM research_requests WHERE run_id = $1`,
+          [runId],
+        )
+      ).rows[0],
+    );
+  if (!row.success) return undefined;
+  return row.data.research_kind === "department" &&
+    row.data.department_id !== null
+    ? row.data.department_id
+    : undefined;
 }
 
 export type OfficialWorkflowCoordinator = {
@@ -346,30 +339,28 @@ export function createOfficialWorkflowCoordinator(
   options: CoordinatorOptions,
 ): OfficialWorkflowCoordinator {
   const roundOptions = {
-    databasePath: options.databasePath,
+    database: options.database,
     attemptRoot: join(realpathSync(tmpdir()), "stocksembly-research-attempts"),
     ownerId: options.ownerId,
     cas: options.cas,
     codex: options.codex,
-    ...(options.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: options.migrationsDirectory }),
+
     ...(options.now === undefined ? {} : { now: options.now }),
   };
   const runTails = new Map<string, Promise<void>>();
 
   const advanceExclusive = async (rawRunId: string): Promise<void> => {
     const runId = RunIdSchema.parse(rawRunId);
-    const departmentTarget = departmentTargetForRun(
-      options.databasePath,
+    const departmentTarget = await departmentTargetForRun(
+      options.database,
       runId,
     );
     if (departmentTarget !== undefined) {
-      const departments = createSqliteDepartmentRound(roundOptions);
+      const departments = createPostgresDepartmentRound(roundOptions);
       try {
-        const replay = departments.replay(runId);
+        const replay = await departments.replay(runId);
         if (!replay.committedDepartmentIds.includes(departmentTarget)) {
-          const acceptedMemos = departments.acceptedMemos(runId);
+          const acceptedMemos = await departments.acceptedMemos(runId);
           const expectedRoles =
             WORKFLOW_V1_ROLE_REGISTRY.departments[departmentTarget].memberIds;
           const acceptedByRole = new Map(
@@ -391,12 +382,12 @@ export function createOfficialWorkflowCoordinator(
         const departmentPublicationNow =
           options.now?.() ?? new Date().toISOString();
         if (
-          stageRecoveryState(
-            options.databasePath,
+          (await stageRecoveryState(
+            options.database,
             runId,
             "department_report_publication",
             departmentPublicationNow,
-          ) !== "ready"
+          )) !== "ready"
         )
           return;
         let published:
@@ -405,7 +396,7 @@ export function createOfficialWorkflowCoordinator(
         try {
           published = await publishDepartmentReportForRun(
             {
-              databasePath: options.databasePath,
+              database: options.database,
               cas: options.cas,
               ...(options.now === undefined ? {} : { now: options.now }),
             },
@@ -422,8 +413,8 @@ export function createOfficialWorkflowCoordinator(
           };
         }
         if (published.kind !== "published") {
-          recoverOrTerminalize(
-            options.databasePath,
+          await recoverOrTerminalize(
+            options.database,
             runId,
             "department_report_publication",
             published.reason,
@@ -431,8 +422,8 @@ export function createOfficialWorkflowCoordinator(
           );
           return;
         }
-        clearStageRecovery(
-          options.databasePath,
+        await clearStageRecovery(
+          options.database,
           runId,
           "department_report_publication",
         );
@@ -441,18 +432,18 @@ export function createOfficialWorkflowCoordinator(
         await departments.close();
       }
     }
-    const departments = createSqliteDepartmentRound(roundOptions);
-    const challenges = createSqliteChallengeRound(roundOptions);
-    const responses = createSqliteFollowupAndResponseRound(roundOptions);
-    const semantic = createSqliteSemanticAudit(roundOptions);
-    const chair = createSqliteChairSynthesis({
+    const departments = createPostgresDepartmentRound(roundOptions);
+    const challenges = createPostgresChallengeRound(roundOptions);
+    const responses = createPostgresFollowupAndResponseRound(roundOptions);
+    const semantic = createPostgresSemanticAudit(roundOptions);
+    const chair = createPostgresChairSynthesis({
       ...roundOptions,
       publishReport: options.publishReport,
     });
     try {
-      const departmentReplay = departments.replay(runId);
+      const departmentReplay = await departments.replay(runId);
       if (!departmentReplay.challengeStartAllowed) {
-        const memos = departments.acceptedMemos(runId);
+        const memos = await departments.acceptedMemos(runId);
         const acceptedRoles = new Set(memos.map((memo) => memo.roleId));
         const hasReadyDepartment = WORKFLOW_V1_DEPARTMENT_IDS.some(
           (departmentId) =>
@@ -471,7 +462,7 @@ export function createOfficialWorkflowCoordinator(
         return;
       }
 
-      const challengeReplay = challenges.replay(runId);
+      const challengeReplay = await challenges.replay(runId);
       if (!challengeReplay.responseStartAllowed) {
         const staged = await challenges.stage({
           runId,
@@ -484,7 +475,7 @@ export function createOfficialWorkflowCoordinator(
         return;
       }
 
-      let responseReplay = responses.replay(runId);
+      let responseReplay = await responses.replay(runId);
       if (!responseReplay.responseStartAllowed) {
         if (responseReplay.incompleteReason === "plan_not_staged") {
           const staged = await responses.stage({
@@ -501,39 +492,37 @@ export function createOfficialWorkflowCoordinator(
       if (!responseReplay.responseStartAllowed) return;
 
       const structuralInput = await buildOfficialStructuralAuditInput({
-        databasePath: options.databasePath,
+        database: options.database,
         cas: options.cas,
         runId,
       });
-      let structuralAuditArtifactId = acceptedStructuralAudit(
-        options.databasePath,
+      let structuralAuditArtifactId = await acceptedStructuralAudit(
+        options.database,
         runId,
       );
       if (structuralAuditArtifactId === undefined) {
         const structuralNow = options.now?.() ?? new Date().toISOString();
         if (
-          stageRecoveryState(
-            options.databasePath,
+          (await stageRecoveryState(
+            options.database,
             runId,
             "structural_audit",
             structuralNow,
-          ) !== "ready"
+          )) !== "ready"
         )
           return;
         const structural = await persistStructuralAudit(
           {
-            databasePath: options.databasePath,
+            database: options.database,
             cas: options.cas,
-            ...(options.migrationsDirectory === undefined
-              ? {}
-              : { migrationsDirectory: options.migrationsDirectory }),
+
             ...(options.now === undefined ? {} : { now: options.now }),
           },
           structuralInput,
         );
         if (structural.kind !== "persisted") {
-          recoverOrTerminalize(
-            options.databasePath,
+          await recoverOrTerminalize(
+            options.database,
             runId,
             "structural_audit",
             structural.reason,
@@ -542,8 +531,8 @@ export function createOfficialWorkflowCoordinator(
           return;
         }
         if (!structural.publishable) {
-          recoverOrTerminalize(
-            options.databasePath,
+          await recoverOrTerminalize(
+            options.database,
             runId,
             "structural_audit",
             "publication_blocked",
@@ -551,7 +540,7 @@ export function createOfficialWorkflowCoordinator(
           );
           return;
         }
-        clearStageRecovery(options.databasePath, runId, "structural_audit");
+        await clearStageRecovery(options.database, runId, "structural_audit");
         structuralAuditArtifactId = ArtifactIdSchema.parse(
           structural.structuralAuditArtifactId,
         );
@@ -560,12 +549,12 @@ export function createOfficialWorkflowCoordinator(
         structuralAuditArtifactId,
       );
 
-      const semanticReplay = semantic.replay(runId);
+      const semanticReplay = await semantic.replay(runId);
       const semanticAction = semanticAuditCoordinatorAction(semanticReplay);
       if (semanticAction === "wait") return;
       if (semanticAction === "terminalize") {
-        terminalizeWorkflowFailure(
-          options.databasePath,
+        await terminalizeWorkflowFailure(
+          options.database,
           runId,
           "semantic_audit",
           semanticReplay.blockers[0] ??
@@ -578,12 +567,12 @@ export function createOfficialWorkflowCoordinator(
       if (semanticAction === "stage") {
         const semanticNow = options.now?.() ?? new Date().toISOString();
         if (
-          stageRecoveryState(
-            options.databasePath,
+          (await stageRecoveryState(
+            options.database,
             runId,
             "semantic_audit",
             semanticNow,
-          ) !== "ready"
+          )) !== "ready"
         )
           return;
         const staged = await semantic.stage({
@@ -594,8 +583,8 @@ export function createOfficialWorkflowCoordinator(
           ),
         });
         if (staged.kind === "blocked") {
-          recoverOrTerminalize(
-            options.databasePath,
+          await recoverOrTerminalize(
+            options.database,
             runId,
             "semantic_audit",
             staged.reason,
@@ -603,11 +592,11 @@ export function createOfficialWorkflowCoordinator(
           );
           return;
         }
-        clearStageRecovery(options.databasePath, runId, "semantic_audit");
+        await clearStageRecovery(options.database, runId, "semantic_audit");
         return;
       }
 
-      const chairReplay = chair.replay(runId);
+      const chairReplay = await chair.replay(runId);
       if (!chairReplay.publishable) {
         if (chairReplay.incompleteReason === "retry_pending") {
           const refreshed = await chair.stage({ runId });
@@ -617,15 +606,15 @@ export function createOfficialWorkflowCoordinator(
         }
         if (
           chairReplay.incompleteReason === "replacement_exhausted" &&
-          chairResumeReceiptExceptionAvailable(options.databasePath, runId)
+          (await chairResumeReceiptExceptionAvailable(options.database, runId))
         )
           return;
         if (
           chairReplay.artifactIds.length > 0 ||
           chairReplay.incompleteReason === "replacement_exhausted"
         ) {
-          recoverOrTerminalize(
-            options.databasePath,
+          await recoverOrTerminalize(
+            options.database,
             runId,
             "chair_synthesis",
             chairReplay.incompleteReason ?? "publication_blocked",
@@ -635,18 +624,18 @@ export function createOfficialWorkflowCoordinator(
         }
         const chairNow = options.now?.() ?? new Date().toISOString();
         if (
-          stageRecoveryState(
-            options.databasePath,
+          (await stageRecoveryState(
+            options.database,
             runId,
             "chair_synthesis",
             chairNow,
-          ) !== "ready"
+          )) !== "ready"
         )
           return;
         const staged = await chair.stage({ runId });
         if (staged.kind === "blocked") {
-          recoverOrTerminalize(
-            options.databasePath,
+          await recoverOrTerminalize(
+            options.database,
             runId,
             "chair_synthesis",
             staged.reason,
@@ -654,20 +643,20 @@ export function createOfficialWorkflowCoordinator(
           );
           return;
         }
-        clearStageRecovery(options.databasePath, runId, "chair_synthesis");
+        await clearStageRecovery(options.database, runId, "chair_synthesis");
         return;
       }
       const reportPublicationNow = options.now?.() ?? new Date().toISOString();
       if (
-        stageRecoveryState(
-          options.databasePath,
+        (await stageRecoveryState(
+          options.database,
           runId,
           "report_publication",
           reportPublicationNow,
-        ) !== "ready"
+        )) !== "ready"
       )
         return;
-      const accepted = acceptedChair(options.databasePath, runId);
+      const accepted = await acceptedChair(options.database, runId);
       let published:
         | { readonly kind: "published" }
         | { readonly kind: "incomplete"; readonly reason?: string };
@@ -703,15 +692,15 @@ export function createOfficialWorkflowCoordinator(
       if (published.kind !== "published") {
         const reason = published.reason ?? "publication_incomplete";
         if (
-          terminalizeLegacyPublication(
-            options.databasePath,
+          await terminalizeLegacyPublication(
+            options.database,
             runId,
             reportPublicationNow,
           )
         )
           return;
-        recoverOrTerminalize(
-          options.databasePath,
+        await recoverOrTerminalize(
+          options.database,
           runId,
           "report_publication",
           reason,
@@ -719,7 +708,7 @@ export function createOfficialWorkflowCoordinator(
         );
         return;
       }
-      clearStageRecovery(options.databasePath, runId, "report_publication");
+      await clearStageRecovery(options.database, runId, "report_publication");
     } finally {
       await chair.close();
       await semantic.close();
@@ -735,8 +724,10 @@ export function createOfficialWorkflowCoordinator(
       .catch(() => undefined)
       .then(
         async () =>
-          await runWithResearchExecution(options.databasePath, runId, () =>
-            advanceExclusive(runId),
+          await runWithResearchExecution(
+            options.database,
+            runId,
+            async () => await advanceExclusive(runId),
           ),
       );
     runTails.set(runId, current);
@@ -750,17 +741,14 @@ export function createOfficialWorkflowCoordinator(
   return {
     advance,
     async resumeActiveRuns() {
-      const database = new Database(options.databasePath, { readonly: true });
-      try {
-        const rows = database
-          .prepare(
-            "SELECT run_id FROM runs WHERE status = 'running' ORDER BY created_at",
-          )
-          .all() as readonly { readonly run_id: string }[];
-        for (const row of rows) await advance(row.run_id);
-      } finally {
-        database.close();
-      }
+      const database = options.database;
+      const rows = (
+        await database.query(
+          "SELECT run_id FROM runs WHERE status = 'running' ORDER BY created_at",
+          [],
+        )
+      ).rows as readonly { readonly run_id: string }[];
+      for (const row of rows) await advance(row.run_id);
     },
   };
 }

@@ -6,6 +6,7 @@ import { MemoOutputSchema } from "../domain/agentOutputs";
 import type { SpecialistRoleId } from "../domain/roleRegistry";
 import { CODEX_RUNTIME_POLICY } from "../server/codex/codexPolicy";
 import { codexInputHash } from "../server/codex/codexRunner";
+import { workflowTestDatabase } from "./postgresDatabase.testSupport";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import {
   allocateSpecialistClaimSlots,
@@ -16,12 +17,12 @@ import {
   sanitizeSpecialistNumericMetricValues,
   validateSpecialistClaimSubmission,
 } from "./specialistRoundInput";
-import { makeSqliteRoundHarness } from "./specialistRoundSqlite.testSupport";
-import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import { makePostgresRoundHarness } from "./specialistRoundPostgres.testSupport";
+import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 import {
   prepareSpecialistJobs,
   specialistInlineEvidenceBudget,
-} from "./specialistRoundSqliteStage";
+} from "./specialistRoundPostgresStage";
 
 const expectedDimensions = {
   market: ["regime", "regime", "catalyst"],
@@ -106,7 +107,7 @@ describe("specialist claim slots", () => {
   });
 
   it("binds cash conversion to its local metric instead of later receivables growth", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "financial_quality" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -170,7 +171,7 @@ describe("specialist claim slots", () => {
   });
 
   it("rejects a revenue-growth percentage that does not match its decisive metric", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "financial" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -253,7 +254,7 @@ describe("specialist claim slots", () => {
   });
 
   it("grounds a mismatched percentage from its selected registered metric without a model rewrite", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "financial" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -313,7 +314,7 @@ describe("specialist claim slots", () => {
   });
 
   it("preserves a sub-one percentage as registered instead of treating it as a ratio", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "market" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -359,7 +360,7 @@ describe("specialist claim slots", () => {
   });
 
   it("routes ambiguous numeric claims to the existing corrective retry instead of publishing a placeholder", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "financial" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -442,7 +443,7 @@ describe("specialist claim slots", () => {
   });
 
   it("does not mistake an explicit future threshold for a reported metric", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "financial" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -508,7 +509,7 @@ describe("specialist claim slots", () => {
   });
 
   it("rejects ownership filings cited for a non-ownership valuation claim", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "valuation" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -552,7 +553,7 @@ describe("specialist claim slots", () => {
   });
 
   it("removes an incidental ownership filing when a suitable source remains", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "valuation" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -622,7 +623,7 @@ describe("specialist claim slots", () => {
   });
 
   it("does not manufacture support by rebinding an ownership-only claim", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "valuation" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -684,7 +685,7 @@ describe("specialist claim slots", () => {
   });
 
   it("repairs a copied claim-id typo from its unique semantic slot", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const slots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
       snapshotId: harness.input.snapshot.snapshotId,
@@ -721,7 +722,7 @@ describe("specialist claim slots", () => {
   });
 
   it("keeps evidence slicing, source IDs, and runner input stable", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
 
     const first = prepareSpecialistJobs(harness.input, harness.sources);
     const replay = prepareSpecialistJobs(harness.input, harness.sources);
@@ -790,7 +791,7 @@ describe("specialist claim slots", () => {
   });
 
   it("allocates byte-identical role-owned IDs across retry and replay", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const identity = {
       runId: harness.input.mandate.runId,
       snapshotId: harness.input.snapshot.snapshotId,
@@ -803,7 +804,7 @@ describe("specialist claim slots", () => {
   });
 
   it("assigns exclusive decision dimensions to every specialist family", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     for (const [roleId, dimensions] of Object.entries(expectedDimensions))
       expect(
         allocateSpecialistClaimSlots({
@@ -815,7 +816,7 @@ describe("specialist claim slots", () => {
   });
 
   it("requires every decision-grade slot while allowing the optional depth slot to remain unused", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const assignment = harness.input.assignments.assignments.find(
       (candidate) => candidate.roleId === "market",
     );
@@ -871,7 +872,7 @@ describe("specialist claim slots", () => {
   });
 
   it("fails closed on malformed atomic output without relying on prompt wording", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const roleId = "market_news" as const;
     const claimSlots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
@@ -920,7 +921,7 @@ describe("specialist claim slots", () => {
     ["more than three metrics", "specialist_claim_too_many_decisive_metrics"],
     ["unknown evidence", "specialist_claim_unknown_evidence"],
   ] as const)("rejects %s with a stable reason", async (variant, reason) => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const slots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
       snapshotId: harness.input.snapshot.snapshotId,
@@ -994,7 +995,7 @@ describe("specialist claim slots", () => {
   });
 
   it("rejects a normalized thesis already submitted by a teammate", async () => {
-    const harness = await makeSqliteRoundHarness("none");
+    const harness = await makePostgresRoundHarness("none");
     const slots = allocateSpecialistClaimSlots({
       runId: harness.input.mandate.runId,
       snapshotId: harness.input.snapshot.snapshotId,
@@ -1052,10 +1053,10 @@ describe("specialist claim slots", () => {
     ).toEqual({ ok: false, reason: "specialist_claim_duplicate_thesis" });
   });
 
-  it("atomically reserves a normalized thesis for only one department role", () => {
+  it("atomically reserves a normalized thesis for only one department role", async () => {
     const root = mkdtempSync(join(tmpdir(), "specialist-thesis-"));
-    const authority = new SpecialistRoundSqliteAuthority(
-      join(root, "research.sqlite"),
+    const authority = new SpecialistRoundPostgresAuthority(
+      await workflowTestDatabase(),
     );
     try {
       const input = {
@@ -1068,10 +1069,13 @@ describe("specialist claim slots", () => {
       };
 
       expect(
-        authority.reserveDepartmentTheses({ ...input, roleId: "market" }),
+        await authority.reserveDepartmentTheses({ ...input, roleId: "market" }),
       ).toBe(true);
       expect(
-        authority.reserveDepartmentTheses({ ...input, roleId: "benchmark" }),
+        await authority.reserveDepartmentTheses({
+          ...input,
+          roleId: "benchmark",
+        }),
       ).toBe(false);
     } finally {
       authority.close();
@@ -1079,10 +1083,10 @@ describe("specialist claim slots", () => {
     }
   });
 
-  it("does not consume an earlier new thesis when a later thesis conflicts", () => {
+  it("does not consume an earlier new thesis when a later thesis conflicts", async () => {
     const root = mkdtempSync(join(tmpdir(), "specialist-thesis-batch-"));
-    const authority = new SpecialistRoundSqliteAuthority(
-      join(root, "research.sqlite"),
+    const authority = new SpecialistRoundPostgresAuthority(
+      await workflowTestDatabase(),
     );
     try {
       const shared = {
@@ -1094,21 +1098,21 @@ describe("specialist claim slots", () => {
       const unrelated = "unrelated new thesis|관련 없는 새 논지";
 
       expect(
-        authority.reserveDepartmentTheses({
+        await authority.reserveDepartmentTheses({
           ...shared,
           roleId: "market",
           fingerprints: [duplicate],
         }),
       ).toBe(true);
       expect(
-        authority.reserveDepartmentTheses({
+        await authority.reserveDepartmentTheses({
           ...shared,
           roleId: "benchmark",
           fingerprints: [unrelated, duplicate],
         }),
       ).toBe(false);
       expect(
-        authority.reserveDepartmentTheses({
+        await authority.reserveDepartmentTheses({
           ...shared,
           roleId: "market_news",
           fingerprints: [unrelated],
@@ -1120,10 +1124,10 @@ describe("specialist claim slots", () => {
     }
   });
 
-  it("rejects intra-batch duplicates without mutation and keeps retries idempotent", () => {
+  it("rejects intra-batch duplicates without mutation and keeps retries idempotent", async () => {
     const root = mkdtempSync(join(tmpdir(), "specialist-thesis-retry-"));
-    const authority = new SpecialistRoundSqliteAuthority(
-      join(root, "research.sqlite"),
+    const authority = new SpecialistRoundPostgresAuthority(
+      await workflowTestDatabase(),
     );
     try {
       const shared = {
@@ -1135,28 +1139,28 @@ describe("specialist claim slots", () => {
       const stable = "idempotent retry thesis|멱등 재시도 논지";
 
       expect(
-        authority.reserveDepartmentTheses({
+        await authority.reserveDepartmentTheses({
           ...shared,
           roleId: "company",
           fingerprints: [repeated, repeated],
         }),
       ).toBe(false);
       expect(
-        authority.reserveDepartmentTheses({
+        await authority.reserveDepartmentTheses({
           ...shared,
           roleId: "company_product",
           fingerprints: [repeated],
         }),
       ).toBe(true);
       expect(
-        authority.reserveDepartmentTheses({
+        await authority.reserveDepartmentTheses({
           ...shared,
           roleId: "company",
           fingerprints: [stable],
         }),
       ).toBe(true);
       expect(
-        authority.reserveDepartmentTheses({
+        await authority.reserveDepartmentTheses({
           ...shared,
           roleId: "company",
           fingerprints: [stable],

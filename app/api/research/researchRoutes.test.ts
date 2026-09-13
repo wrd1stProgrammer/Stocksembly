@@ -11,7 +11,6 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AccountStore } from "../../../src/accounts/server/accountStore";
 import { routeOfficialWorkflowFailure } from "../../../src/research/compositions/officialWorkflowCoordinator";
@@ -21,8 +20,11 @@ import {
   prepareLiveResearchRuntime,
 } from "../../../src/research/server/api/liveResearchApi";
 import { createResearchApi } from "../../../src/research/server/api/researchApi";
-import { transitionRun } from "../../../src/research/server/persistence/sqlite/runRepository";
+import { researchTransaction } from "../../../src/research/server/persistence/postgres/database";
+import { closeResearchPool } from "../../../src/research/server/persistence/postgres/researchPool";
+import { transitionRun } from "../../../src/research/server/persistence/postgres/runRepository";
 import { prepareWorkerRuntime } from "../../../src/research/worker/runtimeLifecycle";
+import { createResearchTestDatabase } from "../../../src/test/researchPostgres";
 import { seedPublishedReport } from "./researchReportRoute.testSupport";
 import {
   type ApiHarness,
@@ -32,7 +34,10 @@ import {
 } from "./researchRoutes.testSupport";
 
 const harnesses: ApiHarness[] = [];
-type TestEnvironmentKey = "HOME" | "STOCKSEMBLY_DATA_DIR";
+type TestEnvironmentKey =
+  | "HOME"
+  | "STOCKSEMBLY_DATA_DIR"
+  | "STOCKSEMBLY_DATABASE_URL";
 
 function readTestEnvironment(name: TestEnvironmentKey): string | undefined {
   const value: unknown = Reflect.get(process.env, name);
@@ -133,9 +138,9 @@ describe("secure research routes", () => {
     )
       throw new TypeError("content-fatal run missing");
     const contentFatal = [issuerIdentity, envelopeIntegrity, noGroundedCore];
-    const database = new Database(context.databasePath);
+    const database = context.database;
     for (const runId of createdRunIds)
-      transitionRun(database, {
+      await transitionRun(database, {
         runId: RunIdSchema.parse(runId),
         fromStatus: "queued",
         toStatus: "running",
@@ -148,7 +153,7 @@ describe("secure research routes", () => {
           occurredAt: "2026-07-23T06:00:00.000Z",
         },
       });
-    transitionRun(database, {
+    await transitionRun(database, {
       runId: RunIdSchema.parse(mixed),
       fromStatus: "running",
       toStatus: "complete-with-limitations",
@@ -161,46 +166,47 @@ describe("secure research routes", () => {
         occurredAt: "2026-07-23T06:00:00.000Z",
       },
     });
-    database.close();
-    routeOfficialWorkflowFailure({
-      databasePath: context.databasePath,
+
+    await routeOfficialWorkflowFailure({
+      database: context.database,
       runId: issuerIdentity,
       stage: "issuer_resolution",
       reason: "issuer_identity_unresolved",
       occurredAt: "2026-07-23T06:00:00.000Z",
     });
-    routeOfficialWorkflowFailure({
-      databasePath: context.databasePath,
+    await routeOfficialWorkflowFailure({
+      database: context.database,
       runId: envelopeIntegrity,
       stage: "structural_audit",
       reason: "whole_envelope_integrity_failure",
       occurredAt: "2026-07-23T06:00:00.000Z",
     });
-    routeOfficialWorkflowFailure({
-      databasePath: context.databasePath,
+    await routeOfficialWorkflowFailure({
+      database: context.database,
       runId: noGroundedCore,
       stage: "report_publication",
       reason: "no_grounded_core_answer",
       occurredAt: "2026-07-23T06:00:00.000Z",
     });
-    const routed = new Database(context.databasePath);
-    const statusFor = routed
-      .prepare("SELECT status FROM runs WHERE run_id = ?")
-      .pluck();
-    const terminalPayloadFor = routed
-      .prepare(
-        "SELECT payload_json FROM run_events WHERE run_id = ? AND event_type = 'run_incomplete'",
-      )
-      .pluck();
+    const routed = context.database;
+    const statusFor = async (runId: string) =>
+      (await routed.query("SELECT status FROM runs WHERE run_id = $1", [runId]))
+        .rows[0]?.status;
+    const terminalPayloadFor = async (runId: string) =>
+      (
+        await routed.query(
+          "SELECT payload_json FROM run_events WHERE run_id = $1 AND event_type = 'run_incomplete'",
+          [runId],
+        )
+      ).rows[0]?.payload_json;
     for (const [runId, reason] of [
       [issuerIdentity, "issuer_identity_unresolved"],
       [envelopeIntegrity, "whole_envelope_integrity_failure"],
       [noGroundedCore, "no_grounded_core_answer"],
     ] as const) {
-      expect(statusFor.get(runId)).toBe("incomplete");
-      expect(terminalPayloadFor.get(runId)).toContain(reason);
+      expect(await statusFor(runId)).toBe("incomplete");
+      expect(await terminalPayloadFor(runId)).toContain(reason);
     }
-    routed.close();
 
     for (const runId of createdRunIds) {
       await context.api.handle(context.request(`/api/research/runs/${runId}`));
@@ -253,6 +259,18 @@ describe("secure research routes", () => {
   it("uses the worker's canonical database when no data-directory override exists", async () => {
     // Given
     const root = await mkdtemp(join(tmpdir(), "stocksembly-api-worker-root-"));
+    const testDatabase = await createResearchTestDatabase();
+    const databaseName = (
+      await testDatabase.pool.query("SELECT current_database() AS name")
+    ).rows[0]?.name;
+    const databaseUrl = new URL(
+      process.env["STOCKSEMBLY_TEST_DATABASE_URL"] ??
+        "postgresql://127.0.0.1:55432/stocksembly_migration_test",
+    );
+    databaseUrl.pathname = `/${databaseName}`;
+    const previousDatabaseUrl = readTestEnvironment("STOCKSEMBLY_DATABASE_URL");
+    await closeResearchPool();
+    writeTestEnvironment("STOCKSEMBLY_DATABASE_URL", databaseUrl.toString());
     const previousHome = readTestEnvironment("HOME");
     const previousDataRoot = readTestEnvironment("STOCKSEMBLY_DATA_DIR");
     writeTestEnvironment("HOME", root);
@@ -267,11 +285,14 @@ describe("secure research routes", () => {
 
         // Then
         expect(live.dataRoot).toBe(worker.dataDirectory);
-        expect(live.databasePath).toBe(worker.databasePath);
+        expect(live.database).toBe(worker.database);
       } finally {
         await api.close();
       }
     } finally {
+      await closeResearchPool();
+      await testDatabase.close();
+      writeTestEnvironment("STOCKSEMBLY_DATABASE_URL", previousDatabaseUrl);
       writeTestEnvironment("HOME", previousHome);
       writeTestEnvironment("STOCKSEMBLY_DATA_DIR", previousDataRoot);
       await rm(root, { recursive: true, force: true });
@@ -288,7 +309,7 @@ describe("secure research routes", () => {
     // When
     const restarted = await createResearchApi({
       dataRoot: first.root,
-      databasePath: first.databasePath,
+      database: first.database,
       allowedHost: first.allowedHost,
       allowedOrigin: first.allowedOrigin,
       readiness: () => Promise.resolve(true),
@@ -378,7 +399,7 @@ describe("secure research routes", () => {
     await expect(
       createResearchApi({
         dataRoot: context.root,
-        databasePath: context.databasePath,
+        database: context.database,
         allowedHost: context.allowedHost,
         allowedOrigin: context.allowedOrigin,
         readiness: () => Promise.resolve(true),
@@ -393,7 +414,7 @@ describe("secure research routes", () => {
     await expect(
       createResearchApi({
         dataRoot: context.root,
-        databasePath: context.databasePath,
+        database: context.database,
         allowedHost: context.allowedHost,
         allowedOrigin: context.allowedOrigin,
         readiness: () => Promise.resolve(true),
@@ -411,21 +432,27 @@ describe("secure research routes", () => {
       createRunRequest(context, "create-1"),
     );
     const result = await json(response);
-    const database = new Database(context.databasePath, { readonly: true });
+    const database = context.database;
     const counts = Object.fromEntries(
-      [
-        "runs",
-        "snapshots",
-        "jobs",
-        "run_events",
-        "research_requests",
-        "idempotency_records",
-      ].map((table) => [
-        table,
-        database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get(),
-      ]),
+      await Promise.all(
+        [
+          "runs",
+          "snapshots",
+          "jobs",
+          "run_events",
+          "research_requests",
+          "idempotency_records",
+        ].map(async (table) => [
+          table,
+          (
+            await database.query(
+              `SELECT COUNT(*)::integer AS count FROM ${table}`,
+              [],
+            )
+          ).rows[0],
+        ]),
+      ),
     );
-    database.close();
 
     // Then
     expect(response.status).toBe(202);
@@ -521,12 +548,15 @@ describe("secure research routes", () => {
         locale: "en",
       }),
     );
-    const database = new Database(context.databasePath, { readonly: true });
-    const stored = database
-      .prepare("SELECT question FROM research_requests ORDER BY rowid DESC")
-      .pluck()
-      .get();
-    database.close();
+    const database = context.database;
+    const stored = Object.values(
+      (
+        await database.query(
+          "SELECT question FROM research_requests ORDER BY created_at DESC",
+          [],
+        )
+      ).rows[0] ?? {},
+    )[0];
 
     // Then
     expect(response.status).toBe(202);
@@ -641,9 +671,10 @@ describe("secure research routes", () => {
     const responses = await Promise.all(
       requests.map((request) => context.api.handle(request)),
     );
-    const database = new Database(context.databasePath, { readonly: true });
-    const count = database.prepare("SELECT COUNT(*) AS count FROM runs").get();
-    database.close();
+    const database = context.database;
+    const count = (
+      await database.query("SELECT COUNT(*)::integer AS count FROM runs", [])
+    ).rows[0];
 
     // Then
     expect(responses.map((response) => response.status)).toEqual([
@@ -705,24 +736,30 @@ describe("secure research routes", () => {
       readonly run: { readonly runId: string };
     };
     await json(second);
-    const database = new Database(context.databasePath);
-    database.transaction(() => {
-      database
-        .prepare("UPDATE runs SET last_event_seq = 2 WHERE run_id = ?")
-        .run(firstBody.run.runId);
-      database
-        .prepare(`INSERT INTO run_events(
+    const database = context.database;
+    await researchTransaction(database, async (database) => {
+      await database.query(
+        "UPDATE runs SET last_event_seq = 2 WHERE run_id = $1",
+        [firstBody.run.runId],
+      );
+      await database.query(
+        `INSERT INTO run_events(
         run_id, sequence, event_id, event_type, state_id, occurred_at, payload_json
-      ) VALUES (?, 2, ?, 'spawn_reserved', 'internal', ?, ?)`)
-        .run(
+      ) VALUES ($1, 2, $2, 'spawn_reserved', 'internal', $3, $4)`,
+        [
           firstBody.run.runId,
           randomUUID(),
           "2026-07-23T06:01:00.000Z",
           JSON.stringify({ reasoning: "private chain of thought" }),
-        );
-    })();
-    database.close();
-    const before = (await stat(context.databasePath)).mtimeMs;
+        ],
+      );
+    });
+
+    const before = (
+      await context.database.query(
+        "SELECT run_id, version, last_event_seq, status FROM runs ORDER BY run_id",
+      )
+    ).rows;
 
     // When
     const pageOne = await context.api.handle(
@@ -746,7 +783,11 @@ describe("secure research routes", () => {
         "/api/research/reports/00000000-0000-4000-8000-000000000099",
       ),
     );
-    const after = (await stat(context.databasePath)).mtimeMs;
+    const after = (
+      await context.database.query(
+        "SELECT run_id, version, last_event_seq, status FROM runs ORDER BY run_id",
+      )
+    ).rows;
 
     // Then
     expect(pageOne.status).toBe(200);
@@ -765,7 +806,7 @@ describe("secure research routes", () => {
       (detailBody as { readonly events: readonly unknown[] }).events,
     ).toHaveLength(1);
     expect(missingReport.status).toBe(404);
-    expect(after).toBe(before);
+    expect(after).toEqual(before);
     expect(JSON.stringify(detailBody)).not.toMatch(
       /inputHash|lease|principal|token|secret/i,
     );
@@ -832,25 +873,28 @@ describe("secure research routes", () => {
     };
     const seeded = await seedPublishedReport(context, createdBody.run);
     const questionId = randomUUID();
-    const database = new Database(context.databasePath);
-    const binding = database
-      .prepare(`SELECT report_versions.version_id, jobs.job_id
+    const database = context.database;
+    const binding = (
+      await database.query(
+        `SELECT report_versions.version_id, jobs.job_id
         FROM report_versions
         JOIN jobs ON jobs.run_id = report_versions.run_id
-        WHERE report_versions.report_id = ?
+        WHERE report_versions.report_id = $1
         ORDER BY jobs.created_at
-        LIMIT 1`)
-      .get(seeded.reportId) as
+        LIMIT 1`,
+        [seeded.reportId],
+      )
+    ).rows[0] as
       | { readonly version_id: string; readonly job_id: string }
       | undefined;
     if (binding === undefined) throw new Error("report binding missing");
-    database
-      .prepare(`INSERT INTO questions(
+    await database.query(
+      `INSERT INTO questions(
         question_id, retry_of_question_id, report_id, report_version_id,
         run_id, snapshot_id, job_id, attempt_ordinal, status,
         question_json, answer_json, created_at
-      ) VALUES (?, NULL, ?, ?, ?, ?, ?, 1, 'pending', ?, NULL, ?)`)
-      .run(
+      ) VALUES ($1, NULL, $2, $3, $4, $5, $6, 1, 'pending', $7, NULL, $8)`,
+      [
         questionId,
         seeded.reportId,
         binding.version_id,
@@ -859,8 +903,8 @@ describe("secure research routes", () => {
         binding.job_id,
         JSON.stringify({ en: "What changed?", ko: "무엇이 바뀌었나요?" }),
         "2026-07-23T06:02:00.000Z",
-      );
-    database.close();
+      ],
+    );
 
     const owned = await context.api.handle(
       context.request(`/api/research/reports/${seeded.reportId}/questions`),

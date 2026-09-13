@@ -1,8 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanupApiTestDatabases,
+  createApiTestDatabase,
+  currentApiTestDatabase,
+} from "../api/postgresApi.testSupport";
 import {
   isResearchRoomIndexable,
   listResearchRoomReportPage,
@@ -30,6 +34,7 @@ type CatalogReportFixture = {
 };
 
 afterEach(async () => {
+  await cleanupApiTestDatabases();
   vi.unstubAllEnvs();
   await Promise.all(
     roots.splice(0).map(async (root) => await rm(root, { recursive: true })),
@@ -51,8 +56,8 @@ async function catalogFixtures(
 ): Promise<void> {
   const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-research-room-"));
   roots.push(dataRoot);
-  const database = new Database(join(dataRoot, "research.sqlite"));
-  database.exec(`
+  const database = await createApiTestDatabase();
+  await database.query(`
     CREATE TABLE reports(report_id TEXT PRIMARY KEY, state TEXT NOT NULL);
     CREATE TABLE report_versions(
       report_id TEXT NOT NULL, run_id TEXT NOT NULL, snapshot_id TEXT NOT NULL,
@@ -72,22 +77,7 @@ async function catalogFixtures(
       report_id TEXT PRIMARY KEY, view_count INTEGER NOT NULL, last_viewed_at TEXT NOT NULL
     );
   `);
-  const insertReport = database.prepare(
-    "INSERT INTO reports(report_id, state) VALUES (?, ?)",
-  );
-  const insertArtifact = database.prepare(
-    "INSERT INTO artifacts(artifact_id, content_hash) VALUES (?, ?)",
-  );
-  const insertVersion = database.prepare(`INSERT INTO report_versions(
-    report_id, run_id, snapshot_id, version_id, version, artifact_id,
-    status, published_at, public_payload_json
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}')`);
-  const insertRequest = database.prepare(`INSERT INTO research_requests(
-    run_id, symbol, question, locale, research_kind, department_id
-  ) VALUES (?, ?, 'Baseline visibility', 'en', 'committee', NULL)`);
-  const insertRun = database.prepare(`INSERT INTO runs(
-    run_id, last_event_seq, created_at, status
-  ) VALUES (?, 0, '2026-08-01T00:00:00.000Z', ?)`);
+
   for (const [reportIndex, report] of reports.entries()) {
     const ordinal = reportIndex + 1;
     const fixtureReportId =
@@ -97,28 +87,50 @@ async function catalogFixtures(
       reportIndex === 0 ? runId : fixtureId("11000000", ordinal);
     const fixtureSnapshotId =
       reportIndex === 0 ? snapshotId : fixtureId("12000000", ordinal);
-    insertReport.run(fixtureReportId, report.state ?? "published");
+    await database.query(
+      "INSERT INTO reports(report_id, state) VALUES ($1, $2)",
+      [fixtureReportId, report.state ?? "published"],
+    );
     for (const version of report.versions) {
       const versionOrdinal = ordinal * 100 + version.version;
       const versionId = fixtureId("13000000", versionOrdinal);
       const artifactId = fixtureId("20000000", versionOrdinal);
       if (version.version !== report.missingArtifactVersion)
-        insertArtifact.run(artifactId, version.version.toString(16).repeat(64));
-      insertVersion.run(
-        fixtureReportId,
-        fixtureRunId,
-        fixtureSnapshotId,
-        versionId,
-        version.version,
-        artifactId,
-        version.status,
-        version.publishedAt,
+        await database.query(
+          "INSERT INTO artifacts(artifact_id, content_hash) VALUES ($1, $2)",
+          [artifactId, version.version.toString(16).repeat(64)],
+        );
+      await database.query(
+        `INSERT INTO report_versions(
+    report_id, run_id, snapshot_id, version_id, version, artifact_id,
+    status, published_at, public_payload_json
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '{}')`,
+        [
+          fixtureReportId,
+          fixtureRunId,
+          fixtureSnapshotId,
+          versionId,
+          version.version,
+          artifactId,
+          version.status,
+          version.publishedAt,
+        ],
       );
     }
-    insertRequest.run(fixtureRunId, `S${String(ordinal).padStart(3, "0")}`);
-    insertRun.run(fixtureRunId, report.runStatus ?? "completed");
+    await database.query(
+      `INSERT INTO research_requests(
+    run_id, symbol, question, locale, research_kind, department_id
+  ) VALUES ($1, $2, 'Baseline visibility', 'en', 'committee', NULL)`,
+      [fixtureRunId, `S${String(ordinal).padStart(3, "0")}`],
+    );
+    await database.query(
+      `INSERT INTO runs(
+    run_id, last_event_seq, created_at, status
+  ) VALUES ($1, 0, '2026-08-01T00:00:00.000Z', $2)`,
+      [fixtureRunId, report.runStatus ?? "completed"],
+    );
   }
-  database.close();
+  // Pool is cleaned up after the test.
   vi.stubEnv("STOCKSEMBLY_DATA_DIR", dataRoot);
 }
 
@@ -464,3 +476,7 @@ describe("research room catalog access", () => {
     await expect(catalog).rejects.toThrow();
   });
 });
+
+vi.mock("../persistence/postgres/researchPool", () => ({
+  getResearchPool: async () => currentApiTestDatabase(),
+}));

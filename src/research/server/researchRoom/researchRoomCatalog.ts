@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { findTicker } from "../../../lib/tickers";
 import {
@@ -18,7 +17,10 @@ import { listPublicEventsForRun } from "../api/researchApiQueries";
 import { loadPublicResearchReport } from "../api/researchApiReportReader";
 import { publicQuestionFromRow } from "../api/researchQuestionCommands";
 import { createLiveS3ArtifactArchive } from "../artifacts/s3ArtifactArchive";
-import { parseSafeJson } from "../persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
+import { getResearchPool } from "../persistence/postgres/researchPool";
+import { parseSafeJson } from "../persistence/postgres/safeJson";
 import {
   isResearchRoomIndexable,
   isResearchRoomPublicationMature,
@@ -194,7 +196,7 @@ function publicationFor(row: z.infer<typeof CatalogRowSchema>): PublicReport {
 
 function selectSql(where = "") {
   // The room is a public catalog, not a user's history.  Keep this query
-  // rooted in published SQLite reports and deliberately do not join or
+  // rooted in published PostgreSQL reports and deliberately do not join or
   // filter by research_requests.principal_id; ownership is only used for
   // private history and billing, never for catalog discovery.
   return `SELECT reports.report_id, report_versions.run_id,
@@ -242,7 +244,9 @@ function catalogFilter(options: ResearchRoomListOptions): CatalogFilter {
   const clauses: string[] = [];
   const params: string[] = [];
   if (options.sort === "read") {
-    clauses.push("reports.report_id IN (SELECT value FROM json_each(?))");
+    clauses.push(
+      "reports.report_id IN (SELECT jsonb_array_elements_text(?::jsonb) AS value)",
+    );
     params.push(JSON.stringify(options.readReportIds ?? []));
   }
   const query = options.query?.trim().toLocaleLowerCase();
@@ -282,7 +286,16 @@ function catalogFilter(options: ResearchRoomListOptions): CatalogFilter {
       break;
   }
   return {
-    where: clauses.length === 0 ? "" : `AND ${clauses.join(" AND ")}`,
+    where:
+      clauses.length === 0
+        ? ""
+        : `AND ${clauses.join(" AND ")}`.replace(
+            /\?/g,
+            (() => {
+              let index = 0;
+              return () => `$${++index}`;
+            })(),
+          ),
     params,
   };
 }
@@ -301,33 +314,16 @@ function boundedOffset(value: number | undefined): number {
   return Math.min(Math.max(Math.trunc(value ?? 0), 0), 1_000_000);
 }
 
-async function withDatabase<T>(read: (database: Database.Database) => T) {
-  const runtime = await prepareLiveResearchRuntime();
-  const database = new Database(runtime.databasePath, {
-    readonly: true,
-    fileMustExist: true,
-  });
-  try {
-    return read(database);
-  } finally {
-    database.close();
-  }
+async function withDatabase<T>(
+  read: (database: ResearchDatabase) => Promise<T>,
+) {
+  return await researchTransaction(await getResearchPool(), read);
 }
 
 async function withWritableDatabase<T>(
-  write: (database: Database.Database) => T,
+  write: (database: ResearchDatabase) => Promise<T>,
 ) {
-  const runtime = await prepareLiveResearchRuntime();
-  const database = new Database(runtime.databasePath, {
-    timeout: 5_000,
-    fileMustExist: true,
-  });
-  database.pragma("busy_timeout = 5000");
-  try {
-    return write(database);
-  } finally {
-    database.close();
-  }
+  return await researchTransaction(await getResearchPool(), write);
 }
 
 export async function listResearchRoomReports(
@@ -341,11 +337,9 @@ export async function listResearchRoomReports(
 export async function listResearchRoomSitemapEntries(
   now = new Date(),
 ): Promise<readonly ResearchRoomSitemapEntry[]> {
-  return await withDatabase((database) =>
-    database
-      .prepare(sitemapSelectSql())
-      .all()
-      .flatMap((value): readonly ResearchRoomSitemapEntry[] => {
+  return await withDatabase(async (database) =>
+    (await database.query(sitemapSelectSql(), [])).rows.flatMap(
+      (value): readonly ResearchRoomSitemapEntry[] => {
         const row = SitemapEntryRowSchema.safeParse(value);
         if (
           !row.success ||
@@ -358,7 +352,8 @@ export async function listResearchRoomSitemapEntries(
             publishedAt: row.data.published_at,
           },
         ];
-      }),
+      },
+    ),
   );
 }
 
@@ -370,27 +365,28 @@ export async function listResearchRoomReportPage(
   const offset = boundedOffset(options.offset);
   const now = options.now ?? new Date();
   const filter = catalogFilter(options);
-  const catalog = await withDatabase((database) => {
-    const rows = database
-      .prepare(
+  const catalog = await withDatabase(async (database) => {
+    const rows = (
+      await database.query(
         `${selectSql(filter.where)}
          ${sortSql(options.sort ?? "latest")}
-         LIMIT ? OFFSET ?`,
+         LIMIT $${filter.params.length + 1} OFFSET $${filter.params.length + 2}`,
+        [...filter.params, limit, offset],
       )
-      .all(...filter.params, limit, offset)
-      .map((value) => CatalogRowSchema.parse(value));
+    ).rows.map((value) => CatalogRowSchema.parse(value));
     const countRow = z
       .object({ count: z.number().int().nonnegative() })
       .parse(
-        database
-          .prepare(
-            `SELECT COUNT(*) AS count FROM (${selectSql(filter.where)}) AS catalog`,
+        (
+          await database.query(
+            `SELECT CAST(COUNT(*) AS integer) AS count FROM (${selectSql(filter.where)}) AS catalog`,
+            [...filter.params],
           )
-          .get(...filter.params),
+        ).rows[0],
       );
-    const companies = database
-      .prepare(
-        `SELECT research_requests.symbol AS symbol, COUNT(*) AS count
+    const companies = (
+      await database.query(
+        `SELECT research_requests.symbol AS symbol, CAST(COUNT(*) AS integer) AS count
          FROM reports
          JOIN report_versions USING(report_id)
          JOIN artifacts USING(artifact_id)
@@ -402,16 +398,16 @@ export async function listResearchRoomReportPage(
            AND ${LATEST_PUBLISHABLE_REPORT_VERSION_PREDICATE}
          GROUP BY research_requests.symbol
          ORDER BY count DESC, symbol ASC`,
+        [],
       )
-      .all()
-      .map((value) =>
-        z
-          .object({
-            symbol: z.string().min(1),
-            count: z.number().int().positive(),
-          })
-          .parse(value),
-      );
+    ).rows.map((value) =>
+      z
+        .object({
+          symbol: z.string().min(1),
+          count: z.number().int().positive(),
+        })
+        .parse(value),
+    );
     return {
       rows,
       total: countRow.count,
@@ -427,7 +423,7 @@ export async function listResearchRoomReportPage(
     };
   const runtime = await prepareLiveResearchRuntime();
   const localized = await localizedResearchQuestions(
-    runtime.databasePath,
+    runtime.database,
     catalog.rows.map(
       (row): ResearchQuestionLocalizationInput => ({
         runId: row.run_id,
@@ -449,18 +445,17 @@ export async function listResearchRoomReportPage(
 
 export async function recordResearchRoomView(reportId: string): Promise<void> {
   const parsedReportId = z.string().uuid().parse(reportId);
-  await withWritableDatabase((database) => {
-    database
-      .prepare(
-        `INSERT INTO research_room_views(report_id, view_count, last_viewed_at)
-         SELECT reports.report_id, 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  await withWritableDatabase(async (database) => {
+    await database.query(
+      `INSERT INTO research_room_views(report_id, view_count, last_viewed_at)
+         SELECT reports.report_id, 1, to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
          FROM reports
-         WHERE reports.report_id = ? AND reports.state = 'published'
+         WHERE reports.report_id = $1 AND reports.state = 'published'
          ON CONFLICT(report_id) DO UPDATE SET
            view_count = research_room_views.view_count + 1,
            last_viewed_at = excluded.last_viewed_at`,
-      )
-      .run(parsedReportId);
+      [parsedReportId],
+    );
   });
 }
 
@@ -525,31 +520,34 @@ export async function loadResearchRoomReport(
   now = new Date(),
   viewerLocale?: ResearchTranslationLocale,
 ): Promise<ResearchRoomReportBundle | "locked" | undefined> {
-  const result = await withDatabase((database) => {
-    const value = database
-      .prepare(
-        `${selectSql("AND reports.report_id = ?")}
+  const result = await withDatabase(async (database) => {
+    const value = (
+      await database.query(
+        `${selectSql("AND reports.report_id = $1")}
          ORDER BY report_versions.version DESC LIMIT 1`,
+        [reportId],
       )
-      .get(reportId);
+    ).rows[0];
     if (value === undefined) return undefined;
     const row = CatalogRowSchema.parse(value);
     const item = itemFor(row, access, now);
     if (item.locked) return { kind: "locked" as const };
-    const questions = database
-      .prepare(`SELECT questions.question_id, questions.retry_of_question_id,
+    const questions = (
+      await database.query(
+        `SELECT questions.question_id, questions.retry_of_question_id,
         questions.report_id, questions.report_version_id,
         questions.attempt_ordinal, questions.status, questions.question_json,
         questions.answer_json, questions.created_at
         FROM questions
-        WHERE questions.report_id = ? AND questions.status = 'answered'
-        ORDER BY questions.attempt_ordinal ASC`)
-      .all(reportId)
-      .map((question) =>
-        publicQuestionFromRow(QuestionRowSchema.parse(question)),
-      );
-    const events = listPublicEventsForRun(database, row.run_id).map((event) =>
-      PublicResearchEventSchema.parse(event),
+        WHERE questions.report_id = $1 AND questions.status = 'answered'
+        ORDER BY questions.attempt_ordinal ASC`,
+        [reportId],
+      )
+    ).rows.map((question) =>
+      publicQuestionFromRow(QuestionRowSchema.parse(question)),
+    );
+    const events = (await listPublicEventsForRun(database, row.run_id)).map(
+      (event) => PublicResearchEventSchema.parse(event),
     );
     return { kind: "report" as const, row, item, questions, events };
   });
@@ -562,7 +560,7 @@ export async function loadResearchRoomReport(
       ? result.item.question
       : ((
           await localizedResearchQuestions(
-            runtime.databasePath,
+            runtime.database,
             [
               {
                 runId: result.row.run_id,

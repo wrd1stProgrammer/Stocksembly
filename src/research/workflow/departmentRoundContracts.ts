@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 import { z } from "zod";
 import {
   DepartmentConsolidationOutputSchema,
@@ -163,9 +164,9 @@ export type DepartmentRoundReplay = {
   readonly eventSequences: readonly number[];
 };
 
-export type SqliteDepartmentRoundOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+export type PostgresDepartmentRoundOptions = {
+  readonly database: Pool;
+
   readonly attemptRoot: string;
   readonly ownerId: string;
   readonly cas: ArtifactCasPort;
@@ -173,13 +174,15 @@ export type SqliteDepartmentRoundOptions = {
   readonly now?: () => string;
 };
 
-export interface SqliteDepartmentRound {
-  readonly authority: "sqlite-worker-trusted-commit";
-  readonly acceptedMemos: (runId: string) => readonly AcceptedMemoMetadata[];
+export interface PostgresDepartmentRound {
+  readonly authority: "postgres-worker-trusted-commit";
+  readonly acceptedMemos: (
+    runId: string,
+  ) => Promise<readonly AcceptedMemoMetadata[]>;
   readonly stage: (
     input: StageDepartmentRoundInput,
   ) => Promise<StageDepartmentRoundResult>;
   readonly drain: (runId: string) => Promise<DepartmentRoundReplay>;
-  readonly replay: (runId: string) => DepartmentRoundReplay;
+  readonly replay: (runId: string) => Promise<DepartmentRoundReplay>;
   readonly close: () => Promise<void>;
 }

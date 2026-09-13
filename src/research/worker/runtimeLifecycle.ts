@@ -1,20 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import {
-  access,
-  chmod,
-  lstat,
-  open,
-  readFile,
-  rename,
-  rm,
-  stat,
-} from "node:fs/promises";
+import { chmod, lstat, open, readFile, rename } from "node:fs/promises";
 import { hostname } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import Database from "better-sqlite3";
-import { z } from "zod";
+import { join } from "node:path";
+import type { Pool } from "pg";
 import { ArtifactDigestSchema } from "../ports/artifacts";
 import {
   ensureDigestDirectory,
@@ -22,36 +10,26 @@ import {
   resolveArtifactBlobPath,
   resolveStocksemblyDataDirectory,
 } from "../server/artifacts/filesystemArtifactPaths";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { PostgresStore } from "../server/persistence/postgres/postgresStore";
+import { getResearchPool } from "../server/persistence/postgres/researchPool";
 
 const RUNTIME_MARKER = Buffer.from("stocksembly-worker-runtime-v1\n", "utf8");
-const LOCK_FILE = "worker.lock" as const;
-const LEASE_DATABASE = "worker-lease.sqlite";
-const lockSchema = z.object({
-  ownerId: z.string().min(1),
-  pid: z.number().int().positive(),
-  nonce: z.string().uuid(),
-});
-
+const WORKER_LOCK_KEY = 73921401;
 export type WorkerRuntime = {
   readonly dataDirectory: string;
-  readonly databasePath: string;
-  readonly migrationsDirectory: string;
+  readonly database: Pool;
   readonly migrationsApplied: number;
   readonly casDigest: string;
 };
-
 export type WorkerLease = {
   readonly ownerId: string;
+  readonly signal: AbortSignal;
   readonly release: () => Promise<void>;
 };
-
 export class WorkerRuntimeError extends Error {
   readonly name = "WorkerRuntimeError";
-
   constructor(
     readonly code:
-      | "MIGRATIONS_UNAVAILABLE"
       | "WORKER_DATA_READ_ONLY"
       | "WORKER_LEASE_OCCUPIED"
       | "WORKER_NOT_RUNNING"
@@ -62,144 +40,98 @@ export class WorkerRuntimeError extends Error {
     super(message, options);
   }
 }
-
 export async function prepareWorkerRuntime(): Promise<WorkerRuntime> {
   const dataDirectory = resolveStocksemblyDataDirectory();
   await assertWritableRoot(dataDirectory);
   const paths = await prepareArtifactPaths(dataDirectory);
-  const migrationsDirectory = await discoverMigrationsDirectory();
-  const databasePath = join(paths.root, "research.sqlite");
-  let migrationsApplied: number;
-  try {
-    const store = openSqliteStore(databasePath, { migrationsDirectory });
-    migrationsApplied = store.schemaVersions().length;
-    store.pragmas();
-    store.close();
-  } catch (error) {
-    throw new WorkerRuntimeError(
-      "WORKER_RUNTIME_INVALID",
-      "The worker could not open native SQLite or apply migrations",
-      { cause: error },
-    );
-  }
-  await chmod(databasePath, 0o600);
-  const casDigest = await writeRuntimeMarker(paths);
+  const database = await getResearchPool();
+  const store = await PostgresStore.open(database);
+  const migrationsApplied = (await store.schemaVersions()).length;
   return {
     dataDirectory: paths.root,
-    databasePath,
-    migrationsDirectory,
+    database,
     migrationsApplied,
-    casDigest,
+    casDigest: await writeRuntimeMarker(paths),
   };
 }
 
 export async function acquireWorkerLease(
   runtime: WorkerRuntime,
 ): Promise<WorkerLease> {
-  const path = join(runtime.dataDirectory, LOCK_FILE);
-  const record = {
-    ownerId: `${hostname()}:${process.pid}`,
-    pid: process.pid,
-    nonce: randomUUID(),
-  };
-  // SQLite's OS lock survives PID namespaces and is released even after SIGKILL.
-  // Never unlink this database: another process may still hold its inode lock.
-  const database = new Database(join(runtime.dataDirectory, LEASE_DATABASE), {
-    timeout: 0,
-  });
+  const client = await runtime.database.connect();
+  const controller = new AbortController();
+  let released = false;
+  const loseLease = (error: Error) => controller.abort(error);
+  client.on("error", loseLease);
   try {
-    database.exec("BEGIN IMMEDIATE");
-  } catch (error) {
-    database.close();
-    if (hasCode(error, "SQLITE_BUSY")) {
+    const result = await client.query<{ acquired: boolean }>(
+      "SELECT pg_try_advisory_lock($1) AS acquired",
+      [WORKER_LOCK_KEY],
+    );
+    if (!result.rows[0]?.acquired)
       throw new WorkerRuntimeError(
         "WORKER_LEASE_OCCUPIED",
-        "Another research worker holds the data-directory lease",
+        "Another research worker holds the PostgreSQL runtime lease",
       );
-    }
-    throw error;
-  }
-  const temporary = `${path}.${record.nonce}`;
-  try {
-    await chmod(join(runtime.dataDirectory, LEASE_DATABASE), 0o600);
-    const handle = await open(temporary, "wx", 0o600);
-    try {
-      await handle.writeFile(`${JSON.stringify(record)}\n`, "utf8");
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-    await rename(temporary, path);
   } catch (error) {
-    database.close();
-    await rm(temporary, { force: true });
+    client.removeListener("error", loseLease);
+    client.release(true);
     throw error;
   }
-  let released = false;
+  // A dedicated session owns the lock; never return it to the pool while active.
+  let checking = false;
+  const heartbeat = setInterval(() => {
+    if (checking || released) return;
+    checking = true;
+    const deadline = setTimeout(
+      () => controller.abort(new Error("WORKER_LEASE_HEARTBEAT_TIMEOUT")),
+      5000,
+    );
+    deadline.unref();
+    void client
+      .query("SELECT 1")
+      .catch((error: unknown) => {
+        controller.abort(error);
+      })
+      .finally(() => {
+        clearTimeout(deadline);
+        checking = false;
+      });
+  }, 5000);
+  heartbeat.unref();
   return {
-    ownerId: record.ownerId,
+    ownerId: `${hostname()}:${process.pid}:${randomUUID()}`,
+    signal: controller.signal,
     release: async () => {
       if (released) return;
       released = true;
-      try {
-        const current = await readLock(path);
-        if (current.nonce === record.nonce) await rm(path);
-      } finally {
-        database.close();
-      }
+      clearInterval(heartbeat);
+      controller.abort();
+      client.removeListener("error", loseLease);
+      // Closing the session also releases ownership if the connection was lost.
+      client.release(true);
     },
   };
 }
-
 export async function inspectWorkerHealth(): Promise<WorkerRuntime> {
   const runtime = await prepareWorkerRuntime();
-  await readLock(join(runtime.dataDirectory, LOCK_FILE));
-  const database = new Database(join(runtime.dataDirectory, LEASE_DATABASE), {
-    timeout: 0,
-  });
-  let active = false;
+  const client = await runtime.database.connect();
   try {
-    database.exec("BEGIN IMMEDIATE");
-    database.exec("ROLLBACK");
-  } catch (error) {
-    if (!hasCode(error, "SQLITE_BUSY")) throw error;
-    active = true;
-  } finally {
-    database.close();
-  }
-  if (!active) {
-    throw new WorkerRuntimeError(
-      "WORKER_NOT_RUNNING",
-      "The research worker lease is not active",
+    const result = await client.query<{ available: boolean }>(
+      "SELECT pg_try_advisory_lock($1) AS available",
+      [WORKER_LOCK_KEY],
     );
+    if (result.rows[0]?.available) {
+      await client.query("SELECT pg_advisory_unlock($1)", [WORKER_LOCK_KEY]);
+      throw new WorkerRuntimeError(
+        "WORKER_NOT_RUNNING",
+        "The research worker PostgreSQL lease is not active",
+      );
+    }
+  } finally {
+    client.release();
   }
   return runtime;
-}
-
-async function discoverMigrationsDirectory(): Promise<string> {
-  // biome-ignore lint/complexity/useLiteralKeys: ProcessEnv is an index signature.
-  const configured = process.env["STOCKSEMBLY_MIGRATIONS_DIR"];
-  const entryDirectory = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    ...(configured === undefined ? [] : [configured]),
-    resolve(entryDirectory, "../migrations"),
-    resolve(process.cwd(), "migrations"),
-    resolve(process.cwd(), "src/research/server/persistence/sqlite/migrations"),
-  ];
-  for (const candidate of candidates) {
-    if (!isAbsolute(candidate)) continue;
-    try {
-      const status = await stat(candidate);
-      await access(join(candidate, "001_workflow_core.sql"), constants.R_OK);
-      if (status.isDirectory()) return candidate;
-    } catch (error) {
-      if (!hasCode(error, "ENOENT") && !hasCode(error, "EACCES")) throw error;
-    }
-  }
-  throw new WorkerRuntimeError(
-    "MIGRATIONS_UNAVAILABLE",
-    "The ordered SQLite migrations directory is unavailable",
-  );
 }
 
 async function assertWritableRoot(path: string): Promise<void> {
@@ -257,24 +189,6 @@ async function writeRuntimeMarker(
   await rename(temporary, destination);
   await chmod(destination, 0o600);
   return digest;
-}
-
-async function readLock(path: string): Promise<z.infer<typeof lockSchema>> {
-  try {
-    return lockSchema.parse(JSON.parse(await readFile(path, "utf8")));
-  } catch (error) {
-    if (hasCode(error, "ENOENT")) {
-      throw new WorkerRuntimeError(
-        "WORKER_NOT_RUNNING",
-        "The research worker lease is not active",
-      );
-    }
-    throw new WorkerRuntimeError(
-      "WORKER_RUNTIME_INVALID",
-      "The research worker lease record is invalid",
-      { cause: error },
-    );
-  }
 }
 
 function hasCode(error: unknown, code: string): boolean {

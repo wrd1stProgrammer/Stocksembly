@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
+import type { Pool } from "pg";
+import { createResearchTestDatabase } from "../../test/researchPostgres";
 import {
   AttemptIdSchema,
   EventIdSchema,
@@ -10,10 +11,13 @@ import {
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
+import { findAttempt } from "../server/persistence/postgres/attemptRepository";
+import { leaseJob } from "../server/persistence/postgres/leaseRepository";
 import {
-  openSqliteStore,
-  type SqliteStore,
-} from "../server/persistence/sqlite/sqliteStore";
+  createRun,
+  findRun,
+  transitionRun,
+} from "../server/persistence/postgres/runRepository";
 import {
   type AttemptHandler,
   type AttemptOutcome,
@@ -68,16 +72,24 @@ type Seed = {
 
 export class LeaseEngineFixture {
   readonly directory = mkdtempSync(join(tmpdir(), "stocksembly-worker-"));
-  readonly databasePath = join(this.directory, "worker.sqlite");
   readonly clock = new ManualWorkerClock();
   readonly handler = new RecordingHandler();
-  readonly #control: SqliteStore;
   #identity = 800_000;
   #seed = 1;
+  #started = 0;
+  readonly #startWaiters: Array<{ count: number; resolve: () => void }> = [];
 
-  constructor() {
-    this.#control = openSqliteStore(this.databasePath);
+  waitForStarts(count = 1): Promise<void> {
+    if (this.#started >= count) return Promise.resolve();
+    return new Promise((resolve) =>
+      this.#startWaiters.push({ count, resolve }),
+    );
   }
+
+  constructor(
+    readonly pool: Pool,
+    private readonly closeDatabase: () => Promise<void>,
+  ) {}
 
   openEngine(
     ownerId: string,
@@ -89,9 +101,18 @@ export class LeaseEngineFixture {
       eventId: () => EventIdSchema.parse(uuid(this.#identity++)),
     };
     return createLeaseEngine({
-      databasePath: this.databasePath,
+      pool: this.pool,
       ownerId,
-      handler,
+      handler: {
+        ...handler,
+        run: (...args: Parameters<AttemptHandler["run"]>) => {
+          const result = handler.run(...args);
+          this.#started += 1;
+          for (const waiter of this.#startWaiters)
+            if (this.#started >= waiter.count) waiter.resolve();
+          return result;
+        },
+      },
       clock: this.clock,
       identities,
       ...(options.retryRandom === undefined
@@ -100,21 +121,21 @@ export class LeaseEngineFixture {
     });
   }
 
-  seedResearchJob(
+  async seedResearchJob(
     value = this.#seed++,
     budget?: {
       readonly remainingBaseCalls: number;
       readonly requestedOptionalCalls: number;
       readonly requestedReplacementCalls: number;
     },
-  ): Seed {
+  ): Promise<Seed> {
     const base = value * 100;
     const seed = {
       runId: RunIdSchema.parse(uuid(base + 1)),
       snapshotId: SnapshotIdSchema.parse(uuid(base + 2)),
       jobId: JobIdSchema.parse(uuid(base + 3)),
     };
-    this.#control.createRun({
+    await createRun(this.pool, {
       runId: seed.runId,
       snapshotId: seed.snapshotId,
       requestedAt: this.clock.now(),
@@ -136,7 +157,7 @@ export class LeaseEngineFixture {
     return seed;
   }
 
-  seedResearchJobs(
+  async seedResearchJobs(
     count: number,
     value = this.#seed++,
     budget?: {
@@ -144,8 +165,8 @@ export class LeaseEngineFixture {
       readonly requestedOptionalCalls: number;
       readonly requestedReplacementCalls: number;
     },
-  ): readonly Seed[] {
-    const first = this.seedResearchJob(value, budget);
+  ): Promise<readonly Seed[]> {
+    const first = await this.seedResearchJob(value, budget);
     const jobs = [first];
     for (let index = 1; index < count; index += 1) {
       jobs.push({
@@ -155,7 +176,7 @@ export class LeaseEngineFixture {
       });
     }
     if (jobs.length > 1) {
-      this.#control.transitionRun({
+      await transitionRun(this.pool, {
         runId: first.runId,
         fromStatus: "queued",
         toStatus: "running",
@@ -177,125 +198,88 @@ export class LeaseEngineFixture {
     return jobs;
   }
 
-  seedQuestionJob(value = this.#seed++): QuestionSeed {
-    return seedQuestion(this.#control, this.databasePath, this.clock, value);
+  seedQuestionJob(value = this.#seed++): Promise<QuestionSeed> {
+    return seedQuestion(this.pool, this.clock, value);
   }
 
-  leaseOnly(jobId: string, ownerId: string, expiresAt: string): number {
-    const lease = this.#control.leaseJob({
+  async leaseOnly(
+    jobId: string,
+    ownerId: string,
+    expiresAt: string,
+  ): Promise<number> {
+    const lease = await leaseJob(this.pool, {
       jobId: JobIdSchema.parse(jobId),
       ownerId,
       now: this.clock.now(),
       expiresAt,
     });
-    if (lease === undefined) throw new RangeError("lease fixture missing");
+    if (!lease) throw new RangeError("lease fixture missing");
     return lease.token;
   }
-
-  launches(
+  async launches(
     runId?: string,
-  ): readonly { readonly ordinal: number; readonly attempt_id: string }[] {
-    const database = new Database(this.databasePath);
-    try {
-      return database
-        .prepare(`SELECT ordinal, attempt_id FROM research_call_ordinals
-          ${runId === undefined ? "" : "WHERE run_id = ?"} ORDER BY run_id, ordinal`)
-        .all(...(runId === undefined ? [] : [runId])) as readonly {
-        readonly ordinal: number;
-        readonly attempt_id: string;
-      }[];
-    } finally {
-      database.close();
-    }
-  }
-
-  job(jobId: string): {
-    readonly status: string;
-    readonly lease_token: number;
-    readonly lease_expires_at: string | null;
-  } {
-    const database = new Database(this.databasePath);
-    try {
-      const row = database
-        .prepare(`SELECT status, lease_token, lease_expires_at
-        FROM jobs WHERE job_id = ?`)
-        .get(jobId);
-      if (row === undefined) throw new RangeError("job fixture missing");
-      return row as {
-        readonly status: string;
-        readonly lease_token: number;
-        readonly lease_expires_at: string | null;
-      };
-    } finally {
-      database.close();
-    }
-  }
-
-  runStatus(runId: string): string {
-    const database = new Database(this.databasePath);
-    try {
-      const row = database
-        .prepare("SELECT status FROM runs WHERE run_id = ?")
-        .get(runId);
-      if (
-        typeof row !== "object" ||
-        row === null ||
-        !("status" in row) ||
-        typeof row.status !== "string"
+  ): Promise<readonly { ordinal: number; attempt_id: string }[]> {
+    return (
+      await this.pool.query<{ ordinal: number; attempt_id: string }>(
+        `SELECT ordinal, attempt_id FROM research_call_ordinals ${runId === undefined ? "" : "WHERE run_id=$1"} ORDER BY run_id, ordinal`,
+        runId === undefined ? [] : [runId],
       )
-        throw new RangeError("run fixture missing");
-      return row.status;
-    } finally {
-      database.close();
-    }
+    ).rows;
   }
-
-  failResearchJobsWithoutTerminalEvent(runId: string): void {
-    const database = new Database(this.databasePath);
-    try {
-      database
-        .prepare(`UPDATE jobs SET status = 'failed', lease_owner = NULL,
-          lease_expires_at = NULL WHERE run_id = ? AND kind = 'research'`)
-        .run(runId);
-    } finally {
-      database.close();
-    }
+  async job(jobId: string) {
+    const row = (
+      await this.pool.query<{
+        status: string;
+        lease_token: number;
+        lease_expires_at: string | null;
+      }>(
+        "SELECT status, lease_token, lease_expires_at FROM jobs WHERE job_id=$1",
+        [jobId],
+      )
+    ).rows[0];
+    if (!row) throw new RangeError("job fixture missing");
+    return row;
   }
-
-  eventCount(runId: string, type: string): number {
-    const database = new Database(this.databasePath);
-    try {
-      const row = database
-        .prepare(`SELECT COUNT(*) AS count FROM run_events
-        WHERE run_id = ? AND event_type = ?`)
-        .get(runId, type);
-      return (row as { readonly count: number }).count;
-    } finally {
-      database.close();
-    }
+  async runStatus(runId: string): Promise<string> {
+    const row = (
+      await this.pool.query<{ status: string }>(
+        "SELECT status FROM runs WHERE run_id=$1",
+        [runId],
+      )
+    ).rows[0];
+    if (!row) throw new RangeError("run fixture missing");
+    return row.status;
   }
-
-  eventPayload(runId: string, type: string): unknown {
-    const database = new Database(this.databasePath);
-    try {
-      const row = database
-        .prepare(
-          `SELECT payload_json AS payloadJson FROM run_events
-           WHERE run_id = ? AND event_type = ? ORDER BY sequence DESC LIMIT 1`,
+  async failResearchJobsWithoutTerminalEvent(runId: string): Promise<void> {
+    await this.pool.query(
+      "UPDATE jobs SET status='failed', lease_owner=NULL, lease_expires_at=NULL WHERE run_id=$1 AND kind='research'",
+      [runId],
+    );
+  }
+  async eventCount(runId: string, type: string): Promise<number> {
+    return (
+      (
+        await this.pool.query<{ count: number }>(
+          "SELECT COUNT(*)::integer AS count FROM run_events WHERE run_id=$1 AND event_type=$2",
+          [runId, type],
         )
-        .get(runId, type) as { payloadJson: string } | undefined;
-      return row === undefined ? undefined : JSON.parse(row.payloadJson);
-    } finally {
-      database.close();
-    }
+      ).rows[0]?.count ?? 0
+    );
   }
-
+  async eventPayload(runId: string, type: string): Promise<unknown> {
+    const row = (
+      await this.pool.query<{ payload_json: string }>(
+        "SELECT payload_json FROM run_events WHERE run_id=$1 AND event_type=$2 ORDER BY sequence DESC LIMIT 1",
+        [runId, type],
+      )
+    ).rows[0];
+    return row ? JSON.parse(row.payload_json) : undefined;
+  }
   run(runId: string) {
-    return this.#control.findRun(runId);
+    return findRun(this.pool, runId);
   }
-
-  completeRun(runId: string, eventId: string): void {
-    this.#control.transitionRun({
+  async completeRun(runId: string, eventId: string): Promise<void> {
+    await transitionRun(this.pool, {
       runId: RunIdSchema.parse(runId),
       fromStatus: "running",
       toStatus: "completed",
@@ -308,123 +292,82 @@ export class LeaseEngineFixture {
       },
     });
   }
-
-  limitations(runId: string): readonly string[] {
-    const database = new Database(this.databasePath);
-    try {
-      return database
-        .prepare(
-          "SELECT code FROM run_public_limitations WHERE run_id = ? ORDER BY code",
-        )
-        .all(runId)
-        .map((row) => (row as { readonly code: string }).code);
-    } finally {
-      database.close();
-    }
-  }
-
-  budgets(runId: string): {
-    readonly remainingBaseCalls: number;
-    readonly requestedReplacementCalls: number;
-  } {
-    const database = new Database(this.databasePath);
-    try {
-      const row = database
-        .prepare(`SELECT remaining_base_calls, requested_replacement_calls
-          FROM runs WHERE run_id = ?`)
-        .get(runId);
-      if (
-        typeof row !== "object" ||
-        row === null ||
-        !("remaining_base_calls" in row) ||
-        typeof row.remaining_base_calls !== "number" ||
-        !("requested_replacement_calls" in row) ||
-        typeof row.requested_replacement_calls !== "number"
+  async limitations(runId: string): Promise<readonly string[]> {
+    return (
+      await this.pool.query<{ code: string }>(
+        "SELECT code FROM run_public_limitations WHERE run_id=$1 ORDER BY code",
+        [runId],
       )
-        throw new RangeError("run budget fixture missing");
-      return {
-        remainingBaseCalls: row.remaining_base_calls,
-        requestedReplacementCalls: row.requested_replacement_calls,
-      };
-    } finally {
-      database.close();
-    }
+    ).rows.map((row) => row.code);
   }
-
-  runtimeStates(runId: string): readonly string[] {
-    const database = new Database(this.databasePath);
-    try {
-      return database
-        .prepare(`SELECT state_id FROM run_events
-          WHERE run_id = ? AND event_type = 'runtime_status'
-          ORDER BY sequence`)
-        .all(runId)
-        .map((row) => {
-          if (
-            typeof row !== "object" ||
-            row === null ||
-            !("state_id" in row) ||
-            typeof row.state_id !== "string"
-          )
-            throw new TypeError("runtime state fixture is invalid");
-          return row.state_id;
-        });
-    } finally {
-      database.close();
-    }
+  async budgets(runId: string) {
+    const row = (
+      await this.pool.query<{
+        remaining_base_calls: number;
+        requested_replacement_calls: number;
+      }>(
+        "SELECT remaining_base_calls,requested_replacement_calls FROM runs WHERE run_id=$1",
+        [runId],
+      )
+    ).rows[0];
+    if (!row) throw new RangeError("run budget fixture missing");
+    return {
+      remainingBaseCalls: row.remaining_base_calls,
+      requestedReplacementCalls: row.requested_replacement_calls,
+    };
   }
-
-  attemptCommittedPayloads(runId: string): readonly unknown[] {
-    const database = new Database(this.databasePath);
-    try {
-      return database
-        .prepare(`SELECT payload_json FROM run_events
-          WHERE run_id = ? AND event_type = 'attempt_committed'
-          ORDER BY sequence`)
-        .all(runId)
-        .map((row) =>
-          JSON.parse((row as { readonly payload_json: string }).payload_json),
-        );
-    } finally {
-      database.close();
-    }
+  async runtimeStates(runId: string): Promise<readonly string[]> {
+    return (
+      await this.pool.query<{ state_id: string }>(
+        "SELECT state_id FROM run_events WHERE run_id=$1 AND event_type='runtime_status' ORDER BY sequence",
+        [runId],
+      )
+    ).rows.map((row) => row.state_id);
   }
-
+  async attemptCommittedPayloads(runId: string): Promise<readonly unknown[]> {
+    return (
+      await this.pool.query<{ payload_json: string }>(
+        "SELECT payload_json FROM run_events WHERE run_id=$1 AND event_type='attempt_committed' ORDER BY sequence",
+        [runId],
+      )
+    ).rows.map((row) => JSON.parse(row.payload_json));
+  }
   attempt(attemptId: string) {
-    return this.#control.findAttempt(attemptId);
+    return findAttempt(this.pool, attemptId);
   }
-
-  questionStatus(questionId: string): string {
-    const database = new Database(this.databasePath);
-    try {
-      const row = database
-        .prepare("SELECT status FROM questions WHERE question_id = ?")
-        .get(questionId) as { readonly status: string } | undefined;
-      if (row === undefined) throw new RangeError("question fixture missing");
-      return row.status;
-    } finally {
-      database.close();
-    }
+  async questionStatus(questionId: string): Promise<string> {
+    const row = (
+      await this.pool.query<{ status: string }>(
+        "SELECT status FROM questions WHERE question_id=$1",
+        [questionId],
+      )
+    ).rows[0];
+    if (!row) throw new RangeError("question fixture missing");
+    return row.status;
   }
-
-  questionLaunches(): number {
-    const database = new Database(this.databasePath);
-    try {
-      const row = database
-        .prepare("SELECT COUNT(*) AS count FROM question_call_ordinals")
-        .get() as { readonly count: number };
-      return row.count;
-    } finally {
-      database.close();
-    }
+  async questionLaunches(): Promise<number> {
+    return (
+      (
+        await this.pool.query<{ count: number }>(
+          "SELECT COUNT(*)::integer AS count FROM question_call_ordinals",
+        )
+      ).rows[0]?.count ?? 0
+    );
   }
-
-  cleanup(): void {
-    this.#control.close();
+  processEnvironment(): NodeJS.ProcessEnv {
+    return {
+      ...process.env,
+      STOCKSEMBLY_DATABASE_URL: this.pool.options.connectionString,
+      STOCKSEMBLY_DATABASE_SSL: "false",
+    };
+  }
+  async cleanup(): Promise<void> {
+    await this.closeDatabase();
     rmSync(this.directory, { recursive: true, force: true });
   }
 }
 
-export function createLeaseEngineFixture(): LeaseEngineFixture {
-  return new LeaseEngineFixture();
+export async function createLeaseEngineFixture(): Promise<LeaseEngineFixture> {
+  const database = await createResearchTestDatabase();
+  return new LeaseEngineFixture(database.pool, database.close);
 }

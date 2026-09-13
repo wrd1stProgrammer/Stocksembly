@@ -1,34 +1,25 @@
-import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
+import { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import { createLeaseEngine } from "../worker/leaseEngine";
-import { SemanticAuditSqliteAuthority } from "./semanticAuditAuthority";
+import { SemanticAuditPostgresAuthority } from "./semanticAuditAuthority";
 import {
+  type PostgresSemanticAudit,
+  type PostgresSemanticAuditOptions,
   type SemanticAuditReplay,
   SemanticAuditStageInputSchema,
-  type SqliteSemanticAudit,
-  type SqliteSemanticAuditOptions,
 } from "./semanticAuditContracts";
 import { createSemanticAuditAttemptHandler } from "./semanticAuditHandler";
-import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 
-export function createSqliteSemanticAudit(
-  options: SqliteSemanticAuditOptions,
-): SqliteSemanticAudit {
-  const migrationOptions =
-    options.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: options.migrationsDirectory };
-  const workflowAuthority = new SpecialistRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+export function createPostgresSemanticAudit(
+  options: PostgresSemanticAuditOptions,
+): PostgresSemanticAudit {
+  const workflowAuthority = new SpecialistRoundPostgresAuthority(
+    options.database,
   );
-  const authority = new SemanticAuditSqliteAuthority(options.databasePath, {
-    ...migrationOptions,
+  const authority = new SemanticAuditPostgresAuthority(options.database, {
     cas: options.cas,
   });
-  const commitStore = new SqliteAgentOutputCommitStore(
-    options.databasePath,
-    migrationOptions,
-  );
+  const commitStore = new PostgresAgentOutputCommitStore(options.database);
   const handler = createSemanticAuditAttemptHandler({
     options,
     authority,
@@ -37,7 +28,7 @@ export function createSqliteSemanticAudit(
   });
   const now = options.now ?? (() => new Date().toISOString());
   return {
-    authority: "sqlite-worker-trusted-commit",
+    authority: "postgres-worker-trusted-commit",
     async stage(input) {
       const parsed = SemanticAuditStageInputSchema.safeParse(input);
       if (!parsed.success) return { kind: "blocked", reason: "invalid_input" };
@@ -47,7 +38,7 @@ export function createSqliteSemanticAudit(
     },
     async drain(runId) {
       const engine = createLeaseEngine({
-        databasePath: options.databasePath,
+        pool: options.database,
         ownerId: options.ownerId,
         handler,
         clock: { now },
@@ -61,11 +52,12 @@ export function createSqliteSemanticAudit(
         if (results.every((result) => result.kind === "idle")) break;
       }
       await engine.shutdown();
-      return authority.replay(runId);
+      return await authority.replay(runId);
     },
-    replay: (runId): SemanticAuditReplay => authority.replay(runId),
+    replay: async (runId): Promise<SemanticAuditReplay> =>
+      await authority.replay(runId),
     async close() {
-      commitStore.close();
+      await commitStore.close();
       authority.close();
       workflowAuthority.close();
     },

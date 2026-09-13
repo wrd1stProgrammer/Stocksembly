@@ -1,26 +1,9 @@
 import { existsSync } from "node:fs";
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
 const projectRequire = createRequire(join(process.cwd(), "package.json"));
-const betterSqliteDirectory = dirname(
-  projectRequire.resolve("better-sqlite3/package.json"),
-);
-const zodDirectory = dirname(projectRequire.resolve("zod/package.json"));
-const decimalDirectory = dirname(
-  projectRequire.resolve("decimal.js/package.json"),
-);
-const betterSqliteRequire = createRequire(
-  join(betterSqliteDirectory, "package.json"),
-);
-const bindingsDirectory = dirname(
-  betterSqliteRequire.resolve("bindings/package.json"),
-);
-const bindingsRequire = createRequire(join(bindingsDirectory, "package.json"));
-const fileUriToPathDirectory = dirname(
-  bindingsRequire.resolve("file-uri-to-path/package.json"),
-);
 const findPackageDirectory = (resolver, specifier) => {
   let directory = dirname(resolver.resolve(specifier));
   while (!existsSync(join(directory, "package.json"))) {
@@ -30,6 +13,21 @@ const findPackageDirectory = (resolver, specifier) => {
   }
   return directory;
 };
+const runtimePackages = new Map();
+async function includePackage(resolver, name) {
+  if (runtimePackages.has(name)) return;
+  const directory = findPackageDirectory(resolver, name);
+  runtimePackages.set(name, directory);
+  const manifest = JSON.parse(
+    await readFile(join(directory, "package.json"), "utf8"),
+  );
+  const dependencyRequire = createRequire(join(directory, "package.json"));
+  for (const dependency of Object.keys(manifest.dependencies ?? {})) {
+    await includePackage(dependencyRequire, dependency);
+  }
+}
+for (const name of ["pg", "zod", "decimal.js"])
+  await includePackage(projectRequire, name);
 let nextRuntimePackages = [];
 if (existsSync(".next/standalone/server.js")) {
   const nextRequire = createRequire(
@@ -48,7 +46,12 @@ if (existsSync(".next/standalone/server.js")) {
   }));
 }
 
-const migrationsSource = "src/research/server/persistence/sqlite/migrations";
+const migrationsSource = "src/research/server/persistence/postgres/migrations";
+if (!existsSync(join(migrationsSource, "001_research_baseline.sql"))) {
+  throw new Error(
+    "PostgreSQL migrations are required in the standalone package",
+  );
+}
 await Promise.all([
   rm(".next/standalone/research-worker", { recursive: true, force: true }),
   rm(".next/standalone/briefing-worker", { recursive: true, force: true }),
@@ -108,31 +111,13 @@ await Promise.all([
     ".next/standalone/research-worker/runtimeProbe.js",
     { force: true },
   ),
-  cp(betterSqliteDirectory, ".next/standalone/node_modules/better-sqlite3", {
-    recursive: true,
-    force: true,
-    dereference: true,
-  }),
-  cp(bindingsDirectory, ".next/standalone/node_modules/bindings", {
-    recursive: true,
-    force: true,
-    dereference: true,
-  }),
-  cp(fileUriToPathDirectory, ".next/standalone/node_modules/file-uri-to-path", {
-    recursive: true,
-    force: true,
-    dereference: true,
-  }),
-  cp(zodDirectory, ".next/standalone/node_modules/zod", {
-    recursive: true,
-    force: true,
-    dereference: true,
-  }),
-  cp(decimalDirectory, ".next/standalone/node_modules/decimal.js", {
-    recursive: true,
-    force: true,
-    dereference: true,
-  }),
+  ...[...runtimePackages].map(([name, directory]) =>
+    cp(directory, join(".next/standalone/node_modules", name), {
+      recursive: true,
+      force: true,
+      dereference: true,
+    }),
+  ),
   ...nextRuntimePackages.map(({ destination, directory }) =>
     cp(directory, join(".next/standalone/node_modules", destination), {
       recursive: true,

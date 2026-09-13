@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import Database from "better-sqlite3";
 import { z } from "zod";
 import { assignAllAgents } from "../application/assignAllAgents";
 import { createSnapshotManifest } from "../application/buildSnapshotManifest";
@@ -27,18 +26,19 @@ import {
   SEC_IDENTITY_ERROR_CODES,
   SecIdentityConfigError,
 } from "../server/data/sec/secIdentityConfig";
-import { recordAuxiliaryCodexUsage } from "../server/persistence/sqlite/auxiliaryCodexUsageRepository";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
-import type { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { recordAuxiliaryCodexUsage } from "../server/persistence/postgres/auxiliaryCodexUsageRepository";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import type { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
+import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
 import type { AttemptHandler } from "../worker/leaseEngine";
 import { qualifyComparatorsBeforeSynthesis } from "../workflow/preSynthesisComparatorQualification";
 import type { SpecialistRoundInput } from "../workflow/specialistRound";
-import type { SpecialistRoundSqliteAuthority } from "../workflow/specialistRoundSqliteAuthority";
+import type { SpecialistRoundPostgresAuthority } from "../workflow/specialistRoundPostgresAuthority";
 import {
   prepareSpecialistJobs,
   specialistJobSeed,
-} from "../workflow/specialistRoundSqliteStage";
+} from "../workflow/specialistRoundPostgresStage";
 import { collectInitialEvidence } from "./initialCollectionData";
 import { planResearchBrief } from "./researchBriefPlanner";
 
@@ -54,11 +54,11 @@ const RequestSchema = z.object({
 
 type InitialCollectionHandlerOptions = {
   readonly dataRoot: string;
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database: ResearchDatabase;
+
   readonly cas: ArtifactCasPort;
-  readonly authority: SpecialistRoundSqliteAuthority;
-  readonly commitStore: SqliteAgentOutputCommitStore;
+  readonly authority: SpecialistRoundPostgresAuthority;
+  readonly commitStore: PostgresAgentOutputCommitStore;
   readonly now?: () => string;
 };
 
@@ -233,28 +233,24 @@ function capabilities(
   };
 }
 
-export function createInitialCollectionHandler(
+export async function createInitialCollectionHandler(
   options: InitialCollectionHandlerOptions,
-): AttemptHandler {
-  const database = new Database(options.databasePath, {
-    readonly: true,
-    fileMustExist: true,
-  });
-  const store = openSqliteStore(options.databasePath, {
-    ...(options.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: options.migrationsDirectory }),
-  });
+): Promise<AttemptHandler> {
+  const database = options.database;
+  const store = await openPostgresStore(options.database);
   const clock = options.now ?? (() => new Date().toISOString());
 
   return {
     run: async (attempt) => {
       const request = RequestSchema.parse(
-        database
-          .prepare(`SELECT symbol, question, locale, research_kind,
+        (
+          await database.query(
+            `SELECT symbol, question, locale, research_kind,
             department_id, research_profile_json, created_at AS requested_at
-            FROM research_requests WHERE run_id = ?`)
-          .get(attempt.runId),
+            FROM research_requests WHERE run_id = $1`,
+            [attempt.runId],
+          )
+        ).rows[0],
       );
       const runId = RunIdSchema.parse(attempt.runId);
       const snapshotId = SnapshotIdSchema.parse(attempt.snapshotId);
@@ -272,12 +268,15 @@ export function createInitialCollectionHandler(
       const collectionStartedAt =
         clock() < request.requested_at ? request.requested_at : clock();
       const collectionAlreadyStarted =
-        database
-          .prepare(`SELECT 1 FROM run_events
-            WHERE run_id = ? AND event_type = 'collection_started' LIMIT 1`)
-          .get(runId) !== undefined;
+        (
+          await database.query(
+            `SELECT 1 FROM run_events
+            WHERE run_id = $1 AND event_type = 'collection_started' LIMIT 1`,
+            [runId],
+          )
+        ).rows[0] !== undefined;
       if (!collectionAlreadyStarted)
-        store.transitionRun({
+        await store.transitionRun({
           runId,
           fromStatus: "running",
           toStatus: "running",
@@ -299,8 +298,8 @@ export function createInitialCollectionHandler(
           question: request.question,
           cas: options.cas,
           researchProfile,
-          recordAuxiliaryCodexUsage: (usage) =>
-            recordAuxiliaryCodexUsage(options.databasePath, {
+          recordAuxiliaryCodexUsage: async (usage) =>
+            await recordAuxiliaryCodexUsage(options.database, {
               ...usage,
               runId,
               recordedAt: clock(),
@@ -311,10 +310,13 @@ export function createInitialCollectionHandler(
           .object({ failures: z.number().int().nonnegative() })
           .optional()
           .parse(
-            database
-              .prepare(`SELECT COALESCE(json_extract(result_json, '$.failureCount'), 0) AS failures
-            FROM idempotency_records WHERE scope = 'worker-retry' AND idempotency_key = ?`)
-              .get(attempt.jobId),
+            (
+              await database.query(
+                `SELECT COALESCE((result_json::jsonb ->> 'failureCount')::integer, 0) AS failures
+            FROM idempotency_records WHERE scope = 'worker-retry' AND idempotency_key = $1`,
+                [attempt.jobId],
+              )
+            ).rows[0],
           );
         return collectionFailure(error, clock(), prior?.failures ?? 0);
       }
@@ -323,7 +325,7 @@ export function createInitialCollectionHandler(
         defaultResearchQuestion(request.symbol, request.locale);
       const researchBrief = await planResearchBrief({
         runId,
-        databasePath: options.databasePath,
+        database: options.database,
         question,
         symbol: request.symbol,
         legalName: collected.identity.legalName,
@@ -433,7 +435,7 @@ export function createInitialCollectionHandler(
           ...collected.providerLimitations,
         ],
       );
-      store.transitionRun({
+      await store.transitionRun({
         runId,
         fromStatus: "running",
         toStatus: "running",
@@ -445,12 +447,12 @@ export function createInitialCollectionHandler(
           "근거 기준 시점을 확정했습니다.",
         ),
       });
-      options.authority.sealSnapshot(
+      await options.authority.sealSnapshot(
         snapshotId,
         evidenceCutoffAt,
         snapshotSealedAt,
       );
-      store.transitionRun({
+      await store.transitionRun({
         runId,
         fromStatus: "running",
         toStatus: "running",
@@ -521,7 +523,7 @@ export function createInitialCollectionHandler(
             code: "source_artifact_missing",
             retryAt: clock(),
           };
-        const existing = store.findArtifactByContentHash(
+        const existing = await store.findArtifactByContentHash(
           artifact.digest,
           attempt.snapshotId,
         );
@@ -531,7 +533,7 @@ export function createInitialCollectionHandler(
             artifactId: ArtifactIdSchema.parse(existing.artifactId),
           });
         } else {
-          const canonicalArtifactId = store.saveArtifactMetadata({
+          const canonicalArtifactId = await store.saveArtifactMetadata({
             ...artifact,
             contentHash: artifact.digest,
             logicalKey: `evidence:${source.evidenceId}`,
@@ -565,8 +567,8 @@ export function createInitialCollectionHandler(
       const first = jobs[0];
       if (first === undefined)
         return { kind: "permanent", code: "specialist_roster_empty" };
-      options.authority.persistJobs(jobs, mandateSealedAt);
-      store.transitionRun({
+      await options.authority.persistJobs(jobs, mandateSealedAt);
+      await store.transitionRun({
         runId,
         fromStatus: "running",
         toStatus: "running",
@@ -589,11 +591,11 @@ export function createInitialCollectionHandler(
       });
       for (const job of jobs)
         for (const artifactId of job.sourceArtifactIds)
-          options.commitStore.bindJobInputArtifact({
+          await options.commitStore.bindJobInputArtifact({
             jobId: job.jobId,
             artifactId,
           });
-      options.authority.releaseSystemCollectionReservation(
+      await options.authority.releaseSystemCollectionReservation(
         runId,
         attempt.attemptId,
       );

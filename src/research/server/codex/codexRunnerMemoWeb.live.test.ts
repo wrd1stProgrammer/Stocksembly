@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import Database from "better-sqlite3";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { commitAgentOutput } from "../../application/commitAgentOutput";
@@ -79,7 +78,7 @@ describe("live audited memo web path", () => {
               capture,
             ),
         });
-        const recorded = recordSuccessfulRunnerEvidence(
+        const recorded = await recordSuccessfulRunnerEvidence(
           fixture.commitStore,
           {
             runId: fixture.runId,
@@ -95,24 +94,24 @@ describe("live audited memo web path", () => {
           },
           result.evidence,
         );
-        const inspection = new Database(fixture.databasePath, {
-          readonly: true,
-        });
+        const inspection = fixture.database;
         const ledgerCount = CountSchema.parse(
-          inspection
-            .prepare(
-              "SELECT COUNT(*) AS count FROM attempt_web_evidence WHERE attempt_id = ?",
+          (
+            await inspection.query(
+              "SELECT COUNT(*)::integer AS count FROM attempt_web_evidence WHERE attempt_id = $1",
+              [fixture.attemptId],
             )
-            .get(fixture.attemptId),
+          ).rows[0],
         ).count;
         const row = ArtifactRowSchema.safeParse(
-          inspection
-            .prepare(
-              "SELECT artifact_id FROM attempt_web_evidence WHERE attempt_id = ? ORDER BY artifact_id LIMIT 1",
+          (
+            await inspection.query(
+              "SELECT artifact_id FROM attempt_web_evidence WHERE attempt_id = $1 ORDER BY artifact_id LIMIT 1",
+              [fixture.attemptId],
             )
-            .get(fixture.attemptId),
+          ).rows[0],
         );
-        inspection.close();
+
         if (!recorded)
           throw new LiveMemoWebVerificationError("runner_evidence_rejected");
         if (!row.success)
@@ -169,7 +168,8 @@ describe("live audited memo web path", () => {
                   : "non_error_failure",
         };
       } finally {
-        fixture.commitStore.close();
+        await fixture.commitStore.close();
+        await fixture.close();
         await mkdir(dirname(EVIDENCE_PATH), { recursive: true });
         await writeFile(
           EVIDENCE_PATH,

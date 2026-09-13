@@ -1,293 +1,330 @@
-import { copyFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
-import { AttemptIdSchema, EventIdSchema } from "../domain/ids";
+import { createResearchTestDatabase } from "../../test/researchPostgres";
+import {
+  AttemptIdSchema,
+  EventIdSchema,
+  JobIdSchema,
+  RunIdSchema,
+  SnapshotIdSchema,
+} from "../domain/ids";
+import {
+  appendRunEvent,
+  createRun,
+} from "../server/persistence/postgres/runRepository";
 import { chairResumeReceiptExceptionAvailable } from "../workflow/chairResumePermit";
 import { ChairSynthesisPromptSchema } from "../workflow/chairSynthesisContracts";
 import { resumeCommitteeChair } from "./chairResume";
-import { SqliteLeaseEngineStore } from "./leaseEngineSqlite";
+import { hash, uuid } from "./leaseEngine.testSupport";
+import { PostgresLeaseEngineStore } from "./leaseEnginePostgres";
 
-const SOURCE = join(
-  process.cwd(),
-  ".omo/evidence/task-13-research-editorial-system-rebuild/chair-debug/copied-research.sqlite",
-);
-const RUN_ID = "6bcce9de-f1b2-4eda-878f-290a7d0f6713";
-const CHAIR_JOB_ID = "e48a2d93-8ebc-4555-812b-659504c80b46";
-const directories: string[] = [];
-
-function copiedDatabase(): string {
-  const directory = mkdtempSync(join(tmpdir(), "chair-resume-copy-"));
-  directories.push(directory);
-  const path = join(directory, "research.sqlite");
-  copyFileSync(SOURCE, path);
-  const database = new Database(path);
-  database
-    .prepare("DELETE FROM idempotency_records WHERE scope = 'chair-resume'")
-    .run();
-  database
-    .prepare("UPDATE runs SET status = 'incomplete' WHERE run_id = ?")
-    .run(RUN_ID);
-  database
-    .prepare(
-      "UPDATE jobs SET status = 'retry-wait', lease_owner = NULL, lease_expires_at = NULL WHERE job_id = ?",
-    )
-    .run(CHAIR_JOB_ID);
-  database
-    .prepare(`UPDATE idempotency_records SET result_json = json_set(
-      result_json, '$.retryAt', '2026-08-01T00:00:00.000Z',
-      '$.failureCount', 2, '$.circuitOpen', json('true'),
-      '$.classification', 'transient',
-      '$.code', 'external_dependency_circuit_open')
-      WHERE scope = 'worker-retry' AND idempotency_key = ?`)
-    .run(CHAIR_JOB_ID);
-  database.close();
-  return path;
-}
-
-function authorization(value: number): string {
-  return `00000000-0000-4000-8000-${value.toString().padStart(12, "0")}`;
-}
-
-afterEach(() => {
-  while (directories.length > 0) {
-    const directory = directories.pop();
-    if (directory !== undefined)
-      rmSync(directory, { recursive: true, force: true });
-  }
+const RUN_ID = uuid(1);
+const CHAIR_JOB_ID = uuid(3);
+const now = "2026-08-01T03:20:00.000Z";
+const cleanups: Array<() => Promise<void>> = [];
+afterEach(async () => {
+  await Promise.all(cleanups.splice(0).map((close) => close()));
 });
 
-describe.skipIf(!existsSync(SOURCE))("bounded copied-DB chair resume", () => {
-  it("keeps the persisted chair validation prompt schema-valid", () => {
-    const path = copiedDatabase();
-    const database = new Database(path, { readonly: true });
-    const row = database
-      .prepare(`SELECT result_json FROM idempotency_records
-        WHERE scope = 'chair-synthesis-job' AND idempotency_key = ?`)
-      .get(RUN_ID) as { readonly result_json: string };
-    database.close();
-    const job = JSON.parse(row.result_json) as {
-      readonly validationPrompt: string;
-    };
-    expect(
-      ChairSynthesisPromptSchema.safeParse(JSON.parse(job.validationPrompt)),
-    ).toMatchObject({ success: true });
+async function restoredDatabase() {
+  const { pool, close } = await createResearchTestDatabase();
+  cleanups.push(close);
+  await createRun(pool, {
+    runId: RunIdSchema.parse(RUN_ID),
+    snapshotId: SnapshotIdSchema.parse(uuid(2)),
+    requestedAt: now,
+    remainingBaseCalls: 0,
+    requestedOptionalCalls: 0,
+    requestedReplacementCalls: 2,
+    initialJob: {
+      jobId: JobIdSchema.parse(CHAIR_JOB_ID),
+      kind: "research",
+      logicalKey: "chair_synthesis:chair",
+      inputHash: hash(3),
+      createdAt: now,
+    },
+    initialEvent: {
+      eventId: EventIdSchema.parse(uuid(4)),
+      type: "run_queued",
+      stateId: "queued",
+      occurredAt: now,
+    },
   });
-  it("reopens and queues only chair without changing upstream history", () => {
-    const path = copiedDatabase();
-    const before = new Database(path, { readonly: true });
-    const upstreamEvents = before
-      .prepare(
-        "SELECT COUNT(*) AS count FROM run_events WHERE run_id = ? AND event_type <> 'run_incomplete'",
-      )
-      .get(RUN_ID) as { readonly count: number };
-    before.close();
+  await pool.query(
+    "INSERT INTO research_requests(run_id,principal_id,symbol,question,locale,request_hash,created_at) VALUES ($1,$2,'NVDA','Research','en',$2,$3)",
+    [RUN_ID, hash(1), now],
+  );
+  await pool.query(
+    "INSERT INTO artifacts(artifact_id,run_id,snapshot_id,content_hash,byte_length,media_type,logical_key,input_hash,created_at) VALUES ($1,$2,$3,$4,2,'application/json','fixture:upstream',$4,$5)",
+    [uuid(5), RUN_ID, uuid(2), hash(5), now],
+  );
+  const stages = [
+    ...Array.from({ length: 11 }, (_, i) => `memo:${i === 0 ? "market" : i}`),
+    ...Array.from({ length: 4 }, (_, i) => `consolidation:${i}`),
+    ...Array.from({ length: 4 }, (_, i) => `challenge:${i}`),
+    ...Array.from({ length: 4 }, (_, i) => `response_ballot:${i}`),
+    "semantic_audit:system",
+  ];
+  for (const [i, stage] of stages.entries())
+    await pool.query(
+      "INSERT INTO jobs(job_id,run_id,snapshot_id,kind,logical_key,input_hash,status,result_artifact_id,created_at) VALUES ($1,$2,$3,'research',$4,$5,'succeeded',$6,$7)",
+      [uuid(100 + i), RUN_ID, uuid(2), stage, hash(100 + i), uuid(5), now],
+    );
+  await pool.query(
+    "INSERT INTO attempts(attempt_id,job_id,run_id,snapshot_id,kind,status,logical_artifact_key,input_hash,created_at,outcome) VALUES ($1,$2,$3,$4,'research','failed','chair_synthesis:chair',$5,$6,'failed')",
+    [uuid(6), CHAIR_JOB_ID, RUN_ID, uuid(2), hash(3), now],
+  );
+  await appendRunEvent(pool, {
+    runId: RunIdSchema.parse(RUN_ID),
+    event: {
+      eventId: EventIdSchema.parse(uuid(7)),
+      type: "attempt_committed",
+      stateId: "incomplete",
+      occurredAt: now,
+      jobId: JobIdSchema.parse(CHAIR_JOB_ID),
+      payload: { code: "codex_process_failed" },
+    },
+  });
+  await pool.query("UPDATE runs SET status='incomplete' WHERE run_id=$1", [
+    RUN_ID,
+  ]);
+  await pool.query("UPDATE jobs SET status='retry-wait' WHERE job_id=$1", [
+    CHAIR_JOB_ID,
+  ]);
+  await pool.query(
+    "INSERT INTO idempotency_records(scope,idempotency_key,request_hash,result_json,created_at) VALUES ('worker-retry',$1,$2,$3,$4)",
+    [
+      CHAIR_JOB_ID,
+      hash(8),
+      JSON.stringify({
+        retryAt: now,
+        failureCount: 2,
+        circuitOpen: true,
+        classification: "transient",
+        code: "external_dependency_circuit_open",
+      }),
+      now,
+    ],
+  );
+  const departments = ["market", "company", "financial", "risk"] as const;
+  const prompt = ChairSynthesisPromptSchema.parse({
+    kind: "chair_synthesis_input_v1",
+    mandate: {
+      mandateHash: hash(1),
+      scope: "broad",
+      locale: "en",
+      limitations: [],
+    },
+    capabilities: [],
+    auditedClaimIds: [uuid(9)],
+    departmentPositions: departments.map((departmentId) => ({
+      departmentId,
+      artifactId: uuid(5),
+    })),
+    ballots: departments.map((departmentId) => ({
+      departmentId,
+      artifactId: uuid(5),
+      vote: "support",
+    })),
+    dissentClaimIds: [],
+    unknownIds: [],
+    scenarioIds: [],
+    changeConditionClaimIds: [],
+    sourceArtifactIds: [uuid(5)],
+    sentences: [
+      {
+        sentenceId: "one",
+        kind: "claim",
+        claimIds: [uuid(9)],
+        sourceArtifactIds: [uuid(5)],
+        text: { en: "Supported evidence", ko: "확인된 근거" },
+      },
+    ],
+  });
+  await pool.query(
+    "INSERT INTO idempotency_records(scope,idempotency_key,request_hash,result_json,created_at) VALUES ('chair-synthesis-job',$1,$2,$3,$4)",
+    [
+      RUN_ID,
+      hash(9),
+      JSON.stringify({ validationPrompt: JSON.stringify(prompt) }),
+      now,
+    ],
+  );
+  return pool;
+}
 
-    const resumed = resumeCommitteeChair({
-      databasePath: path,
-      runId: RUN_ID,
-      authorizationId: authorization(1),
-      now: "2026-08-01T03:20:00.000Z",
+describe("restored PostgreSQL chair resume", () => {
+  it("keeps the persisted chair validation prompt schema-valid", async () => {
+    const pool = await restoredDatabase();
+    const row = (
+      await pool.query<{ result_json: string }>(
+        "SELECT result_json FROM idempotency_records WHERE scope='chair-synthesis-job' AND idempotency_key=$1",
+        [RUN_ID],
+      )
+    ).rows[0];
+    if (!row) throw new Error("missing persisted prompt");
+    const job = JSON.parse(row.result_json) as { validationPrompt: string };
+    expect(
+      ChairSynthesisPromptSchema.safeParse(JSON.parse(job.validationPrompt))
+        .success,
+    ).toBe(true);
+  });
+  it("reopens only chair without changing upstream history and rejects a second authorization", async () => {
+    const pool = await restoredDatabase();
+    const before = (
+      await pool.query("SELECT * FROM jobs WHERE job_id<>$1 ORDER BY job_id", [
+        CHAIR_JOB_ID,
+      ])
+    ).rows;
+    const events = (
+      await pool.query("SELECT * FROM run_events ORDER BY sequence")
+    ).rows;
+    const input = { pool, runId: RUN_ID, authorizationId: uuid(1000), now };
+    expect(await resumeCommitteeChair(input)).toMatchObject({
+      kind: "resumed",
+      grantedLaunch: 0,
     });
-
-    expect(resumed).toMatchObject({ kind: "resumed", grantedLaunch: 0 });
-    const database = new Database(path);
-    const candidate = database
-      .prepare(`WITH scheduled_research_runs AS (
-        SELECT run_id FROM runs WHERE status = 'queued'
-      ) SELECT jobs.logical_key FROM jobs JOIN runs USING(run_id)
-      LEFT JOIN idempotency_records retry ON retry.scope = 'worker-retry'
-        AND retry.idempotency_key = jobs.job_id
-      WHERE jobs.run_id IN scheduled_research_runs AND (
-        jobs.status = 'queued' OR (jobs.status = 'retry-wait'
-          AND COALESCE(json_extract(retry.result_json, '$.circuitOpen'), 0) = 0
-          AND COALESCE(json_extract(retry.result_json, '$.retryAt'), '') <= ?))
-      ORDER BY jobs.created_at, jobs.job_id LIMIT 1`)
-      .get("2026-08-01T03:20:01.000Z");
-    const afterEvents = database
-      .prepare(
-        "SELECT COUNT(*) AS count FROM run_events WHERE run_id = ? AND event_type <> 'run_incomplete' AND event_type <> 'chair_resume_authorized'",
-      )
-      .get(RUN_ID) as { readonly count: number };
-    expect(candidate).toEqual({ logical_key: "chair_synthesis:chair" });
-    expect(afterEvents.count).toBe(upstreamEvents.count);
     expect(
-      resumeCommitteeChair({
-        databasePath: path,
-        runId: RUN_ID,
-        authorizationId: authorization(1),
-        now: "2026-08-01T03:20:02.000Z",
-      }),
-    ).toMatchObject({ kind: "already_applied" });
+      (
+        await pool.query(
+          "SELECT * FROM jobs WHERE job_id<>$1 ORDER BY job_id",
+          [CHAIR_JOB_ID],
+        )
+      ).rows,
+    ).toEqual(before);
     expect(
-      resumeCommitteeChair({
-        databasePath: path,
-        runId: RUN_ID,
-        authorizationId: authorization(2),
-        now: "2026-08-01T03:20:03.000Z",
-      }),
+      (
+        await pool.query("SELECT * FROM run_events ORDER BY sequence")
+      ).rows.slice(0, events.length),
+    ).toEqual(events);
+    expect(await resumeCommitteeChair(input)).toMatchObject({
+      kind: "already_applied",
+    });
+    expect(
+      await resumeCommitteeChair({ ...input, authorizationId: uuid(1001) }),
     ).toEqual({ kind: "rejected", reason: "already_resumed" });
-    database.close();
   });
-
   it.each([
-    ["wrong_status", "UPDATE runs SET status = 'failed' WHERE run_id = ?"],
+    ["wrong_status", "UPDATE runs SET status='failed' WHERE run_id=$1"],
     [
       "upstream_incomplete",
-      "UPDATE jobs SET status = 'failed' WHERE run_id = ? AND logical_key = 'memo:market'",
+      "UPDATE jobs SET status='failed' WHERE run_id=$1 AND logical_key='memo:market'",
     ],
     [
       "wrong_stage",
-      "UPDATE jobs SET logical_key = 'chair_other:chair' WHERE run_id = ? AND logical_key = 'chair_synthesis:chair'",
+      "UPDATE jobs SET logical_key='chair_other:chair' WHERE run_id=$1 AND logical_key='chair_synthesis:chair'",
     ],
     [
       "wrong_target",
-      "UPDATE research_requests SET research_kind = 'department' WHERE run_id = ?",
+      "UPDATE research_requests SET research_kind='department' WHERE run_id=$1",
     ],
     [
       "circuit_not_retryable",
-      "UPDATE idempotency_records SET result_json = json_set(result_json, '$.circuitOpen', json('false')) WHERE scope = 'worker-retry' AND idempotency_key IN (SELECT job_id FROM jobs WHERE run_id = ? AND logical_key = 'chair_synthesis:chair')",
+      "UPDATE idempotency_records SET result_json=jsonb_set(result_json::jsonb,'{circuitOpen}','false')::text WHERE scope='worker-retry' AND idempotency_key IN (SELECT job_id FROM jobs WHERE run_id=$1)",
     ],
-  ] as const)("rejects %s", (reason, mutation) => {
-    const path = copiedDatabase();
-    const database = new Database(path);
-    database.prepare(mutation).run(RUN_ID);
-    database.close();
+  ])("rejects %s", async (reason, sql) => {
+    const pool = await restoredDatabase();
+    await pool.query(sql, [RUN_ID]);
     expect(
-      resumeCommitteeChair({
-        databasePath: path,
+      await resumeCommitteeChair({
+        pool,
         runId: RUN_ID,
-        authorizationId: authorization(10),
-        now: "2026-08-01T03:20:00.000Z",
+        authorizationId: uuid(1002),
+        now,
       }),
     ).toEqual({ kind: "rejected", reason });
   });
-
-  it("rejects multiple chair jobs and an existing publication", () => {
-    const multiple = copiedDatabase();
-    const multipleDb = new Database(multiple);
-    multipleDb
-      .prepare(`INSERT INTO jobs(job_id, run_id, snapshot_id, kind,
-        logical_key, input_hash, status, created_at)
-        SELECT '00000000-0000-4000-8000-000000000099', run_id, snapshot_id,
-        'research', 'chair_synthesis:backup',
-        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        'retry-wait', created_at FROM runs WHERE run_id = ?`)
-      .run(RUN_ID);
-    multipleDb.close();
+  it("rejects multiple chair jobs and an existing publication", async () => {
+    const pool = await restoredDatabase();
+    await pool.query(
+      "INSERT INTO jobs(job_id,run_id,snapshot_id,kind,logical_key,input_hash,status,created_at) SELECT $1,run_id,snapshot_id,'research','chair_synthesis:backup',$2,'retry-wait',created_at FROM runs WHERE run_id=$3",
+      [uuid(1003), hash(1), RUN_ID],
+    );
     expect(
-      resumeCommitteeChair({
-        databasePath: multiple,
+      await resumeCommitteeChair({
+        pool,
         runId: RUN_ID,
-        authorizationId: authorization(20),
-        now: "2026-08-01T03:20:00.000Z",
+        authorizationId: uuid(1004),
+        now,
       }),
     ).toEqual({ kind: "rejected", reason: "multiple_chair_jobs" });
-
-    const published = copiedDatabase();
-    const publishedDb = new Database(published);
-    publishedDb
-      .prepare(`INSERT INTO reports(report_id, run_id, snapshot_id, state, created_at)
-        SELECT '00000000-0000-4000-8000-000000000098', run_id, snapshot_id,
-        'published', created_at FROM runs WHERE run_id = ?`)
-      .run(RUN_ID);
-    publishedDb.close();
+    await pool.query("DELETE FROM jobs WHERE job_id=$1", [uuid(1003)]);
+    await pool.query(
+      "INSERT INTO reports(report_id,run_id,snapshot_id,state,created_at) SELECT $1,run_id,snapshot_id,'published',created_at FROM runs WHERE run_id=$2",
+      [uuid(1005), RUN_ID],
+    );
     expect(
-      resumeCommitteeChair({
-        databasePath: published,
+      await resumeCommitteeChair({
+        pool,
         runId: RUN_ID,
-        authorizationId: authorization(21),
-        now: "2026-08-01T03:20:00.000Z",
+        authorizationId: uuid(1004),
+        now,
       }),
     ).toEqual({ kind: "rejected", reason: "report_published" });
   });
-
   it("consumes one authorization exactly once across concurrent callers", async () => {
-    const path = copiedDatabase();
-    const input = {
-      databasePath: path,
-      runId: RUN_ID,
-      authorizationId: authorization(30),
-      now: "2026-08-01T03:20:00.000Z",
-    };
-
-    const results = await Promise.all([
-      Promise.resolve().then(() => resumeCommitteeChair(input)),
-      Promise.resolve().then(() => resumeCommitteeChair(input)),
-    ]);
-
-    expect(results.map((result) => result.kind).sort()).toEqual([
-      "already_applied",
-      "resumed",
-    ]);
-    const database = new Database(path, { readonly: true });
-    const events = database
-      .prepare(
-        "SELECT COUNT(*) AS count FROM run_events WHERE run_id = ? AND event_type = 'chair_resume_authorized'",
+    const pool = await restoredDatabase();
+    const input = { pool, runId: RUN_ID, authorizationId: uuid(1006), now };
+    expect(
+      (
+        await Promise.all([
+          resumeCommitteeChair(input),
+          resumeCommitteeChair(input),
+        ])
       )
-      .get(RUN_ID) as { readonly count: number };
-    expect(events.count).toBe(1);
-    database.close();
+        .map((r) => r.kind)
+        .sort(),
+    ).toEqual(["already_applied", "resumed"]);
+    expect(
+      (
+        await pool.query(
+          "SELECT COUNT(*)::integer n FROM run_events WHERE event_type='chair_resume_authorized'",
+        )
+      ).rows,
+    ).toEqual([{ n: 1 }]);
   });
-
-  it("reactivates the same authorization and consumes its receipt exception at chair reservation", () => {
-    const path = copiedDatabase();
-    const authorizationId = authorization(40);
-    expect(
-      resumeCommitteeChair({
-        databasePath: path,
-        runId: RUN_ID,
-        authorizationId,
-        now: "2026-08-01T03:20:00.000Z",
-      }),
-    ).toMatchObject({ kind: "resumed" });
-    const database = new Database(path);
-    const sequence = (
-      database
-        .prepare(`UPDATE runs SET status = 'incomplete',
-          last_event_seq = last_event_seq + 1 WHERE run_id = ?
-          RETURNING last_event_seq`)
-        .get(RUN_ID) as { readonly last_event_seq: number }
-    ).last_event_seq;
-    database
-      .prepare(`INSERT INTO run_events(run_id, sequence, event_id, event_type,
-        state_id, occurred_at, payload_json) VALUES (?, ?, ?, 'run_incomplete',
-        'incomplete', ?, json_object('code',
-          'chair_synthesis:replacement_exhausted'))`)
-      .run(RUN_ID, sequence, authorization(41), "2026-08-01T03:20:01.000Z");
-    database.close();
-
-    expect(
-      resumeCommitteeChair({
-        databasePath: path,
-        runId: RUN_ID,
-        authorizationId,
-        now: "2026-08-01T03:20:02.000Z",
-      }),
-    ).toMatchObject({ kind: "already_applied" });
-    expect(chairResumeReceiptExceptionAvailable(path, RUN_ID)).toBe(true);
-
-    const store = new SqliteLeaseEngineStore(path);
-    expect(
-      store.activateNextRun(authorization(44), "2026-08-01T03:20:02.500Z"),
-    ).toBe(true);
-    const claim = store.claim(
-      "receipt-exception-worker",
-      "2026-08-01T03:20:03.000Z",
-      "2026-08-01T03:20:33.000Z",
+  it("reactivates the same authorization and consumes its receipt exception on reservation", async () => {
+    const pool = await restoredDatabase();
+    const input = { pool, runId: RUN_ID, authorizationId: uuid(1007), now };
+    expect(await resumeCommitteeChair(input)).toMatchObject({
+      kind: "resumed",
+    });
+    await pool.query("UPDATE runs SET status='incomplete' WHERE run_id=$1", [
+      RUN_ID,
+    ]);
+    await appendRunEvent(pool, {
+      runId: RunIdSchema.parse(RUN_ID),
+      event: {
+        eventId: EventIdSchema.parse(uuid(1008)),
+        type: "run_incomplete",
+        stateId: "incomplete",
+        occurredAt: now,
+        payload: { code: "chair_synthesis:replacement_exhausted" },
+      },
+    });
+    expect(await resumeCommitteeChair(input)).toMatchObject({
+      kind: "already_applied",
+    });
+    const store = new PostgresLeaseEngineStore(pool);
+    expect(await store.activateNextRun(uuid(1009), now)).toBe(true);
+    expect(await chairResumeReceiptExceptionAvailable(pool, RUN_ID)).toBe(true);
+    const claim = await store.claim(
+      "receipt-worker",
+      now,
+      "2026-08-01T03:21:00.000Z",
     );
     expect(claim?.logicalKey).toBe("chair_synthesis:chair");
-    if (claim === undefined) throw new Error("chair claim missing");
+    if (!claim) throw new Error("chair claim missing");
     expect(
-      store.reserve({
+      await store.reserve({
         claim,
-        attemptId: AttemptIdSchema.parse(authorization(42)),
-        eventId: EventIdSchema.parse(authorization(43)),
-        now: "2026-08-01T03:20:03.000Z",
+        attemptId: AttemptIdSchema.parse(uuid(1010)),
+        eventId: EventIdSchema.parse(uuid(1011)),
+        now,
       }),
     ).toMatchObject({ kind: "reserved" });
-    store.close();
-    expect(chairResumeReceiptExceptionAvailable(path, RUN_ID)).toBe(false);
+    expect(await chairResumeReceiptExceptionAvailable(pool, RUN_ID)).toBe(
+      false,
+    );
+    await store.close();
   });
 });

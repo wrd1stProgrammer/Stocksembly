@@ -34,7 +34,9 @@ export type ChildRunCommand = {
 };
 
 export interface DurableChildRunStorePort {
-  readonly createChildRun: (input: ChildRunCommand) => DurableChildRunRecord;
+  readonly createChildRun: (
+    input: ChildRunCommand,
+  ) => DurableChildRunRecord | Promise<DurableChildRunRecord>;
 }
 
 export type DurableChildRunRecord = {

@@ -1,29 +1,29 @@
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
-import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
+import { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import { createLeaseEngine } from "../worker/leaseEngine";
 import type {
   ChallengeRoundReplay,
-  SqliteChallengeRound,
-  SqliteChallengeRoundOptions,
+  PostgresChallengeRound,
+  PostgresChallengeRoundOptions,
 } from "./challengeRoundContracts";
 import { challengeJobs } from "./challengeRoundInput";
-import { ChallengeRoundSqliteAuthority } from "./challengeRoundSqliteAuthority";
-import { createChallengeRoundAttemptHandler } from "./challengeRoundSqliteHandler";
-import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import { ChallengeRoundPostgresAuthority } from "./challengeRoundPostgresAuthority";
+import { createChallengeRoundAttemptHandler } from "./challengeRoundPostgresHandler";
+import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 
 export type {
   ChallengeRoundReplay,
-  SqliteChallengeRound,
-  SqliteChallengeRoundOptions,
+  PostgresChallengeRound,
+  PostgresChallengeRoundOptions,
   StageChallengeRoundResult,
 } from "./challengeRoundContracts";
 export { CHALLENGE_ASSIGNMENTS } from "./challengeRoundContracts";
 
-function replayResult(
+async function replayResult(
   runId: string,
-  authority: ChallengeRoundSqliteAuthority,
-): ChallengeRoundReplay {
-  const replay = authority.replay(runId);
+  authority: ChallengeRoundPostgresAuthority,
+): Promise<ChallengeRoundReplay> {
+  const replay = await authority.replay(runId);
   const committedChallengerIds = replay.commits.flatMap((commit) => {
     const challengerId = WORKFLOW_V1_DEPARTMENT_IDS.find(
       (id) => commit.logical_artifact_key === `challenge:${id}`,
@@ -44,25 +44,16 @@ function replayResult(
   };
 }
 
-export function createSqliteChallengeRound(
-  options: SqliteChallengeRoundOptions,
-): SqliteChallengeRound {
-  const migrationOptions =
-    options.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: options.migrationsDirectory };
-  const workflowAuthority = new SpecialistRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+export function createPostgresChallengeRound(
+  options: PostgresChallengeRoundOptions,
+): PostgresChallengeRound {
+  const workflowAuthority = new SpecialistRoundPostgresAuthority(
+    options.database,
   );
-  const challengeAuthority = new ChallengeRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+  const challengeAuthority = new ChallengeRoundPostgresAuthority(
+    options.database,
   );
-  const commitStore = new SqliteAgentOutputCommitStore(
-    options.databasePath,
-    migrationOptions,
-  );
+  const commitStore = new PostgresAgentOutputCommitStore(options.database);
   const handler = createChallengeRoundAttemptHandler({
     options,
     workflowAuthority,
@@ -71,11 +62,11 @@ export function createSqliteChallengeRound(
   });
   const now = options.now ?? (() => new Date().toISOString());
   return {
-    authority: "sqlite-worker-trusted-commit",
+    authority: "postgres-worker-trusted-commit",
     async stage(input) {
       const rows = {
-        memos: challengeAuthority.acceptedRows(input.runId, "memo"),
-        consolidations: challengeAuthority.acceptedRows(
+        memos: await challengeAuthority.acceptedRows(input.runId, "memo"),
+        consolidations: await challengeAuthority.acceptedRows(
           input.runId,
           "consolidation",
         ),
@@ -85,7 +76,7 @@ export function createSqliteChallengeRound(
         artifactIds: input.consolidationArtifactIds,
       });
       if (prepared.kind === "blocked") return prepared;
-      const staged = challengeAuthority.stageJobs(
+      const staged = await challengeAuthority.stageJobs(
         input.runId,
         prepared.jobs,
         input.consolidationArtifactIds,
@@ -100,7 +91,7 @@ export function createSqliteChallengeRound(
     },
     async drain(runId) {
       const engine = createLeaseEngine({
-        databasePath: options.databasePath,
+        pool: options.database,
         ownerId: options.ownerId,
         handler,
         clock: { now },
@@ -114,11 +105,11 @@ export function createSqliteChallengeRound(
         if (results.every((result) => result.kind === "idle")) break;
       }
       await engine.shutdown();
-      return replayResult(runId, challengeAuthority);
+      return await replayResult(runId, challengeAuthority);
     },
-    replay: (runId) => replayResult(runId, challengeAuthority),
+    replay: async (runId) => await replayResult(runId, challengeAuthority),
     async close() {
-      commitStore.close();
+      await commitStore.close();
       challengeAuthority.close();
       workflowAuthority.close();
     },

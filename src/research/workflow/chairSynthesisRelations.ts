@@ -1,4 +1,3 @@
-import type Database from "better-sqlite3";
 import { z } from "zod";
 import {
   BlindChallengeOutputSchema,
@@ -9,7 +8,8 @@ import {
 import type { ArtifactIdSchema, ClaimIdSchema } from "../domain/ids";
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
 import type { ArtifactCasPort } from "../ports/artifacts";
-import { parseSafeJson } from "../server/persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { parseSafeJson } from "../server/persistence/postgres/safeJson";
 import {
   type ChairArtifactRow,
   chairAgentPayload,
@@ -20,7 +20,7 @@ import {
 } from "./challengeRoundContracts";
 
 type Context = {
-  readonly database: Database.Database;
+  readonly database: ResearchDatabase;
   readonly cas: ArtifactCasPort;
   readonly rows: readonly ChairArtifactRow[];
   readonly auditedClaimIds: ReadonlySet<string>;
@@ -170,10 +170,13 @@ export async function loadChairRelations(context: Context) {
     const stored = z
       .object({ request_hash: z.string(), result_json: z.string() })
       .safeParse(
-        context.database
-          .prepare(`SELECT request_hash, result_json FROM idempotency_records
-            WHERE scope = 'challenge-round-job' AND idempotency_key = ?`)
-          .get(`${row.run_id}:${row.logical_key}`),
+        (
+          await context.database.query(
+            `SELECT request_hash, result_json FROM idempotency_records
+            WHERE scope = 'challenge-round-job' AND idempotency_key = $1`,
+            [`${row.run_id}:${row.logical_key}`],
+          )
+        ).rows[0],
       );
     if (!stored.success) return undefined;
     const job = PersistedChallengeJobSchema.safeParse(

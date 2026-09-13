@@ -1,5 +1,6 @@
-import Database from "better-sqlite3";
-import { serializeSafeJson } from "../server/persistence/sqlite/safeJson";
+import type { ResearchDatabase } from "../server/persistence/postgres/database";
+import { withResearchTransaction } from "../server/persistence/postgres/database";
+import { serializeSafeJson } from "../server/persistence/postgres/safeJson";
 
 export async function retryRejectedCommit<
   Result extends { readonly kind: string },
@@ -8,43 +9,45 @@ export async function retryRejectedCommit<
   return first.kind === "rejected" ? await commit() : first;
 }
 
-export function reserveEditorialQualityRewrite(
+export async function reserveEditorialQualityRewrite(
   input: Readonly<{
-    databasePath: string;
+    database: ResearchDatabase;
     runId: string;
     inputHash: string;
     now: string;
   }>,
-): boolean {
-  const database = new Database(input.databasePath, { timeout: 5_000 });
-  try {
-    return database
-      .transaction(() => {
-        const exists = database
-          .prepare(`SELECT request_hash FROM idempotency_records
-          WHERE scope = 'editorial-quality-rewrite' AND idempotency_key = ?`)
-          .get(input.runId) as { readonly request_hash: string } | undefined;
-        if (exists !== undefined)
-          return exists.request_hash === input.inputHash;
-        const budget = database
-          .prepare(`UPDATE runs SET requested_replacement_calls = requested_replacement_calls - 1
-          WHERE run_id = ? AND requested_replacement_calls > 0`)
-          .run(input.runId);
-        if (budget.changes !== 1) return false;
-        database
-          .prepare(`INSERT INTO idempotency_records(scope, idempotency_key,
+): Promise<boolean> {
+  const database = input.database;
+  return await withResearchTransaction(database, async (transaction) => {
+    await transaction.query(
+      "SELECT run_id FROM runs WHERE run_id = $1 FOR UPDATE",
+      [input.runId],
+    );
+    const exists = (
+      await transaction.query(
+        `SELECT request_hash FROM idempotency_records
+          WHERE scope = 'editorial-quality-rewrite' AND idempotency_key = $1`,
+        [input.runId],
+      )
+    ).rows[0] as { readonly request_hash: string } | undefined;
+    if (exists !== undefined) return exists.request_hash === input.inputHash;
+    const budget = await transaction.query(
+      `UPDATE runs SET requested_replacement_calls = requested_replacement_calls - 1
+          WHERE run_id = $1 AND requested_replacement_calls > 0`,
+      [input.runId],
+    );
+    if (budget.rowCount !== 1) return false;
+    await transaction.query(
+      `INSERT INTO idempotency_records(scope, idempotency_key,
           request_hash, result_json, created_at) VALUES (
-          'editorial-quality-rewrite', ?, ?, ?, ?)`)
-          .run(
-            input.runId,
-            input.inputHash,
-            serializeSafeJson({ attempt: 1, status: "reserved" }),
-            input.now,
-          );
-        return true;
-      })
-      .immediate();
-  } finally {
-    database.close();
-  }
+          'editorial-quality-rewrite', $1, $2, $3, $4)`,
+      [
+        input.runId,
+        input.inputHash,
+        serializeSafeJson({ attempt: 1, status: "reserved" }),
+        input.now,
+      ],
+    );
+    return true;
+  });
 }

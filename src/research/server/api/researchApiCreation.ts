@@ -100,7 +100,7 @@ export async function createRun(
     context.options.accountStore?.reserveResearchCredits === undefined
   )
     return apiError(503, "ACCOUNT_STORE_UNAVAILABLE");
-  const previous = context.repository.lookupIdempotency(
+  const previous = await context.repository.lookupIdempotency(
     principal,
     key,
     parsed.request,
@@ -160,9 +160,9 @@ export async function createRun(
         );
   if (creditCheck !== undefined && !creditCheck.allowed)
     return apiError(402, "CREDITS_INSUFFICIENT");
-  let result: ReturnType<ResearchApiRepository["create"]>;
+  let result: Awaited<ReturnType<ResearchApiRepository["create"]>>;
   try {
-    result = context.repository.create({
+    result = await context.repository.create({
       principalId: principal,
       idempotencyKey: key,
       request: parsed.request,

@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
-import type Database from "better-sqlite3";
 import { z } from "zod";
+import type { ResearchDatabase } from "../persistence/postgres/database";
 import {
   type JsonValue,
   parseSafeJson,
   serializeSafeJson,
-} from "../persistence/sqlite/safeJson";
+} from "../persistence/postgres/safeJson";
 
 const RowSchema = z.object({
   request_hash: z.string(),
@@ -16,22 +16,26 @@ export function commandDigest(input: unknown): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 
-export function replayCommand(
-  database: Database.Database,
+export async function replayCommand(
+  database: ResearchDatabase,
   scope: string,
   key: string,
   requestHash: string,
-):
+): Promise<
   | { readonly kind: "missing" }
   | { readonly kind: "conflict" }
   | {
       readonly kind: "replayed";
       readonly value: unknown;
-    } {
-  const found = database
-    .prepare(`SELECT request_hash, result_json FROM idempotency_records
-      WHERE scope = ? AND idempotency_key = ?`)
-    .get(scope, key);
+    }
+> {
+  const found = (
+    await database.query(
+      `SELECT request_hash, result_json FROM idempotency_records
+      WHERE scope = $1 AND idempotency_key = $2`,
+      [scope, key],
+    )
+  ).rows[0];
   if (found === undefined) return { kind: "missing" };
   const row = RowSchema.parse(found);
   return row.request_hash === requestHash
@@ -39,8 +43,8 @@ export function replayCommand(
     : { kind: "conflict" };
 }
 
-export function commitCommand(
-  database: Database.Database,
+export async function commitCommand(
+  database: ResearchDatabase,
   input: {
     readonly scope: string;
     readonly key: string;
@@ -48,10 +52,17 @@ export function commitCommand(
     readonly value: JsonValue;
     readonly now: string;
   },
-): void {
-  database
-    .prepare(`INSERT INTO idempotency_records(
+): Promise<void> {
+  await database.query(
+    `INSERT INTO idempotency_records(
       scope, idempotency_key, request_hash, result_json, created_at
-    ) VALUES (@scope, @key, @requestHash, @resultJson, @now)`)
-    .run({ ...input, resultJson: serializeSafeJson(input.value) });
+    ) VALUES ($1, $2, $3, $4, $5)`,
+    [
+      input.scope,
+      input.key,
+      input.requestHash,
+      serializeSafeJson(input.value),
+      input.now,
+    ],
+  );
 }

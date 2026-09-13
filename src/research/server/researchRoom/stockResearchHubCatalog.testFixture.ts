@@ -1,8 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { vi } from "vitest";
+import {
+  cleanupApiTestDatabases,
+  createApiTestDatabase,
+  currentApiTestDatabase,
+} from "../api/postgresApi.testSupport";
 
 const roots: string[] = [];
 
@@ -31,6 +35,7 @@ export function stockHubFixtureId(prefix: string, ordinal: number): string {
 }
 
 export async function cleanupStockHubFixtures(): Promise<void> {
+  await cleanupApiTestDatabases();
   vi.unstubAllEnvs();
   await Promise.all(
     roots.splice(0).map(async (root) => await rm(root, { recursive: true })),
@@ -42,8 +47,8 @@ export async function createStockHubFixture(
 ): Promise<void> {
   const dataRoot = await mkdtemp(join(tmpdir(), "stocksembly-stock-hub-"));
   roots.push(dataRoot);
-  const database = new Database(join(dataRoot, "research.sqlite"));
-  database.exec(`
+  const database = await createApiTestDatabase();
+  await database.query(`
     CREATE TABLE reports(report_id TEXT PRIMARY KEY, state TEXT NOT NULL);
     CREATE TABLE report_versions(
       report_id TEXT NOT NULL, run_id TEXT NOT NULL, version INTEGER NOT NULL,
@@ -60,55 +65,65 @@ export async function createStockHubFixture(
       name TEXT NOT NULL, status TEXT NOT NULL
     );
   `);
-  const insertReport = database.prepare(
-    "INSERT INTO reports(report_id, state) VALUES (?, 'published')",
-  );
-  const insertVersion = database.prepare(`INSERT INTO report_versions(
-    report_id, run_id, version, artifact_id, status, published_at
-  ) VALUES (?, ?, ?, ?, ?, ?)`);
-  const insertArtifact = database.prepare(
-    "INSERT INTO artifacts(artifact_id) VALUES (?)",
-  );
-  const insertRequest = database.prepare(`INSERT INTO research_requests(
-    run_id, symbol, question, locale, research_kind, department_id
-  ) VALUES (?, ?, ?, ?, ?, ?)`);
-  const insertRun = database.prepare(
-    "INSERT INTO runs(run_id, status) VALUES (?, 'completed')",
-  );
-  const insertSymbol = database.prepare(`INSERT OR IGNORE INTO symbol_registry(
-    provider_code, user_ticker, name, status
-  ) VALUES (?, ?, ?, 'active')`);
 
   for (const [reportIndex, report] of reports.entries()) {
     const ordinal = reportIndex + 1;
     const runId = stockHubFixtureId("21000000", ordinal);
-    insertReport.run(report.reportId);
-    insertRequest.run(
-      runId,
-      report.symbol,
-      report.question,
-      report.locale,
-      report.researchKind,
-      report.departmentId ?? null,
+    await database.query(
+      "INSERT INTO reports(report_id, state) VALUES ($1, 'published')",
+      [report.reportId],
     );
-    insertRun.run(runId);
-    insertSymbol.run(`NASDAQ:${report.symbol}`, report.symbol, report.company);
+    await database.query(
+      `INSERT INTO research_requests(
+    run_id, symbol, question, locale, research_kind, department_id
+  ) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        runId,
+        report.symbol,
+        report.question,
+        report.locale,
+        report.researchKind,
+        report.departmentId ?? null,
+      ],
+    );
+    await database.query(
+      "INSERT INTO runs(run_id, status) VALUES ($1, 'completed')",
+      [runId],
+    );
+    await database.query(
+      `INSERT INTO symbol_registry(
+    provider_code, user_ticker, name, status
+  ) VALUES ($1, $2, $3, 'active') ON CONFLICT DO NOTHING`,
+      [`NASDAQ:${report.symbol}`, report.symbol, report.company],
+    );
     for (const version of report.versions) {
       const artifactId = stockHubFixtureId(
         "22000000",
         ordinal * 100 + version.version,
       );
-      if (version.hasArtifact !== false) insertArtifact.run(artifactId);
-      insertVersion.run(
-        report.reportId,
-        runId,
-        version.version,
-        artifactId,
-        version.status,
-        version.publishedAt,
+      if (version.hasArtifact !== false)
+        await database.query("INSERT INTO artifacts(artifact_id) VALUES ($1)", [
+          artifactId,
+        ]);
+      await database.query(
+        `INSERT INTO report_versions(
+    report_id, run_id, version, artifact_id, status, published_at
+  ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          report.reportId,
+          runId,
+          version.version,
+          artifactId,
+          version.status,
+          version.publishedAt,
+        ],
       );
     }
   }
-  database.close();
+  // Pool is cleaned up after the test.
   vi.stubEnv("STOCKSEMBLY_DATA_DIR", dataRoot);
 }
+
+vi.mock("../persistence/postgres/researchPool", () => ({
+  getResearchPool: async () => currentApiTestDatabase(),
+}));

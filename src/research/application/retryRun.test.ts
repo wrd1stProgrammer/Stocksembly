@@ -1,20 +1,20 @@
-import { rmSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { createResearchTestDatabase } from "../../test/researchPostgres";
 import {
+  CALL_BUDGET_POLICY,
   createCallBudgetLedger,
   type LaunchOutcome,
   recordResearchLaunchOutcome,
   reserveResearchLaunch,
 } from "../domain/callBudget";
 import { WORKFLOW_V1_ROSTER_FINGERPRINT } from "../domain/roleRegistry";
-import { openSqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
 import {
   at,
   createRunFixture,
   fixture,
   hash,
-  temporaryDatabase,
-} from "../server/persistence/sqlite/sqliteStore.contractFixtures";
+} from "../server/persistence/postgres/postgresStore.contractFixtures";
 import { reserveReplacement, retryRun, retryStoredRun } from "./retryRun";
 
 const RUN_ID = "00000000-0000-4000-8000-000000000010";
@@ -50,7 +50,7 @@ function withFailedLaunch(
 }
 
 describe("retryRun", () => {
-  it("creates a terminal-parent same-snapshot child with a fresh 30-launch ledger", () => {
+  it("creates a terminal-parent same-snapshot child with a fresh policy-bounded ledger", () => {
     // Given
     const childRunId = "00000000-0000-4000-8000-000000000012";
 
@@ -69,7 +69,7 @@ describe("retryRun", () => {
         status: "queued",
         lineage: { kind: "same-snapshot-retry", parentRunId: failed.runId },
         ledger: { runId: childRunId, launches: [] },
-        maxPhysicalLaunches: 30,
+        maxPhysicalLaunches: CALL_BUDGET_POLICY.maxPhysicalLaunches,
       },
     });
   });
@@ -187,14 +187,14 @@ describe("retryRun", () => {
     },
   );
 
-  it("persists a same-snapshot child while leaving its terminal parent immutable", () => {
+  it("persists a same-snapshot child while leaving its terminal parent immutable", async () => {
     // Given
-    const temporary = temporaryDatabase();
-    const store = openSqliteStore(temporary.path);
+    const temporary = await createResearchTestDatabase();
+    const store = await openPostgresStore(temporary.pool);
     const parentIds = fixture(120);
     const childIds = fixture(121);
-    store.createRun(createRunFixture(120));
-    store.transitionRun({
+    await store.createRun(createRunFixture(120));
+    await store.transitionRun({
       runId: parentIds.runId,
       fromStatus: "queued",
       toStatus: "incomplete",
@@ -209,7 +209,7 @@ describe("retryRun", () => {
 
     try {
       // When
-      const child = retryStoredRun(store, {
+      const child = await retryStoredRun(store, {
         parentRunId: parentIds.runId,
         childRunId: childIds.runId,
         createdAt: at(2),
@@ -237,14 +237,14 @@ describe("retryRun", () => {
           parentRunId: parentIds.runId,
         },
       });
-      expect(store.findRun(parentIds.runId)).toMatchObject({
+      expect(await store.findRun(parentIds.runId)).toMatchObject({
         status: "incomplete",
         snapshotId: parentIds.snapshotId,
       });
-      expect(store.researchOrdinals(childIds.runId)).toEqual([]);
+      expect(await store.researchOrdinals(childIds.runId)).toEqual([]);
     } finally {
-      store.close();
-      rmSync(temporary.directory, { recursive: true, force: true });
+      await store.close();
+      await temporary.close();
     }
   });
 });

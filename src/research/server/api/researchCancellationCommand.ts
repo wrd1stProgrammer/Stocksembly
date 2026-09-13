@@ -1,6 +1,7 @@
-import type Database from "better-sqlite3";
 import { z } from "zod";
-import { cancellationPublicEvent } from "../persistence/sqlite/cancellationPublicEvent";
+import { cancellationPublicEvent } from "../persistence/postgres/cancellationPublicEvent";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
 import {
   type CancelledRun,
   CancelledRunSchema,
@@ -37,30 +38,37 @@ type CommandContext = {
   readonly ids: CommandIds;
 };
 
-function cancellationParent(
-  database: Database.Database,
+async function cancellationParent(
+  database: ResearchDatabase,
   principalId: string,
   runId: string,
 ) {
-  const value = database
-    .prepare(`SELECT runs.run_id, runs.snapshot_id, runs.status, runs.version,
+  const value = (
+    await database.query(
+      `SELECT runs.run_id, runs.snapshot_id, runs.status, runs.version,
       runs.last_event_seq FROM runs JOIN research_requests USING(run_id)
-      WHERE runs.run_id = ? AND research_requests.principal_id = ?`)
-    .get(runId, principalId);
+      WHERE runs.run_id = $1 AND research_requests.principal_id = $2 FOR UPDATE OF runs`,
+      [runId, principalId],
+    )
+  ).rows[0];
   return value === undefined ? undefined : ParentRowSchema.parse(value);
 }
 
-export function cancelResearchRun(
-  database: Database.Database,
+export async function cancelResearchRun(
+  database: ResearchDatabase,
   runId: string,
   context: CommandContext,
-): CommandResult<CancelledRun> {
-  return database
-    .transaction((): CommandResult<CancelledRun> => {
+): Promise<CommandResult<CancelledRun>> {
+  return await researchTransaction(
+    database,
+    async (transaction): Promise<CommandResult<CancelledRun>> => {
+      await transaction.query(
+        "SELECT pg_advisory_xact_lock(hashtext('research-admission'))",
+      );
       const scope = `research-cancel:${context.principalId}:${runId}`;
       const requestHash = commandDigest({ runId });
-      const replay = replayCommand(
-        database,
+      const replay = await replayCommand(
+        transaction,
         scope,
         context.idempotencyKey,
         requestHash,
@@ -71,15 +79,22 @@ export function cancelResearchRun(
           kind: "replayed",
           value: CancelledRunSchema.parse(replay.value),
         };
-      const parent = cancellationParent(database, context.principalId, runId);
+      const parent = await cancellationParent(
+        transaction,
+        context.principalId,
+        runId,
+      );
       if (parent === undefined) return { kind: "not_found" };
       if (immutableStatuses.has(parent.status))
         return { kind: "illegal_state" };
       const active = ActiveCountSchema.parse(
-        database
-          .prepare(`SELECT COUNT(*) AS count FROM attempts
-          WHERE run_id = ? AND status IN ('spawn-reserved', 'running')`)
-          .get(runId),
+        (
+          await transaction.query(
+            `SELECT CAST(COUNT(*) AS integer) AS count FROM attempts
+          WHERE run_id = $1 AND status IN ('spawn-reserved', 'running')`,
+            [runId],
+          )
+        ).rows[0],
       ).count;
       const status = active === 0 ? "cancelled" : "cancelling";
       const events = [
@@ -104,34 +119,49 @@ export function cancelResearchRun(
             ]
           : []),
       ];
-      const updated = database
-        .prepare(`UPDATE runs SET status = ?, version = version + 1
-        WHERE run_id = ? AND version = ? AND status = ?`)
-        .run(status, runId, parent.version, parent.status).changes;
+      const updated = (
+        await transaction.query(
+          `UPDATE runs SET status = $1, version = version + 1
+        WHERE run_id = $2 AND version = $3 AND status = $4`,
+          [status, runId, parent.version, parent.status],
+        )
+      ).rowCount;
       if (updated !== 1) return { kind: "illegal_state" };
-      database
-        .prepare(`UPDATE jobs SET status = 'cancelled', lease_owner = NULL,
+      await transaction.query(
+        `UPDATE jobs SET status = 'cancelled', lease_owner = NULL,
         lease_expires_at = NULL, result_artifact_id = NULL
-        WHERE run_id = ? AND status IN ('queued', 'leased', 'retry-wait')`)
-        .run(runId);
+        WHERE run_id = $1 AND status IN ('queued', 'leased', 'retry-wait')`,
+        [runId],
+      );
       if (active > 0)
-        database
-          .prepare(`UPDATE jobs SET status = 'cancel-requested'
-          WHERE run_id = ? AND status IN ('spawn-reserved', 'running')`)
-          .run(runId);
-      const insertEvent = database.prepare(`INSERT INTO run_events(
-        run_id, sequence, event_id, event_type, state_id, occurred_at, payload_json
-      ) VALUES (@runId, @sequence, @eventId, @kind, @stateId, @occurredAt, @payloadJson)`);
+        await transaction.query(
+          `UPDATE jobs SET status = 'cancel-requested'
+          WHERE run_id = $1 AND status IN ('spawn-reserved', 'running')`,
+          [runId],
+        );
+
       for (const event of events) {
-        database
-          .prepare(
-            "UPDATE runs SET last_event_seq = last_event_seq + 1 WHERE run_id = ?",
-          )
-          .run(runId);
-        insertEvent.run(event);
+        await transaction.query(
+          "UPDATE runs SET last_event_seq = last_event_seq + 1 WHERE run_id = $1",
+          [runId],
+        );
+        await transaction.query(
+          `INSERT INTO run_events(
+        run_id, sequence, event_id, event_type, state_id, occurred_at, payload_json
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            event.runId,
+            event.sequence,
+            event.eventId,
+            event.kind,
+            event.stateId,
+            event.occurredAt,
+            event.payloadJson,
+          ],
+        );
       }
       const value = CancelledRunSchema.parse({ runId, status });
-      commitCommand(database, {
+      await commitCommand(transaction, {
         scope,
         key: context.idempotencyKey,
         requestHash,
@@ -139,6 +169,6 @@ export function cancelResearchRun(
         now: context.now,
       });
       return { kind: "created", value };
-    })
-    .immediate();
+    },
+  );
 }

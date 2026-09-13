@@ -8,12 +8,12 @@ import {
 } from "../../domain/questionLookupPlan";
 import type { ArtifactCasPort } from "../../ports/artifacts";
 import type { AttemptHandler } from "../../worker/leaseEngine";
-import type { SpecialistRoundSqliteAuthority } from "../../workflow/specialistRoundSqliteAuthority";
+import type { SpecialistRoundPostgresAuthority } from "../../workflow/specialistRoundPostgresAuthority";
 import type { CodexPort } from "../codex/codexRunner";
 import { CodexRunnerError } from "../codex/codexRunner";
 import type { CapturedWebArtifact } from "../codex/codexTypes";
 import { captureAttemptWebEvidence } from "../codex/codexWebCapture";
-import type { SqliteAgentOutputCommitStore } from "../persistence/sqlite/sqliteAgentOutputCommitStore";
+import type { PostgresAgentOutputCommitStore } from "../persistence/postgres/postgresAgentOutputCommitStore";
 import {
   groundedClaims,
   QuestionSelectionSchema,
@@ -21,16 +21,16 @@ import {
   questionPrompt,
   questionRuntimeOverride,
 } from "./questionAnswerContracts";
-import type { QuestionAnswerSqliteAuthority } from "./questionAnswerSqliteAuthority";
+import type { QuestionAnswerPostgresAuthority } from "./questionAnswerPostgresAuthority";
 import { collectQuestionWebEvidence } from "./questionWebEvidence";
 
 export type QuestionAnswerHandlerOptions = {
   readonly attemptRoot: string;
   readonly cas: ArtifactCasPort;
   readonly codex: CodexPort;
-  readonly commitStore: SqliteAgentOutputCommitStore;
-  readonly reservations: SpecialistRoundSqliteAuthority;
-  readonly questions: QuestionAnswerSqliteAuthority;
+  readonly commitStore: PostgresAgentOutputCommitStore;
+  readonly reservations: SpecialistRoundPostgresAuthority;
+  readonly questions: QuestionAnswerPostgresAuthority;
   readonly now?: () => string;
 };
 
@@ -42,7 +42,9 @@ export function createQuestionAnswerHandler(
       if (attempt.kind !== "qa")
         return { kind: "permanent", code: "question_job_required" };
       const context = await options.questions.load(attempt.attemptId);
-      const claim = options.reservations.claimForAttempt(attempt.attemptId);
+      const claim = await options.reservations.claimForAttempt(
+        attempt.attemptId,
+      );
       if (context === undefined || claim === undefined)
         return { kind: "permanent", code: "question_context_unavailable" };
       const prompt = questionPrompt(
@@ -131,7 +133,9 @@ export function createQuestionAnswerHandler(
             };
           try {
             const fetched = await Promise.all(
-              uncapturedUrls.map((url) => collectQuestionWebEvidence(url)),
+              uncapturedUrls.map(
+                async (url) => await collectQuestionWebEvidence(url),
+              ),
             );
             const persisted = await captureAttemptWebEvidence(
               options.cas,

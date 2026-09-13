@@ -19,21 +19,15 @@ describe("standalone worker entry", () => {
         await Promise.all([
           mkdir(researchWorkerDirectory, { recursive: true }),
           mkdir(join(fixtureRoot, "briefing-worker"), { recursive: true }),
-          mkdir(
-            join(fixtureRoot, "node_modules/better-sqlite3/build/Release"),
-            {
-              recursive: true,
-            },
-          ),
+          mkdir(join(fixtureRoot, "node_modules/pg"), {
+            recursive: true,
+          }),
         ]);
         await Promise.all([
           cp(entryScript, join(researchWorkerDirectory, "worker.mjs")),
           writeFile(join(fixtureRoot, "package.json"), '{"type":"module"}'),
           writeFile(
-            join(
-              fixtureRoot,
-              "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
-            ),
+            join(fixtureRoot, "node_modules/pg/package.json"),
             "fixture",
           ),
           writeFile(

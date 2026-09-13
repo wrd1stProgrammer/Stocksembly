@@ -1,4 +1,3 @@
-import Database from "better-sqlite3";
 import { expect, it } from "vitest";
 import { z } from "zod";
 import { CALL_BUDGET_POLICY } from "../../../src/research/domain/callBudgetContracts";
@@ -24,13 +23,13 @@ export function registerResearchRunCommandTests(
     // Given
     const harness = harnessValue();
     const parent = await createRun(harness, "retry-parent");
-    setInitialResearchJobStatus(harness, parent.runId, "retry-wait");
-    setInitialResearchJobRetry(harness, parent.runId, {
+    await setInitialResearchJobStatus(harness, parent.runId, "retry-wait");
+    await setInitialResearchJobRetry(harness, parent.runId, {
       retryAt: "2099-01-01T00:00:00.000Z",
       failureCount: 5,
       circuitOpen: true,
     });
-    setRunStatus(harness, parent.runId, "failed");
+    await setRunStatus(harness, parent.runId, "failed");
 
     // When
     const created = await postCommand(
@@ -58,31 +57,31 @@ export function registerResearchRunCommandTests(
       },
     });
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM runs WHERE run_id = ?",
+        "SELECT status FROM runs WHERE run_id = $1",
         parent.runId,
       ),
     ).toBe("queued");
-    expect(databaseScalar(harness, "SELECT COUNT(*) FROM runs")).toBe(1);
+    expect(await databaseScalar(harness, "SELECT COUNT(*) FROM runs")).toBe(1);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        `SELECT json_extract(result_json, '$.retryAt')
+        `SELECT result_json::jsonb ->> 'retryAt'
          FROM idempotency_records WHERE scope = 'worker-retry'`,
       ),
     ).toBe("2026-07-23T06:00:00.000Z");
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        `SELECT json_extract(result_json, '$.failureCount')
+        `SELECT (result_json::jsonb ->> 'failureCount')::integer
          FROM idempotency_records WHERE scope = 'worker-retry'`,
       ),
     ).toBe(0);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        `SELECT json_extract(result_json, '$.circuitOpen')
+        `SELECT (result_json::jsonb ->> 'circuitOpen')::boolean::integer
          FROM idempotency_records WHERE scope = 'worker-retry'`,
       ),
     ).toBe(0);
@@ -92,33 +91,29 @@ export function registerResearchRunCommandTests(
     // Given: every reservation was consumed and unfinished work remains.
     const harness = harnessValue();
     const parent = await createRun(harness, "retry-budget-exhausted");
-    const database = new Database(harness.databasePath);
-    try {
-      for (
-        let ordinal = 1;
-        ordinal <= CALL_BUDGET_POLICY.maxPhysicalLaunches;
-        ordinal += 1
-      ) {
-        const attemptId = interruptInitialResearchJob(
-          harness,
-          parent.runId,
-          "running",
-        );
-        database
-          .prepare(`INSERT INTO research_call_ordinals(run_id,ordinal,job_id,attempt_id,logical_artifact_key,input_hash,reserved_at)
-          SELECT run_id,?,job_id,attempt_id,logical_artifact_key,input_hash,created_at FROM attempts WHERE attempt_id=?`)
-          .run(ordinal, attemptId);
-      }
-      database
-        .prepare(
-          "UPDATE attempts SET status='failed', outcome='failed' WHERE run_id=?",
-        )
-        .run(parent.runId);
-    } finally {
-      database.close();
+    const database = harness.database;
+    for (
+      let ordinal = 1;
+      ordinal <= CALL_BUDGET_POLICY.maxPhysicalLaunches;
+      ordinal += 1
+    ) {
+      const attemptId = await interruptInitialResearchJob(
+        harness,
+        parent.runId,
+        "running",
+      );
+      await database.query(
+        `INSERT INTO research_call_ordinals(run_id,ordinal,job_id,attempt_id,logical_artifact_key,input_hash,reserved_at)
+          SELECT run_id,$1,job_id,attempt_id,logical_artifact_key,input_hash,created_at FROM attempts WHERE attempt_id=$2`,
+        [ordinal, attemptId],
+      );
     }
-    setInitialResearchJobStatus(harness, parent.runId, "failed");
-    setRunStatus(harness, parent.runId, "incomplete");
+    await database.query(
+      "UPDATE attempts SET status='failed', outcome='failed' WHERE run_id=$1",
+      [parent.runId],
+    );
+    await setInitialResearchJobStatus(harness, parent.runId, "failed");
+    await setRunStatus(harness, parent.runId, "incomplete");
     // When: the user asks to retry the same run.
     const response = await postCommand(
       harness,
@@ -131,9 +126,9 @@ export function registerResearchRunCommandTests(
       error: { code: "RECOVERY_BUDGET_EXHAUSTED" },
     });
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM runs WHERE run_id=?",
+        "SELECT status FROM runs WHERE run_id=$1",
         parent.runId,
       ),
     ).toBe("incomplete");
@@ -142,9 +137,9 @@ export function registerResearchRunCommandTests(
   it("preserves a department target on same-snapshot retry", async () => {
     const harness = harnessValue();
     const parent = await createRun(harness, "retry-department-parent");
-    setResearchTarget(harness, parent.runId, "market");
-    setInitialResearchJobStatus(harness, parent.runId, "retry-wait");
-    setRunStatus(harness, parent.runId, "failed");
+    await setResearchTarget(harness, parent.runId, "market");
+    await setInitialResearchJobStatus(harness, parent.runId, "retry-wait");
+    await setRunStatus(harness, parent.runId, "failed");
 
     const created = await postCommand(
       harness,
@@ -157,10 +152,10 @@ export function registerResearchRunCommandTests(
 
     expect(created.response.status).toBe(202);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
         `SELECT research_kind || ':' || department_id
-         FROM research_requests WHERE run_id = ?`,
+         FROM research_requests WHERE run_id = $1`,
         resumedRunId,
       ),
     ).toBe("department:market");
@@ -172,7 +167,7 @@ export function registerResearchRunCommandTests(
     const harness = harnessValue();
     const queued = await createRun(harness, "retry-queued");
     const completed = await createRun(harness, "retry-completed");
-    setRunStatus(harness, completed.runId, "completed");
+    await setRunStatus(harness, completed.runId, "completed");
 
     // When
     const results = await Promise.all([
@@ -199,8 +194,8 @@ export function registerResearchRunCommandTests(
   it("reopens a terminal research job on an explicit user retry", async () => {
     const harness = harnessValue();
     const run = await createRun(harness, "retry-terminal-failure");
-    setInitialResearchJobStatus(harness, run.runId, "failed");
-    setRunStatus(harness, run.runId, "failed");
+    await setInitialResearchJobStatus(harness, run.runId, "failed");
+    await setRunStatus(harness, run.runId, "failed");
 
     const response = await harness.api.handle(
       commandRequest(
@@ -212,16 +207,16 @@ export function registerResearchRunCommandTests(
 
     expect(response.status).toBe(202);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM runs WHERE run_id = ?",
+        "SELECT status FROM runs WHERE run_id = $1",
         run.runId,
       ),
     ).toBe("queued");
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM jobs WHERE run_id = ? AND kind = 'research'",
+        "SELECT status FROM jobs WHERE run_id = $1 AND kind = 'research'",
         run.runId,
       ),
     ).toBe("retry-wait");
@@ -230,13 +225,13 @@ export function registerResearchRunCommandTests(
   it("reopens a failed job when its persisted failure is transient", async () => {
     const harness = harnessValue();
     const run = await createRun(harness, "retry-transient-terminal");
-    setInitialResearchJobStatus(harness, run.runId, "failed");
-    setInitialResearchJobRetry(harness, run.runId, {
+    await setInitialResearchJobStatus(harness, run.runId, "failed");
+    await setInitialResearchJobRetry(harness, run.runId, {
       retryAt: "2099-01-01T00:00:00.000Z",
       failureCount: 3,
       circuitOpen: true,
     });
-    setRunStatus(harness, run.runId, "incomplete");
+    await setRunStatus(harness, run.runId, "incomplete");
 
     const response = await harness.api.handle(
       commandRequest(
@@ -248,16 +243,16 @@ export function registerResearchRunCommandTests(
 
     expect(response.status).toBe(202);
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT status FROM jobs WHERE run_id = ? AND kind = 'research'",
+        "SELECT status FROM jobs WHERE run_id = $1 AND kind = 'research'",
         run.runId,
       ),
     ).toBe("retry-wait");
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        `SELECT json_extract(result_json, '$.circuitOpen')
+        `SELECT (result_json::jsonb ->> 'circuitOpen')::boolean::integer
          FROM idempotency_records WHERE scope = 'worker-retry'`,
       ),
     ).toBe(0);
@@ -268,12 +263,12 @@ export function registerResearchRunCommandTests(
     async (interruptedStatus) => {
       const harness = harnessValue();
       const run = await createRun(harness, `retry-${interruptedStatus}`);
-      const attemptId = interruptInitialResearchJob(
+      const attemptId = await interruptInitialResearchJob(
         harness,
         run.runId,
         interruptedStatus,
       );
-      setRunStatus(harness, run.runId, "incomplete");
+      await setRunStatus(harness, run.runId, "incomplete");
 
       const response = await harness.api.handle(
         commandRequest(
@@ -285,23 +280,23 @@ export function registerResearchRunCommandTests(
 
       expect(response.status).toBe(202);
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT status FROM attempts WHERE attempt_id = ?",
+          "SELECT status FROM attempts WHERE attempt_id = $1",
           attemptId,
         ),
       ).toBe("unknown");
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT status FROM jobs WHERE run_id = ? AND kind = 'research'",
+          "SELECT status FROM jobs WHERE run_id = $1 AND kind = 'research'",
           run.runId,
         ),
       ).toBe("retry-wait");
       expect(
-        databaseScalar(
+        await databaseScalar(
           harness,
-          "SELECT lease_owner FROM jobs WHERE run_id = ? AND kind = 'research'",
+          "SELECT lease_owner FROM jobs WHERE run_id = $1 AND kind = 'research'",
           run.runId,
         ),
       ).toBeNull();
@@ -343,14 +338,17 @@ export function registerResearchRunCommandTests(
       ]),
     );
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT report_id FROM runs WHERE run_id = ?",
+        "SELECT report_id FROM runs WHERE run_id = $1",
         parent.runId,
       ),
     ).toBe(publication.reportId);
     expect(
-      databaseScalar(harness, "SELECT COUNT(DISTINCT snapshot_id) FROM runs"),
+      await databaseScalar(
+        harness,
+        "SELECT COUNT(DISTINCT snapshot_id) FROM runs",
+      ),
     ).toBe(3);
   });
 
@@ -375,9 +373,9 @@ export function registerResearchRunCommandTests(
       error: { code: "COMMAND_NOT_ALLOWED" },
     });
     expect(
-      databaseScalar(
+      await databaseScalar(
         harness,
-        "SELECT report_id FROM runs WHERE run_id = ?",
+        "SELECT report_id FROM runs WHERE run_id = $1",
         run.runId,
       ),
     ).toBe(publication.reportId);

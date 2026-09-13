@@ -2,7 +2,18 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import type { Pool } from "pg";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { workflowTestDatabase } from "../workflow/postgresDatabase.testSupport";
+
+let database: Pool;
+beforeEach(async () => {
+  database = await workflowTestDatabase();
+});
+vi.mock("../server/persistence/postgres/researchPool", () => ({
+  getResearchPool: async () => database,
+}));
+
 import { z } from "zod";
 import {
   type ArtifactCasPort,

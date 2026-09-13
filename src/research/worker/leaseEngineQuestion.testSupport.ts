@@ -1,11 +1,11 @@
-import Database from "better-sqlite3";
+import type { Pool } from "pg";
 import {
   EventIdSchema,
   JobIdSchema,
   RunIdSchema,
   SnapshotIdSchema,
 } from "../domain/ids";
-import type { SqliteStore } from "../server/persistence/sqlite/sqliteStore";
+import { createRun } from "../server/persistence/postgres/runRepository";
 import type { WorkerClock } from "./leaseEngine";
 import { hash, uuid } from "./leaseEngine.testSupport";
 
@@ -16,12 +16,11 @@ export type QuestionSeed = {
   readonly questionId: string;
 };
 
-export function seedQuestion(
-  control: SqliteStore,
-  databasePath: string,
+export async function seedQuestion(
+  database: Pool,
   clock: WorkerClock,
   value: number,
-): QuestionSeed {
+): Promise<QuestionSeed> {
   const base = value * 100;
   const seed = {
     runId: RunIdSchema.parse(uuid(base + 1)),
@@ -29,7 +28,7 @@ export function seedQuestion(
     jobId: JobIdSchema.parse(uuid(base + 3)),
     questionId: uuid(base + 8),
   };
-  control.createRun({
+  await createRun(database, {
     runId: seed.runId,
     snapshotId: seed.snapshotId,
     requestedAt: clock.now(),
@@ -47,54 +46,53 @@ export function seedQuestion(
       occurredAt: clock.now(),
     },
   });
-  const database = new Database(databasePath);
-  try {
-    database.pragma("foreign_keys = ON");
-    database
-      .prepare(`INSERT INTO artifacts(artifact_id, run_id, snapshot_id,
+
+  await database.query(
+    `INSERT INTO artifacts(artifact_id, run_id, snapshot_id,
         content_hash, byte_length, media_type, logical_key, input_hash, created_at)
-        VALUES (?, ?, ?, ?, 2, 'application/json', ?, ?, ?)`)
-      .run(
-        uuid(base + 5),
-        seed.runId,
-        seed.snapshotId,
-        hash(base + 5),
-        `report:${value}`,
-        hash(base + 6),
-        clock.now(),
-      );
-    database
-      .prepare(`INSERT INTO reports(report_id, run_id, snapshot_id,
-      state, created_at) VALUES (?, ?, ?, 'published', ?)`)
-      .run(uuid(base + 6), seed.runId, seed.snapshotId, clock.now());
-    database
-      .prepare(`INSERT INTO report_versions(version_id, report_id, run_id,
+        VALUES ($1, $2, $3, $4, 2, 'application/json', $5, $6, $7)`,
+    [
+      uuid(base + 5),
+      seed.runId,
+      seed.snapshotId,
+      hash(base + 5),
+      `report:${value}`,
+      hash(base + 6),
+      clock.now(),
+    ],
+  );
+  await database.query(
+    `INSERT INTO reports(report_id, run_id, snapshot_id,
+      state, created_at) VALUES ($1, $2, $3, 'published', $4)`,
+    [uuid(base + 6), seed.runId, seed.snapshotId, clock.now()],
+  );
+  await database.query(
+    `INSERT INTO report_versions(version_id, report_id, run_id,
       snapshot_id, version, artifact_id, status, published_at, public_payload_json)
-      VALUES (?, ?, ?, ?, 1, ?, 'complete', ?, '{}')`)
-      .run(
-        uuid(base + 7),
-        uuid(base + 6),
-        seed.runId,
-        seed.snapshotId,
-        uuid(base + 5),
-        clock.now(),
-      );
-    database
-      .prepare(`INSERT INTO questions(question_id, report_id,
+      VALUES ($1, $2, $3, $4, 1, $5, 'complete', $6, '{}')`,
+    [
+      uuid(base + 7),
+      uuid(base + 6),
+      seed.runId,
+      seed.snapshotId,
+      uuid(base + 5),
+      clock.now(),
+    ],
+  );
+  await database.query(
+    `INSERT INTO questions(question_id, report_id,
       report_version_id, run_id, snapshot_id, job_id, attempt_ordinal,
       status, question_json, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 1, 'pending', '{}', ?)`)
-      .run(
-        seed.questionId,
-        uuid(base + 6),
-        uuid(base + 7),
-        seed.runId,
-        seed.snapshotId,
-        seed.jobId,
-        clock.now(),
-      );
-  } finally {
-    database.close();
-  }
+      VALUES ($1, $2, $3, $4, $5, $6, 1, 'pending', '{}', $7)`,
+    [
+      seed.questionId,
+      uuid(base + 6),
+      uuid(base + 7),
+      seed.runId,
+      seed.snapshotId,
+      seed.jobId,
+      clock.now(),
+    ],
+  );
   return seed;
 }

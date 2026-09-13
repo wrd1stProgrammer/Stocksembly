@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 import { z } from "zod";
 import { BilingualPublicTextSchema } from "../domain/agentOutputsShared";
 import { hashBytes } from "../domain/contractHelpers";
@@ -212,9 +213,9 @@ export type SemanticAuditReplay = {
     | null;
 };
 
-export type SqliteSemanticAuditOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+export type PostgresSemanticAuditOptions = {
+  readonly database: Pool;
+
   readonly attemptRoot: string;
   readonly ownerId: string;
   readonly cas: ArtifactCasPort;
@@ -246,8 +247,8 @@ export type SemanticAuditStageBlockedReason =
   | "locator_hash_mismatch"
   | "evidence_span_mismatch"
   | "claim_set_immutable";
-export interface SqliteSemanticAudit {
-  readonly authority: "sqlite-worker-trusted-commit";
+export interface PostgresSemanticAudit {
+  readonly authority: "postgres-worker-trusted-commit";
   readonly stage: (input: SemanticAuditStageInput) => Promise<
     | { readonly kind: "staged" }
     | {
@@ -256,6 +257,6 @@ export interface SqliteSemanticAudit {
       }
   >;
   readonly drain: (runId: string) => Promise<SemanticAuditReplay>;
-  readonly replay: (runId: string) => SemanticAuditReplay;
+  readonly replay: (runId: string) => Promise<SemanticAuditReplay>;
   readonly close: () => Promise<void>;
 }

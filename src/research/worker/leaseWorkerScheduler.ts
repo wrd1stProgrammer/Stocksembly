@@ -16,8 +16,8 @@ export type LeaseWorkerSchedulerOptions = {
 
 export interface LeaseWorkerSchedulerEngine {
   readonly poll: () => Promise<PollResult>;
-  readonly heartbeat: () => number;
-  readonly recoverExpired: () => readonly string[];
+  readonly heartbeat: () => Promise<number>;
+  readonly recoverExpired: () => Promise<readonly string[]>;
   readonly reconcile: () => Promise<boolean>;
 }
 
@@ -43,31 +43,56 @@ export async function runLeaseWorkerScheduler(
   const pollIntervalMs = options.pollIntervalMs ?? 250;
   const heartbeatIntervalMs =
     options.heartbeatIntervalMs ?? LEASE_ENGINE_DEFAULTS.heartbeatMs;
+  let heartbeatPending = false;
+  let heartbeatTask: Promise<void> | undefined;
   const heartbeatTimer = setInterval(() => {
-    options.lifecycle?.heartbeat?.(engine.heartbeat());
+    if (heartbeatPending) return;
+    heartbeatPending = true;
+    heartbeatTask = engine
+      .heartbeat()
+      .then((extended) => options.lifecycle?.heartbeat?.(extended))
+      .catch((error: unknown) => {
+        failures.push(error);
+      })
+      .finally(() => {
+        heartbeatPending = false;
+      });
   }, heartbeatIntervalMs);
 
   const inFlight = new Set<Promise<void>>();
   const failures: unknown[] = [];
+  let idlePolls = 0;
+  let completedWork = false;
   try {
     while (!signal.aborted) {
       if (failures.length > 0) throw failures[0];
-      engine.recoverExpired();
+      await engine.recoverExpired();
       if (!(await engine.reconcile())) {
         options.lifecycle?.result?.({ kind: "recovery-pending" });
         await wait(pollIntervalMs, signal);
         continue;
       }
       if (signal.aborted) break;
-      let idle = true;
+      if (inFlight.size === 0 && idlePolls > 0 && !completedWork) {
+        if (options.stopWhenIdle === true) return;
+        if (options.waitForWork !== undefined)
+          await options.waitForWork(signal);
+        idlePolls = 0;
+        if (signal.aborted) break;
+      }
+      if (inFlight.size === 0) {
+        completedWork = false;
+        idlePolls = 0;
+      }
       const available =
         LEASE_ENGINE_DEFAULTS.globalCodexProcesses - inFlight.size;
       for (let index = 0; index < available; index += 1) {
         const task = engine.poll().then(
           (result) => {
             inFlight.delete(task);
+            idlePolls = result.kind === "idle" ? idlePolls + 1 : 0;
             if (result.kind !== "idle" && result.kind !== "stopping")
-              idle = false;
+              completedWork = true;
             if (result.kind !== "idle") options.lifecycle?.result?.(result);
           },
           (error: unknown) => {
@@ -77,16 +102,10 @@ export async function runLeaseWorkerScheduler(
         );
         inFlight.add(task);
       }
-      await Promise.resolve();
-      if (failures.length > 0) throw failures[0];
-      if (inFlight.size === 0 && idle && options.stopWhenIdle === true) return;
-      if (!signal.aborted) {
-        if (inFlight.size === 0 && idle && options.waitForWork !== undefined)
-          await options.waitForWork(signal);
-        else await wait(pollIntervalMs, signal);
-      }
+      await wait(pollIntervalMs, signal);
     }
   } finally {
     clearInterval(heartbeatTimer);
+    await heartbeatTask;
   }
 }

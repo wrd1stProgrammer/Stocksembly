@@ -1,8 +1,9 @@
-import Database from "better-sqlite3";
 import { z } from "zod";
 import type { ResearchLocale } from "../../application/createMandateContracts";
 import type { PublicRunDetail } from "../../client/schemas";
 import type { ResearchFileData } from "../../compositions/types";
+import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
 import {
   RESEARCH_TRANSLATION_LOCALES,
   type ResearchTranslationLocale,
@@ -32,52 +33,36 @@ const PublishedQuestionRowSchema = QuestionLocalizationRowSchema.extend({
   locale: z.enum(["en", "ko"]),
 });
 
-function openDatabase(databasePath: string, readonly = false) {
-  const database = new Database(databasePath, {
-    readonly,
-    fileMustExist: true,
-    timeout: 5_000,
-  });
-  database.pragma("foreign_keys = ON");
-  if (!readonly) database.pragma("busy_timeout = 5000");
-  return database;
-}
-
 export async function localizedResearchQuestions(
-  databasePath: string,
+  databaseInput: ResearchDatabase,
   inputs: readonly ResearchQuestionLocalizationInput[],
   targetLocale: ResearchTranslationLocale,
   options: { readonly translateMissing?: boolean } = {},
 ): Promise<ReadonlyMap<string, string>> {
   if (inputs.length === 0) return new Map();
-  const writable = openDatabase(databasePath);
-  try {
-    const insert =
-      writable.prepare(`INSERT INTO research_question_localizations(
+  const writable = databaseInput;
+  await researchTransaction(writable, async (transaction) => {
+    for (const input of inputs)
+      await transaction.query(
+        `INSERT INTO research_question_localizations(
       run_id, locale, question, created_at
-    ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    ON CONFLICT(run_id, locale) DO NOTHING`);
-    writable.transaction(() => {
-      for (const input of inputs)
-        insert.run(input.runId, input.locale, input.question.trim());
-    })();
-  } finally {
-    writable.close();
-  }
+    ) VALUES ($1, $2, $3, to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+    ON CONFLICT(run_id, locale) DO NOTHING`,
+        [input.runId, input.locale, input.question.trim()],
+      );
+  });
 
-  const placeholders = inputs.map(() => "?").join(", ");
-  const existingDatabase = openDatabase(databasePath, true);
+  const placeholders = inputs.map((_, index) => `$${index + 2}`).join(", ");
+  const existingDatabase = databaseInput;
   let existing: readonly z.infer<typeof QuestionLocalizationRowSchema>[];
-  try {
-    existing = existingDatabase
-      .prepare(`SELECT run_id, question
+  existing = (
+    await existingDatabase.query(
+      `SELECT run_id, question
         FROM research_question_localizations
-        WHERE locale = ? AND run_id IN (${placeholders})`)
-      .all(targetLocale, ...inputs.map((input) => input.runId))
-      .map((value) => QuestionLocalizationRowSchema.parse(value));
-  } finally {
-    existingDatabase.close();
-  }
+        WHERE locale = $1 AND run_id IN (${placeholders})`,
+      [targetLocale, ...inputs.map((input) => input.runId)],
+    )
+  ).rows.map((value) => QuestionLocalizationRowSchema.parse(value));
   const result = new Map(existing.map((row) => [row.run_id, row.question]));
   const missing = inputs.filter((input) => !result.has(input.runId));
   if (missing.length === 0) return result;
@@ -92,24 +77,21 @@ export async function localizedResearchQuestions(
       missing.map((input) => ({ id: input.runId, text: input.question })),
       targetLocale,
     );
-    const database = openDatabase(databasePath);
-    try {
-      const save =
-        database.prepare(`INSERT INTO research_question_localizations(
+    const database = databaseInput;
+    await researchTransaction(database, async (transaction) => {
+      for (const input of missing) {
+        const question = translated.get(input.runId);
+        if (question === undefined) continue;
+        await transaction.query(
+          `INSERT INTO research_question_localizations(
         run_id, locale, question, created_at
-      ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-      ON CONFLICT(run_id, locale) DO UPDATE SET question = excluded.question`);
-      database.transaction(() => {
-        for (const input of missing) {
-          const question = translated.get(input.runId);
-          if (question === undefined) continue;
-          save.run(input.runId, targetLocale, question);
-          result.set(input.runId, question);
-        }
-      })();
-    } finally {
-      database.close();
-    }
+      ) VALUES ($1, $2, $3, to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+      ON CONFLICT(run_id, locale) DO UPDATE SET question = excluded.question`,
+          [input.runId, targetLocale, question],
+        );
+        result.set(input.runId, question);
+      }
+    });
   } catch (error) {
     if (process.env["NODE_ENV"] !== "production")
       process.stderr.write(
@@ -125,20 +107,23 @@ export async function localizedResearchQuestions(
 }
 
 export async function ensurePublishedResearchQuestionLocalizations(
-  databasePath: string,
+  databaseInput: ResearchDatabase,
   runId: string,
 ): Promise<void> {
-  const database = openDatabase(databasePath, true);
+  const database = databaseInput;
   let input: ResearchQuestionLocalizationInput | undefined;
-  try {
-    const row = database
-      .prepare(`SELECT research_requests.run_id, research_requests.locale,
+  {
+    const row = (
+      await database.query(
+        `SELECT research_requests.run_id, research_requests.locale,
         research_requests.question
         FROM research_requests
         JOIN reports USING(run_id)
-        WHERE research_requests.run_id = ? AND reports.state = 'published'
-        LIMIT 1`)
-      .get(runId) as
+        WHERE research_requests.run_id = $1 AND reports.state = 'published'
+        LIMIT 1`,
+        [runId],
+      )
+    ).rows[0] as
       | {
           readonly run_id?: unknown;
           readonly locale?: unknown;
@@ -157,27 +142,25 @@ export async function ensurePublishedResearchQuestionLocalizations(
         question: row.question,
       };
     }
-  } finally {
-    database.close();
   }
   if (input === undefined) return;
   for (const targetLocale of RESEARCH_TRANSLATION_LOCALES) {
     if (targetLocale === input.locale) continue;
-    await localizedResearchQuestions(databasePath, [input], targetLocale, {
+    await localizedResearchQuestions(databaseInput, [input], targetLocale, {
       translateMissing: true,
     });
   }
 }
 
 export async function backfillPublishedResearchQuestionLocalizations(
-  databasePath: string,
+  databaseInput: ResearchDatabase,
   limit = 64,
 ): Promise<number> {
-  const database = openDatabase(databasePath, true);
+  const database = databaseInput;
   let rows: readonly z.infer<typeof PublishedQuestionRowSchema>[];
-  try {
-    rows = database
-      .prepare(`SELECT research_requests.run_id, research_requests.locale,
+  rows = (
+    await database.query(
+      `SELECT research_requests.run_id, research_requests.locale,
           research_requests.question
         FROM research_requests
         JOIN reports USING(run_id)
@@ -187,19 +170,18 @@ export async function backfillPublishedResearchQuestionLocalizations(
             SELECT 1 FROM research_question_localizations
             WHERE research_question_localizations.run_id = research_requests.run_id
             GROUP BY research_question_localizations.run_id
-            HAVING COUNT(DISTINCT research_question_localizations.locale) >= ?
+            HAVING COUNT(DISTINCT research_question_localizations.locale) >= $1
           )
         ORDER BY research_requests.created_at DESC
-        LIMIT ?`)
-      .all(
+        LIMIT $2`,
+      [
         RESEARCH_TRANSLATION_LOCALES.length,
         Math.max(1, Math.min(256, Math.trunc(limit))),
-      )
-      .map((value) => PublishedQuestionRowSchema.parse(value))
-      .filter((row) => row.question.trim().length > 0);
-  } finally {
-    database.close();
-  }
+      ],
+    )
+  ).rows
+    .map((value) => PublishedQuestionRowSchema.parse(value))
+    .filter((row) => row.question.trim().length > 0);
   for (const targetLocale of RESEARCH_TRANSLATION_LOCALES) {
     const inputs = rows
       .filter((row) => row.locale !== targetLocale)
@@ -211,7 +193,7 @@ export async function backfillPublishedResearchQuestionLocalizations(
         }),
       );
     if (inputs.length > 0)
-      await localizedResearchQuestions(databasePath, inputs, targetLocale, {
+      await localizedResearchQuestions(databaseInput, inputs, targetLocale, {
         translateMissing: true,
       });
   }
@@ -373,20 +355,20 @@ const TranslationModelCallRowSchema = z.object({
   outcome: z.enum(["started", "succeeded", "failed"]),
 });
 
-export function researchTranslationModelCalls(
-  databasePath: string,
+export async function researchTranslationModelCalls(
+  databaseInput: ResearchDatabase,
   key: ResearchTranslationCacheKey,
-): readonly ResearchTranslationModelCall[] {
-  const database = openDatabase(databasePath, true);
-  try {
-    return database
-      .prepare(`SELECT invocation_id, batch_ordinal, batch_input_hash, outcome
+): Promise<readonly ResearchTranslationModelCall[]> {
+  const database = databaseInput;
+  return (
+    await database.query(
+      `SELECT invocation_id, batch_ordinal, batch_input_hash, outcome
         FROM research_translation_model_calls
-        WHERE report_id = ? AND report_version = ? AND source_content_hash = ?
-          AND source_locale = ? AND target_locale = ?
-          AND translation_schema_version = ? AND model_version = ?
-        ORDER BY batch_ordinal, invocation_id`)
-      .all(
+        WHERE report_id = $1 AND report_version = $2 AND source_content_hash = $3
+          AND source_locale = $4 AND target_locale = $5
+          AND translation_schema_version = $6 AND model_version = $7
+        ORDER BY batch_ordinal, invocation_id`,
+      [
         key.reportId,
         key.reportVersion,
         key.sourceContentHash,
@@ -394,17 +376,16 @@ export function researchTranslationModelCalls(
         key.targetLocale,
         key.translationSchemaVersion,
         key.modelVersion,
-      )
-      .map((value) => TranslationModelCallRowSchema.parse(value))
-      .map((row) => ({
-        invocationId: row.invocation_id,
-        batchOrdinal: row.batch_ordinal,
-        batchInputHash: row.batch_input_hash,
-        outcome: row.outcome,
-      }));
-  } finally {
-    database.close();
-  }
+      ],
+    )
+  ).rows
+    .map((value) => TranslationModelCallRowSchema.parse(value))
+    .map((row) => ({
+      invocationId: row.invocation_id,
+      batchOrdinal: row.batch_ordinal,
+      batchInputHash: row.batch_input_hash,
+      outcome: row.outcome,
+    }));
 }
 
 type TranslatedResearchProjectionOptions = {
@@ -413,21 +394,26 @@ type TranslatedResearchProjectionOptions = {
   readonly invokeBatch?: ResearchTranslationExecutionOptions["invokeBatch"];
 };
 
-function translationSourceVersion(
-  databasePath: string,
+async function translationSourceVersion(
+  databaseInput: ResearchDatabase,
   reportId: string,
   runId: string,
-): Pick<ResearchTranslationCacheKey, "reportVersion" | "sourceContentHash"> {
-  const database = openDatabase(databasePath, true);
-  try {
-    const row = database
-      .prepare(`SELECT report_versions.version, artifacts.content_hash
+): Promise<
+  Pick<ResearchTranslationCacheKey, "reportVersion" | "sourceContentHash">
+> {
+  const database = databaseInput;
+  {
+    const row = (
+      await database.query(
+        `SELECT report_versions.version, artifacts.content_hash
         FROM report_versions
         JOIN artifacts ON artifacts.artifact_id = report_versions.artifact_id
-        WHERE report_versions.report_id = ? AND report_versions.run_id = ?
+        WHERE report_versions.report_id = $1 AND report_versions.run_id = $2
         ORDER BY report_versions.version DESC
-        LIMIT 1`)
-      .get(reportId, runId) as
+        LIMIT 1`,
+        [reportId, runId],
+      )
+    ).rows[0] as
       | { readonly version?: unknown; readonly content_hash?: unknown }
       | undefined;
     const version = row?.version;
@@ -443,56 +429,48 @@ function translationSourceVersion(
       reportVersion: version,
       sourceContentHash: contentHash,
     };
-  } finally {
-    database.close();
   }
 }
 
-function recordTranslationInvocation(
-  databasePath: string,
+async function recordTranslationInvocation(
+  databaseInput: ResearchDatabase,
   key: ResearchTranslationCacheKey,
   batch: ResearchTranslationBatchInvocation,
-): void {
-  const database = openDatabase(databasePath);
-  try {
-    database
-      .prepare(`INSERT INTO research_translation_model_calls(
+): Promise<void> {
+  const database = databaseInput;
+  await database.query(
+    `INSERT INTO research_translation_model_calls(
         invocation_id, report_id, report_version, source_content_hash,
         source_locale, target_locale, translation_schema_version, model_version,
         batch_ordinal, batch_input_hash, outcome, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'started',
-        strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`)
-      .run(
-        batch.invocationId,
-        key.reportId,
-        key.reportVersion,
-        key.sourceContentHash,
-        key.sourceLocale,
-        key.targetLocale,
-        key.translationSchemaVersion,
-        key.modelVersion,
-        batch.ordinal,
-        batch.inputHash,
-      );
-  } finally {
-    database.close();
-  }
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'started',
+        to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`,
+    [
+      batch.invocationId,
+      key.reportId,
+      key.reportVersion,
+      key.sourceContentHash,
+      key.sourceLocale,
+      key.targetLocale,
+      key.translationSchemaVersion,
+      key.modelVersion,
+      batch.ordinal,
+      batch.inputHash,
+    ],
+  );
 }
 
-function completeTranslationInvocation(
-  databasePath: string,
+async function completeTranslationInvocation(
+  databaseInput: ResearchDatabase,
   invocationId: string,
   outcome: "succeeded" | "failed",
-): void {
-  const database = openDatabase(databasePath);
-  try {
-    database
-      .prepare(`UPDATE research_translation_model_calls SET outcome = ?
-        WHERE invocation_id = ? AND outcome = 'started'`)
-      .run(outcome, invocationId);
-  } finally {
-    database.close();
-  }
+): Promise<void> {
+  const database = databaseInput;
+  await database.query(
+    `UPDATE research_translation_model_calls SET outcome = $1
+        WHERE invocation_id = $2 AND outcome = 'started'`,
+    [outcome, invocationId],
+  );
 }
 
 function translatedRenderLocale(
@@ -530,7 +508,7 @@ export function publicResearchTranslationItems(
 }
 
 export async function translatedResearchProjection(
-  databasePath: string,
+  databaseInput: ResearchDatabase,
   reportId: string,
   runId: string,
   file: ResearchFileData,
@@ -550,7 +528,11 @@ export async function translatedResearchProjection(
       conversation,
       renderLocale: sourceLocale,
     };
-  const sourceVersion = translationSourceVersion(databasePath, reportId, runId);
+  const sourceVersion = await translationSourceVersion(
+    databaseInput,
+    reportId,
+    runId,
+  );
   const cacheKey: ResearchTranslationCacheKey = {
     reportId,
     ...sourceVersion,
@@ -560,29 +542,30 @@ export async function translatedResearchProjection(
       options.translationSchemaVersion ?? RESEARCH_TRANSLATION_SCHEMA_VERSION,
     modelVersion: options.modelVersion ?? RESEARCH_TRANSLATION_MODEL_VERSION,
   };
-  const cachedDatabase = openDatabase(databasePath, true);
+  const cachedDatabase = databaseInput;
   let cachedEnvelope: TranslationCacheEnvelope | undefined;
-  try {
-    const fileRow = cachedDatabase
-      .prepare(`SELECT file_json FROM research_report_translations
-        WHERE report_id = ? AND report_version = ? AND source_content_hash = ?
-          AND source_locale = ? AND locale = ?
-          AND translation_schema_version = ? AND model_version = ?`)
-      .get(
-        reportId,
-        cacheKey.reportVersion,
-        cacheKey.sourceContentHash,
-        sourceLocale,
-        targetLocale,
-        cacheKey.translationSchemaVersion,
-        cacheKey.modelVersion,
-      ) as { readonly file_json?: unknown } | undefined;
+  {
+    const fileRow = (
+      await cachedDatabase.query(
+        `SELECT file_json FROM research_report_translations
+        WHERE report_id = $1 AND report_version = $2 AND source_content_hash = $3
+          AND source_locale = $4 AND locale = $5
+          AND translation_schema_version = $6 AND model_version = $7`,
+        [
+          reportId,
+          cacheKey.reportVersion,
+          cacheKey.sourceContentHash,
+          sourceLocale,
+          targetLocale,
+          cacheKey.translationSchemaVersion,
+          cacheKey.modelVersion,
+        ],
+      )
+    ).rows[0] as { readonly file_json?: unknown } | undefined;
     if (typeof fileRow?.file_json === "string") {
       const parsed: unknown = JSON.parse(fileRow.file_json);
       cachedEnvelope = translationCacheEnvelope(parsed);
     }
-  } finally {
-    cachedDatabase.close();
   }
 
   if (cachedEnvelope !== undefined)
@@ -603,9 +586,13 @@ export async function translatedResearchProjection(
   );
   const translated = await translateResearchText(items, targetLocale, {
     beforeBatchInvocation: async (batch) =>
-      recordTranslationInvocation(databasePath, cacheKey, batch),
+      await recordTranslationInvocation(databaseInput, cacheKey, batch),
     afterBatchInvocation: async (batch, outcome) =>
-      completeTranslationInvocation(databasePath, batch.invocationId, outcome),
+      await completeTranslationInvocation(
+        databaseInput,
+        batch.invocationId,
+        outcome,
+      ),
     ...(options.invokeBatch === undefined
       ? {}
       : { invokeBatch: options.invokeBatch }),
@@ -628,25 +615,19 @@ export async function translatedResearchProjection(
     : translated.get("__question__")?.trim();
   if (translatedQuestion === undefined || translatedQuestion.length === 0)
     throw new TypeError("research_question_translation_incomplete");
-  const database = openDatabase(databasePath);
-  try {
-    const saveFile = database.prepare(`INSERT INTO research_report_translations(
+  const database = databaseInput;
+  await researchTransaction(database, async (transaction) => {
+    await transaction.query(
+      `INSERT INTO research_report_translations(
       report_id, locale, source_locale, report_version, source_content_hash,
       translation_schema_version, model_version, file_json, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
     ON CONFLICT(
       report_id, report_version, source_content_hash, source_locale, locale,
       translation_schema_version, model_version
     ) DO UPDATE SET
-      file_json = excluded.file_json, created_at = excluded.created_at`);
-    const saveQuestion =
-      database.prepare(`INSERT INTO research_question_localizations(
-      run_id, locale, question, created_at
-    ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-    ON CONFLICT(run_id, locale) DO UPDATE SET
-      question = excluded.question, created_at = excluded.created_at`);
-    database.transaction(() => {
-      saveFile.run(
+      file_json = excluded.file_json, created_at = excluded.created_at`,
+      [
         reportId,
         targetLocale,
         sourceLocale,
@@ -661,12 +642,17 @@ export async function translatedResearchProjection(
           runDetail: translatedRunDetail,
           conversation: translatedConversation,
         } satisfies TranslationCacheEnvelope),
-      );
-      saveQuestion.run(runId, targetLocale, translatedQuestion);
-    })();
-  } finally {
-    database.close();
-  }
+      ],
+    );
+    await transaction.query(
+      `INSERT INTO research_question_localizations(
+      run_id, locale, question, created_at
+    ) VALUES ($1, $2, $3, to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+    ON CONFLICT(run_id, locale) DO UPDATE SET
+      question = excluded.question, created_at = excluded.created_at`,
+      [runId, targetLocale, translatedQuestion],
+    );
+  });
   return {
     file: output,
     question: translatedQuestion,

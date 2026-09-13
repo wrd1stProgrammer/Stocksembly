@@ -3,7 +3,7 @@
 // top of evaluateResearchQuality (src/research/domain/researchQualityEvaluator.ts).
 //
 // Extracted from scripts/run-research-quality-live.ts so both the live
-// (paid-key, 2-symbol) harness and the offline sqlite backfill
+// (paid-key, 2-symbol) harness and the PostgreSQL quality archive
 // (scripts/quality-timeseries.ts) share one scoring path instead of
 // maintaining duplicated copies — see
 // asm/plutia-labs/stocksembly/2026-08-31-품질측정-설계.md §5 작업 #1.

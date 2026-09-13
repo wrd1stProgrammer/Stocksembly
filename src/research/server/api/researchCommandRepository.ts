@@ -1,5 +1,4 @@
-import Database from "better-sqlite3";
-import { applyOrderedMigrations } from "../persistence/sqlite/migrations";
+import type { ResearchDatabase } from "../persistence/postgres/database";
 import { cancelResearchRun } from "./researchCancellationCommand";
 import type {
   CancelledRun,
@@ -24,8 +23,7 @@ import {
 } from "./researchRunCommands";
 
 export type ResearchCommandRepositoryOptions = {
-  readonly databasePath: string;
-  readonly migrationsDirectory?: string;
+  readonly database: ResearchDatabase;
 };
 type BaseContext = {
   readonly principalId: string;
@@ -35,27 +33,32 @@ type BaseContext = {
 };
 
 export class ResearchCommandRepository {
-  readonly #database: Database.Database;
+  readonly #database: ResearchDatabase;
 
   constructor(options: ResearchCommandRepositoryOptions) {
-    this.#database = new Database(options.databasePath, { timeout: 5_000 });
-    this.#database.pragma("journal_mode = WAL");
-    this.#database.pragma("foreign_keys = ON");
-    this.#database.pragma("synchronous = FULL");
-    this.#database.pragma("busy_timeout = 5000");
-    applyOrderedMigrations(this.#database, options.migrationsDirectory);
+    this.#database = options.database;
   }
 
-  cancel(runId: string, context: BaseContext): CommandResult<CancelledRun> {
-    return cancelResearchRun(this.#database, runId, context);
+  async cancel(
+    runId: string,
+    context: BaseContext,
+  ): Promise<CommandResult<CancelledRun>> {
+    return await cancelResearchRun(this.#database, runId, context);
   }
 
-  retry(runId: string, context: BaseContext): CommandResult<RecoveredRun> {
-    return retryResearchRun(this.#database, runId, context);
+  async retry(
+    runId: string,
+    context: BaseContext,
+  ): Promise<CommandResult<RecoveredRun>> {
+    return await retryResearchRun(this.#database, runId, context);
   }
 
-  replayRetry(runId: string, principalId: string, idempotencyKey: string) {
-    return replayResearchRunRetry(
+  async replayRetry(
+    runId: string,
+    principalId: string,
+    idempotencyKey: string,
+  ) {
+    return await replayResearchRunRetry(
       this.#database,
       runId,
       principalId,
@@ -63,36 +66,36 @@ export class ResearchCommandRepository {
     );
   }
 
-  followUp(
+  async followUp(
     reportId: string,
     command: FollowUpCommand,
     context: BaseContext,
-  ): CommandResult<ChildRun> {
-    return createResearchFollowUp(this.#database, reportId, {
+  ): Promise<CommandResult<ChildRun>> {
+    return await createResearchFollowUp(this.#database, reportId, {
       ...context,
       ...(command.question === undefined ? {} : { question: command.question }),
     });
   }
 
-  createQuestion(
+  async createQuestion(
     reportId: string,
     command: QuestionCommand,
     grounding: QuestionGrounding,
     context: BaseContext,
-  ): CommandResult<PublicQuestion> {
-    return createResearchQuestion(this.#database, reportId, {
+  ): Promise<CommandResult<PublicQuestion>> {
+    return await createResearchQuestion(this.#database, reportId, {
       ...context,
       command,
       grounding,
     });
   }
 
-  replayQuestion(
+  async replayQuestion(
     reportId: string,
     command: QuestionCommand,
     context: Pick<BaseContext, "principalId" | "idempotencyKey">,
   ) {
-    return replayResearchQuestion(
+    return await replayResearchQuestion(
       this.#database,
       reportId,
       context.principalId,
@@ -101,18 +104,21 @@ export class ResearchCommandRepository {
     );
   }
 
-  question(
+  async question(
     principalId: string,
     questionId: string,
-  ): PublicQuestion | undefined {
-    return findPublicQuestion(this.#database, principalId, questionId);
+  ): Promise<PublicQuestion | undefined> {
+    return await findPublicQuestion(this.#database, principalId, questionId);
   }
 
-  questions(principalId: string, reportId: string): readonly PublicQuestion[] {
-    return listPublicQuestions(this.#database, principalId, reportId);
+  async questions(
+    principalId: string,
+    reportId: string,
+  ): Promise<readonly PublicQuestion[]> {
+    return await listPublicQuestions(this.#database, principalId, reportId);
   }
 
   close(): void {
-    if (this.#database.open) this.#database.close();
+    // The process owns the shared pool.
   }
 }

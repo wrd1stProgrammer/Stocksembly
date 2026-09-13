@@ -2,37 +2,37 @@ import { hashBytes } from "../domain/contractHelpers";
 import { researchEvidenceExcerpt } from "../domain/researchEvidenceExcerpt";
 import { WORKFLOW_V1_DEPARTMENT_IDS } from "../domain/roleRegistry";
 import { ArtifactDigestSchema } from "../ports/artifacts";
-import { SqliteAgentOutputCommitStore } from "../server/persistence/sqlite/sqliteAgentOutputCommitStore";
+import { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import { createLeaseEngine } from "../worker/leaseEngine";
 import { loadResearchMandateAtPath } from "./chairSynthesisArtifacts";
 import type {
   DepartmentRoundReplay,
-  SqliteDepartmentRound,
-  SqliteDepartmentRoundOptions,
+  PostgresDepartmentRound,
+  PostgresDepartmentRoundOptions,
 } from "./departmentRoundContracts";
 import {
   authenticatedMemoPrompts,
   departmentJobs,
 } from "./departmentRoundInput";
-import { DepartmentRoundSqliteAuthority } from "./departmentRoundSqliteAuthority";
-import { createDepartmentRoundAttemptHandler } from "./departmentRoundSqliteHandler";
-import { SpecialistRoundSqliteAuthority } from "./specialistRoundSqliteAuthority";
+import { DepartmentRoundPostgresAuthority } from "./departmentRoundPostgresAuthority";
+import { createDepartmentRoundAttemptHandler } from "./departmentRoundPostgresHandler";
+import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 import { structuredTeamEvidence } from "./teamEvidenceContract";
 
 export type {
   AcceptedMemoMetadata,
   DepartmentRoundReplay,
-  SqliteDepartmentRound,
-  SqliteDepartmentRoundOptions,
+  PostgresDepartmentRound,
+  PostgresDepartmentRoundOptions,
   StageDepartmentRoundInput,
   StageDepartmentRoundResult,
 } from "./departmentRoundContracts";
 
-function replayResult(
+async function replayResult(
   runId: string,
-  authority: DepartmentRoundSqliteAuthority,
-): DepartmentRoundReplay {
-  const replay = authority.replay(runId);
+  authority: DepartmentRoundPostgresAuthority,
+): Promise<DepartmentRoundReplay> {
+  const replay = await authority.replay(runId);
   const committedDepartmentIds = replay.commits.map((commit) =>
     WORKFLOW_V1_DEPARTMENT_IDS.find(
       (departmentId) =>
@@ -55,25 +55,16 @@ function replayResult(
   };
 }
 
-export function createSqliteDepartmentRound(
-  options: SqliteDepartmentRoundOptions,
-): SqliteDepartmentRound {
-  const migrationOptions =
-    options.migrationsDirectory === undefined
-      ? {}
-      : { migrationsDirectory: options.migrationsDirectory };
-  const workflowAuthority = new SpecialistRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+export function createPostgresDepartmentRound(
+  options: PostgresDepartmentRoundOptions,
+): PostgresDepartmentRound {
+  const workflowAuthority = new SpecialistRoundPostgresAuthority(
+    options.database,
   );
-  const departmentAuthority = new DepartmentRoundSqliteAuthority(
-    options.databasePath,
-    migrationOptions,
+  const departmentAuthority = new DepartmentRoundPostgresAuthority(
+    options.database,
   );
-  const commitStore = new SqliteAgentOutputCommitStore(
-    options.databasePath,
-    migrationOptions,
-  );
+  const commitStore = new PostgresAgentOutputCommitStore(options.database);
   const handler = createDepartmentRoundAttemptHandler({
     options,
     workflowAuthority,
@@ -82,10 +73,11 @@ export function createSqliteDepartmentRound(
   });
   const now = options.now ?? (() => new Date().toISOString());
   return {
-    authority: "sqlite-worker-trusted-commit",
-    acceptedMemos: (runId) => departmentAuthority.acceptedMemos(runId),
+    authority: "postgres-worker-trusted-commit",
+    acceptedMemos: async (runId) =>
+      await departmentAuthority.acceptedMemos(runId),
     async stage(input) {
-      const rows = departmentAuthority.acceptedMemoRows(input.runId);
+      const rows = await departmentAuthority.acceptedMemoRows(input.runId);
       const authenticated = await authenticatedMemoPrompts(options.cas, rows, {
         runId: input.runId,
         artifactIds: input.memberArtifactIds,
@@ -97,8 +89,8 @@ export function createSqliteDepartmentRound(
           kind: "blocked",
           reason: "accepted_specialist_set_incomplete",
         };
-      const mandate = loadResearchMandateAtPath(
-        options.databasePath,
+      const mandate = await loadResearchMandateAtPath(
+        options.database,
         input.runId,
       );
       const reviewedPrompts = await Promise.all(
@@ -114,9 +106,9 @@ export function createSqliteDepartmentRound(
           const evidenceReview = [];
           let remaining = 36000;
           let remainingFacts = 24000;
-          for (const row of departmentAuthority
-            .evidenceRows(input.runId, ids)
-            .slice(0, 32)) {
+          for (const row of (
+            await departmentAuthority.evidenceRows(input.runId, ids)
+          ).slice(0, 32)) {
             const source = await options.cas.get(
               ArtifactDigestSchema.parse(row.content_hash),
             );
@@ -167,7 +159,7 @@ export function createSqliteDepartmentRound(
         reviewedPrompts,
         mandate,
       );
-      const staged = departmentAuthority.stageJobs(
+      const staged = await departmentAuthority.stageJobs(
         input.runId,
         jobs,
         rows.map((row) => row.artifact_id),
@@ -182,7 +174,7 @@ export function createSqliteDepartmentRound(
     },
     async drain(runId) {
       const engine = createLeaseEngine({
-        databasePath: options.databasePath,
+        pool: options.database,
         ownerId: options.ownerId,
         handler,
         clock: { now },
@@ -196,11 +188,11 @@ export function createSqliteDepartmentRound(
         if (results.every((result) => result.kind === "idle")) break;
       }
       await engine.shutdown();
-      return replayResult(runId, departmentAuthority);
+      return await replayResult(runId, departmentAuthority);
     },
-    replay: (runId) => replayResult(runId, departmentAuthority),
+    replay: async (runId) => await replayResult(runId, departmentAuthority),
     async close() {
-      commitStore.close();
+      await commitStore.close();
       departmentAuthority.close();
       workflowAuthority.close();
     },

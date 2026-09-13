@@ -49,6 +49,13 @@ require_environment_key() {
   fi
 }
 
+# This release must not start against an empty research database before import.
+postgres_ready="$(sed -n 's/^STOCKSEMBLY_RESEARCH_POSTGRES_READY=//p' /etc/stocksembly/aws.env /etc/stocksembly/app.env 2>/dev/null | tail -1)"
+if [[ "$postgres_ready" != "true" ]]; then
+  echo "PostgreSQL cutover is not verified. Import and reconcile research data before setting STOCKSEMBLY_RESEARCH_POSTGRES_READY=true; existing services remain running." >&2
+  exit 78
+fi
+
 require_environment_key /etc/stocksembly/aws.env STOCKSEMBLY_DATA_DIR
 require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_KEY
 require_environment_key /etc/stocksembly/app.env INSIGHTSENTRY_RAPIDAPI_HOST
