@@ -12,6 +12,7 @@ import {
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useState } from "react";
+import { staticAsset, staticAssetCdnEnabled } from "@/src/lib/staticAsset";
 import type { AppLocale } from "../lib/i18n";
 import { copy, researchLocale } from "../lib/i18n";
 import { OFFICE_SCENE_MANIFEST } from "../research/officeSceneManifest";
@@ -225,7 +226,10 @@ export function LandingExperience({
                 {members.map((member) => (
                   <div key={member.id}>
                     <Image
-                      src={`/research/office-v7/portraits/${member.id}.png`}
+                      src={staticAsset(
+                        `/research/office-v7/portraits/${member.id}.png`,
+                      )}
+                      unoptimized={staticAssetCdnEnabled}
                       alt=""
                       width={38}
                       height={38}

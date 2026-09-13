@@ -1,3 +1,4 @@
+import { staticAsset } from "../../lib/staticAsset";
 import type { Assets } from "./types";
 
 export function panel(
@@ -98,8 +99,15 @@ export async function loadAssets(
       const path = OFFICE_ASSET_PATHS[id];
       if (!path) throw new RangeError(`Unknown office asset: ${id}`);
       const image = new Image();
-      image.src = path;
-      await image.decode();
+      image.crossOrigin = "anonymous";
+      image.src = staticAsset(path);
+      try {
+        await image.decode();
+      } catch (error) {
+        if (staticAsset(path) === path) throw error;
+        image.src = path;
+        await image.decode();
+      }
       return [id, image] as const;
     }),
   );

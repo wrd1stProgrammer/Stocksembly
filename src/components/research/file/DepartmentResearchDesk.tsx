@@ -1,3 +1,4 @@
+import { staticAsset } from "@/src/lib/staticAsset";
 import type { Locale } from "../../../lib/i18n";
 import type { ResearchFileData } from "../../../research/compositions/types";
 import {
@@ -264,7 +265,9 @@ export function DepartmentResearchDesk({
                   >
                     <header>
                       <img
-                        src={`/research/office-v7/portraits/${roleId}.png`}
+                        src={staticAsset(
+                          `/research/office-v7/portraits/${roleId}.png`,
+                        )}
                         alt=""
                         width={64}
                         height={64}

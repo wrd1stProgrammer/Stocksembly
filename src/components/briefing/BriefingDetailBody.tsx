@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { BriefingEditionPayload } from "../../briefing/domain/contracts";
 import type { Locale } from "../../lib/i18n";
+import { staticAsset, staticAssetCdnEnabled } from "../../lib/staticAsset";
 import { CompanyLogo } from "../research/ResearchSidebar";
 import { BriefingDecisionChecks } from "./BriefingDetailChecks";
 import { BriefingDetailEarnings } from "./BriefingDetailEarnings";
@@ -85,7 +86,13 @@ export function BriefingDetailBody({ edition, locale }: Props) {
               return (
                 <article key={view.agent} data-stance={view.stance}>
                   <header>
-                    <Image src={profile.image} alt="" width={34} height={34} />
+                    <Image
+                      src={staticAsset(profile.image)}
+                      unoptimized={staticAssetCdnEnabled}
+                      alt=""
+                      width={34}
+                      height={34}
+                    />
                     <span>
                       <strong>{profile.name[locale]}</strong>
                       <small>{profile.role[locale]}</small>

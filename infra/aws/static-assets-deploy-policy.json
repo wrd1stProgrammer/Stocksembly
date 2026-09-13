@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::stocksembly-static-cdn-assetbucket-ipc2bmanairw",
+      "Condition": { "StringLike": { "s3:prefix": "releases/*" } }
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::stocksembly-static-cdn-assetbucket-ipc2bmanairw/releases/*"
+    }
+  ]
+}
