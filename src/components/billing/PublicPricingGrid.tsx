@@ -7,7 +7,6 @@ import {
   type WhopPricingPlan,
 } from "../../lib/whop/contracts";
 import { useWhopCheckout } from "./useWhopCheckout";
-import { WhopCheckoutModal } from "./WhopCheckoutModal";
 
 type Copy = {
   readonly monthly: string;
@@ -26,17 +25,13 @@ type Props = {
   readonly copy: Copy;
 };
 
-export function PublicPricingGrid({ plans, locale, copy }: Props) {
-  const { checkout, pendingId, error, startCheckout, closeCheckout } =
-    useWhopCheckout();
+export function PublicPricingGrid({ plans, copy }: Props) {
+  const { pendingId, error, startCheckout } = useWhopCheckout();
 
   return (
     <>
       <section className="billing-page__grid" aria-label="Stocksembly plans">
         {plans.map((plan) => {
-          const label = `${plan.tier} · ${
-            plan.interval === "month" ? copy.monthly : copy.annual
-          }`;
           return (
             <article
               className={`billing-card${
@@ -62,11 +57,7 @@ export function PublicPricingGrid({ plans, locale, copy }: Props) {
                 type="button"
                 disabled={pendingId !== undefined}
                 onClick={() => {
-                  void startCheckout(
-                    billingCheckoutPath(plan.key),
-                    plan.key,
-                    label,
-                  );
+                  void startCheckout(billingCheckoutPath(plan.key), plan.key);
                 }}
               >
                 {pendingId === plan.key ? "…" : copy.choose}
@@ -80,11 +71,6 @@ export function PublicPricingGrid({ plans, locale, copy }: Props) {
           {copy.checkoutError}
         </p>
       ) : null}
-      <WhopCheckoutModal
-        checkout={checkout}
-        locale={locale}
-        onClose={closeCheckout}
-      />
     </>
   );
 }

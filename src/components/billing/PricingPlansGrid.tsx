@@ -5,7 +5,6 @@ import { useId, useState } from "react";
 import type { Locale } from "../../lib/i18n";
 import { PricingCard, type PricingCardPlan } from "../ui/pricing-card";
 import { useWhopCheckout } from "./useWhopCheckout";
-import { WhopCheckoutModal } from "./WhopCheckoutModal";
 
 export type { PricingCardPlan as SubscriptionPlanCard } from "../ui/pricing-card";
 
@@ -92,13 +91,7 @@ export function PricingPlansGrid({
   onPaidSelect,
 }: PricingPlansGridProps) {
   const [cycle, setCycle] = useState<BillingCycle>(initialCycle);
-  const {
-    checkout,
-    pendingId,
-    error: checkoutError,
-    startCheckout,
-    closeCheckout,
-  } = useWhopCheckout();
+  const { pendingId, error: checkoutError, startCheckout } = useWhopCheckout();
   const isAnnual = cycle === "annual";
 
   return (
@@ -135,7 +128,7 @@ export function PricingPlansGrid({
                           onPaidSelect(plan, cycle);
                           return;
                         }
-                        void startCheckout(checkoutUrl, plan.id, plan.name);
+                        void startCheckout(checkoutUrl, plan.id);
                       }
                     : undefined
                 }
@@ -153,11 +146,6 @@ export function PricingPlansGrid({
           </p>
         ) : null}
       </section>
-      <WhopCheckoutModal
-        checkout={checkout}
-        locale={locale}
-        onClose={closeCheckout}
-      />
     </MotionConfig>
   );
 }

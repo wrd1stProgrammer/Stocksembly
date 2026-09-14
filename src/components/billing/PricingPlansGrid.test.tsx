@@ -13,28 +13,6 @@ vi.mock("border-beam", () => ({
   BorderBeam: ({ children }: { readonly children: ReactNode }) => children,
 }));
 
-vi.mock("@whop/checkout/react", () => ({
-  WhopCheckoutEmbed: ({
-    sessionId,
-    returnUrl,
-    environment,
-    prefill,
-  }: {
-    readonly sessionId: string;
-    readonly returnUrl: string;
-    readonly environment: string;
-    readonly prefill?: { readonly email?: string };
-  }) => (
-    <div
-      data-testid="whop-checkout"
-      data-session-id={sessionId}
-      data-return-url={returnUrl}
-      data-environment={environment}
-      data-email={prefill?.email}
-    />
-  ),
-}));
-
 const plans = [
   {
     id: "pro" as const,
@@ -50,50 +28,43 @@ const plans = [
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   currentAuthTokens.mockReset();
 });
 
-describe("PricingPlansGrid embedded checkout", () => {
-  it("opens the official Whop embed with the server-created checkout session", async () => {
-    const identityPayload = window.btoa(
-      JSON.stringify({ email: "investor@example.com" }),
+describe("PricingPlansGrid hosted checkout", () => {
+  it("opens a tab before authentication resolves and navigates to the server session", async () => {
+    let resolveAuth: (value: { accessToken: string }) => void = () => {};
+    currentAuthTokens.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAuth = resolve;
+      }),
     );
-    currentAuthTokens.mockResolvedValue({
-      accessToken: "access-token",
-      identityToken: `header.${identityPayload}.signature`,
-    });
+    const popup = {
+      opener: window,
+      closed: false,
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+    };
+    const open = vi.fn().mockReturnValue(popup);
+    vi.stubGlobal("open", open);
+    const purchaseUrl = "https://whop.com/checkout/ch_test/";
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          purchaseUrl: "https://whop.com/checkout/plan_pro?session=ch_test",
-          planId: "plan_pro",
-          sessionId: "ch_test",
-          returnUrl: "https://stocksembly.com/?billing=success",
-          environment: "production",
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
+      new Response(JSON.stringify({ purchaseUrl, sessionId: "ch_test" }), {
+        status: 200,
+      }),
     );
     vi.stubGlobal("fetch", fetchMock);
-
     render(
       <PricingPlansGrid plans={plans} locale="en" initialCycle="monthly" />,
     );
     fireEvent.click(screen.getByRole("button", { name: /get started/i }));
-
-    const embed = await screen.findByTestId("whop-checkout");
-    expect(embed).toHaveAttribute("data-session-id", "ch_test");
-    expect(embed).toHaveAttribute(
-      "data-return-url",
-      "https://stocksembly.com/?billing=success",
-    );
-    expect(embed).toHaveAttribute("data-environment", "production");
-    expect(embed).toHaveAttribute("data-email", "investor@example.com");
-    expect(
-      screen.getByRole("link", { name: /open checkout in a new tab/i }),
-    ).toHaveAttribute(
-      "href",
-      "https://whop.com/checkout/plan_pro?session=ch_test",
+    expect(open).toHaveBeenCalledWith("about:blank", "_blank");
+    expect(popup.opener).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    resolveAuth({ accessToken: "access-token" });
+    await waitFor(() =>
+      expect(popup.location.replace).toHaveBeenCalledWith(purchaseUrl),
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/billing/checkout?plan=pro-monthly",
@@ -103,35 +74,25 @@ describe("PricingPlansGrid embedded checkout", () => {
         }),
       }),
     );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("closes the embedded checkout without changing the selected plan", async () => {
+  it("closes the blank tab and allows retry when session creation fails", async () => {
     currentAuthTokens.mockResolvedValue({ accessToken: "access-token" });
+    const popup = { opener: window, closed: false, close: vi.fn() };
+    vi.stubGlobal("open", vi.fn().mockReturnValue(popup));
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            purchaseUrl: "https://whop.com/checkout/plan_pro?session=ch_test",
-            sessionId: "ch_test",
-            returnUrl: "https://stocksembly.com/?billing=success",
-            environment: "production",
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
-      ),
+      vi.fn().mockResolvedValue(new Response("{}", { status: 503 })),
     );
-
     render(
       <PricingPlansGrid plans={plans} locale="ko" initialCycle="monthly" />,
     );
     fireEvent.click(screen.getByRole("button", { name: "시작하기" }));
-    expect(await screen.findByTestId("whop-checkout")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "결제창 닫기" }));
-    await waitFor(() => {
-      expect(screen.queryByTestId("whop-checkout")).not.toBeInTheDocument();
-    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "결제 페이지를 열지 못했습니다",
+    );
+    expect(popup.close).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: "시작하기" })).toBeEnabled();
   });
 });
