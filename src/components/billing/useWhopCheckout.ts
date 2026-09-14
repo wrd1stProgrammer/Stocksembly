@@ -14,52 +14,23 @@ export type EmbeddedWhopCheckout = {
   readonly email?: string;
 };
 
-function emailFromIdentityToken(token: string | undefined): string | undefined {
-  if (token === undefined) return undefined;
-  try {
-    const encoded = token.split(".")[1];
-    if (encoded === undefined) return undefined;
-    const normalized = encoded.replaceAll("-", "+").replaceAll("_", "/");
-    const padding = "=".repeat((4 - (normalized.length % 4)) % 4);
-    const payload = JSON.parse(window.atob(`${normalized}${padding}`)) as {
-      readonly email?: unknown;
-    };
-    return typeof payload.email === "string" && payload.email.includes("@")
-      ? payload.email
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function isEmbeddedCheckout(
-  payload: WhopCheckoutLaunch,
-): payload is WhopCheckoutLaunch & {
-  readonly sessionId: string;
-  readonly returnUrl: string;
-  readonly environment: "sandbox" | "production";
-} {
-  return (
-    typeof payload.sessionId === "string" &&
-    typeof payload.returnUrl === "string" &&
-    (payload.environment === "sandbox" || payload.environment === "production")
-  );
-}
-
 export function useWhopCheckout() {
-  const [checkout, setCheckout] = useState<EmbeddedWhopCheckout>();
   const [pendingId, setPendingId] = useState<string>();
   const [error, setError] = useState(false);
 
   const startCheckout = useCallback(
-    async (checkoutUrl: string, id: string, label: string) => {
+    async (checkoutUrl: string, id: string) => {
       if (pendingId !== undefined) return;
       setPendingId(id);
       setError(false);
+      // Open during the click gesture so async session creation is not blocked.
+      const checkoutWindow = window.open("about:blank", "_blank");
+      if (checkoutWindow) checkoutWindow.opener = null;
 
       try {
         const tokens = await currentAuthTokens();
         if (tokens.accessToken === undefined) {
+          checkoutWindow?.close();
           const next = `${window.location.pathname}${window.location.search}`;
           window.location.assign(`/login?next=${encodeURIComponent(next)}`);
           return;
@@ -81,6 +52,7 @@ export function useWhopCheckout() {
           | undefined;
 
         if (response.status === 401) {
+          checkoutWindow?.close();
           const next = `${window.location.pathname}${window.location.search}`;
           window.location.assign(`/login?next=${encodeURIComponent(next)}`);
           return;
@@ -100,21 +72,13 @@ export function useWhopCheckout() {
             payload.tracking.eventId,
           );
 
-        if (!isEmbeddedCheckout(payload)) {
+        if (checkoutWindow && !checkoutWindow.closed) {
+          checkoutWindow.location.replace(payload.purchaseUrl);
+        } else {
           window.location.assign(payload.purchaseUrl);
-          return;
         }
-
-        const email = emailFromIdentityToken(tokens.identityToken);
-        setCheckout({
-          sessionId: payload.sessionId,
-          returnUrl: payload.returnUrl,
-          purchaseUrl: payload.purchaseUrl,
-          environment: payload.environment,
-          label,
-          ...(email === undefined ? {} : { email }),
-        });
       } catch {
+        checkoutWindow?.close();
         setError(true);
       } finally {
         setPendingId(undefined);
@@ -123,13 +87,9 @@ export function useWhopCheckout() {
     [pendingId],
   );
 
-  const closeCheckout = useCallback(() => setCheckout(undefined), []);
-
   return {
-    checkout,
     pendingId,
     error,
     startCheckout,
-    closeCheckout,
   } as const;
 }

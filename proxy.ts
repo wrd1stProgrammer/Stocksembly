@@ -65,5 +65,5 @@ export function proxy(request: NextRequest): NextResponse | Response {
 }
 
 export const config = {
-  matcher: ["/((?!api/|_next/|_vercel/|.*\\.[^/]+$).*)"],
+  matcher: ["/((?!api/|_next/|_vercel/|\\.well-known/|.*\\.[^/]+$).*)"],
 };
