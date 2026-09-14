@@ -15,7 +15,7 @@ The load balancer and ASG are managed by the provisioning scripts, separately fr
 - `stocksembly.com` and `www.stocksembly.com`: Route 53 alias → ACM HTTPS ALB → web nginx port 8080 → Next.js port 3000.
 - Static images continue using the existing CloudFront domain.
 - Nginx port 8080 accepts network traffic only from the ALB security group; forwarded HTTPS headers and unbuffered event streams are preserved.
-- `/api/health` checks the web process. Shared RDS failures should not cause a whole-fleet replacement storm. During migration, the existing image is checked through `/robots.txt`; switch to the dedicated health route after the new image is deployed.
+- `/api/health` checks the web process. Shared RDS failures should not cause a whole-fleet replacement storm. The target group now checks `/api/health`, and ASG uses ELB health with a 900-second startup grace period.
 - Existing direct HTTPS/EIP is temporarily retained for DNS caches. Retire it after delegation caches have expired, rather than breaking cached visitors during migration.
 
 ## Releases
@@ -38,10 +38,11 @@ Worker alarms are observation-only, with actions disabled. Do not scale the curr
 
 ### Recorded cutover state (2026-09-14 KST)
 
-- Production web runs the manually loaded, CI-built `d6cab573f378e7d474bcce068d531ee30ba36504` image. It is not yet pushed to ECR. The bootstrap image parameter intentionally still references main release `757f97fb31bdf361ecc973969ea332a65877b658`; merging this PR and a successful main deployment advances it to the newly built ECR release.
-- ALB and public home both respond successfully. The dedicated health route responds through ALB; the target group still checks `/robots.txt`. Web ASG actual minimum/desired/maximum are 1/1/1, with AlarmNotification suspended and EC2 health checks. The initial disabled policy is still `web-cpu-55`; the provisioning script reconciles it to `web-cpu-35` when next applied.
-- Worker metric publication is live. The dashboard portion of `configure-scaling-access.py` has not yet been applied. Automatic worker scaling is disabled.
-- Mac lock prevented the final console adjustments and visual browser inspection. After unlocking: apply the revised policy and dashboard, update the target health path, remove worker `temporary-operations-upload` and web `temporary-bootstrap-write` policies. Preserve the permanent narrowly scoped bootstrap policy. Keep maximum one until scaling activation and cold-start readiness are explicitly reviewed; never raise desired capacity merely to verify setup.
+- Production web runs CI-built `d6cab573f378e7d474bcce068d531ee30ba36504`. The same image is now in ECR, digest `sha256:6fe86eb249e68f7e85197909383e90de28b07a3b94c8468730ce982746e24ac6`, and `/stocksembly/prod/web/image` references it. This supervised cutover aligns replacement hosts with the already validated application; the next successful main deployment advances the pointer normally.
+- ALB and public home respond successfully. The target group now checks `/api/health`. Web ASG minimum/desired/maximum remain 1/1/1, with AlarmNotification suspended and ELB health checks (900-second grace). The configured policy is `web-cpu-35`; the initial `web-cpu-55` policy was removed.
+- Worker metric publication is live and the `Stocksembly-scaling` CloudWatch dashboard is created. Automatic worker scaling remains disabled.
+- Temporary worker `temporary-operations-upload` and web `temporary-bootstrap-write` IAM policies were removed. Permanent bootstrap and monitoring permissions remain scoped to the required resources. The temporary CloudShell Docker login was logged out.
+- After Mac unlock, browser control was restored through a fresh dedicated background tab. The signed-in home, anonymous landing, and rendered office were checked without changing the user's existing tabs. Maximum stays one; activating scale-out and a cold-host drill remain separate operational decisions.
 - The local-origin HTML sample was 81/97/85 ms after deployment, compared with 431/135/283 ms beforehand. These three-request samples do not establish concurrent-user capacity, geographic performance, or browser load time.
 
 Use focused cache/access tests, the public catalog integration test, live HTTPS through the ALB, actual instance counts and live CloudWatch data. Do not claim a replacement launch or two-web failover was exercised: that would violate the one-instance constraint. A future scheduled replacement drill is needed to prove cold-host startup operationally.
