@@ -54,6 +54,9 @@ export type SceneFrame = {
   readonly time: number;
   readonly actors: readonly ActorFrame[];
   readonly speaker: ActorId | null;
+  readonly investigation?:
+    | import("./investigation").InvestigationMoment
+    | undefined;
 };
 export type Rect = {
   readonly x: number;

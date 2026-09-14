@@ -20,6 +20,7 @@ export type OfficePresentation = {
   readonly active: boolean;
   readonly snapToProgress?: boolean;
   readonly preserveEntrance?: boolean;
+  readonly investigating?: boolean;
   readonly onChange: (change: OfficeDialogueChange) => void;
 };
 

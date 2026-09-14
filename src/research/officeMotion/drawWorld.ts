@@ -9,6 +9,10 @@ import {
   drawForumFloor,
   drawForumTable,
 } from "./furniture";
+import {
+  drawInvestigationHandoff,
+  drawInvestigationPapers,
+} from "./investigationProps";
 import { FORUM_PLACES, ROSTER, TEAM_TABLES, WALLS, WORLD } from "./layout";
 import { drawRoomSigns } from "./signs";
 import type { Assets, SceneFrame } from "./types";
@@ -28,6 +32,14 @@ export function drawWorld(
   ctx.drawImage(asset(assets, "office"), 0, 0, WORLD.width, WORLD.height);
   drawForumFloor(ctx);
   const layers: Layer[] = [];
+  const investigationTable = TEAM_TABLES.find(
+    (table) => table.id === frame.investigation?.team,
+  );
+  if (investigationTable)
+    layers.push({
+      depth: investigationTable.center.y + 21,
+      draw: () => drawInvestigationPapers(ctx, frame),
+    });
   const chairLayer = (seat: ChairSeat): void => {
     layers.push({ depth: seat.y - 30, draw: () => drawChairBase(ctx, seat) });
     layers.push({ depth: seat.y + 0.5, draw: () => drawChairFront(ctx, seat) });
@@ -91,6 +103,7 @@ export function drawWorld(
   }
   layers.sort((a, b) => a.depth - b.depth);
   for (const layer of layers) layer.draw();
+  drawInvestigationHandoff(ctx, frame);
   const image = asset(assets, "office");
   for (const wall of WALLS) {
     const touches = frame.actors.some(

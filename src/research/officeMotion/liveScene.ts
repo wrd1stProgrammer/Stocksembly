@@ -15,6 +15,7 @@ import {
   type LiveDestination,
   sameCell,
 } from "./destinations";
+import { InvestigationDirector, investigationPose } from "./investigation";
 import {
   FOOT_RADIUS,
   findMotionRoute,
@@ -36,6 +37,7 @@ export type LiveSceneOptions = {
   readonly paused: boolean;
   readonly snapToProgress?: boolean;
   readonly preserveEntrance?: boolean;
+  readonly investigating?: boolean;
   readonly dialogue?: OfficeDialogue;
   readonly speech?: {
     readonly speakerId: ActorId;
@@ -158,6 +160,8 @@ function initialState(
 }
 
 export class LiveOfficeScene {
+  private readonly investigation = new InvestigationDirector();
+  private investigationMoving = false;
   private states = new Map<ActorId, ActorState>();
   private time = 0;
   private lastTick = -1;
@@ -183,6 +187,8 @@ export class LiveOfficeScene {
   }
 
   reset(): void {
+    this.investigation.reset();
+    this.investigationMoving = false;
     this.states.clear();
     this.seatedTeams.clear();
     this.forumActive = false;
@@ -234,6 +240,28 @@ export class LiveOfficeScene {
         if (destinationFor(actor).kind === "floor") targets.delete(actor.id);
       }
     }
+    const investigationTargets = this.investigation.update(
+      snapshot,
+      this.time,
+      !!options.investigating &&
+        this.entranceFinished &&
+        !options.reducedMotion &&
+        (!encounter ||
+          (encounter.kind === "work" && options.speech === null)) &&
+        !this.forumActive &&
+        snapshot.actors.every((actor) => destinationFor(actor).kind === "work"),
+      (id, target) => {
+        const state = this.states.get(id);
+        return (
+          !!state &&
+          state.phase === "ready" &&
+          state.destination.key === target.key &&
+          distance(state.position, target.position) < 1
+        );
+      },
+    );
+    if (this.investigation.moment(this.time)) this.investigationMoving = true;
+    for (const [id, target] of investigationTargets) targets.set(id, target);
     this.targets = targets;
     const projected = new Map(
       projection?.actors.map((actor) => [actor.id, actor]) ?? [],
@@ -248,6 +276,8 @@ export class LiveOfficeScene {
       if (
         options.reducedMotion ||
         (options.snapToProgress &&
+          !options.investigating &&
+          !this.investigationMoving &&
           (!options.preserveEntrance || this.entranceFinished))
       ) {
         state.position = target.position;
@@ -290,6 +320,15 @@ export class LiveOfficeScene {
         return state?.phase === "ready" && state.anchor?.seated === true;
       });
     }
+    if (
+      !this.investigation.moment(this.time) &&
+      snapshot.actors.every((actor) => {
+        const state = this.states.get(actor.id);
+        const target = targets.get(actor.id) ?? destinationFor(actor);
+        return state?.phase === "ready" && state.destination.key === target.key;
+      })
+    )
+      this.investigationMoving = false;
     const actors = snapshot.actors.map((source, index) => {
       const state = this.states.get(source.id);
       if (!state)
@@ -322,7 +361,10 @@ export class LiveOfficeScene {
     });
     this.lastFrame = {
       time: this.time,
-      actors: turned,
+      actors: turned.map((actor) =>
+        investigationPose(actor, this.investigation.moment(this.time)),
+      ),
+      investigation: this.investigation.moment(this.time),
       speaker: speakers[0]?.id ?? null,
     };
     return this.lastFrame;
