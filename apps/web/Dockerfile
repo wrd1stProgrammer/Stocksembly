@@ -57,6 +57,8 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY --from=build --chown=node:node /app/.next/standalone ./
+# Payment domain verification must be served directly from the application origin.
+COPY --from=build --chown=node:node /app/public/.well-known ./public/.well-known
 
 RUN install -d -m 0700 -o node -g node /home/ec2-user/.codex/tmp \
     && install -d -m 0755 /etc/pki/ca-trust/extracted/pem \
