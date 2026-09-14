@@ -68,6 +68,23 @@ for attempt in {1..30}; do
     sleep 3
     if healthy; then
       printf 'STOCKSEMBLY_IMAGE=%s\n' "$image" > "/opt/stocksembly/container/${role}.image.env"
+      if [[ "$role" == web && -f /etc/stocksembly/asg-web ]]; then
+        # Persist the successfully deployed environment for future ASG instances.
+        config_file="$(mktemp /run/stocksembly-web-config.XXXXXX)"
+        chmod 0600 "$config_file"
+        python3 - "$config_file" <<'PYCONFIG'
+import json, pathlib, sys
+pathlib.Path(sys.argv[1]).write_text(json.dumps({
+    "awsEnv": pathlib.Path('/etc/stocksembly/aws.env').read_text(),
+    "appEnv": pathlib.Path('/etc/stocksembly/app.env').read_text(),
+}))
+PYCONFIG
+        if ! aws secretsmanager put-secret-value --region "$region" --secret-id stocksembly/prod/web-bootstrap --secret-string "file://$config_file" --query ARN --output text; then
+          rm -f "$config_file"
+          exit 1
+        fi
+        rm -f "$config_file"
+      fi
       exit 0
     fi
   fi

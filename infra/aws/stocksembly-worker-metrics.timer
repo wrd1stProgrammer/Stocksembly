@@ -1,0 +1,8 @@
+[Unit]
+Description=Measure research backlog once per minute
+[Timer]
+OnBootSec=120
+OnUnitActiveSec=60
+RandomizedDelaySec=5
+[Install]
+WantedBy=timers.target
