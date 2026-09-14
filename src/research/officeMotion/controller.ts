@@ -106,6 +106,10 @@ export async function createOfficeMotionRenderer(
       paused,
       snapToProgress: renderOptions.snapToProgress ?? false,
       preserveEntrance: renderOptions.preserveEntrance ?? false,
+      investigating:
+        !!renderOptions.investigating &&
+        (!dialogue ||
+          (dialogue.kind === "work" && dialoguePlayer.isFinished(dialogue.id))),
       ...(dialogue ? { dialogue, speech } : {}),
     };
     frame = scene.update(snapshot, semantic, delta, sceneOptions);

@@ -58,6 +58,7 @@ type PendingRender = {
   readonly dialogue?: OfficeDialogue;
   readonly snapToProgress?: boolean;
   readonly preserveEntrance?: boolean;
+  readonly investigating?: boolean;
 };
 
 const MOBILE_CAMERA_QUERY = "(max-width: 767px)";
@@ -283,6 +284,7 @@ export function PixelOfficeGame({
       ...(dialogue ? { dialogue } : {}),
       snapToProgress: presentation?.snapToProgress ?? false,
       preserveEntrance: presentation?.preserveEntrance ?? false,
+      investigating: presentation?.investigating ?? false,
     };
   }, [
     effectiveCameraMode,
@@ -295,6 +297,7 @@ export function PixelOfficeGame({
     cameraActorIds,
     presentation?.snapToProgress,
     presentation?.preserveEntrance,
+    presentation?.investigating,
   ]);
 
   useEffect(() => {
@@ -340,6 +343,7 @@ export function PixelOfficeGame({
             ...(pending.dialogue ? { dialogue: pending.dialogue } : {}),
             snapToProgress: pending.snapToProgress ?? false,
             preserveEntrance: pending.preserveEntrance ?? false,
+            investigating: pending.investigating ?? false,
           });
         }
         controller.setPaused(pending.isPaused);
@@ -390,6 +394,7 @@ export function PixelOfficeGame({
         ...(dialogue ? { dialogue } : {}),
         snapToProgress: presentation?.snapToProgress ?? false,
         preserveEntrance: presentation?.preserveEntrance ?? false,
+        investigating: presentation?.investigating ?? false,
       });
     }
     controller.setPaused(isPaused);
@@ -404,6 +409,7 @@ export function PixelOfficeGame({
     cameraActorIds,
     presentation?.snapToProgress,
     presentation?.preserveEntrance,
+    presentation?.investigating,
   ]);
 
   return (

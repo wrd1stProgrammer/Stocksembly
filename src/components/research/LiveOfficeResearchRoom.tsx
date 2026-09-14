@@ -584,6 +584,8 @@ export function LiveOfficeResearchRoom({
           presentation={{
             ...presentation.presentation,
             preserveEntrance: freshEntrance,
+            investigating:
+              !terminal && !completed && snapshot.beatId === "parallel-work",
           }}
           current={presentation.current}
           events={presentation.events}
