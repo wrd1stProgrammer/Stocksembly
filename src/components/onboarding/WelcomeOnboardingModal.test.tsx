@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WhopPricingPlan } from "../../lib/whop/contracts";
 import { WelcomeOnboardingModal } from "./WelcomeOnboardingModal";
@@ -38,7 +38,44 @@ const plans: readonly WhopPricingPlan[] = [
   },
 ];
 
+vi.mock("../../auth/researchSession", () => ({
+  currentAuthTokens: async () => ({}),
+}));
+async function chooseStock() {
+  expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  await waitFor(() => expect(screen.getByRole("textbox")).toBeEnabled());
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "회사명 또는 종목 코드 검색" }),
+    { target: { value: "NVDA" } },
+  );
+  fireEvent.click(await screen.findByRole("button", { name: /NVDA/ }));
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  await screen.findByRole("heading", {
+    name: "어떤 투자 판단부터 선명하게 만들까요?",
+  });
+}
 beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string) =>
+      Response.json(
+        input.includes("tickers")
+          ? {
+              tickers: [
+                {
+                  symbol: "NVDA",
+                  providerCode: "NASDAQ:NVDA",
+                  company: "NVIDIA",
+                  exchange: "NASDAQ",
+                },
+              ],
+            }
+          : { status: "accepted" },
+        { status: input.includes("tickers") ? 200 : 202 },
+      ),
+    ),
+  );
+
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn().mockImplementation((query: string) => ({
@@ -55,7 +92,7 @@ beforeEach(() => {
 });
 
 describe("WelcomeOnboardingModal", () => {
-  it("collects discovery source before explaining credits and billing plans", () => {
+  it("collects discovery source before explaining credits and billing plans", async () => {
     const onComplete = vi.fn();
     const onOpenPlans = vi.fn();
     render(
@@ -67,6 +104,7 @@ describe("WelcomeOnboardingModal", () => {
       />,
     );
 
+    await chooseStock();
     expect(
       screen.getByRole("heading", {
         name: "어떤 투자 판단부터 선명하게 만들까요?",
@@ -125,7 +163,7 @@ describe("WelcomeOnboardingModal", () => {
     expect(onComplete).toHaveBeenCalledWith("instagram");
   });
 
-  it("keeps the advertised annual prices visible while live plan data loads", () => {
+  it("keeps the advertised annual prices visible while live plan data loads", async () => {
     render(
       <WelcomeOnboardingModal
         locale="ko"
@@ -134,6 +172,7 @@ describe("WelcomeOnboardingModal", () => {
         onOpenPlans={vi.fn()}
       />,
     );
+    await chooseStock();
 
     fireEvent.click(screen.getByRole("button", { name: /실적 발표 전에/u }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));

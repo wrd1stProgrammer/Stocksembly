@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import { Agent, request as httpsRequest } from "node:https";
+import { collectionSignal } from "../sharedSourceCache";
 import { SecClientError, SecTransportTimeoutError } from "./secClientErrors";
 import type { SecWireAdapter } from "./secClientTypes";
 
@@ -59,6 +60,7 @@ export const nodeSecWireAdapter: SecWireAdapter = async (request) => {
         method: "GET",
         headers: request.headers,
         agent: SEC_HTTPS_AGENT,
+        ...(collectionSignal() ? { signal: collectionSignal() } : {}),
       },
       (response) => {
         resolve({

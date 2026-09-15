@@ -2475,6 +2475,7 @@ export class PostgresAccountStore implements AccountStore {
           monthlyCreditLimit,
         ],
       );
+      await linkOnboardingWatchlist(client, principalId);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -2540,6 +2541,20 @@ export class PostgresAccountStore implements AccountStore {
     }
   }
 
+  async linkOnboardingWatchlist(principalId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await linkOnboardingWatchlist(client, principalId);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async completeOnboarding(
     principalId: string,
     version: number,
@@ -2581,4 +2596,52 @@ export async function createLiveAccountStore(): Promise<
   return configuration === undefined
     ? undefined
     : await PostgresAccountStore.create(configuration);
+}
+
+async function linkOnboardingWatchlist(
+  client: PoolClient,
+  principalId: string,
+): Promise<void> {
+  const entitlement = await client.query<{ plan_code: string; status: string }>(
+    "SELECT plan_code,status FROM entitlements WHERE principal_id=$1 FOR UPDATE",
+    [principalId],
+  );
+  const access = entitlement.rows[0];
+  const limit = watchlistLimit(
+    tierForPlanCode(access?.plan_code),
+    access?.status,
+  );
+  if (!limit) return;
+  const interests = await client.query<{
+    stocks: {
+      symbol: string;
+      providerCode: string;
+      company: string;
+      exchange: string;
+    }[];
+  }>(
+    "SELECT stocks FROM onboarding_interests WHERE principal_id=$1 AND watchlist_linked_at IS NULL FOR UPDATE",
+    [principalId],
+  );
+  if (!interests.rows[0]) return;
+  for (const stock of interests.rows[0].stocks) {
+    await client.query(
+      `INSERT INTO briefing_watchlist_items(principal_id,symbol,provider_code,company,exchange,position)
+      SELECT $1,$2,$3,$4,$5,COALESCE(MAX(position),-1)+1 FROM briefing_watchlist_items
+      WHERE principal_id=$1 AND active=true HAVING COUNT(*) < $6
+      ON CONFLICT(principal_id,symbol) DO NOTHING`,
+      [
+        principalId,
+        stock.symbol,
+        stock.providerCode,
+        stock.company,
+        stock.exchange,
+        limit,
+      ],
+    );
+  }
+  await client.query(
+    "UPDATE onboarding_interests SET watchlist_linked_at=now() WHERE principal_id=$1",
+    [principalId],
+  );
 }

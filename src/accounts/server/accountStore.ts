@@ -153,6 +153,7 @@ export type AccountStore = {
     locale: AppLocale,
   ) => Promise<void>;
   readonly onboardingVersion?: (principalId: string) => Promise<number>;
+  readonly linkOnboardingWatchlist?: (principalId: string) => Promise<void>;
   readonly completeOnboarding?: (
     principalId: string,
     version: number,

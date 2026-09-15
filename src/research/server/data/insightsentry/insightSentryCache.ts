@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { readSharedSource, writeSharedSource } from "../sharedSourceCache";
 import { InsightSentryCacheMetadataSchema } from "./insightSentrySchemas";
 
 export type InsightSentryCacheEntry = {
@@ -42,6 +43,21 @@ export async function readInsightSentryCache(
   cacheKey: string,
   now: number,
 ): Promise<InsightSentryCacheEntry | undefined> {
+  const shared = await readSharedSource("insightsentry", cacheKey);
+  if (shared) {
+    const parsed = InsightSentryCacheMetadataSchema.safeParse(shared.metadata);
+    if (
+      parsed.success &&
+      parsed.data.cacheKey === cacheKey &&
+      Date.parse(parsed.data.expiresAt) > now &&
+      parsed.data.responseBytes === shared.body.byteLength
+    )
+      return {
+        bytes: shared.body,
+        retrievedAt: parsed.data.retrievedAt,
+        responseBytes: parsed.data.responseBytes,
+      };
+  }
   const target = paths(dataRoot, cacheKey);
   let body: Uint8Array;
   let rawMetadata: string;
@@ -69,6 +85,13 @@ export async function readInsightSentryCache(
     Date.parse(metadata.data.expiresAt) <= now
   )
     return undefined;
+  await writeSharedSource(
+    "insightsentry",
+    cacheKey,
+    body,
+    metadata.data,
+    metadata.data.expiresAt,
+  );
   return Object.freeze({
     bytes: Uint8Array.from(body),
     retrievedAt: metadata.data.retrievedAt,
@@ -83,6 +106,18 @@ export async function writeInsightSentryCache(input: {
   readonly retrievedAt: string;
   readonly expiresAt: string;
 }): Promise<void> {
+  await writeSharedSource(
+    "insightsentry",
+    input.cacheKey,
+    input.bytes,
+    {
+      cacheKey: input.cacheKey,
+      retrievedAt: input.retrievedAt,
+      expiresAt: input.expiresAt,
+      responseBytes: input.bytes.byteLength,
+    },
+    input.expiresAt,
+  );
   const target = paths(input.dataRoot, input.cacheKey);
   await mkdir(target.directory, { recursive: true, mode: 0o700 });
   await atomicWrite(target.body, input.bytes);
