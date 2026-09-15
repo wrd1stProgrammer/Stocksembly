@@ -133,8 +133,8 @@ export const CODEX_RUNTIME_POLICY = Object.freeze({
 export const CODEX_RUNTIME_PINS = Object.freeze({
   originPath: "/Applications/ChatGPT.app/Contents/Resources/codex",
   originSha256:
-    "0cf2d42e90ddd50fa5b7eedd5d72f109b68d33e5a6ce7c3fc2c87e4180edcd59",
-  version: "codex-cli 0.153.1",
+    "87a08119b8effa519f0ecb552dc98043f58a8200bf2ec5da60f76890c33e9c3a",
+  version: "codex-cli 0.153.4",
   sandboxExecPath: "/usr/bin/sandbox-exec",
   sandboxExecSha256:
     "f3162ae11789a5b296bb3850d493c33ddd52053a03f984b2c4bc34004f4fee99",
@@ -143,7 +143,7 @@ export const CODEX_RUNTIME_PINS = Object.freeze({
     "9dae8d76e55cb08991f2b672d58999ea15560d910759c16b544f843bdffbb994",
   codeIdentifier: "codex",
   teamIdentifier: "2DC432GLL2",
-  codeDirectoryHash: "28db942786e732576baa3379d9570de2b92de18a",
+  codeDirectoryHash: "864aa1693ffed7034fd3d1a723386b250aa1627d",
   locale: "en_US.UTF-8",
 });
 

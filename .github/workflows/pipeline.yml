@@ -169,6 +169,7 @@ jobs:
           APP_ORIGIN: https://stocksembly.com
           GA_MEASUREMENT_ID: G-YRQDC6R5TL
           META_PIXEL_ID: "1941324473216410"
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: |
           image_tag="${RUNTIME_ROLE}-sha-${GITHUB_SHA}"
           image="${REGISTRY}/${ECR_REPOSITORY}:${image_tag}"
@@ -183,6 +184,7 @@ jobs:
               --build-arg "NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN}" \
               --build-arg "NEXT_PUBLIC_APP_ORIGIN=${APP_ORIGIN}" \
               --build-arg "NEXT_PUBLIC_GA_MEASUREMENT_ID=${GA_MEASUREMENT_ID}" \
+              --build-arg "NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN:-}" \
               --build-arg "NEXT_PUBLIC_META_PIXEL_ID=${META_PIXEL_ID}" \
               --build-arg "NEXT_PUBLIC_STATIC_ASSET_BASE_URL=${NEXT_PUBLIC_STATIC_ASSET_BASE_URL:-}" \
               --tag "$image" .
@@ -240,6 +242,19 @@ jobs:
             '{commands:[$command]}')"
           jq '. + {executionTimeout:["2400"]}' <<< "$parameters" > "$RUNNER_TEMP/provider-parameters.json"
           bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/provider-parameters.json"
+      - name: Install daily Docker maintenance
+        run: |
+          maintenance="$(base64 -w 0 infra/aws/docker-maintenance.sh)"
+          installer="$(base64 -w 0 infra/aws/install-docker-maintenance.sh)"
+          jq -nc --arg command "sudo install -d -m 0700 /opt/stocksembly/maintenance && printf '%s' '$maintenance' | base64 --decode | sudo tee /opt/stocksembly/maintenance/docker-maintenance.sh >/dev/null && printf '%s' '$installer' | base64 --decode | sudo tee /opt/stocksembly/maintenance/install-docker-maintenance.sh >/dev/null && sudo bash /opt/stocksembly/maintenance/install-docker-maintenance.sh" '{commands:[$command],executionTimeout:["120"]}' > "$RUNNER_TEMP/maintenance-parameters.json"
+          bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/maintenance-parameters.json"
+      - name: Configure Sentry runtime
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+        run: |
+          encoded="$(printf '%s\n' "SENTRY_DSN=$SENTRY_DSN" "SENTRY_RELEASE=$GITHUB_SHA" | base64 -w 0)"
+          jq -nc --arg command "sudo sed -i -e '/^SENTRY_DSN=/d' -e '/^SENTRY_RELEASE=/d' /etc/stocksembly/app.env && printf '%s' '$encoded' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" '{commands:[$command],executionTimeout:["120"]}' > "$RUNNER_TEMP/sentry-parameters.json"
+          bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/sentry-parameters.json"
       - name: Deploy through Systems Manager
         run: |
           deploy_script="$(base64 -w 0 infra/aws/role-deploy.sh)"
@@ -255,6 +270,8 @@ jobs:
         run: |
           aws s3 cp infra/aws/role-deploy.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/role-deploy.sh --only-show-errors
           aws s3 cp infra/aws/web-asg-bootstrap.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/web-asg-bootstrap.sh --only-show-errors
+          aws s3 cp infra/aws/docker-maintenance.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/docker-maintenance.sh --only-show-errors
+          aws s3 cp infra/aws/install-docker-maintenance.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/install-docker-maintenance.sh --only-show-errors
           aws s3 cp infra/aws/web-alb-nginx.conf s3://stocksembly-prod-359463332817-us-east-1/operations/web/web-alb-nginx.conf --only-show-errors
           aws ssm put-parameter --name /stocksembly/prod/web/image --type String --value "$image" --overwrite
 
@@ -277,6 +294,7 @@ jobs:
             --build-arg NEXT_PUBLIC_COGNITO_DOMAIN=stocksembly-prod-359463332817.auth.us-east-1.amazoncognito.com \
             --build-arg NEXT_PUBLIC_APP_ORIGIN=https://stocksembly.com \
             --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=G-YRQDC6R5TL \
+            --build-arg NEXT_PUBLIC_SENTRY_DSN="${NEXT_PUBLIC_SENTRY_DSN:-}" \
             --build-arg NEXT_PUBLIC_META_PIXEL_ID=1941324473216410 \
             --build-arg NEXT_PUBLIC_STATIC_ASSET_BASE_URL="$STATIC_CDN_ORIGIN/releases/$STATIC_ASSET_RELEASE" \
             -t "stocksembly-web:$GITHUB_SHA" .

@@ -23,6 +23,11 @@ chmod 0755 /usr/local/bin/stocksembly-role-deploy
 aws s3 cp "s3://$bucket/operations/web/web-alb-nginx.conf" /etc/nginx/conf.d/stocksembly-alb.conf --only-show-errors
 nginx -t
 systemctl enable --now nginx
+install -d -m 0700 /opt/stocksembly/maintenance
+for script in docker-maintenance.sh install-docker-maintenance.sh; do
+  aws s3 cp "s3://$bucket/operations/web/$script" "/opt/stocksembly/maintenance/$script" --only-show-errors
+done
+bash /opt/stocksembly/maintenance/install-docker-maintenance.sh
 touch /etc/stocksembly/asg-web
 image="$(aws ssm get-parameter --name /stocksembly/prod/web/image --query Parameter.Value --output text)"
 /usr/local/bin/stocksembly-role-deploy web "$image"

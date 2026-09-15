@@ -1,4 +1,5 @@
 import type { PublicResearchEvent } from "./researchApiContracts";
+import type { RunEventWatch } from "./runEventNotifications";
 import type {
   RunEventSnapshot,
   RunEventStreamEntry,
@@ -38,21 +39,9 @@ function terminal(snapshot: RunEventSnapshot): boolean {
   return TERMINAL_STATUSES.has(snapshot.status);
 }
 
-function wait(milliseconds: number, signals: readonly AbortSignal[]) {
-  return new Promise<void>((resolve) => {
-    const finish = () => {
-      clearTimeout(timer);
-      for (const signal of signals) signal.removeEventListener("abort", finish);
-      resolve();
-    };
-    const timer = setTimeout(finish, milliseconds);
-    for (const signal of signals)
-      signal.addEventListener("abort", finish, { once: true });
-  });
-}
-
 export function createRunEventsStream(input: {
   readonly repository: RunEventsSseRepository;
+  readonly watch: RunEventWatch;
   readonly principalId: string;
   readonly runId: string;
   readonly cursor: number;
@@ -67,15 +56,18 @@ export function createRunEventsStream(input: {
   let snapshot = input.initial;
   let queue = [...snapshot.entries];
   let lastHeartbeat = Date.now();
+  let lastRead = Date.now();
   let disposed = input.requestSignal.aborted || input.serviceSignal.aborted;
   let terminalHandled = false;
 
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    input.watch.close();
     input.requestSignal.removeEventListener("abort", dispose);
     input.serviceSignal.removeEventListener("abort", dispose);
   };
+  if (disposed) input.watch.close();
   if (!disposed) {
     input.requestSignal.addEventListener("abort", dispose, { once: true });
     input.serviceSignal.addEventListener("abort", dispose, { once: true });
@@ -83,52 +75,66 @@ export function createRunEventsStream(input: {
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      while (!disposed) {
-        const entry = queue.shift();
-        if (entry !== undefined) {
-          cursor = entrySequence(entry);
-          controller.enqueue(entryFrame(entry));
-          return;
-        }
-        if (terminal(snapshot) && cursor >= snapshot.lastEventSeq) {
-          if (!terminalHandled) {
-            terminalHandled = true;
-            await input.onTerminal?.();
+      try {
+        while (!disposed) {
+          const entry = queue.shift();
+          if (entry !== undefined) {
+            cursor = entrySequence(entry);
+            controller.enqueue(entryFrame(entry));
+            return;
           }
-          dispose();
-          controller.close();
-          return;
-        }
-        await wait(input.pollIntervalMs, [
-          input.requestSignal,
-          input.serviceSignal,
-        ]);
-        if (disposed) break;
-        const next = await input.repository.snapshot(
-          input.principalId,
-          input.runId,
-          cursor,
-        );
-        if (next === undefined || !next.lineageComplete) {
-          dispose();
-          controller.error(
-            new TypeError("Durable event lineage became unavailable"),
+          if (terminal(snapshot) && cursor >= snapshot.lastEventSeq) {
+            if (!terminalHandled) {
+              terminalHandled = true;
+              await input.onTerminal?.();
+            }
+            dispose();
+            controller.close();
+            return;
+          }
+          const changed = await input.watch.wait(
+            Math.max(
+              1,
+              Math.min(
+                input.pollIntervalMs - (Date.now() - lastRead),
+                input.heartbeatIntervalMs - (Date.now() - lastHeartbeat),
+              ),
+            ),
+            [input.requestSignal, input.serviceSignal],
           );
-          return;
+          if (disposed) break;
+          if (changed || Date.now() - lastRead >= input.pollIntervalMs) {
+            const next = await input.repository.snapshot(
+              input.principalId,
+              input.runId,
+              cursor,
+            );
+            if (next === undefined || !next.lineageComplete) {
+              dispose();
+              controller.error(
+                new TypeError("Durable event lineage became unavailable"),
+              );
+              return;
+            }
+            snapshot = next;
+            queue = [...next.entries];
+            lastRead = Date.now();
+          }
+          const now = Date.now();
+          if (
+            queue.length === 0 &&
+            now - lastHeartbeat >= input.heartbeatIntervalMs
+          ) {
+            lastHeartbeat = now;
+            controller.enqueue(encoder.encode(": heartbeat\n\n"));
+            return;
+          }
         }
-        snapshot = next;
-        queue = [...next.entries];
-        const now = Date.now();
-        if (
-          queue.length === 0 &&
-          now - lastHeartbeat >= input.heartbeatIntervalMs
-        ) {
-          lastHeartbeat = now;
-          controller.enqueue(encoder.encode(": heartbeat\n\n"));
-          return;
-        }
+        controller.close();
+      } catch (error) {
+        dispose();
+        controller.error(error);
       }
-      controller.close();
     },
     cancel: dispose,
   });

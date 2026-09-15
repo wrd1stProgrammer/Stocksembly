@@ -65,6 +65,20 @@ function streamEntry(input: unknown): RunEventStreamEntry {
 
 export class RunEventsSseRepository {
   readonly #database: ResearchDatabase;
+  readonly #shared = new Map<
+    string,
+    {
+      runId: string;
+      expires: number;
+      value: Promise<RunEventSnapshot | undefined>;
+    }
+  >();
+
+  invalidate(runId: string): void {
+    for (const [key, entry] of this.#shared) {
+      if (entry.runId === runId) this.#shared.delete(key);
+    }
+  }
 
   constructor(options: {
     readonly database: ResearchDatabase;
@@ -73,6 +87,27 @@ export class RunEventsSseRepository {
   }
 
   async snapshot(
+    principalId: string,
+    runId: string,
+    after: number,
+  ): Promise<RunEventSnapshot | undefined> {
+    // Share only identical authorized reads; never reuse another principal's view.
+    const key = JSON.stringify([principalId, runId, after]);
+    const cached = this.#shared.get(key);
+    if (cached && cached.expires > Date.now()) return await cached.value;
+    const value = this.#read(principalId, runId, after);
+    if (this.#shared.size >= 256) this.#shared.clear();
+    const entry = { runId, expires: Date.now() + 250, value };
+    this.#shared.set(key, entry);
+    try {
+      return await value;
+    } catch (error) {
+      if (this.#shared.get(key) === entry) this.#shared.delete(key);
+      throw error;
+    }
+  }
+
+  async #read(
     principalId: string,
     runId: string,
     after: number,
@@ -122,6 +157,7 @@ export class RunEventsSseRepository {
   }
 
   close(): void {
+    this.#shared.clear();
     // The process owns the shared pool.
   }
 }
