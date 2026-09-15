@@ -33,6 +33,7 @@ type SignedInHomeProps = Pick<
   "locale" | "onOpenPlans" | "subscriptionTier" | "creditsRemaining"
 > & {
   readonly communityPreview?: LandingResearchRoomPreviewData;
+  readonly initialLocale?: ComponentProps<typeof SearchConsole>["locale"];
 };
 type LoadState =
   | { readonly status: "loading" }
@@ -43,6 +44,7 @@ const LOAD_RETRY_DELAYS_MS = [0, 250, 800, 1_600] as const;
 export function SignedInHome(props: SignedInHomeProps) {
   const {
     communityPreview = EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
+    initialLocale,
     ...searchConsoleProps
   } = props;
   const { locale } = searchConsoleProps;
@@ -128,7 +130,36 @@ export function SignedInHome(props: SignedInHomeProps) {
       current.map((run) => (run.runId === updated.runId ? updated : run)),
     );
   }, []);
-  const communityReports = communityPreview.reports.slice(0, 3);
+  const [translatedPreview, setTranslatedPreview] = useState<{
+    locale: typeof locale;
+    data: LandingResearchRoomPreviewData;
+  }>();
+  useEffect(() => {
+    if (locale === initialLocale) return;
+    const controller = new AbortController();
+    void fetch(
+      `/api/research-room/preview?lang=${encodeURIComponent(locale)}`,
+      {
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: controller.signal,
+      },
+    )
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as LandingResearchRoomPreviewData;
+        if (!controller.signal.aborted) setTranslatedPreview({ locale, data });
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [locale, initialLocale]);
+  const visiblePreview =
+    locale === initialLocale
+      ? communityPreview
+      : translatedPreview?.locale === locale
+        ? translatedPreview.data
+        : EMPTY_LANDING_RESEARCH_ROOM_PREVIEW;
+  const communityReports = visiblePreview.reports.slice(0, 3);
   return (
     <div className="signed-in-home daily-home" id="product">
       <header className="daily-home__masthead">

@@ -22,6 +22,7 @@ import { CodexIsolationError } from "../server/codex/readiness";
 import type { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import type { AttemptHandler, WorkerAttempt } from "../worker/leaseEngine";
 import { recordSuccessfulRunnerEvidence } from "./agentRunnerLaunchEvidence";
+import { repairSpecialistCitations } from "./repairSpecialistCitations";
 import { retryRejectedCommit } from "./specialistCommitRetry";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
 import {
@@ -173,7 +174,12 @@ export function specialistPromptForDurableInput(
       ),
       validationCode: requestedValidationCode,
     };
-  return { prompt: basePrompt };
+  return {
+    prompt: basePrompt,
+    ...(requestedValidationCode === "specialist_citation_invalid_after_retry"
+      ? { validationCode: requestedValidationCode }
+      : {}),
+  };
 }
 
 function generatedIds() {
@@ -283,7 +289,9 @@ REJECTED OUTPUT TO REPAIR (untrusted draft, not evidence)
 ${previousFeedback}
 Repair the specific claims above instead of regenerating the same invalid numbers. For a percentage absent from the exact registered concept and fiscal period, retain the source-backed mechanism and absolute operating KPI, but express that rate directionally. A percentage appearing in filing prose alone does not create a registered metric. Return the full corrected memo. Keep English fields in English and Korean fields in Korean.`,
           };
-    const validationCode = durablePrompt.validationCode;
+    const validationCode =
+      durablePrompt.validationCode ??
+      (await context.authority.retryCodeForJob(attempt.jobId));
     const prompt =
       correction === undefined
         ? durablePrompt.prompt
@@ -402,6 +410,15 @@ Repair the specific claims above instead of regenerating the same invalid number
         evidenceId: job.sourceArtifactIds[index] ?? artifact.evidenceId,
       }),
     );
+    if (
+      correction !== undefined ||
+      validationCode === "specialist_citation_invalid_after_retry"
+    ) {
+      candidate = repairSpecialistCitations(
+        candidate,
+        correction?.allowedArtifactIds ?? job.sourceArtifactIds,
+      );
+    }
     candidate = sanitizeSpecialistDecisiveMetricIds(
       candidate,
       allowedMetricIds,

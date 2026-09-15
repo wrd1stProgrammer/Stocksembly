@@ -77,13 +77,17 @@
 
 .committee-cockpit__verdict dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   border: 1px solid var(--editorial-rule);
 }
 
 .committee-cockpit__verdict dl > div {
   min-width: 0;
   padding: 16px;
+}
+
+.committee-cockpit__verdict dl > div:only-child {
+  grid-column: 1 / -1;
 }
 
 .committee-cockpit__verdict dt {

@@ -457,6 +457,7 @@ export function App({
       <main>
         {signedIn ? (
           <SignedInHome
+            initialLocale={initialLocale}
             locale={locale}
             communityPreview={researchRoomPreview}
             onOpenPlans={openSubscriptionModal}

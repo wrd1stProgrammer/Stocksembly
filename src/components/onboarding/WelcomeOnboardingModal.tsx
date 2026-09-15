@@ -10,6 +10,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { OnboardingDiscoverySource } from "../../accounts/onboarding";
 import { type AppLocale, researchLocale } from "../../lib/i18n";
@@ -430,9 +431,13 @@ export function WelcomeOnboardingModal({
             href={`/?lang=${encodeURIComponent(locale)}`}
             aria-label="Stocksembly home"
           >
-            <span className="welcome-onboarding__brand-mark" aria-hidden="true">
-              ✦
-            </span>
+            <Image
+              className="welcome-onboarding__brand-mark"
+              src="/brand/stocksembly-app-icon.png"
+              alt=""
+              width={30}
+              height={30}
+            />
             Stocksembly
           </a>
           <div
