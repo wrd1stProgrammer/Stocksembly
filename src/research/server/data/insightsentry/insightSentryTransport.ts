@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
 import { Agent, request as httpsRequest } from "node:https";
+import { collectionSignal } from "../sharedSourceCache";
 
 export type InsightSentryWireRequest = {
   readonly url: URL;
@@ -86,7 +87,12 @@ export const nodeInsightSentryWireAdapter: InsightSentryWireAdapter = async (
           };
     const outbound = httpsRequest(
       request.url,
-      { method: request.method ?? "GET", headers, agent: AGENT },
+      {
+        method: request.method ?? "GET",
+        headers,
+        agent: AGENT,
+        ...(collectionSignal() ? { signal: collectionSignal() } : {}),
+      },
       (response) =>
         resolve({
           status: response.statusCode ?? 0,

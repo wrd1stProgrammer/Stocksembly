@@ -26,11 +26,13 @@ import {
   SEC_IDENTITY_ERROR_CODES,
   SecIdentityConfigError,
 } from "../server/data/sec/secIdentityConfig";
+import { withSharedSourceCache } from "../server/data/sharedSourceCache";
 import { recordAuxiliaryCodexUsage } from "../server/persistence/postgres/auxiliaryCodexUsageRepository";
 import type { ResearchDatabase } from "../server/persistence/postgres/database";
 import type { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import { openPostgresStore } from "../server/persistence/postgres/postgresStore";
 import { parseSafeJson } from "../server/persistence/postgres/safeJson";
+import { waitForStockPreparation } from "../server/persistence/postgres/stockPreparation";
 import type { AttemptHandler } from "../worker/leaseEngine";
 import { qualifyComparatorsBeforeSynthesis } from "../workflow/preSynthesisComparatorQualification";
 import type { SpecialistRoundInput } from "../workflow/specialistRound";
@@ -241,7 +243,7 @@ export async function createInitialCollectionHandler(
   const clock = options.now ?? (() => new Date().toISOString());
 
   return {
-    run: async (attempt) => {
+    run: async (attempt, signal, activity) => {
       const request = RequestSchema.parse(
         (
           await database.query(
@@ -288,24 +290,65 @@ export async function createInitialCollectionHandler(
             "SEC 공시와 시세·뉴스·거시경제 데이터를 수집하고, 출처와 기준 시각을 확인하고 있습니다.",
           ),
         });
+      const preparationStarted = Date.now();
+      try {
+        const preparation = await waitForStockPreparation({
+          database,
+          symbol: request.symbol,
+          signal,
+          activity,
+          onWaiting: async () => {
+            await store.transitionRun({
+              runId,
+              fromStatus: "running",
+              toStatus: "running",
+              nextJobs: [],
+              event: event(
+                "collection_started",
+                clock(),
+                "Joining the source preparation already in progress for this stock. Independent research will continue when it is ready.",
+                "관심 종목의 자료 준비가 이미 진행 중입니다. 중복 요청 없이 기다린 뒤 독립 조사를 이어갑니다.",
+              ),
+            });
+          },
+        });
+        console.info(
+          JSON.stringify({
+            event: "research_preparation_join",
+            symbol: request.symbol,
+            result: preparation,
+            waitMs: Date.now() - preparationStarted,
+          }),
+        );
+      } catch {
+        signal.throwIfAborted();
+        console.warn("RESEARCH_PREPARATION_JOIN_UNAVAILABLE");
+      }
+      signal.throwIfAborted();
       let collected: Awaited<ReturnType<typeof collectInitialEvidence>>;
       try {
-        collected = await collectInitialEvidence({
-          dataRoot: options.dataRoot,
-          runId,
-          snapshotId,
-          symbol: request.symbol,
-          question: request.question,
-          cas: options.cas,
-          researchProfile,
-          recordAuxiliaryCodexUsage: async (usage) =>
-            await recordAuxiliaryCodexUsage(options.database, {
-              ...usage,
+        collected = await withSharedSourceCache(
+          database,
+          () =>
+            collectInitialEvidence({
+              dataRoot: options.dataRoot,
               runId,
-              recordedAt: clock(),
+              snapshotId,
+              symbol: request.symbol,
+              question: request.question,
+              cas: options.cas,
+              researchProfile,
+              recordAuxiliaryCodexUsage: async (usage) =>
+                await recordAuxiliaryCodexUsage(options.database, {
+                  ...usage,
+                  runId,
+                  recordedAt: clock(),
+                }),
             }),
-        });
+          signal,
+        );
       } catch (error) {
+        signal.throwIfAborted();
         const prior = z
           .object({ failures: z.number().int().nonnegative() })
           .optional()

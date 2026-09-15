@@ -43,6 +43,7 @@ import {
 } from "./officialWorkerMetadata";
 import { createOfficialWorkflowCoordinator } from "./officialWorkflowCoordinator";
 import { runWithResearchExecution } from "./runWithResearchExecution";
+import { createStockPreparationWorker } from "./stockPreparationWorker";
 
 export type OfficialAttemptHandlerOptions = {
   readonly dataDirectory: string;
@@ -218,6 +219,10 @@ export async function createOfficialAttemptHandler(
     publishReport,
     ...(overrides.now === undefined ? {} : { now: overrides.now }),
   });
+  const preparation = createStockPreparationWorker(
+    options.database,
+    options.dataDirectory,
+  );
   const handler: AttemptHandler = {
     run: async (attempt, signal, activity) => {
       const logicalArtifactId = await authority.logicalArtifactForAttempt(
@@ -289,9 +294,11 @@ export async function createOfficialAttemptHandler(
         ),
       reconcile: async () => {
         await handler.reconcile?.();
+        preparation.tick();
       },
     },
     close: async () => {
+      await preparation.close();
       archive?.close();
       metadata?.close();
       questionAuthority.close();

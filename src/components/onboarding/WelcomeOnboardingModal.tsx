@@ -17,6 +17,7 @@ import type { WhopPricingPlan } from "../../lib/whop/contracts";
 import { CREDIT_COSTS } from "../../lib/whop/creditPolicy";
 import { PricingPlansGrid } from "../billing/PricingPlansGrid";
 import { subscriptionPlanCards } from "../billing/subscriptionPlanCards";
+import { OnboardingStockPicker } from "./OnboardingStockPicker";
 
 type WelcomeOnboardingModalProps = {
   readonly locale: AppLocale;
@@ -380,7 +381,7 @@ export function WelcomeOnboardingModal({
   onComplete,
   onOpenPlans,
 }: WelcomeOnboardingModalProps) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(-1);
   const [intent, setIntent] = useState<number>();
   const [discoverySource, setDiscoverySource] =
     useState<OnboardingDiscoverySource>();
@@ -439,10 +440,10 @@ export function WelcomeOnboardingModal({
             role="progressbar"
             aria-label={content.progress}
             aria-valuemin={1}
-            aria-valuemax={4}
-            aria-valuenow={step + 1}
+            aria-valuemax={5}
+            aria-valuenow={step + 2}
           >
-            {[0, 1, 2, 3].map((index) => (
+            {[-1, 0, 1, 2, 3].map((index) => (
               <span
                 key={index}
                 className="welcome-onboarding__progress-segment"
@@ -453,6 +454,14 @@ export function WelcomeOnboardingModal({
         </header>
 
         <div className="welcome-onboarding__content" data-step={step}>
+          {step === -1 ? (
+            <OnboardingStockPicker
+              locale={locale}
+              titleId={titleId}
+              descriptionId={descriptionId}
+              onNext={() => setStep(0)}
+            />
+          ) : null}
           {step === 0 ? (
             <>
               <p className="welcome-onboarding__eyebrow">

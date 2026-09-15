@@ -522,6 +522,18 @@ const migrations = [
         );
     `,
   },
+  {
+    version: 17,
+    name: "017_onboarding_interests",
+    sql: `
+      CREATE TABLE onboarding_interests (
+        principal_id CHAR(64) PRIMARY KEY REFERENCES app_users(principal_id) ON DELETE CASCADE,
+        stocks jsonb NOT NULL CHECK (jsonb_typeof(stocks) = 'array' AND jsonb_array_length(stocks) BETWEEN 1 AND 3),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        watchlist_linked_at timestamptz
+      );
+    `,
+  },
 ] as const;
 
 type AppliedMigration = {

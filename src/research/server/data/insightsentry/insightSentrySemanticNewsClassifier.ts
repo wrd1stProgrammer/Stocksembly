@@ -10,6 +10,7 @@ import {
   type LaunchReservationReader,
 } from "../../codex/codexReservation";
 import { createCodexPort } from "../../codex/codexRunner";
+import { collectionSignal } from "../sharedSourceCache";
 import type {
   NewsClassifier,
   NewsClassifierCandidate,
@@ -139,6 +140,7 @@ async function classifyWithLuna(request: Parameters<NewsClassifier>[0]) {
     const result = await createCodexPort(reservations).run({
       attemptDir,
       reservation: claim,
+      ...(collectionSignal() ? { signal: collectionSignal()! } : {}),
       stage: "memo",
       runtime: { model: request.model, reasoning: request.reasoning },
       prompt: classifierPrompt,
@@ -160,6 +162,7 @@ export function createSemanticNewsClassifier(
   } = {},
 ): NewsClassifier {
   return async (request) => {
+    collectionSignal()?.throwIfAborted();
     if (request.candidates.length === 0) return { classifications: [] };
     const fallback = request.candidates.map(heuristic);
     try {
@@ -197,6 +200,7 @@ export function createSemanticNewsClassifier(
         }),
       };
     } catch (error) {
+      collectionSignal()?.throwIfAborted();
       if (process.env["NODE_ENV"] !== "production")
         console.error("NEWS_CLASSIFIER_FALLBACK", error);
       return { classifications: fallback };

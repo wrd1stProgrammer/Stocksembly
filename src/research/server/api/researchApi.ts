@@ -4,6 +4,8 @@ import {
   CURRENT_ONBOARDING_VERSION,
   type OnboardingDiscoverySource,
 } from "../../../accounts/onboarding";
+import type { OnboardingStock } from "../../../accounts/onboardingInterests";
+import { OnboardingStockSchema } from "../../../accounts/onboardingInterests";
 import {
   type AccountStore,
   AccountStoreUnavailableError,
@@ -57,6 +59,7 @@ import { enforceRequestPolicy } from "../http/requestPolicy";
 import { createResearchAuth, type ResearchAuth } from "../http/researchAuth";
 import type { ResearchDatabase } from "../persistence/postgres/database";
 import { getResearchPool } from "../persistence/postgres/researchPool";
+import { saveOnboardingInterests } from "../persistence/postgres/stockPreparation";
 import { questionInputHash } from "../qa/questionAnswerContracts";
 import { collectQuestionMarketEvidence } from "../qa/questionMarketEvidence";
 import {
@@ -109,6 +112,9 @@ export type CreateResearchApiOptions = {
     readonly clientId: string;
     readonly secureCookie: boolean;
   };
+  readonly resolveOnboardingStock?: (
+    symbol: string,
+  ) => Promise<OnboardingStock | undefined>;
   readonly resolveSymbol?: (
     symbol: string,
   ) => Promise<
@@ -172,6 +178,11 @@ export interface ResearchApi {
     request: Request,
     locale: AppLocale,
   ) => Promise<{ readonly authenticated: boolean; readonly stored: boolean }>;
+  readonly onboardingStocks: (request: Request) => Promise<Response>;
+  readonly prepareOnboardingStocks: (
+    request: Request,
+    symbols: readonly string[],
+  ) => Promise<Response>;
   readonly onboardingState: (request: Request) => Promise<{
     readonly authenticated: boolean;
     readonly completed: boolean;
@@ -1196,6 +1207,82 @@ export async function createResearchApi(
         return { authenticated: true, stored: false };
       }
     },
+    async onboardingStocks(request) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return Response.json({}, { status: 401 });
+      const result = await database.query<{ stocks: OnboardingStock[] }>(
+        "SELECT stocks FROM public.onboarding_interests WHERE principal_id=$1",
+        [authentication.principal.id],
+      );
+      return Response.json(
+        { stocks: result.rows[0]?.stocks ?? [] },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    },
+    async prepareOnboardingStocks(request, symbols) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized")
+        return Response.json(
+          { error: { code: "AUTHENTICATION_REQUIRED" } },
+          { status: 401 },
+        );
+      if (!options.accountStore)
+        return Response.json(
+          { error: { code: "ACCOUNT_STORE_UNAVAILABLE" } },
+          { status: 503 },
+        );
+      await options.accountStore.syncUser(
+        authentication.principal,
+        options.now?.() ?? new Date().toISOString(),
+      );
+      const prior = await database.query<{ stocks: OnboardingStock[] }>(
+        "SELECT stocks FROM public.onboarding_interests WHERE principal_id=$1",
+        [authentication.principal.id],
+      );
+      if (prior.rows[0]) {
+        await options.accountStore.linkOnboardingWatchlist?.(
+          authentication.principal.id,
+        );
+        return Response.json(
+          { stocks: prior.rows[0].stocks, status: "accepted" },
+          { status: 202, headers: { "Cache-Control": "private, no-store" } },
+        );
+      }
+      const stocks: OnboardingStock[] = [];
+      const resolveStock =
+        options.resolveOnboardingStock ??
+        (async (symbol: string) => {
+          const catalog = await import("./liveTickerCatalog").then((module) =>
+            module.getLiveTickerCatalog(),
+          );
+          const candidates = await catalog.search(symbol);
+          if ((await catalog.resolve(symbol)) !== "supported") return undefined;
+          const company = candidates.find((item) => item.symbol === symbol);
+          return company ? OnboardingStockSchema.parse(company) : undefined;
+        });
+      for (const symbol of symbols) {
+        const company = await resolveStock(symbol);
+        if (!company)
+          return Response.json(
+            { error: { code: "ONBOARDING_SYMBOL_UNSUPPORTED" } },
+            { status: 400 },
+          );
+        stocks.push(company);
+      }
+      const saved = await saveOnboardingInterests(
+        database,
+        authentication.principal.id,
+        stocks,
+      );
+      await options.accountStore.linkOnboardingWatchlist?.(
+        authentication.principal.id,
+      );
+      return Response.json(
+        { stocks: saved, status: "accepted" },
+        { status: 202, headers: { "Cache-Control": "private, no-store" } },
+      );
+    },
     async onboardingState(request) {
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
@@ -1250,6 +1337,16 @@ export async function createResearchApi(
           authentication.principal,
           options.now?.() ?? new Date().toISOString(),
         );
+        const interests = await database.query(
+          "SELECT 1 FROM public.onboarding_interests WHERE principal_id=$1",
+          [authentication.principal.id],
+        );
+        if (!interests.rowCount)
+          return {
+            authenticated: true,
+            stored: false,
+            version: CURRENT_ONBOARDING_VERSION,
+          };
         await options.accountStore.completeOnboarding(
           authentication.principal.id,
           version,

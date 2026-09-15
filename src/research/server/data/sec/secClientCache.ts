@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { chmod, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { readSharedSource, writeSharedSource } from "../sharedSourceCache";
 
 const CacheMetadataSchema = z
   .object({
@@ -79,6 +80,27 @@ export async function readSecCache(
   dataRoot: string,
   sourceUrl: string,
 ): Promise<SecCacheEntry | undefined> {
+  const shared = await readSharedSource("sec", sourceUrl);
+  if (shared) {
+    const parsed = CacheMetadataSchema.safeParse(shared.metadata);
+    if (
+      parsed.success &&
+      parsed.data.sourceUrl === sourceUrl &&
+      sha256(shared.body) === parsed.data.contentHash
+    ) {
+      const { sourceUrl: _url, ...metadata } = parsed.data;
+      return {
+        bytes: shared.body,
+        contentType: metadata.contentType,
+        contentHash: metadata.contentHash,
+        storedAt: metadata.storedAt,
+        ...(metadata.etag === undefined ? {} : { etag: metadata.etag }),
+        ...(metadata.lastModified === undefined
+          ? {}
+          : { lastModified: metadata.lastModified }),
+      };
+    }
+  }
   const paths = cachePaths(dataRoot, sourceUrl);
   let rawMetadata: string;
   let body: Uint8Array;
@@ -105,6 +127,13 @@ export async function readSecCache(
     sha256(body) !== parsed.data.contentHash
   )
     throw new SecCacheCorruptionError();
+  await writeSharedSource(
+    "sec",
+    sourceUrl,
+    body,
+    parsed.data,
+    new Date(Date.now() + 30 * 86400000).toISOString(),
+  );
   return Object.freeze({
     bytes: Uint8Array.from(body),
     contentType: parsed.data.contentType,
@@ -140,6 +169,14 @@ export async function writeSecCache(options: {
       ? {}
       : { lastModified: options.lastModified }),
   };
+  // Retention is independent of freshness; SEC's adapter checks storedAt per request kind.
+  await writeSharedSource(
+    "sec",
+    options.sourceUrl,
+    options.bytes,
+    metadata,
+    new Date(Date.now() + 30 * 86400000).toISOString(),
+  );
   await atomicWrite(paths.body, options.bytes);
   await atomicWrite(
     paths.metadata,

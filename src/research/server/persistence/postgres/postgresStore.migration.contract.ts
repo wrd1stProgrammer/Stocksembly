@@ -14,7 +14,7 @@ describe("PostgreSQL ordered migrations", () => {
     const database = await createResearchTestDatabase();
     cleanups.push(database.close);
     const store = await openPostgresStore(database.pool);
-    expect(await store.schemaVersions()).toEqual([1, 2, 3]);
+    expect(await store.schemaVersions()).toEqual([1, 2, 3, 4]);
     expect(await store.tableNames()).toEqual([
       "agent_output_commits",
       "agent_runner_evidence",
@@ -49,7 +49,9 @@ describe("PostgreSQL ordered migrations", () => {
       "run_stage_recoveries",
       "runs",
       "schema_migrations",
+      "shared_source_cache",
       "snapshots",
+      "stock_preparations",
       "storage_imports",
       "symbol_registry",
       "symbol_registry_aliases",

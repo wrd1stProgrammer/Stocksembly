@@ -32,6 +32,7 @@ import {
   type SecFetchResult,
 } from "../server/data/sec/secClient";
 import { isRegistrationFinancialForm } from "../server/data/sec/secFilingForms";
+import { collectionSignal } from "../server/data/sharedSourceCache";
 import type { SpecialistSourceArtifact } from "../workflow/specialistRoundPostgres";
 import {
   collectInsightSentryInitialEvidence,
@@ -124,7 +125,9 @@ function httpTransport(): MacroHttpTransport {
         method: request.method,
         headers: request.headers,
         ...(request.body === undefined ? {} : { body: request.body }),
-        signal: controller.signal,
+        signal: collectionSignal()
+          ? AbortSignal.any([controller.signal, collectionSignal()!])
+          : controller.signal,
       });
       return {
         status: response.status,
@@ -270,6 +273,7 @@ async function put(
   bytes: Uint8Array,
   mediaType: string,
 ): Promise<ArtifactDescriptor> {
+  collectionSignal()?.throwIfAborted();
   return await input.cas.put({
     artifactId: ArtifactIdSchema.parse(randomUUID()),
     runId: RunIdSchema.parse(input.runId),
@@ -407,6 +411,7 @@ export async function collectSecEvidenceBatch<T extends SelectedFiling>(input: {
 export async function collectInitialEvidence(
   input: InitialCollectionInput,
 ): Promise<InitialCollectionResult> {
+  collectionSignal()?.throwIfAborted();
   const client = createSecClient({ dataRoot: input.dataRoot });
   const tickerResult = await client.fetch({ kind: "company_tickers_exchange" });
   const reference = resolveTickerReference(tickerResult.bytes, input.symbol);

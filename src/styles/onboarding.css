@@ -432,3 +432,100 @@
     padding-block: var(--space-8);
   }
 }
+
+.onboarding-stocks {
+  display: grid;
+  gap: 16px;
+  margin: 24px 0;
+  max-width: 720px;
+  width: 100%;
+}
+.onboarding-stocks__search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-panel);
+}
+.onboarding-stocks__search:focus-within {
+  outline: 2px solid #7694ff;
+  outline-offset: 2px;
+}
+.onboarding-stocks__search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+.onboarding-stocks__selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+}
+.onboarding-stocks__selection button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #6077b8;
+  border-radius: 10px;
+  background: rgb(66 104 255 / 12%);
+  color: inherit;
+}
+.onboarding-stocks__selection button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.onboarding-stocks__count {
+  margin-left: auto;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+.onboarding-stocks__results {
+  display: grid;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.onboarding-stocks__results button {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  min-height: 52px;
+  padding: 12px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.onboarding-stocks__results button:hover:not(:disabled) {
+  background: rgb(66 104 255 / 12%);
+}
+.onboarding-stocks button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.onboarding-stocks__results small {
+  opacity: 0.65;
+}
+@media (max-width: 600px) {
+  .onboarding-stocks__results button {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .onboarding-stocks__results small {
+    grid-column: 2;
+  }
+}
