@@ -7,7 +7,7 @@ describe("monitoring privacy", () => {
       type: "transaction",
       transaction: "GET /api/research/reports/private-id?question=secret",
       request: {
-        cookies: "secret",
+        cookies: { session: "secret" },
         data: "secret",
         headers: { authorization: "secret" },
       },
@@ -38,6 +38,7 @@ describe("monitoring privacy", () => {
 
   it("keeps stack locations without leaking provider errors or local variables", () => {
     const event = scrubEvent({
+      type: undefined,
       exception: {
         values: [
           {
