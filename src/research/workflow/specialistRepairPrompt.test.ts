@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { codexInputHash } from "../server/codex/codexReservation";
 import { workflowTestDatabase } from "./postgresDatabase.testSupport";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
-import { specialistPromptForDurableInput } from "./specialistRoundPostgresHandler";
 import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
+import { specialistPromptForDurableInput } from "./specialistRoundPostgresHandler";
 
 describe("durable specialist repair prompt", () => {
   it("retains citation exhaustion when resuming a previously failed job", () => {
