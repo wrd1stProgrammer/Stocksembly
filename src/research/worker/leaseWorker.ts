@@ -4,6 +4,10 @@ import { pathToFileURL } from "node:url";
 import type { Pool } from "pg";
 import { z } from "zod";
 import {
+  recordWorkerOutcome,
+  traceWorkerAttempt,
+} from "../../lib/observability/server";
+import {
   createOfficialAttemptHandler,
   type OfficialAttemptHandler,
   type OfficialAttemptHandlerOptions,
@@ -288,7 +292,15 @@ async function runWorker(
     pool: pool ?? (await getResearchPool()),
     ownerId: argumentsValue.ownerId,
     handler:
-      handler ??
+      (handler
+        ? {
+            ...handler,
+            run: (attempt, signal, activity) =>
+              traceWorkerAttempt(attempt.runId, attempt.jobId, () =>
+                handler.run(attempt, signal, activity),
+              ),
+          }
+        : undefined) ??
       verificationHandler(
         argumentsValue.verificationOutcome,
         controller.signal,
@@ -312,6 +324,12 @@ async function runWorker(
         heartbeat: (extended) =>
           writeLifecycle({ kind: "lease_heartbeat", extended }),
         result: (result) => {
+          if (result.kind === "handled")
+            recordWorkerOutcome(
+              result.attempt.runId,
+              result.attempt.jobId,
+              result.outcome.kind,
+            );
           if (result.kind === "handled")
             writeLifecycle({
               kind: "attempt_handled",

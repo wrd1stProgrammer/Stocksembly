@@ -8,6 +8,7 @@ try {
   if (!driver.isFile())
     throw new Error("The packaged PostgreSQL driver is unavailable");
   driverValidated = true;
+  await import("../observability/worker.js");
   const worker = await import("./leaseWorker.js");
   const argumentsValue = process.argv.slice(2);
   if (argumentsValue[0] === "serve") {

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  experimental: { globalNotFound: true },
   outputFileTracingIncludes: {
     "/*": [
       "./node_modules/zod/**/*",

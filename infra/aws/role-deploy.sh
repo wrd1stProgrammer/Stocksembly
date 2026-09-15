@@ -34,6 +34,7 @@ start_role() {
     command=(node research-worker/worker.mjs serve)
   fi
   docker run --detach --name "$name" --restart always --network host \
+    --log-driver local --log-opt max-size=10m --log-opt max-file=3 \
     "${args[@]}" "${mounts[@]}" --env NODE_ENV=production \
     --env HOSTNAME=127.0.0.1 --env PORT=3000 \
     "$target" "${command[@]}" >/dev/null
@@ -67,6 +68,9 @@ for attempt in {1..30}; do
   if healthy; then
     sleep 3
     if healthy; then
+      if [[ -n "$previous" && "$previous" != "$image" ]]; then
+        printf '%s\n' "$previous" > "/opt/stocksembly/container/${role}.rollback-image"
+      fi
       printf 'STOCKSEMBLY_IMAGE=%s\n' "$image" > "/opt/stocksembly/container/${role}.image.env"
       if [[ "$role" == web && -f /etc/stocksembly/asg-web ]]; then
         # Persist the successfully deployed environment for future ASG instances.

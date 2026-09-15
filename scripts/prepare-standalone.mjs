@@ -32,7 +32,7 @@ async function includePackage(resolver, name) {
     await includePackage(dependencyRequire, dependency);
   }
 }
-for (const name of ["pg", "zod", "decimal.js"])
+for (const name of ["pg", "zod", "decimal.js", "@sentry/node"])
   await includePackage(projectRequire, name);
 let nextRuntimePackages = [];
 if (!workerOnly && existsSync(`${outputRoot}/server.js`)) {
@@ -59,6 +59,15 @@ if (!existsSync(join(migrationsSource, "001_research_baseline.sql"))) {
   );
 }
 await Promise.all([
+  ...(webOnly
+    ? []
+    : [
+        cp(
+          ".stocksembly-verification/observability",
+          `${outputRoot}/observability`,
+          { recursive: true },
+        ),
+      ]),
   rm(`${outputRoot}/research-worker`, { recursive: true, force: true }),
   rm(`${outputRoot}/briefing-worker`, { recursive: true, force: true }),
   ...(existsSync(migrationsSource)
