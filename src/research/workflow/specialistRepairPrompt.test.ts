@@ -5,9 +5,28 @@ import { describe, expect, it } from "vitest";
 import { codexInputHash } from "../server/codex/codexReservation";
 import { workflowTestDatabase } from "./postgresDatabase.testSupport";
 import { SpecialistMemoOutputSchema } from "./specialistRoundContracts";
+import { specialistPromptForDurableInput } from "./specialistRoundPostgresHandler";
 import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
 
 describe("durable specialist repair prompt", () => {
+  it("retains citation exhaustion when resuming a previously failed job", () => {
+    const prompt = "original prompt";
+    const inputHash = codexInputHash({
+      stage: "memo",
+      prompt,
+      outputSchema: SpecialistMemoOutputSchema,
+    });
+    expect(
+      specialistPromptForDurableInput(
+        prompt,
+        inputHash,
+        "specialist_citation_invalid_after_retry",
+      ),
+    ).toEqual({
+      prompt,
+      validationCode: "specialist_citation_invalid_after_retry",
+    });
+  });
   it("replays an exact citation corrective prompt after the authority restarts", async () => {
     const root = mkdtempSync(join(tmpdir(), "specialist-repair-prompt-"));
     const database = await workflowTestDatabase();

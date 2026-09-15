@@ -313,7 +313,7 @@ describe("official PostgreSQL specialist round", () => {
     });
   });
 
-  it("records the citation-specific reason when the corrective attempt also fails", async () => {
+  it("continues the round with disclosed missing coverage when citation correction fails", async () => {
     // Given
     const root = mkdtempSync(join(tmpdir(), "specialist-citation-exhausted-"));
     temporaryRoots.push(root);
@@ -343,9 +343,28 @@ describe("official PostgreSQL specialist round", () => {
     ).rows[0]?.code;
 
     // Then
-    expect(result.departmentStartAllowed).toBe(false);
-    expect(result.artifactIds).toHaveLength(specialistCount - 1);
-    expect(reason).toBe("specialist_citation_invalid_after_retry");
+    expect(result.departmentStartAllowed).toBe(true);
+    expect(result.artifactIds).toHaveLength(specialistCount);
+    expect(reason).toBeUndefined();
+    const artifact = (
+      await database.query(
+        "SELECT content_hash FROM artifacts WHERE run_id = $1 AND logical_key = $2",
+        [harness.input.mandate.runId, "memo:market_news"],
+      )
+    ).rows[0];
+    const stored = await harness.cas.get(
+      ArtifactDigestSchema.parse(artifact?.content_hash),
+    );
+    expect(stored).toBeDefined();
+    const envelope = JSON.parse(new TextDecoder().decode(stored?.bytes));
+    expect(envelope.payload.positions[0].stance).toBe("uncertain");
+    expect(envelope.payload.positions[0].publicSummary.en).toContain(
+      "unavailable",
+    );
+    expect(envelope.payload.positions[0].publicSummary.en).not.toContain(
+      "durable finding",
+    );
+    expect(envelope.payload.unknowns.length).toBeGreaterThan(0);
   });
 
   it("is the workflow implementation exported by official composition", () => {

@@ -260,15 +260,6 @@ export function CommitteeDecisionCockpit({
         ? "핵심 논지"
         : "Core thesis"
       : dimensionLabel(primaryDecisionClaim.decisionDimension, locale);
-  const nextDecisionCheck =
-    view.nextEvent?.date ??
-    (model.nextVerificationEvent.trim().length > 0
-      ? ko
-        ? "다음 공시"
-        : "Next filing"
-      : ko
-        ? "일정 미확정"
-        : "Date pending");
   const metricPool = Object.values(model.metricGroups)
     .flat()
     .filter(
@@ -388,10 +379,6 @@ export function CommitteeDecisionCockpit({
             <div>
               <dt>{ko ? "핵심 판단 변수" : "Decisive variable"}</dt>
               <dd>{primaryDecisionVariable}</dd>
-            </div>
-            <div>
-              <dt>{ko ? "다음 확인 시점" : "Next decision check"}</dt>
-              <dd>{nextDecisionCheck}</dd>
             </div>
             {view.price === undefined ? null : (
               <div data-cockpit-price>

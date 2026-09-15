@@ -1,5 +1,5 @@
 "use client";
-import { ArrowRight, Search, X } from "lucide-react";
+import { ArrowRight, Check, Plus, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import {
@@ -8,6 +8,7 @@ import {
 } from "../../accounts/onboardingInterests";
 import { currentAuthTokens } from "../../auth/researchSession";
 import type { AppLocale } from "../../lib/i18n";
+import { CompanyLogo } from "../research/ResearchSidebar";
 
 const copy: Record<
   AppLocale,
@@ -211,6 +212,7 @@ export function OnboardingStockPicker({
             disabled={saving || restoring || saved}
             onChange={(event) => setQuery(event.target.value)}
             autoComplete="off"
+            spellCheck={false}
           />
         </label>
         <div className="onboarding-stocks__selection" aria-live="polite">
@@ -226,8 +228,8 @@ export function OnboardingStockPicker({
                 )
               }
             >
+              <CompanyLogo symbol={stock.symbol} />
               <strong>{stock.symbol}</strong>
-              <span>{stock.company}</span>
               <X size={16} aria-hidden="true" />
             </button>
           ))}
@@ -261,9 +263,19 @@ export function OnboardingStockPicker({
                   setQuery("");
                 }}
               >
-                <strong>{stock.symbol}</strong>
-                <span>{stock.company}</span>
+                <CompanyLogo symbol={stock.symbol} />
+                <span className="onboarding-stocks__identity">
+                  <strong>{stock.symbol}</strong>
+                  {stock.company !== stock.symbol && (
+                    <span>{stock.company}</span>
+                  )}
+                </span>
                 <small>{stock.exchange}</small>
+                {included ? (
+                  <Check size={18} aria-hidden="true" />
+                ) : (
+                  <Plus size={18} aria-hidden="true" />
+                )}
               </button>
             );
           })}
