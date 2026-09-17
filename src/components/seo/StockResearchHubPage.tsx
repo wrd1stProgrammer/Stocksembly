@@ -2,8 +2,9 @@ import "../../styles/stock-research-hub.css";
 import "../../styles/stock-research-hub-responsive.css";
 import { ArrowRight, CalendarDays, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { editorialContent } from "../../editorial/content";
 import type { AppLocale } from "../../lib/i18n";
-import { intlLocale, researchLocale } from "../../lib/i18n";
+import { intlLocale } from "../../lib/i18n";
 import { stockResearchHubCopy } from "../../lib/seo/stockResearchHubCopy";
 import { stockResearchHubPaths } from "../../lib/seo/stockResearchHubMetadata";
 import { researchTargetQueryValue } from "../../research/domain/researchTarget";
@@ -29,7 +30,10 @@ export function StockResearchHubPage({
   hub,
   locale,
 }: StockResearchHubPageProps) {
-  const content = stockResearchHubCopy[researchLocale(locale)];
+  const content = stockResearchHubCopy[locale];
+  const languageNames = new Intl.DisplayNames([intlLocale(locale)], {
+    type: "language",
+  });
   const paths = stockResearchHubPaths(hub.symbol);
   const canonicalUrl = `https://stocksembly.com${paths[locale]}`;
   const structuredData = {
@@ -56,10 +60,7 @@ export function StockResearchHubPage({
         "@type": "ListItem",
         position: index + 1,
         name: report.question,
-        url:
-          locale === "en"
-            ? `https://stocksembly.com/research-room/${report.reportId}?lang=en`
-            : `https://stocksembly.com/research-room/${report.reportId}`,
+        url: `https://stocksembly.com/research-room/${report.reportId}`,
       })),
     },
   };
@@ -101,14 +102,15 @@ export function StockResearchHubPage({
           <div className="stock-hub-report-list">
             {hub.reports.map((report) => {
               const scope = researchTargetQueryValue(report.researchTarget);
-              const href =
-                locale === "en"
-                  ? `/research-room/${report.reportId}?lang=en`
-                  : `/research-room/${report.reportId}`;
+              const href = `/research-room/${report.reportId}`;
               return (
                 <article key={report.reportId}>
                   <div className="stock-hub-report__meta">
                     <span>{content.scope[scope]}</span>
+                    <span>
+                      {content.originalLanguage}:{" "}
+                      {languageNames.of(report.locale)}
+                    </span>
                     <span>
                       {report.status === "complete_with_limitations"
                         ? content.limitationStatus
@@ -120,7 +122,9 @@ export function StockResearchHubPage({
                     </time>
                   </div>
                   <h3>
-                    <Link href={href}>{report.question}</Link>
+                    <Link href={href} lang={report.locale}>
+                      {report.question}
+                    </Link>
                   </h3>
                   <Link className="stock-hub-report__action" href={href}>
                     {content.readReport}
@@ -129,6 +133,28 @@ export function StockResearchHubPage({
                 </article>
               );
             })}
+          </div>
+        </section>
+
+        <section className="stock-hub-archive">
+          <header>
+            <h2>{content.guidesTitle}</h2>
+          </header>
+          <div className="stock-hub-report-list">
+            {(
+              [
+                "how-to-read-a-10-k",
+                "bull-base-bear-scenario-analysis",
+              ] as const
+            ).map((slug) => (
+              <div key={slug}>
+                <h3>
+                  <Link href={`/${locale}/blog/${slug}`}>
+                    {editorialContent[locale].entries[slug].title}
+                  </Link>
+                </h3>
+              </div>
+            ))}
           </div>
         </section>
 

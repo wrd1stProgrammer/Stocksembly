@@ -1,0 +1,41 @@
+.evidence-byline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #a1a9b8);
+}
+
+.evidence-byline a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+}
+
+.evidence-table-scroll {
+  overflow-x: auto;
+  margin-block: 1.5rem;
+}
+
+.evidence-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.evidence-table caption {
+  text-align: left;
+  padding-bottom: 0.75rem;
+}
+
+.evidence-table th,
+.evidence-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid rgb(128 140 164 / 25%);
+  text-align: right;
+}
+
+.evidence-table th:first-child {
+  text-align: left;
+  min-width: 10rem;
+}

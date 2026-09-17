@@ -55,6 +55,26 @@ const hub = {
 } satisfies StockResearchHub;
 
 describe("stock research hub page", () => {
+  it("renders Japanese hub copy and identifies the original report language", () => {
+    // Given / When
+    const page = render(<StockResearchHubPage hub={hub} locale="ja" />);
+    // Then
+    expect(page.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "米国株分析",
+    );
+    expect(
+      page.getByRole("link", { name: "마진의 핵심 변수를 분석해줘" }),
+    ).toHaveAttribute("lang", "ko");
+    expect(
+      page.getByRole("link", { name: "마진의 핵심 변수를 분석해줘" }),
+    ).toHaveAttribute(
+      "href",
+      "/research-room/00000000-0000-4000-8000-000000000002",
+    );
+    expect(
+      page.container.querySelector('a[href="/ja/blog/how-to-read-a-10-k"]'),
+    ).toBeInTheDocument();
+  });
   it("renders Korean public-report links and matching language routes", () => {
     // Given
     // When
@@ -94,7 +114,7 @@ describe("stock research hub page", () => {
       }),
     ).toHaveAttribute(
       "href",
-      "/research-room/00000000-0000-4000-8000-000000000001?lang=en",
+      "/research-room/00000000-0000-4000-8000-000000000001",
     );
     const structuredData = page.container.querySelector(
       'script[type="application/ld+json"]',

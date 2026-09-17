@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 describe("stock research hub sitemap URLs", () => {
-  it("adds one localized ticker hub pair for each eligible company", async () => {
+  it("adds every supported localized ticker hub for each eligible company", async () => {
     // Given
     sitemapState.listStockResearchHubSitemapEntries.mockResolvedValueOnce([
       { symbol: "NVDA", lastModified: "2026-06-02T12:00:00.000Z" },
@@ -33,32 +33,30 @@ describe("stock research hub sitemap URLs", () => {
     const entries = await sitemap();
 
     // Then
-    expect(entries.filter((entry) => entry.url.includes("/stocks/"))).toEqual([
-      {
-        url: "https://stocksembly.com/ko/stocks/nvda",
-        lastModified: "2026-06-02T12:00:00.000Z",
-        changeFrequency: "weekly",
-        priority: 0.8,
-      },
-      {
-        url: "https://stocksembly.com/en/stocks/nvda",
-        lastModified: "2026-06-02T12:00:00.000Z",
-        changeFrequency: "weekly",
-        priority: 0.8,
-      },
-      {
-        url: "https://stocksembly.com/ko/stocks/aapl",
-        lastModified: "2026-05-31T12:00:00.000Z",
-        changeFrequency: "weekly",
-        priority: 0.8,
-      },
-      {
-        url: "https://stocksembly.com/en/stocks/aapl",
-        lastModified: "2026-05-31T12:00:00.000Z",
-        changeFrequency: "weekly",
-        priority: 0.8,
-      },
-    ]);
+    const hubs = entries.filter((entry) => entry.url.includes("/stocks/"));
+    expect(hubs).toHaveLength(16);
+    for (const locale of [
+      "en",
+      "ko",
+      "ja",
+      "zh-TW",
+      "es",
+      "pt-BR",
+      "de",
+      "fr",
+    ]) {
+      for (const [symbol, lastModified] of [
+        ["nvda", "2026-06-02T12:00:00.000Z"],
+        ["aapl", "2026-05-31T12:00:00.000Z"],
+      ]) {
+        expect(hubs).toContainEqual({
+          url: `https://stocksembly.com/${locale}/stocks/${symbol}`,
+          lastModified,
+          changeFrequency: "weekly",
+          priority: 0.8,
+        });
+      }
+    }
   });
 
   it("keeps report URLs when only the ticker hub projection fails", async () => {

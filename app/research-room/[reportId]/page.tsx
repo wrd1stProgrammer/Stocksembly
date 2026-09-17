@@ -60,32 +60,23 @@ async function pageRequest(reportId: string) {
   });
 }
 
-export async function generateMetadata({
-  params,
-  searchParams,
-}: Props): Promise<Metadata> {
-  const [{ reportId }, query] = await Promise.all([params, searchParams]);
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { reportId } = await params;
   if (!z.string().uuid().safeParse(reportId).success)
     return {
       title: "Research Room",
       robots: { index: false, follow: false },
     };
-  const locale = await researchRoomLocale(query.lang);
-  const contentLocale = researchLocale(locale);
   const access = { authenticated: false, tier: "free" as const };
   const report = await loadResearchRoomReport(
     reportId,
     access,
     new Date(),
-    locale,
   ).catch(() => undefined);
   if (report === undefined || report === "locked")
     return { title: "Research Room", robots: { index: false, follow: false } };
   const reportPath = `/research-room/${reportId}`;
-  const localizedReportPath =
-    locale === "ko"
-      ? reportPath
-      : `${reportPath}?lang=${encodeURIComponent(locale)}`;
+  const contentLocale = report.item.locale;
   const seoTitle = brandedSeoTitle(
     researchReportSeoTitle(
       report.item.symbol,
@@ -101,24 +92,13 @@ export async function generateMetadata({
     description: seoDescription,
     robots: { index: true, follow: true },
     alternates: {
-      canonical: localizedReportPath,
-      languages: {
-        ko: reportPath,
-        en: `${reportPath}?lang=en`,
-        "x-default": reportPath,
-      },
+      canonical: reportPath,
     },
     openGraph: {
       title: seoTitle,
       description: seoDescription,
-      locale: localeDetails[locale].openGraph,
-      alternateLocale:
-        locale === "ko"
-          ? "en_US"
-          : locale === "en"
-            ? "ko_KR"
-            : ["en_US", "ko_KR"],
-      url: localizedReportPath,
+      locale: localeDetails[contentLocale].openGraph,
+      url: reportPath,
       type: "article",
       publishedTime: report.item.publishedAt,
     },
@@ -195,7 +175,7 @@ export default async function ResearchRoomReportPage({
   const seoTitle = researchReportSeoTitle(
     report.item.symbol,
     report.item.question,
-    contentLocale,
+    report.item.locale,
   );
   const structuredData = {
     "@context": "https://schema.org",
@@ -204,9 +184,9 @@ export default async function ResearchRoomReportPage({
     datePublished: report.item.publishedAt,
     about: { "@type": "Corporation", tickerSymbol: report.item.symbol },
     publisher: { "@type": "Organization", name: "Stocksembly" },
-    description: report.file.thesis[contentLocale],
+    description: report.file.thesis[report.item.locale],
     inLanguage: report.item.locale,
-    url: `https://stocksembly.com/research-room/${reportId}?lang=${encodeURIComponent(locale)}`,
+    url: `https://stocksembly.com/research-room/${reportId}`,
   };
   return (
     <>

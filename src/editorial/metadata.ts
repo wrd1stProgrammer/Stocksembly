@@ -7,6 +7,7 @@ import {
 } from "../lib/seo/metadataText";
 import { editorialLocalePaths, editorialPath } from "./catalog";
 import { editorialContent } from "./content";
+import { editorialSearchTitle } from "./searchTitles";
 import type { EditorialDefinition, EditorialKind } from "./types";
 
 const BASE_URL = "https://stocksembly.com";
@@ -36,6 +37,7 @@ export function editorialIndexMetadata(
   );
   const seoTitle = brandedSeoTitle(title);
   const path = editorialPath(locale, kind);
+  const image = `${BASE_URL}/brand/stocksembly-app-icon.png`;
   return {
     title: { absolute: seoTitle },
     description,
@@ -50,8 +52,14 @@ export function editorialIndexMetadata(
         .map((value) => localeDetails[value].openGraph),
       siteName: "Stocksembly",
       type: "website",
+      images: [{ url: image, alt: "Stocksembly" }],
     },
-    twitter: { card: "summary_large_image", title: seoTitle, description },
+    twitter: {
+      card: "summary_large_image",
+      title: seoTitle,
+      description,
+      images: [image],
+    },
   };
 }
 
@@ -62,7 +70,7 @@ export function editorialEntryMetadata(
   const copy = editorialContent[locale].entries[definition.slug];
   const path = editorialPath(locale, definition.kind, definition.slug);
   const image = `${BASE_URL}${definition.image}`;
-  const title = brandedSeoTitle(copy.title);
+  const title = brandedSeoTitle(editorialSearchTitle(locale, definition.slug));
   const description = boundedSeoDescription(copy.description);
   return {
     title: { absolute: title },

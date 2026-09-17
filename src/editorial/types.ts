@@ -31,6 +31,11 @@ export type EditorialSection = Readonly<{
   heading: string;
   paragraphs: readonly string[];
   bullets?: readonly string[];
+  table?: Readonly<{
+    caption: string;
+    headers: readonly string[];
+    rows: readonly (readonly string[])[];
+  }>;
 }>;
 
 export type EditorialDepthContent = Readonly<
@@ -43,6 +48,10 @@ export type EditorialEntryCopy = Readonly<{
   category: string;
   imageAlt: string;
   sections: readonly EditorialSection[];
+  sources?: Readonly<{
+    heading: string;
+    items: readonly Readonly<{ label: string; href: string }>[];
+  }>;
 }>;
 
 export type EditorialUiCopy = Readonly<{

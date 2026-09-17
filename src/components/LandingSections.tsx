@@ -52,6 +52,7 @@ export function LandingFooter({
   localePathSuffix = "",
 }: LandingSectionsProps & { readonly localePathSuffix?: string }) {
   const content = copy[locale].footer;
+  const informationQuery = locale === "ko" ? "" : "?lang=en";
   const informationLinks = [
     { href: "/about", label: content.about },
     { href: "/methodology", label: content.methodology },
@@ -81,11 +82,9 @@ export function LandingFooter({
           <Link href={`/${locale}/us-stock-analysis`}>
             {content.stockAnalysis}
           </Link>
-          <Link href={locale === "en" ? "/pricing?lang=en" : "/pricing"}>
-            {content.pricing}
-          </Link>
-          <a href="#product">{content.howItWorks}</a>
-          <a href="#product">{content.research}</a>
+          <Link href={`/pricing${informationQuery}`}>{content.pricing}</Link>
+          <Link href={`/${locale}#product`}>{content.howItWorks}</Link>
+          <Link href={`/${locale}#product`}>{content.research}</Link>
         </nav>
         <nav
           className="site-footer__column"
@@ -93,10 +92,7 @@ export function LandingFooter({
         >
           <h2>{content.standardsHeading}</h2>
           {informationLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={locale === "en" ? `${link.href}?lang=en` : link.href}
-            >
+            <Link key={link.href} href={`${link.href}${informationQuery}`}>
               {link.label}
             </Link>
           ))}
@@ -105,9 +101,7 @@ export function LandingFooter({
         </nav>
         <address className="site-footer__column">
           <h2>{content.contactHeading}</h2>
-          <Link href={locale === "en" ? "/contact?lang=en" : "/contact"}>
-            {content.support}
-          </Link>
+          <Link href={`/contact${informationQuery}`}>{content.support}</Link>
           <span>kicoa24@gmail.com</span>
           <span>Room 306, 32-4, Banryong-ro 18beon-gil, South Korea</span>
         </address>

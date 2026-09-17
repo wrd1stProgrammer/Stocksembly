@@ -1,8 +1,10 @@
+import type { AppLocale } from "../../lib/i18n";
 import type {
   EditorialDepthContent,
   EditorialEntryCopy,
   EditorialLocaleContent,
 } from "../types";
+import { scenarioExampleCopy } from "./scenario-example";
 
 function enrichEntry(
   entry: EditorialEntryCopy,
@@ -17,7 +19,9 @@ function enrichEntry(
 export function enrichEditorialLocale(
   content: EditorialLocaleContent,
   depth: EditorialDepthContent,
+  locale: AppLocale,
 ): EditorialLocaleContent {
+  const scenario = scenarioExampleCopy(locale);
   return {
     ui: content.ui,
     entries: {
@@ -33,10 +37,15 @@ export function enrichEditorialLocale(
         content.entries["how-to-choose-comparable-companies"],
         depth["how-to-choose-comparable-companies"],
       ),
-      "bull-base-bear-scenario-analysis": enrichEntry(
-        content.entries["bull-base-bear-scenario-analysis"],
-        depth["bull-base-bear-scenario-analysis"],
-      ),
+      "bull-base-bear-scenario-analysis": {
+        ...content.entries["bull-base-bear-scenario-analysis"],
+        sources: scenario.sources,
+        sections: [
+          ...content.entries["bull-base-bear-scenario-analysis"].sections,
+          ...depth["bull-base-bear-scenario-analysis"],
+          ...scenario.sections,
+        ],
+      },
       "counterarguments-in-ai-stock-research": enrichEntry(
         content.entries["counterarguments-in-ai-stock-research"],
         depth["counterarguments-in-ai-stock-research"],

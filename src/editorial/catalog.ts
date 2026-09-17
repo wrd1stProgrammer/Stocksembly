@@ -47,7 +47,7 @@ export const editorialDefinitions = [
     kind: "blog",
     image: "/editorial/blog-scenario-analysis-v2.webp",
     publishedAt: "2026-08-09T00:00:00.000Z",
-    modifiedAt: "2026-08-15T00:00:00.000Z",
+    modifiedAt: "2026-09-17T00:00:00.000Z",
     readingMinutes: 10,
     related: [
       "margin-of-safety",

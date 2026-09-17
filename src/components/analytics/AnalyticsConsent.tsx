@@ -3,6 +3,8 @@
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { useCallback, useEffect, useState } from "react";
 import { MetaPixel } from "../../lib/meta/pixel";
+import type { AppLocale } from "../../lib/supportedLocales";
+import { consentCopy } from "./consentCopy";
 
 const CONSENT_COOKIE = "stocksembly_analytics_consent";
 const PENDING_KEY = "stocksembly:pending-acquisition-v1";
@@ -11,6 +13,7 @@ type Props = {
   readonly enabled: boolean;
   readonly measurementId?: string;
   readonly metaPixelId?: string;
+  readonly locale?: AppLocale;
 };
 
 type Consent = "granted" | "denied" | "unset";
@@ -104,7 +107,9 @@ export function AnalyticsConsent({
   enabled,
   measurementId,
   metaPixelId,
+  locale = "ko",
 }: Props) {
+  const content = consentCopy[locale];
   const [consent, setConsent] = useState<Consent>("unset");
   const captureAttribution = useCallback(() => {
     if (!enabled) return;
@@ -144,24 +149,24 @@ export function AnalyticsConsent({
         <MetaPixel pixelId={metaPixelId} />
       ) : null}
       {consent === "unset" ? (
-        <aside className="analytics-consent" aria-label="분석 쿠키 동의">
+        <aside
+          className="analytics-consent"
+          aria-label={content.title}
+          lang={locale}
+        >
           <div>
-            <strong>서비스 개선을 위한 분석</strong>
-            <p>
-              가입 유입 경로는 출처 확인을 위해 저장되며, 동의하면 익명화된 사용
-              흐름과 Meta 광고 전환 성과도 분석합니다. 필수 로그인 쿠키에는
-              영향이 없습니다.
-            </p>
+            <strong>{content.title}</strong>
+            <p>{content.description}</p>
           </div>
           <button type="button" onClick={() => choose("denied")}>
-            거절
+            {content.reject}
           </button>
           <button
             className="is-primary"
             type="button"
             onClick={() => choose("granted")}
           >
-            동의
+            {content.accept}
           </button>
         </aside>
       ) : null}

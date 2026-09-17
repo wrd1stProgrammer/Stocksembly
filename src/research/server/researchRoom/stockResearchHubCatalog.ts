@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tickers } from "../../../lib/tickers";
 import type { ResearchTarget } from "../../domain/researchTarget";
 import type { ResearchDatabase } from "../persistence/postgres/database";
 import { researchTransaction } from "../persistence/postgres/database";
@@ -137,7 +138,11 @@ export async function loadStockResearchHub(
   if (first === undefined) return undefined;
   return {
     symbol: first.symbol,
-    company: first.company,
+    company:
+      first.company.trim().toUpperCase() === first.symbol
+        ? (tickers.find((ticker) => ticker.symbol === first.symbol)?.company ??
+          first.company)
+        : first.company,
     latestPublishedAt: first.published_at,
     reports: rows.map((row) => ({
       reportId: row.report_id,

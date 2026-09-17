@@ -32,6 +32,16 @@ describe("editorial library", () => {
       alternates: { canonical: "/ko/blog" },
       openGraph: { locale: "ko_KR" },
     });
+    expect(editorialIndexMetadata("en", "blog")).toMatchObject({
+      openGraph: {
+        images: [
+          { url: "https://stocksembly.com/brand/stocksembly-app-icon.png" },
+        ],
+      },
+      twitter: {
+        images: ["https://stocksembly.com/brand/stocksembly-app-icon.png"],
+      },
+    });
     expect(editorialEntryMetadata("en", definition)).toMatchObject({
       alternates: {
         canonical: `/en/blog/${definition.slug}`,
@@ -72,6 +82,7 @@ describe("editorial library", () => {
         )
           throw new Error("Expected an absolute editorial entry title");
         expect(entryTitle.absolute.length).toBeLessThanOrEqual(60);
+        expect(entryTitle.absolute).not.toContain("…");
         expect(entryMetadata.description?.length).toBeLessThanOrEqual(160);
       }
     }

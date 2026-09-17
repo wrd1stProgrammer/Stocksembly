@@ -36,6 +36,7 @@ function publicReport() {
     item: {
       reportId: REPORT_ID,
       symbol: "NVDA",
+      locale: "en",
       question: "Is the growth durable?",
       publishedAt: "2026-08-01T00:00:00.000Z",
     },
@@ -54,6 +55,29 @@ beforeEach(() => {
 });
 
 describe("public research report metadata", () => {
+  it.each(["en", "ja", "de"])(
+    "keeps source-language metadata and one canonical when UI language is %s",
+    async (lang) => {
+      // Given: public content stays Korean until authenticated translation.
+      const report = publicReport();
+      report.item.locale = "ko";
+      pageState.loadResearchRoomReport.mockResolvedValueOnce(report);
+
+      // When
+      const metadata = await generateMetadata(metadataProps(REPORT_ID, lang));
+
+      // Then
+      expect(metadata.description).toBe(report.file.thesis.ko);
+      expect(metadata.alternates).toEqual({
+        canonical: `/research-room/${REPORT_ID}`,
+      });
+      expect(metadata.openGraph).toMatchObject({
+        locale: "ko_KR",
+        url: `/research-room/${REPORT_ID}`,
+      });
+      expect(metadata.openGraph).not.toHaveProperty("alternateLocale");
+    },
+  );
   it("defaults to English metadata for an eligible public report", async () => {
     // Given
     pageState.loadResearchRoomReport.mockResolvedValueOnce(publicReport());
@@ -65,13 +89,15 @@ describe("public research report metadata", () => {
     expect(metadata.description).toBe("English investment thesis");
     expect(metadata.openGraph).toMatchObject({
       description: "English investment thesis",
-      url: `/research-room/${REPORT_ID}?lang=en`,
+      url: `/research-room/${REPORT_ID}`,
     });
   });
 
   it("publishes Korean metadata for an eligible report", async () => {
     // Given
-    pageState.loadResearchRoomReport.mockResolvedValueOnce(publicReport());
+    const report = publicReport();
+    report.item.locale = "ko";
+    pageState.loadResearchRoomReport.mockResolvedValueOnce(report);
 
     // When
     const metadata = await generateMetadata(metadataProps(REPORT_ID, "ko"));
@@ -85,17 +111,11 @@ describe("public research report metadata", () => {
       robots: { index: true, follow: true },
       alternates: {
         canonical: `/research-room/${REPORT_ID}`,
-        languages: {
-          ko: `/research-room/${REPORT_ID}`,
-          en: `/research-room/${REPORT_ID}?lang=en`,
-          "x-default": `/research-room/${REPORT_ID}`,
-        },
       },
       openGraph: {
         title: "NVDA 미국주식 분석: Is the growth durable? · Stocksembly",
         description: "한국어 투자 논지",
         locale: "ko_KR",
-        alternateLocale: "en_US",
         url: `/research-room/${REPORT_ID}`,
         type: "article",
         publishedTime: "2026-08-01T00:00:00.000Z",
@@ -118,19 +138,13 @@ describe("public research report metadata", () => {
       description: "English investment thesis",
       robots: { index: true, follow: true },
       alternates: {
-        canonical: `/research-room/${REPORT_ID}?lang=en`,
-        languages: {
-          ko: `/research-room/${REPORT_ID}`,
-          en: `/research-room/${REPORT_ID}?lang=en`,
-          "x-default": `/research-room/${REPORT_ID}`,
-        },
+        canonical: `/research-room/${REPORT_ID}`,
       },
       openGraph: {
         title: "NVDA Stock Analysis: Is the growth durable? · Stocksembly",
         description: "English investment thesis",
         locale: "en_US",
-        alternateLocale: "ko_KR",
-        url: `/research-room/${REPORT_ID}?lang=en`,
+        url: `/research-room/${REPORT_ID}`,
         type: "article",
         publishedTime: "2026-08-01T00:00:00.000Z",
       },

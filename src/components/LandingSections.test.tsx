@@ -115,6 +115,18 @@ describe("landing explainer", () => {
 });
 
 describe("landing footer product and content links", () => {
+  it("navigates from a localized article to the home product section", () => {
+    const { container } = render(
+      <LandingFooter locale="ja" localePathSuffix="/blog/how-to-read-a-10-k" />,
+    );
+    expect(container.querySelectorAll('a[href="/ja#product"]')).toHaveLength(2);
+    expect(container.querySelector('a[href="#product"]')).toBeNull();
+    expect(
+      container.querySelector('a[href="/pricing?lang=en"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('a[href="/about?lang=en"]')).not.toBeNull();
+  });
+
   it("links pricing, blog, and glossary from the footer", () => {
     const korean = render(<LandingFooter locale="ko" />);
     for (const path of ["/pricing", "/ko/blog", "/ko/glossary"])
