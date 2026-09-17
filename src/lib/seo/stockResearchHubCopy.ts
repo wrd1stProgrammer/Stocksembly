@@ -1,6 +1,7 @@
-import type { Locale } from "../i18n";
+import type { AppLocale } from "../i18n";
+import { stockHubInternationalCopy } from "./stockResearchHubInternationalCopy";
 
-type StockResearchHubCopy = Readonly<{
+export type StockResearchHubCopy = Readonly<{
   eyebrow: string;
   title: (company: string, symbol: string) => string;
   description: (company: string, symbol: string) => string;
@@ -20,6 +21,8 @@ type StockResearchHubCopy = Readonly<{
   closingDescription: string;
   startResearch: string;
   browseArchive: string;
+  originalLanguage: string;
+  guidesTitle: string;
 }>;
 
 export const stockResearchHubCopy = {
@@ -51,6 +54,8 @@ export const stockResearchHubCopy = {
       "분석 기간, 관점, 깊이, 비교 기업을 설정하고 팀 단위 또는 전문팀 단위 리서치를 시작할 수 있습니다.",
     startResearch: "새 리서치 시작",
     browseArchive: "전체 리서치룸 보기",
+    originalLanguage: "원문 언어",
+    guidesTitle: "리서치를 읽기 위한 분석 가이드",
   },
   en: {
     eyebrow: "US stock research archive",
@@ -81,5 +86,8 @@ export const stockResearchHubCopy = {
       "Set the time horizon, perspective, depth, and comparison companies, then start full-team or specialist-team research.",
     startResearch: "Start new research",
     browseArchive: "Browse Research Room",
+    originalLanguage: "Original language",
+    guidesTitle: "Guides for reading the research",
   },
-} satisfies Record<Locale, StockResearchHubCopy>;
+  ...stockHubInternationalCopy,
+} satisfies Record<AppLocale, StockResearchHubCopy>;

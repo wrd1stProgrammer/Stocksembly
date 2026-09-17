@@ -1,10 +1,15 @@
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsConsent } from "./AnalyticsConsent";
 
 vi.mock("../../lib/meta/pixel", () => ({
   MetaPixel: ({ pixelId }: { readonly pixelId: string }) => (
     <i data-meta-pixel={pixelId} />
+  ),
+}));
+vi.mock("@next/third-parties/google", () => ({
+  GoogleAnalytics: ({ gaId }: { readonly gaId: string }) => (
+    <i data-ga-id={gaId} />
   ),
 }));
 
@@ -30,6 +35,33 @@ afterEach(() => {
 });
 
 describe("AnalyticsConsent attribution", () => {
+  it("keeps GA disabled until consent and renders a localized choice", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 401 })),
+    );
+    const { container } = render(
+      <AnalyticsConsent enabled locale="en" measurementId="G-TEST123" />,
+    );
+    expect(container.querySelector("[data-ga-id]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-ga-id="G-TEST123"]'),
+      ).not.toBeNull(),
+    );
+  });
+  it("never loads GA when consent was denied", () => {
+    denyConsent();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 401 })),
+    );
+    const { container } = render(
+      <AnalyticsConsent enabled measurementId="G-TEST123" />,
+    );
+    expect(container.querySelector("[data-ga-id]")).toBeNull();
+  });
   it("loads Meta Pixel only after analytics consent", async () => {
     grantConsent();
     vi.stubGlobal(

@@ -12,6 +12,33 @@ import {
 afterEach(cleanupStockHubFixtures);
 
 describe("stock research hub catalog", () => {
+  it("uses the existing ticker catalog when the registry only has a ticker name", async () => {
+    // Given
+    await createStockHubFixture([
+      {
+        reportId: stockHubFixtureId("20000000", 7),
+        symbol: "AAPL",
+        company: "AAPL",
+        question: "Evaluate the business",
+        locale: "en",
+        researchKind: "committee",
+        versions: [
+          {
+            version: 1,
+            status: "complete",
+            publishedAt: "2026-08-01T00:00:00.000Z",
+          },
+        ],
+      },
+    ]);
+    // When
+    const hub = await loadStockResearchHub(
+      StockSymbolSchema.parse("AAPL"),
+      STOCK_HUB_NOW,
+    );
+    // Then
+    expect(hub?.company).toBe("Apple Inc.");
+  });
   it("returns the latest mature publishable version for every public report", async () => {
     // Given
     await createStockHubFixture([

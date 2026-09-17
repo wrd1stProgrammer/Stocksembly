@@ -3,11 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { editorialDefinition, editorialPath } from "../../editorial/catalog";
 import { editorialContent } from "../../editorial/content";
+import { editorialReadingMinutes } from "../../editorial/readingTime";
 import type { EditorialDefinition } from "../../editorial/types";
 import type { AppLocale } from "../../lib/i18n";
 import { intlLocale } from "../../lib/i18n";
 import { LandingFooter } from "../LandingSections";
 import { EditorialCard } from "./EditorialCard";
+import styles from "./EditorialEvidence.module.css";
 
 type EditorialArticlePageProps = Readonly<{
   locale: AppLocale;
@@ -29,6 +31,7 @@ export function EditorialArticlePage({
 }: EditorialArticlePageProps) {
   const content = editorialContent[locale];
   const copy = content.entries[definition.slug];
+  const authorPath = locale === "ko" ? "/about" : "/about?lang=en";
   const isBlog = definition.kind === "blog";
   const backLabel = isBlog ? content.ui.backToBlog : content.ui.backToGlossary;
   const related = definition.related
@@ -50,7 +53,14 @@ export function EditorialArticlePage({
         dateModified: definition.modifiedAt,
         inLanguage: intlLocale(locale),
         url: canonicalUrl,
-        author: { "@type": "Organization", name: "Stocksembly Research" },
+        author: {
+          "@type": "Organization",
+          name: "Stocksembly Research",
+          url: `https://stocksembly.com${authorPath}`,
+        },
+        ...(copy.sources
+          ? { citation: copy.sources.items.map((source) => source.href) }
+          : {}),
         publisher: {
           "@type": "Organization",
           name: "SERN",
@@ -86,11 +96,24 @@ export function EditorialArticlePage({
               </time>
               <small>
                 <Clock3 size={14} aria-hidden="true" />
-                {definition.readingMinutes} {content.ui.minutes}
+                {editorialReadingMinutes(copy, locale)} {content.ui.minutes}
               </small>
             </div>
             <h1>{copy.title}</h1>
             <p>{copy.description}</p>
+            <div className={styles["evidence-byline"]}>
+              <Link rel="author" href={authorPath}>
+                Stocksembly Research
+              </Link>
+              {definition.modifiedAt !== definition.publishedAt && (
+                <span>
+                  {content.ui.updated}{" "}
+                  <time dateTime={definition.modifiedAt}>
+                    {dateLabel(definition.modifiedAt, locale)}
+                  </time>
+                </span>
+              )}
+            </div>
           </header>
           <div className="editorial-article__image">
             <Image
@@ -115,8 +138,50 @@ export function EditorialArticlePage({
                     ))}
                   </ul>
                 )}
+                {section.table && (
+                  <div className={styles["evidence-table-scroll"]}>
+                    <table className={styles["evidence-table"]}>
+                      <caption>{section.table.caption}</caption>
+                      <thead>
+                        <tr>
+                          {section.table.headers.map((header) => (
+                            <th key={header} scope="col">
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.table.rows.map(([label, ...values]) => (
+                          <tr key={label}>
+                            <th scope="row">{label}</th>
+                            {values.map((value, index) => (
+                              <td
+                                key={`${label}-${section.table?.headers[index + 1]}`}
+                              >
+                                {value}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
             ))}
+            {copy.sources && (
+              <section>
+                <h2>{copy.sources.heading}</h2>
+                <ul>
+                  {copy.sources.items.map((source) => (
+                    <li key={source.href}>
+                      <a href={source.href}>{source.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <aside className="editorial-cta">
               <div>
                 <h2>{content.ui.ctaTitle}</h2>

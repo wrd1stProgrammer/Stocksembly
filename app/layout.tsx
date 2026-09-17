@@ -22,8 +22,9 @@ const inter = localFont({
   weight: "100 900",
 });
 
-const { NEXT_PUBLIC_GA_MEASUREMENT_ID } = process.env;
-const googleAnalyticsMeasurementId = NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
+// Direct access lets Next.js inline the build-time ID into the standalone bundle.
+const googleAnalyticsMeasurementId =
+  process.env["NEXT_PUBLIC_GA_MEASUREMENT_ID"]?.trim();
 const metaPixelId = resolveMetaPixelId();
 
 export const metadata: Metadata = {
@@ -136,6 +137,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <AuthSessionBridge />
         {children}
         <AnalyticsConsent
+          locale={requestLocale}
           enabled={adminAnalyticsWritesEnabled()}
           {...(googleAnalyticsMeasurementId === undefined
             ? {}

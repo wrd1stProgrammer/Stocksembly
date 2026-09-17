@@ -21,12 +21,20 @@ import { zhTwEditorialContent } from "./zh-TW";
 export const editorialContent: Readonly<
   Record<AppLocale, EditorialLocaleContent>
 > = {
-  en: enrichEditorialLocale(enEditorialContent, enEditorialDepth),
-  ko: enrichEditorialLocale(koEditorialContent, koEditorialDepth),
-  ja: enrichEditorialLocale(jaEditorialContent, jaEditorialDepth),
-  "zh-TW": enrichEditorialLocale(zhTwEditorialContent, zhTwEditorialDepth),
-  es: enrichEditorialLocale(esEditorialContent, esEditorialDepth),
-  "pt-BR": enrichEditorialLocale(ptBrEditorialContent, ptBrEditorialDepth),
-  de: enrichEditorialLocale(deEditorialContent, deEditorialDepth),
-  fr: enrichEditorialLocale(frEditorialContent, frEditorialDepth),
+  en: enrichEditorialLocale(enEditorialContent, enEditorialDepth, "en"),
+  ko: enrichEditorialLocale(koEditorialContent, koEditorialDepth, "ko"),
+  ja: enrichEditorialLocale(jaEditorialContent, jaEditorialDepth, "ja"),
+  "zh-TW": enrichEditorialLocale(
+    zhTwEditorialContent,
+    zhTwEditorialDepth,
+    "zh-TW",
+  ),
+  es: enrichEditorialLocale(esEditorialContent, esEditorialDepth, "es"),
+  "pt-BR": enrichEditorialLocale(
+    ptBrEditorialContent,
+    ptBrEditorialDepth,
+    "pt-BR",
+  ),
+  de: enrichEditorialLocale(deEditorialContent, deEditorialDepth, "de"),
+  fr: enrichEditorialLocale(frEditorialContent, frEditorialDepth, "fr"),
 };
