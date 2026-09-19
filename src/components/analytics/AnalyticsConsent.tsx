@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { MetaPixel } from "../../lib/meta/pixel";
 import type { AppLocale } from "../../lib/supportedLocales";
 import { consentCopy } from "./consentCopy";
+import { ProductEngagement } from "./ProductEngagement";
 
 const CONSENT_COOKIE = "stocksembly_analytics_consent";
 const PENDING_KEY = "stocksembly:pending-acquisition-v1";
@@ -142,6 +143,7 @@ export function AnalyticsConsent({
   };
   return (
     <>
+      {consent === "granted" ? <ProductEngagement /> : null}
       {consent === "granted" && measurementId ? (
         <GoogleAnalytics gaId={measurementId} />
       ) : null}

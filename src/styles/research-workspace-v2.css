@@ -9210,3 +9210,33 @@
     content-visibility: visible;
   }
 }
+
+/* Keep the office anchored when viewport height and transcript content change. */
+.research-shell[data-research-mode="official"]
+.office-workbench:not(.is-complete) {
+  align-content: start;
+  grid-template-rows: auto auto;
+}
+.office-progress-caption {
+  position: absolute;
+  z-index: 8;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 10px;
+  background: rgb(12 15 22 / 88%);
+  color: #f4f5f7;
+  pointer-events: none;
+  font-size: clamp(11px, 1vw, 14px);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.office-progress-caption strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  font-weight: 500;
+}

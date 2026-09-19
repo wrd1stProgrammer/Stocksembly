@@ -13,7 +13,10 @@ import type {
   ArtifactRead,
   ArtifactWrite,
 } from "../../ports/artifacts";
-import type { ArtifactMetadataTransactions } from "./filesystemArtifactStore.types";
+import {
+  type ArtifactMetadataTransactions,
+  ArtifactStoreError,
+} from "./filesystemArtifactStore.types";
 
 type S3ArtifactArchiveOptions = {
   readonly bucket: string;
@@ -71,7 +74,12 @@ export class S3ArtifactArchive {
       );
       if (response.Body === undefined) return undefined;
       const bytes = await response.Body.transformToByteArray();
-      return digestFor(bytes) === digest ? bytes : undefined;
+      if (digestFor(bytes) !== digest)
+        throw new ArtifactStoreError(
+          "ARTIFACT_HASH_MISMATCH",
+          "S3 artifact integrity check failed",
+        );
+      return bytes;
     } catch (error) {
       if (
         error instanceof NoSuchKey ||
@@ -101,7 +109,17 @@ export class S3MirroredArtifactStore implements ArtifactCasPort {
   }
 
   async get(digest: ArtifactDigest): Promise<ArtifactRead | undefined> {
-    const local = await this.local.get(digest);
+    let local: ArtifactRead | undefined;
+    try {
+      local = await this.local.get(digest);
+    } catch (error) {
+      if (
+        !(error instanceof ArtifactStoreError) ||
+        error.code !== "ARTIFACT_HASH_MISMATCH"
+      )
+        throw error;
+      console.warn("ARTIFACT_LOCAL_INTEGRITY_RECOVERY");
+    }
     if (local !== undefined) return local;
     const [descriptor, bytes] = await Promise.all([
       this.metadata.find(digest),

@@ -486,6 +486,40 @@ export function AdminDashboard({ data }: Props) {
             <div className="admin-empty">선택 기간의 핵심 액션이 없습니다.</div>
           ) : null}
         </section>
+        <section className="admin-panel">
+          <header>
+            <h2>메뉴별 실제 체류 시간</h2>
+            <p>
+              전체 유입 · 선택 기간 기준(채널·플랜 필터 미적용). 동의한 방문자의
+              전경 시간만 측정하며, 관리자·자동 테스트는 수집에서 제외합니다.
+              클라이언트 관측값입니다.
+            </p>
+          </header>
+          <div className="admin-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>메뉴 / 이벤트</th>
+                  <th>방문</th>
+                  <th>세션</th>
+                  <th>전경 체류 합계(초)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.engagement?.map((row) => (
+                  <tr key={`${row.surface}:${row.kind}`}>
+                    <th>
+                      {row.surface} / {row.kind}
+                    </th>
+                    <td>{row.visits}</td>
+                    <td>{row.sessions}</td>
+                    <td>{row.visibleSeconds}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
         <UserTable data={data} users={data.users.items} />
       </main>
     </div>

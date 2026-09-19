@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { researchInputSafety } from "@/src/research/domain/researchInputSafety";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import {
   answerFromPublishedReport,
@@ -9,7 +10,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const InputSchema = z.object({
-  question: z.string().trim().min(2).max(600),
+  question: z
+    .string()
+    .trim()
+    .min(2)
+    .max(600)
+    .refine((value) => researchInputSafety(value) === "allowed"),
   locale: z.enum(["en", "ko"]),
 });
 

@@ -131,6 +131,14 @@ export interface ResearchApi {
     readonly authenticated: boolean;
     readonly tier: "free" | "paid";
   }>;
+  readonly recordProductEngagement: (
+    request: Request,
+    input: import("../../../admin/productEngagement").ProductEngagement,
+  ) => Promise<void>;
+  readonly recordReportRead: (
+    request: Request,
+    reportId: string,
+  ) => Promise<void>;
   readonly listReadResearchReportIds: (
     request: Request,
   ) => Promise<readonly string[]>;
@@ -730,6 +738,33 @@ export async function createResearchApi(
       } catch {
         return { authenticated: true, tier: "free" };
       }
+    },
+    async recordProductEngagement(request, input) {
+      const auth = await context.auth.authenticate(request);
+      if (
+        authorizeAdmin(auth).kind === "authorized" ||
+        /HeadlessChrome|Playwright|StocksemblyLoadTest/i.test(
+          request.headers.get("user-agent") ?? "",
+        )
+      )
+        return;
+      const principalId =
+        auth.kind === "unauthorized" ? null : auth.principal.id;
+      const excluded = (
+        process.env["STOCKSEMBLY_ANALYTICS_EXCLUDED_PRINCIPALS"] ?? ""
+      )
+        .split(",")
+        .map((id) => id.trim());
+      if (principalId && excluded.includes(principalId)) return;
+      await options.accountStore?.recordProductEngagement?.(principalId, input);
+    },
+    async recordReportRead(request, reportId) {
+      const authentication = await context.auth.authenticate(request);
+      if (authentication.kind === "unauthorized") return;
+      await options.accountStore?.recordReportRead?.(
+        authentication.principal.id,
+        reportId,
+      );
     },
     async listReadResearchReportIds(request) {
       const authentication = await context.auth.authenticate(request);

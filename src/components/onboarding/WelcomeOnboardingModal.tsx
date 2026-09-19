@@ -1,5 +1,6 @@
 "use client";
 
+import { trackProductMilestone } from "../analytics/ProductEngagement";
 import "../../styles/billing.css";
 import "../../styles/onboarding.css";
 import {
@@ -464,7 +465,10 @@ export function WelcomeOnboardingModal({
               locale={locale}
               titleId={titleId}
               descriptionId={descriptionId}
-              onNext={() => setStep(0)}
+              onNext={() => {
+                trackProductMilestone("interests_saved");
+                setStep(0);
+              }}
             />
           ) : null}
           {step === 0 ? (
@@ -594,6 +598,7 @@ export function WelcomeOnboardingModal({
                     setError(false);
                     try {
                       await onComplete(discoverySource ?? "prefer_not_to_say");
+                      trackProductMilestone("onboarding_completed");
                       window.location.assign(`/research-room?lang=${locale}`);
                     } catch {
                       setSaving(false);

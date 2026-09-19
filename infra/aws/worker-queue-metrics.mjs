@@ -35,7 +35,7 @@ try {
       COALESCE(EXTRACT(EPOCH FROM now() - MIN(jobs.created_at::timestamptz)
         FILTER (WHERE jobs.status = 'queued')), 0)::float8 AS oldest
     FROM jobs JOIN runs USING(run_id)
-    WHERE runs.status = 'running' AND jobs.kind = 'research'`);
+    WHERE runs.status IN ('queued','running') AND jobs.kind = 'research'`);
   const {
     rows: [durations],
   } = await pool.query(`
@@ -51,6 +51,15 @@ try {
     ) SELECT COUNT(*)::int AS samples,
       percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM finished - started)) AS p95
       FROM completed WHERE finished >= started`);
+  const {
+    rows: [outcomes],
+  } = await pool.query(`
+    SELECT count(*)::int AS requested,
+      count(*) FILTER (WHERE status='completed')::int AS completed,
+      count(*) FILTER (WHERE status='complete-with-limitations')::int AS limited,
+      count(*) FILTER (WHERE status IN ('failed','incomplete'))::int AS failed,
+      count(*) FILTER (WHERE status='cancelled')::int AS cancelled
+    FROM runs WHERE created_at::timestamptz > now()-interval '24 hours'`);
   const dimensions = [{ Name: "Service", Value: "stocksembly" }];
   const metric = (MetricName, Value, Unit = "Count") => ({
     MetricName,
@@ -64,6 +73,11 @@ try {
     metric("OldestQueuedResearchSeconds", Math.max(0, queue.oldest), "Seconds"),
     metric("CompletedResearchSamples24h", durations.samples),
     metric("QueueMetricsHeartbeat", 1),
+    metric("ResearchRequests24h", outcomes.requested),
+    metric("ResearchCompleted24h", outcomes.completed),
+    metric("ResearchLimitedPublication24h", outcomes.limited),
+    metric("ResearchFailed24h", outcomes.failed),
+    metric("ResearchCancelled24h", outcomes.cancelled),
   ];
   if (durations.samples > 0)
     data.push(

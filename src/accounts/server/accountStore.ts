@@ -95,6 +95,14 @@ export type AccountStore = {
   readonly checkChatCredits?: (
     principalId: string,
   ) => Promise<CreditAvailability>;
+  readonly recordProductEngagement?: (
+    principalId: string | null,
+    input: import("../../admin/productEngagement").ProductEngagement,
+  ) => Promise<void>;
+  readonly recordReportRead?: (
+    principalId: string,
+    reportId: string,
+  ) => Promise<void>;
   readonly listReadResearchReportIds?: (
     principalId: string,
   ) => Promise<readonly string[]>;

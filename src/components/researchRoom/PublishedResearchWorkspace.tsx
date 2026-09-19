@@ -22,6 +22,7 @@ import {
   type ResearchConversationEntry,
 } from "../research/MeetingMinutes";
 import { OfficeStage } from "../research/OfficeStage";
+import { ReportReadMarker } from "./ReportReadMarker";
 import { researchRoomUiCopy } from "./researchRoomCopy";
 
 type Props = {
@@ -190,6 +191,7 @@ export function PublishedResearchWorkspace({
         )}
       </div>
       <div className="research-layout">
+        <ReportReadMarker reportId={reportId} />
         <OfficeStage
           current={projection.current}
           events={projection.events}
