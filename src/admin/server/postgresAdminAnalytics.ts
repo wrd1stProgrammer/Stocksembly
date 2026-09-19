@@ -21,7 +21,9 @@ const CANONICAL_EVENTS_CTE = `
     SELECT event_key, principal_id, event_name, occurred_at
     FROM analytics_events
     UNION ALL
-    SELECT event_key, principal_id,
+    SELECT CASE WHEN kind = 'research_room' AND report_id IS NOT NULL
+      THEN 'report-read:' || principal_id || ':' || report_id::text
+      ELSE event_key END AS event_key, principal_id,
       CASE kind
         WHEN 'research_run_created' THEN 'research_started'
         WHEN 'full_research' THEN 'research_completed'
@@ -37,10 +39,6 @@ const CANONICAL_EVENTS_CTE = `
     SELECT 'research-started:' || run_id::text, principal_id,
       'research_started', created_at
     FROM research_run_ownership
-    UNION ALL
-    SELECT 'report-opened:' || report_id::text, principal_id,
-      'report_opened', recorded_at
-    FROM report_ownership
     UNION ALL
     SELECT 'consultation:' || question_id::text, principal_id,
       'consultation_answered', created_at
@@ -612,9 +610,23 @@ export async function queryAdminOverview(
     const failed = number(payments["failed"]);
     const subscriptions = subscriptionRows.rows[0] ?? {};
     const users = await listUsersWithClient(client, query);
+    const engagement = await client.query<{
+      surface: string;
+      kind: string;
+      visits: number;
+      sessions: number;
+      visibleSeconds: number;
+    }>(
+      `SELECT surface, kind, count(*)::integer AS visits, count(DISTINCT session_id)::integer AS sessions,
+       round(sum(visible_ms)/1000.0)::integer AS "visibleSeconds"
+       FROM product_engagement WHERE started_at >= $1 AND started_at < $2
+       GROUP BY surface,kind ORDER BY sum(visible_ms) DESC`,
+      [query.from, query.to],
+    );
 
     return {
       generatedAt,
+      engagement: engagement.rows,
       query,
       status: {
         availability: "available",

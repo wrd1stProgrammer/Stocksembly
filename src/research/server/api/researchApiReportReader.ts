@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { LIMITS } from "../../domain/limits.constants";
 import {
@@ -94,6 +95,8 @@ async function restoreDepartmentMarketSnapshot(
       remote.byteLength > LIMITS.source.maxFinalPayloadBytes
     )
       return report;
+    if (createHash("sha256").update(remote).digest("hex") !== row.content_hash)
+      return report;
     bytes = remote;
   }
   const marketSnapshot = parseDepartmentMarketSnapshot(
@@ -135,10 +138,22 @@ export async function loadPublicResearchReport(
       true,
       LIMITS.source.maxFinalPayloadBytes,
     );
-    if (artifact.digest !== pointer.reportArtifactDigest) return undefined;
+    if (artifact.digest !== pointer.reportArtifactDigest)
+      throw Object.assign(new Error("REPORT_INTEGRITY_MISMATCH"), {
+        code: "REPORT_INTEGRITY_MISMATCH",
+      });
     bytes = artifact.bytes;
   } catch (error) {
-    if (!isMissing(error)) throw error;
+    if (
+      !isMissing(error) &&
+      !(
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "REPORT_INTEGRITY_MISMATCH"
+      )
+    )
+      throw error;
+    if (!isMissing(error)) console.warn("REPORT_LOCAL_INTEGRITY_RECOVERY");
     const remote = await options.remoteArtifacts?.get(
       pointer.reportArtifactDigest,
     );
@@ -146,6 +161,13 @@ export async function loadPublicResearchReport(
     if (remote.byteLength > LIMITS.source.maxFinalPayloadBytes)
       return undefined;
     bytes = remote;
+  }
+  if (
+    createHash("sha256").update(bytes).digest("hex") !==
+    pointer.reportArtifactDigest
+  ) {
+    console.error("REPORT_INTEGRITY_MISMATCH");
+    return undefined;
   }
   const decoded: unknown = JSON.parse(
     new TextDecoder("utf-8", { fatal: true }).decode(bytes),

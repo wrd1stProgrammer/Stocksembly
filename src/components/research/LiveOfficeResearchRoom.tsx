@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportReadMarker } from "../researchRoom/ReportReadMarker";
 import "../../styles/researchWorkspace";
 import "../../styles/research-room.css";
 import { useRouter } from "next/navigation";
@@ -579,6 +580,9 @@ export function LiveOfficeResearchRoom({
           onProfileOpen={() => setProfileOpen(true)}
           onLocaleChange={setLocale}
         />
+        {completed && report?.reportId ? (
+          <ReportReadMarker reportId={report.reportId} />
+        ) : null}
         <OfficeStage
           key={projection.snapshot.run.runId}
           presentation={{

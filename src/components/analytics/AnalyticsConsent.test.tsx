@@ -2,6 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsConsent } from "./AnalyticsConsent";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => window.location.pathname,
+}));
+
 vi.mock("../../lib/meta/pixel", () => ({
   MetaPixel: ({ pixelId }: { readonly pixelId: string }) => (
     <i data-meta-pixel={pixelId} />

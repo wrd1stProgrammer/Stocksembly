@@ -174,6 +174,13 @@ export type AdminUserList = {
 };
 
 export type AdminAnalyticsOverview = {
+  readonly engagement?: readonly {
+    surface: string;
+    kind: string;
+    visits: number;
+    sessions: number;
+    visibleSeconds: number;
+  }[];
   readonly generatedAt: string;
   readonly query: AdminAnalyticsQuery;
   readonly status: DataStatus;

@@ -1,13 +1,21 @@
 import { z } from "zod";
+import { researchInputSafety } from "../../domain/researchInputSafety";
+
+const SafeQuestion = z
+  .string()
+  .trim()
+  .min(1)
+  .max(4_000)
+  .refine((value) => researchInputSafety(value) === "allowed");
 
 const EmptyCommandSchema = z.object({}).strict().readonly();
 const FollowUpCommandSchema = z
-  .object({ question: z.string().trim().min(1).max(4_000).optional() })
+  .object({ question: SafeQuestion.optional() })
   .strict()
   .readonly();
 const QuestionCommandSchema = z
   .object({
-    question: z.string().trim().min(1).max(4_000),
+    question: SafeQuestion,
     locale: z.enum(["en", "ko"]),
     retryOfQuestionId: z.string().uuid().optional(),
   })

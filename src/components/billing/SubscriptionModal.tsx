@@ -1,5 +1,6 @@
 "use client";
 
+import { trackProductMilestone } from "../analytics/ProductEngagement";
 import "../../styles/billing.css";
 import { CheckCircle2, ExternalLink, X } from "lucide-react";
 import { type CSSProperties, useEffect, useId, useMemo, useRef } from "react";
@@ -496,6 +497,10 @@ export function SubscriptionModal({
       scrollingTimerRef.current = undefined;
     }, 700);
   }
+
+  useEffect(() => {
+    if (open) trackProductMilestone("plans_opened");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

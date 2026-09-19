@@ -173,3 +173,41 @@ describe("loadPublicResearchReport versioned presentation path", () => {
     expect(report).toBeUndefined();
   });
 });
+
+describe("report integrity at the reader boundary", () => {
+  it("recovers corrupt local content only from matching remote bytes", async () => {
+    const original = workflowV3PresentationFixture("en");
+    const stored = await storedPublication(original);
+    await writeFile(
+      resolveArtifactBlobPath(
+        stored.dataRoot,
+        stored.publication.artifactDigest,
+      ),
+      "corrupt",
+    );
+    const bytes = new TextEncoder().encode(JSON.stringify(original));
+    expect(
+      await loadPublicResearchReport(
+        {
+          dataRoot: stored.dataRoot,
+          remoteArtifacts: { get: async () => bytes },
+        },
+        stored.publication,
+      ),
+    ).toMatchObject({ reportId: original.reportId });
+    expect(
+      await loadPublicResearchReport(
+        {
+          dataRoot: stored.dataRoot,
+          remoteArtifacts: {
+            get: async () =>
+              new TextEncoder().encode(
+                JSON.stringify({ ...original, version: 999 }),
+              ),
+          },
+        },
+        stored.publication,
+      ),
+    ).toBeUndefined();
+  });
+});

@@ -1,0 +1,28 @@
+name: Production incident
+description: Record impact, evidence, recovery and prevention without credentials or personal data.
+title: "[Incident] "
+body:
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and timeline
+      description: UTC start/end, affected feature, number of affected requests, severity and user-visible behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Sentry issue URL, deployment SHA, anonymized run IDs, metric window and reproduction steps. Never paste tokens, emails or raw private questions.
+    validations:
+      required: true
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Diagnosis and recovery
+      description: Confirmed cause vs hypotheses, mitigation, rollback and verification.
+  - type: textarea
+    id: prevention
+    attributes:
+      label: Follow-up
+      description: Owner, corrective PR, regression coverage, monitoring and closure criteria.

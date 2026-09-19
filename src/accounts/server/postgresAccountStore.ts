@@ -938,11 +938,52 @@ export class PostgresAccountStore implements AccountStore {
     }
   }
 
+  async recordProductEngagement(
+    principalId: string | null,
+    input: import("../../admin/productEngagement").ProductEngagement,
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO product_engagement(event_id, session_id, principal_id, surface, kind, started_at, ended_at, visible_ms)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT(event_id) DO UPDATE SET
+         ended_at=GREATEST(product_engagement.ended_at, excluded.ended_at),
+         visible_ms=GREATEST(product_engagement.visible_ms, excluded.visible_ms)
+       WHERE product_engagement.session_id=excluded.session_id
+         AND product_engagement.principal_id IS NOT DISTINCT FROM excluded.principal_id`,
+      [
+        input.eventId,
+        input.sessionId,
+        principalId,
+        input.surface,
+        input.kind,
+        input.startedAt,
+        input.endedAt,
+        input.visibleMs,
+      ],
+    );
+  }
+
+  async recordReportRead(principalId: string, reportId: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO analytics_events(event_key, principal_id, event_name, occurred_at, properties)
+       VALUES ($1, $2, 'report_opened', now(), $3::jsonb)
+       ON CONFLICT (event_key) DO NOTHING`,
+      [
+        `report-read:${principalId}:${reportId}`,
+        principalId,
+        JSON.stringify({ reportId }),
+      ],
+    );
+  }
+
   async listReadResearchReportIds(
     principalId: string,
   ): Promise<readonly string[]> {
     const result = await this.pool.query<{ report_id: string }>(
-      "SELECT DISTINCT report_id FROM usage_events WHERE principal_id = $1 AND kind = 'research_room' AND report_id IS NOT NULL",
+      `SELECT report_id::text FROM usage_events
+       WHERE principal_id = $1 AND kind = 'research_room' AND report_id IS NOT NULL
+       UNION SELECT properties->>'reportId' FROM analytics_events
+       WHERE principal_id = $1 AND event_name = 'report_opened' AND properties->>'reportId' IS NOT NULL`,
       [principalId],
     );
     return result.rows.map((row) => row.report_id);

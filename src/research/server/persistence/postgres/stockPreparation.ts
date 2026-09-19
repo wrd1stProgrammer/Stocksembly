@@ -112,7 +112,7 @@ export async function waitForStockPreparation(input: {
       status: string;
       alive: boolean;
     }>(
-      `SELECT status, lease_until > now() AS alive FROM stock_preparations WHERE symbol=$1`,
+      `SELECT CASE WHEN status='ready' AND expires_at <= now() THEN 'expired' ELSE status END AS status, lease_until > now() AS alive FROM stock_preparations WHERE symbol=$1`,
       [input.symbol],
     );
     const row = result.rows[0];

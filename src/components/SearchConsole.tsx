@@ -1,4 +1,5 @@
 import { markNewResearchEntrance } from "../research/useResearchEntrance";
+import { TeamCoverageHelp } from "./research/TeamCoverageHelp";
 import "../styles/search-controls.css";
 import "../styles/search-states.css";
 import {
@@ -885,6 +886,10 @@ export function SearchConsole({
                 <strong>{targetCopy}</strong>
                 <ChevronDown aria-hidden="true" size={16} strokeWidth={1.8} />
               </button>
+              <TeamCoverageHelp
+                target={researchTarget}
+                locale={researchLocale(locale)}
+              />
               {targetPickerOpen ? (
                 <div className="research-target__options" role="menu">
                   {[

@@ -1,0 +1,31 @@
+.research-team-help {
+  position: relative;
+  margin: 8px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.research-team-help summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.research-team-help summary > span {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.research-team-help summary:focus-visible {
+  outline: 2px solid #6c80ff;
+  outline-offset: 4px;
+}
+.research-team-help p {
+  max-width: 70ch;
+  margin: 8px 0;
+  font-weight: 400;
+}

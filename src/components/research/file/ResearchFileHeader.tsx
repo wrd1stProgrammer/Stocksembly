@@ -9,6 +9,7 @@ import {
 } from "../../../research/publicStanceLabels";
 import type { ResearchFileEditorialModel } from "../../../research/researchFileEditorialModel";
 import type { ResearchCompany } from "../../../research/types";
+import { TeamCoverageHelp } from "../TeamCoverageHelp";
 import { ResearchTermHelp } from "./ResearchFilePrimitives";
 
 type Props = {
@@ -105,6 +106,7 @@ export function ResearchFileHeader({
         className={`research-editorial-cover${departmentId === undefined ? "" : " research-editorial-cover--department"}${decisionCockpit ? " research-editorial-cover--committee" : ""}`}
         data-report-section="cover"
       >
+        <TeamCoverageHelp target={file.researchTarget} locale={locale} />
         <div className="research-editorial-cover__utility">
           <div>
             <strong>{company.symbol}</strong>

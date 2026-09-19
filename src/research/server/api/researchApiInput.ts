@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TickerSymbolSchema } from "../../domain/ids";
 import { normalizeResearchDirection } from "../../domain/researchDirection";
+import { researchInputSafety } from "../../domain/researchInputSafety";
 import {
   DEFAULT_RESEARCH_PROFILE,
   normalizeResearchProfile,
@@ -36,7 +37,15 @@ export function parseResearchInput(input: unknown): ResearchInputResult {
   if (!parsed.success) return { kind: "request_invalid" };
   const symbol = TickerSymbolSchema.safeParse(parsed.data.symbol);
   if (!symbol.success) return { kind: "symbol_invalid" };
-  const question = normalizeResearchDirection(parsed.data.question) ?? "";
+  const rawQuestion = parsed.data.question.trim();
+  const question =
+    rawQuestion === "" ? "" : normalizeResearchDirection(rawQuestion);
+  if (
+    question === undefined ||
+    (question !== "" && researchInputSafety(question) !== "allowed")
+  )
+    return { kind: "question_invalid" };
+
   const normalizedProfile = normalizeResearchProfile(
     parsed.data.researchProfile ?? DEFAULT_RESEARCH_PROFILE,
     symbol.data,

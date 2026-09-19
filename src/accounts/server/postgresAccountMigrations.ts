@@ -534,6 +534,19 @@ const migrations = [
       );
     `,
   },
+  {
+    version: 18,
+    name: "018_product_engagement",
+    sql: `CREATE TABLE product_engagement (
+      event_id uuid PRIMARY KEY, session_id uuid NOT NULL,
+      principal_id char(64), surface text NOT NULL, kind text NOT NULL,
+      started_at timestamptz NOT NULL, ended_at timestamptz NOT NULL,
+      visible_ms integer NOT NULL CHECK (visible_ms BETWEEN 0 AND 86400000),
+      received_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX product_engagement_time ON product_engagement(started_at, surface);
+    CREATE INDEX product_engagement_principal ON product_engagement(principal_id, started_at);`,
+  },
 ] as const;
 
 type AppliedMigration = {
