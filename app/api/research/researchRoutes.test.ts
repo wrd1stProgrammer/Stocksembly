@@ -536,43 +536,58 @@ describe("secure research routes", () => {
     expect(conflict.status).toBe(409);
   });
 
-  it("ignores an unusable optional research direction and starts broad research", async () => {
-    // Given
+  it("rejects an unusable nonempty direction without creating research work", async () => {
     const context = await harness();
-
-    // When
     const response = await context.api.handle(
-      createRunRequest(context, "ignored-direction", {
+      createRunRequest(context, "invalid-direction", {
         symbol: "NVDA",
         question: "x".repeat(101),
         locale: "en",
       }),
     );
-    const database = context.database;
-    const stored = Object.values(
-      (
-        await database.query(
-          "SELECT question FROM research_requests ORDER BY created_at DESC",
-          [],
-        )
-      ).rows[0] ?? {},
-    )[0];
 
-    // Then
+    expect(response.status).toBe(400);
+    expect(await json(response)).toMatchObject({
+      error: { code: "QUESTION_INVALID" },
+    });
+    for (const table of [
+      "research_requests",
+      "runs",
+      "jobs",
+      "idempotency_records",
+    ]) {
+      const result = await context.database.query(
+        `SELECT COUNT(*)::integer AS count FROM ${table}`,
+        [],
+      );
+      expect(result.rows[0]).toEqual({ count: 0 });
+    }
+  });
+
+  it("accepts an explicitly blank direction for broad research", async () => {
+    const context = await harness();
+    const response = await context.api.handle(
+      createRunRequest(context, "blank-direction", {
+        symbol: "NVDA",
+        question: "   ",
+        locale: "en",
+      }),
+    );
+    const stored = await context.database.query(
+      "SELECT question FROM research_requests",
+      [],
+    );
+
     expect(response.status).toBe(202);
-    expect(stored).toBe("");
+    expect(stored.rows).toEqual([{ question: "" }]);
   });
 
   it.each([
-    [{ symbol: "N/VDA", question: "q", locale: "en" }, 400, "SYMBOL_INVALID"],
-    [
-      { symbol: "ZZZZ", question: "q", locale: "en" },
-      400,
-      "SYMBOL_UNSUPPORTED",
-    ],
-    [{ symbol: "SPY", question: "q", locale: "en" }, 400, "ETF_UNSUPPORTED"],
-    [{ symbol: "BRK", question: "q", locale: "en" }, 409, "SYMBOL_AMBIGUOUS"],
-    [{ symbol: "NVDA", question: "q", locale: "fr" }, 400, "REQUEST_INVALID"],
+    [{ symbol: "N/VDA", question: "", locale: "en" }, 400, "SYMBOL_INVALID"],
+    [{ symbol: "ZZZZ", question: "", locale: "en" }, 400, "SYMBOL_UNSUPPORTED"],
+    [{ symbol: "SPY", question: "", locale: "en" }, 400, "ETF_UNSUPPORTED"],
+    [{ symbol: "BRK", question: "", locale: "en" }, 409, "SYMBOL_AMBIGUOUS"],
+    [{ symbol: "NVDA", question: "", locale: "fr" }, 400, "REQUEST_INVALID"],
   ])("rejects invalid research input %#", async (body, status, code) => {
     // Given
     const context = await harness();
