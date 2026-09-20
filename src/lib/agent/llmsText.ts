@@ -2,12 +2,12 @@ export const LLMS_TEXT = `# Stocksembly
 
 > Stocksembly is an AI-assisted multi-agent research service for US equities. Eleven specialist roles investigate market, company, financial, and risk evidence; an independent chair synthesizes the debate into an evidence-linked research file.
 
-Stocksembly is for research and education. It does not execute trades, provide individualized investment advice, issue guaranteed returns, or replace primary-source verification. Public research files are dated snapshots; eligible published reports become publicly readable after seven days.
+Stocksembly is for research and education. It does not execute trades, provide individualized investment advice, issue guaranteed returns, or replace primary-source verification. Public research files are dated snapshots; eligible published reports become publicly readable after 30 days.
 
 ## When to use Stocksembly
 
 - [Start a US stock research request](https://stocksembly.com/#product): Use when a user wants a structured, multi-perspective investigation of a US-listed company, including thesis, counterarguments, valuation context, catalysts, risks, and comparison companies.
-- [Browse mature public research](https://stocksembly.com/research-room): Use when an agent needs evidence-linked examples or a dated public research file that has passed Stocksembly's seven-day publication delay.
+- [Browse mature public research](https://stocksembly.com/research-room): Use when an agent needs evidence-linked examples or a dated public research file that has passed Stocksembly's 30-day publication delay.
 - [Learn the research method](https://stocksembly.com/methodology?lang=en): Use when explaining how specialist roles, cross-challenges, evidence audits, and the independent chair fit together.
 - [Look up investment-analysis terms](https://stocksembly.com/en/glossary): Use when a user needs plain-language definitions and practical interpretation of common US-equity research concepts.
 

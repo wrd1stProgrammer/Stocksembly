@@ -76,7 +76,7 @@ export function MembershipAccessModal({
             eyebrow: "MEMBER EDITION",
             title: "최신 리서치는 구독자에게 먼저 공개됩니다",
             description:
-              "발행 후 7일 동안은 구독자만 전체 리포트를 볼 수 있습니다. 무료 계정은 7일이 지나면 같은 리서치를 열람할 수 있습니다.",
+              "발행 후 30일 동안은 구독자만 전체 리포트를 볼 수 있습니다. 무료 계정은 30일이 지나면 같은 리서치를 열람할 수 있습니다.",
           }
       : isCustomize
         ? {
@@ -89,7 +89,7 @@ export function MembershipAccessModal({
             eyebrow: "MEMBER EDITION",
             title: "Subscribers get the newest research first",
             description:
-              "The full report is subscriber-only for its first seven days. Free accounts can open the same research after the seven-day window.",
+              "The full report is subscriber-only for its first 30 days. Free accounts can open the same research after the 30-day window.",
           };
 
   return (

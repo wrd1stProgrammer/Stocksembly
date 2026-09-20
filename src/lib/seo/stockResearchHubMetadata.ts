@@ -40,14 +40,14 @@ export function stockResearchHubMetadata(
   );
   const description = boundedSeoDescription(
     uiMessage(locale, {
-      en: `Read Stocksembly's public ${hub.company} (${hub.symbol}) research after its seven-day member window, covering company, financial, market, and risk analysis.`,
-      ko: `Stocksembly에서 발행 7일이 지난 ${hub.company}(${hub.symbol}) 공개 리서치를 한곳에서 확인하세요. 기업, 재무, 시장, 리스크 관점의 미국주식 분석을 제공합니다.`,
-      ja: `${hub.company}（${hub.symbol}）の企業・財務・市場・リスク分析をまとめた、公開から7日経過後のStocksemblyリサーチです。`,
-      "zh-TW": `閱讀 ${hub.company}（${hub.symbol}）在七天會員期後公開的企業、財務、市場與風險研究。`,
-      es: `Consulta el análisis público de ${hub.company} (${hub.symbol}) tras su periodo de siete días para miembros, con perspectivas de empresa, finanzas, mercado y riesgo.`,
-      "pt-BR": `Leia o research público de ${hub.company} (${hub.symbol}) após a janela de sete dias para assinantes, com análises de empresa, finanças, mercado e risco.`,
-      de: `Lesen Sie die öffentliche Analyse zu ${hub.company} (${hub.symbol}) nach dem siebentägigen Mitgliederfenster – mit Unternehmens-, Finanz-, Markt- und Risikoperspektive.`,
-      fr: `Consultez l’analyse publique de ${hub.company} (${hub.symbol}) après la période de sept jours réservée aux membres, avec les volets entreprise, finance, marché et risque.`,
+      en: `Read Stocksembly's public ${hub.company} (${hub.symbol}) research after its 30-day member window, covering company, financial, market, and risk analysis.`,
+      ko: `Stocksembly에서 발행 30일이 지난 ${hub.company}(${hub.symbol}) 공개 리서치를 한곳에서 확인하세요. 기업, 재무, 시장, 리스크 관점의 미국주식 분석을 제공합니다.`,
+      ja: `${hub.company}（${hub.symbol}）の企業・財務・市場・リスク分析をまとめた、公開から30日経過後のStocksemblyリサーチです。`,
+      "zh-TW": `閱讀 ${hub.company}（${hub.symbol}）在30天會員期後公開的企業、財務、市場與風險研究。`,
+      es: `Consulta el análisis público de ${hub.company} (${hub.symbol}) tras su periodo de 30 días para miembros, con perspectivas de empresa, finanzas, mercado y riesgo.`,
+      "pt-BR": `Leia o research público de ${hub.company} (${hub.symbol}) após a janela de 30 dias para assinantes, com análises de empresa, finanças, mercado e risco.`,
+      de: `Lesen Sie die öffentliche Analyse zu ${hub.company} (${hub.symbol}) nach dem 30-tägigen Mitgliederfenster – mit Unternehmens-, Finanz-, Markt- und Risikoperspektive.`,
+      fr: `Consultez l’analyse publique de ${hub.company} (${hub.symbol}) après la période de 30 jours réservée aux membres, avec les volets entreprise, finance, marché et risque.`,
     }),
   );
   const languageAlternates = Object.fromEntries(

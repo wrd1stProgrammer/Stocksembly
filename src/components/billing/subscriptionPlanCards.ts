@@ -64,14 +64,14 @@ export function subscriptionPlanCards(
         locale === "ko"
           ? [
               "리서치할 때 분석 옵션 선택",
-              "7일 지난 리서치 무료 열람",
+              "30일 지난 리서치 무료 열람",
               "관심종목 3개 매일 AI 브리핑",
               "11개 전문 에이전트 분석",
               "가치평가·촉매·리스크 브리프",
             ]
           : [
               "Choose analysis options for each research run",
-              "Free access to research after 7 days",
+              "Free access to research after 30 days",
               "Daily AI briefings for 3 watchlist names",
               "11 specialist-agent analyses",
               "Valuation, catalysts, and risk briefs",

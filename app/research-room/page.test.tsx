@@ -40,6 +40,7 @@ vi.mock("@/src/research/server/api/liveResearchApi", () => ({
   getLiveResearchApi: async () => ({
     researchRoomAccess: pageState.researchRoomAccess,
     preferredLocale: pageState.preferredLocale,
+    listReadResearchReportIds: async () => [],
   }),
 }));
 
