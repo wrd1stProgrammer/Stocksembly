@@ -28,7 +28,7 @@ export type ResearchRoomUiCopy = {
   readonly thesisFallback: (symbol: string) => string;
   readonly fileTitle: (team: string) => string;
   readonly questionLabel: string;
-  readonly opensAfterSevenDays: string;
+  readonly opensAfterPublicationDelay: string;
   readonly open: string;
   readonly subscriberAccess: (symbol: string) => string;
   readonly noMatches: string;
@@ -87,7 +87,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `${symbol} investment thesis review`,
     fileTitle: (team) => `${team} research file`,
     questionLabel: "Question asked",
-    opensAfterSevenDays: "Free in 7 days · members open now",
+    opensAfterPublicationDelay: "Free in 30 days · members open now",
     open: "Open research file",
     subscriberAccess: (symbol) => `${symbol} subscriber access`,
     noMatches: "No research matches these filters.",
@@ -107,7 +107,7 @@ export const researchRoomUiCopy: Readonly<
       "Translation could not be completed. Please try again shortly.",
     lockedTitle: "Latest research opens to paid members first.",
     lockedBody:
-      "Free accounts can read the full report seven days after publication.",
+      "Free accounts can read the full report 30 days after publication.",
     signIn: "Sign in",
     creditTitle: "This Research Room needs more credits.",
     creditBody: "Review your plan or wait for the next credit grant.",
@@ -145,7 +145,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `${symbol} 핵심 투자 논지 검증`,
     fileTitle: (team) => `${team} 리서치 파일`,
     questionLabel: "받은 질문",
-    opensAfterSevenDays: "7일 후 무료 공개 · 회원은 지금 열람",
+    opensAfterPublicationDelay: "30일 후 무료 공개 · 회원은 지금 열람",
     open: "리서치 파일 열기",
     subscriberAccess: (symbol) => `${symbol} 최신 리서치 구독 안내`,
     noMatches: "조건에 맞는 리서치가 없습니다.",
@@ -165,7 +165,7 @@ export const researchRoomUiCopy: Readonly<
       "번역을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     lockedTitle: "최신 리서치는 유료 멤버에게 먼저 공개됩니다.",
     lockedBody:
-      "무료 계정은 발행 7일 후 같은 리포트를 전체 열람할 수 있습니다.",
+      "무료 계정은 발행 30일 후 같은 리포트를 전체 열람할 수 있습니다.",
     signIn: "로그인",
     creditTitle: "크레딧이 부족해 리서치룸을 열 수 없습니다.",
     creditBody: "플랜을 확인하거나 다음 크레딧 지급을 기다려 주세요.",
@@ -203,7 +203,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `${symbol} 投資仮説レビュー`,
     fileTitle: (team) => `${team}リサーチファイル`,
     questionLabel: "受け取った質問",
-    opensAfterSevenDays: "7日後に無料公開 · 会員は今すぐ閲覧",
+    opensAfterPublicationDelay: "30日後に無料公開 · 会員は今すぐ閲覧",
     open: "リサーチファイルを開く",
     subscriberAccess: (symbol) => `${symbol} 会員向けリサーチ`,
     noMatches: "条件に一致するリサーチはありません。",
@@ -222,7 +222,7 @@ export const researchRoomUiCopy: Readonly<
     translationFailed:
       "翻訳を完了できませんでした。しばらくしてから再試行してください。",
     lockedTitle: "最新リサーチは有料会員に先行公開されます。",
-    lockedBody: "無料アカウントは公開から7日後に全文を閲覧できます。",
+    lockedBody: "無料アカウントは公開から30日後に全文を閲覧できます。",
     signIn: "ログイン",
     creditTitle: "このリサーチを開くにはクレジットが不足しています。",
     creditBody: "プランを確認するか、次回のクレジット付与をお待ちください。",
@@ -260,7 +260,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `${symbol} 投資論點檢視`,
     fileTitle: (team) => `${team}研究檔案`,
     questionLabel: "收到的問題",
-    opensAfterSevenDays: "7 天後免費開放 · 會員可立即閱讀",
+    opensAfterPublicationDelay: "30 天後免費開放 · 會員可立即閱讀",
     open: "開啟研究檔案",
     subscriberAccess: (symbol) => `${symbol} 訂閱者研究`,
     noMatches: "沒有符合條件的研究。",
@@ -277,7 +277,7 @@ export const researchRoomUiCopy: Readonly<
     signInToTranslate: "請登入以使用專業翻譯。",
     translationFailed: "無法完成翻譯，請稍後再試。",
     lockedTitle: "最新研究優先提供付費會員。",
-    lockedBody: "免費帳戶可在發布7天後閱讀完整報告。",
+    lockedBody: "免費帳戶可在發布30天後閱讀完整報告。",
     signIn: "登入",
     creditTitle: "點數不足，無法開啟此研究。",
     creditBody: "請查看方案或等待下次點數發放。",
@@ -315,7 +315,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `Revisión de la tesis de ${symbol}`,
     fileTitle: (team) => `Archivo de investigación · ${team}`,
     questionLabel: "Pregunta recibida",
-    opensAfterSevenDays: "Gratis en 7 días · miembros ahora",
+    opensAfterPublicationDelay: "Gratis en 30 días · miembros ahora",
     open: "Abrir archivo",
     subscriberAccess: (symbol) =>
       `Investigación de ${symbol} para suscriptores`,
@@ -337,7 +337,7 @@ export const researchRoomUiCopy: Readonly<
     lockedTitle:
       "Los miembros de pago reciben primero las investigaciones nuevas.",
     lockedBody:
-      "Las cuentas gratuitas pueden leer el informe completo siete días después.",
+      "Las cuentas gratuitas pueden leer el informe completo 30 días después.",
     signIn: "Iniciar sesión",
     creditTitle:
       "No tienes créditos suficientes para abrir esta investigación.",
@@ -376,7 +376,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `Revisão da tese de ${symbol}`,
     fileTitle: (team) => `Arquivo de pesquisa · ${team}`,
     questionLabel: "Pergunta recebida",
-    opensAfterSevenDays: "Grátis em 7 dias · membros agora",
+    opensAfterPublicationDelay: "Grátis em 30 dias · membros agora",
     open: "Abrir arquivo",
     subscriberAccess: (symbol) => `Pesquisa de ${symbol} para assinantes`,
     noMatches: "Nenhuma pesquisa corresponde aos filtros.",
@@ -395,8 +395,7 @@ export const researchRoomUiCopy: Readonly<
     translationFailed:
       "Não foi possível concluir a tradução. Tente novamente em breve.",
     lockedTitle: "As pesquisas mais recentes chegam primeiro aos assinantes.",
-    lockedBody:
-      "Contas gratuitas podem ler o relatório completo após sete dias.",
+    lockedBody: "Contas gratuitas podem ler o relatório completo após 30 dias.",
     signIn: "Entrar",
     creditTitle: "Créditos insuficientes para abrir esta pesquisa.",
     creditBody: "Confira seu plano ou aguarde a próxima concessão de créditos.",
@@ -434,7 +433,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `Anlagethese zu ${symbol}`,
     fileTitle: (team) => `Research-Akte · ${team}`,
     questionLabel: "Gestellte Frage",
-    opensAfterSevenDays: "In 7 Tagen frei · Mitglieder sofort",
+    opensAfterPublicationDelay: "In 30 Tagen frei · Mitglieder sofort",
     open: "Akte öffnen",
     subscriberAccess: (symbol) => `${symbol}-Recherche für Abonnenten`,
     noMatches: "Keine passende Recherche gefunden.",
@@ -456,7 +455,7 @@ export const researchRoomUiCopy: Readonly<
     lockedTitle:
       "Neue Recherchen sind zuerst für zahlende Mitglieder verfügbar.",
     lockedBody:
-      "Kostenlose Konten können den vollständigen Bericht nach sieben Tagen lesen.",
+      "Kostenlose Konten können den vollständigen Bericht nach 30 Tagen lesen.",
     signIn: "Anmelden",
     creditTitle: "Nicht genügend Credits für diese Recherche.",
     creditBody:
@@ -495,7 +494,7 @@ export const researchRoomUiCopy: Readonly<
     thesisFallback: (symbol) => `Analyse de la thèse ${symbol}`,
     fileTitle: (team) => `Dossier de recherche · ${team}`,
     questionLabel: "Question posée",
-    opensAfterSevenDays: "Gratuit dans 7 jours · membres maintenant",
+    opensAfterPublicationDelay: "Gratuit dans 30 jours · membres maintenant",
     open: "Ouvrir le dossier",
     subscriberAccess: (symbol) => `Recherche ${symbol} pour abonnés`,
     noMatches: "Aucune recherche ne correspond aux filtres.",
@@ -517,7 +516,7 @@ export const researchRoomUiCopy: Readonly<
     lockedTitle:
       "Les nouvelles recherches sont d’abord réservées aux membres payants.",
     lockedBody:
-      "Les comptes gratuits peuvent lire le rapport complet après sept jours.",
+      "Les comptes gratuits peuvent lire le rapport complet après 30 jours.",
     signIn: "Se connecter",
     creditTitle: "Crédits insuffisants pour ouvrir cette recherche.",
     creditBody:

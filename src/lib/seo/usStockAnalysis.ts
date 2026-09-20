@@ -90,7 +90,7 @@ export const usStockAnalysisCopy = {
       proof: [
         "SEC 공시·실적·시장 데이터",
         "근거와 반론을 함께 표시",
-        "발행 7일 후 공개 리서치",
+        "발행 30일 후 공개 리서치",
       ],
     },
     analysis: {
@@ -185,7 +185,7 @@ export const usStockAnalysisCopy = {
         "중요 주장에 출처 식별자와 데이터 기준시점을 연결합니다.",
         "불완전·지연·사용 불가·권리 제한 데이터는 제한사항으로 전달합니다.",
         "근거 없는 숫자와 즉시 매수·매도 또는 수익 보장 표현은 발행을 차단합니다.",
-        "발행 상태를 충족한 보고서는 만 7일 후 비로그인 이용자에게 공개됩니다.",
+        "발행 상태를 충족한 보고서는 만 30일 후 비로그인 이용자에게 공개됩니다.",
       ],
       editorialAction: "편집 원칙 확인",
     },
@@ -201,7 +201,7 @@ export const usStockAnalysisCopy = {
         {
           title: "리서치를 무료로 볼 수 있나요?",
           description:
-            "발행 직후 보고서는 구독자에게 먼저 제공될 수 있으며, 공개 요건을 충족한 보고서는 만 7일 후 누구나 열람할 수 있습니다.",
+            "발행 직후 보고서는 구독자에게 먼저 제공될 수 있으며, 공개 요건을 충족한 보고서는 만 30일 후 누구나 열람할 수 있습니다.",
         },
         {
           title: "매수·매도 추천이나 목표가를 제공하나요?",
@@ -233,7 +233,7 @@ export const usStockAnalysisCopy = {
       proof: [
         "SEC filings, earnings, and market data",
         "Evidence and counterarguments together",
-        "Published research opens after seven days",
+        "Published research opens after 30 days",
       ],
     },
     analysis: {
@@ -332,7 +332,7 @@ export const usStockAnalysisCopy = {
         "Material claims retain source identifiers and an evidence cutoff.",
         "Missing, stale, unavailable, or rights-restricted data is carried into limitations.",
         "Unsupported numbers and immediate buy, sell, or guaranteed-return language block publication.",
-        "Eligible reports become readable without signing in after seven full days.",
+        "Eligible reports become readable without signing in after 30 full days.",
       ],
       editorialAction: "Read the editorial policy",
     },
@@ -348,7 +348,7 @@ export const usStockAnalysisCopy = {
         {
           title: "Can I read research for free?",
           description:
-            "New reports may be available to subscribers first. Reports that meet public eligibility rules open to everyone after seven full days.",
+            "New reports may be available to subscribers first. Reports that meet public eligibility rules open to everyone after 30 full days.",
         },
         {
           title: "Does Stocksembly issue buy calls or price targets?",

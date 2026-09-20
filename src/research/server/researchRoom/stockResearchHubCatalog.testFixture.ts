@@ -28,7 +28,7 @@ export type StockHubReportFixture = Readonly<{
   versions: readonly VersionFixture[];
 }>;
 
-export const STOCK_HUB_NOW = new Date("2026-08-10T00:00:00.000Z");
+export const STOCK_HUB_NOW = new Date("2026-09-02T00:00:00.000Z");
 
 export function stockHubFixtureId(prefix: string, ordinal: number): string {
   return `${prefix}-0000-4000-8000-${String(ordinal).padStart(12, "0")}`;

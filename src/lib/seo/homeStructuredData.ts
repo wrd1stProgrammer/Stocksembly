@@ -67,7 +67,7 @@ export function homeStructuredData(locale: AppLocale) {
           "Multi-agent US equity research",
           "Evidence-linked research files",
           "Specialist counterarguments and independent synthesis",
-          "Public research catalog after a seven-day publication delay",
+          "Public research catalog after a 30-day publication delay",
         ],
       },
     ],

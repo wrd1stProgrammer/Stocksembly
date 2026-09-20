@@ -9,7 +9,7 @@ export const stockHubInternationalCopy = {
     reportCount: (count) => `公開リサーチ ${count}件`,
     disclosureTitle: "公開基準",
     disclosure:
-      "発行後7日を経過し、無料閲覧と検索掲載の対象になったリサーチのみを掲載しています。最新の会員限定リサーチの題名や内容は含みません。",
+      "発行後30日を経過し、無料閲覧と検索掲載の対象になったリサーチのみを掲載しています。最新の会員限定リサーチの題名や内容は含みません。",
     archiveEyebrow: "公開リサーチ",
     archiveTitle: "根拠を確認できる分析記録",
     archiveDescription:
@@ -40,7 +40,7 @@ export const stockHubInternationalCopy = {
     reportCount: (count) => `${count} 篇公開研究`,
     disclosureTitle: "公開標準",
     disclosure:
-      "本頁只收錄發表滿七天、符合免費閱讀與搜尋收錄條件的研究，不包含最新會員專屬研究的標題或內容。",
+      "本頁只收錄發表滿30天、符合免費閱讀與搜尋收錄條件的研究，不包含最新會員專屬研究的標題或內容。",
     archiveEyebrow: "公開研究",
     archiveTitle: "可查核的分析紀錄",
     archiveDescription:
@@ -71,7 +71,7 @@ export const stockHubInternationalCopy = {
     reportCount: (count) => `${count} informes públicos`,
     disclosureTitle: "Criterio de publicación",
     disclosure:
-      "Solo se muestran informes con más de siete días desde su publicación y habilitados para lectura gratuita e indexación. No se incluyen títulos ni contenido de informes recientes exclusivos para miembros.",
+      "Solo se muestran informes con más de 30 días desde su publicación y habilitados para lectura gratuita e indexación. No se incluyen títulos ni contenido de informes recientes exclusivos para miembros.",
     archiveEyebrow: "Informes públicos",
     archiveTitle: "Un registro de análisis verificable",
     archiveDescription:
@@ -102,7 +102,7 @@ export const stockHubInternationalCopy = {
     reportCount: (count) => `${count} relatórios públicos`,
     disclosureTitle: "Critério de publicação",
     disclosure:
-      "Esta página inclui apenas relatórios publicados há pelo menos sete dias e elegíveis para leitura gratuita e indexação. Títulos e conteúdos recentes exclusivos para assinantes não são exibidos.",
+      "Esta página inclui apenas relatórios publicados há pelo menos 30 dias e elegíveis para leitura gratuita e indexação. Títulos e conteúdos recentes exclusivos para assinantes não são exibidos.",
     archiveEyebrow: "Relatórios públicos",
     archiveTitle: "Um registro de análise verificável",
     archiveDescription:
@@ -133,7 +133,7 @@ export const stockHubInternationalCopy = {
     reportCount: (count) => `${count} öffentliche Berichte`,
     disclosureTitle: "Veröffentlichungsstandard",
     disclosure:
-      "Hier erscheinen nur mindestens sieben Tage alte Berichte, die für kostenloses Lesen und die Suchindexierung freigegeben sind. Titel und Inhalte aktueller Mitgliederberichte bleiben ausgeschlossen.",
+      "Hier erscheinen nur mindestens 30 Tage alte Berichte, die für kostenloses Lesen und die Suchindexierung freigegeben sind. Titel und Inhalte aktueller Mitgliederberichte bleiben ausgeschlossen.",
     archiveEyebrow: "Öffentliche Analysen",
     archiveTitle: "Nachvollziehbare Analyseergebnisse",
     archiveDescription:
@@ -164,7 +164,7 @@ export const stockHubInternationalCopy = {
     reportCount: (count) => `${count} rapports publics`,
     disclosureTitle: "Critère de publication",
     disclosure:
-      "Seuls les rapports publiés depuis au moins sept jours et admissibles à la lecture gratuite et à l’indexation sont présentés. Les titres et contenus récents réservés aux membres ne sont pas inclus.",
+      "Seuls les rapports publiés depuis au moins 30 jours et admissibles à la lecture gratuite et à l’indexation sont présentés. Les titres et contenus récents réservés aux membres ne sont pas inclus.",
     archiveEyebrow: "Recherches publiques",
     archiveTitle: "Des analyses dont les preuves sont consultables",
     archiveDescription:

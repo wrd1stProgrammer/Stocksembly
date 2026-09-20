@@ -185,7 +185,7 @@ describe("research room catalog access", () => {
     // When
     const page = await listResearchRoomReportPage(
       { authenticated: false, tier: "paid" },
-      { limit: 81, now: new Date("2026-08-10T00:00:00.000Z") },
+      { limit: 81, now: new Date("2026-09-02T00:00:00.000Z") },
     );
 
     // Then
@@ -303,7 +303,7 @@ describe("research room catalog access", () => {
 
     // When
     const entries = await listResearchRoomSitemapEntries(
-      new Date("2026-08-10T00:00:00.000Z"),
+      new Date("2026-09-02T00:00:00.000Z"),
     );
 
     // Then
@@ -324,7 +324,7 @@ describe("research room catalog access", () => {
 
   it("lists a completed report one millisecond before the free-access delay expires", async () => {
     // Given
-    const now = new Date("2026-08-10T00:00:00.000Z");
+    const now = new Date("2026-09-02T00:00:00.000Z");
     await catalogFixture([
       {
         version: 1,
@@ -345,7 +345,7 @@ describe("research room catalog access", () => {
   });
 
   it("lets an authenticated free user unlock a recent report with credits", async () => {
-    const now = new Date("2026-08-10T00:00:00.000Z");
+    const now = new Date("2026-09-02T00:00:00.000Z");
     await catalogFixture([
       {
         version: 1,
@@ -363,9 +363,9 @@ describe("research room catalog access", () => {
     expect(reports[0]?.locked).toBe(false);
   });
 
-  it("makes report indexability inclusive at the seven-day boundary", () => {
+  it("makes report indexability inclusive at the 30-day boundary", () => {
     // Given
-    const now = new Date("2026-08-10T00:00:00.000Z");
+    const now = new Date("2026-09-02T00:00:00.000Z");
 
     // When
     const beforeDelay = isResearchRoomIndexable(
@@ -414,7 +414,7 @@ describe("research room catalog access", () => {
     // When
     const reports = await listResearchRoomReports(
       { authenticated: false, tier: "free" },
-      { now: new Date("2026-08-10T00:00:00.000Z") },
+      { now: new Date("2026-09-02T00:00:00.000Z") },
     );
 
     // Then
@@ -453,7 +453,7 @@ describe("research room catalog access", () => {
     // When
     const page = await listResearchRoomReportPage(
       { authenticated: false, tier: "free" },
-      { now: new Date("2026-08-10T00:00:00.000Z") },
+      { now: new Date("2026-09-02T00:00:00.000Z") },
     );
 
     // Then
@@ -470,7 +470,7 @@ describe("research room catalog access", () => {
     // When
     const catalog = listResearchRoomReports(
       { authenticated: false, tier: "free" },
-      { now: new Date("2026-08-10T00:00:00.000Z") },
+      { now: new Date("2026-09-02T00:00:00.000Z") },
     );
 
     // Then

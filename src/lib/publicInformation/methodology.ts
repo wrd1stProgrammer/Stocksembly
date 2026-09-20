@@ -125,8 +125,8 @@ export const methodologyDocument = {
           ko: "저장에 성공한 보고서는 보고서·실행·스냅샷·버전·출처·주장·제한사항·아티팩트 식별자와 함께 보관됩니다. 실행 상태는 완료 또는 제한사항 포함 완료로 종료됩니다. 실패했거나 미완료인 단계는 발행 보고서로 표시되지 않습니다.",
         },
         {
-          en: "The public catalog reads the absolute latest stored version. Eligible reports become indexable after seven full days; before that boundary, non-paying readers see a locked card rather than a crawlable report link.",
-          ko: "공개 카탈로그는 저장된 절대 최신 버전을 읽습니다. 발행 요건을 충족한 보고서는 만 7일 후 색인 대상이 되며, 그전에는 비결제 이용자에게 검색 가능한 보고서 링크 대신 잠금 카드가 표시됩니다.",
+          en: "The public catalog reads the absolute latest stored version. Eligible reports become indexable after 30 full days; before that boundary, non-paying readers see a locked card rather than a crawlable report link.",
+          ko: "공개 카탈로그는 저장된 절대 최신 버전을 읽습니다. 발행 요건을 충족한 보고서는 만 30일 후 색인 대상이 되며, 그전에는 비결제 이용자에게 검색 가능한 보고서 링크 대신 잠금 카드가 표시됩니다.",
         },
       ],
     },

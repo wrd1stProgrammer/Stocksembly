@@ -1,4 +1,4 @@
-export const RESEARCH_ROOM_INDEXING_DELAY_MS = 7 * 24 * 60 * 60 * 1_000;
+export const RESEARCH_ROOM_INDEXING_DELAY_MS = 30 * 24 * 60 * 60 * 1_000;
 
 export type ResearchRoomReportVersionStatus =
   | "complete"

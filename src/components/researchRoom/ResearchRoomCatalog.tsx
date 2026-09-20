@@ -573,7 +573,7 @@ export function ResearchRoomCatalog({
                       </time>
                       {report.locked ? (
                         <span className="research-room-catalog__locked">
-                          {roomCopy.opensAfterSevenDays}
+                          {roomCopy.opensAfterPublicationDelay}
                         </span>
                       ) : (
                         <span className="research-room-catalog__open">

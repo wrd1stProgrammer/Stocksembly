@@ -34,7 +34,7 @@ export const stockResearchHubCopy = {
     reportCount: (count) => `공개 리서치 ${count}건`,
     disclosureTitle: "공개 기준",
     disclosure:
-      "이 페이지에는 발행 후 7일이 지나 무료 열람과 검색 노출이 허용된 리서치만 표시됩니다. 최신 멤버 전용 리서치의 제목이나 내용은 포함하지 않습니다.",
+      "이 페이지에는 발행 후 30일이 지나 무료 열람과 검색 노출이 허용된 리서치만 표시됩니다. 최신 멤버 전용 리서치의 제목이나 내용은 포함하지 않습니다.",
     archiveEyebrow: "공개 리서치",
     archiveTitle: "검증 가능한 분석 기록",
     archiveDescription:
@@ -66,7 +66,7 @@ export const stockResearchHubCopy = {
       `${count} public ${count === 1 ? "report" : "reports"}`,
     disclosureTitle: "Publication standard",
     disclosure:
-      "This page lists only reports whose seven-day member window has ended and which are eligible for free reading and search indexing. It exposes no title or content from recent member-only research.",
+      "This page lists only reports whose 30-day member window has ended and which are eligible for free reading and search indexing. It exposes no title or content from recent member-only research.",
     archiveEyebrow: "Public research",
     archiveTitle: "An inspectable analysis record",
     archiveDescription:

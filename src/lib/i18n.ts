@@ -843,7 +843,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         flip: "Flip ↗",
         flipLabel: (symbol, question) =>
           `Flip ${symbol} research card: ${question}`,
-        locked: "Opens in 7 days · View access",
+        locked: "Opens in 30 days · View access",
         open: "Open research",
       },
       publishedTime: {
@@ -999,7 +999,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         flip: "뒤집기 ↗",
         flipLabel: (symbol, question) =>
           `${symbol} 리서치 카드 뒤집기: ${question}`,
-        locked: "7일 후 공개 · 클릭하여 안내",
+        locked: "30일 후 공개 · 클릭하여 안내",
         open: "리서치 열기",
       },
       publishedTime: {
@@ -1154,7 +1154,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         flip: "めくる ↗",
         flipLabel: (symbol, question) =>
           `${symbol}のリサーチカードをめくる：${question}`,
-        locked: "7日後に公開 · 閲覧条件",
+        locked: "30日後に公開 · 閲覧条件",
         open: "リサーチを開く",
       },
       publishedTime: {
@@ -1306,7 +1306,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         },
         flip: "翻面 ↗",
         flipLabel: (symbol, question) => `翻開 ${symbol} 研究卡：${question}`,
-        locked: "7 天後開放 · 查看權限",
+        locked: "30 天後開放 · 查看權限",
         open: "開啟研究",
       },
       publishedTime: {
@@ -1462,7 +1462,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         flip: "Voltear ↗",
         flipLabel: (symbol, question) =>
           `Voltear la tarjeta de ${symbol}: ${question}`,
-        locked: "Disponible en 7 días · Ver acceso",
+        locked: "Disponible en 30 días · Ver acceso",
         open: "Abrir análisis",
       },
       publishedTime: {
@@ -1621,7 +1621,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         flip: "Virar ↗",
         flipLabel: (symbol, question) =>
           `Virar o cartão de ${symbol}: ${question}`,
-        locked: "Disponível em 7 dias · Ver acesso",
+        locked: "Disponível em 30 dias · Ver acesso",
         open: "Abrir research",
       },
       publishedTime: {
@@ -1778,7 +1778,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         flip: "Umdrehen ↗",
         flipLabel: (symbol, question) =>
           `Research-Karte für ${symbol} umdrehen: ${question}`,
-        locked: "In 7 Tagen verfügbar · Zugang ansehen",
+        locked: "In 30 Tagen verfügbar · Zugang ansehen",
         open: "Research öffnen",
       },
       publishedTime: {
@@ -1936,7 +1936,7 @@ export const copy: Readonly<Record<AppLocale, Copy>> = {
         flip: "Retourner ↗",
         flipLabel: (symbol, question) =>
           `Retourner la carte ${symbol} : ${question}`,
-        locked: "Disponible dans 7 jours · Voir l’accès",
+        locked: "Disponible dans 30 jours · Voir l’accès",
         open: "Ouvrir la recherche",
       },
       publishedTime: {

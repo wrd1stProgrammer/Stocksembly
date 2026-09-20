@@ -69,8 +69,8 @@ export const aboutDocument = {
           ko: "발행 보고서는 특정 시점의 리서치 스냅샷입니다. 확보된 근거와 선택 범위에 따라 투자 논지, 찬반 주장, 팀별 견해, 시나리오, 비교기업, 관찰 가능한 판단 변경 조건, 데이터 범위, 출처, 미확인 질문, 제한사항을 포함할 수 있습니다.",
         },
         {
-          en: "Newly published reports may be available to eligible subscribers first. Reports that meet the publication status rules become publicly readable and discoverable after seven days.",
-          ko: "새로 발행된 보고서는 이용 자격이 있는 구독자에게 먼저 제공될 수 있습니다. 발행 상태 요건을 충족한 보고서는 7일 후 비로그인 이용자에게 공개되고 검색엔진이 발견할 수 있는 대상이 됩니다.",
+          en: "Newly published reports may be available to eligible subscribers first. Reports that meet the publication status rules become publicly readable and discoverable after 30 days.",
+          ko: "새로 발행된 보고서는 이용 자격이 있는 구독자에게 먼저 제공될 수 있습니다. 발행 상태 요건을 충족한 보고서는 30일 후 비로그인 이용자에게 공개되고 검색엔진이 발견할 수 있는 대상이 됩니다.",
         },
       ],
     },
