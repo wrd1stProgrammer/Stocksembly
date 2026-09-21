@@ -109,6 +109,35 @@ describe("SearchConsole durable research launch", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("opens team-specific help without changing the selected research mode", () => {
+    render(<SearchConsole locale="ko" />);
+    expect(
+      screen.queryByText("이 리서치에 포함되는 내용"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "전체 에이전트 위원회" }),
+    );
+    const help = screen.getByRole("menuitem", { name: "시장 분석팀 도움말" });
+
+    fireEvent.click(help);
+
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "가격 추세·지지와 저항·시장 환경",
+    );
+    expect(help).toHaveAccessibleDescription(/가격 추세·지지와 저항·시장 환경/);
+    expect(
+      screen.getByRole("menuitemradio", { name: /전체 에이전트 위원회/ }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(help.closest("button")?.parentElement?.closest("button")).toBeNull();
+    fireEvent.keyDown(help, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.focus(help);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    fireEvent.blur(help);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   it("closes the customize panel from an outside pointer or Escape", () => {
     render(<SearchConsole locale="ko" />);
 

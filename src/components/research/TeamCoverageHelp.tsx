@@ -1,4 +1,5 @@
 import "../../styles/research-team-help.css";
+import { useId, useRef, useState } from "react";
 import type { Locale } from "../../lib/i18n";
 import type { ResearchTarget } from "../../research/domain/researchTarget";
 
@@ -42,5 +43,59 @@ export function TeamCoverageHelp({
       </summary>
       <p>{coverage[key][locale]}</p>
     </details>
+  );
+}
+
+export function TeamCoverageTooltip({
+  target,
+  locale,
+  label,
+}: {
+  readonly target: ResearchTarget;
+  readonly locale: Locale;
+  readonly label: string;
+}) {
+  const tooltipId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const key = target.kind === "department" ? target.departmentId : "committee";
+  return (
+    <span
+      className="research-team-tooltip"
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") setOpen(true);
+      }}
+      onPointerLeave={() => {
+        if (document.activeElement !== triggerRef.current) setOpen(false);
+      }}
+    >
+      <button
+        ref={triggerRef}
+        className="research-team-tooltip__trigger"
+        type="button"
+        role="menuitem"
+        aria-label={`${label} ${locale === "ko" ? "도움말" : "help"}`}
+        aria-describedby={open ? tooltipId : undefined}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onClick={() => setOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && open) {
+            event.stopPropagation();
+            setOpen(false);
+          }
+        }}
+      >
+        <span aria-hidden="true">?</span>
+      </button>
+      <span
+        className="research-team-tooltip__content"
+        id={tooltipId}
+        role="tooltip"
+        hidden={!open}
+      >
+        {coverage[key][locale]}
+      </span>
+    </span>
   );
 }

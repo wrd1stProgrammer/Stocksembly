@@ -6,6 +6,10 @@ import "../../styles/research-room.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
+import {
+  currentAuthTokens,
+  syncResearchSession,
+} from "../../auth/researchSession";
 import type { Locale } from "../../lib/i18n";
 import {
   fetchResearchQuote,
@@ -174,13 +178,24 @@ export async function loadReport(
     if (attempt > 0)
       await new Promise((resolve) => window.setTimeout(resolve, attempt * 600));
     try {
+      const tokens = await currentAuthTokens();
       const response = await fetch(
         `/api/research/reports/${reportId}?reload=${reloadSequence}`,
         {
           credentials: "same-origin",
           cache: "no-store",
+          signal: AbortSignal.timeout(15_000),
+          headers: {
+            ...(tokens.accessToken
+              ? { authorization: `Bearer ${tokens.accessToken}` }
+              : {}),
+            ...(tokens.identityToken
+              ? { "x-stocksembly-identity-token": tokens.identityToken }
+              : {}),
+          },
         },
       );
+      if (response.status === 401) await syncResearchSession();
       if (!response.ok) throw new Error("Published report is unavailable");
       const body: unknown = await response.json();
       const value =
@@ -470,6 +485,22 @@ export function LiveOfficeResearchRoom({
   }, [projection.snapshot.run.reportId, reportReload]);
 
   useEffect(() => {
+    if (reportLoadState !== "failed") return;
+    const retryOnReturn = () => {
+      if (document.visibilityState !== "hidden")
+        setReportReload((value) => value + 1);
+    };
+    window.addEventListener("online", retryOnReturn);
+    window.addEventListener("pageshow", retryOnReturn);
+    document.addEventListener("visibilitychange", retryOnReturn);
+    return () => {
+      window.removeEventListener("online", retryOnReturn);
+      window.removeEventListener("pageshow", retryOnReturn);
+      document.removeEventListener("visibilitychange", retryOnReturn);
+    };
+  }, [reportLoadState]);
+
+  useEffect(() => {
     if (client.listRuns === undefined) return;
     let active = true;
     void client
@@ -546,9 +577,13 @@ export function LiveOfficeResearchRoom({
             {reportLoadState === "failed" ? (
               <button
                 type="button"
-                onClick={() => setReportReload((value) => value + 1)}
+                onClick={() =>
+                  router.push(
+                    `/research-room/${projection.snapshot.run.reportId}?lang=${locale}`,
+                  )
+                }
               >
-                {locale === "ko" ? "보고서 다시 불러오기" : "Reload report"}
+                {locale === "ko" ? "보고서 열기" : "Open report"}
               </button>
             ) : connectionIssue ? (
               <button type="button" onClick={() => void projection.resync()}>
