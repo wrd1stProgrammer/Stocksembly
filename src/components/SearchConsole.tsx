@@ -1,5 +1,5 @@
 import { markNewResearchEntrance } from "../research/useResearchEntrance";
-import { TeamCoverageHelp } from "./research/TeamCoverageHelp";
+import { TeamCoverageTooltip } from "./research/TeamCoverageHelp";
 import "../styles/search-controls.css";
 import "../styles/search-states.css";
 import {
@@ -886,10 +886,6 @@ export function SearchConsole({
                 <strong>{targetCopy}</strong>
                 <ChevronDown aria-hidden="true" size={16} strokeWidth={1.8} />
               </button>
-              <TeamCoverageHelp
-                target={researchTarget}
-                locale={researchLocale(locale)}
-              />
               {targetPickerOpen ? (
                 <div className="research-target__options" role="menu">
                   {[
@@ -919,23 +915,33 @@ export function SearchConsole({
                           option.target.departmentId ===
                             researchTarget.departmentId));
                     return (
-                      <button
+                      <div
+                        className="research-target__option"
+                        role="none"
                         key={
                           option.target.kind === "committee"
                             ? "committee"
                             : option.target.departmentId
                         }
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={selected}
-                        onClick={() => {
-                          setTargetOverride(option.target);
-                          setTargetPickerOpen(false);
-                        }}
                       >
-                        <strong>{option.label}</strong>
-                        <small>{option.note}</small>
-                      </button>
+                        <button
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={selected}
+                          onClick={() => {
+                            setTargetOverride(option.target);
+                            setTargetPickerOpen(false);
+                          }}
+                        >
+                          <strong>{option.label}</strong>
+                          <small>{option.note}</small>
+                        </button>
+                        <TeamCoverageTooltip
+                          target={option.target}
+                          locale={researchLocale(locale)}
+                          label={option.label}
+                        />
+                      </div>
                     );
                   })}
                   {targetOverride === undefined ? null : (

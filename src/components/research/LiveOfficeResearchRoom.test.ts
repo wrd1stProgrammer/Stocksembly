@@ -6,7 +6,18 @@ import {
   shouldScopeDepartmentOffice,
 } from "./LiveOfficeResearchRoom";
 
-afterEach(() => vi.unstubAllGlobals());
+vi.mock("../../auth/researchSession", () => ({
+  currentAuthTokens: vi
+    .fn()
+    .mockResolvedValue({ accessToken: "access", identityToken: "identity" }),
+  syncResearchSession: vi.fn().mockResolvedValue(true),
+}));
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  vi.clearAllMocks();
+});
 
 it("loads a workflow-v2 report returned by the public API", async () => {
   const report = workflowV2PresentationFixture();
@@ -15,6 +26,34 @@ it("loads a workflow-v2 report returned by the public API", async () => {
   await expect(loadReport(report.reportId, 0)).resolves.toMatchObject({
     report: { schemaVersion: "workflow-v2", reportId: report.reportId },
   });
+  expect(fetch).toHaveBeenCalledWith(
+    expect.stringContaining(report.reportId),
+    expect.objectContaining({
+      headers: {
+        authorization: "Bearer access",
+        "x-stocksembly-identity-token": "identity",
+      },
+    }),
+  );
+});
+
+it("restores a lost server session before retrying the published report", async () => {
+  vi.useFakeTimers();
+  const report = workflowV2PresentationFixture();
+  vi.stubGlobal("window", { setTimeout });
+  const request = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(null, { status: 401 }))
+    .mockResolvedValueOnce(Response.json({ report }));
+  vi.stubGlobal("fetch", request);
+  const result = loadReport(report.reportId, 1);
+  await vi.runAllTimersAsync();
+  await expect(result).resolves.toMatchObject({
+    report: { reportId: report.reportId },
+  });
+  const { syncResearchSession } = await import("../../auth/researchSession");
+  expect(syncResearchSession).toHaveBeenCalledOnce();
+  expect(request).toHaveBeenCalledTimes(2);
 });
 
 it("formats compact research history dates", () => {

@@ -175,16 +175,6 @@ export function OfficeStage({
             {current.summary[locale]}
           </p>
           <div className="office-stage__shade" />
-          <div className="office-progress-caption" aria-hidden="true">
-            <strong>{current.summary[locale]}</strong>
-            {isPaused ? (
-              <span>
-                {locale === "ko"
-                  ? "화면 재생 일시 정지"
-                  : "Presentation paused"}
-              </span>
-            ) : null}
-          </div>
           <div className="office-stage__department-labels" aria-hidden="true">
             <span data-room="market">
               {uiMessage(uiLocale, {
