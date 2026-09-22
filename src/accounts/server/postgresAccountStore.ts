@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { Pool, type PoolClient, type PoolConfig } from "pg";
+import type { Pool, PoolClient, PoolConfig } from "pg";
 import { acquisitionChannel } from "../../admin/acquisitionAttribution";
 import { adminAnalyticsWritesEnabled } from "../../admin/adminAnalyticsFlags";
 import type {
@@ -62,6 +62,7 @@ import {
 } from "../../research/server/api/researchCommandContracts";
 import type { ResearchPrincipal } from "../../research/server/http/researchAuth";
 import { postgresPoolConfiguration } from "../../server/database/postgresConfiguration";
+import { RotationAwarePool } from "../../server/database/rotationAwarePool";
 import {
   type OnboardingDiscoverySource,
   storedOnboardingDiscoverySource,
@@ -552,7 +553,7 @@ export class PostgresAccountStore implements AccountStore {
   static async create(
     configuration: PoolConfig,
   ): Promise<PostgresAccountStore> {
-    const pool = new Pool(configuration);
+    const pool = new RotationAwarePool(configuration);
     try {
       const client = await pool.connect();
       try {
