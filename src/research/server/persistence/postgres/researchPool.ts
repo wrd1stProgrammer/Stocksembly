@@ -1,5 +1,6 @@
-import { Pool } from "pg";
+import type { Pool } from "pg";
 import { postgresPoolConfiguration } from "../../../../server/database/postgresConfiguration";
+import { RotationAwarePool } from "../../../../server/database/rotationAwarePool";
 import { migrateResearchDatabase } from "./migrations";
 
 let poolPromise: Promise<Pool> | undefined;
@@ -20,7 +21,7 @@ async function openResearchPool(): Promise<Pool> {
   const configuration = await postgresPoolConfiguration();
   if (!configuration)
     throw new Error("STOCKSEMBLY_DATABASE_CONFIGURATION_REQUIRED");
-  const pool = new Pool({
+  const pool = new RotationAwarePool({
     ...configuration,
     options: [configuration.options, "-c search_path=research,pg_catalog"]
       .filter(Boolean)
