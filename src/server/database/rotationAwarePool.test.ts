@@ -71,7 +71,9 @@ describe("rotation-aware connection acquisition", () => {
 
   it("does not replay SQL, even when a query itself reports an authentication code", async () => {
     const connected = client();
-    vi.spyOn(Pool.prototype, "connect").mockImplementation(async () => connected);
+    vi.spyOn(Pool.prototype, "connect").mockImplementation(
+      async () => connected,
+    );
     const query = vi.spyOn(connected, "query").mockImplementation(() => {
       throw authError();
     });

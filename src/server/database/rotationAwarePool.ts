@@ -12,7 +12,9 @@ const ROTATION_WAIT_MS = 40_000;
 export class RotationAwarePool extends Pool {
   override connect(): Promise<PoolClient>;
   override connect(callback: ConnectCallback): void;
-  override connect(callback?: ConnectCallback): Promise<PoolClient> | undefined {
+  override connect(
+    callback?: ConnectCallback,
+  ): Promise<PoolClient> | undefined {
     const connection = this.connectDuringRotation();
     if (!callback) return connection;
     void connection.then(
