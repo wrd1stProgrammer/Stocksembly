@@ -5,7 +5,7 @@ export async function register() {
     const { initializeMonitoring } = await import(
       "./src/lib/observability/server"
     );
-    initializeMonitoring("web");
+    await initializeMonitoring("web");
   }
 }
 

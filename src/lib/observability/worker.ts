@@ -1,3 +1,3 @@
 import { initializeMonitoring } from "./server";
 
-initializeMonitoring("worker");
+await initializeMonitoring("worker");

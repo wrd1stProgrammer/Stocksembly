@@ -5,6 +5,7 @@ if (process.env["NEXT_PUBLIC_SENTRY_DSN"]) {
   Sentry.init({
     dsn: process.env["NEXT_PUBLIC_SENTRY_DSN"],
     environment: process.env.NODE_ENV,
+    release: process.env["NEXT_PUBLIC_SENTRY_RELEASE"],
     sendDefaultPii: false,
     tracesSampleRate: 0.1,
     integrations: (defaults) => [

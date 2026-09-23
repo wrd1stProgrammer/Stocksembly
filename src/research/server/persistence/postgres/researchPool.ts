@@ -21,12 +21,15 @@ async function openResearchPool(): Promise<Pool> {
   const configuration = await postgresPoolConfiguration();
   if (!configuration)
     throw new Error("STOCKSEMBLY_DATABASE_CONFIGURATION_REQUIRED");
-  const pool = new RotationAwarePool({
-    ...configuration,
-    options: [configuration.options, "-c search_path=research,pg_catalog"]
-      .filter(Boolean)
-      .join(" "),
-  });
+  const pool = new RotationAwarePool(
+    {
+      ...configuration,
+      options: [configuration.options, "-c search_path=research,pg_catalog"]
+        .filter(Boolean)
+        .join(" "),
+    },
+    "research",
+  );
   // An idle connection can fail independently of a query during an RDS restart.
   pool.on("error", () => {
     console.warn("RESEARCH_DATABASE_IDLE_CONNECTION_FAILED");

@@ -170,7 +170,9 @@ jobs:
           GA_MEASUREMENT_ID: G-YRQDC6R5TL
           META_PIXEL_ID: "1941324473216410"
           NEXT_PUBLIC_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
+          [[ -n "$SENTRY_AUTH_TOKEN" ]] || { echo 'Configure SENTRY_AUTH_TOKEN for private source-map uploads' >&2; exit 78; }
           image_tag="${RUNTIME_ROLE}-sha-${GITHUB_SHA}"
           image="${REGISTRY}/${ECR_REPOSITORY}:${image_tag}"
           if aws ecr describe-images \
@@ -179,6 +181,9 @@ jobs:
             echo "Reusing existing immutable image: $image"
           else
             docker build -f "apps/${RUNTIME_ROLE}/Dockerfile" \
+              --secret id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
+              --build-arg SENTRY_UPLOAD_SOURCE_MAPS=true \
+              --build-arg "SENTRY_RELEASE=${GITHUB_SHA}" \
               --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}" \
               --build-arg "NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=${COGNITO_USER_POOL_CLIENT_ID}" \
               --build-arg "NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN}" \
@@ -251,9 +256,12 @@ jobs:
       - name: Configure Sentry runtime
         env:
           SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.1' }}
+          SENTRY_PROFILE_SESSION_SAMPLE_RATE: ${{ vars.SENTRY_PROFILE_SESSION_SAMPLE_RATE || '1' }}
+          SENTRY_METRICS_ENABLED: ${{ vars.SENTRY_METRICS_ENABLED || 'true' }}
         run: |
-          encoded="$(printf '%s\n' "SENTRY_DSN=$SENTRY_DSN" "SENTRY_RELEASE=$GITHUB_SHA" | base64 -w 0)"
-          jq -nc --arg command "sudo sed -i -e '/^SENTRY_DSN=/d' -e '/^SENTRY_RELEASE=/d' /etc/stocksembly/app.env && printf '%s' '$encoded' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" '{commands:[$command],executionTimeout:["120"]}' > "$RUNNER_TEMP/sentry-parameters.json"
+          encoded="$(printf '%s\n' "SENTRY_DSN=$SENTRY_DSN" "SENTRY_RELEASE=$GITHUB_SHA" "SENTRY_TRACES_SAMPLE_RATE=$SENTRY_TRACES_SAMPLE_RATE" "SENTRY_PROFILE_SESSION_SAMPLE_RATE=$SENTRY_PROFILE_SESSION_SAMPLE_RATE" "SENTRY_METRICS_ENABLED=$SENTRY_METRICS_ENABLED" | base64 -w 0)"
+          jq -nc --arg command "sudo sed -i -e '/^SENTRY_DSN=/d' -e '/^SENTRY_RELEASE=/d' -e '/^SENTRY_TRACES_SAMPLE_RATE=/d' -e '/^SENTRY_PROFILE_SESSION_SAMPLE_RATE=/d' -e '/^SENTRY_METRICS_ENABLED=/d' /etc/stocksembly/app.env && printf '%s' '$encoded' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" '{commands:[$command],executionTimeout:["120"]}' > "$RUNNER_TEMP/sentry-parameters.json"
           bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/sentry-parameters.json"
       - name: Deploy through Systems Manager
         run: |

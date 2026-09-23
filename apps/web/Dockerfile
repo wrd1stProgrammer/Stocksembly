@@ -2,6 +2,12 @@
 
 FROM node:20-bookworm-slim AS build
 
+ARG SENTRY_UPLOAD_SOURCE_MAPS=false
+ARG SENTRY_RELEASE
+ENV SENTRY_UPLOAD_SOURCE_MAPS=${SENTRY_UPLOAD_SOURCE_MAPS}
+ENV SENTRY_RELEASE=${SENTRY_RELEASE}
+ENV NEXT_PUBLIC_SENTRY_RELEASE=${SENTRY_RELEASE}
+
 ARG NEXT_PUBLIC_COGNITO_USER_POOL_ID
 ARG NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID
 ARG NEXT_PUBLIC_COGNITO_DOMAIN
@@ -35,7 +41,9 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm build:web
+RUN --mount=type=secret,id=sentry_auth_token \
+    pnpm build:web \
+    && node scripts/upload-sentry-sourcemaps.mjs web
 
 FROM node:20-bookworm-slim AS runtime
 

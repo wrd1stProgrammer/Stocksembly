@@ -32,7 +32,13 @@ async function includePackage(resolver, name) {
     await includePackage(dependencyRequire, dependency);
   }
 }
-for (const name of ["pg", "zod", "decimal.js", "@sentry/node"])
+for (const name of [
+  "pg",
+  "zod",
+  "decimal.js",
+  "@sentry/node",
+  "@sentry/profiling-node",
+])
   await includePackage(projectRequire, name);
 let nextRuntimePackages = [];
 if (!workerOnly && existsSync(`${outputRoot}/server.js`)) {
@@ -75,6 +81,14 @@ await Promise.all([
     : []),
 ]);
 const optionalCopies = [
+  [
+    ".stocksembly-verification/research-worker/leaseWorker.js.map",
+    `${outputRoot}/research-worker/leaseWorker.js.map`,
+  ],
+  [
+    ".stocksembly-verification/briefing-worker/briefingWorker.js.map",
+    `${outputRoot}/briefing-worker/briefingWorker.js.map`,
+  ],
   [
     ".stocksembly-verification/research-worker/leaseWorker.js",
     `${outputRoot}/research-worker/leaseWorker.js`,

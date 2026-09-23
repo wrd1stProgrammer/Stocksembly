@@ -48,3 +48,7 @@ The installed maintenance service completed an actual invocation with `Result=su
 ## Email alerts
 
 The Stocksembly error monitor has a connected email alert for new issues, escalations, and resolved issues that regress. It targets the account owner explicitly, using the verified primary email and enabled Email delivery channel. Action throttle is 60 minutes. Sentry confirmed test notification dispatch and alert creation. Alert: `https://plutia-0b.sentry.io/monitors/alerts/3994710/`. Inbox delivery was not independently verified.
+
+## Performance metrics and CPU profiles
+
+See [Sentry performance monitoring](./sentry-performance.md) for the runtime/pool metrics, trace-based CPU profiling, sampling controls, and verification procedure. This extends the original error and trace setup; deployment is required before production processes emit the new telemetry.
