@@ -2,7 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  experimental: { globalNotFound: true },
+  experimental: {
+    globalNotFound: true,
+    serverSourceMaps: process.env.SENTRY_UPLOAD_SOURCE_MAPS === "true",
+  },
+  productionBrowserSourceMaps: process.env.SENTRY_UPLOAD_SOURCE_MAPS === "true",
   outputFileTracingIncludes: {
     "/*": [
       "./node_modules/zod/**/*",
@@ -21,7 +25,7 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   reactStrictMode: true,
-  serverExternalPackages: ["pg", "pdfmake"],
+  serverExternalPackages: ["pg", "pdfmake", "@sentry/profiling-node"],
   async redirects() {
     return [
       {

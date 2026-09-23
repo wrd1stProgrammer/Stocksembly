@@ -553,7 +553,7 @@ export class PostgresAccountStore implements AccountStore {
   static async create(
     configuration: PoolConfig,
   ): Promise<PostgresAccountStore> {
-    const pool = new RotationAwarePool(configuration);
+    const pool = new RotationAwarePool(configuration, "accounts");
     try {
       const client = await pool.connect();
       try {
