@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { LaunchingResearchRoom } from "../../../src/components/research/LaunchingResearchRoom";
 import { ResearchRoom } from "../../../src/components/research/ResearchRoom";
 import type { Locale } from "../../../src/lib/i18n";
-import { researchLocaleFromValue } from "../../../src/lib/i18n";
+import {
+  appLocaleFromValue,
+  researchLocaleFromValue,
+} from "../../../src/lib/i18n";
 import { PublicRunDetailSchema } from "../../../src/research/client/schemas";
 import { TickerSymbolSchema } from "../../../src/research/domain/ids";
 import { researchProfileFromQuery } from "../../../src/research/domain/researchProfile";
@@ -40,6 +43,7 @@ export default async function ResearchPage({ params, searchParams }: Props) {
   const [{ symbol }, query] = await Promise.all([params, searchParams]);
   const ticker = TickerSymbolSchema.safeParse(symbol.toUpperCase());
   if (!ticker.success) notFound();
+  const uiLocale = appLocaleFromValue(query.lang);
   const locale: Locale = researchLocaleFromValue(query.lang);
   if (query.run === undefined && query.launch !== undefined)
     return (
@@ -47,6 +51,7 @@ export default async function ResearchPage({ params, searchParams }: Props) {
         symbol={ticker.data}
         question={query.question?.slice(0, 100) ?? ""}
         locale={locale}
+        uiLocale={uiLocale}
         idempotencyKey={query.launch}
         researchTarget={researchTargetFromQuery(query.target)}
         researchProfile={researchProfileFromQuery(query)}
@@ -88,5 +93,11 @@ export default async function ResearchPage({ params, searchParams }: Props) {
     return (
       <ResearchRoom initialLocale={locale} recovery="run-symbol-mismatch" />
     );
-  return <ResearchRoom initialLocale={locale} initialSnapshot={parsed.data} />;
+  return (
+    <ResearchRoom
+      initialLocale={locale}
+      initialUiLocale={uiLocale}
+      initialSnapshot={parsed.data}
+    />
+  );
 }

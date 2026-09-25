@@ -4,7 +4,7 @@ import "../../styles/researchWorkspace";
 import "../../styles/research-room.css";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale, Locale } from "../../lib/i18n";
 import type { PublicRunDetail } from "../../research/client/schemas";
 import type {
   CompositionViewData,
@@ -29,6 +29,7 @@ type FixtureProps = {
 };
 
 type LiveProps = {
+  readonly initialUiLocale?: AppLocale;
   readonly initialLocale: Locale;
   readonly initialSnapshot: PublicRunDetail;
 };
