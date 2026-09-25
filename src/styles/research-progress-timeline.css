@@ -1,0 +1,150 @@
+/* Desktop only. This lives below the office, never over the canvas. */
+.research-progress-timeline {
+  display: none;
+}
+@media screen and (min-width: 1200px) {
+  .research-shell[data-research-mode="official"]
+    .office-workbench.has-progress-timeline:not(.is-complete) {
+    grid-template-rows: max-content max-content max-content;
+    align-content: start;
+  }
+  .research-progress-timeline {
+    --progress-accent: #b6a4fa;
+    display: block;
+    align-self: start;
+    margin-top: 10px;
+    padding: 20px 22px 18px;
+    border: 1px solid #2c2d35;
+    border-radius: 14px;
+    background: linear-gradient(115deg, #15151c 0%, #101114 70%);
+    color: #ededf2;
+  }
+  .research-progress-timeline header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .research-progress-timeline h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .research-progress-timeline__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--progress-accent);
+    background: #b6a4fa12;
+    border: 1px solid #b6a4fa20;
+    border-radius: 20px;
+    padding: 5px 9px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .research-progress-timeline__status i {
+    width: 5px;
+    height: 5px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .research-progress-timeline ol {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 0;
+    margin: 23px 0 17px;
+  }
+  .research-progress-timeline li {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    text-align: center;
+    color: #8e919e;
+    min-width: 0;
+  }
+  .research-progress-timeline li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 17px;
+    left: calc(50% + 22px);
+    width: calc(100% - 44px);
+    height: 1px;
+    background: #353640;
+  }
+  .research-progress-timeline li[data-state="done"]::after {
+    background: #b6a4fa77;
+  }
+  .research-progress-timeline__node {
+    width: 35px;
+    height: 35px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid #454650;
+    background: #14151a;
+  }
+  .research-progress-timeline__label {
+    padding: 0 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+  .research-progress-timeline:lang(ko) .research-progress-timeline__label {
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .research-progress-timeline li[data-state="done"] {
+    color: #c5bedc;
+  }
+  .research-progress-timeline
+    li[data-state="done"]
+    .research-progress-timeline__node {
+    background: #22202e;
+    border-color: #5e527d;
+    color: var(--progress-accent);
+  }
+  .research-progress-timeline li[data-state="current"] {
+    color: #e0d7ff;
+    font-weight: 650;
+  }
+  .research-progress-timeline
+    li[data-state="current"]
+    .research-progress-timeline__node {
+    color: #181222;
+    background: var(--progress-accent);
+    border-color: #d4c7ff;
+    box-shadow: 0 0 0 5px #b6a4fa0c;
+  }
+  .research-progress-timeline p {
+    margin: 0;
+    border-top: 1px solid #ffffff08;
+    padding-top: 13px;
+    color: #a4a4b2;
+    font-size: 12px;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+  .research-progress-timeline[data-status="published"] {
+    --progress-accent: #82d5ba;
+  }
+  .research-progress-timeline:is(
+    [data-status="failed"],
+    [data-status="incomplete"],
+    [data-status="cancelling"],
+    [data-status="cancelled"]
+  ) {
+    --progress-accent: #d9b98c;
+  }
+  .research-progress-timeline:is(
+    [data-status="queued"],
+    [data-status="reconnecting"]
+  ) {
+    --progress-accent: #b0b4c6;
+  }
+}

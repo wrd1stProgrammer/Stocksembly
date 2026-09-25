@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   type AppLocale,
   type ResearchLocale,
@@ -16,6 +16,7 @@ import { CompletedResearchFile } from "./CompletedResearchFile";
 import { PixelOfficeGame } from "./PixelOfficeGame";
 
 type Props = {
+  readonly progressTimeline?: ReactNode;
   readonly current: ResearchEvent;
   readonly presentation?: OfficePresentation;
   readonly events?: readonly ResearchEvent[];
@@ -39,6 +40,7 @@ type Props = {
 
 export function OfficeStage({
   current,
+  progressTimeline,
   presentation,
   events = [current],
   snapshot,
@@ -79,7 +81,9 @@ export function OfficeStage({
     },
   ];
   return (
-    <main className={`office-workbench${isComplete ? " is-complete" : ""}`}>
+    <main
+      className={`office-workbench${isComplete ? " is-complete" : ""}${progressTimeline ? " has-progress-timeline" : ""}`}
+    >
       <div className="office-heading">
         <h2 id="office-stage-title" className="sr-only">
           {labels.aria.stage}
@@ -219,6 +223,7 @@ export function OfficeStage({
           </div>
         </section>
       )}
+      {isComplete ? null : progressTimeline}
       {isComplete ? null : (
         <p className="research-continuity-note">
           <i aria-hidden="true" />

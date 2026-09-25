@@ -10,7 +10,7 @@ import {
   currentAuthTokens,
   syncResearchSession,
 } from "../../auth/researchSession";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale, Locale } from "../../lib/i18n";
 import {
   fetchResearchQuote,
   findTicker,
@@ -54,10 +54,12 @@ import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { useIsMobileViewport } from "../useMediaQuery";
 import { MeetingMinutes } from "./MeetingMinutes";
 import { OfficeStage } from "./OfficeStage";
+import { ResearchProgressTimeline } from "./ResearchProgressTimeline";
 import { ResearchQueueNotice } from "./ResearchQueueNotice";
 import { ResearchSidebar } from "./ResearchSidebar";
 
 type Props = {
+  readonly initialUiLocale?: AppLocale;
   readonly initialLocale: Locale;
   readonly initialSnapshot: PublicRunDetail;
 };
@@ -224,10 +226,12 @@ export async function loadReport(
 
 export function LiveOfficeResearchRoom({
   initialLocale,
+  initialUiLocale = initialLocale,
   initialSnapshot,
 }: Props) {
   const freshEntrance = useResearchEntrance(initialSnapshot.run.runId);
   const [locale, setLocale] = useState(initialLocale);
+  const [uiLocale, setUiLocale] = useState(initialUiLocale);
   const [report, setReport] = useState<
     ResearchReport | WorkflowV2ResearchReport | WorkflowV3ResearchReport
   >();
@@ -401,11 +405,11 @@ export function LiveOfficeResearchRoom({
   ]);
 
   useEffect(() => {
-    document.documentElement.lang = locale;
+    document.documentElement.lang = uiLocale;
     const url = new URL(window.location.href);
-    url.searchParams.set("lang", locale);
+    url.searchParams.set("lang", uiLocale);
     window.history.replaceState(null, "", url);
-  }, [locale]);
+  }, [uiLocale]);
 
   // Re-evaluated on rotation and resize, not only on mount, so a tablet
   // turned from portrait to landscape gets the layout for its new width.
@@ -540,7 +544,7 @@ export function LiveOfficeResearchRoom({
   return (
     <div
       className="research-shell"
-      lang={locale}
+      lang={uiLocale}
       data-research-mode="official"
       data-research-state={
         projection.state === "published" && !completed
@@ -579,7 +583,7 @@ export function LiveOfficeResearchRoom({
                 type="button"
                 onClick={() =>
                   router.push(
-                    `/research-room/${projection.snapshot.run.reportId}?lang=${locale}`,
+                    `/research-room/${projection.snapshot.run.reportId}?lang=${uiLocale}`,
                   )
                 }
               >
@@ -610,16 +614,27 @@ export function LiveOfficeResearchRoom({
           collapsed={!sidebarOpen}
           onCollapsedChange={handleSidebarCollapsedChange}
           onRunSelect={(runId, symbol) =>
-            router.push(`/research/${symbol}?run=${runId}&lang=${locale}`)
+            router.push(`/research/${symbol}?run=${runId}&lang=${uiLocale}`)
           }
           onProfileOpen={() => setProfileOpen(true)}
-          onLocaleChange={setLocale}
+          onLocaleChange={(next) => {
+            setLocale(next);
+            setUiLocale(next);
+          }}
         />
         {completed && report?.reportId ? (
           <ReportReadMarker reportId={report.reportId} />
         ) : null}
         <OfficeStage
           key={projection.snapshot.run.runId}
+          uiLocale={uiLocale}
+          progressTimeline={
+            <ResearchProgressTimeline
+              snapshot={projection.snapshot}
+              connection={projection.state}
+              locale={uiLocale}
+            />
+          }
           presentation={{
             ...presentation.presentation,
             preserveEntrance: freshEntrance,
@@ -650,6 +665,7 @@ export function LiveOfficeResearchRoom({
           agents={visibleAgents}
           events={presentation.events}
           locale={locale}
+          uiLocale={uiLocale}
           isComplete={completed}
           {...(terminal ? { terminalState: projection.state } : {})}
           {...(projection.snapshot.run.reportId === undefined

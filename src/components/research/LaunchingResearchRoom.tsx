@@ -6,7 +6,7 @@ import "../../styles/research-room.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createAuthenticatedResearchClient } from "../../auth/researchClient";
-import type { Locale } from "../../lib/i18n";
+import type { AppLocale, Locale } from "../../lib/i18n";
 import {
   type ResearchClient,
   ResearchRequestError,
@@ -20,6 +20,7 @@ import { ResearchQueueNotice } from "./ResearchQueueNotice";
 type Props = {
   readonly symbol: string;
   readonly question: string;
+  readonly uiLocale?: AppLocale;
   readonly locale: Locale;
   readonly idempotencyKey: string;
   readonly researchTarget: ResearchTarget;
@@ -62,6 +63,7 @@ export function LaunchingResearchRoom({
   symbol,
   question,
   locale,
+  uiLocale = locale,
   idempotencyKey,
   researchTarget,
   researchProfile,
@@ -93,14 +95,14 @@ export function LaunchingResearchRoom({
         if (!active) return;
         markNewResearchEntrance(created.run.runId);
         router.replace(
-          `/research/${symbol}?run=${created.run.runId}&lang=${locale}`,
+          `/research/${symbol}?run=${created.run.runId}&lang=${uiLocale}`,
         );
       })
       .catch((error: unknown) => {
         if (!active) return;
         if (error instanceof ResearchRequestError && error.status === 401) {
           router.replace(
-            `/login?next=${encodeURIComponent(`/?lang=${locale}#research`)}`,
+            `/login?next=${encodeURIComponent(`/?lang=${uiLocale}#research`)}`,
           );
           return;
         }
@@ -127,6 +129,7 @@ export function LaunchingResearchRoom({
     client,
     idempotencyKey,
     locale,
+    uiLocale,
     question,
     researchTarget,
     researchProfile,
