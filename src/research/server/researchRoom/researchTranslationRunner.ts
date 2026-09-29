@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { AttemptIdSchema, JobIdSchema, RunIdSchema } from "../../domain/ids";
-import { productionCodexPlatform } from "../codex/codexPlatform";
+import { researchAttemptTempParent } from "../codex/codexPlatform";
 import {
   type CommittedLaunchReservation,
   codexInputHash,
@@ -161,7 +161,7 @@ async function translateResearchBatch(
   };
   const attemptDir = await mkdtemp(
     join(
-      await realpath(productionCodexPlatform().tempParent),
+      await realpath(researchAttemptTempParent()),
       "stocksembly-translation-",
     ),
   );

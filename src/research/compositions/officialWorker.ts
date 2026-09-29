@@ -8,7 +8,7 @@ import {
   createLiveS3ArtifactArchive,
   S3MirroredArtifactStore,
 } from "../server/artifacts/s3ArtifactArchive";
-import { productionCodexPlatform } from "../server/codex/codexPlatform";
+import { researchAttemptTempParent } from "../server/codex/codexPlatform";
 import { type CodexPort, createCodexPort } from "../server/codex/codexRunner";
 import { PostgresAgentOutputCommitStore } from "../server/persistence/postgres/postgresAgentOutputCommitStore";
 import { publishAuthoritativeReportForRun } from "../server/persistence/postgres/publishAuthoritativeReportForRun";
@@ -97,9 +97,7 @@ export async function createOfficialAttemptHandler(
         ));
   const codex = overrides.codex ?? createCodexPort(authority);
   const attemptParent =
-    codex.kind === "real"
-      ? productionCodexPlatform().tempParent
-      : options.dataDirectory;
+    codex.kind === "real" ? researchAttemptTempParent() : options.dataDirectory;
   const attemptRootCandidate = join(
     attemptParent,
     "stocksembly-research-attempts",

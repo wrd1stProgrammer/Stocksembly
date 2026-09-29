@@ -26,6 +26,12 @@ import {
   LINUX_CODEX_RUNTIME_PINS,
   trustedResearchRuntime,
 } from "../server/codex/codexPolicy";
+import {
+  OPENAI_RESEARCH_MODEL,
+  OPENAI_RUNNER_HASH,
+  OPENAI_RUNNER_VERSION,
+  usesOpenAiApi,
+} from "../server/codex/researchProvider";
 
 export const HashSchema = z.string().regex(/^[a-f0-9]{64}$/);
 export const FenceSchema = z
@@ -60,7 +66,7 @@ export const BindingSchema = z
       "semantic_audit",
       "chair_synthesis",
     ]),
-    runnerModel: z.enum(["gpt-5.6-terra", "gpt-5.6-luna"]),
+    runnerModel: z.enum(["gpt-5.6-terra", "gpt-5.6-luna", "gpt-6-luna"]),
     runnerReasoning: z.enum(["low", "medium"]),
     runnerBrowsingPolicy: z.enum(["disabled", "audited_web"]),
     runnerToolTranscriptHash: HashSchema,
@@ -82,7 +88,9 @@ export const BindingSchema = z
   })
   .strict();
 export const TRUSTED_AGENT_RUNTIME_POLICY = Object.freeze({
-  model: CODEX_RUNTIME_POLICY.model,
+  get model() {
+    return usesOpenAiApi() ? OPENAI_RESEARCH_MODEL : CODEX_RUNTIME_POLICY.model;
+  },
   reasoningByStage: Object.freeze({
     memo: CODEX_RUNTIME_POLICY.reasoningByStage.memo,
     department_consolidation:
@@ -107,14 +115,20 @@ export const TRUSTED_AGENT_RUNTIME_POLICY = Object.freeze({
   }),
   emptyToolTranscriptHash:
     "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
-  cliVersion:
-    process.platform === "linux"
-      ? LINUX_CODEX_RUNTIME_PINS.version
-      : CODEX_RUNTIME_PINS.version,
-  cliBinaryHash:
-    process.platform === "linux"
-      ? LINUX_CODEX_RUNTIME_PINS.originSha256
-      : CODEX_RUNTIME_PINS.originSha256,
+  get cliVersion() {
+    return usesOpenAiApi()
+      ? OPENAI_RUNNER_VERSION
+      : process.platform === "linux"
+        ? LINUX_CODEX_RUNTIME_PINS.version
+        : CODEX_RUNTIME_PINS.version;
+  },
+  get cliBinaryHash() {
+    return usesOpenAiApi()
+      ? OPENAI_RUNNER_HASH
+      : process.platform === "linux"
+        ? LINUX_CODEX_RUNTIME_PINS.originSha256
+        : CODEX_RUNTIME_PINS.originSha256;
+  },
 });
 
 export function trustedAgentRuntime(

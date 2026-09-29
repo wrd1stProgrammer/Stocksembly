@@ -48,6 +48,7 @@ RUN --mount=type=secret,id=sentry_auth_token \
 FROM node:20-bookworm-slim AS runtime
 
 ENV NODE_ENV=production
+ENV STOCKSEMBLY_RESEARCH_PROVIDER=openai
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV HOSTNAME=127.0.0.1

@@ -6,6 +6,7 @@ import { CODEX_RUNTIME_PINS, LINUX_CODEX_RUNTIME_PINS } from "./codexPolicy";
 import { executeSpawn } from "./codexProcess";
 import { type CodeSignature, inspectCodeSignature } from "./codexSignature";
 import type { ProcessExecution, SpawnInvocation } from "./codexTypes";
+import { usesOpenAiApi } from "./researchProvider";
 
 export type CodexRuntimePins = {
   readonly originPath: string;
@@ -98,4 +99,8 @@ export function productionCodexPlatform(
     runVersion: executeSpawn,
     runCodex: executeSpawn,
   });
+}
+
+export function researchAttemptTempParent(): string {
+  return usesOpenAiApi() ? tmpdir() : productionCodexPlatform().tempParent;
 }
