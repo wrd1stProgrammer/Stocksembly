@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { AttemptIdSchema, JobIdSchema, RunIdSchema } from "../../../domain/ids";
-import { productionCodexPlatform } from "../../codex/codexPlatform";
+import { researchAttemptTempParent } from "../../codex/codexPlatform";
+import type { CodexModel } from "../../codex/codexPolicy";
 import {
   type CommittedLaunchReservation,
   codexInputHash,
@@ -20,7 +21,7 @@ import { NewsClassifierResponseSchema } from "./insightSentryResearchSchemas";
 export type SemanticNewsClassifierUsage = {
   readonly callId: string;
   readonly phase: "shortlist" | "detail";
-  readonly model: "gpt-5.6-luna";
+  readonly model: CodexModel;
   readonly reasoning: "low";
   readonly toolEventCount: number;
   readonly inputTokens?: number;
@@ -131,10 +132,7 @@ async function classifyWithLuna(request: Parameters<NewsClassifier>[0]) {
         : undefined,
   };
   const attemptDir = await mkdtemp(
-    join(
-      await realpath(productionCodexPlatform().tempParent),
-      "stocksembly-news-",
-    ),
+    join(await realpath(researchAttemptTempParent()), "stocksembly-news-"),
   );
   try {
     const result = await createCodexPort(reservations).run({
@@ -171,7 +169,7 @@ export function createSemanticNewsClassifier(
       await options.recordUsage?.({
         callId: completed.callId,
         phase: request.phase,
-        model: request.model,
+        model: completed.result.evidence.model,
         reasoning: request.reasoning,
         toolEventCount: completed.result.evidence.toolEventCount,
         ...(tokenUsage === undefined

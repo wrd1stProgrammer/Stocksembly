@@ -86,7 +86,7 @@ export type CodexRunResult<Candidate> = {
 };
 
 export interface CodexPort {
-  readonly id: "isolated-codex-cli";
+  readonly id: "isolated-codex-cli" | "openai-responses";
   readonly kind: "real";
   readonly run: <Candidate>(
     input: CodexRunInput<Candidate>,

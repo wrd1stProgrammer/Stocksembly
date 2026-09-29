@@ -83,6 +83,13 @@ Initial collection retries use per-job failure counts, with at most eight attemp
 exponential backoff and the provider retry time when later. Market-data429 cooldown
 is shared across waiting requests and restored from persisted retry intents.
 
+Production images now select `STOCKSEMBLY_RESEARCH_PROVIDER=openai`: direct
+Responses API calls using `gpt-6-luna`, with six API research slots and no
+subscription fallback. Supply `OPENAI_API_KEY` or the existing API-only auth file.
+See [direct API deployment notes](../../docs/architecture/research-openai-api.md).
+The following hybrid configuration applies only when explicitly rolling back to
+`STOCKSEMBLY_RESEARCH_PROVIDER=codex`.
+
 Leave `STOCKSEMBLY_CODEX_API_ENABLED=0` for subscription-only operation (four active
 runs, then queue). To enable the additional six, configure both web and worker with
 `STOCKSEMBLY_CODEX_API_ENABLED=1` and an absolute

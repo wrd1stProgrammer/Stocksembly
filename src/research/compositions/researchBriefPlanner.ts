@@ -12,7 +12,7 @@ import {
 } from "../domain/researchBrief";
 import { researchEvidenceExcerpt } from "../domain/researchEvidenceExcerpt";
 import type { ResearchProfile } from "../domain/researchProfile";
-import { productionCodexPlatform } from "../server/codex/codexPlatform";
+import { researchAttemptTempParent } from "../server/codex/codexPlatform";
 import {
   type CommittedLaunchReservation,
   codexInputHash,
@@ -155,10 +155,7 @@ export async function planResearchBrief(
         : undefined,
   };
   const attemptDir = await mkdtemp(
-    join(
-      await realpath(productionCodexPlatform().tempParent),
-      "stocksembly-brief-",
-    ),
+    join(await realpath(researchAttemptTempParent()), "stocksembly-brief-"),
   );
   let brief: ResearchBrief;
   try {
@@ -174,7 +171,7 @@ export async function planResearchBrief(
       recordedAt: new Date().toISOString(),
       callId: key.attemptId,
       phase: "research_brief",
-      model: "gpt-5.6-luna",
+      model: result.evidence.model,
       reasoning: "medium",
       toolEventCount: result.evidence.toolEventCount,
       ...result.evidence.tokenUsage,

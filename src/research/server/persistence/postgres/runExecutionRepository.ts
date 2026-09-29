@@ -5,9 +5,16 @@ import {
   ResearchExecutionBackendSchema,
   type ResearchQueueStatus,
 } from "../../../domain/researchExecution";
+import { usesOpenAiApi } from "../../codex/researchProvider";
 import type { ResearchDatabase } from "./database";
 export const ACTIVE_RESEARCH_SQL = "status IN ('running', 'cancelling')";
 export function researchExecutionCapacity() {
+  if (usesOpenAiApi())
+    return {
+      subscription: 0,
+      api: RESEARCH_EXECUTION_LIMITS.api,
+      total: RESEARCH_EXECUTION_LIMITS.api,
+    };
   const api =
     process.env["STOCKSEMBLY_CODEX_API_ENABLED"] === "1" &&
     process.env["STOCKSEMBLY_CODEX_API_AUTH_PATH"]?.trim()

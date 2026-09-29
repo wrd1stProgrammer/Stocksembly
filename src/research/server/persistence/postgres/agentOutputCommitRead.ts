@@ -33,7 +33,7 @@ const BindingRowSchema = z.object({
   runner_binary_hash: z.string(),
   runner_cli_version: z.string(),
   runner_stage: z.string(),
-  runner_model: z.enum(["gpt-5.6-terra", "gpt-5.6-luna"]),
+  runner_model: z.enum(["gpt-5.6-terra", "gpt-5.6-luna", "gpt-6-luna"]),
   runner_reasoning: z.enum(["low", "medium"]),
   runner_browsing_policy: z.enum(["disabled", "audited_web"]),
   runner_tool_transcript_hash: z.string(),

@@ -5,6 +5,9 @@ import {
   createCodexAuthenticationCircuit,
   createHybridCodexPort,
 } from "./codexHybridRouting";
+import { openAiApiKey } from "./openAiCredentials";
+import { createOpenAiPort } from "./openAiResponsesRunner";
+import { usesOpenAiApi } from "./researchProvider";
 
 export {
   buildChildEnvironment,
@@ -105,6 +108,7 @@ function processHybridPool() {
 export function createCodexPort(
   reservations: LaunchReservationReader,
 ): CodexPort {
+  if (usesOpenAiApi()) return createOpenAiPort(reservations);
   const ports = new Map<ResearchExecutionBackend, CodexPort>();
   return createHybridCodexPort({
     pool: processHybridPool(),
@@ -130,6 +134,10 @@ export function createCodexPort(
 }
 
 export async function runProductionCodexWorkerAdmission(): Promise<void> {
+  if (usesOpenAiApi()) {
+    await openAiApiKey();
+    return;
+  }
   await admitHybridCodexWorker({
     authentication,
     apiEnabled,
@@ -152,6 +160,10 @@ export async function runProductionReadinessDiagnostic(
     };
   }[];
 }> {
+  if (usesOpenAiApi()) {
+    await openAiApiKey();
+    return { rounds: [{ probeCalls: 0, completedPorts: 0, blockedPorts: 0 }] };
+  }
   const platform = productionCodexPlatform();
   const diagnosticId = randomUUID();
   const results = [];

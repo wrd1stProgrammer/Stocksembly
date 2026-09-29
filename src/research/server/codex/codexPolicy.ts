@@ -1,3 +1,5 @@
+import { OPENAI_RESEARCH_MODEL, usesOpenAiApi } from "./researchProvider";
+
 export const CODEX_STAGES = [
   "memo",
   "department_consolidation",
@@ -12,9 +14,12 @@ export const CODEX_STAGES = [
 
 export type CodexStage = (typeof CODEX_STAGES)[number];
 export type AgentResearchStage = Exclude<CodexStage, "qa" | "probe">;
-export type AgentResearchModel = "gpt-5.6-terra" | "gpt-5.6-luna";
+export type AgentResearchModel =
+  | "gpt-5.6-terra"
+  | "gpt-5.6-luna"
+  | "gpt-6-luna";
 export type AgentResearchReasoning = "low" | "medium";
-export type CodexModel = "gpt-5.6-sol" | "gpt-5.6-terra" | "gpt-5.6-luna";
+export type CodexModel = "gpt-5.6-sol" | AgentResearchModel;
 export type CodexReasoning = "low" | "medium" | "high";
 export type CodexBrowsingPolicy = "disabled" | "audited_web";
 export type CodexRuntimeOverride = {
@@ -64,6 +69,11 @@ export function trustedResearchRuntime(
   model: AgentResearchModel;
   reasoning: AgentResearchReasoning;
 }> {
+  if (usesOpenAiApi())
+    return {
+      model: OPENAI_RESEARCH_MODEL,
+      reasoning: CODEX_RUNTIME_POLICY.reasoningByStage[stage],
+    };
   return (
     researchRuntimeOverride(
       stage,
