@@ -92,7 +92,7 @@ export const RawBarSchema = z
 export const SeriesResponseSchema = z.strictObject({
   code: z.string().trim().min(3).max(64),
   last_update: z.number().finite().nonnegative(),
-  _ct: z.number().finite().nonnegative(),
+  _ct: z.number().finite().nonnegative().optional(),
   bar_type: z.string().trim().min(1).max(16),
   series: z.array(RawBarSchema).min(1).max(30_000),
   bar_end: z.number().finite().nonnegative().optional(),

@@ -1,3 +1,4 @@
+import { InsightSentryClientError } from "./insightSentryFailureClassifier";
 import {
   QuoteResponseSchema,
   SearchResponseSchema,
@@ -188,6 +189,25 @@ export function createInsightSentryMarket(
           pointCount: 500,
         }),
       ]);
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const error: unknown = result.reason;
+          console.warn(
+            JSON.stringify({
+              kind: "technical_timeframe_unavailable",
+              timeframe: ["1h", "4h", "1d", "1w"][index],
+              code:
+                error instanceof InsightSentryClientError
+                  ? error.code
+                  : "invalid_series",
+              ...(error instanceof InsightSentryClientError &&
+              error.status !== undefined
+                ? { status: error.status }
+                : {}),
+            }),
+          );
+        }
+      });
       const available = results.flatMap((result) =>
         result.status === "fulfilled" ? [result.value] : [],
       );
