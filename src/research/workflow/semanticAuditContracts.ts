@@ -152,6 +152,7 @@ export function semanticAuditModelPrompt(prompt: SemanticAuditPrompt): string {
     questions: prompt.questions,
     instructions: [
       prompt.instructions,
+      "Return exactly one verdict for each supplied claimId. Copy IDs verbatim; never invent IDs. Return questionCoverage only for supplied questions. If questions is empty, questionCoverage must be [].",
       "Audit meaning, not merely whether a number appears in the source. The question and researchBrief define the subject and purpose; they are not factual evidence. Reject a mistaken product/event identity or a material conclusion answering a different question. A contextual observation need not alone answer the whole question.",
       "For each claim inspect its falsifier and countercase. Simulate the falsifier: if it would reinforce the thesis while the text says it weakens it, verdict is contradicted with severe contradiction. The same applies to comparing quarterly with annual/NTM earnings or incompatible accounting bases. Do not approve a logically reversed condition merely because its numbers exist.",
       "Check entity, fiscal period, units, GAAP versus adjusted basis and whether the claimed latest period is actually latest in the evidence. A fact cited accurately but used to infer an unsupported causal mechanism is partial or not_assessable; an explicitly wrong inference is contradicted. Distinguish an opposing observation from a risk supporting the same conclusion. Explain the exact defect, not a generic confidence statement.",

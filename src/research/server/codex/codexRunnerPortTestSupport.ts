@@ -65,8 +65,8 @@ export function runInput(
   };
 }
 
-export function committedReservation(
-  input: CodexRunInput<{ readonly message: "PONG" }>,
+export function committedReservation<Candidate>(
+  input: CodexRunInput<Candidate>,
 ): CommittedLaunchReservation {
   return Object.freeze({
     ...input.reservation.key,
