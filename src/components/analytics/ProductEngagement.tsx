@@ -5,10 +5,12 @@ import {
   type ProductEngagement as Engagement,
   engagementSurface,
 } from "../../admin/productEngagement";
+import { trackProductEvent } from "../../lib/analytics/client";
 
 export function trackProductMilestone(
   kind: Exclude<Engagement["kind"], "page">,
 ): void {
+  trackProductEvent(kind);
   window.dispatchEvent(
     new CustomEvent("stocksembly:product-milestone", { detail: kind }),
   );

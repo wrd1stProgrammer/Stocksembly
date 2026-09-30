@@ -4,7 +4,7 @@ export const privacyDocument: LegalDocument = {
   title: "Privacy Policy",
   description:
     "How SERN collects, uses, stores, and protects personal information when you use Stocksembly.",
-  updated: "September 5, 2026",
+  updated: "September 30, 2026",
   notice:
     "Pre-launch draft. Service providers, overseas transfers, exact retention periods, and cookie vendors must be completed before production collection begins.",
   sections: [
@@ -52,6 +52,8 @@ export const privacyDocument: LegalDocument = {
     {
       title: "6. Cookies, analytics, and advertising measurement",
       paragraphs: [
+        "Before an optional analytics choice, public pages send unlinked visit counts, coarse source-channel and screen-size categories, visible time and scroll-depth buckets through our server. This measurement does not use cookie or account identifiers, fingerprinting, raw URLs or prompt text. Each count receives an unrelated random event identifier; visitor IP addresses and browser headers are not forwarded to PostHog, and geolocation enrichment is disabled. Rejecting analytics, Global Privacy Control or Do Not Track stops this additional measurement. These counts cannot reconstruct an individual visitor's journey or determine unique visitors.",
+        "With optional analytics consent, PostHog (US cloud) receives pseudonymous account identifiers, campaign labels, page categories, engagement durations, product actions and confirmed subscription revenue. Session replay masks text, input values and element attributes; authentication, account and checkout pages, embedded payment frames, images and canvas are excluded from replay. Prompts, chat messages, email addresses and payment credentials are not intentionally sent. Select Analytics preferences to withdraw consent and stop future collection.",
         "Stocksembly may use essential cookies for login, security, and preferences, analytics cookies to understand aggregate usage and product performance, and Meta Pixel or Conversions API data to measure advertising conversions. Advertising measurement may include pseudonymous identifiers, a hashed account identifier or email address, pages viewed, checkout activity, and purchase value. Where required, these non-essential tools remain off until you consent. You can change browser settings or use the service's cookie controls when available.",
       ],
     },

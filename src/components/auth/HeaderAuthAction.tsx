@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { configureAmplifyAuth } from "../../auth/amplifyClient";
 import { clearResearchSession } from "../../auth/researchSession";
+import { resetProductIdentity } from "../../lib/analytics/client";
 import type { AppLocale } from "../../lib/i18n";
 import { uiMessage } from "../../lib/i18n";
 import { RecentResearchDrawer } from "./RecentResearchDrawer";
@@ -67,7 +68,10 @@ export function HeaderAuthAction({
         onClick={() => {
           void clearResearchSession()
             .then(() => signOut())
-            .then(() => setAuthState("signed-out"))
+            .then(() => {
+              resetProductIdentity();
+              setAuthState("signed-out");
+            })
             .catch(() => undefined);
         }}
         type="button"

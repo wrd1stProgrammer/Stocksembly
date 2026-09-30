@@ -2,9 +2,12 @@
 
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { useCallback, useEffect, useState } from "react";
+import { stopProductAnalytics } from "../../lib/analytics/client";
 import { MetaPixel } from "../../lib/meta/pixel";
 import type { AppLocale } from "../../lib/supportedLocales";
+import { AggregateVisits } from "./AggregateVisits";
 import { consentCopy } from "./consentCopy";
+import { PostHogAnalytics } from "./PostHogAnalytics";
 import { ProductEngagement } from "./ProductEngagement";
 
 const CONSENT_COOKIE = "stocksembly_analytics_consent";
@@ -136,6 +139,7 @@ export function AnalyticsConsent({
 
   if (!enabled) return null;
   const choose = (next: Exclude<Consent, "unset">) => {
+    if (next === "denied") stopProductAnalytics();
     // biome-ignore lint/suspicious/noDocumentCookie: broad browser support is required for the server-readable consent gate.
     document.cookie = `${CONSENT_COOKIE}=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
     setConsent(next);
@@ -143,6 +147,23 @@ export function AnalyticsConsent({
   };
   return (
     <>
+      <AggregateVisits />
+      {consent !== "unset" ? (
+        <button
+          type="button"
+          onClick={() => setConsent("unset")}
+          style={{
+            position: "fixed",
+            bottom: 8,
+            left: 8,
+            zIndex: 50,
+            fontSize: 11,
+          }}
+        >
+          {locale === "ko" ? "분석 설정" : "Analytics preferences"}
+        </button>
+      ) : null}
+      {consent === "granted" ? <PostHogAnalytics /> : null}
       {consent === "granted" ? <ProductEngagement /> : null}
       {consent === "granted" && measurementId ? (
         <GoogleAnalytics gaId={measurementId} />
@@ -159,6 +180,16 @@ export function AnalyticsConsent({
           <div>
             <strong>{content.title}</strong>
             <p>{content.description}</p>
+            <p>
+              {locale === "ko"
+                ? "선택 전에는 개인과 연결하지 않는 공개 페이지 방문·유입·체류·스크롤 통계를 집계합니다. 거절하면 이 추가 집계도 중단합니다."
+                : "Before your choice, we count unlinked public-page visits, channels, time and scroll depth. Rejecting also stops these additional statistics."}
+            </p>
+            <p>
+              {locale === "ko"
+                ? "PostHog로 페이지 이동과 체류시간, 사용 흐름을 분석하고 텍스트와 입력값을 가린 세션 재생을 수집합니다. 분석 설정에서 언제든 거절할 수 있습니다."
+                : "PostHog measures page journeys, time spent and product actions, and records sessions with text and inputs masked. You can withdraw consent in Analytics preferences."}
+            </p>
           </div>
           <button type="button" onClick={() => choose("denied")}>
             {content.reject}

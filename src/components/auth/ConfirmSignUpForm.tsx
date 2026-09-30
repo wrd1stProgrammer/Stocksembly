@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { configureAmplifyAuth } from "@/src/auth/amplifyClient";
 import { authErrorMessage } from "@/src/auth/authErrors";
+import { trackProductEvent } from "../../lib/analytics/client";
 import {
   AuthField,
   AuthFrame,
@@ -33,6 +34,7 @@ export function ConfirmSignUpForm() {
         username: email.trim(),
         confirmationCode: code.trim(),
       });
+      trackProductEvent("signup_confirmed");
       router.replace(`/login?email=${encodeURIComponent(email.trim())}`);
     } catch (caught) {
       setError(authErrorMessage(caught));
