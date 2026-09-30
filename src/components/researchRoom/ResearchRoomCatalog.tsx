@@ -700,6 +700,7 @@ export function ResearchRoomCatalog({
         </main>
       </div>
       <MobileBottomNav
+        authenticated={access.authenticated}
         activeItem="research-room"
         locale={locale}
         hidden={access.authenticated && !sidebarCollapsed}

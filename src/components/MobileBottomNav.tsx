@@ -12,6 +12,7 @@ type Props = {
   readonly activeItem: MobileBottomNavItem;
   readonly locale: AppLocale;
   readonly hidden?: boolean;
+  readonly authenticated?: boolean;
 };
 
 const labels = {
@@ -73,7 +74,12 @@ function readScrollPosition(): number {
   );
 }
 
-export function MobileBottomNav({ activeItem, locale, hidden = false }: Props) {
+export function MobileBottomNav({
+  activeItem,
+  locale,
+  hidden = false,
+  authenticated = false,
+}: Props) {
   const [compact, setCompact] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const lastScrollPosition = useRef(0);
@@ -169,12 +175,17 @@ export function MobileBottomNav({ activeItem, locale, hidden = false }: Props) {
         return (
           <Link
             className={`mobile-bottom-nav__item${active ? " is-active" : ""}`}
-            href={href}
+            href={
+              id !== "home" && !authenticated
+                ? `/login?lang=${locale}&next=${encodeURIComponent(href)}`
+                : href
+            }
             key={id}
+            aria-label={label}
+            title={label}
             aria-current={active ? "page" : undefined}
           >
             <Icon aria-hidden="true" />
-            <span>{label}</span>
           </Link>
         );
       })}

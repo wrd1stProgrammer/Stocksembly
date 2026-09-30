@@ -51,7 +51,7 @@ export function PublishedResearchWorkspace({
   version,
 }: Props) {
   const roomCopy = researchRoomUiCopy[locale];
-  const [transcriptOpen, setTranscriptOpen] = useState(true);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [presentedFile, setPresentedFile] = useState(file);
   const [presentedQuestion, setPresentedQuestion] = useState(originalQuestion);
   const [presentedRunDetail, setPresentedRunDetail] = useState(runDetail);
@@ -85,6 +85,10 @@ export function PublishedResearchWorkspace({
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
+
+  useEffect(() => {
+    setTranscriptOpen(window.matchMedia("(min-width: 901px)").matches);
+  }, []);
 
   async function translateReport() {
     if (translating || !needsTranslation) return;
@@ -156,9 +160,11 @@ export function PublishedResearchWorkspace({
         <Link
           className="public-research-workspace__back"
           href={`/research-room?lang=${locale}`}
+          aria-label={roomCopy.back}
+          title={roomCopy.back}
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          {roomCopy.back}
+          <span>{roomCopy.back}</span>
         </Link>
         {sourceLocale === locale ? null : (
           <button
@@ -166,6 +172,16 @@ export function PublishedResearchWorkspace({
             className="public-research-workspace__translate"
             disabled={translating || !needsTranslation}
             onClick={() => void translateReport()}
+            aria-label={
+              translatedTargetLocale === locale
+                ? roomCopy.translated
+                : roomCopy.professionalTranslation
+            }
+            title={
+              translatedTargetLocale === locale
+                ? roomCopy.translated
+                : roomCopy.professionalTranslation
+            }
           >
             {translating ? (
               <LoaderCircle
@@ -176,9 +192,11 @@ export function PublishedResearchWorkspace({
             ) : (
               <Languages size={15} aria-hidden="true" />
             )}
-            {translatedTargetLocale === locale
-              ? roomCopy.translated
-              : roomCopy.professionalTranslation}
+            <span>
+              {translatedTargetLocale === locale
+                ? roomCopy.translated
+                : roomCopy.professionalTranslation}
+            </span>
           </button>
         )}
         {translationError === null ? null : (
