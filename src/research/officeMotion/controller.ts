@@ -36,6 +36,7 @@ export async function createOfficeMotionRenderer(
     showActorUi = true,
     showActorBubbles = true,
     onActorSelect,
+    frameRate = 60,
   } = options;
   signal.throwIfAborted();
   const assets = await loadAssets();
@@ -239,6 +240,10 @@ export async function createOfficeMotionRenderer(
       return;
     const delta =
       lastTime === undefined ? 0 : Math.min(0.05, (now - lastTime) / 1000);
+    if (lastTime !== undefined && now - lastTime < 1000 / frameRate - 1) {
+      raf = window.requestAnimationFrame(animate);
+      return;
+    }
     lastTime = now;
     paint(delta);
     raf = window.requestAnimationFrame(animate);

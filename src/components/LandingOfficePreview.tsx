@@ -112,11 +112,12 @@ export function LandingOfficePreview({
         advanced += 1;
       }
       if (advanced === 3 && elapsed >= AMBIENT_STEP_MS) lastStepAt = now;
-      controller.renderSnapshot(currentSnapshot, {
-        previousSnapshot,
-        interpolation: Math.min((now - lastStepAt) / AMBIENT_STEP_MS, 1),
-        cameraMode: "overview",
-      });
+      if (advanced > 0)
+        controller.renderSnapshot(currentSnapshot, {
+          previousSnapshot,
+          interpolation: Math.min((now - lastStepAt) / AMBIENT_STEP_MS, 1),
+          cameraMode: "overview",
+        });
       animationFrame = requestAnimationFrame(draw);
     };
 
@@ -143,6 +144,7 @@ export function LandingOfficePreview({
         locale,
         reducedMotion,
         showActorUi: false,
+        frameRate: window.matchMedia?.("(max-width: 767px)").matches ? 30 : 60,
         onActorSelect: setSelectedAgentId,
         signal: abortController.signal,
       });

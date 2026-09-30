@@ -1,7 +1,7 @@
 "use client";
 
+import "../../styles/research-workspace-v2.css";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import type { AppLocale } from "../../lib/i18n";
 import { researchLocale } from "../../lib/i18n";
@@ -155,13 +155,6 @@ export default function LandingReport({
               ? "보고서에 따라 다가오는 판단 시점도 제공하며, 하단에서 원문 출처와 근거를 확인할 수 있습니다."
               : "Reports also include upcoming decision dates when available, with original sources and evidence in the appendix."}
           </p>
-          <Link
-            className="landing-text-link"
-            href={`/research-room/${researchSample.reportId}?lang=en`}
-          >
-            {ko ? "전체 보고서 열기" : "Open the full report"}
-            <ArrowUpRight size={15} />
-          </Link>
         </div>
         <div className="landing-file__surface">
           <header className="landing-file__toolbar">
@@ -201,14 +194,17 @@ export default function LandingReport({
                   snapshot={chartSample}
                 />
               ) : null}
-              <CommitteeDecisionCockpit
-                hasChartChapter
-                company={researchSample.company}
-                file={researchSample.file}
-                model={model}
-                locale="en"
-              />
-              <ResearchFileQuestions file={researchSample.file} locale="en" />
+              {chapter.section !== "anticipated-qa" ? (
+                <CommitteeDecisionCockpit
+                  hasChartChapter
+                  company={researchSample.company}
+                  file={researchSample.file}
+                  model={model}
+                  locale="en"
+                />
+              ) : (
+                <ResearchFileQuestions file={researchSample.file} locale="en" />
+              )}
             </article>
           </section>
           <footer>
