@@ -449,7 +449,7 @@ describe("limited final publication recovery", () => {
   });
 
   it("retains an all-revised consolidation with no unchanged accepted claims", () => {
-    const original = candidate();
+    const original = DepartmentConsolidationOutputSchema.parse(candidate());
     const allRevised = {
       ...original,
       acceptedClaimIds: [],
