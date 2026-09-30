@@ -8,7 +8,7 @@ import {
 } from "@/src/research/server/api/liveResearchApi";
 import { loadResearchRoomReport } from "@/src/research/server/researchRoom/researchRoomCatalog";
 import { requiresResearchRoomViewCredit } from "@/src/research/server/researchRoom/researchRoomIndexability";
-import { translatedResearchProjection } from "@/src/research/server/researchRoom/researchRoomLocalizations";
+import { requestResearchTranslation } from "@/src/research/server/researchRoom/researchTranslationJobs";
 import { RESEARCH_TRANSLATION_LOCALES } from "@/src/research/server/researchRoom/researchTranslationLocales";
 
 export const runtime = "nodejs";
@@ -18,6 +18,7 @@ type Props = { readonly params: Promise<{ readonly reportId: string }> };
 
 const RequestSchema = z.object({
   targetLocale: z.enum(RESEARCH_TRANSLATION_LOCALES),
+  retryFailed: z.boolean().optional(),
 });
 
 function translationFailureDetails(error: unknown) {
@@ -49,12 +50,7 @@ export async function POST(
   if (!access.authenticated)
     return Response.json({ error: "AUTHENTICATION_REQUIRED" }, { status: 401 });
   const now = new Date();
-  const report = await loadResearchRoomReport(
-    reportId,
-    access,
-    now,
-    body.data.targetLocale,
-  );
+  const report = await loadResearchRoomReport(reportId, access, now);
   if (report === undefined)
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   if (report === "locked")
@@ -92,17 +88,31 @@ export async function POST(
   };
   try {
     const runtime = await prepareLiveResearchRuntime();
-    projection = await translatedResearchProjection(
+    const job = await requestResearchTranslation(
       runtime.database,
-      reportId,
-      report.runDetail.run.runId,
-      report.file,
-      report.item.question,
-      report.runDetail,
-      report.conversation,
-      report.item.locale,
-      body.data.targetLocale,
+      {
+        reportId,
+        runId: report.runDetail.run.runId,
+        file: report.file,
+        question: report.item.question,
+        runDetail: report.runDetail,
+        conversation: report.conversation,
+        sourceLocale: report.item.locale,
+        targetLocale: body.data.targetLocale,
+      },
+      body.data.retryFailed === true,
     );
+    if (job.status === "queued" || job.status === "running")
+      return Response.json(
+        { status: job.status },
+        {
+          status: 202,
+          headers: { "Cache-Control": "private, no-store", "Retry-After": "2" },
+        },
+      );
+    if (job.status !== "succeeded" || job.result_json === null)
+      return Response.json({ error: "TRANSLATION_FAILED" }, { status: 502 });
+    projection = job.result_json;
   } catch (error) {
     process.stderr.write(
       `${JSON.stringify(translationFailureDetails(error))}\n`,

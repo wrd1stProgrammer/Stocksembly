@@ -14,7 +14,7 @@ describe("PostgreSQL ordered migrations", () => {
     const database = await createResearchTestDatabase();
     cleanups.push(database.close);
     const store = await openPostgresStore(database.pool);
-    expect(await store.schemaVersions()).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(await store.schemaVersions()).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(await store.tableNames()).toEqual([
       "agent_output_commits",
       "agent_runner_evidence",
@@ -39,6 +39,7 @@ describe("PostgreSQL ordered migrations", () => {
       "research_call_ordinals",
       "research_quality_observations",
       "research_question_localizations",
+      "research_report_translation_jobs",
       "research_report_translations",
       "research_requests",
       "research_room_views",

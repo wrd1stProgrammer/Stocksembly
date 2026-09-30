@@ -71,11 +71,11 @@ jobs:
       - name: Verify CloudFront deployment shell syntax
         run: bash scripts/ci-static-assets-workflow.test.sh
       - name: Verify static asset routing and fallback
-        run: pnpm exec vitest run src/lib/staticAsset.test.ts src/research/officeMotion/canvasPrimitives.assets.test.ts
+        run: pnpm exec vitest run src/lib/staticAsset.test.ts src/research/officeMotion/canvasPrimitives.assets.test.ts src/research/officeMotion/refinedActors.test.ts
       - name: Verify PostgreSQL public catalogs
         env:
           STOCKSEMBLY_API_TEST_DATABASE_URL: postgres://stocksembly:stocksembly_ci@127.0.0.1:5432/stocksembly_test
-        run: pnpm exec vitest run src/research/server/researchRoom/researchRoomCatalog.test.ts src/research/server/researchRoom/stockResearchHubCatalog.test.ts
+        run: pnpm exec vitest run src/research/server/researchRoom/researchRoomCatalog.test.ts src/research/server/researchRoom/stockResearchHubCatalog.test.ts src/research/server/researchRoom/researchTranslationJobs.test.ts
       - name: Verify Bash 3 changed-file lint portability
         run: /bin/bash scripts/ci-lint-changed.test.sh
       - name: Verify production change classification

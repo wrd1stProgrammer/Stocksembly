@@ -4,7 +4,7 @@ import "../../styles/researchWorkspace";
 import "../../styles/research-room.css";
 import { ArrowLeft, Languages, LoaderCircle } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type AppLocale,
   type ResearchLocale,
@@ -62,6 +62,8 @@ export function PublishedResearchWorkspace({
   const [translatedTargetLocale, setTranslatedTargetLocale] =
     useState<AppLocale>();
   const [translating, setTranslating] = useState(false);
+  const translationRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => translationRequest.current?.abort(), []);
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [creditShortage, setCreditShortage] = useState<{
     readonly remaining: number;
@@ -94,16 +96,39 @@ export function PublishedResearchWorkspace({
     if (translating || !needsTranslation) return;
     setTranslating(true);
     setTranslationError(null);
+    const controller = new AbortController();
+    translationRequest.current = controller;
     try {
-      const response = await fetch(
-        `/api/research-room/${encodeURIComponent(reportId)}/translation`,
-        {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ targetLocale: locale }),
-        },
-      );
+      let response: Response;
+      let firstRequest = true;
+      do {
+        response = await fetch(
+          `/api/research-room/${encodeURIComponent(reportId)}/translation`,
+          {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              targetLocale: locale,
+              retryFailed: firstRequest,
+            }),
+            signal: controller.signal,
+          },
+        );
+        firstRequest = false;
+        if (response.status === 202) {
+          await new Promise<void>((resolve) => {
+            const done = () => {
+              clearTimeout(timer);
+              controller.signal.removeEventListener("abort", done);
+              resolve();
+            };
+            const timer = setTimeout(done, 2_000);
+            controller.signal.addEventListener("abort", done, { once: true });
+          });
+          controller.signal.throwIfAborted();
+        }
+      } while (response.status === 202);
       const payload = (await response.json().catch(() => ({}))) as {
         readonly error?: string;
         readonly file?: ResearchFileData;
@@ -141,7 +166,8 @@ export function PublishedResearchWorkspace({
       setContentLocale(payload.renderLocale);
       setTranslatedTargetLocale(locale);
     } catch {
-      setTranslationError(roomCopy.translationFailed);
+      if (!controller.signal.aborted)
+        setTranslationError(roomCopy.translationFailed);
     } finally {
       setTranslating(false);
     }
