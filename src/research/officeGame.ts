@@ -66,6 +66,7 @@ export type OfficeSnapshotRendererOptions = {
   readonly reducedMotion: boolean;
   readonly showActorUi?: boolean;
   readonly showActorBubbles?: boolean;
+  readonly frameRate?: number;
   readonly onActorSelect?: (actorId: AgentId) => void;
   readonly onDialogueChange?: (change: OfficeDialogueChange) => void;
   readonly signal: AbortSignal;
