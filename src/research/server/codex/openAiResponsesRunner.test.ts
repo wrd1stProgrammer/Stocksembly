@@ -3,6 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TRUSTED_AGENT_RUNTIME_POLICY } from "../../application/commitAgentOutputContracts";
+import { repairDepartmentPublication } from "../../workflow/departmentPublicationRepair";
+import {
+  DepartmentJobPromptSchema,
+  departmentRunnerOutputSchema,
+} from "../../workflow/departmentRoundContracts";
 import { SemanticAuditModelOutputSchema } from "../../workflow/semanticAuditContracts";
 import { researchExecutionCapacity } from "../persistence/postgres/runExecutionRepository";
 import {
@@ -44,6 +49,78 @@ function streamResponse(value: unknown) {
 }
 
 describe("direct OpenAI research", () => {
+  it.each(["not JSON", '{"acceptedClaimIds":[],"sourceArtifactIds":[]}'])(
+    "recovers malformed department output (%s) in the same launch",
+    async (text) => {
+      const directory = await mkdtemp(join(tmpdir(), "openai-department-"));
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const evidenceId = "44444444-4444-4444-8444-444444444444";
+        const prompt = DepartmentJobPromptSchema.parse({
+          kind: "department_consolidation_input_v1",
+          decisionContract: "coherent-decision-v1",
+          department: {
+            id: "market",
+            leadId: "market",
+            memberIds: ["market", "market_news"],
+          },
+          memberArtifacts: ["market", "market_news"].map((roleId, index) => ({
+            artifactId: `33333333-3333-4333-8333-33333333333${index}`,
+            contentHash: "a".repeat(64),
+            ownership: { roleId },
+            memo: {
+              kind: "memo",
+              sourceArtifactIds: [evidenceId],
+              positions: [
+                {
+                  claimId: `55555555-5555-4555-8555-55555555555${index}`,
+                  stance: "supports",
+                  publicSummary: {
+                    en: `${roleId} finding`,
+                    ko: `${roleId} 분석`,
+                  },
+                  falsifier: { en: `${roleId} reversal`, ko: `${roleId} 반전` },
+                  evidenceArtifactIds: [evidenceId],
+                },
+              ],
+              dissent: [],
+              unknowns: [],
+            },
+          })),
+        });
+        const input = {
+          ...runInput(directory),
+          stage: "department_consolidation" as const,
+          prompt: JSON.stringify(prompt),
+          outputSchema: departmentRunnerOutputSchema(prompt),
+        };
+        const transport = vi.fn(async () => ({
+          ...completed,
+          output: [
+            { type: "message", content: [{ type: "output_text", text }] },
+          ],
+        }));
+        const port = createOpenAiPort(
+          { readCommittedReservation: async () => committedReservation(input) },
+          transport,
+        );
+        const result = await port.run(input);
+        expect(transport).toHaveBeenCalledTimes(1);
+        expect(result.recovery).toBe("department_compilation");
+        expect(result.candidate).not.toHaveProperty("publicationMode");
+        const final = repairDepartmentPublication(
+          { prompt: input.prompt },
+          result.candidate,
+          true,
+        );
+        expect(final?.publicationMode).toBe("limited_compilation");
+        expect(final?.acceptedClaimIds).toHaveLength(2);
+      } finally {
+        warn.mockRestore();
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
   it("recovers an invented question ID before strict audit validation and records actual runner evidence", async () => {
     const directory = await mkdtemp(join(tmpdir(), "openai-audit-"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

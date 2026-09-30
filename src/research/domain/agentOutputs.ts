@@ -122,7 +122,14 @@ export const DepartmentConsolidationOutputSchema = z
     sourceArtifactIds: SourceArtifactIdsSchema,
     agreementClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
     disagreementClaimIds: z.array(ClaimIdSchema).max(64).readonly(),
-    acceptedClaimIds: ClaimIdsSchema,
+    acceptedClaimIds: z
+      .array(ClaimIdSchema)
+      .max(64)
+      .refine(
+        (values) => new Set(values).size === values.length,
+        "duplicate claim",
+      )
+      .readonly(),
     strongestClaimIds: ClaimIdsSchema,
     weakestClaimIds: ClaimIdsSchema,
     revisedClaimIds: z.array(ClaimIdSchema).max(64).readonly(),

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import { z as zod } from "zod";
-import type { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
+import { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
 import { repairDepartmentPublication } from "./departmentPublicationRepair";
+import { reconcileDepartmentResponse } from "./departmentResponseRecovery";
 import { departmentCandidate } from "./departmentRoundCandidates.testSupport";
 import type { DepartmentJobPrompt } from "./departmentRoundContracts";
 import {
@@ -431,6 +432,51 @@ describe("department adjudication trust boundary", () => {
 });
 
 describe("limited final publication recovery", () => {
+  it("repairs invalid API output before the runner rejects it", () => {
+    const prompt = JSON.stringify(request());
+    const recovered = reconcileDepartmentResponse(prompt, {
+      acceptedClaimIds: [],
+      sourceArtifactIds: [IDS.memberA, IDS.memberA],
+    });
+    const parsed = DepartmentConsolidationOutputSchema.parse(recovered);
+    expect(parsed.publicationMode).toBe("limited_compilation");
+    expect(parsed.acceptedClaimIds).toEqual([
+      IDS.accepted,
+      IDS.revised,
+      IDS.removed,
+    ]);
+    expect(inspectDepartmentCandidate(job(), parsed)).toBeDefined();
+  });
+
+  it("retains an all-revised consolidation with no unchanged accepted claims", () => {
+    const original = DepartmentConsolidationOutputSchema.parse(candidate());
+    const allRevised = {
+      ...original,
+      acceptedClaimIds: [],
+      revisedClaimIds: [IDS.accepted, IDS.revised],
+      dispositions: original.dispositions.map((item) => ({
+        ...item,
+        disposition: item.claimId === IDS.removed ? "remove" : "revise",
+      })),
+      revisions: [
+        {
+          ...original.revisions[0],
+          originClaimId: IDS.accepted,
+          adjudicatedClaimId: IDS.accepted,
+          publicSummary: text("Revised accepted finding"),
+          falsifier: text("Revised accepted checkpoint"),
+          sourceArtifactIds: [IDS.evidenceA],
+        },
+        ...original.revisions,
+      ],
+    };
+    const recovered = reconcileDepartmentResponse(job().prompt, allRevised);
+    const parsed = DepartmentConsolidationOutputSchema.parse(recovered);
+    expect(parsed.publicationMode).toBeUndefined();
+    expect(parsed.acceptedClaimIds).toEqual([]);
+    expect(parsed.revisedClaimIds).toHaveLength(2);
+    expect(inspectDepartmentCandidate(job(), parsed)).toBeDefined();
+  });
   it("recovers malformed synthesis from authenticated claims without new citations", () => {
     const result = repairDepartmentPublication(job(), { broken: true });
     expect(result).toBeDefined();

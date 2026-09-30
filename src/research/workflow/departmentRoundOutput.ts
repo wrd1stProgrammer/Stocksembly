@@ -127,7 +127,7 @@ export function adjudicatedClaimIdForRevision(revision: {
 }
 
 export function inspectDepartmentCandidate(
-  job: PersistedDepartmentJob,
+  job: Pick<PersistedDepartmentJob, "prompt">,
   candidateInput: unknown,
 ): DepartmentCandidate | undefined {
   const parsed = DepartmentConsolidationOutputSchema.safeParse(candidateInput);

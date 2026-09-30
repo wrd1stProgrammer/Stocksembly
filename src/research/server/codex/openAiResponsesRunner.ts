@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { reconcileDepartmentResponse } from "../../workflow/departmentResponseRecovery";
 import { reconcileSemanticAuditResponse } from "../../workflow/semanticAuditResponse";
 import { collectQuestionWebEvidence } from "../qa/questionWebEvidence";
 import {
@@ -171,7 +173,9 @@ async function run<Candidate>(
     try {
       candidate = JSON.parse(text);
     } catch {
-      throw new CodexRunnerError("output_invalid");
+      if (input.stage !== "department_consolidation")
+        throw new CodexRunnerError("output_invalid");
+      candidate = {};
     }
     const hydrated = locale
       ? hydrateLocalizedCandidate(candidate, locale)
@@ -192,12 +196,38 @@ async function run<Candidate>(
         }),
       );
     }
-    const parsed = input.outputSchema.safeParse(
+    const reconciled =
       input.stage === "semantic_audit"
         ? reconcileSemanticAuditResponse(input.prompt, hydrated)
-        : hydrated,
-    );
+        : input.stage === "department_consolidation"
+          ? reconcileDepartmentResponse(input.prompt, hydrated)
+          : hydrated;
+    const departmentObject =
+      input.stage === "department_consolidation"
+        ? z.record(z.string(), z.unknown()).safeParse(reconciled)
+        : undefined;
+    const recovery =
+      departmentObject?.success &&
+      departmentObject.data["publicationMode"] === "limited_compilation"
+        ? ("department_compilation" as const)
+        : undefined;
+    const runnerCandidate = departmentObject?.success
+      ? Object.fromEntries(
+          Object.entries(departmentObject.data).filter(
+            ([key]) => key !== "publicationMode",
+          ),
+        )
+      : reconciled;
+    const parsed = input.outputSchema.safeParse(runnerCandidate);
     if (!parsed.success) throw new CodexRunnerError("output_invalid");
+    if (recovery)
+      console.warn(
+        JSON.stringify({
+          kind: "department_output_recovered",
+          attemptId: input.reservation.key.attemptId,
+          mode: recovery,
+        }),
+      );
     if (!original.success)
       console.warn(
         JSON.stringify({
@@ -258,8 +288,13 @@ async function run<Candidate>(
     await writeExclusiveJson(input.attemptDir, "lifecycle.json", {
       ...evidence,
       responseId: response.id,
+      ...(recovery ? { recovery } : {}),
     });
-    return { candidate: parsed.data, evidence };
+    return {
+      candidate: parsed.data,
+      evidence,
+      ...(recovery ? { recovery } : {}),
+    };
   } catch (error) {
     await writeExclusiveJson(input.attemptDir, "lifecycle.json", {
       transport: OPENAI_RUNNER_VERSION,
