@@ -81,6 +81,7 @@ export type SafeCodexEvidence = {
 };
 
 export type CodexRunResult<Candidate> = {
+  readonly recovery?: "department_compilation";
   readonly candidate: Candidate;
   readonly evidence: SafeCodexEvidence;
 };

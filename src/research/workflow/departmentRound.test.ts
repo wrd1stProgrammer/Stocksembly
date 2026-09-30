@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { DepartmentConsolidationOutputSchema } from "../domain/agentOutputs";
-import { CALL_BUDGET_POLICY } from "../domain/callBudgetContracts";
+import { z } from "zod";
 import { ArtifactIdSchema, RunIdSchema } from "../domain/ids";
 import { WORKFLOW_V1_ROLE_REGISTRY } from "../domain/roleRegistry";
 import { createPostgresDepartmentRound } from "./departmentRound";
@@ -23,6 +23,46 @@ afterEach(() => {
     if (root !== undefined) rmSync(root, { recursive: true, force: true });
   }
 });
+
+async function expectGroundedFinancialRecovery(
+  prepared: Awaited<ReturnType<typeof stageAcceptedSpecialists>>,
+) {
+  const row = (
+    await prepared.options.database.query(
+      `SELECT envelope_json FROM agent_output_commits JOIN attempts USING (attempt_id)
+      WHERE attempts.run_id = $1 AND logical_artifact_key = 'consolidation:financial'`,
+      [prepared.harness.input.mandate.runId],
+    )
+  ).rows[0];
+  const envelope = z.object({ envelope_json: z.string() }).parse(row);
+  const output = z
+    .object({ payload: DepartmentConsolidationOutputSchema })
+    .parse(JSON.parse(envelope.envelope_json)).payload;
+  const request = prepared.codex.departmentInputs.find(
+    (input) => input.department.id === "financial",
+  );
+  if (!request) throw new Error("missing financial input");
+  const positions = request.memberArtifacts.flatMap(
+    (member) => member.memo.positions,
+  );
+  expect(output.publicationMode).toBe("limited_compilation");
+  expect(output.decisionPacket?.stanceContribution).toBe("uncertain");
+  expect(output.sourceArtifactIds).toEqual(
+    request.memberArtifacts.map((member) => member.artifactId),
+  );
+  expect(
+    output.acceptedClaimIds.every((id) =>
+      positions.some((position) => position.claimId === id),
+    ),
+  ).toBe(true);
+  expect(
+    output.evidencePriorityArtifactIds.every((id) =>
+      positions.some((position) => position.evidenceArtifactIds.includes(id)),
+    ),
+  ).toBe(true);
+  expect(output.publicSummary.en).not.toContain("37");
+  expect(output.publicSummary.en).not.toContain("Aria said");
+}
 
 describe("department round", () => {
   it("commits four distinct lead meetings from exact authenticated member sets while retaining dissent and unknowns", async () => {
@@ -191,7 +231,7 @@ describe("department round", () => {
     expect(prepared.codex.departmentLaunches).toBe(0);
   });
 
-  it("rejects an unsupported number without overwriting the lead summary", async () => {
+  it("replaces an unsupported number with authenticated findings and continues", async () => {
     // Given
     const prepared = await stageAcceptedSpecialists(
       temporaryRoot(),
@@ -211,19 +251,15 @@ describe("department round", () => {
     await round.close();
 
     // Then
-    expect(replay.challengeStartAllowed).toBe(false);
-    expect(replay.committedDepartmentIds).not.toContain("financial");
-    expect(replay.artifactIds).toHaveLength(3);
-    expect(replay.receipts).toHaveLength(
-      3 + CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
-    );
-    expect(prepared.codex.departmentLaunches).toBe(
-      3 + CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
-    );
+    expect(replay.challengeStartAllowed).toBe(true);
+    expect(replay.artifactIds).toHaveLength(4);
+    expect(replay.receipts).toHaveLength(4);
+    expect(prepared.codex.departmentLaunches).toBe(4);
+    await expectGroundedFinancialRecovery(prepared);
   });
 
   it.each(["new_claim"] as const)(
-    "rejects %s from a department result without opening the next stage",
+    "excludes %s and continues using authenticated findings",
     async (fault) => {
       // Given
       const prepared = await stageAcceptedSpecialists(temporaryRoot(), fault);
@@ -241,9 +277,10 @@ describe("department round", () => {
       await round.close();
 
       // Then
-      expect(replay.challengeStartAllowed).toBe(false);
-      expect(replay.committedDepartmentIds).not.toContain("financial");
-      expect(replay.artifactIds).toHaveLength(3);
+      expect(replay.challengeStartAllowed).toBe(true);
+      expect(replay.artifactIds).toHaveLength(4);
+      expect(prepared.codex.departmentLaunches).toBe(4);
+      await expectGroundedFinancialRecovery(prepared);
     },
   );
 
@@ -275,7 +312,7 @@ describe("department round", () => {
   );
 
   it.each(["new_evidence", "absent_member_speech"] as const)(
-    "rejects invalid authenticated %s fields without overwriting them",
+    "excludes invalid %s fields from a limited compilation and continues",
     async (fault) => {
       const prepared = await stageAcceptedSpecialists(temporaryRoot(), fault);
       const round = createPostgresDepartmentRound(prepared.options);
@@ -290,15 +327,11 @@ describe("department round", () => {
       const replay = await round.drain(prepared.harness.input.mandate.runId);
       await round.close();
 
-      expect(replay.challengeStartAllowed).toBe(false);
-      expect(replay.committedDepartmentIds).not.toContain("financial");
-      expect(replay.artifactIds).toHaveLength(3);
-      expect(replay.receipts).toHaveLength(
-        3 + CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
-      );
-      expect(prepared.codex.departmentLaunches).toBe(
-        3 + CALL_BUDGET_POLICY.maxAttemptsPerLogicalArtifact,
-      );
+      expect(replay.challengeStartAllowed).toBe(true);
+      expect(replay.artifactIds).toHaveLength(4);
+      expect(replay.receipts).toHaveLength(4);
+      expect(prepared.codex.departmentLaunches).toBe(4);
+      await expectGroundedFinancialRecovery(prepared);
     },
   );
 });

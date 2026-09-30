@@ -8,10 +8,13 @@ import { inspectDepartmentCandidate } from "./departmentRoundOutput";
 /** Preserve authenticated member findings when the final synthesis is malformed.
  * This is a limited compilation, not a new evidence audit or consensus vote. */
 export function repairDepartmentPublication(
-  job: PersistedDepartmentJob,
+  job: Pick<PersistedDepartmentJob, "prompt">,
   candidate: unknown,
+  forceCompilation = false,
 ) {
-  const accepted = inspectDepartmentCandidate(job, candidate);
+  const accepted = forceCompilation
+    ? undefined
+    : inspectDepartmentCandidate(job, candidate);
   if (accepted !== undefined) return accepted;
   const request = DepartmentJobPromptSchema.parse(JSON.parse(job.prompt));
   const positions = request.memberArtifacts.flatMap(

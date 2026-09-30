@@ -20,7 +20,6 @@ import {
   departmentRunnerOutputSchema,
   type PostgresDepartmentRoundOptions,
 } from "./departmentRoundContracts";
-import { inspectDepartmentCandidate } from "./departmentRoundOutput";
 import type { DepartmentRoundPostgresAuthority } from "./departmentRoundPostgresAuthority";
 import { retryRejectedCommit } from "./specialistCommitRetry";
 import type { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAuthority";
@@ -99,11 +98,12 @@ export function createDepartmentRoundAttemptHandler(
         signal,
         onActivity: activity,
       });
-      candidate = (await context.departmentAuthority.isFocusedRun(
-        attempt.runId,
-      ))
-        ? (repairDepartmentPublication(job, result.candidate) ?? {})
-        : (inspectDepartmentCandidate(job, result.candidate) ?? {});
+      candidate =
+        repairDepartmentPublication(
+          job,
+          result.candidate,
+          result.recovery === "department_compilation",
+        ) ?? {};
       runnerEvidence = result.evidence;
     } catch (error) {
       if (error instanceof CodexRunnerError) throw error;
