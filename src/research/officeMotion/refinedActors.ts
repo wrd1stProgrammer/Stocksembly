@@ -21,9 +21,10 @@ type Atlas = {
 };
 const atlases = new WeakMap<HTMLImageElement, Atlas>();
 
-export function refinedAtlas(source: HTMLImageElement): Atlas {
+export function refinedAtlas(source: HTMLImageElement): Atlas | undefined {
   const cached = atlases.get(source);
   if (cached) return cached;
+  if (source.naturalWidth <= 0 || source.naturalHeight <= 0) return undefined;
   const image = document.createElement("canvas");
   image.width = source.naturalWidth;
   image.height = source.naturalHeight;
@@ -163,8 +164,9 @@ export function drawRefinedActor(
   source: HTMLImageElement,
   time: number,
 ): void {
-  const atlas = refinedAtlas(source),
-    row = atlas.cells[ROW[actor.facing]];
+  const atlas = refinedAtlas(source);
+  if (!atlas) return;
+  const row = atlas.cells[ROW[actor.facing]];
   const neutral = row?.[0];
   if (!row || !neutral) return;
   const seat = seatAmount(actor),

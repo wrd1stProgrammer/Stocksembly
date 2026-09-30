@@ -23,6 +23,7 @@ import {
   getResearchPool,
 } from "../server/persistence/postgres/researchPool";
 import { createLiveResearchQueue } from "../server/queue/sqsResearchQueue";
+import { serveResearchTranslations } from "../server/researchRoom/researchTranslationJobs";
 import { resumeCommitteeChair } from "./chairResume";
 import {
   type AttemptHandler,
@@ -288,6 +289,10 @@ async function runWorker(
   if (leaseSignal?.aborted) controller.abort();
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
+  const translations =
+    pool && !argumentsValue.stopWhenIdle
+      ? serveResearchTranslations(pool, controller.signal)
+      : undefined;
   const engine = createLeaseEngine({
     pool: pool ?? (await getResearchPool()),
     ownerId: argumentsValue.ownerId,
@@ -360,6 +365,7 @@ async function runWorker(
     });
   } finally {
     controller.abort();
+    await translations;
     await engine.shutdown();
     leaseSignal?.removeEventListener("abort", stop);
     process.removeListener("SIGTERM", stop);

@@ -2125,6 +2125,10 @@
   border-left: 1px solid var(--editorial-rule);
 }
 
+.research-theme-toggle button span {
+  color: inherit;
+}
+
 .research-theme-toggle button[aria-pressed="true"] {
   color: var(--editorial-on-accent);
   background: var(--editorial-accent);
