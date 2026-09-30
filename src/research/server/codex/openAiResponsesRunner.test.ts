@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TRUSTED_AGENT_RUNTIME_POLICY } from "../../application/commitAgentOutputContracts";
+import { SemanticAuditModelOutputSchema } from "../../workflow/semanticAuditContracts";
 import { researchExecutionCapacity } from "../persistence/postgres/runExecutionRepository";
 import {
   createCodexPort,
@@ -43,6 +44,66 @@ function streamResponse(value: unknown) {
 }
 
 describe("direct OpenAI research", () => {
+  it("recovers an invented question ID before strict audit validation and records actual runner evidence", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "openai-audit-"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const claimId = "11111111-1111-4111-8111-111111111111";
+      const verdict = {
+        claimId,
+        verdict: "entailed",
+        contradictionSeverity: "none",
+        publicExplanation: { en: "Supported.", ko: "근거가 있습니다." },
+      };
+      const input = {
+        ...runInput(directory),
+        stage: "semantic_audit" as const,
+        prompt: JSON.stringify({
+          kind: "semantic_audit_input_v1",
+          claims: [{ claimId }],
+          questions: [],
+        }),
+        outputSchema: SemanticAuditModelOutputSchema,
+      };
+      const port = createOpenAiPort(
+        { readCommittedReservation: async () => committedReservation(input) },
+        async () => ({
+          ...completed,
+          output: [
+            {
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify({
+                    kind: "semantic_audit",
+                    verdicts: [verdict],
+                    questionCoverage: [
+                      {
+                        questionId: "q1",
+                        status: "covered",
+                        claimIds: [claimId],
+                      },
+                    ],
+                  }),
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      const result = await port.run(input);
+      expect(result.candidate.verdicts).toEqual([verdict]);
+      expect(result.candidate.questionCoverage).toEqual([]);
+      expect(result.evidence.model).toBe("gpt-6-luna");
+      expect(
+        warn.mock.calls.map(([line]) => JSON.parse(String(line)).kind),
+      ).toContain("model_output_contract_recovered");
+    } finally {
+      warn.mockRestore();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
   it("selects only API capacity and bypasses Codex admission and binary checks", async () => {
     vi.stubEnv("STOCKSEMBLY_RESEARCH_PROVIDER", "openai");
     vi.stubEnv("OPENAI_API_KEY", "fixture-key");

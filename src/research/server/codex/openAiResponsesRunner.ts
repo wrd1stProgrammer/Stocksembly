@@ -1,3 +1,4 @@
+import { reconcileSemanticAuditResponse } from "../../workflow/semanticAuditResponse";
 import { collectQuestionWebEvidence } from "../qa/questionWebEvidence";
 import {
   effectiveCodexPrompt,
@@ -172,10 +173,39 @@ async function run<Candidate>(
     } catch {
       throw new CodexRunnerError("output_invalid");
     }
+    const hydrated = locale
+      ? hydrateLocalizedCandidate(candidate, locale)
+      : candidate;
+    const original = input.outputSchema.safeParse(hydrated);
+    if (!original.success) {
+      console.warn(
+        JSON.stringify({
+          kind: "model_output_contract_invalid",
+          stage: input.stage,
+          attemptId: input.reservation.key.attemptId,
+          issues: original.error.issues.slice(0, 20).map((issue) => ({
+            code: issue.code,
+            path: issue.path
+              .slice(0, 8)
+              .map((part) => String(part).slice(0, 64)),
+          })),
+        }),
+      );
+    }
     const parsed = input.outputSchema.safeParse(
-      locale ? hydrateLocalizedCandidate(candidate, locale) : candidate,
+      input.stage === "semantic_audit"
+        ? reconcileSemanticAuditResponse(input.prompt, hydrated)
+        : hydrated,
     );
     if (!parsed.success) throw new CodexRunnerError("output_invalid");
+    if (!original.success)
+      console.warn(
+        JSON.stringify({
+          kind: "model_output_contract_recovered",
+          stage: input.stage,
+          attemptId: input.reservation.key.attemptId,
+        }),
+      );
     const evidence: SafeCodexEvidence = {
       executionBackend: "api",
       ordinal: reservation.ordinal,

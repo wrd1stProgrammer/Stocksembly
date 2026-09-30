@@ -490,6 +490,7 @@ export function App({
       <MobileBottomNav
         activeItem="home"
         locale={locale}
+        authenticated={signedIn}
         hidden={signedIn && !sidebarCollapsed}
       />
       {onboardingPreview || (signedIn && onboardingState === "pending") ? (

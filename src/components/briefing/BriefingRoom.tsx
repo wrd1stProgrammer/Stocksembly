@@ -76,6 +76,7 @@ export function BriefingRoom({
       ) : null}
 
       <MobileBottomNav
+        authenticated={state.authenticated}
         activeItem="briefing-room"
         locale={locale}
         hidden={state.authenticated && !collapsed}

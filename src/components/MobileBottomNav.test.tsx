@@ -23,10 +23,22 @@ describe("MobileBottomNav", () => {
   });
 
   it("preserves Japanese in the research-room destination", () => {
-    render(<MobileBottomNav activeItem="home" locale="ja" />);
+    render(<MobileBottomNav activeItem="home" locale="ja" authenticated />);
 
     expect(
       screen.getByRole("link", { name: /リサーチルーム/u }),
     ).toHaveAttribute("href", "/research-room?lang=ja");
+  });
+  it("sends signed-out visitors to login with their destination and language", () => {
+    render(<MobileBottomNav activeItem="home" locale="en" />);
+    for (const [name, destination] of [
+      ["Research room", "research-room"],
+      ["Briefing room", "briefing-room"],
+    ] as const) {
+      expect(screen.getByRole("link", { name })).toHaveAttribute(
+        "href",
+        `/login?lang=en&next=${encodeURIComponent(`/${destination}?lang=en`)}`,
+      );
+    }
   });
 });
