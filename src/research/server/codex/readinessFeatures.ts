@@ -41,6 +41,7 @@ const PINNED_FORCED_FEATURES: Readonly<Record<string, readonly string[]>> = {
   "codex-cli 0.150.0-alpha.8": ["unified_exec"],
   "codex-cli 0.153.1": ["unified_exec"],
   "codex-cli 0.153.4": ["unified_exec"],
+  "codex-cli 0.159.2": ["unified_exec"],
 };
 
 function expectedFeatureValue(version: string, name: string): boolean {

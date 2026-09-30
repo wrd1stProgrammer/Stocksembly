@@ -659,10 +659,7 @@ export function deterministicChairV3Fallback(
     assignedPositionIds.add(available.sentenceId);
     return available;
   };
-  const stance =
-    directional.stance === "wait_for_proof"
-      ? ("balanced" as const)
-      : directional.stance;
+  const stance = "insufficient_evidence" as const;
   const fallback: RawOutput = {
     kind: "chair_synthesis_v3",
     sourceLocale: prompt.mandate.locale,
@@ -812,6 +809,28 @@ function assertTeamViewsPositionRationaleDistinct(canonical: RawOutput): void {
     );
 }
 
+function deduplicateCitationIds(value: unknown, key = ""): unknown {
+  if (Array.isArray(value)) {
+    if (["sentenceIds", "claimIds", "sourceArtifactIds"].includes(key)) {
+      const unique = [...new Set(value)];
+      return key === "claimIds"
+        ? unique.filter((id) => ClaimIdSchema.safeParse(id).success)
+        : key === "sourceArtifactIds"
+          ? unique.filter((id) => ArtifactIdSchema.safeParse(id).success)
+          : unique;
+    }
+    return value.map((item) => deduplicateCitationIds(item));
+  }
+  if (value !== null && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([name, item]) => [
+        name,
+        deduplicateCitationIds(item, name),
+      ]),
+    );
+  return value;
+}
+
 export async function synthesizeChairV3(
   input: Readonly<{
     sourceLocale: "en" | "ko";
@@ -830,7 +849,9 @@ export async function synthesizeChairV3(
       throw new TypeError("chair_v3_transport_json_invalid");
     }
   }
-  const initial = ChairSynthesisV3RawModelOutputSchema.parse(rawModelOutput);
+  const initial = ChairSynthesisV3RawModelOutputSchema.parse(
+    deduplicateCitationIds(rawModelOutput),
+  );
   if (initial.sourceLocale !== input.sourceLocale)
     throw new TypeError("chair_v3_source_locale_mismatch");
   // Never spend another reserved model launch on a public-writing defect.
@@ -956,13 +977,6 @@ export function projectChairV3ForCommit(
         lineage: authenticatedLineage(item.lineage, directional.falsifier),
       })),
   };
-  const lineageFor = (
-    sentence: (typeof prompt.sentences)[number],
-  ): Lineage => ({
-    sentenceIds: [sentence.sentenceId],
-    claimIds: sentence.claimIds,
-    sourceArtifactIds: sentence.sourceArtifactIds,
-  });
   const grounded = (
     text: string,
     lineage: Lineage,
@@ -1029,27 +1043,12 @@ export function projectChairV3ForCommit(
           );
         })();
   };
-  const authoritativeStance =
-    directional.stance === "wait_for_proof" ? "balanced" : directional.stance;
-  const stanceConflict = canonical.stance !== authoritativeStance;
-  if (stanceConflict) publicationReductionReasons.add("stance_reconciliation");
   const normalizedCanonical: RawOutput = {
     ...canonicalWithAuthenticatedLineage,
-    stance: authoritativeStance,
-    decisiveReason: stanceConflict
-      ? normalizeReaderFacingPrecision(
-          directional.decisive.text[canonical.sourceLocale],
-        )
-      : grounded(
-          canonical.decisiveReason,
-          canonicalWithAuthenticatedLineage.decisionLineage.decisiveReason,
-        ),
-    decisionLineage: {
-      ...canonicalWithAuthenticatedLineage.decisionLineage,
-      decisiveReason: stanceConflict
-        ? lineageFor(directional.decisive)
-        : canonicalWithAuthenticatedLineage.decisionLineage.decisiveReason,
-    },
+    decisiveReason: grounded(
+      canonical.decisiveReason,
+      canonicalWithAuthenticatedLineage.decisionLineage.decisiveReason,
+    ),
     strongestCountercase: grounded(
       canonical.strongestCountercase,
       canonicalWithAuthenticatedLineage.decisionLineage.strongestCountercase,

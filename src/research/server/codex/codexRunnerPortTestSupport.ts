@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { access, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { z } from "zod";
 import { AttemptIdSchema, JobIdSchema, RunIdSchema } from "../../domain/ids";
 import type { CodexRunnerPlatform } from "./codexPlatform";
@@ -112,7 +112,9 @@ export async function makePlatform(): Promise<PlatformFixture> {
       NODE_ENV: "test",
     } as const,
     async inspectSignature(path) {
-      await access(join(dirname(path), "launch-manifest.json"));
+      if (path !== originPath)
+        throw new Error("Signature must verify the pinned origin");
+      await access(path);
       return {
         identifier: "codex",
         teamIdentifier: "TEAM",

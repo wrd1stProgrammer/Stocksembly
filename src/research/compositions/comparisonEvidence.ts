@@ -1,3 +1,4 @@
+import { InsightSentryClientError } from "../server/data/insightsentry/insightSentryClient";
 import type {
   InsightSentryBarSet,
   InsightSentryMarket,
@@ -79,11 +80,23 @@ export async function collectComparisonEvidence(input: {
                 ...target,
                 windows: matchedPriceReturns(input.subject!, bars, input.asOf),
               };
-            } catch {
+            } catch (error) {
+              const reason =
+                error instanceof InsightSentryClientError
+                  ? error.code
+                  : "invalid_series";
+              console.warn(
+                JSON.stringify({
+                  kind: "comparison_history_unavailable",
+                  symbol: target.symbol,
+                  reason,
+                }),
+              );
               return {
                 ...target,
                 windows: [],
                 limitation: "comparison_history_unavailable",
+                reason,
               };
             }
           }),

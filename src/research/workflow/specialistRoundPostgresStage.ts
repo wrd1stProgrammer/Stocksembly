@@ -34,9 +34,11 @@ type PostgresStore = Awaited<ReturnType<typeof openPostgresStore>>;
 
 export function permittedSpecialistInlineArtifact(artifact: {
   readonly dataset: string;
+  readonly evidenceId?: string;
 }): boolean {
   return (
-    artifact.dataset !== "insightsentry_peers" &&
+    (artifact.dataset !== "insightsentry_peers" ||
+      artifact.evidenceId === "insightsentry:comparisons") &&
     artifact.dataset !== "insightsentry_request_ledger"
   );
 }
