@@ -1,4 +1,5 @@
 import ky, { HTTPError, type KyInstance } from "ky";
+import { trackProductEvent } from "../../lib/analytics/client";
 import type { Locale } from "../../lib/i18n";
 import type { ResearchProfile } from "../domain/researchProfile";
 import type { ResearchTarget } from "../domain/researchTarget";
@@ -189,6 +190,7 @@ export function createResearchClient(
         ),
         (value) => CreateRunResponseSchema.parse(value),
       );
+      trackProductEvent("research_started");
       return { run: created.run, events: [] };
     },
     listRuns: async (limit = 50) =>
@@ -233,8 +235,8 @@ export function createResearchClient(
           (value) => ChildRunResponseSchema.parse(value),
         )
       ).run,
-    askQuestion: async (input) =>
-      (
+    askQuestion: async (input) => {
+      const question = (
         await parsedRequest(
           command(
             client,
@@ -250,7 +252,10 @@ export function createResearchClient(
           ),
           (value) => PublicQuestionResponseSchema.parse(value),
         )
-      ).question,
+      ).question;
+      trackProductEvent("agent_question_sent");
+      return question;
+    },
     getQuestion: async (questionId) =>
       (
         await parsedRequest(

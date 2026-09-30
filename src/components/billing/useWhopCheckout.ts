@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { currentAuthTokens } from "../../auth/researchSession";
+import { trackProductEvent } from "../../lib/analytics/client";
 import { trackMetaEvent } from "../../lib/meta/pixel";
 import type { WhopCheckoutLaunch } from "../../lib/whop/contracts";
 
@@ -60,6 +61,7 @@ export function useWhopCheckout() {
         if (!response.ok || typeof payload?.purchaseUrl !== "string")
           throw new Error("BILLING_CHECKOUT_UNAVAILABLE");
 
+        trackProductEvent("checkout_started");
         if (payload.tracking !== undefined)
           trackMetaEvent(
             "InitiateCheckout",

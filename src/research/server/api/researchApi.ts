@@ -29,6 +29,7 @@ import type {
   BriefingWatchlistItem,
 } from "../../../briefing/domain/contracts";
 import { nextUsPremarketBriefingAt } from "../../../briefing/domain/marketCalendar";
+import { sendPostHogPurchase } from "../../../lib/analytics/server";
 import type { AppLocale, Locale } from "../../../lib/i18n";
 import {
   metaCheckoutAttribution,
@@ -1117,6 +1118,7 @@ export async function createResearchApi(
           "ACCOUNT_STORE_REQUIRED_FOR_WEBHOOK",
         );
       await options.accountStore?.handleWhopWebhook?.(event);
+      await sendPostHogPurchase(event);
       await sendMetaPurchaseEvent(event);
     },
     async adminAnalyticsOverview(request, query) {

@@ -11,6 +11,7 @@ import {
   WarningDiamond,
 } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
+import { trackProductEvent } from "../../lib/analytics/client";
 import type { Locale } from "../../lib/i18n";
 import type {
   LocalizedText,
@@ -441,6 +442,13 @@ export function LegacyCompletedResearchFile({
 }
 
 export function CompletedResearchFile(props: Props) {
+  const tracked = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (props.reportId && tracked.current !== props.reportId) {
+      trackProductEvent("report_viewed");
+      tracked.current = props.reportId;
+    }
+  }, [props.reportId]);
   return props.report.presentationVersion === "legacy-v1" ? (
     <LegacyCompletedResearchFile {...props} />
   ) : (
