@@ -243,9 +243,9 @@ describe("workflow-v3 canonical chair synthesis", () => {
       }),
     ).rejects.toThrow("chair_v3_team_view_position_rationale_duplicate:market");
   });
+});
 
-  // Includes database setup and specialist, department, and audit rounds.
-  // The default 5s unit-test budget is too short on cold CI runners.
+describe("workflow-v3 PostgreSQL chair synthesis", { timeout: 30_000 }, () => {
   it.each(["en", "ko"] as const)(
     "routes the production chair through the trusted %s mandate locale and stores canonical v3 output",
     async (sourceLocale) => {
@@ -290,7 +290,6 @@ describe("workflow-v3 canonical chair synthesis", () => {
         prepared.cleanup();
       }
     },
-    30_000,
   );
 
   it.each(["en", "ko"] as const)(
