@@ -1,6 +1,7 @@
 import { access, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { effectiveCodexPrompt } from "./codexArtifacts";
 import {
   buildCodexArgv,
   CODEX_RUNTIME_POLICY,
@@ -134,7 +135,9 @@ export function registerPortTests(): void {
       expect(execution?.argv).not.toContain(fixture.platform.pins.originPath);
       expect(execution?.argv).toContain("--ignore-user-config");
       expect(execution?.argv).toContain("--ignore-rules");
-      expect(execution?.stdin).toBe("PROMPT_SENTINEL_DO_NOT_PERSIST");
+      expect(execution?.stdin).toBe(
+        effectiveCodexPrompt("PROMPT_SENTINEL_DO_NOT_PERSIST"),
+      );
       expect(execution?.argv).not.toContain("PROMPT_SENTINEL_DO_NOT_PERSIST");
       await fixture.root.cleanup();
     });

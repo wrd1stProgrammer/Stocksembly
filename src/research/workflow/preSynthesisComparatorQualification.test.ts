@@ -32,6 +32,19 @@ const peerEvidence = {
 };
 
 describe("pre-synthesis comparator qualification", () => {
+  it("delivers matched-session comparisons without admitting raw valuation peers", () => {
+    const comparisons = {
+      dataset: "insightsentry_peers",
+      evidenceId: "insightsentry:comparisons",
+    };
+    expect(
+      [
+        comparisons,
+        { dataset: "insightsentry_peers", evidenceId: "insightsentry:peers" },
+      ].filter(permittedSpecialistInlineArtifact),
+    ).toEqual([comparisons]);
+  });
+
   it("keeps raw peer artifacts auditable but out of specialist inline evidence", () => {
     // Given
     const artifacts = [

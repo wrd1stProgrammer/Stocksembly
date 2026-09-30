@@ -122,6 +122,46 @@ describe("workflow-v3 canonical chair synthesis", () => {
     },
   );
 
+  it("repairs repeated citation identities without replacing the model judgment", async () => {
+    const lineage = {
+      sentenceIds: [
+        ...canonicalLineage.sentenceIds,
+        ...canonicalLineage.sentenceIds,
+      ],
+      claimIds: [
+        ...canonicalLineage.claimIds,
+        ...canonicalLineage.claimIds,
+        "mistyped-claim-id",
+      ],
+      sourceArtifactIds: [
+        ...canonicalLineage.sourceArtifactIds,
+        ...canonicalLineage.sourceArtifactIds,
+      ],
+    };
+    const output = await synthesizeChairV3({
+      sourceLocale: "en",
+      evidenceCatalog: "fixture",
+      runModel: async () => ({
+        kind: "chair_synthesis_v3",
+        sourceLocale: "en",
+        stance: "downside_skewed",
+        ...canonicalDecisionLineage,
+        decisiveReason: "Cash conversion weakens the growth thesis.",
+        strongestCountercase: "Margins provide a cash buffer.",
+        invalidationCheckpoint:
+          "Rising cash conversion would invalidate the thesis.",
+        teamViews: teamViews("Evidence supports the view.").map((view) => ({
+          ...view,
+          lineage,
+        })),
+        sections: sections("Cash conversion is the decisive constraint."),
+        anticipatedQuestions: [],
+      }),
+    });
+    expect(output.stance).toBe("downside_skewed");
+    expect(output.teamViews[3]?.lineage).toEqual(canonicalLineage);
+  });
+
   it("keeps style defects outside the structural output contract", () => {
     const parsed = ChairSynthesisV3ModelOutputSchema.parse({
       kind: "chair_synthesis_v3",
@@ -444,10 +484,7 @@ describe("workflow-v3 PostgreSQL chair synthesis", { timeout: 30_000 }, () => {
     },
   );
 
-  it.each([
-    ["v3_invented_number", /777%/u],
-    ["v3_stance_conflict", /insufficient_evidence/u],
-  ] as const)(
+  it.each([["v3_invented_number", /777%/u]] as const)(
     "does not publish canonical authority bypass %s",
     async (fault, forbidden) => {
       const prepared = await createPreparedChairRound(fault);
@@ -480,6 +517,50 @@ describe("workflow-v3 PostgreSQL chair synthesis", { timeout: 30_000 }, () => {
       }
     },
   );
+
+  it("preserves an evidence-insufficient chair judgment instead of deriving balance from ballots", async () => {
+    const prepared = await createPreparedChairRound("v3_stance_conflict");
+    try {
+      const chair = createPostgresChairSynthesis({
+        ...prepared.options,
+        workflowVersion: "workflow-v3",
+      });
+      await chair.stage({ runId: prepared.runId });
+      const replay = await chair.drain(prepared.runId);
+      await chair.close();
+      expect(replay.publishable).toBe(true);
+      const row = (
+        await prepared.options.database.query(
+          "SELECT envelope_json FROM agent_output_commits WHERE artifact_id = $1",
+          [replay.artifactIds[0]],
+        )
+      ).rows[0] as { readonly envelope_json: string };
+      const canonical = JSON.parse(row.envelope_json).payload
+        .canonicalNarrativeV3;
+      expect(canonical.stance).toBe("insufficient_evidence");
+      expect(canonical.publicationReductionReasons ?? []).not.toContain(
+        "stance_reconciliation",
+      );
+      const outer = JSON.parse(prepared.codex.chairPrompts[0] ?? "{}");
+      const fallback = deterministicChairV3Fallback(outer.evidenceCatalog);
+      expect(fallback.stance).toBe("insufficient_evidence");
+      for (const stance of [
+        "upside_skewed",
+        "downside_skewed",
+        "balanced",
+        "insufficient_evidence",
+      ] as const) {
+        expect(
+          projectChairV3ForCommit(outer.evidenceCatalog, {
+            ...fallback,
+            stance,
+          }).canonicalNarrativeV3?.stance,
+        ).toBe(stance);
+      }
+    } finally {
+      prepared.cleanup();
+    }
+  });
 
   it("binds model lineage metadata to authenticated catalog sentence IDs", async () => {
     const prepared = await createPreparedChairRound(

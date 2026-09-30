@@ -79,6 +79,7 @@ export type TrustedAgentOutputEnvelope = {
     | "openai-responses-v1"
     | "codex-cli 0.153.1"
     | "codex-cli 0.153.4"
+    | "codex-cli 0.159.2"
     | "codex-cli 0.150.0-alpha.8"
     | "codex-cli 0.147.0-alpha.6.5"
     | "codex-cli 0.147.0-alpha.1.2"
