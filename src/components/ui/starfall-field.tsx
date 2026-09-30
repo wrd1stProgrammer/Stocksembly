@@ -37,6 +37,7 @@ interface StarfallFieldProps {
   gravityStrength?: number;
   /** Listen on the page so a background layer can react without blocking UI. */
   globalPointerEvents?: boolean;
+  mobileStatic?: boolean;
   className?: string;
 }
 
@@ -56,6 +57,7 @@ export function StarfallFieldBackground({
   mouseGravity = "attract",
   gravityStrength = 75,
   globalPointerEvents = false,
+  mobileStatic = false,
   className,
 }: StarfallFieldProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -248,9 +250,10 @@ export function StarfallFieldBackground({
     }
     resizeCanvas();
     const host = hostRef.current;
-    const resizeObserver = new ResizeObserver(resizeCanvas);
-    if (host) resizeObserver.observe(host);
-    const reducedMotion = prefersReducedMotion();
+    const reducedMotion =
+      prefersReducedMotion() ||
+      (mobileStatic &&
+        (window.matchMedia?.("(max-width: 767px)").matches ?? false));
 
     // The loop only runs while the field is on screen and the tab is visible;
     // otherwise no frame is scheduled at all.
@@ -265,6 +268,11 @@ export function StarfallFieldBackground({
     const schedule = () => {
       if (rafRef.current === null) rafRef.current = requestAnimationFrame(loop);
     };
+    const resizeObserver = new ResizeObserver(() => {
+      resizeCanvas();
+      schedule();
+    });
+    if (host) resizeObserver.observe(host);
     const intersectionObserver = new IntersectionObserver(
       ([entry]) => {
         visibleRef.current = entry?.isIntersecting ?? false;
@@ -286,7 +294,7 @@ export function StarfallFieldBackground({
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [draw, resizeCanvas, step]);
+  }, [draw, resizeCanvas, step, mobileStatic]);
 
   const track = useCallback((clientX: number, clientY: number) => {
     const rect = hostRef.current?.getBoundingClientRect();
@@ -300,6 +308,8 @@ export function StarfallFieldBackground({
 
   useEffect(() => {
     if (!globalPointerEvents) return;
+    if (mobileStatic && window.matchMedia?.("(max-width: 767px)").matches)
+      return;
 
     const handlePointerMove = (event: PointerEvent) => {
       track(event.clientX, event.clientY);
@@ -328,7 +338,7 @@ export function StarfallFieldBackground({
       window.removeEventListener("blur", resetPointer);
       document.removeEventListener("mouseleave", resetPointer);
     };
-  }, [globalPointerEvents, resetPointer, spawn, track]);
+  }, [globalPointerEvents, resetPointer, spawn, track, mobileStatic]);
 
   return (
     <div

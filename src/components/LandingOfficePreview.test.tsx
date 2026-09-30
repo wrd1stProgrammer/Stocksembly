@@ -65,6 +65,23 @@ describe("LandingOfficePreview", () => {
     vi.unstubAllGlobals();
   });
 
+  it("uses a lower render rate for the mobile landing preview", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 767px)",
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    render(<LandingOfficePreview locale="en" />);
+    await waitFor(() =>
+      expect(state.createOfficeSnapshotRenderer).toHaveBeenCalledOnce(),
+    );
+    expect(state.createOfficeSnapshotRenderer.mock.calls[0]?.[0]).toMatchObject(
+      { frameRate: 30 },
+    );
+    await act(async () => state.resolve());
+  });
+
   it("keeps a stable DotsRing loader visible until the first projected office frame is ready", async () => {
     // Given
     const { container } = render(<LandingOfficePreview locale="en" />);

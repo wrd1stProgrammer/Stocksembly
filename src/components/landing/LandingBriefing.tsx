@@ -98,7 +98,7 @@ export default function LandingBriefing({
           </ol>
           <Link
             className="landing-text-link"
-            href={`/briefing-room?lang=${locale}`}
+            href={`/login?lang=${locale}&next=${encodeURIComponent(`/briefing-room?lang=${locale}`)}`}
           >
             {ko ? "브리핑 룸 살펴보기" : "Explore the briefing room"}
             <ArrowUpRight size={15} />

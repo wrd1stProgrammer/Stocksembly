@@ -2,7 +2,11 @@
 
 import { StarfallFieldBackground } from "./ui/starfall-field";
 
-export function SiteAtmosphere() {
+export function SiteAtmosphere({
+  mobileStatic = false,
+}: {
+  readonly mobileStatic?: boolean;
+}) {
   return (
     <div className="atmosphere" aria-hidden="true">
       <StarfallFieldBackground
@@ -16,6 +20,7 @@ export function SiteAtmosphere() {
         mouseInfluence={140}
         gravityStrength={44}
         globalPointerEvents
+        mobileStatic={mobileStatic}
       />
     </div>
   );

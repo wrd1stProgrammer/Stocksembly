@@ -429,7 +429,7 @@ export function App({
         sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""
       }`}
     >
-      <SiteAtmosphere />
+      <SiteAtmosphere mobileStatic={!signedIn} />
       {signedIn ? (
         <SignedInSidebar
           locale={locale}
