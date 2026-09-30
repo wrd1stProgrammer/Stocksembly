@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
   canonicalInsightSentryCacheKey,
@@ -104,6 +104,40 @@ async function capturedError(action: () => Promise<unknown>) {
 }
 
 describe("InsightSentry client", () => {
+  it("resumes comparison requests after a cooldown using the live clock", async () => {
+    const root = await dataRoot();
+    let now = NOW;
+    let calls = 0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      const api = createInsightSentryClient({
+        configuration: CONFIGURATION,
+        dataRoot: root,
+        random: () => 0,
+        sleep: async (milliseconds) => {
+          now += milliseconds;
+        },
+        adapter: async () => {
+          calls += 1;
+          return calls === 1
+            ? response(429, "{}", { "retry-after": "1" })
+            : response(
+                200,
+                JSON.stringify({
+                  value: "recovered",
+                  updatedAt: new Date(NOW).toISOString(),
+                }),
+              );
+        },
+      });
+      expect((await api.get(request())).data.value).toBe("recovered");
+      expect((await api.get(request("TSM"))).data.value).toBe("recovered");
+      expect(calls).toBe(3);
+    } finally {
+      clock.mockRestore();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it("builds the canonical secret-free cache key", () => {
     // Given
     const input = request("NVDA / A");

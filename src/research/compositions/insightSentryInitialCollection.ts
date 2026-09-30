@@ -709,10 +709,6 @@ export async function collectInsightSentryInitialEvidence(input: {
     configuration,
     dataRoot: input.dataRoot,
     ...(input.adapter === undefined ? {} : { adapter: input.adapter }),
-    clock: {
-      now: () => Date.parse(input.asOf),
-      isoNow: () => input.asOf,
-    },
     onUpstreamRequest: (request) => {
       requests.set(request.cacheKey, Object.freeze(request));
     },

@@ -286,6 +286,7 @@ export function chairSynthesisV3Prompt(
         "Answer mandate.question and researchBrief with the final conclusion, countercase and invalidationCheckpoint as one coherent judgment. For a long-term question, use business execution, adoption, margins, cash generation or valuation assumptions as the main change condition. Intraday chart recovery cannot overturn a long-term business thesis. Keep the change_conditions section consistent with invalidationCheckpoint.",
         "Return one position and rationale for each of the four departments in sourceLocale.",
         "Lead with the direct evidence-weighted conclusion even when teams are not unanimous.",
+        "Department ballots measure agreement with that department's thesis, NOT bullish or bearish price direction. Determine stance from authenticated evidence and the investor's question and horizon. Balanced means material upside and downside evidence are comparable; insufficient_evidence means the available evidence cannot establish a direction. Reservations or abstentions alone never imply balanced. Do not infer upside from support votes or downside from oppose votes.",
         "Keep the strongest countercase separate and put all conditions and caveats in the single invalidationCheckpoint.",
         "Never give a buy-now or sell-now order. If an imperative survives one rewrite, omit only that sentence.",
         "Cite authenticated sentence, claim, and source artifact IDs in every lineage object. Use at most one generic wait, conditional, or needs-confirmation posture across core sections.",

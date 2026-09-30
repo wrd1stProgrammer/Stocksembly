@@ -264,7 +264,7 @@ export async function runCodexWithPlatform<Candidate>(
       if (inspectSignature === undefined)
         throw new CodexRunnerError("origin_untrusted");
       const signature = await runnerPhase("signature_probe", () =>
-        inspectSignature(protectedOrigin.linkPath, { ...environment }),
+        inspectSignature(platform.pins.originPath, { ...environment }),
       );
       await runnerPhase("signature_probe", () =>
         assertSignature(signature, platform),
