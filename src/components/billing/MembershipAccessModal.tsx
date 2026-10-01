@@ -14,6 +14,12 @@ type Props = {
   readonly reason: "customize" | "recent-report";
   readonly onClose?: () => void;
   readonly onOpenPlans?: (() => void) | undefined;
+  readonly content?: {
+    readonly title: string;
+    readonly description: string;
+    readonly dismiss: string;
+  };
+  readonly closeOnOpenPlans?: boolean;
 };
 
 export function MembershipAccessModal({
@@ -22,6 +28,8 @@ export function MembershipAccessModal({
   reason,
   onClose,
   onOpenPlans,
+  content,
+  closeOnOpenPlans = true,
 }: Props) {
   const titleId = useId();
   const [mounted, setMounted] = useState(false);
@@ -55,7 +63,7 @@ export function MembershipAccessModal({
 
   const openPlans = () => {
     if (onOpenPlans !== undefined) {
-      onClose?.();
+      if (closeOnOpenPlans) onClose?.();
       onOpenPlans();
       return;
     }
@@ -132,15 +140,16 @@ export function MembershipAccessModal({
                   <span className="membership-access-modal__eyebrow">
                     {copy.eyebrow}
                   </span>
-                  <h2 id={titleId}>{copy.title}</h2>
-                  <p>{copy.description}</p>
+                  <h2 id={titleId}>{content?.title ?? copy.title}</h2>
+                  <p>{content?.description ?? copy.description}</p>
                   <div className="membership-access-modal__actions">
                     <button
                       type="button"
                       className="membership-access-modal__dismiss"
                       onClick={dismiss}
                     >
-                      {locale === "ko" ? "나중에" : "Maybe later"}
+                      {content?.dismiss ??
+                        (locale === "ko" ? "나중에" : "Maybe later")}
                     </button>
                     <button
                       type="button"

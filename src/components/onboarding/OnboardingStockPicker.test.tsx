@@ -6,7 +6,7 @@ vi.mock("../../auth/researchSession", () => ({
   currentAuthTokens: async () => ({ accessToken: "fixture" }),
 }));
 afterEach(() => vi.unstubAllGlobals());
-it("enforces 1–3 selections and keeps selections after a failed Next before retrying", async () => {
+it("enforces one selection and keeps it after a failed Next before retrying", async () => {
   let fail = true;
   const fetcher = vi.fn(async (url: string) =>
     url.includes("tickers")
@@ -32,7 +32,7 @@ it("enforces 1–3 selections and keeps selections after a failed Next before re
   );
   expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
   await waitFor(() => expect(screen.getByRole("textbox")).toBeEnabled());
-  for (const symbol of ["NVDA", "AAPL", "MSFT"]) {
+  for (const symbol of ["NVDA"]) {
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: symbol },
     });
@@ -49,7 +49,7 @@ it("enforces 1–3 selections and keeps selections after a failed Next before re
   fireEvent.click(screen.getByRole("button", { name: "다음" }));
   await screen.findByRole("alert");
   expect(onNext).not.toHaveBeenCalled();
-  expect(screen.getByText("3 / 3")).toBeVisible();
+  expect(screen.getByText("1 / 1")).toBeVisible();
   fail = false;
   fireEvent.click(screen.getByRole("button", { name: "다음" }));
   await waitFor(() => expect(onNext).toHaveBeenCalledTimes(1));

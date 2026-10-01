@@ -496,6 +496,7 @@ export function App({
       {onboardingPreview || (signedIn && onboardingState === "pending") ? (
         <WelcomeOnboardingModal
           locale={locale}
+          preview={onboardingPreview}
           plans={billingPlans}
           onComplete={
             onboardingPreview

@@ -3,6 +3,7 @@
 import { trackProductMilestone } from "../analytics/ProductEngagement";
 import "../../styles/billing.css";
 import "../../styles/onboarding.css";
+import { BorderBeam } from "border-beam";
 import {
   ArrowRight,
   BarChart3,
@@ -10,18 +11,26 @@ import {
   SearchCheck,
   Sparkles,
   Users,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { OnboardingDiscoverySource } from "../../accounts/onboarding";
+import type { OnboardingStock } from "../../accounts/onboardingInterests";
 import { type AppLocale, researchLocale } from "../../lib/i18n";
 import type { WhopPricingPlan } from "../../lib/whop/contracts";
 import { CREDIT_COSTS } from "../../lib/whop/creditPolicy";
 import { PricingPlansGrid } from "../billing/PricingPlansGrid";
 import { subscriptionPlanCards } from "../billing/subscriptionPlanCards";
+import { CompanyLogo } from "../research/ResearchSidebar";
 import { OnboardingStockPicker } from "./OnboardingStockPicker";
+import {
+  ONBOARDING_RESEARCH_KEY,
+  onboardingJourneyCopy,
+} from "./onboardingJourney";
 
 type WelcomeOnboardingModalProps = {
+  readonly preview?: boolean;
   readonly locale: AppLocale;
   readonly plans: readonly WhopPricingPlan[];
   readonly onComplete: (
@@ -382,6 +391,7 @@ export function WelcomeOnboardingModal({
   plans,
   onComplete,
   onOpenPlans,
+  preview = false,
 }: WelcomeOnboardingModalProps) {
   const [step, setStep] = useState(-1);
   const [intent, setIntent] = useState<number>();
@@ -389,6 +399,10 @@ export function WelcomeOnboardingModal({
     useState<OnboardingDiscoverySource>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const [stock, setStock] = useState<OnboardingStock>();
+  const [question, setQuestion] = useState("");
+  const [questionStep, setQuestionStep] = useState(false);
+  const journey = onboardingJourneyCopy(locale);
   const titleId = useId();
   const descriptionId = useId();
   const content = onboardingCopy[locale];
@@ -446,30 +460,87 @@ export function WelcomeOnboardingModal({
             role="progressbar"
             aria-label={content.progress}
             aria-valuemin={1}
-            aria-valuemax={5}
-            aria-valuenow={step + 2}
+            aria-valuemax={6}
+            aria-valuenow={questionStep ? 2 : step === -1 ? 1 : step + 3}
           >
-            {[-1, 0, 1, 2, 3].map((index) => (
+            {[-1, -0.5, 0, 1, 2, 3].map((index) => (
               <span
                 key={index}
                 className="welcome-onboarding__progress-segment"
-                data-active={index <= step}
+                data-active={index <= (questionStep ? -0.5 : step)}
               />
             ))}
           </div>
+          {step === 3 && (
+            <button
+              type="button"
+              className="welcome-onboarding__close"
+              aria-label={locale === "ko" ? "닫기" : "Close"}
+              onClick={() => void finish(false)}
+            >
+              <X size={20} />
+            </button>
+          )}
         </header>
 
         <div className="welcome-onboarding__content" data-step={step}>
-          {step === -1 ? (
+          {step === -1 && !questionStep ? (
             <OnboardingStockPicker
               locale={locale}
               titleId={titleId}
               descriptionId={descriptionId}
-              onNext={() => {
+              preview={preview}
+              onNext={(selected) => {
+                setStock(selected);
                 trackProductMilestone("interests_saved");
-                setStep(0);
+                setQuestionStep(true);
               }}
             />
+          ) : null}
+          {questionStep && stock ? (
+            <>
+              <p className="welcome-onboarding__eyebrow">{journey.eyebrow}</p>
+              <h2 id={titleId}>{journey.title}</h2>
+              <p id={descriptionId} className="welcome-onboarding__description">
+                {journey.description}
+              </p>
+              <BorderBeam
+                className="onboarding-question-beam"
+                size="pulse-inner"
+                colorVariant="mono"
+                strength={0.97}
+              >
+                <div className="onboarding-question">
+                  <div className="onboarding-question__company">
+                    <CompanyLogo symbol={stock.symbol} />
+                    <strong>{stock.symbol}</strong>
+                    <span>{stock.company}</span>
+                  </div>
+                  <textarea
+                    aria-label={journey.eyebrow}
+                    placeholder={journey.placeholder}
+                    maxLength={100}
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value)}
+                  />
+                  <span className="onboarding-question__count">
+                    {question.length} / 100
+                  </span>
+                </div>
+              </BorderBeam>
+              <button
+                type="button"
+                className="welcome-onboarding__primary"
+                disabled={!question.trim()}
+                onClick={() => {
+                  setQuestionStep(false);
+                  setStep(0);
+                }}
+              >
+                {content.next}
+                <ArrowRight size={18} />
+              </button>
+            </>
           ) : null}
           {step === 0 ? (
             <>
@@ -591,27 +662,38 @@ export function WelcomeOnboardingModal({
                 </button>
                 <button
                   type="button"
-                  className="welcome-onboarding__primary"
+                  className="welcome-onboarding__primary onboarding-start"
                   disabled={saving}
                   onClick={async () => {
+                    if (!stock || !question.trim()) return;
                     setSaving(true);
                     setError(false);
                     try {
+                      sessionStorage.setItem(
+                        ONBOARDING_RESEARCH_KEY,
+                        JSON.stringify({ stock, question: question.trim() }),
+                      );
                       await onComplete(discoverySource ?? "prefer_not_to_say");
                       trackProductMilestone("onboarding_completed");
-                      window.location.assign(`/research-room?lang=${locale}`);
+                      window.location.assign(
+                        `/onboarding/research?lang=${locale}`,
+                      );
                     } catch {
                       setSaving(false);
                       setError(true);
                     }
                   }}
                 >
-                  {saving
-                    ? content.saving
-                    : locale === "ko"
-                      ? "리서치룸 둘러보기"
-                      : "Explore Research Room"}
-                  <ArrowRight aria-hidden="true" size={18} />
+                  {stock && (
+                    <span className="onboarding-start__ticker">
+                      <CompanyLogo symbol={stock.symbol} />
+                      <span>{stock.symbol}</span>
+                    </span>
+                  )}
+                  <span>{saving ? content.saving : journey.start}</span>
+                  <span className="onboarding-start__arrow">
+                    <ArrowRight aria-hidden="true" size={18} />
+                  </span>
                 </button>
               </div>
               {error ? (
