@@ -50,6 +50,12 @@ async function chooseStock() {
   );
   fireEvent.click(await screen.findByRole("button", { name: /NVDA/ }));
   fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  await screen.findByRole("heading", { name: "어떤 점이 궁금하세요?" });
+  expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  fireEvent.change(screen.getByRole("textbox", { name: "나의 투자 질문" }), {
+    target: { value: "성장세가 현재 주가를 정당화할까요?" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
   await screen.findByRole("heading", {
     name: "어떤 투자 판단부터 선명하게 만들까요?",
   });

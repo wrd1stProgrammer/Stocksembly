@@ -22,7 +22,7 @@ export async function POST(request: Request): Promise<Response> {
   );
   if (!parsed.success)
     return Response.json(
-      { error: { code: "SELECT_ONE_TO_THREE_STOCKS" } },
+      { error: { code: "SELECT_ONE_STOCK" } },
       { status: 400 },
     );
   try {

@@ -17,7 +17,7 @@ const copy: Record<
   en: [
     "Your interests",
     "Which stocks are you following?",
-    "Choose 1–3 stocks. When you continue, we’ll start preparing their research sources in the background.",
+    "Choose one stock. When you continue, we’ll start preparing their research sources in the background.",
     "Search a company or ticker",
     "Next",
     "Could not save your stocks. Please try again.",
@@ -26,7 +26,7 @@ const copy: Record<
   ko: [
     "관심 종목",
     "어떤 종목이 궁금하세요?",
-    "관심 종목을 1~3개 선택해 주세요. 다음을 누르면 자료 준비를 시작하고, 리서치 요청 시 준비된 자료를 이어서 활용해요.",
+    "관심 종목을 하나 선택해 주세요. 다음을 누르면 자료 준비를 시작하고, 리서치 요청 시 준비된 자료를 이어서 활용해요.",
     "회사명 또는 종목 코드 검색",
     "다음",
     "관심 종목을 저장하지 못했어요. 다시 시도해 주세요.",
@@ -35,7 +35,7 @@ const copy: Record<
   ja: [
     "関心のある銘柄",
     "どの銘柄が気になりますか？",
-    "1〜3銘柄を選択してください。次へ進むと、調査資料の準備をバックグラウンドで開始します。",
+    "1銘柄を選択してください。次へ進むと、調査資料の準備をバックグラウンドで開始します。",
     "会社名またはティッカーを検索",
     "次へ",
     "保存できませんでした。もう一度お試しください。",
@@ -44,7 +44,7 @@ const copy: Record<
   "zh-TW": [
     "關注股票",
     "您關注哪些股票？",
-    "請選擇 1–3 檔股票。繼續後，我們將在背景開始準備研究資料。",
+    "請選擇 1 檔股票。繼續後，我們將在背景開始準備研究資料。",
     "搜尋公司或股票代碼",
     "下一步",
     "無法儲存，請再試一次。",
@@ -53,7 +53,7 @@ const copy: Record<
   es: [
     "Tus intereses",
     "¿Qué acciones sigues?",
-    "Elige de 1 a 3 acciones. Al continuar, prepararemos sus fuentes de investigación en segundo plano.",
+    "Elige una acción. Al continuar, prepararemos sus fuentes de investigación en segundo plano.",
     "Buscar empresa o símbolo",
     "Siguiente",
     "No se pudo guardar. Inténtalo de nuevo.",
@@ -62,7 +62,7 @@ const copy: Record<
   "pt-BR": [
     "Seus interesses",
     "Quais ações você acompanha?",
-    "Escolha de 1 a 3 ações. Ao continuar, prepararemos as fontes de pesquisa em segundo plano.",
+    "Escolha uma ação. Ao continuar, prepararemos as fontes de pesquisa em segundo plano.",
     "Buscar empresa ou código",
     "Próximo",
     "Não foi possível salvar. Tente novamente.",
@@ -71,7 +71,7 @@ const copy: Record<
   de: [
     "Deine Interessen",
     "Welche Aktien verfolgst du?",
-    "Wähle 1–3 Aktien. Beim Fortfahren bereiten wir die Recherchequellen im Hintergrund vor.",
+    "Wähle eine Aktie. Beim Fortfahren bereiten wir die Recherchequellen im Hintergrund vor.",
     "Unternehmen oder Ticker suchen",
     "Weiter",
     "Speichern fehlgeschlagen. Bitte erneut versuchen.",
@@ -80,7 +80,7 @@ const copy: Record<
   fr: [
     "Vos intérêts",
     "Quelles actions suivez-vous ?",
-    "Choisissez 1 à 3 actions. En continuant, nous préparerons leurs sources de recherche en arrière-plan.",
+    "Choisissez une action. En continuant, nous préparerons leurs sources de recherche en arrière-plan.",
     "Rechercher une entreprise ou un symbole",
     "Suivant",
     "Enregistrement impossible. Réessayez.",
@@ -93,11 +93,13 @@ export function OnboardingStockPicker({
   titleId,
   descriptionId,
   onNext,
+  preview = false,
 }: {
   locale: AppLocale;
   titleId: string;
   descriptionId: string;
-  onNext: () => void;
+  onNext: (stock: OnboardingStock) => void;
+  preview?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<OnboardingStock[]>([]);
@@ -110,6 +112,10 @@ export function OnboardingStockPicker({
   const [error, setError] = useState(false);
   const text = copy[locale];
   useEffect(() => {
+    if (preview) {
+      setRestoring(false);
+      return;
+    }
     let active = true;
     void (async () => {
       try {
@@ -124,7 +130,7 @@ export function OnboardingStockPicker({
           .object({ stocks: z.array(OnboardingStockSchema).max(3) })
           .parse(await response.json());
         if (active && payload.stocks.length) {
-          setSelected(payload.stocks);
+          setSelected(payload.stocks.slice(0, 1));
           setSaved(true);
         }
       } catch {
@@ -136,7 +142,7 @@ export function OnboardingStockPicker({
     return () => {
       active = false;
     };
-  }, []);
+  }, [preview]);
   useEffect(() => {
     setResults([]);
     setSearchError(false);
@@ -172,7 +178,12 @@ export function OnboardingStockPicker({
   }, [query]);
 
   async function next() {
-    if (saving || selected.length < 1 || selected.length > 3) return;
+    const stock = selected[0];
+    if (saving || !stock || selected.length !== 1) return;
+    if (preview || saved) {
+      onNext(stock);
+      return;
+    }
     setSaving(true);
     setError(false);
     try {
@@ -188,7 +199,7 @@ export function OnboardingStockPicker({
         signal: AbortSignal.timeout(30_000),
       });
       if (!response.ok) throw new Error("SAVE_FAILED");
-      onNext();
+      onNext(stock);
     } catch {
       setError(true);
       setSaving(false);
@@ -234,7 +245,7 @@ export function OnboardingStockPicker({
             </button>
           ))}
           <span className="onboarding-stocks__count">
-            {selected.length} / 3
+            {selected.length} / 1
           </span>
         </div>
         <div className="onboarding-stocks__results" aria-busy={searching}>
@@ -251,12 +262,12 @@ export function OnboardingStockPicker({
                   restoring ||
                   saved ||
                   included ||
-                  selected.length >= 3
+                  selected.length >= 1
                 }
                 onClick={() => {
                   setSelected((items) =>
                     items.some((item) => item.symbol === stock.symbol) ||
-                    items.length >= 3
+                    items.length >= 1
                       ? items
                       : [...items, stock],
                   );

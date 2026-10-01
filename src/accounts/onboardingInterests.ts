@@ -4,7 +4,7 @@ import { TickerSymbolSchema } from "../research/domain/ids";
 export const OnboardingSymbolsSchema = z
   .array(TickerSymbolSchema)
   .min(1)
-  .max(3)
+  .max(1)
   .refine(
     (symbols) => new Set(symbols).size === symbols.length,
     "Duplicate stocks",
