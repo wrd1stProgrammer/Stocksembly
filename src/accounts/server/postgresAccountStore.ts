@@ -1053,10 +1053,12 @@ export class PostgresAccountStore implements AccountStore {
         ],
       );
       await client.query("COMMIT");
-      return availability(
-        inserted.rows.length === 0 ? remaining : remaining - required,
-        inserted.rows.length === 0 ? 0 : required,
-      );
+      return {
+        allowed: true,
+        remaining:
+          inserted.rows.length === 0 ? remaining : remaining - required,
+        required: inserted.rows.length === 0 ? 0 : required,
+      };
     } catch (error) {
       await client.query("ROLLBACK");
       throw new AccountStoreUnavailableError(
