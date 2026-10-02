@@ -450,6 +450,34 @@ describe("manifest-derived office snapshot renderer", () => {
     ).toBe(true);
   });
 
+  it("anchors motion bubbles to the displayed standing and seated heights", () => {
+    const viewport = { width: 1376, height: 774 };
+    const base = project(snapshotAt(530), undefined, "snapshot", viewport);
+    const speaker = base.actors.find(
+      (actor) => actor.active && actor.bubble.visible,
+    );
+    if (!speaker) throw new Error("Expected a speaker");
+    for (const animation of ["idle", "sit"] as const) {
+      const height = animation === "sit" ? 70 : 85;
+      const projection = { ...base, actors: [{ ...speaker, animation }] };
+      const layout = layoutOfficeUi({
+        projection,
+        viewport,
+        actorDisplayScale: 0.6,
+        actorBodyHeight: () => height,
+      })[0];
+      expect(layout?.bodyBounds.top).toBeCloseTo(
+        base.camera.y +
+          speaker.world.y * base.camera.scale -
+          height * base.camera.scale,
+      );
+      expect(layout?.bubble.visible).toBe(true);
+      expect(
+        (layout?.bodyBounds.top ?? 0) - (layout?.bubble.bounds.bottom ?? 0),
+      ).toBe(1);
+    }
+  });
+
   it("keeps a speaker bubble tethered when furniture occupies the background", () => {
     // Given
     const viewport = { width: 1376, height: 774 };

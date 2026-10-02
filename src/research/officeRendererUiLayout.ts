@@ -46,6 +46,7 @@ export type OfficeUiLayoutInput = {
   readonly viewport: OfficeRendererViewport;
   readonly obstacles?: readonly OfficeScreenRect[];
   readonly actorDisplayScale?: number;
+  readonly actorBodyHeight?: (actor: OfficeRenderActor) => number;
   readonly measureBubble?: (
     message: string,
     fontSize: number,
@@ -198,6 +199,7 @@ function contextFor(
   projection: OfficeRenderSnapshot,
   viewport: OfficeRendererViewport,
   displayScale: number | undefined,
+  bodyHeight: number | undefined,
 ): ActorScreenContext {
   const { camera } = projection;
   const x = camera.x + actor.world.x * camera.scale;
@@ -207,10 +209,14 @@ function contextFor(
   const bodyBounds = Object.freeze({
     left: x - ACTOR_ATLAS.footPivot.x * spriteScale,
     top:
-      y +
-      ((displayScale === undefined ? actorVisualTopInset(actor.animation) : 0) -
-        ACTOR_ATLAS.footPivot.y) *
-        spriteScale,
+      bodyHeight !== undefined
+        ? y - bodyHeight * camera.scale
+        : y +
+          ((displayScale === undefined
+            ? actorVisualTopInset(actor.animation)
+            : 0) -
+            ACTOR_ATLAS.footPivot.y) *
+            spriteScale,
     right:
       x + (ACTOR_ATLAS.frame.width - ACTOR_ATLAS.footPivot.x) * spriteScale,
     bottom:
@@ -240,6 +246,7 @@ export function layoutOfficeUi(
       input.projection,
       input.viewport,
       input.actorDisplayScale,
+      input.actorBodyHeight?.(actor),
     ),
   );
   const bubbleScale = bubbleScreenScale(input.projection, input.viewport);
