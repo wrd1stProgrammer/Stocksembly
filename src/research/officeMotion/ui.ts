@@ -76,6 +76,7 @@ export class MotionUi {
       projection,
       viewport,
       actorDisplayScale: 0.6,
+      actorBodyHeight: (actor) => (actor.animation === "sit" ? 70 : 85),
       measureBubble(message, fontSize, maxWidth) {
         ctx.font = `600 ${fontSize}px Pretendard, sans-serif`;
         return measureOfficeBubble(

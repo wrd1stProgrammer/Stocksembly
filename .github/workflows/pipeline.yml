@@ -71,7 +71,9 @@ jobs:
       - name: Verify CloudFront deployment shell syntax
         run: bash scripts/ci-static-assets-workflow.test.sh
       - name: Verify static asset routing and fallback
-        run: pnpm exec vitest run src/lib/staticAsset.test.ts src/research/officeMotion/canvasPrimitives.assets.test.ts src/research/officeMotion/refinedActors.test.ts
+        run: |
+          pnpm exec vitest run src/lib/staticAsset.test.ts src/research/officeMotion/canvasPrimitives.assets.test.ts src/research/officeMotion/refinedActors.test.ts
+          pnpm exec vitest run src/research/officeRenderer.test.ts -t 'anchors motion bubbles|keeps a speaker bubble'
       - name: Verify PostgreSQL public catalogs
         env:
           STOCKSEMBLY_API_TEST_DATABASE_URL: postgres://stocksembly:stocksembly_ci@127.0.0.1:5432/stocksembly_test
