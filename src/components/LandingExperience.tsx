@@ -322,6 +322,7 @@ export function LandingExperience({
           initialLocale={initialLocale}
           initialPreview={initialPreview}
           onOpenPlans={onOpenPlans}
+          requireSignIn
           showEmpty
         />
       </div>
@@ -343,7 +344,7 @@ export function LandingExperience({
             </>
           )}
         </h2>
-        <a href="#research" className="landing-button">
+        <a href={`/login?lang=${locale}`} className="landing-button">
           {ko ? "나의 첫 리서치 시작하기" : "Start your first research"}
           <ArrowRight size={18} />
         </a>
