@@ -78,12 +78,14 @@ export function LandingResearchRoomPreview({
   initialLocale,
   initialPreview,
   onOpenPlans,
+  requireSignIn = false,
   showEmpty = false,
 }: {
   readonly locale: AppLocale;
   readonly initialLocale: AppLocale;
   readonly initialPreview: LandingResearchRoomPreviewData;
   readonly onOpenPlans?: () => void;
+  readonly requireSignIn?: boolean;
   readonly showEmpty?: boolean;
 }) {
   const router = useRouter();
@@ -180,7 +182,13 @@ export function LandingResearchRoomPreview({
             <h2 id="landing-research-room-title">{labels.title}</h2>
             <p>{labels.description}</p>
           </div>
-          <Link href={`/research-room?lang=${locale}`}>
+          <Link
+            href={
+              requireSignIn
+                ? `/login?lang=${locale}&next=${encodeURIComponent(`/research-room?lang=${locale}`)}`
+                : `/research-room?lang=${locale}`
+            }
+          >
             {labels.browse}
             <ArrowUpRight size={17} />
           </Link>
@@ -201,6 +209,12 @@ export function LandingResearchRoomPreview({
                 className="landing-research-flip__surface"
                 ariaLabel={labels.flipLabel(report.symbol, report.question)}
                 onActivate={() => {
+                  if (requireSignIn) {
+                    router.push(
+                      `/login?lang=${locale}&next=${encodeURIComponent(`/research-room/${report.reportId}?lang=${locale}`)}`,
+                    );
+                    return;
+                  }
                   if (report.locked) {
                     setMembershipGateOpen(true);
                     return;
