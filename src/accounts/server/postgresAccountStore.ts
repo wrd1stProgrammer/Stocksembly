@@ -74,6 +74,7 @@ import {
   type CreditAvailability,
 } from "./accountStore";
 import { applyPostgresAccountMigrations } from "./postgresAccountMigrations";
+import type { TranslationAdmission } from "./translationAdmission";
 
 const BRIEFING_WATCHLIST_MONTHLY_CHANGE_LIMIT = 10;
 
@@ -1075,6 +1076,7 @@ export class PostgresAccountStore implements AccountStore {
     eventKey: string,
     reportId: string,
     targetLocale: AppLocale,
+    admit?: TranslationAdmission,
   ): Promise<CreditAvailability> {
     const now = new Date();
     const client = await this.pool.connect();
@@ -1107,6 +1109,7 @@ export class PostgresAccountStore implements AccountStore {
         [principalId, reportId, targetLocale],
       );
       if (existing.rows.length > 0) {
+        if (admit) await admit(client);
         await client.query("COMMIT");
         return availability(remaining, 0);
       }
@@ -1130,11 +1133,26 @@ export class PostgresAccountStore implements AccountStore {
           JSON.stringify({ reportId, targetLocale }),
         ],
       );
+      if (admit) {
+        const job = await admit(client);
+        await client.query(
+          "UPDATE usage_events SET metadata = metadata || $2::jsonb WHERE event_key = $1",
+          [
+            eventKey,
+            JSON.stringify({
+              translationJobKey: job.jobKey,
+              translationPending: job.status !== "succeeded",
+            }),
+          ],
+        );
+      }
       await client.query("COMMIT");
-      return availability(
-        inserted.rows.length === 0 ? remaining : remaining - required,
-        inserted.rows.length === 0 ? 0 : required,
-      );
+      return {
+        allowed: true,
+        remaining:
+          inserted.rows.length === 0 ? remaining : remaining - required,
+        required: inserted.rows.length === 0 ? 0 : required,
+      };
     } catch (error) {
       await client.query("ROLLBACK");
       throw new AccountStoreUnavailableError(

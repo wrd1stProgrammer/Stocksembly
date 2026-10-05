@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import { loadResearchRoomReport } from "@/src/research/server/researchRoom/researchRoomCatalog";
 import { requiresResearchRoomViewCredit } from "@/src/research/server/researchRoom/researchRoomIndexability";
@@ -8,6 +9,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ reportId: string }> },
 ) {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const origin = request.headers.get("origin");
   if (
     origin &&

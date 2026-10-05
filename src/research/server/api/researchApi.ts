@@ -112,6 +112,10 @@ export type CreateResearchApiOptions = {
     readonly userPoolId: string;
     readonly clientId: string;
     readonly secureCookie: boolean;
+    readonly sessions?: {
+      readonly isRevoked: (key: string) => Promise<boolean>;
+      readonly revoke: (key: string, expiresAt: number) => Promise<void>;
+    };
   };
   readonly resolveOnboardingStock?: (
     symbol: string,
@@ -152,6 +156,7 @@ export interface ResearchApi {
     request: Request,
     reportId: string,
     targetLocale: AppLocale,
+    admit?: TranslationAdmission,
   ) => Promise<CreditAvailability & { readonly authenticated: boolean }>;
   readonly billingStatus: (request: Request) => Promise<WhopBillingStatus>;
   readonly billingCheckout: (
@@ -854,7 +859,12 @@ export async function createResearchApi(
         };
       }
     },
-    async consumeResearchTranslationCredit(request, reportId, targetLocale) {
+    async consumeResearchTranslationCredit(
+      request,
+      reportId,
+      targetLocale,
+      admit,
+    ) {
       const authentication = await context.auth.authenticate(request);
       if (authentication.kind === "unauthorized")
         return {
@@ -899,9 +909,11 @@ export async function createResearchApi(
             `research-translation:${authentication.principal.id}:${reportId}:${targetLocale}`,
             reportId,
             targetLocale,
+            admit,
           )),
         };
-      } catch {
+      } catch (error) {
+        if (admit) throw error;
         return {
           authenticated: true,
           allowed: false,
@@ -1667,3 +1679,5 @@ export async function createResearchApi(
     },
   };
 }
+
+import type { TranslationAdmission } from "../../../accounts/server/translationAdmission";

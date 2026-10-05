@@ -10,6 +10,7 @@ import {
 } from "@/src/auth/amplifyClient";
 import { authErrorMessage } from "@/src/auth/authErrors";
 import { syncResearchSession } from "@/src/auth/researchSession";
+import { safeDestination } from "@/src/auth/safeDestination";
 import {
   AuthDivider,
   AuthField,
@@ -22,12 +23,7 @@ import {
 export function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedDestination = searchParams.get("next");
-  const destination =
-    requestedDestination?.startsWith("/") === true &&
-    !requestedDestination.startsWith("//")
-      ? requestedDestination
-      : "/";
+  const destination = safeDestination(searchParams.get("next"));
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);

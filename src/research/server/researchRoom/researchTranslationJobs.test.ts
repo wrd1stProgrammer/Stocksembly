@@ -1,36 +1,53 @@
 // @vitest-environment node
-import { readFile } from "node:fs/promises";
 import { afterEach, expect, it, vi } from "vitest";
+import { PostgresAccountStore } from "../../../accounts/server/postgresAccountStore";
+import { createResearchTestDatabase } from "../../../test/researchPostgres";
 import { PublicRunDetailSchema } from "../../client/schemas";
 import { researchReportToFile } from "../../researchReportToFile";
 import { workflowV3PresentationFixture } from "../../workflowV3Presentation.testSupport";
-import {
-  cleanupApiTestDatabases,
-  createApiTestDatabase,
-} from "../api/postgresApi.testSupport";
 import {
   type ResearchTranslationJobInput,
   requestResearchTranslation,
   runResearchTranslationJob,
 } from "./researchTranslationJobs";
 
-afterEach(cleanupApiTestDatabases);
+const cleanups: (() => Promise<void>)[] = [];
+afterEach(async () => {
+  for (const close of cleanups.splice(0)) await close();
+});
 
 async function fixture() {
-  const database = await createApiTestDatabase();
-  await database.query("CREATE TABLE reports(report_id TEXT PRIMARY KEY)");
-  await database.query(
-    await readFile(
-      new URL(
-        "../persistence/postgres/migrations/007_report_translation_jobs.sql",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
+  const db = await createResearchTestDatabase();
+  const database = db.pool;
+  const accountStore = await PostgresAccountStore.create({
+    ...database.options,
+    options: "-c search_path=public,pg_catalog",
+  });
+  cleanups.push(async () => {
+    await accountStore.close();
+    await db.close();
+  });
   const reportId = "10000000-0000-4000-8000-000000000001";
   const runId = "10000000-0000-4000-8000-000000000002";
-  await database.query("INSERT INTO reports VALUES ($1)", [reportId]);
+  const client = await database.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "INSERT INTO runs(run_id,snapshot_id,status,created_at) VALUES ($1,'snapshot','completed',$2)",
+      [runId, new Date().toISOString()],
+    );
+    await client.query(
+      "INSERT INTO snapshots(snapshot_id,run_id,state,requested_at) VALUES ('snapshot',$1,'sealed',$2)",
+      [runId, new Date().toISOString()],
+    );
+    await client.query("COMMIT");
+  } finally {
+    client.release();
+  }
+  await database.query(
+    "INSERT INTO reports(report_id, run_id, snapshot_id, state, created_at) VALUES ($1, $2, $3, 'published', $4)",
+    [reportId, runId, "snapshot", new Date().toISOString()],
+  );
   const input: ResearchTranslationJobInput = {
     reportId,
     runId,
@@ -63,7 +80,7 @@ async function fixture() {
     conversation: [],
     renderLocale: "ko" as const,
   };
-  return { database, input, result };
+  return { database, accountStore, input, result };
 }
 
 it("queues duplicate web requests once and only a worker executes the translation", async () => {
@@ -80,10 +97,69 @@ it("queues duplicate web requests once and only a worker executes the translatio
   ]);
   expect(translate).toHaveBeenCalledTimes(1);
   expect(await requestResearchTranslation(database, input, false)).toEqual({
+    jobKey: expect.any(String),
     status: "succeeded",
     result_json: result,
   });
   expect(await runResearchTranslationJob(database, translate)).toBe(false);
+});
+
+it("atomically admits affordable work, rolls back failed admission and refunds worker failure", async () => {
+  const { database, accountStore, input } = await fixture();
+  const id = "d".repeat(64);
+  await accountStore.syncUser({ kind: "local", id }, new Date().toISOString());
+  await expect(
+    accountStore.consumeResearchTranslationCredit(
+      id,
+      "failed-admission",
+      input.reportId,
+      "ko",
+      async () => {
+        throw new Error("queue unavailable");
+      },
+    ),
+  ).rejects.toThrow();
+  expect(
+    (
+      await database.query(
+        "SELECT * FROM public.usage_events WHERE event_key = 'failed-admission'",
+      )
+    ).rowCount,
+  ).toBe(0);
+  const admit = async (client: import("pg").PoolClient) => {
+    const job = await requestResearchTranslation(client, input, false);
+    if (job.status === "failed") throw new Error("failed");
+    return { jobKey: job.jobKey, status: job.status };
+  };
+  const credits = await Promise.all(
+    Array.from({ length: 8 }, (_, index) =>
+      accountStore.consumeResearchTranslationCredit(
+        id,
+        `attempt-${index}`,
+        input.reportId,
+        "ko",
+        admit,
+      ),
+    ),
+  );
+  expect(credits.every((credit) => credit.allowed)).toBe(true);
+  expect(
+    (
+      await database.query(
+        "SELECT * FROM public.usage_events WHERE kind = 'research_translation'",
+      )
+    ).rowCount,
+  ).toBe(1);
+  await runResearchTranslationJob(database, async () => {
+    throw new Error("provider unavailable");
+  });
+  expect(
+    (
+      await database.query(
+        "SELECT * FROM public.usage_events WHERE kind = 'research_translation'",
+      )
+    ).rowCount,
+  ).toBe(0);
 });
 
 it("does not retry failed jobs on polling, but allows an explicit retry", async () => {
@@ -102,6 +178,50 @@ it("does not retry failed jobs on polling, but allows an explicit retry", async 
   expect(
     (await requestResearchTranslation(database, input, false)).status,
   ).toBe("succeeded");
+});
+
+it("never enqueues more concurrent translations than available credits", async () => {
+  const { database, accountStore, input } = await fixture();
+  const id = "e".repeat(64);
+  await accountStore.syncUser({ kind: "local", id }, new Date().toISOString());
+  const locales = ["ko", "ja", "de", "fr", "es", "pt-BR"] as const;
+  const results = await Promise.all(
+    locales.map((targetLocale) =>
+      accountStore.consumeResearchTranslationCredit(
+        id,
+        `locale-${targetLocale}`,
+        input.reportId,
+        targetLocale,
+        async (client) => {
+          const job = await requestResearchTranslation(
+            client,
+            { ...input, targetLocale },
+            false,
+          );
+          if (job.status === "failed") throw new Error("failed");
+          return { jobKey: job.jobKey, status: job.status };
+        },
+      ),
+    ),
+  );
+  expect(results.filter((result) => result.allowed)).toHaveLength(5);
+  expect(
+    (await database.query("SELECT * FROM research_report_translation_jobs"))
+      .rowCount,
+  ).toBe(5);
+  const callback = vi.fn();
+  expect(
+    (
+      await accountStore.consumeResearchTranslationCredit(
+        id,
+        "empty",
+        input.reportId,
+        "zh-TW",
+        callback,
+      )
+    ).allowed,
+  ).toBe(false);
+  expect(callback).not.toHaveBeenCalled();
 });
 
 it("recovers an expired worker lease after a restart", async () => {

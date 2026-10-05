@@ -68,6 +68,18 @@ jobs:
         run: pnpm research:quality
       - name: Verify focused research contracts
         run: pnpm research:quality:contracts
+      - name: Verify security boundaries
+        run: >-
+          pnpm exec vitest run
+          src/auth/safeDestination.test.ts
+          src/auth/researchSession.test.ts
+          src/lib/http/guardBrowserMutation.test.ts
+          src/lib/http/publicRequestBudget.test.ts
+          src/research/server/http/sessionRevocationAuth.test.ts
+          src/research/server/api/liveResearchApi.test.ts
+          'app/api/agent-markdown/[[...path]]/route.test.ts'
+          app/api/account/onboarding/route.test.ts
+          'app/api/research-room/[reportId]/credit/route.test.ts'
       - name: Verify CloudFront deployment shell syntax
         run: bash scripts/ci-static-assets-workflow.test.sh
       - name: Verify static asset routing and fallback
@@ -165,9 +177,9 @@ jobs:
       - name: Build and push immutable image
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
-          COGNITO_USER_POOL_ID: us-east-1_aBlbfohE8
-          COGNITO_USER_POOL_CLIENT_ID: 5njm1pei6ltopdks0g4a1m5cab
-          COGNITO_DOMAIN: stocksembly-prod-359463332817.auth.us-east-1.amazoncognito.com
+          COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+          COGNITO_USER_POOL_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
+          COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
           APP_ORIGIN: https://stocksembly.com
           GA_MEASUREMENT_ID: G-YRQDC6R5TL
           META_PIXEL_ID: "1941324473216410"
@@ -225,30 +237,7 @@ jobs:
           META_CONVERSIONS_API_ACCESS_TOKEN: ${{ secrets.META_CONVERSIONS_API_ACCESS_TOKEN }}
           META_GRAPH_API_VERSION: v25.0
           META_PIXEL_ID: "1941324473216410"
-        run: |
-          provider_env="$(printf '%s\n' \
-            "INSIGHTSENTRY_RAPIDAPI_HOST=$INSIGHTSENTRY_RAPIDAPI_HOST" \
-            "INSIGHTSENTRY_RAPIDAPI_KEY=$INSIGHTSENTRY_RAPIDAPI_KEY" \
-            "WHOP_API_BASE=$WHOP_API_BASE" \
-            "WHOP_API_KEY=$WHOP_API_KEY" \
-            "WHOP_COMPANY_ID=$WHOP_COMPANY_ID" \
-            "WHOP_PLAN_PRO_ANNUAL_ID=$WHOP_PLAN_PRO_ANNUAL_ID" \
-            "WHOP_PLAN_PRO_MONTHLY_ID=$WHOP_PLAN_PRO_MONTHLY_ID" \
-            "WHOP_PLAN_PRO_MONTHLY_LIVE_TEST_ID=$WHOP_PLAN_PRO_MONTHLY_LIVE_TEST_ID" \
-            "WHOP_PLAN_ULTRA_ANNUAL_ID=$WHOP_PLAN_ULTRA_ANNUAL_ID" \
-            "WHOP_PLAN_ULTRA_MONTHLY_ID=$WHOP_PLAN_ULTRA_MONTHLY_ID" \
-            "WHOP_PRODUCT_ID=$WHOP_PRODUCT_ID" \
-            "WHOP_SANDBOX=$WHOP_SANDBOX" \
-            "WHOP_WEBHOOK_SECRET=$WHOP_WEBHOOK_SECRET" \
-            "META_CONVERSIONS_API_ACCESS_TOKEN=$META_CONVERSIONS_API_ACCESS_TOKEN" \
-            "META_GRAPH_API_VERSION=$META_GRAPH_API_VERSION" \
-            "META_PIXEL_ID=$META_PIXEL_ID")"
-          encoded_provider_env="$(printf '%s' "$provider_env" | base64 -w 0)"
-          parameters="$(jq -nc \
-            --arg command "sudo install -d -m 0700 /etc/stocksembly && sudo touch /etc/stocksembly/app.env && sudo chmod 0600 /etc/stocksembly/app.env && sudo sed -i -e '/^WHOP_/d' -e '/^INSIGHTSENTRY_/d' -e '/^META_/d' /etc/stocksembly/app.env && printf '%s' '${encoded_provider_env}' | base64 --decode | sudo tee -a /etc/stocksembly/app.env >/dev/null" \
-            '{commands:[$command]}')"
-          jq '. + {executionTimeout:["2400"]}' <<< "$parameters" > "$RUNNER_TEMP/provider-parameters.json"
-          bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/provider-parameters.json"
+        run: python3 infra/aws/publish-provider-secret.py
       - name: Install daily Docker maintenance
         run: |
           maintenance="$(base64 -w 0 infra/aws/docker-maintenance.sh)"
@@ -299,9 +288,9 @@ jobs:
         run: |
           [[ "$STATIC_ASSET_RELEASE" =~ ^[a-f0-9]{40}$ ]] || exit 64
           docker build -f apps/web/Dockerfile \
-            --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_aBlbfohE8 \
-            --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=5njm1pei6ltopdks0g4a1m5cab \
-            --build-arg NEXT_PUBLIC_COGNITO_DOMAIN=stocksembly-prod-359463332817.auth.us-east-1.amazoncognito.com \
+            --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_ID="${{ vars.COGNITO_USER_POOL_ID }}" \
+            --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID="${{ vars.COGNITO_CLIENT_ID }}" \
+            --build-arg NEXT_PUBLIC_COGNITO_DOMAIN="${{ vars.COGNITO_DOMAIN }}" \
             --build-arg NEXT_PUBLIC_APP_ORIGIN=https://stocksembly.com \
             --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=G-YRQDC6R5TL \
             --build-arg NEXT_PUBLIC_SENTRY_DSN="${NEXT_PUBLIC_SENTRY_DSN:-}" \

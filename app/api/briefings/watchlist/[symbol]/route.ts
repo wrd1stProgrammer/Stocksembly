@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BriefingSymbolSchema } from "@/src/briefing/domain/contracts";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const runtime = "nodejs";
@@ -11,6 +12,8 @@ export async function DELETE(
   request: Request,
   context: Context,
 ): Promise<Response> {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const parsed = BriefingSymbolSchema.safeParse((await context.params).symbol);
   if (!parsed.success)
     return NextResponse.json(

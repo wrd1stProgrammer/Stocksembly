@@ -5,6 +5,7 @@ import {
   resolveStocksemblyDataDirectory,
 } from "../artifacts/filesystemArtifactPaths";
 import { createLiveS3ArtifactArchive } from "../artifacts/s3ArtifactArchive";
+import { sessionRevocations } from "../http/sessionRevocations";
 import { getResearchPool } from "../persistence/postgres/researchPool";
 import { createLiveResearchQueue } from "../queue/sqsResearchQueue";
 import { getLiveTickerCatalog } from "./liveTickerCatalog";
@@ -36,8 +37,8 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
     STOCKSEMBLY_COGNITO_USER_POOL_ID: cognitoUserPoolId,
     STOCKSEMBLY_COGNITO_CLIENT_ID: cognitoClientId,
   } = process.env;
-  const runtime = await prepareLiveResearchRuntime();
-  const { paths } = runtime;
+  if (!configuredPublicOrigin && process.env.NODE_ENV === "production")
+    throw new Error("STOCKSEMBLY_PUBLIC_ORIGIN_REQUIRED");
   const port = configuredPort ?? "3000";
   const publicOrigin = new URL(
     configuredPublicOrigin ?? `http://127.0.0.1:${port}`,
@@ -47,13 +48,20 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
     (publicOrigin.protocol !== "http:" && publicOrigin.protocol !== "https:")
   )
     throw new Error("STOCKSEMBLY_PUBLIC_ORIGIN_INVALID");
+  const loopback = new Set(["localhost", "127.0.0.1", "[::1]"]).has(
+    publicOrigin.hostname,
+  );
+  if (
+    (!loopback || cognitoUserPoolId || cognitoClientId) &&
+    !(cognitoUserPoolId?.trim() && cognitoClientId?.trim())
+  )
+    throw new Error("STOCKSEMBLY_COGNITO_CONFIGURATION_REQUIRED");
+  const runtime = await prepareLiveResearchRuntime();
+  const { paths } = runtime;
   const tickerCatalog = await getLiveTickerCatalog();
   const accountStore = await createLiveAccountStore();
   const researchQueue = createLiveResearchQueue();
   const artifactArchive = createLiveS3ArtifactArchive();
-  const loopback = new Set(["localhost", "127.0.0.1", "[::1]"]).has(
-    publicOrigin.hostname,
-  );
   const billingRequired = accountStore !== undefined || !loopback;
   return await createResearchApi({
     dataRoot: paths.root,
@@ -88,6 +96,7 @@ export async function createLiveResearchApi(): Promise<ResearchApi> {
             userPoolId: cognitoUserPoolId,
             clientId: cognitoClientId,
             secureCookie: publicOrigin.protocol === "https:",
+            sessions: sessionRevocations(runtime.database),
           },
         }
       : {}),

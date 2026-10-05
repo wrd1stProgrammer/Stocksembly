@@ -42,6 +42,10 @@ describe("account onboarding route", () => {
     const response = await PUT(
       new Request("https://stocksembly.com/api/account/onboarding", {
         method: "PUT",
+        headers: {
+          origin: "https://stocksembly.com",
+          "content-type": "application/json",
+        },
         body: JSON.stringify({ version: 1, discoverySource: "social" }),
       }),
     );
@@ -59,6 +63,10 @@ describe("account onboarding route", () => {
     const response = await PUT(
       new Request("https://stocksembly.com/api/account/onboarding", {
         method: "PUT",
+        headers: {
+          origin: "https://stocksembly.com",
+          "content-type": "application/json",
+        },
         body: JSON.stringify({ version: 1, discoverySource: "made-up" }),
       }),
     );

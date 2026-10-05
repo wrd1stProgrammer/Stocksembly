@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BriefingSymbolSchema } from "@/src/briefing/domain/contracts";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import { getLiveTickerCatalog } from "@/src/research/server/api/liveTickerCatalog";
 
@@ -7,6 +8,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const body = (await request.json().catch(() => undefined)) as
     | { readonly symbol?: unknown }
     | undefined;

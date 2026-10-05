@@ -3,6 +3,7 @@ import {
   CURRENT_ONBOARDING_VERSION,
   isOnboardingDiscoverySource,
 } from "@/src/accounts/onboarding";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const runtime = "nodejs";
@@ -45,6 +46,8 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function PUT(request: Request): Promise<Response> {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const body = (await request.json().catch(() => undefined)) as
     | { readonly version?: unknown; readonly discoverySource?: unknown }
     | undefined;

@@ -1,11 +1,9 @@
 import { z } from "zod";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import type { ResearchLocale } from "@/src/lib/i18n";
 import type { PublicRunDetail } from "@/src/research/client/schemas";
 import type { ResearchFileData } from "@/src/research/compositions/types";
-import {
-  getLiveResearchApi,
-  prepareLiveResearchRuntime,
-} from "@/src/research/server/api/liveResearchApi";
+import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 import { loadResearchRoomReport } from "@/src/research/server/researchRoom/researchRoomCatalog";
 import { requiresResearchRoomViewCredit } from "@/src/research/server/researchRoom/researchRoomIndexability";
 import { requestResearchTranslation } from "@/src/research/server/researchRoom/researchTranslationJobs";
@@ -38,6 +36,8 @@ export async function POST(
   request: Request,
   { params }: Props,
 ): Promise<Response> {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const { reportId } = await params;
   if (!z.string().uuid().safeParse(reportId).success)
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -86,22 +86,42 @@ export async function POST(
     readonly conversation: typeof report.conversation;
     readonly renderLocale: ResearchLocale;
   };
+  let credit: Awaited<ReturnType<typeof api.consumeResearchTranslationCredit>>;
   try {
-    const runtime = await prepareLiveResearchRuntime();
-    const job = await requestResearchTranslation(
-      runtime.database,
-      {
-        reportId,
-        runId: report.runDetail.run.runId,
-        file: report.file,
-        question: report.item.question,
-        runDetail: report.runDetail,
-        conversation: report.conversation,
-        sourceLocale: report.item.locale,
-        targetLocale: body.data.targetLocale,
+    let job: Awaited<ReturnType<typeof requestResearchTranslation>> | undefined;
+    credit = await api.consumeResearchTranslationCredit(
+      request,
+      reportId,
+      body.data.targetLocale,
+      async (client) => {
+        job = await requestResearchTranslation(
+          client,
+          {
+            reportId,
+            runId: report.runDetail.run.runId,
+            file: report.file,
+            question: report.item.question,
+            runDetail: report.runDetail,
+            conversation: report.conversation,
+            sourceLocale: report.item.locale,
+            targetLocale: body.data.targetLocale,
+          },
+          body.data.retryFailed === true,
+        );
+        if (job.status === "failed") throw new Error("TRANSLATION_FAILED");
+        return { jobKey: job.jobKey, status: job.status };
       },
-      body.data.retryFailed === true,
     );
+    if (!credit.allowed)
+      return Response.json(
+        {
+          error: "INSUFFICIENT_CREDITS",
+          remaining: credit.remaining,
+          required: credit.required,
+        },
+        { status: 402 },
+      );
+    if (!job) throw new Error("TRANSLATION_ADMISSION_UNAVAILABLE");
     if (job.status === "queued" || job.status === "running")
       return Response.json(
         { status: job.status },
@@ -119,20 +139,6 @@ export async function POST(
     );
     return Response.json({ error: "TRANSLATION_FAILED" }, { status: 502 });
   }
-  const credit = await api.consumeResearchTranslationCredit(
-    request,
-    reportId,
-    body.data.targetLocale,
-  );
-  if (!credit.allowed)
-    return Response.json(
-      {
-        error: "INSUFFICIENT_CREDITS",
-        remaining: credit.remaining,
-        required: credit.required,
-      },
-      { status: 402 },
-    );
   return Response.json(
     {
       file: projection.file,

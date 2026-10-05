@@ -12,6 +12,32 @@ region="$(cut -d. -f4 <<<"$registry")"
 install -d -m 0700 /opt/stocksembly/container
 exec 9>"/opt/stocksembly/container/${role}.deploy.lock"
 flock -n 9 || { echo 'Another role deployment is active' >&2; exit 75; }
+umask 077
+provider_file="$(mktemp /run/stocksembly-providers.XXXXXX)"
+trap 'rm -f "$provider_file"' EXIT
+aws secretsmanager get-secret-value --region "$region" --secret-id stocksembly/prod/providers --query SecretString --output text > "$provider_file"
+python3 - "$provider_file" <<'PYPROVIDERS'
+import json, os, pathlib, re, sys, tempfile
+values = json.loads(pathlib.Path(sys.argv[1]).read_text())
+if not isinstance(values, dict) or not values:
+    raise SystemExit("Provider secret must be a nonempty object")
+for key, value in values.items():
+    if not re.fullmatch(r"(WHOP|INSIGHTSENTRY|META)_[A-Z0-9_]+", key) or not isinstance(value, str) or "\n" in value or "\r" in value:
+        raise SystemExit("Invalid provider environment entry")
+path = pathlib.Path("/etc/stocksembly/app.env")
+lines = [line for line in path.read_text().splitlines() if line.partition("=")[0] not in values]
+lines += [f"{key}={value}" for key, value in values.items()]
+fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=".app.env.")
+try:
+    with os.fdopen(fd, "w") as output:
+        output.write("\n".join(lines) + "\n")
+        output.flush()
+        os.fsync(output.fileno())
+    os.replace(temporary, path)
+finally:
+    if os.path.exists(temporary):
+        os.unlink(temporary)
+PYPROVIDERS
 args=(--env-file /etc/stocksembly/aws.env --env-file /etc/stocksembly/app.env)
 for key in STOCKSEMBLY_ARTIFACT_BUCKET AWS_REGION STOCKSEMBLY_DATA_DIR; do
   grep -Eq "^${key}=.+" /etc/stocksembly/aws.env /etc/stocksembly/app.env || { echo "Missing ${key}" >&2; exit 78; }
