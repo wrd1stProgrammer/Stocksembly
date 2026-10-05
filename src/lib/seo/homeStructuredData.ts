@@ -1,5 +1,6 @@
 import type { AppLocale } from "../i18n";
-import { copy, intlLocale } from "../i18n";
+import { intlLocale } from "../i18n";
+import { homeMetadataCopy } from "./homeMetadataCopy";
 
 const SITE_URL = "https://stocksembly.com";
 const ORGANIZATION_ID = `${SITE_URL}/#organization`;
@@ -7,8 +8,7 @@ const WEBSITE_ID = `${SITE_URL}/#website`;
 const APPLICATION_ID = `${SITE_URL}/#application`;
 
 export function homeStructuredData(locale: AppLocale) {
-  const content = copy[locale];
-  const description = `${content.hero.descriptionLead} ${content.hero.descriptionTail}`;
+  const { description } = homeMetadataCopy[locale];
   return {
     "@context": "https://schema.org",
     "@graph": [
