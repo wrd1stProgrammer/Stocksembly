@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { App } from "@/src/App";
 import { editorialWorkspaceAccess } from "@/src/editorial/server/editorialWorkspaceAccess";
-import { copy, isLocale, localeDetails, locales } from "@/src/lib/i18n";
+import { isLocale } from "@/src/lib/i18n";
+import { homeMetadata } from "@/src/lib/seo/homeMetadata";
 import {
-  boundedSeoDescription,
-  brandedSeoTitle,
-} from "@/src/lib/seo/metadataText";
+  homeStructuredData,
+  serializeStructuredData,
+} from "@/src/lib/seo/homeStructuredData";
 import { loadLandingResearchRoomPreview } from "../_lib/landingResearchRoomPreview";
 
 type Props = Readonly<{ params: Promise<{ readonly locale: string }> }>;
@@ -14,36 +15,7 @@ type Props = Readonly<{ params: Promise<{ readonly locale: string }> }>;
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) return {};
-  const content = copy[locale];
-  const title = brandedSeoTitle(content.hero.eyebrow);
-  const description = boundedSeoDescription(
-    `${content.hero.descriptionLead} ${content.hero.descriptionTail}`,
-  );
-  return {
-    title: { absolute: title },
-    description,
-    alternates: {
-      canonical: `/${locale}`,
-      languages: {
-        en: "/en",
-        ...Object.fromEntries(
-          locales.map((value) => [localeDetails[value].hreflang, `/${value}`]),
-        ),
-        "x-default": "/en",
-      },
-    },
-    openGraph: {
-      title,
-      description,
-      url: `/${locale}`,
-      locale: localeDetails[locale].openGraph,
-      alternateLocale: locales
-        .filter((value) => value !== locale)
-        .map((value) => localeDetails[value].openGraph),
-      siteName: "Stocksembly",
-      type: "website",
-    },
-  };
+  return homeMetadata(locale);
 }
 
 export default async function LocalizedHomePage({ params }: Props) {
@@ -55,10 +27,15 @@ export default async function LocalizedHomePage({ params }: Props) {
     initialAccess,
   );
   return (
-    <App
-      initialAccess={initialAccess}
-      initialLocale={locale}
-      researchRoomPreview={researchRoomPreview}
-    />
+    <>
+      <App
+        initialAccess={initialAccess}
+        initialLocale={locale}
+        researchRoomPreview={researchRoomPreview}
+      />
+      <script type="application/ld+json">
+        {serializeStructuredData(homeStructuredData(locale))}
+      </script>
+    </>
   );
 }

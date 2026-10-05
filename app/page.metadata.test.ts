@@ -17,13 +17,67 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(async () => new Headers()),
 }));
 
+import { cookies, headers } from "next/headers";
+import { homeMetadata } from "@/src/lib/seo/homeMetadata";
+import { homeMetadataCopy } from "@/src/lib/seo/homeMetadataCopy";
 import { metadata as rootMetadata } from "./layout";
-import HomePage, { metadata } from "./page";
+import HomePage, { generateMetadata } from "./page";
+
+vi.mock("@/src/editorial/server/editorialWorkspaceAccess", () => ({
+  editorialWorkspaceAccess: vi.fn(async () => ({
+    authenticated: false,
+    tier: "free",
+  })),
+}));
+vi.mock("./_lib/landingResearchRoomPreview", () => ({
+  loadLandingResearchRoomPreview: vi.fn(async () => ({
+    reports: [],
+    companyNames: {},
+  })),
+}));
 
 describe("homepage metadata", () => {
-  it("consolidates the language-negotiated apex under the English canonical", () => {
+  it("consolidates the default apex under the English canonical", async () => {
+    const metadata = await generateMetadata({
+      searchParams: Promise.resolve({}),
+    });
     expect(metadata.alternates?.canonical).toBe("/en");
-    expect(metadata.alternates?.languages).toBeUndefined();
+    expect(metadata).toEqual(homeMetadata("en"));
+  });
+
+  it("uses the explicit URL language before request preferences", async () => {
+    vi.mocked(headers).mockResolvedValueOnce(
+      new Headers({ "accept-language": "de-DE" }),
+    );
+    expect(
+      await generateMetadata({ searchParams: Promise.resolve({ lang: "ko" }) }),
+    ).toEqual(homeMetadata("ko"));
+    vi.mocked(headers).mockReset();
+    vi.mocked(headers).mockImplementation(async () => new Headers());
+  });
+
+  it("matches the browser language without an explicit URL language", async () => {
+    vi.mocked(headers).mockResolvedValueOnce(
+      new Headers({ "accept-language": "ja-JP" }),
+    );
+    expect(
+      await generateMetadata({ searchParams: Promise.resolve({}) }),
+    ).toEqual(homeMetadata("ja"));
+  });
+
+  it("uses the saved account language before the browser language", async () => {
+    const jar = await cookies();
+    vi.spyOn(jar, "get").mockImplementation(() => ({
+      name: "stocksembly_locale",
+      value: "fr",
+    }));
+    vi.mocked(cookies).mockResolvedValueOnce(jar);
+    vi.mocked(headers).mockResolvedValueOnce(
+      new Headers({ "accept-language": "en-US" }),
+    );
+    expect(
+      await generateMetadata({ searchParams: Promise.resolve({}) }),
+    ).toEqual(homeMetadata("fr"));
   });
 
   it("publishes an Open Graph image from the root metadata", () => {
@@ -54,6 +108,7 @@ describe("homepage metadata", () => {
     expect(script?.textContent).toContain('"email":"kicoa24@gmail.com"');
     expect(script?.textContent).toContain('"@type":"PostalAddress"');
     expect(script?.textContent).not.toContain('"telephone"');
+    expect(script?.textContent).toContain(homeMetadataCopy.en.description);
   });
 
   it("keeps an explicit Japanese locale in the URL", async () => {

@@ -36,13 +36,13 @@ import {
 import { SiteAtmosphere } from "./components/SiteAtmosphere";
 import type { AppLocale } from "./lib/i18n";
 import {
-  copy,
   DEFAULT_LOCALE,
   isLocale,
   localeFromCountry,
   localeFromLanguageTag,
   researchLocale,
 } from "./lib/i18n";
+import { homeMetadataCopy } from "./lib/seo/homeMetadataCopy";
 import { BILLING_CHANGED_EVENT } from "./lib/whop/billingEvents";
 import type {
   WhopBillingStatus,
@@ -417,7 +417,21 @@ export function App({
 
   useEffect(() => {
     document.documentElement.lang = locale;
-    document.title = `${copy[locale].hero.titleLead} ${copy[locale].hero.titleTail} · Stocksembly`;
+    const { title, description } = homeMetadataCopy[locale];
+    document.title = title;
+    for (const selector of [
+      'meta[name="description"]',
+      'meta[property="og:description"]',
+      'meta[name="twitter:description"]',
+    ]) {
+      document.querySelector(selector)?.setAttribute("content", description);
+    }
+    for (const selector of [
+      'meta[property="og:title"]',
+      'meta[name="twitter:title"]',
+    ]) {
+      document.querySelector(selector)?.setAttribute("content", title);
+    }
   }, [locale]);
 
   return (
