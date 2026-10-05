@@ -1,7 +1,13 @@
 import { productEngagementSchema } from "@/src/admin/productEngagement";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
+import { publicRequestBudget } from "@/src/lib/http/publicRequestBudget";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
+  const budget = publicRequestBudget(request, "engagement", 120);
+  if (budget) return budget;
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const allowedOrigin = new URL(
     process.env["STOCKSEMBLY_PUBLIC_ORIGIN"] ?? request.url,
   ).origin;

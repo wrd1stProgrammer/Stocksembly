@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const runtime = "nodejs";
@@ -11,6 +12,8 @@ export async function POST(
   request: Request,
   context: Context,
 ): Promise<Response> {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const parsed = z
     .string()
     .uuid()

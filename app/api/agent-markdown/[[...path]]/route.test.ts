@@ -15,6 +15,49 @@ beforeEach(() => {
 });
 
 describe("agent Markdown route", () => {
+  it("rejects escaped hosts and recursive API targets without fetching", async () => {
+    for (const target of [
+      "/\\evil.test",
+      "/%5cevil.test",
+      "/api/agent-markdown",
+      "/api/research/session",
+    ]) {
+      const response = await GET(
+        new Request("https://stocksembly.com/api/agent-markdown", {
+          headers: {
+            [ORIGINAL_TARGET_HEADER]: target,
+            [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+          },
+        }),
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(kyState.get).not.toHaveBeenCalled();
+  });
+  it("does not follow redirects or expose upstream error details", async () => {
+    const request = () =>
+      new Request("https://stocksembly.com/api/agent-markdown", {
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+        },
+      });
+    kyState.get.mockResolvedValueOnce(
+      new Response("", {
+        status: 302,
+        headers: { location: "https://evil.test", "content-type": "text/html" },
+      }),
+    );
+    expect((await GET(request())).status).toBe(502);
+    expect(kyState.get).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({ redirect: "manual" }),
+    );
+    kyState.get.mockRejectedValueOnce(new Error("private-upstream-address"));
+    expect(await (await GET(request())).text()).not.toContain(
+      "private-upstream-address",
+    );
+  });
   it("preserves a source 404 and returns a Markdown recovery document", async () => {
     kyState.get.mockResolvedValueOnce(
       new Response(

@@ -13,8 +13,9 @@ jobs:
     timeout-minutes: 20
     env:
       AWS_REGION: us-east-1
-      COGNITO_USER_POOL_ID: us-east-1_aBlbfohE8
-      INSTANCE_ID: i-030eacac11712c94d
+      COGNITO_USER_POOL_ID: ${{ vars.COGNITO_USER_POOL_ID }}
+      COGNITO_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
+      INSTANCE_ID: ${{ vars.WORKER_INSTANCE_ID }}
       TEST_ACCOUNT_EMAIL: ${{ secrets.STOCKSEMBLY_TEST_ACCOUNT_EMAIL }}
       TEST_ACCOUNT_PASSWORD: ${{ secrets.STOCKSEMBLY_TEST_ACCOUNT_PASSWORD }}
       TEST_ACCOUNT_SUBJECT: ${{ secrets.STOCKSEMBLY_TEST_ACCOUNT_SUBJECT }}
@@ -32,7 +33,7 @@ jobs:
             subject="$TEST_ACCOUNT_SUBJECT"
           else
             payload="$(jq -nc \
-              --arg clientId "5njm1pei6ltopdks0g4a1m5cab" \
+              --arg clientId "$COGNITO_CLIENT_ID" \
               --arg username "$TEST_ACCOUNT_EMAIL" \
               --arg password "$TEST_ACCOUNT_PASSWORD" \
               '{ClientId:$clientId,Username:$username,Password:$password,UserAttributes:[{Name:"email",Value:$username}]}')"

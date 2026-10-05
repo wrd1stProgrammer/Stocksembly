@@ -8,18 +8,13 @@ import {
   currentAuthTokens,
   syncResearchSession,
 } from "@/src/auth/researchSession";
+import { safeDestination } from "@/src/auth/safeDestination";
 import { AuthFrame, AuthNotice } from "./AuthFrame";
 
 export function AuthCallback() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedDestination = searchParams.get("next");
-  const destination =
-    requestedDestination !== null &&
-    requestedDestination.startsWith("/") &&
-    !requestedDestination.startsWith("//")
-      ? requestedDestination
-      : "/";
+  const destination = safeDestination(searchParams.get("next"));
   const [error, setError] = useState<string>();
 
   useEffect(() => {

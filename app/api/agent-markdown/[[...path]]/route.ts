@@ -1,5 +1,6 @@
 import ky from "ky";
 import { z } from "zod";
+import { safeDestination } from "@/src/auth/safeDestination";
 import {
   agentNotFoundMarkdown,
   htmlToAgentMarkdown,
@@ -9,6 +10,7 @@ import {
   MARKDOWN_SOURCE_ORIGIN_HEADER,
   ORIGINAL_TARGET_HEADER,
 } from "@/src/lib/agent/markdownHeaders";
+import { publicRequestBudget } from "@/src/lib/http/publicRequestBudget";
 
 const originalTargetSchema = z
   .string()
@@ -19,7 +21,19 @@ function sourceTarget(request: Request): string | undefined {
   const parsed = originalTargetSchema.safeParse(
     request.headers.get(ORIGINAL_TARGET_HEADER),
   );
-  return parsed.success ? parsed.data : undefined;
+  if (!parsed.success || safeDestination(parsed.data) !== parsed.data)
+    return undefined;
+  const encodedPath = new URL(parsed.data, "https://stocksembly.com").pathname;
+  // Reject encoded path separators and malformed escapes before route matching.
+  if (/%(?:2f|5c|25)/iu.test(encodedPath)) return undefined;
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(encodedPath);
+  } catch {
+    return undefined;
+  }
+  if (/^\/(?:api|_next|_vercel)(?:\/|$)/u.test(pathname)) return undefined;
+  return parsed.data;
 }
 
 function sourceOrigin(request: Request): string | undefined {
@@ -64,6 +78,8 @@ function markdownResponse(source: Response, html: string, sourceUrl: URL) {
 }
 
 export async function GET(request: Request): Promise<Response> {
+  const rejected = publicRequestBudget(request, "markdown", 60);
+  if (rejected) return rejected;
   const target = sourceTarget(request);
   const origin = sourceOrigin(request);
   if (target === undefined || origin === undefined)
@@ -73,14 +89,22 @@ export async function GET(request: Request): Promise<Response> {
     });
 
   const sourceUrl = new URL(target, origin);
+  if (sourceUrl.origin !== origin)
+    return new Response("Bad Request\n", { status: 400 });
 
   try {
     const source = await ky.get(sourceUrl, {
       headers: sourceRequestHeaders(request),
+      redirect: "manual",
       retry: 0,
       timeout: 15_000,
       throwHttpErrors: false,
     });
+    if (source.status >= 300 && source.status < 400) {
+      return new Response("Source redirect is not supported.\n", {
+        status: 502,
+      });
+    }
     const sourceType = source.headers.get("Content-Type") ?? "";
     if (!sourceType.toLowerCase().includes("text/html"))
       return new Response(
@@ -95,10 +119,10 @@ export async function GET(request: Request): Promise<Response> {
       );
     const html = await source.text();
     return markdownResponse(source, html, sourceUrl);
-  } catch (error) {
+  } catch {
     // no-excuse-ok: catch -- this HTTP boundary must return a stable response.
     return new Response(
-      `Bad Gateway\n\nThe HTML representation could not be loaded: ${error instanceof Error ? error.message : "unknown error"}\n`,
+      "Bad Gateway\n\nThe HTML representation could not be loaded.\n",
       {
         status: 502,
         headers: {

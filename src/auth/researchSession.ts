@@ -81,9 +81,15 @@ export async function clearResearchSession(): Promise<boolean> {
   lastSync = 0;
   await pendingSync?.catch(() => undefined);
   lastSync = 0;
+  const tokens = await currentAuthTokens();
   const response = await fetch("/api/research/session", {
     method: "DELETE",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(tokens.accessToken
+        ? { authorization: `Bearer ${tokens.accessToken}` }
+        : {}),
+    },
     credentials: "same-origin",
     cache: "no-store",
   });

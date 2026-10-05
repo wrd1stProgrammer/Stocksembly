@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
 export const runtime = "nodejs";
@@ -10,6 +11,8 @@ export async function POST(
   request: Request,
   { params }: Props,
 ): Promise<Response> {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   const { reportId } = await params;
   if (!z.string().uuid().safeParse(reportId).success) {
     return Response.json({ error: "NOT_FOUND" }, { status: 404 });

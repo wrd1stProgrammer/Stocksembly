@@ -30,7 +30,7 @@ describe("report credit confirmation", () => {
   it("spends only on explicit POST", async () => {
     const request = new Request(
       `http://localhost/api/research-room/${reportId}/credit`,
-      { method: "POST" },
+      { method: "POST", headers: { origin: "http://localhost" } },
     );
     await POST(request, props);
     expect(credit).toHaveBeenCalledWith(request, reportId);

@@ -117,6 +117,7 @@ export type AccountStore = {
     eventKey: string,
     reportId: string,
     targetLocale: AppLocale,
+    admit?: TranslationAdmission,
   ) => Promise<CreditAvailability>;
   readonly listConsultations?: (
     principalId: string,
@@ -226,3 +227,5 @@ export type AccountStore = {
   ) => Promise<boolean>;
   readonly close: () => Promise<void>;
 };
+
+import type { TranslationAdmission } from "./translationAdmission";

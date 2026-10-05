@@ -26,6 +26,22 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["pg", "pdfmake", "@sentry/profiling-node"],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+          },
+          { key: "Strict-Transport-Security", value: "max-age=86400" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {

@@ -1,9 +1,16 @@
+import { publicRequestBudget } from "@/src/lib/http/publicRequestBudget";
+import { shortCache } from "@/src/lib/http/shortCache";
+import type { InsightSentryQuote } from "@/src/research/server/data/insightsentry/insightSentryMarket";
 import { getLiveTickerCatalog } from "../../../../../src/research/server/api/liveTickerCatalog";
+
+const cachedQuote = shortCache<InsightSentryQuote | undefined>(15_000);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
+  const rejected = publicRequestBudget(request, "ticker-quote", 120);
+  if (rejected) return rejected;
   const symbol =
     new URL(request.url).searchParams.get("symbol")?.trim().toUpperCase() ?? "";
   if (!/^[A-Z][A-Z0-9.-]{0,11}$/u.test(symbol))
@@ -13,7 +20,9 @@ export async function GET(request: Request): Promise<Response> {
     );
   try {
     const catalog = await getLiveTickerCatalog();
-    const quote = await catalog.quote?.(symbol);
+    const quote = await cachedQuote(symbol, async () =>
+      catalog.quote?.(symbol),
+    );
     if (
       quote?.lastPrice === undefined ||
       quote.currency === undefined ||

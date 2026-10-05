@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ResearchDatabase } from "../persistence/postgres/database";
+import { researchTransaction } from "../persistence/postgres/database";
 import {
   RESEARCH_TRANSLATION_SCHEMA_VERSION,
   type TranslatedResearchProjection,
@@ -31,7 +32,9 @@ export async function requestResearchTranslation(
   database: ResearchDatabase,
   input: ResearchTranslationJobInput,
   retryFailed: boolean,
-): Promise<Pick<JobRow, "status" | "result_json">> {
+): Promise<
+  Pick<JobRow, "status" | "result_json"> & { readonly jobKey: string }
+> {
   const key = createHash("sha256")
     .update(
       JSON.stringify({
@@ -42,18 +45,18 @@ export async function requestResearchTranslation(
     )
     .digest("hex");
   const result = await database.query<JobRow>(
-    `INSERT INTO research_report_translation_jobs(job_key, report_id, input_json)
+    `INSERT INTO research.research_report_translation_jobs AS jobs(job_key, report_id, input_json)
      VALUES ($1, $2, $3::jsonb)
      ON CONFLICT (job_key) DO UPDATE SET
-       status = CASE WHEN $4 AND research_report_translation_jobs.status = 'failed' THEN 'queued'
-         ELSE research_report_translation_jobs.status END,
+       status = CASE WHEN $4 AND jobs.status = 'failed' THEN 'queued'
+         ELSE jobs.status END,
        updated_at = now()
      RETURNING status, result_json`,
     [key, input.reportId, JSON.stringify(input), retryFailed],
   );
   const row = result.rows[0];
   if (!row) throw new Error("translation_job_missing");
-  return row;
+  return { ...row, jobKey: key };
 }
 
 export async function runResearchTranslationJob(
@@ -94,11 +97,20 @@ export async function runResearchTranslationJob(
       input.sourceLocale,
       input.targetLocale,
     );
-    await database.query(
-      `UPDATE research_report_translation_jobs SET status = 'succeeded', result_json = $3::jsonb,
-       lease_until = NULL, updated_at = now() WHERE job_key = $1 AND lease_token = $2`,
-      [job.job_key, token, JSON.stringify(result)],
-    );
+    await researchTransaction(database, async (client) => {
+      const settled = await client.query(
+        `UPDATE research_report_translation_jobs SET status = 'succeeded', result_json = $3::jsonb,
+       lease_until = NULL, updated_at = now() WHERE job_key = $1 AND lease_token = $2 RETURNING job_key`,
+        [job.job_key, token, JSON.stringify(result)],
+      );
+      if (settled.rowCount)
+        await client.query(
+          `UPDATE public.usage_events SET metadata = metadata || '{"translationPending":false}'::jsonb
+         WHERE kind = 'research_translation' AND metadata->>'translationJobKey' = $1
+         AND metadata->>'translationPending' = 'true'`,
+          [job.job_key],
+        );
+    });
   } catch (error) {
     process.stderr.write(
       `${JSON.stringify({
@@ -107,11 +119,19 @@ export async function runResearchTranslationJob(
         errorName: error instanceof Error ? error.name : "Unknown",
       })}\n`,
     );
-    await database.query(
-      `UPDATE research_report_translation_jobs SET status = 'failed', lease_until = NULL,
-       updated_at = now() WHERE job_key = $1 AND lease_token = $2`,
-      [job.job_key, token],
-    );
+    await researchTransaction(database, async (client) => {
+      const settled = await client.query(
+        `UPDATE research_report_translation_jobs SET status = 'failed', lease_until = NULL,
+       updated_at = now() WHERE job_key = $1 AND lease_token = $2 RETURNING job_key`,
+        [job.job_key, token],
+      );
+      if (settled.rowCount)
+        await client.query(
+          `DELETE FROM public.usage_events WHERE kind = 'research_translation'
+         AND metadata->>'translationJobKey' = $1 AND metadata->>'translationPending' = 'true'`,
+          [job.job_key],
+        );
+    });
   } finally {
     clearInterval(heartbeat);
   }

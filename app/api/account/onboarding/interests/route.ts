@@ -1,8 +1,11 @@
 import { OnboardingSymbolsSchema } from "@/src/accounts/onboardingInterests";
+import { guardBrowserMutation } from "@/src/lib/http/guardBrowserMutation";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function POST(request: Request): Promise<Response> {
+  const rejected = await guardBrowserMutation(request);
+  if (rejected) return rejected;
   // Browser mutations must originate from this application, including cookie-authenticated requests.
   const origin = request.headers.get("origin");
   if (

@@ -34,7 +34,24 @@ type CognitoConfiguration = {
   readonly userPoolId: string;
   readonly clientId: string;
   readonly secureCookie: boolean;
+  readonly sessions?: {
+    readonly isRevoked: (key: string) => Promise<boolean>;
+    readonly revoke: (key: string, expiresAt: number) => Promise<void>;
+  };
 };
+
+function sessionKey(
+  payload: Readonly<Record<string, unknown>>,
+  token: string,
+): string {
+  return createHash("sha256")
+    .update(
+      typeof payload["origin_jti"] === "string"
+        ? `${String(payload["sub"])}:${payload["origin_jti"]}`
+        : token,
+    )
+    .digest("hex");
+}
 
 function bearerToken(request: Request): string | undefined {
   const authorization = request.headers.get("authorization");
@@ -167,6 +184,8 @@ export function createResearchAuth(
   ): Promise<ResearchAuthentication> => {
     try {
       const payload = await verifier.verify(token);
+      if (await configuration.sessions?.isRevoked(sessionKey(payload, token)))
+        return { kind: "unauthorized" };
       const identityToken = request.headers.get("x-stocksembly-identity-token");
       const identity =
         identityToken === null
@@ -203,6 +222,20 @@ export function createResearchAuth(
     async bootstrapSessionResponse(request) {
       if (request.method === "DELETE") {
         const existing = cookieToken(request);
+        const token = bearerToken(request) ?? existing;
+        if (token && configuration.sessions) {
+          const payload = await verifier.verify(token).catch(() => undefined);
+          if (payload) {
+            // Retain the family revocation across refreshed access tokens.
+            await configuration.sessions.revoke(
+              sessionKey(payload, token),
+              Math.max(
+                payload.exp,
+                Math.floor(Date.now() / 1000) + 366 * 86_400,
+              ),
+            );
+          }
+        }
         return new Response(null, {
           status: 204,
           headers: {
@@ -227,6 +260,11 @@ export function createResearchAuth(
       }
       try {
         const payload = await verifier.verify(token);
+        if (await configuration.sessions?.isRevoked(sessionKey(payload, token)))
+          return Response.json(
+            { error: { code: "AUTHENTICATION_REQUIRED" } },
+            { status: 401 },
+          );
         const existing = cookieToken(request);
         return new Response(null, {
           status: 204,
