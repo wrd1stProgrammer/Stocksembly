@@ -18,7 +18,12 @@ const AGENT_GUIDE_LINK = '</llms.txt>; rel="describedby"';
 function routedRequestHeaders(request: NextRequest): Headers {
   const requestHeaders = new Headers(request.headers);
   const pathLocale = request.nextUrl.pathname.split("/")[1];
-  if (isLocale(pathLocale)) requestHeaders.set(ROUTE_LOCALE_HEADER, pathLocale);
+  const queryLocale =
+    request.nextUrl.pathname === "/"
+      ? request.nextUrl.searchParams.get("lang")
+      : null;
+  const locale = isLocale(pathLocale) ? pathLocale : queryLocale;
+  if (isLocale(locale)) requestHeaders.set(ROUTE_LOCALE_HEADER, locale);
   else requestHeaders.delete(ROUTE_LOCALE_HEADER);
   return requestHeaders;
 }

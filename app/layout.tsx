@@ -9,6 +9,7 @@ import { AuthSessionBridge } from "@/src/components/auth/AuthSessionBridge";
 import { ROUTE_LOCALE_HEADER } from "@/src/lib/agent/markdownHeaders";
 import { isLocale, localeDetails, resolveRequestLocale } from "@/src/lib/i18n";
 import { resolveMetaPixelId } from "@/src/lib/meta/config";
+import { homeMetadataCopy } from "@/src/lib/seo/homeMetadataCopy";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/src/styles/tailwind.css";
 import "@/src/styles/tokens.css";
@@ -30,15 +31,13 @@ const metaPixelId = resolveMetaPixelId();
 export const metadata: Metadata = {
   metadataBase: new URL("https://stocksembly.com"),
   title: {
-    default: "Stocksembly — AI Team Research for US Stocks",
+    default: homeMetadataCopy.en.title,
     template: "%s · Stocksembly",
   },
-  description:
-    "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind US stocks, then an independent chair delivers an evidence-linked judgment.",
+  description: homeMetadataCopy.en.description,
   openGraph: {
-    title: "Stocksembly — AI Team Research for US Stocks",
-    description:
-      "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind US stocks, then an independent chair delivers an evidence-linked judgment.",
+    title: homeMetadataCopy.en.title,
+    description: homeMetadataCopy.en.description,
     siteName: "Stocksembly",
     type: "website",
     locale: "en_US",
@@ -62,9 +61,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stocksembly — AI Team Research for US Stocks",
-    description:
-      "Eleven AI specialists investigate the business, valuation, catalysts, and risks behind US stocks, then an independent chair delivers an evidence-linked judgment.",
+    title: homeMetadataCopy.en.title,
+    description: homeMetadataCopy.en.description,
     images: ["/brand/stocksembly-app-icon.png"],
   },
   icons: {

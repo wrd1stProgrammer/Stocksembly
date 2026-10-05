@@ -62,4 +62,26 @@ describe("agent content-negotiation proxy", () => {
       response.headers.get("x-middleware-request-x-stocksembly-route-locale"),
     ).toBe("zh-TW");
   });
+
+  it("keeps the apex HTML language aligned with explicit home metadata", () => {
+    const response = proxy(
+      new NextRequest("https://stocksembly.com/?lang=ko", {
+        headers: { Accept: "text/html", "accept-language": "en-US" },
+      }),
+    );
+    expect(
+      response.headers.get("x-middleware-request-x-stocksembly-route-locale"),
+    ).toBe("ko");
+  });
+
+  it("keeps path languages authoritative over query preferences", () => {
+    const response = proxy(
+      new NextRequest("https://stocksembly.com/ja?lang=ko", {
+        headers: { Accept: "text/html" },
+      }),
+    );
+    expect(
+      response.headers.get("x-middleware-request-x-stocksembly-route-locale"),
+    ).toBe("ja");
+  });
 });
