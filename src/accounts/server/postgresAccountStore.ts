@@ -1026,6 +1026,15 @@ export class PostgresAccountStore implements AccountStore {
          WHERE principal_id = $1
            AND kind = 'research_room'
            AND report_id = $2
+         UNION ALL
+         SELECT 1 FROM analytics_events
+         WHERE principal_id = $1
+           AND event_name = 'report_opened'
+           AND properties->>'reportId' = $2::text
+           AND event_key = 'report-read:' || $1::text || ':' || $2::text
+         UNION ALL
+         SELECT 1 FROM report_ownership
+         WHERE principal_id = $1 AND report_id = $2
          LIMIT 1`,
         [principalId, reportId],
       );
