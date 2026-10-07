@@ -6,4 +6,5 @@ minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - "@biomejs/*"
   - "thinking-orbs"
+  - "source-map-js@1.2.2"
 trustPolicy: no-downgrade
