@@ -21,7 +21,7 @@ jobs:
       TEST_ACCOUNT_SUBJECT: ${{ secrets.STOCKSEMBLY_TEST_ACCOUNT_SUBJECT }}
     steps:
       - uses: actions/checkout@v7
-      - uses: aws-actions/configure-aws-credentials@v6.1.1
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
