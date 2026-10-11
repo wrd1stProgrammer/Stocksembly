@@ -10,8 +10,27 @@
 }
 
 @media (max-width: 620px) {
+  .stock-hub-page .site-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    padding-block: var(--space-3);
+  }
+
+  .stock-hub-page .site-header__actions {
+    white-space: nowrap;
+  }
+
+  .stock-hub-page .header-language-slot__trigger,
+  .stock-hub-page .sign-in {
+    min-height: 44px;
+  }
+
   .stock-hub-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stock-hub-hero h1 {
+    overflow-wrap: anywhere;
   }
 
   .stock-hub-identity {

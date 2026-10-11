@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { StockSymbolSchema } from "../../research/server/researchRoom/researchRoomPublicCatalog";
 import type { StockResearchHub } from "../../research/server/researchRoom/stockResearchHubCatalog";
@@ -129,5 +130,46 @@ describe("stock research hub page", () => {
         }),
       }),
     );
+  });
+});
+
+describe("published excerpt HTML", () => {
+  it("includes the original excerpt, source links and publication context in server HTML", () => {
+    const summaryHub: StockResearchHub = {
+      ...hub,
+      reports: hub.reports.map((report, index) =>
+        index === 0
+          ? {
+              ...report,
+              summary: {
+                text: "Existing public thesis <script>alert(1)</script>",
+                locale: "en",
+                sources: [
+                  { title: "Public filing", url: "https://example.com/filing" },
+                ],
+              },
+            }
+          : report,
+      ),
+    };
+    const html = renderToStaticMarkup(
+      <StockResearchHubPage hub={summaryHub} locale="ja" />,
+    );
+    expect(html).toContain("公開レポートからの抜粋");
+    expect(html).toContain('lang="en"');
+    expect(html).toContain("英語");
+    expect(html).toContain("Existing public thesis &lt;script&gt;");
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain('href="https://example.com/filing"');
+    expect(html).toContain('dateTime="2026-08-03T00:00:00.000Z"');
+    expect(html.match(/<blockquote/g)).toHaveLength(1);
+  });
+
+  it("keeps reports without summaries readable", () => {
+    const html = renderToStaticMarkup(
+      <StockResearchHubPage hub={hub} locale="en" />,
+    );
+    expect(html).not.toContain("<blockquote");
+    expect(html).toContain("How durable is data-center demand?");
   });
 });
