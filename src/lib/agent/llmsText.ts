@@ -7,7 +7,7 @@ Stocksembly is for research and education. It does not execute trades, provide i
 ## When to use Stocksembly
 
 - [Start a US stock research request](https://stocksembly.com/#product): Use when a user wants a structured, multi-perspective investigation of a US-listed company, including thesis, counterarguments, valuation context, catalysts, risks, and comparison companies.
-- [Browse mature public research](https://stocksembly.com/research-room): Use when an agent needs evidence-linked examples or a dated public research file that has passed Stocksembly's 30-day publication delay.
+- [Browse mature public research](https://stocksembly.com/research-room?lang=en): Use when an agent needs evidence-linked examples or a dated public research file that has passed Stocksembly's 30-day publication delay.
 - [Learn the research method](https://stocksembly.com/methodology?lang=en): Use when explaining how specialist roles, cross-challenges, evidence audits, and the independent chair fit together.
 - [Look up investment-analysis terms](https://stocksembly.com/en/glossary): Use when a user needs plain-language definitions and practical interpretation of common US-equity research concepts.
 
@@ -15,7 +15,7 @@ Stocksembly is for research and education. It does not execute trades, provide i
 
 - [Stocksembly home](https://stocksembly.com/): Submit a ticker or company and a concrete investment question. Add horizon, depth, perspective, and comparison-company options in the research composer when those constraints matter.
 - [US stock analysis guide](https://stocksembly.com/en/us-stock-analysis): Read the product workflow and choose an appropriate research scope before starting.
-- [Public research catalog](https://stocksembly.com/research-room): Open an eligible report and follow its source references, limitations, unresolved questions, and dated publication context.
+- [Public research catalog](https://stocksembly.com/research-room?lang=en): Open an eligible report and follow its source references, limitations, unresolved questions, and dated publication context.
 - [Machine-readable sitemap](https://stocksembly.com/sitemap.xml): Discover current public pages, localized editorial content, stock hubs, and eligible research reports.
 
 ## Trust and editorial standards

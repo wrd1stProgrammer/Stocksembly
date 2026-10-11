@@ -5,6 +5,7 @@ import { termsDocument } from "@/src/lib/legal/terms";
 export const metadata: Metadata = {
   title: termsDocument.title,
   description: termsDocument.description,
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

@@ -5,6 +5,7 @@ import { privacyDocument } from "@/src/lib/legal/privacy";
 export const metadata: Metadata = {
   title: privacyDocument.title,
   description: privacyDocument.description,
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
