@@ -1,4 +1,4 @@
-import { load } from "cheerio";
+import { type CheerioAPI, load } from "cheerio";
 
 const REMOVED_ELEMENTS = [
   "script",
@@ -13,6 +13,99 @@ const REMOVED_ELEMENTS = [
   "select",
   "dialog",
 ].join(",");
+
+export class AgentHtmlError extends Error {
+  constructor(readonly status: number) {
+    super("The HTML representation is incomplete or unavailable.");
+  }
+}
+
+// Interpret only React's emitted segment instructions; never evaluate scripts.
+const restoreStreamedContent = ($: CheerioAPI): void => {
+  const scripts = $("script:not([src])").toArray();
+  for (const script of scripts) {
+    const source = $(script).text();
+    const failure = /(?:^|;)\s*\$RX\("B:[^"\\]+","([^"\\]*)"/u.exec(source);
+    if (failure) {
+      const status = /^NEXT_HTTP_ERROR_FALLBACK;(401|403|404)$/u.exec(
+        failure[1] ?? "",
+      );
+      throw new AgentHtmlError(status ? Number(status[1]) : 502);
+    }
+    for (const match of source.matchAll(
+      /(?:^|;)\s*\$(RS|RC|RR)\("([BPS]:[a-zA-Z0-9]+)","([PS]:[a-zA-Z0-9]+)"(?:,(\[[\s\S]*?\]))?\)(?=;|$)/gu,
+    )) {
+      const [, operation, first, second, styles] = match;
+      if (operation === "RR") {
+        // $RR waits for CSS then calls $RC. Text projection needs no CSS fetch.
+        // Validate the emitted string arrays as JSON, never as JavaScript.
+        if (styles === undefined) continue;
+        let dependencies: unknown;
+        try {
+          dependencies = JSON.parse(styles);
+        } catch {
+          continue;
+        }
+        if (
+          !Array.isArray(dependencies) ||
+          !dependencies.every(
+            (dependency: unknown) =>
+              Array.isArray(dependency) &&
+              dependency.every((value: unknown) => typeof value === "string"),
+          )
+        )
+          continue;
+      } else if (styles !== undefined) continue;
+      const segmentId = operation === "RS" ? first : second;
+      const targetId = operation === "RS" ? second : first;
+      const segment = $(`div[hidden][id="${segmentId}"]`).first();
+      const target = $(`template[id="${targetId}"]`).first();
+      if (!segment.length || !target.length) continue;
+      if (operation === "RS") {
+        target.replaceWith(segment.contents());
+        segment.remove();
+        continue;
+      }
+      const boundary = target[0]?.prev;
+      if (boundary?.type !== "comment" || boundary.data !== "$?") continue;
+      // Locate the matching close, including nested Suspense boundaries.
+      let cursor = target[0]?.next;
+      let depth = 0;
+      while (cursor) {
+        if (cursor.type === "comment") {
+          if (cursor.data === "/$" || cursor.data === "/&") {
+            if (depth === 0) break;
+            depth -= 1;
+          } else if (["$", "$?", "$~", "$!", "&"].includes(cursor.data)) {
+            depth += 1;
+          }
+        }
+        cursor = cursor.next;
+      }
+      if (!cursor) continue;
+      let fallback = target[0]?.next;
+      while (fallback && fallback !== cursor) {
+        const next = fallback.next;
+        $(fallback).remove();
+        fallback = next;
+      }
+      target.replaceWith(segment.contents());
+      segment.remove();
+      boundary.data = "$";
+    }
+  }
+  const digest = $("template[data-dgst]").first().attr("data-dgst");
+  if (digest !== undefined) {
+    const status = /^NEXT_HTTP_ERROR_FALLBACK;(401|403|404)$/u.exec(digest);
+    throw new AgentHtmlError(status ? Number(status[1]) : 502);
+  }
+  if ($("html#__next_error__").length) throw new AgentHtmlError(502);
+  $("[hidden], [aria-hidden='true']").remove();
+  if (
+    $('template[id^="B:"], template[id^="P:"], main[aria-busy="true"]').length
+  )
+    throw new AgentHtmlError(502);
+};
 
 function absoluteHref(href: string, canonicalUrl: URL): string {
   if (href.startsWith("mailto:") || href.startsWith("tel:")) return href;
@@ -32,6 +125,7 @@ function compactMarkdown(value: string): string {
 
 export function htmlToAgentMarkdown(html: string, canonicalUrl: URL): string {
   const $ = load(html);
+  restoreStreamedContent($);
   $(REMOVED_ELEMENTS).remove();
   $("[hidden], [aria-hidden='true']").remove();
   $("br").replaceWith("\n");
@@ -98,7 +192,7 @@ export function agentNotFoundMarkdown(canonicalUrl: URL): string {
 The requested path does not exist on Stocksembly. Use one of these public resources to recover:
 
 - [Home](${canonicalUrl.origin}/)
-- [Public research](${canonicalUrl.origin}/research-room)
+- [Public research](${canonicalUrl.origin}/research-room?lang=en)
 - [Agent instructions](${canonicalUrl.origin}/llms.txt)
 - [Contact](${canonicalUrl.origin}/contact)
 - [Sitemap](${canonicalUrl.origin}/sitemap.xml)

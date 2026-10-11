@@ -1,0 +1,171 @@
+import { load } from "cheerio";
+import ky from "ky";
+import { z } from "zod";
+import { safeDestination } from "@/src/auth/safeDestination";
+import {
+  AgentHtmlError,
+  agentNotFoundMarkdown,
+  htmlToAgentMarkdown,
+} from "@/src/lib/agent/htmlToMarkdown";
+import {
+  MARKDOWN_SOURCE_HEADER,
+  MARKDOWN_SOURCE_ORIGIN_HEADER,
+  ORIGINAL_TARGET_HEADER,
+} from "@/src/lib/agent/markdownHeaders";
+import { publicRequestBudget } from "@/src/lib/http/publicRequestBudget";
+
+const originalTargetSchema = z
+  .string()
+  .max(4_096)
+  .regex(/^\/(?!\/)/);
+
+const sourceTarget = (request: Request): string | undefined => {
+  const parsed = originalTargetSchema.safeParse(
+    request.headers.get(ORIGINAL_TARGET_HEADER),
+  );
+  if (!parsed.success || safeDestination(parsed.data) !== parsed.data)
+    return undefined;
+  const encodedPath = new URL(parsed.data, "https://stocksembly.com").pathname;
+  // Reject encoded path separators and malformed escapes before route matching.
+  if (/%(?:2f|5c|25)/iu.test(encodedPath)) return undefined;
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(encodedPath);
+  } catch {
+    return undefined;
+  }
+  if (/^\/(?:api|_next|_vercel)(?:\/|$)/u.test(pathname)) return undefined;
+  return parsed.data;
+};
+
+const sourceOrigin = (request: Request): string | undefined => {
+  const parsed = z
+    .url()
+    .max(2_048)
+    .safeParse(request.headers.get(MARKDOWN_SOURCE_ORIGIN_HEADER));
+  if (!parsed.success) return undefined;
+  const origin = new URL(parsed.data);
+  if (origin.origin === "https://stocksembly.com") return origin.origin;
+  const localSameOrigin =
+    origin.origin === new URL(request.url).origin &&
+    (origin.hostname === "localhost" || origin.hostname === "127.0.0.1") &&
+    (origin.protocol === "http:" || origin.protocol === "https:");
+  return localSameOrigin ? origin.origin : undefined;
+};
+
+const sourceRequestHeaders = (request: Request): Headers => {
+  const sourceHeaders = new Headers({
+    Accept: "text/html",
+    [MARKDOWN_SOURCE_HEADER]: "1",
+  });
+  const acceptLanguage = request.headers.get("accept-language");
+  if (acceptLanguage !== null)
+    sourceHeaders.set("Accept-Language", acceptLanguage);
+  return sourceHeaders;
+};
+
+const markdownResponse = (
+  source: Response,
+  html: string,
+  sourceUrl: URL,
+): Response => {
+  const headers = new Headers({
+    "Cache-Control": "private, no-store",
+    "Content-Type": "text/markdown; charset=utf-8",
+    Vary: "Accept, Accept-Language",
+  });
+  const sourceRobots = source.headers.get("X-Robots-Tag");
+  const googlebotDirectives: string[] = [];
+  const $ = load(html);
+  $("meta[name][content]").each((_index, element) => {
+    const name = $(element).attr("name")?.toLowerCase();
+    if (name !== "robots" && name !== "googlebot") return;
+    // Metadata can contain HTML entities, line breaks, or non-header characters.
+    const content = ($(element).attr("content") ?? "")
+      .replace(/[^\u0020-\u007e]/gu, " ")
+      .trim();
+    if (!content) return;
+    if (name === "googlebot") googlebotDirectives.push(`googlebot: ${content}`);
+    else headers.append("X-Robots-Tag", content);
+  });
+  // Put unscoped metadata first: joining headers after a bot-specific prefix
+  // would accidentally scope a global noindex directive to that bot.
+  if (sourceRobots !== null) headers.append("X-Robots-Tag", sourceRobots);
+  for (const directive of googlebotDirectives)
+    headers.append("X-Robots-Tag", directive);
+  let status = source.status;
+  let markdown: string;
+  try {
+    markdown =
+      status === 404 || status === 410
+        ? agentNotFoundMarkdown(sourceUrl)
+        : htmlToAgentMarkdown(html, sourceUrl);
+  } catch (error) {
+    if (!(error instanceof AgentHtmlError)) throw error;
+    status = error.status;
+    markdown =
+      status === 404
+        ? agentNotFoundMarkdown(sourceUrl)
+        : "The HTML representation is incomplete or unavailable.\n";
+  }
+  return new Response(markdown, { status, headers });
+};
+
+export const agentMarkdownResponse = async (
+  request: Request,
+): Promise<Response> => {
+  const rejected = publicRequestBudget(request, "markdown", 60);
+  if (rejected) return rejected;
+  const target = sourceTarget(request);
+  const origin = sourceOrigin(request);
+  if (target === undefined || origin === undefined)
+    return new Response("Bad Request\n", {
+      status: 400,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+
+  const sourceUrl = new URL(target, origin);
+  if (sourceUrl.origin !== origin)
+    return new Response("Bad Request\n", { status: 400 });
+
+  try {
+    const source = await ky.get(sourceUrl, {
+      headers: sourceRequestHeaders(request),
+      redirect: "manual",
+      retry: 0,
+      timeout: 15_000,
+      throwHttpErrors: false,
+    });
+    if (source.status >= 300 && source.status < 400) {
+      return new Response("Source redirect is not supported.\n", {
+        status: 502,
+      });
+    }
+    const sourceType = source.headers.get("Content-Type") ?? "";
+    if (!sourceType.toLowerCase().includes("text/html"))
+      return new Response(
+        "Not Acceptable\n\nThe source does not have an HTML representation.\n",
+        {
+          status: 406,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            Vary: "Accept",
+          },
+        },
+      );
+    const html = await source.text();
+    return markdownResponse(source, html, sourceUrl);
+  } catch {
+    // no-excuse-ok: catch -- this HTTP boundary must return a stable response.
+    return new Response(
+      "Bad Gateway\n\nThe HTML representation could not be loaded.\n",
+      {
+        status: 502,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          Vary: "Accept",
+        },
+      },
+    );
+  }
+};
