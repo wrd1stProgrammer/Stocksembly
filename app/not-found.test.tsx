@@ -11,7 +11,7 @@ describe("agent-friendly not found page", () => {
     );
     for (const href of [
       "/",
-      "/research-room",
+      "/research-room?lang=en",
       "/sitemap.xml",
       "/llms.txt",
       "/contact",

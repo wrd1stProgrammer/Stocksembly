@@ -5,6 +5,7 @@ import { disclaimerDocument } from "@/src/lib/legal/disclaimer";
 export const metadata: Metadata = {
   title: disclaimerDocument.title,
   description: disclaimerDocument.description,
+  alternates: { canonical: "/disclaimer" },
 };
 
 export default function DisclaimerPage() {
