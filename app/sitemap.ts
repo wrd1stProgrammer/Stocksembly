@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { researchRoomPageHref } from "@/src/components/researchRoom/researchRoomUrls";
 import { editorialDefinitions, editorialPath } from "@/src/editorial/catalog";
 import { locales } from "@/src/lib/i18n";
 import { listResearchRoomSitemapEntries } from "@/src/research/server/researchRoom/researchRoomCatalog";
@@ -30,7 +31,7 @@ function staticSitemapEntries(): MetadataRoute.Sitemap {
       priority: locale === "en" ? 1 : 0.9,
     })),
     {
-      url: `${BASE_URL}/research-room`,
+      url: `${BASE_URL}${researchRoomPageHref(1, "en")}`,
       changeFrequency: "daily",
       priority: 0.9,
     },
