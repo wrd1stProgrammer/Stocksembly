@@ -198,6 +198,10 @@
   gap: 10px;
 }
 
+.admin-kpis--summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .admin-kpis article,
 .admin-panel,
 .admin-detail__facts article {
@@ -211,7 +215,8 @@
   padding: 16px;
 }
 
-.admin-kpis article > div {
+.admin-kpis article > div,
+.admin-kpis .admin-kpi-link > div {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -220,11 +225,13 @@
   font-weight: 700;
 }
 
-.admin-kpis article > div svg {
+.admin-kpis article > div svg,
+.admin-kpis .admin-kpi-link > div svg {
   color: #657086;
 }
 
-.admin-kpis article > strong {
+.admin-kpis article > strong,
+.admin-kpis .admin-kpi-link > strong {
   display: block;
   margin-top: 22px;
   font-size: clamp(24px, 2.5vw, 34px);
@@ -232,11 +239,27 @@
   letter-spacing: -0.04em;
 }
 
-.admin-kpis article > p {
+.admin-kpis article > p,
+.admin-kpis .admin-kpi-link > p {
   margin: 8px 0 0;
   color: var(--admin-muted);
   font-size: 10px;
   line-height: 1.45;
+}
+
+.admin-kpi-link {
+  display: block;
+  height: 100%;
+  color: inherit;
+}
+
+.admin-kpi-link::after {
+  display: block;
+  margin-top: 10px;
+  color: var(--admin-accent);
+  content: "상세 보기 →";
+  font-size: 10px;
+  font-weight: 750;
 }
 
 .admin-panel {
@@ -310,6 +333,10 @@
   stroke: #52d6a0;
   stroke-dasharray: 5 4;
 }
+.admin-chart__line.is-actions {
+  stroke: #d08cff;
+  stroke-dasharray: 2 3;
+}
 .admin-chart__line.is-payments {
   stroke: #f0bd6a;
   stroke-width: 3;
@@ -335,6 +362,9 @@
 
 .admin-chart__legend .is-active::before {
   background: #52d6a0;
+}
+.admin-chart__legend .is-actions::before {
+  background: #d08cff;
 }
 .admin-chart__legend .is-payments::before {
   background: #f0bd6a;
@@ -537,6 +567,26 @@
 
 .admin-users {
   margin-top: 10px;
+}
+
+.admin-main > .admin-panel:not(.admin-trends),
+.admin-main > .admin-two-column + .admin-panel {
+  margin-top: 10px;
+}
+
+.admin-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.admin-breadcrumb strong {
+  overflow: hidden;
+  color: #eef1f7;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .admin-users__header {
   align-items: center;
