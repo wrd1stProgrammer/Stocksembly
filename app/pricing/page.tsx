@@ -6,11 +6,6 @@ import { getWhopEnvironment, getWhopPricing } from "@/src/lib/whop/server";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "요금제",
-  description: "Stocksembly Pro와 Ultra 구독 요금제",
-};
-
 type Props = {
   readonly searchParams: Promise<{ readonly lang?: string }>;
 };
@@ -49,6 +44,28 @@ const planCopy = {
     ultra: "더 깊은 검증과 전체 논의를 원하는 투자자를 위한 플랜.",
   },
 } as const;
+
+export const generateMetadata = async ({
+  searchParams,
+}: Props): Promise<Metadata> => {
+  const { lang } = await searchParams;
+  const locale = researchLocaleFromValue(lang);
+  return {
+    title: locale === "ko" ? "요금제" : "Pricing",
+    description:
+      locale === "ko"
+        ? "Stocksembly Pro와 Ultra 구독 요금제"
+        : "Stocksembly Pro and Ultra subscription plans",
+    alternates: {
+      canonical: `/pricing?lang=${locale}`,
+      languages: {
+        "en-US": "/pricing?lang=en",
+        "ko-KR": "/pricing?lang=ko",
+        "x-default": "/pricing?lang=en",
+      },
+    },
+  };
+};
 
 export default async function PricingPage({ searchParams }: Props) {
   const query = await searchParams;

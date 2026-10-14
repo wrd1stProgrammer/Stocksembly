@@ -1,4 +1,10 @@
 import type { AppLocale } from "../i18n";
+import { usStockAnalysisDe } from "./usStockAnalysisDe";
+import { usStockAnalysisEs } from "./usStockAnalysisEs";
+import { usStockAnalysisFr } from "./usStockAnalysisFr";
+import { usStockAnalysisJa } from "./usStockAnalysisJa";
+import { usStockAnalysisPtBr } from "./usStockAnalysisPtBr";
+import { usStockAnalysisZhTw } from "./usStockAnalysisZhTw";
 
 // allow: SIZE_OK — localized landing-page copy is a typed, reviewable data table.
 
@@ -23,7 +29,7 @@ type AnalysisStep = AnalysisCard &
     number: string;
   }>;
 
-type UsStockAnalysisCopy = Readonly<{
+export type UsStockAnalysisCopy = Readonly<{
   metadata: Readonly<{
     title: string;
     description: string;
@@ -74,6 +80,12 @@ type UsStockAnalysisCopy = Readonly<{
 }>;
 
 export const usStockAnalysisCopy = {
+  ja: usStockAnalysisJa,
+  "zh-TW": usStockAnalysisZhTw,
+  es: usStockAnalysisEs,
+  "pt-BR": usStockAnalysisPtBr,
+  de: usStockAnalysisDe,
+  fr: usStockAnalysisFr,
   ko: {
     metadata: {
       title: "미국주식 AI 분석 | 팀 리서치 Stocksembly",
@@ -364,9 +376,8 @@ export const usStockAnalysisCopy = {
       action: "Start team research",
     },
   },
-} as const satisfies Readonly<Record<"en" | "ko", UsStockAnalysisCopy>>;
+} as const satisfies Readonly<Record<AppLocale, UsStockAnalysisCopy>>;
 
-/** The long-form SEO explainer remains authored in Korean and English. */
-export function usStockAnalysisContent(locale: AppLocale): UsStockAnalysisCopy {
-  return usStockAnalysisCopy[locale === "ko" ? "ko" : "en"];
-}
+export const usStockAnalysisContent = (
+  locale: AppLocale,
+): UsStockAnalysisCopy => usStockAnalysisCopy[locale];

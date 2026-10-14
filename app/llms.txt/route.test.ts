@@ -13,7 +13,8 @@ describe("llms.txt", () => {
     expect(body).toMatch(/^# Stocksembly\n\n> /);
     expect(body).toContain("## When to use Stocksembly");
     expect(body).toContain("## How to use Stocksembly");
-    expect(body).toContain("https://stocksembly.com/research-room");
+    expect(body).toContain("https://stocksembly.com/research-room?lang=en)");
+    expect(body).not.toContain("https://stocksembly.com/research-room)");
     expect(body).toContain("https://stocksembly.com/sitemap.xml");
   });
 });

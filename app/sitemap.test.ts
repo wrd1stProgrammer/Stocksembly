@@ -50,7 +50,11 @@ describe("sitemap", () => {
     // Then
     const urls = entries.map((entry) => entry.url);
     expect(urls).not.toContain("https://stocksembly.com");
-    expect(urls).toContain("https://stocksembly.com/research-room");
+    expect(urls).toContain("https://stocksembly.com/research-room?lang=en");
+    expect(urls).not.toContain("https://stocksembly.com/research-room");
+    expect(
+      urls.some((url) => /\/(login|account|settings)(?:[/?]|$)/.test(url)),
+    ).toBe(false);
     expect(urls).toContain("https://stocksembly.com/contact");
     for (const locale of locales) {
       expect(urls).toContain(`https://stocksembly.com/${locale}`);

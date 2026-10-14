@@ -1,69 +1,71 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { generateMetadata } from "./page";
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+}));
+vi.mock("@/src/components/researchRoom/ResearchRoomCatalog", () => ({
+  ResearchRoomCatalog: () => null,
+}));
+vi.mock("@/src/research/server/api/liveResearchApi", () => ({}));
+vi.mock("@/src/research/server/researchRoom/researchRoomCatalog", () => ({
+  RESEARCH_ROOM_PAGE_SIZE: 32,
+}));
+
 const languages = {
-  ko: "/research-room",
-  en: "/research-room?lang=en",
-  "x-default": "/research-room",
+  "en-US": "/research-room?lang=en",
+  "ko-KR": "/research-room?lang=ko",
+  "ja-JP": "/research-room?lang=ja",
+  "zh-TW": "/research-room?lang=zh-TW",
+  es: "/research-room?lang=es",
+  "pt-BR": "/research-room?lang=pt-BR",
+  "de-DE": "/research-room?lang=de",
+  "fr-FR": "/research-room?lang=fr",
+  "x-default": "/research-room?lang=en",
 };
 
 describe("research room archive metadata", () => {
-  it("uses Korean metadata by default", async () => {
-    const metadata = await generateMetadata({
-      searchParams: Promise.resolve({}),
-    });
+  it.each([
+    [undefined, "en", "US Stock AI Research Room"],
+    ["en", "en", "US Stock AI Research Room"],
+    ["ko", "ko", "미국 주식 AI 리서치룸"],
+  ])(
+    "uses the existing locale canonical for lang=%s",
+    async (lang, locale, title) => {
+      const metadata = await generateMetadata({
+        searchParams: Promise.resolve(lang === undefined ? {} : { lang }),
+      });
+      expect(metadata.title).toBe(title);
+      expect(metadata.alternates).toEqual({
+        canonical: `/research-room?lang=${locale}`,
+        languages,
+      });
+      expect(metadata.openGraph).toMatchObject({
+        url: `/research-room?lang=${locale}`,
+        locale: locale === "ko" ? "ko_KR" : "en_US",
+        alternateLocale: locale === "ko" ? "en_US" : "ko_KR",
+      });
+    },
+  );
 
-    expect(metadata).toEqual(
-      expect.objectContaining({
-        title: "미국 주식 AI 리서치룸",
-        alternates: { canonical: "/research-room", languages },
-        openGraph: expect.objectContaining({
-          locale: "ko_KR",
-          alternateLocale: "en_US",
-          url: "/research-room",
-        }),
-      }),
-    );
-  });
-
-  it("uses English metadata for lang=en", async () => {
-    const metadata = await generateMetadata({
-      searchParams: Promise.resolve({ lang: "en" }),
-    });
-
-    expect(metadata).toEqual(
-      expect.objectContaining({
-        title: "US Stock AI Research Room",
-        alternates: { canonical: "/research-room?lang=en", languages },
-        openGraph: expect.objectContaining({
-          locale: "en_US",
-          alternateLocale: "ko_KR",
-          url: "/research-room?lang=en",
-        }),
-      }),
-    );
-  });
-
-  it("gives page two its own crawlable canonical and language alternates", async () => {
-    const metadata = await generateMetadata({
-      searchParams: Promise.resolve({ lang: "en", page: "2" }),
-    });
-
-    expect(metadata).toEqual(
-      expect.objectContaining({
-        title: "US Stock AI Research Room - Page 2",
-        alternates: {
-          canonical: "/research-room?lang=en&page=2",
-          languages: {
-            ko: "/research-room?page=2",
-            en: "/research-room?lang=en&page=2",
-            "x-default": "/research-room?page=2",
-          },
-        },
-        openGraph: expect.objectContaining({
-          url: "/research-room?lang=en&page=2",
-        }),
-      }),
-    );
-  });
+  it.each(["en", "ko", "ja", "zh-TW", "es", "pt-BR", "de", "fr"])(
+    "preserves page two and language alternates for %s",
+    async (lang) => {
+      const metadata = await generateMetadata({
+        searchParams: Promise.resolve({ lang, page: "2" }),
+      });
+      expect(metadata.title).toMatch(
+        lang === "ko" ? / - 2페이지$/ : / - Page 2$/,
+      );
+      expect(metadata.alternates).toEqual({
+        canonical: `/research-room?lang=${lang}&page=2`,
+        languages: Object.fromEntries(
+          Object.entries(languages).map(([key, url]) => [key, `${url}&page=2`]),
+        ),
+      });
+      expect(metadata.openGraph).toMatchObject({
+        url: `/research-room?lang=${lang}&page=2`,
+      });
+    },
+  );
 });

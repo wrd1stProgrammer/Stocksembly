@@ -86,7 +86,7 @@ describe("agent Markdown route", () => {
     const body = await response.text();
     expect(body).toContain("# Page not found");
     expect(body).toContain(
-      "[Public research](https://stocksembly.com/research-room)",
+      "[Public research](https://stocksembly.com/research-room?lang=en)",
     );
     expect(body).toContain("[Sitemap](https://stocksembly.com/sitemap.xml)");
   });
@@ -166,4 +166,138 @@ describe("agent Markdown route", () => {
     expect(response.status).toBe(400);
     expect(kyState.get).not.toHaveBeenCalled();
   });
+});
+
+describe("streaming source status", () => {
+  it.each([
+    ['<script>;;$RX("B:1","NEXT_HTTP_ERROR_FALLBACK;404")</script>', 404],
+    ['<script>$RX("B:1","private-digest")</script>', 502],
+    [
+      '<!--$?--><template id="B:0"></template><main>Loading</main><!--/$-->',
+      502,
+    ],
+    [
+      '<meta name="robots" content="noindex"><main><h1>Sign in</h1></main>',
+      200,
+    ],
+  ])(
+    "maps a streamed HTTP 200 document to the real status %s",
+    async (html, status) => {
+      kyState.get.mockResolvedValueOnce(
+        new Response(html, { headers: { "Content-Type": "text/html" } }),
+      );
+      const response = await GET(
+        new Request(
+          "https://stocksembly.com/api/agent-markdown/research-room",
+          {
+            headers: {
+              [ORIGINAL_TARGET_HEADER]: "/research-room",
+              [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+            },
+          },
+        ),
+      );
+      expect(response.status).toBe(status);
+      const body = await response.text();
+      expect(body).not.toContain("Loading");
+      expect(body).not.toContain("private-digest");
+    },
+  );
+});
+
+describe("Markdown indexing restrictions", () => {
+  it("keeps login status 200 and combines source headers with robots and scoped Googlebot metadata", async () => {
+    kyState.get.mockResolvedValueOnce(
+      new Response(
+        `
+      <head><meta name="robots" content="noindex, nofollow">
+      <meta name="Googlebot" content="nosnippet, max-image-preview:none"></head>
+      <main><h1>Sign in</h1><p>Log in to continue.</p></main>
+    `,
+        {
+          headers: { "Content-Type": "text/html", "X-Robots-Tag": "noarchive" },
+        },
+      ),
+    );
+    const response = await GET(
+      new Request("https://stocksembly.com/api/agent-markdown/login", {
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/login",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+        },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("# Sign in");
+    expect(response.headers.get("X-Robots-Tag")).toBe(
+      "noindex, nofollow, noarchive, googlebot: nosnippet, max-image-preview:none",
+    );
+  });
+
+  it("sanitizes decoded metadata without creating extra HTTP headers", async () => {
+    kyState.get.mockResolvedValueOnce(
+      new Response(
+        '<meta name="robots" content="noindex&#13;&#10;X-Injected: value"><main>Sign in</main>',
+        {
+          headers: { "Content-Type": "text/html" },
+        },
+      ),
+    );
+    const response = await GET(
+      new Request("https://stocksembly.com/api/agent-markdown/login", {
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/login",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+        },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Injected")).toBeNull();
+    expect(response.headers.get("X-Robots-Tag")).not.toMatch(/[\r\n]/u);
+    expect(response.headers.get("X-Robots-Tag")).toContain("noindex");
+  });
+
+  it("retains noindex on a streamed framework 404 response", async () => {
+    kyState.get.mockResolvedValueOnce(
+      new Response(
+        '<meta name="robots" content="noindex"><script>;;$RX("B:1","NEXT_HTTP_ERROR_FALLBACK;404")</script>',
+        {
+          headers: { "Content-Type": "text/html" },
+        },
+      ),
+    );
+    const response = await GET(
+      new Request("https://stocksembly.com/api/agent-markdown/missing", {
+        headers: {
+          [ORIGINAL_TARGET_HEADER]: "/missing",
+          [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+        },
+      }),
+    );
+    expect(response.status).toBe(404);
+    expect(response.headers.get("X-Robots-Tag")).toBe("noindex");
+  });
+});
+
+it("keeps global noindex ahead of a scoped source header", async () => {
+  kyState.get.mockResolvedValueOnce(
+    new Response('<meta name="robots" content="noindex"><main>Sign in</main>', {
+      headers: {
+        "Content-Type": "text/html",
+        "X-Robots-Tag": "googlebot: nosnippet",
+      },
+    }),
+  );
+  const response = await GET(
+    new Request("https://stocksembly.com/api/agent-markdown/login", {
+      headers: {
+        [ORIGINAL_TARGET_HEADER]: "/login",
+        [MARKDOWN_SOURCE_ORIGIN_HEADER]: "https://stocksembly.com",
+      },
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("X-Robots-Tag")).toBe(
+    "noindex, googlebot: nosnippet",
+  );
 });

@@ -6,13 +6,13 @@ import {
   ORIGINAL_TARGET_HEADER,
   ROUTE_LOCALE_HEADER,
 } from "@/src/lib/agent/markdownHeaders";
+import { agentMarkdownResponse } from "@/src/lib/agent/markdownResponse";
 import {
   appendVaryAccept,
   preferredRepresentation,
 } from "@/src/lib/http/contentNegotiation";
 import { isLocale } from "@/src/lib/supportedLocales";
 
-const MARKDOWN_ROUTE_PREFIX = "/api/agent-markdown";
 const AGENT_GUIDE_LINK = '</llms.txt>; rel="describedby"';
 
 function routedRequestHeaders(request: NextRequest): Headers {
@@ -37,7 +37,7 @@ function htmlResponse(request: NextRequest): NextResponse {
   return response;
 }
 
-export function proxy(request: NextRequest): NextResponse | Response {
+export const proxy = async (request: NextRequest): Promise<Response> => {
   if (request.headers.get(MARKDOWN_SOURCE_HEADER) === "1")
     return htmlResponse(request);
 
@@ -56,18 +56,33 @@ export function proxy(request: NextRequest): NextResponse | Response {
   }
   if (representation === "text/html") return htmlResponse(request);
 
+  if (request.method !== "GET" && request.method !== "HEAD")
+    return new Response(null, {
+      status: 405,
+      headers: { Allow: "GET, HEAD", Vary: "Accept" },
+    });
+
   const target = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  const destination = request.nextUrl.clone();
-  destination.pathname = `${MARKDOWN_ROUTE_PREFIX}${request.nextUrl.pathname === "/" ? "" : request.nextUrl.pathname}`;
   const requestHeaders = routedRequestHeaders(request);
+  const localOrigin = ["localhost", "127.0.0.1", "[::1]"].includes(
+    request.nextUrl.hostname,
+  );
+  // Next normalizes loopback hosts and may derive HTTPS from a reverse proxy.
+  // Fetch the allowlisted public source instead of rewriting to that listener.
+  const publicOrigin =
+    localOrigin && request.headers.get("x-forwarded-proto") === "https"
+      ? "https://stocksembly.com"
+      : request.nextUrl.origin;
   requestHeaders.set(ORIGINAL_TARGET_HEADER, target);
-  requestHeaders.set(MARKDOWN_SOURCE_ORIGIN_HEADER, request.nextUrl.origin);
-  const response = NextResponse.rewrite(destination, {
-    request: { headers: requestHeaders },
-  });
+  requestHeaders.set(MARKDOWN_SOURCE_ORIGIN_HEADER, publicOrigin);
+  const response = await agentMarkdownResponse(
+    new Request(request.url, {
+      headers: requestHeaders,
+    }),
+  );
   appendVaryAccept(response.headers);
-  return response;
-}
+  return request.method === "HEAD" ? new Response(null, response) : response;
+};
 
 export const config = {
   matcher: ["/((?!api/|_next/|_vercel/|\\.well-known/|.*\\.[^/]+$).*)"],

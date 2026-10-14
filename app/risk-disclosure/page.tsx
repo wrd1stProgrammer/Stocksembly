@@ -5,6 +5,7 @@ import { riskDisclosureDocument } from "@/src/lib/legal/riskDisclosure";
 export const metadata: Metadata = {
   title: riskDisclosureDocument.title,
   description: riskDisclosureDocument.description,
+  alternates: { canonical: "/risk-disclosure" },
 };
 
 export default function RiskDisclosurePage() {
