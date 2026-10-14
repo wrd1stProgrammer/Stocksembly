@@ -1,7 +1,7 @@
 @media (max-width: 900px) {
   .seo-analysis-hero,
   .seo-analysis-standards {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .seo-analysis-hero {
@@ -15,14 +15,34 @@
 }
 
 @media (max-width: 620px) {
+  .seo-analysis-page .site-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    padding-block: var(--space-3);
+  }
+
+  .seo-analysis-page .site-header__actions {
+    white-space: nowrap;
+  }
+
+  .seo-analysis-page .header-language-slot__trigger,
+  .seo-analysis-page .sign-in {
+    min-height: 44px;
+  }
+
   .seo-analysis-grid,
   .seo-analysis-team-grid,
   .seo-analysis-questions {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .seo-analysis-hero h1 {
     font-size: clamp(2.7rem, 14vw, 4.2rem);
+  }
+
+  .seo-analysis-page :is(h1, h2, h3) {
+    overflow-wrap: anywhere;
+    hyphens: auto;
   }
 
   .seo-analysis-closing {
