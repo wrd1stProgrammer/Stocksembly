@@ -215,3 +215,28 @@
   background: var(--color-accent-bright);
   color: #071019;
 }
+
+.stock-hub-report__summary {
+  margin-bottom: var(--space-6);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.stock-hub-report__summary p {
+  color: var(--color-text-muted);
+  font-size: var(--type-label);
+}
+
+.stock-hub-report__summary blockquote {
+  margin: var(--space-3) 0;
+}
+
+.stock-hub-report__summary ul {
+  padding-left: var(--space-5);
+}
+
+.stock-hub-report__summary a {
+  color: var(--color-accent-bright);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

@@ -36,6 +36,11 @@ export type StockResearchHubReport = Readonly<{
   researchTarget: ResearchTarget;
   publishedAt: string;
   status: "complete" | "complete_with_limitations";
+  summary?: Readonly<{
+    text: string;
+    locale: "en" | "ko";
+    sources: readonly Readonly<{ title: string; url: string }>[];
+  }>;
 }>;
 
 export type StockResearchHub = Readonly<{

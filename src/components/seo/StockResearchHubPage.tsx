@@ -12,6 +12,23 @@ import type { StockResearchHub } from "../../research/server/researchRoom/stockR
 import { LandingFooter } from "../LandingSections";
 import { SeoLocaleHeader } from "./UsStockAnalysisHeader";
 
+const summaryLabels: Record<AppLocale, readonly [string, string]> = {
+  en: ["Excerpt from the published report", "Selected report sources"],
+  ko: ["발행 보고서 원문 발췌", "보고서 근거 출처 일부"],
+  ja: ["公開レポートからの抜粋", "レポートの主な出典"],
+  "zh-TW": ["已發布報告原文節錄", "報告部分資料來源"],
+  es: ["Extracto del informe publicado", "Fuentes seleccionadas del informe"],
+  "pt-BR": [
+    "Trecho do relatório publicado",
+    "Fontes selecionadas do relatório",
+  ],
+  de: [
+    "Auszug aus dem veröffentlichten Bericht",
+    "Ausgewählte Berichtsquellen",
+  ],
+  fr: ["Extrait du rapport publié", "Sélection de sources du rapport"],
+};
+
 type StockResearchHubPageProps = Readonly<{
   hub: StockResearchHub;
   locale: AppLocale;
@@ -126,6 +143,33 @@ export function StockResearchHubPage({
                       {report.question}
                     </Link>
                   </h3>
+                  {report.summary !== undefined && (
+                    <div className="stock-hub-report__summary">
+                      <p>
+                        <strong>{summaryLabels[locale][0]}</strong>
+                        {" · "}
+                        {content.originalLanguage}:{" "}
+                        {languageNames.of(report.summary.locale)}
+                      </p>
+                      <blockquote lang={report.summary.locale}>
+                        {report.summary.text}
+                      </blockquote>
+                      {report.summary.sources.length > 0 && (
+                        <>
+                          <p>{summaryLabels[locale][1]}</p>
+                          <ul>
+                            {report.summary.sources.map((source) => (
+                              <li key={source.url}>
+                                <a href={source.url} rel="noreferrer">
+                                  {source.title}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  )}
                   <Link className="stock-hub-report__action" href={href}>
                     {content.readReport}
                     <ArrowRight aria-hidden="true" size={15} />
