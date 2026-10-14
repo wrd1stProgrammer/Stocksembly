@@ -582,7 +582,7 @@
   font-size: 11px;
 }
 
-.admin-breadcrumb strong {
+.admin-main .admin-breadcrumb strong {
   overflow: hidden;
   color: #eef1f7;
   text-overflow: ellipsis;
