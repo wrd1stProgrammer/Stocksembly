@@ -10,13 +10,28 @@ import Link from "next/link";
 import { ONBOARDING_DISCOVERY_SOURCE_LABELS_KO } from "../../accounts/onboarding";
 import type { AdminUserDetail as AdminUserDetailData } from "../../admin/analyticsContracts";
 
-type Props = { readonly data: AdminUserDetailData; readonly backQuery: string };
+type Props = {
+  readonly data: AdminUserDetailData;
+  readonly backQuery: string;
+  readonly backPath?: string;
+  readonly embedded?: boolean;
+  readonly showTimelineLimit?: boolean;
+};
 
-export function AdminUserDetail({ data, backQuery }: Props) {
+export function AdminUserDetail({
+  data,
+  backQuery,
+  backPath = "/admin",
+  embedded = false,
+  showTimelineLimit = false,
+}: Props) {
   const user = data.user;
-  return (
-    <main className="admin-detail">
-      <Link className="admin-detail__back" href={`/admin?${backQuery}#users`}>
+  const content = (
+    <>
+      <Link
+        className="admin-detail__back"
+        href={`${backPath}?${backQuery}#users`}
+      >
         <ArrowLeft size={17} /> 사용자 목록
       </Link>
       <header className="admin-detail__header">
@@ -114,6 +129,9 @@ export function AdminUserDetail({ data, backQuery }: Props) {
           <div>
             <p>최근 100건</p>
             <h2>사용자 액션</h2>
+            {showTimelineLimit ? (
+              <span className="admin-panel__note">최근 100건 · 필터 없음</span>
+            ) : null}
           </div>
         </header>
         {data.timeline.length === 0 ? (
@@ -135,6 +153,11 @@ export function AdminUserDetail({ data, backQuery }: Props) {
           </ol>
         )}
       </section>
-    </main>
+    </>
+  );
+  return embedded ? (
+    <div className="admin-detail">{content}</div>
+  ) : (
+    <main className="admin-detail">{content}</main>
   );
 }
