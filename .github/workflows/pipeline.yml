@@ -298,7 +298,7 @@ jobs:
             --build-arg NEXT_PUBLIC_STATIC_ASSET_BASE_URL="$STATIC_CDN_ORIGIN/releases/$STATIC_ASSET_RELEASE" \
             -t "stocksembly-web:$GITHUB_SHA" .
           docker save "stocksembly-web:$GITHUB_SHA" | gzip > web-image.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-image-${{ github.sha }}
           path: web-image.tar.gz
