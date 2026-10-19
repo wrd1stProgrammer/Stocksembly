@@ -96,7 +96,7 @@ async function run<Candidate>(
       format: {
         type: "json_schema",
         name: "research_output",
-        strict: false,
+        strict: input.stage === "memo",
         schema,
       },
     },

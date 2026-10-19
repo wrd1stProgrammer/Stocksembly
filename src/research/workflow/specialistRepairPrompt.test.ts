@@ -9,6 +9,31 @@ import { SpecialistRoundPostgresAuthority } from "./specialistRoundPostgresAutho
 import { specialistPromptForDurableInput } from "./specialistRoundPostgresHandler";
 
 describe("durable specialist repair prompt", () => {
+  it("retains invalid model output feedback and replays its corrective input hash", () => {
+    const basePrompt = "original specialist request";
+    const originalHash = codexInputHash({
+      stage: "memo",
+      prompt: basePrompt,
+      outputSchema: SpecialistMemoOutputSchema,
+    });
+    const repair = specialistPromptForDurableInput(
+      basePrompt,
+      originalHash,
+      "invalid_model_output",
+    );
+    expect(repair.validationCode).toBe("invalid_model_output");
+    expect(repair.prompt).toContain("CORRECTIVE RETRY — OUTPUT CONTRACT");
+    expect(repair.prompt).toContain(basePrompt);
+    const repairedHash = codexInputHash({
+      stage: "memo",
+      prompt: repair.prompt,
+      outputSchema: SpecialistMemoOutputSchema,
+    });
+    expect(repairedHash).not.toBe(originalHash);
+    expect(specialistPromptForDurableInput(basePrompt, repairedHash)).toEqual(
+      repair,
+    );
+  });
   it("retains citation exhaustion when resuming a previously failed job", () => {
     const prompt = "original prompt";
     const inputHash = codexInputHash({

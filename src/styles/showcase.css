@@ -3,13 +3,13 @@
   padding: var(--space-12) clamp(16px, 5vw, 64px);
   background: var(--color-void);
 }
-.showcase header,
-.showcase section {
+.showcase > header,
+.showcase > section {
   width: min(var(--showcase-width), 100%);
   margin: 0 auto var(--space-10);
 }
-.showcase header p,
-.showcase h2 {
+.showcase > header p,
+.showcase > section > h2 {
   color: var(--color-text-muted);
   font-size: var(--type-label);
   text-transform: uppercase;
@@ -18,7 +18,7 @@
 .showcase h1 {
   font-size: 3rem;
 }
-.showcase section {
+.showcase > section {
   padding-top: var(--space-6);
   border-top: 1px solid var(--color-border);
 }

@@ -35,7 +35,6 @@ import {
 } from "../research/domain/researchTarget";
 import { CreditShortageModal } from "./billing/CreditShortageModal";
 import { MembershipAccessModal } from "./billing/MembershipAccessModal";
-import { ResearchExplanationModeControl } from "./ResearchExplanationModeControl";
 import { ResearchQueueNotice } from "./research/ResearchQueueNotice";
 import {
   BorderBeam,
@@ -623,7 +622,10 @@ export function SearchConsole({
         locale: researchLocale(locale),
         idempotencyKey,
         researchTarget,
-        researchProfile,
+        researchProfile: {
+          ...researchProfile,
+          explanationMode: "professional",
+        },
       });
       markNewResearchEntrance(created.run.runId);
       notifyBillingChanged();
@@ -693,21 +695,6 @@ export function SearchConsole({
               }
             />
           </div>
-
-          {selectedTicker === undefined ? null : (
-            <p className="search-console__selection" role="status">
-              <span>{detailCopy.selectedLabel}</span>
-              <strong>{selectedTicker.symbol}</strong>
-              <span>{selectedTicker.company}</span>
-              <button
-                type="button"
-                aria-label={detailCopy.clearSelection}
-                onClick={clearSearch}
-              >
-                <X aria-hidden="true" size={12} />
-              </button>
-            </p>
-          )}
 
           {profileOpen ? (
             <section
@@ -861,11 +848,6 @@ export function SearchConsole({
                   <SlidersHorizontal aria-hidden="true" size={17} />
                 )}
               </button>
-              <ResearchExplanationModeControl
-                locale={locale}
-                value={researchProfile.explanationMode ?? "professional"}
-                onChange={(value) => updateProfile("explanationMode", value)}
-              />
             </div>
             <section
               ref={targetPickerRef}
