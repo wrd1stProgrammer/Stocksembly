@@ -29,6 +29,10 @@ import type {
   BriefingWatchlistItem,
 } from "../../../briefing/domain/contracts";
 import { nextUsPremarketBriefingAt } from "../../../briefing/domain/marketCalendar";
+import {
+  googleCheckoutMetadata,
+  sendGooglePurchase,
+} from "../../../lib/analytics/googleServer";
 import { sendPostHogPurchase } from "../../../lib/analytics/server";
 import type { AppLocale, Locale } from "../../../lib/i18n";
 import {
@@ -1038,6 +1042,7 @@ export async function createResearchApi(
           idempotencyKey: `stocksembly:checkout:${checkoutAttemptId}`,
           checkoutAttemptId,
           ...(metaAttribution === undefined ? {} : { metaAttribution }),
+          googleMetadata: googleCheckoutMetadata(request),
         });
         await options.accountStore?.markCheckoutAttemptReady?.(
           checkoutAttemptId,
@@ -1131,6 +1136,7 @@ export async function createResearchApi(
         );
       await options.accountStore?.handleWhopWebhook?.(event);
       await sendPostHogPurchase(event);
+      await sendGooglePurchase(event);
       await sendMetaPurchaseEvent(event);
     },
     async adminAnalyticsOverview(request, query) {

@@ -22,7 +22,7 @@ values = json.loads(pathlib.Path(sys.argv[1]).read_text())
 if not isinstance(values, dict) or not values:
     raise SystemExit("Provider secret must be a nonempty object")
 for key, value in values.items():
-    if not re.fullmatch(r"(WHOP|INSIGHTSENTRY|META)_[A-Z0-9_]+", key) or not isinstance(value, str) or "\n" in value or "\r" in value:
+    if not re.fullmatch(r"(WHOP|INSIGHTSENTRY|META|GA4)_[A-Z0-9_]+", key) or not isinstance(value, str) or "\n" in value or "\r" in value:
         raise SystemExit("Invalid provider environment entry")
 path = pathlib.Path("/etc/stocksembly/app.env")
 lines = [line for line in path.read_text().splitlines() if line.partition("=")[0] not in values]

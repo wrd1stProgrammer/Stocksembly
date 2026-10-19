@@ -12,6 +12,7 @@ keys = [
     "WHOP_PLAN_PRO_MONTHLY_LIVE_TEST_ID", "WHOP_PLAN_ULTRA_ANNUAL_ID",
     "WHOP_PLAN_ULTRA_MONTHLY_ID", "WHOP_SANDBOX", "WHOP_WEBHOOK_SECRET",
     "META_CONVERSIONS_API_ACCESS_TOKEN", "META_GRAPH_API_VERSION", "META_PIXEL_ID",
+    "GA4_MEASUREMENT_PROTOCOL_API_SECRET",
 ]
 values = {key: os.environ[key] for key in keys}
 if any("\n" in value or "\r" in value for value in values.values()):

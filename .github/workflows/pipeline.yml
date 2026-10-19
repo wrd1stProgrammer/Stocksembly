@@ -235,6 +235,7 @@ jobs:
           WHOP_SANDBOX: ${{ secrets.WHOP_SANDBOX }}
           WHOP_WEBHOOK_SECRET: ${{ secrets.WHOP_WEBHOOK_SECRET }}
           META_CONVERSIONS_API_ACCESS_TOKEN: ${{ secrets.META_CONVERSIONS_API_ACCESS_TOKEN }}
+          GA4_MEASUREMENT_PROTOCOL_API_SECRET: ${{ secrets.GA4_MEASUREMENT_PROTOCOL_API_SECRET }}
           META_GRAPH_API_VERSION: v25.0
           META_PIXEL_ID: "1941324473216410"
         run: python3 infra/aws/publish-provider-secret.py
