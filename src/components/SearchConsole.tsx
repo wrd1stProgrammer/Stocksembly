@@ -35,6 +35,10 @@ import {
 } from "../research/domain/researchTarget";
 import { CreditShortageModal } from "./billing/CreditShortageModal";
 import { MembershipAccessModal } from "./billing/MembershipAccessModal";
+import {
+  consumeHomePrefill,
+  HOME_PREFILL_EVENT,
+} from "./onboarding/homePrefill";
 import { ResearchQueueNotice } from "./research/ResearchQueueNotice";
 import {
   BorderBeam,
@@ -45,6 +49,7 @@ import {
 import { useDismissableMenu } from "./useDismissableMenu";
 
 type SearchConsoleProps = {
+  readonly prefillFromOnboarding?: boolean;
   readonly requireSignIn?: boolean;
   readonly locale: AppLocale;
   readonly onOpenPlans?: () => void;
@@ -438,6 +443,7 @@ const SEARCH_DETAIL_COPY: Readonly<Record<AppLocale, DetailCopy>> = {
 };
 
 export function SearchConsole({
+  prefillFromOnboarding = false,
   locale,
   onOpenPlans,
   requireSignIn = false,
@@ -454,6 +460,27 @@ export function SearchConsole({
   const [remoteMatches, setRemoteMatches] = useState<readonly Ticker[]>([]);
   const [remoteQuery, setRemoteQuery] = useState("");
   const [selectedTicker, setSelectedTicker] = useState<Ticker>();
+  useEffect(() => {
+    if (!prefillFromOnboarding) return;
+    const applyPrefill = () => {
+      const draft = consumeHomePrefill();
+      if (!draft) return;
+      const exchange = draft.stock.exchange;
+      setSelectedTicker({
+        ...draft.stock,
+        exchange:
+          exchange === "NYSE" || exchange === "NYSE_AMERICAN"
+            ? exchange
+            : "NASDAQ",
+        sector: "",
+      });
+      setQuery(draft.stock.symbol);
+      setResearchQuestion(draft.question);
+    };
+    applyPrefill();
+    window.addEventListener(HOME_PREFILL_EVENT, applyPrefill);
+    return () => window.removeEventListener(HOME_PREFILL_EVENT, applyPrefill);
+  }, [prefillFromOnboarding]);
   const [isSearching, setIsSearching] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>();
   const [creditShortageOpen, setCreditShortageOpen] = useState(false);

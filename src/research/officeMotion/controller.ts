@@ -245,7 +245,7 @@ export async function createOfficeMotionRenderer(
       return;
     }
     lastTime = now;
-    paint(delta);
+    paint(delta * Math.max(1, Math.min(4, renderOptions.playbackRate ?? 1)));
     raf = window.requestAnimationFrame(animate);
   }
   function stop(): void {

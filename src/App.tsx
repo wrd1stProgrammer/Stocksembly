@@ -4,6 +4,7 @@ import { getCurrentUser } from "aws-amplify/auth";
 import "./components/research/file/committee-report.css";
 import "./styles/landing-experience.css";
 import "./styles/landing-product.css";
+import "./styles/onboarding.css";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,6 +25,7 @@ import {
 } from "./components/LandingExperience";
 import { LandingFooter } from "./components/LandingSections";
 import { MobileBottomNav } from "./components/MobileBottomNav";
+import { demoCopy } from "./components/onboarding/demoCopy";
 import {
   EMPTY_LANDING_RESEARCH_ROOM_PREVIEW,
   type LandingResearchRoomPreviewData,
@@ -444,6 +446,15 @@ export function App({
       }`}
     >
       <SiteAtmosphere mobileStatic={!signedIn} />
+      {process.env.NODE_ENV === "development" ? (
+        <button
+          className="onboarding-dev-trigger"
+          type="button"
+          onClick={() => setOnboardingPreview(true)}
+        >
+          {demoCopy(locale).open}
+        </button>
+      ) : null}
       {signedIn ? (
         <SignedInSidebar
           locale={locale}

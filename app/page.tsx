@@ -23,7 +23,13 @@ export async function generateMetadata({
 export default async function HomePage({ searchParams }: Props) {
   const { lang } = await searchParams;
   const locale = await homeLocale(lang);
-  const initialAccess = await editorialWorkspaceAccess("/");
+  const localWithoutDatabase =
+    process.env.NODE_ENV === "development" &&
+    !process.env["STOCKSEMBLY_DATABASE_URL"] &&
+    !process.env["STOCKSEMBLY_DB_SECRET_ARN"];
+  const initialAccess = localWithoutDatabase
+    ? { authenticated: false, tier: "free" as const }
+    : await editorialWorkspaceAccess("/");
   const researchRoomPreview = await loadLandingResearchRoomPreview(
     locale,
     initialAccess,

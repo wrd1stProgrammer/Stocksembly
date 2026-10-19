@@ -23,6 +23,7 @@ const SubscriptionModal = dynamic(
 );
 
 type Props = {
+  readonly localPreview?: boolean;
   readonly open: boolean;
   readonly locale: Locale;
   readonly initialTier: "unknown" | "free" | "paid";
@@ -45,6 +46,7 @@ async function authenticatedFetch(input: RequestInfo | URL) {
 }
 
 export function SidebarSubscriptionModal({
+  localPreview = false,
   open,
   locale,
   initialTier,
@@ -59,7 +61,8 @@ export function SidebarSubscriptionModal({
   useEffect(() => setTier(initialTier), [initialTier]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || (localPreview && process.env.NODE_ENV === "development"))
+      return;
 
     let active = true;
     setLoading(true);
@@ -104,7 +107,7 @@ export function SidebarSubscriptionModal({
     return () => {
       active = false;
     };
-  }, [open]);
+  }, [open, localPreview]);
 
   if (!open || typeof document === "undefined") return null;
 

@@ -1,0 +1,1321 @@
+{
+  "reportId": "98fed1eb-a4a9-4cb8-9da2-95d907d3327a",
+  "symbol": "TSLA",
+  "publishedAt": "2026-09-05T12:30:07.816Z",
+  "sourceLocale": "ko",
+  "question": "사이버캡 이슈로 올랐던데 물량 더 가져갈까 장기적으로?",
+  "company": {
+    "symbol": "TSLA",
+    "company": "Tesla, Inc.",
+    "exchange": "NASDAQ",
+    "sector": "Automotive",
+    "price": "$354.08",
+    "change": "-5.92%",
+    "marketStatus": {
+      "en": "Published community research",
+      "ko": "공개 리서치룸 발행본"
+    }
+  },
+  "runDetail": {
+    "run": {
+      "runId": "65c15a20-dec2-45e7-9f14-ae74c10afa22",
+      "snapshotId": "55ff4803-ca3b-49bf-a633-efe4b8d51a27",
+      "symbol": "TSLA",
+      "question": "사이버캡 이슈로 올랐던데 물량 더 가져갈까 장기적으로?",
+      "locale": "ko",
+      "researchTarget": {
+        "kind": "committee"
+      },
+      "status": "complete-with-limitations",
+      "lastEventSeq": 78,
+      "createdAt": "2026-09-05T12:18:03.661Z",
+      "reportId": "98fed1eb-a4a9-4cb8-9da2-95d907d3327a"
+    },
+    "events": [
+      {
+        "sequence": 1,
+        "kind": "run_created",
+        "occurredAt": "2026-09-05T12:18:03.661Z",
+        "stateId": "run_created",
+        "summary": {
+          "en": "TSLA research was queued.",
+          "ko": "TSLA 리서치가 대기열에 등록됐습니다."
+        },
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 4,
+        "kind": "collection_started",
+        "occurredAt": "2026-09-05T12:18:03.861Z",
+        "stateId": "collection_started",
+        "summary": {
+          "en": "Collecting SEC filings, market, news, and macroeconomic data while verifying sources and reference times.",
+          "ko": "SEC 공시와 시세·뉴스·거시경제 데이터를 수집하고, 출처와 기준 시각을 확인하고 있습니다."
+        },
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 5,
+        "kind": "evidence_cutoff_recorded",
+        "occurredAt": "2026-09-05T12:19:17.712Z",
+        "stateId": "evidence_cutoff_recorded",
+        "summary": {
+          "en": "The evidence cutoff was recorded.",
+          "ko": "근거 기준 시점을 확정했습니다."
+        },
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 6,
+        "kind": "snapshot_sealed",
+        "occurredAt": "2026-09-05T12:19:17.713Z",
+        "stateId": "snapshot_sealed",
+        "summary": {
+          "en": "The immutable research snapshot was sealed.",
+          "ko": "변경 불가능한 리서치 스냅샷을 봉인했습니다."
+        },
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 7,
+        "kind": "mandate_sealed",
+        "occurredAt": "2026-09-05T12:19:17.714Z",
+        "stateId": "mandate_sealed",
+        "summary": {
+          "en": "Structuring the collected market, filing, and news data into evidence for specialist analysis.",
+          "ko": "수집한 시장·공시·뉴스 데이터를 전문 에이전트가 분석할 근거로 정리하고 있습니다."
+        },
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 15,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:20:06.211Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "현재 시장은 사이버캡 발표를 지속 상승 추세로 확인하지 않았다. TSLA는 2026년 9월 4일 354.08달러로 5.92% 하락했고, 1시간 추세는 약세이며 거래량 비율도 0.8배였다. 중기 추가매수는 384.04달러 회복과 거래량 동반 여부를 확인한 뒤 검토하는 편이 낫다.",
+          "ko": "현재 시장은 사이버캡 발표를 지속 상승 추세로 확인하지 않았다. TSLA는 2026년 9월 4일 354.08달러로 5.92% 하락했고, 1시간 추세는 약세이며 거래량 비율도 0.8배였다. 중기 추가매수는 384.04달러 회복과 거래량 동반 여부를 확인한 뒤 검토하는 편이 낫다."
+        },
+        "actorId": "market",
+        "artifactId": "25ceaa06-862b-4942-84e3-72c40756db1b",
+        "logicalArtifactId": "memo:market",
+        "participantIds": ["market"],
+        "claimIds": [
+          "89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567",
+          "0f723820-574d-46b9-8dda-c10d32b581c1",
+          "8134711c-e6dd-43c9-8d21-50503ef20f0d"
+        ],
+        "sourceIds": [
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "0872e7ec-a50b-4673-9262-ccae1bd0bd1c",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "4508439e-caad-4016-a1f2-65337c15a884",
+          "e7f4af82-8860-49ad-a5a1-b174a4927892",
+          "1b0ef3a5-a071-4d7c-93e3-a86bfd58782e"
+        ],
+        "limitationIds": [
+          "limitation:memo:3c95f497",
+          "limitation:memo:8305593d"
+        ]
+      },
+      {
+        "sequence": 16,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:20:06.980Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다.",
+          "ko": "사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다."
+        },
+        "actorId": "benchmark",
+        "artifactId": "de03c94b-8a46-41c6-9380-39051cdd6612",
+        "logicalArtifactId": "memo:benchmark",
+        "participantIds": ["benchmark"],
+        "claimIds": [
+          "a6860fbb-3cfa-4a83-80ec-d6f66dd748a3",
+          "99ba1154-468e-48d4-804b-8f895bb6b6b5"
+        ],
+        "sourceIds": [
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "0872e7ec-a50b-4673-9262-ccae1bd0bd1c",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "4508439e-caad-4016-a1f2-65337c15a884",
+          "e7f4af82-8860-49ad-a5a1-b174a4927892",
+          "4005a93e-250e-48ac-b1d0-9f0cac4f60c8",
+          "1b0ef3a5-a071-4d7c-93e3-a86bfd58782e",
+          "ca99b4cb-034d-4eaf-946c-2a59410d7bfc",
+          "6429096e-ea1a-490f-8c8f-eff88ec14fdb",
+          "9c38f3b8-c191-4adf-8947-aa38d703b02e",
+          "6deab463-d4db-4bf4-b291-f913dd494d6b"
+        ],
+        "limitationIds": [
+          "limitation:memo:c9031acf",
+          "limitation:memo:9fdee6c5"
+        ]
+      },
+      {
+        "sequence": 17,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:20:13.139Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "테슬라의 잠재적 해자는 카메라 기반 자율주행 데이터·차량 플랫폼·직접 배포망의 결합이지만, 현재는 경쟁우위가 수익성으로 고정됐다고 보기 어렵다. 2026년 2분기 자동차 매출은 증가했으나 영업이익은 전년 동기보다 낮았고, Cybercab도 텍사스 무인운행 등록 차량이 약 45대에 그쳐 규모와 반복 사용을 아직 입증하지 못했다. 물량 확대는 다음 2~4개 분기 동안 무인운행 차량 수, 유료 이용률, 사고·개입률이 함께 개선되는지 확인한 뒤 검토하는 편이 타당하다.",
+          "ko": "테슬라의 잠재적 해자는 카메라 기반 자율주행 데이터·차량 플랫폼·직접 배포망의 결합이지만, 현재는 경쟁우위가 수익성으로 고정됐다고 보기 어렵다. 2026년 2분기 자동차 매출은 증가했으나 영업이익은 전년 동기보다 낮았고, Cybercab도 텍사스 무인운행 등록 차량이 약 45대에 그쳐 규모와 반복 사용을 아직 입증하지 못했다. 물량 확대는 다음 2~4개 분기 동안 무인운행 차량 수, 유료 이용률, 사고·개입률이 함께 개선되는지 확인한 뒤 검토하는 편이 타당하다."
+        },
+        "actorId": "company_competition",
+        "artifactId": "62a5e821-e324-4caf-8864-0bbf44f83202",
+        "logicalArtifactId": "memo:company_competition",
+        "participantIds": ["company_competition"],
+        "claimIds": [
+          "02fc6e1a-c1c4-4198-8192-7f9cf4367788",
+          "1fa56c5b-1766-4535-896e-aa700821710a",
+          "cb2d3624-5dce-4768-80d1-cef76afbe95b"
+        ],
+        "sourceIds": [
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "00ec8431-2267-4981-8ce5-b6a1cea59ec5",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca"
+        ],
+        "limitationIds": [
+          "limitation:memo:27a88b33",
+          "limitation:memo:ffe8d29b"
+        ]
+      },
+      {
+        "sequence": 18,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:20:13.822Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "사이버캡은 시연 단계에서 오스틴 공개 운행으로 넘어갔다는 보도가 있어 초기 상용 도입은 진전됐지만, 현재 자료에는 유료 운행 건수·가동률·재이용률 같은 생산 채택 지표가 없다. 신규 진입이라면 다음 2~4개 분기에서 공개 운행 확대와 반복 이용 데이터를 확인하기 전까지 추가 매수는 분할 접근이 타당하다.",
+          "ko": "사이버캡은 시연 단계에서 오스틴 공개 운행으로 넘어갔다는 보도가 있어 초기 상용 도입은 진전됐지만, 현재 자료에는 유료 운행 건수·가동률·재이용률 같은 생산 채택 지표가 없다. 신규 진입이라면 다음 2~4개 분기에서 공개 운행 확대와 반복 이용 데이터를 확인하기 전까지 추가 매수는 분할 접근이 타당하다."
+        },
+        "actorId": "company_product",
+        "artifactId": "dd7f81ee-9400-423d-810e-ce7ac9a8c637",
+        "logicalArtifactId": "memo:company_product",
+        "participantIds": ["company_product"],
+        "claimIds": [
+          "4f344769-ae00-4699-85d0-3ef4bbb38401",
+          "a46a1809-f309-422b-8f13-fccba6b46068"
+        ],
+        "sourceIds": [
+          "4dd87e63-04e4-4a10-9634-d97bc8ffe8fb",
+          "5f47049e-bafa-4226-9407-9e26dbf899db",
+          "462abecf-4fe3-490f-9d4c-8ee6ce9cea6a",
+          "41a1bff4-dfd1-48bd-b564-64ce2d38e23e",
+          "a03a0455-70a1-4a6d-8405-34717fa15507",
+          "53b02183-9257-4e89-a5b1-ef91157dc96a",
+          "fb80ff05-d836-4e32-bc5f-762f7548ee39",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "e3c87c63-47fd-4632-87a8-95de32d6a2ef",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "00ec8431-2267-4981-8ce5-b6a1cea59ec5",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca"
+        ],
+        "limitationIds": [
+          "limitation:memo:47352081",
+          "limitation:memo:c2190fc3"
+        ]
+      },
+      {
+        "sequence": 19,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:20:18.952Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "현재 주가는 TTM EPS 1.08달러 대비 약 328배, NTM EPS 추정치 1.99달러 대비 약 178배 수준으로, 사이버캡 기대만으로는 정당화되기 어렵고 향후 이익·마진의 큰 폭 개선을 이미 요구한다. 다음 2~4개 분기에서 EPS가 추정치를 상회하면서 영업마진이 회복되는지 확인하기 전에는 물량 확대를 서두르지 않는 편이 합리적이다.",
+          "ko": "현재 주가는 TTM EPS 1.08달러 대비 약 328배, NTM EPS 추정치 1.99달러 대비 약 178배 수준으로, 사이버캡 기대만으로는 정당화되기 어렵고 향후 이익·마진의 큰 폭 개선을 이미 요구한다. 다음 2~4개 분기에서 EPS가 추정치를 상회하면서 영업마진이 회복되는지 확인하기 전에는 물량 확대를 서두르지 않는 편이 합리적이다."
+        },
+        "actorId": "valuation",
+        "artifactId": "cac16b0d-4f90-478a-bea8-cf3bb254e7ce",
+        "logicalArtifactId": "memo:valuation",
+        "participantIds": ["valuation"],
+        "claimIds": [
+          "b73e0aa2-1b65-4562-8bc9-da8596677479",
+          "2422cd6b-ada7-4c35-835f-ca4ed7b4de41"
+        ],
+        "sourceIds": [
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "4dd87e63-04e4-4a10-9634-d97bc8ffe8fb",
+          "5f47049e-bafa-4226-9407-9e26dbf899db",
+          "462abecf-4fe3-490f-9d4c-8ee6ce9cea6a",
+          "41a1bff4-dfd1-48bd-b564-64ce2d38e23e",
+          "a03a0455-70a1-4a6d-8405-34717fa15507",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d"
+        ],
+        "limitationIds": [
+          "limitation:memo:6f131d7b",
+          "limitation:memo:956e21cb"
+        ]
+      },
+      {
+        "sequence": 20,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:20:22.630Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "보고된 이익보다 현금 창출력이 강하다. 2025년 영업현금흐름은 순이익의 388.7%였고, 2026년 1분기도 825.4%였으므로 사이버캡 기대만으로 추가 매수하기보다 다음 2~4개 분기에도 영업현금흐름이 순이익을 지속적으로 웃도는지 확인하는 조건부 장기 접근이 타당하다.",
+          "ko": "보고된 이익보다 현금 창출력이 강하다. 2025년 영업현금흐름은 순이익의 388.7%였고, 2026년 1분기도 825.4%였으므로 사이버캡 기대만으로 추가 매수하기보다 다음 2~4개 분기에도 영업현금흐름이 순이익을 지속적으로 웃도는지 확인하는 조건부 장기 접근이 타당하다."
+        },
+        "actorId": "financial_quality",
+        "artifactId": "57854373-5cb6-499e-ac70-21cc0c7b0edd",
+        "logicalArtifactId": "memo:financial_quality",
+        "participantIds": ["financial_quality"],
+        "claimIds": [
+          "eb22ba41-9dd6-4a7c-8e09-2a7b9b947015",
+          "5cb551d2-7b81-4be6-8e26-a5697a1352c9"
+        ],
+        "sourceIds": [
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "4dd87e63-04e4-4a10-9634-d97bc8ffe8fb",
+          "5f47049e-bafa-4226-9407-9e26dbf899db",
+          "462abecf-4fe3-490f-9d4c-8ee6ce9cea6a",
+          "41a1bff4-dfd1-48bd-b564-64ce2d38e23e",
+          "a03a0455-70a1-4a6d-8405-34717fa15507",
+          "53b02183-9257-4e89-a5b1-ef91157dc96a",
+          "fb80ff05-d836-4e32-bc5f-762f7548ee39",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "e3c87c63-47fd-4632-87a8-95de32d6a2ef",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "504e3d92-963e-4305-94a4-a830b77b82d7",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca"
+        ],
+        "limitationIds": [
+          "limitation:memo:dded4893",
+          "limitation:memo:46d1dfe3"
+        ]
+      },
+      {
+        "sequence": 26,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:21:09.830Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "사이버캡 이벤트 직후 TSLA는 354.08달러로 5.92% 하락했고, 1시간봉은 약세·4시간봉은 혼조여서 추격 매수보다 350.94달러 지지 회복과 384.04달러 저항 돌파를 확인한 뒤 분할 진입을 검토하는 구간이다.",
+          "ko": "사이버캡 이벤트 직후 TSLA는 354.08달러로 5.92% 하락했고, 1시간봉은 약세·4시간봉은 혼조여서 추격 매수보다 350.94달러 지지 회복과 384.04달러 저항 돌파를 확인한 뒤 분할 진입을 검토하는 구간이다."
+        },
+        "actorId": "market_news",
+        "artifactId": "6a9f5c4d-7898-436a-ae58-d09df82da6e4",
+        "logicalArtifactId": "memo:market_news",
+        "participantIds": ["market_news"],
+        "claimIds": [
+          "8d879c42-18b8-44c5-8a32-949c161ad8f2",
+          "9f1585f0-8926-48c2-8937-36309cec2ec6"
+        ],
+        "sourceIds": [
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "4508439e-caad-4016-a1f2-65337c15a884"
+        ],
+        "limitationIds": [
+          "limitation:memo:d2be0a1f",
+          "limitation:memo:ab0e4edf"
+        ]
+      },
+      {
+        "sequence": 27,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:21:11.900Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "Tesla의 현금·투자자산과 운영 규모는 Cybercab 인증 지연이나 초기 운행 제한을 흡수할 완충장치지만, 현재 자료만으로 순현금 완충 규모는 확인되지 않는다. 신규 매수는 NHTSA 검토 종료와 Cybercab의 합법적 상업운행 확대가 확인될 때까지 분할 접근이 적절하다.",
+          "ko": "Tesla의 현금·투자자산과 운영 규모는 Cybercab 인증 지연이나 초기 운행 제한을 흡수할 완충장치지만, 현재 자료만으로 순현금 완충 규모는 확인되지 않는다. 신규 매수는 NHTSA 검토 종료와 Cybercab의 합법적 상업운행 확대가 확인될 때까지 분할 접근이 적절하다."
+        },
+        "actorId": "risk_policy",
+        "artifactId": "d32d10bb-ec11-4225-b092-48e46c9a519f",
+        "logicalArtifactId": "memo:risk_policy",
+        "participantIds": ["risk_policy"],
+        "claimIds": [
+          "d691b454-c0f8-48f8-8419-3eb954611d62",
+          "614492f3-6455-4ab3-895b-ffc572e83253",
+          "543540bf-ba17-4736-8455-c2ee597be6f3"
+        ],
+        "sourceIds": [
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "55995392-811b-4308-9872-6678311846a5",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "e7f4af82-8860-49ad-a5a1-b174a4927892",
+          "4005a93e-250e-48ac-b1d0-9f0cac4f60c8",
+          "1b0ef3a5-a071-4d7c-93e3-a86bfd58782e",
+          "ca99b4cb-034d-4eaf-946c-2a59410d7bfc",
+          "6429096e-ea1a-490f-8c8f-eff88ec14fdb",
+          "9c38f3b8-c191-4adf-8947-aa38d703b02e",
+          "6deab463-d4db-4bf4-b291-f913dd494d6b"
+        ],
+        "limitationIds": [
+          "limitation:memo:111aedcb",
+          "limitation:memo:3a9df9fb"
+        ]
+      },
+      {
+        "sequence": 28,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:21:17.588Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "사이버캡은 2026년 9월 공개 운행으로 시연 단계에서 실제 서비스 단계로 이동했지만, 반복 이용·유료화·운행 규모가 아직 입증되지 않아 현재 주가 상승만으로 물량을 추가하기에는 이르다. 다음 2~4개 분기에서 유료 탑승 건수, 운행 차량 수, 가동률이 지속 증가하는지 확인한 뒤 분할 접근하는 조건부 장기 가설이 적절하다.",
+          "ko": "사이버캡은 2026년 9월 공개 운행으로 시연 단계에서 실제 서비스 단계로 이동했지만, 반복 이용·유료화·운행 규모가 아직 입증되지 않아 현재 주가 상승만으로 물량을 추가하기에는 이르다. 다음 2~4개 분기에서 유료 탑승 건수, 운행 차량 수, 가동률이 지속 증가하는지 확인한 뒤 분할 접근하는 조건부 장기 가설이 적절하다."
+        },
+        "actorId": "company",
+        "artifactId": "9cae9944-4f5f-4c69-ab27-5e9c8344f493",
+        "logicalArtifactId": "memo:company",
+        "participantIds": ["company"],
+        "claimIds": [
+          "282527d2-e845-42dd-8fc9-b8451c9004b4",
+          "7c7f884a-5834-42c3-8dc6-2217cc18301c"
+        ],
+        "sourceIds": [
+          "4dd87e63-04e4-4a10-9634-d97bc8ffe8fb",
+          "5f47049e-bafa-4226-9407-9e26dbf899db",
+          "462abecf-4fe3-490f-9d4c-8ee6ce9cea6a",
+          "41a1bff4-dfd1-48bd-b564-64ce2d38e23e",
+          "a03a0455-70a1-4a6d-8405-34717fa15507",
+          "53b02183-9257-4e89-a5b1-ef91157dc96a",
+          "fb80ff05-d836-4e32-bc5f-762f7548ee39",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "e3c87c63-47fd-4632-87a8-95de32d6a2ef",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "00ec8431-2267-4981-8ce5-b6a1cea59ec5",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca"
+        ],
+        "limitationIds": [
+          "limitation:memo:f9fae96f",
+          "limitation:memo:a5f808a3"
+        ]
+      },
+      {
+        "sequence": 29,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:21:24.391Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "Cybercab 안전성 조사나 FSD 관련 규제 조치가 확대되면 출시·운행 승인이 지연되고, 차량·자율주행 기대가 매출로 전환되지 못해 낮은 영업마진과 높은 밸류에이션의 동시 압박으로 이어질 수 있다. 장기 추가매수는 규제기관의 조사 종결 또는 안전성 개선 확인 전까지 분할·제한하는 편이 합리적이다.",
+          "ko": "Cybercab 안전성 조사나 FSD 관련 규제 조치가 확대되면 출시·운행 승인이 지연되고, 차량·자율주행 기대가 매출로 전환되지 못해 낮은 영업마진과 높은 밸류에이션의 동시 압박으로 이어질 수 있다. 장기 추가매수는 규제기관의 조사 종결 또는 안전성 개선 확인 전까지 분할·제한하는 편이 합리적이다."
+        },
+        "actorId": "risk",
+        "artifactId": "74f37977-5024-4371-b08e-a092eef47c7f",
+        "logicalArtifactId": "memo:risk",
+        "participantIds": ["risk"],
+        "claimIds": [
+          "38f809c7-622f-457e-8945-c254b0fcfe9e",
+          "b25d4a93-608d-4da0-8593-e20ab662fffa",
+          "33a6a62a-2597-49ef-8351-4b0cbd78fbfd"
+        ],
+        "sourceIds": [
+          "4dd87e63-04e4-4a10-9634-d97bc8ffe8fb",
+          "5f47049e-bafa-4226-9407-9e26dbf899db",
+          "462abecf-4fe3-490f-9d4c-8ee6ce9cea6a",
+          "41a1bff4-dfd1-48bd-b564-64ce2d38e23e",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5"
+        ],
+        "limitationIds": [
+          "limitation:memo:680df7e9",
+          "limitation:memo:dd73dd2f"
+        ]
+      },
+      {
+        "sequence": 31,
+        "kind": "runtime_status",
+        "occurredAt": "2026-09-05T12:21:33.998Z",
+        "stateId": "invalid-model-output",
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 32,
+        "kind": "runtime_status",
+        "occurredAt": "2026-09-05T12:21:34.818Z",
+        "stateId": "retrying",
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 38,
+        "kind": "runtime_status",
+        "occurredAt": "2026-09-05T12:22:35.221Z",
+        "stateId": "invalid-model-output",
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 39,
+        "kind": "department_consolidation_committed",
+        "occurredAt": "2026-09-05T12:22:39.275Z",
+        "stateId": "department_consolidation-accepted",
+        "summary": {
+          "en": "팀은 Tesla의 장기 추가매수를 규제기관의 조사 종결과 Cybercab 운행 확대가 확인될 때까지 제한적으로 보는 쪽이다. 주가 $354.08 대비 TTM 희석 EPS $1.0763인 밸류에이션은 규제 지연이 낮은 영업마진과 결합될 때 재평가에 취약하며, NHTSA의 최종 검토 범위가 판단을 바꿀 핵심 불확실성이다.",
+          "ko": "팀은 Tesla의 장기 추가매수를 규제기관의 조사 종결과 Cybercab 운행 확대가 확인될 때까지 제한적으로 보는 쪽이다. 주가 $354.08 대비 TTM 희석 EPS $1.0763인 밸류에이션은 규제 지연이 낮은 영업마진과 결합될 때 재평가에 취약하며, NHTSA의 최종 검토 범위가 판단을 바꿀 핵심 불확실성이다."
+        },
+        "actorId": "risk",
+        "artifactId": "32deea68-20be-4338-b159-300e0028d300",
+        "logicalArtifactId": "consolidation:risk",
+        "participantIds": ["risk", "risk_policy"],
+        "claimIds": [
+          "38f809c7-622f-457e-8945-c254b0fcfe9e",
+          "b25d4a93-608d-4da0-8593-e20ab662fffa",
+          "33a6a62a-2597-49ef-8351-4b0cbd78fbfd",
+          "d691b454-c0f8-48f8-8419-3eb954611d62",
+          "60f3b727-7649-4324-8086-0a4ef9b6bb51",
+          "6f1f6555-b382-4f5e-87a3-ebf843d36dd9"
+        ],
+        "sourceIds": [
+          "74f37977-5024-4371-b08e-a092eef47c7f",
+          "d32d10bb-ec11-4225-b092-48e46c9a519f",
+          "55995392-811b-4308-9872-6678311846a5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5"
+        ],
+        "limitationIds": [
+          "limitation:department_consolidation:0f8bb6de",
+          "limitation:department_consolidation:25513e5c"
+        ]
+      },
+      {
+        "sequence": 40,
+        "kind": "department_consolidation_committed",
+        "occurredAt": "2026-09-05T12:22:46.868Z",
+        "stateId": "department_consolidation-accepted",
+        "summary": {
+          "en": "현재 팀 판단은 추격 매수보다 관망에 가깝다. TSLA는 2026년 9월 4일 354.08달러로 5.92% 하락했으며, 384.04달러 회복과 사이버캡 운행·규제 진전이 확인될 때만 약세 판단을 되돌린다.",
+          "ko": "현재 팀 판단은 추격 매수보다 관망에 가깝다. TSLA는 2026년 9월 4일 354.08달러로 5.92% 하락했으며, 384.04달러 회복과 사이버캡 운행·규제 진전이 확인될 때만 약세 판단을 되돌린다."
+        },
+        "actorId": "market",
+        "artifactId": "aa582d60-fbae-4892-affb-757cf2badf5d",
+        "logicalArtifactId": "consolidation:market",
+        "participantIds": ["market", "market_news", "benchmark"],
+        "claimIds": [
+          "89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567",
+          "8d879c42-18b8-44c5-8a32-949c161ad8f2",
+          "a6860fbb-3cfa-4a83-80ec-d6f66dd748a3",
+          "be5ecb11-3815-4211-85e7-fc715bd3ab3a",
+          "e8c8029f-96d5-4a0a-871c-3aab2bf30432",
+          "282d27cd-eba6-42a7-8739-9d04bde72d14"
+        ],
+        "sourceIds": [
+          "25ceaa06-862b-4942-84e3-72c40756db1b",
+          "6a9f5c4d-7898-436a-ae58-d09df82da6e4",
+          "de03c94b-8a46-41c6-9380-39051cdd6612",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "0872e7ec-a50b-4673-9262-ccae1bd0bd1c"
+        ],
+        "limitationIds": [
+          "limitation:department_consolidation:25a41c6c",
+          "limitation:department_consolidation:7a6e8620"
+        ]
+      },
+      {
+        "sequence": 41,
+        "kind": "department_consolidation_committed",
+        "occurredAt": "2026-09-05T12:22:50.440Z",
+        "stateId": "department_consolidation-accepted",
+        "summary": {
+          "en": "현재는 사이버캡의 공개 운행을 성장과 채택의 초기 진전으로 인정하되 추가 물량 확대는 보류하는 판단이 타당하다. 테슬라는 센서 비용과 기존 차량 기반의 잠재 우위가 있지만, 차량 약 45대와 사업별 유료 이용·단위경제 증거만으로는 Waymo보다 강한 해자를 입증하지 못했으며, 유료 운행과 차량당 수익성 개선이 확인되면 판단을 상향한다.",
+          "ko": "현재는 사이버캡의 공개 운행을 성장과 채택의 초기 진전으로 인정하되 추가 물량 확대는 보류하는 판단이 타당하다. 테슬라는 센서 비용과 기존 차량 기반의 잠재 우위가 있지만, 차량 약 45대와 사업별 유료 이용·단위경제 증거만으로는 Waymo보다 강한 해자를 입증하지 못했으며, 유료 운행과 차량당 수익성 개선이 확인되면 판단을 상향한다."
+        },
+        "actorId": "company",
+        "artifactId": "0556152f-5030-49bf-b460-435c8b1b8065",
+        "logicalArtifactId": "consolidation:company",
+        "participantIds": ["company", "company_product", "company_competition"],
+        "claimIds": [
+          "282527d2-e845-42dd-8fc9-b8451c9004b4",
+          "4f344769-ae00-4699-85d0-3ef4bbb38401",
+          "02fc6e1a-c1c4-4198-8192-7f9cf4367788",
+          "1fa56c5b-1766-4535-896e-aa700821710a",
+          "cceb6fb2-6868-4099-8017-49ce8a2d3233",
+          "567f2d25-65f1-4a2d-8ea4-138386aee3bd",
+          "34d2a034-0cdb-4825-8702-309748d3e32a"
+        ],
+        "sourceIds": [
+          "9cae9944-4f5f-4c69-ab27-5e9c8344f493",
+          "dd7f81ee-9400-423d-810e-ce7ac9a8c637",
+          "62a5e821-e324-4caf-8864-0bbf44f83202",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3"
+        ],
+        "limitationIds": [
+          "limitation:department_consolidation:f0b0a080",
+          "limitation:department_consolidation:37a28ff2"
+        ]
+      },
+      {
+        "sequence": 42,
+        "kind": "runtime_status",
+        "occurredAt": "2026-09-05T12:22:51.968Z",
+        "stateId": "retrying",
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 45,
+        "kind": "runtime_status",
+        "occurredAt": "2026-09-05T12:23:53.456Z",
+        "stateId": "invalid-model-output",
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 46,
+        "kind": "runtime_status",
+        "occurredAt": "2026-09-05T12:23:54.349Z",
+        "stateId": "retrying",
+        "participantIds": [],
+        "claimIds": [],
+        "sourceIds": [],
+        "limitationIds": []
+      },
+      {
+        "sequence": 48,
+        "kind": "specialist_memo_committed",
+        "occurredAt": "2026-09-05T12:24:41.711Z",
+        "stateId": "memo-accepted",
+        "summary": {
+          "en": "최근 수익성은 장기 추가매수의 근거로 약하다. 2026년 2분기 영업이익률은 1.4095%로 1분기 4.2033%와 2025년 연간 4.5926%보다 낮아, 사이버캡 기대가 실적 마진으로 확인되기 전에는 추격 매수보다 관찰이 우선이다.",
+          "ko": "최근 수익성은 장기 추가매수의 근거로 약하다. 2026년 2분기 영업이익률은 1.4095%로 1분기 4.2033%와 2025년 연간 4.5926%보다 낮아, 사이버캡 기대가 실적 마진으로 확인되기 전에는 추격 매수보다 관찰이 우선이다."
+        },
+        "actorId": "financial",
+        "artifactId": "846f4ee4-8a40-470c-9d60-6fa0972beb9d",
+        "logicalArtifactId": "memo:financial",
+        "participantIds": ["financial"],
+        "claimIds": [
+          "dfe335b1-b760-4c70-8d26-260d03b3a20b",
+          "a05f7686-93c1-496d-8345-0118bba94e5e",
+          "f558f366-99fc-44da-886f-caf269d75c53"
+        ],
+        "sourceIds": [
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "4dd87e63-04e4-4a10-9634-d97bc8ffe8fb",
+          "5f47049e-bafa-4226-9407-9e26dbf899db",
+          "462abecf-4fe3-490f-9d4c-8ee6ce9cea6a",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d"
+        ],
+        "limitationIds": [
+          "limitation:memo:a57a74b9",
+          "limitation:memo:5ecdfef7"
+        ]
+      },
+      {
+        "sequence": 50,
+        "kind": "department_consolidation_committed",
+        "occurredAt": "2026-09-05T12:25:42.460Z",
+        "stateId": "department_consolidation-accepted",
+        "summary": {
+          "en": "금융팀은 현재 가격에서 장기 추가매수를 서두르지 않는 쪽이다. 최근 2026년 2분기 영업이익률이 1.4095%로 낮아진 가운데 주가는 TTM EPS 1.08달러의 328배 수준이어서, 다음 실적에서 마진 회복과 사이버캡의 실제 매출·현금기여가 확인되기 전에는 안전마진이 부족하다.",
+          "ko": "금융팀은 현재 가격에서 장기 추가매수를 서두르지 않는 쪽이다. 최근 2026년 2분기 영업이익률이 1.4095%로 낮아진 가운데 주가는 TTM EPS 1.08달러의 328배 수준이어서, 다음 실적에서 마진 회복과 사이버캡의 실제 매출·현금기여가 확인되기 전에는 안전마진이 부족하다."
+        },
+        "actorId": "financial",
+        "artifactId": "025613d0-28dc-4f40-bdfe-1929e4e841ce",
+        "logicalArtifactId": "consolidation:financial",
+        "participantIds": ["financial", "valuation", "financial_quality"],
+        "claimIds": [
+          "dfe335b1-b760-4c70-8d26-260d03b3a20b",
+          "b73e0aa2-1b65-4562-8bc9-da8596677479",
+          "eb22ba41-9dd6-4a7c-8e09-2a7b9b947015",
+          "5cb551d2-7b81-4be6-8e26-a5697a1352c9",
+          "a5a8e578-62e8-4eb6-8d14-bfcbc2484ada"
+        ],
+        "sourceIds": [
+          "846f4ee4-8a40-470c-9d60-6fa0972beb9d",
+          "cac16b0d-4f90-478a-bea8-cf3bb254e7ce",
+          "57854373-5cb6-499e-ac70-21cc0c7b0edd",
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3"
+        ],
+        "limitationIds": [
+          "limitation:department_consolidation:85463d9a",
+          "limitation:department_consolidation:00292c48"
+        ]
+      },
+      {
+        "sequence": 55,
+        "kind": "challenge_committed",
+        "occurredAt": "2026-09-05T12:26:13.100Z",
+        "stateId": "blind_challenge-accepted",
+        "summary": {
+          "en": "Counterpoint: 사이버캡은 2026년 9월 공개 운행으로 시연 단계에서 실제 서비스 단계로 이동했지만, 반복 이용·유료화·운행 규모가 아직 입증되지 않아 현재 주가 상승만으로 물량을 추가하기에는 이르다. 다음 2~4개 분기에서 유료 탑승 건수, 운행 차량 수, 가동률이 지속 증가하는지 확인한 뒤 분할 접근하는 조건부 장기 가설이 적절하다. Target under challenge: 사이버캡은 시연 단계에서 오스틴 공개 운행으로 넘어갔다는 보도가 있어 초기 상용 도입은 진전됐지만, 현재 자료에는 유료 운행 건수·가동률·재이용률 같은 생산 채택 지표가 없다. 신규 진입이라면 다음 2~4개 분기에서 공개 운행 확대와 반복 이용 데이터를 확인하기 전까지 추가 매수는 분할 접근이 타당하다.",
+          "ko": "반론: 사이버캡은 2026년 9월 공개 운행으로 시연 단계에서 실제 서비스 단계로 이동했지만, 반복 이용·유료화·운행 규모가 아직 입증되지 않아 현재 주가 상승만으로 물량을 추가하기에는 이르다. 다음 2~4개 분기에서 유료 탑승 건수, 운행 차량 수, 가동률이 지속 증가하는지 확인한 뒤 분할 접근하는 조건부 장기 가설이 적절하다. 검토 대상: 사이버캡은 시연 단계에서 오스틴 공개 운행으로 넘어갔다는 보도가 있어 초기 상용 도입은 진전됐지만, 현재 자료에는 유료 운행 건수·가동률·재이용률 같은 생산 채택 지표가 없다. 신규 진입이라면 다음 2~4개 분기에서 공개 운행 확대와 반복 이용 데이터를 확인하기 전까지 추가 매수는 분할 접근이 타당하다."
+        },
+        "actorId": "financial",
+        "artifactId": "a61692eb-6719-45e2-b2df-eeb1b247ba42",
+        "logicalArtifactId": "challenge:financial",
+        "participantIds": ["financial", "company"],
+        "claimIds": ["4f344769-ae00-4699-85d0-3ef4bbb38401"],
+        "sourceIds": [
+          "0556152f-5030-49bf-b460-435c8b1b8065",
+          "dd7f81ee-9400-423d-810e-ce7ac9a8c637",
+          "9cae9944-4f5f-4c69-ab27-5e9c8344f493",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d"
+        ],
+        "limitationIds": []
+      },
+      {
+        "sequence": 56,
+        "kind": "challenge_committed",
+        "occurredAt": "2026-09-05T12:26:13.815Z",
+        "stateId": "blind_challenge-accepted",
+        "summary": {
+          "en": "Counterpoint: 사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다. Target under challenge: 현재 시장은 사이버캡 발표를 지속 상승 추세로 확인하지 않았다. TSLA는 2026년 9월 4일 354.08달러로 5.92% 하락했고, 1시간 추세는 약세이며 거래량 비율도 0.8배였다. 중기 추가매수는 384.04달러 회복과 거래량 동반 여부를 확인한 뒤 검토하는 편이 낫다.",
+          "ko": "반론: 사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다. 검토 대상: 현재 시장은 사이버캡 발표를 지속 상승 추세로 확인하지 않았다. TSLA는 2026년 9월 4일 354.08달러로 5.92% 하락했고, 1시간 추세는 약세이며 거래량 비율도 0.8배였다. 중기 추가매수는 384.04달러 회복과 거래량 동반 여부를 확인한 뒤 검토하는 편이 낫다."
+        },
+        "actorId": "risk",
+        "artifactId": "e76f5894-b717-4f1a-bd9d-e20649d6dc19",
+        "logicalArtifactId": "challenge:risk",
+        "participantIds": ["risk", "market"],
+        "claimIds": ["89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567"],
+        "sourceIds": [
+          "aa582d60-fbae-4892-affb-757cf2badf5d",
+          "25ceaa06-862b-4942-84e3-72c40756db1b",
+          "de03c94b-8a46-41c6-9380-39051cdd6612",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca"
+        ],
+        "limitationIds": []
+      },
+      {
+        "sequence": 57,
+        "kind": "challenge_committed",
+        "occurredAt": "2026-09-05T12:26:18.648Z",
+        "stateId": "blind_challenge-accepted",
+        "summary": {
+          "en": "Counterpoint: 가장 이른 운영 경고는 NHTSA의 Cybercab FMVSS 검토 결과와 Austin 차량 수, 사고 및 원격개입률의 공개다. 검토 결론이 지연되거나 운행 데이터가 악화되면 확장 속도와 자율주행 기대가 함께 낮아질 수 있으므로, 투자자는 인증 문서와 운영 지표를 우선 추적해야 한다. Target under challenge: Cybercab 안전성 조사나 FSD 관련 규제 조치가 확대되면 출시·운행 승인이 지연되고, 차량·자율주행 기대가 매출로 전환되지 못해 낮은 영업마진과 높은 밸류에이션의 동시 압박으로 이어질 수 있다. 장기 추가매수는 규제기관의 조사 종결 또는 안전성 개선 확인 전까지 분할·제한하는 편이 합리적이다.",
+          "ko": "반론: 가장 이른 운영 경고는 NHTSA의 Cybercab FMVSS 검토 결과와 Austin 차량 수, 사고 및 원격개입률의 공개다. 검토 결론이 지연되거나 운행 데이터가 악화되면 확장 속도와 자율주행 기대가 함께 낮아질 수 있으므로, 투자자는 인증 문서와 운영 지표를 우선 추적해야 한다. 검토 대상: Cybercab 안전성 조사나 FSD 관련 규제 조치가 확대되면 출시·운행 승인이 지연되고, 차량·자율주행 기대가 매출로 전환되지 못해 낮은 영업마진과 높은 밸류에이션의 동시 압박으로 이어질 수 있다. 장기 추가매수는 규제기관의 조사 종결 또는 안전성 개선 확인 전까지 분할·제한하는 편이 합리적이다."
+        },
+        "actorId": "company",
+        "artifactId": "0328b6cb-4eba-4739-921a-9a32a1cad05a",
+        "logicalArtifactId": "challenge:company",
+        "participantIds": ["company", "risk"],
+        "claimIds": ["38f809c7-622f-457e-8945-c254b0fcfe9e"],
+        "sourceIds": [
+          "32deea68-20be-4338-b159-300e0028d300",
+          "74f37977-5024-4371-b08e-a092eef47c7f",
+          "d32d10bb-ec11-4225-b092-48e46c9a519f",
+          "55995392-811b-4308-9872-6678311846a5",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca"
+        ],
+        "limitationIds": []
+      },
+      {
+        "sequence": 58,
+        "kind": "challenge_committed",
+        "occurredAt": "2026-09-05T12:26:23.061Z",
+        "stateId": "blind_challenge-accepted",
+        "summary": {
+          "en": "Counterpoint: 최근 수익성은 장기 추가매수의 근거로 약하다. 2026년 2분기 영업이익률은 1.4095%로 1분기 4.2033%와 2025년 연간 4.5926%보다 낮아, 사이버캡 기대가 실적 마진으로 확인되기 전에는 추격 매수보다 관찰이 우선이다. Target under challenge: 현재 주가는 TTM EPS 1.08달러 대비 약 328배, NTM EPS 추정치 1.99달러 대비 약 178배 수준으로, 사이버캡 기대만으로는 정당화되기 어렵고 향후 이익·마진의 큰 폭 개선을 이미 요구한다. 다음 2~4개 분기에서 EPS가 추정치를 상회하면서 영업마진이 회복되는지 확인하기 전에는 물량 확대를 서두르지 않는 편이 합리적이다.",
+          "ko": "반론: 최근 수익성은 장기 추가매수의 근거로 약하다. 2026년 2분기 영업이익률은 1.4095%로 1분기 4.2033%와 2025년 연간 4.5926%보다 낮아, 사이버캡 기대가 실적 마진으로 확인되기 전에는 추격 매수보다 관찰이 우선이다. 검토 대상: 현재 주가는 TTM EPS 1.08달러 대비 약 328배, NTM EPS 추정치 1.99달러 대비 약 178배 수준으로, 사이버캡 기대만으로는 정당화되기 어렵고 향후 이익·마진의 큰 폭 개선을 이미 요구한다. 다음 2~4개 분기에서 EPS가 추정치를 상회하면서 영업마진이 회복되는지 확인하기 전에는 물량 확대를 서두르지 않는 편이 합리적이다."
+        },
+        "actorId": "market",
+        "artifactId": "8847842a-4854-4ef0-90ed-bf3cf41763a7",
+        "logicalArtifactId": "challenge:market",
+        "participantIds": ["market", "financial"],
+        "claimIds": ["b73e0aa2-1b65-4562-8bc9-da8596677479"],
+        "sourceIds": [
+          "025613d0-28dc-4f40-bdfe-1929e4e841ce",
+          "cac16b0d-4f90-478a-bea8-cf3bb254e7ce",
+          "846f4ee4-8a40-470c-9d60-6fa0972beb9d",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d"
+        ],
+        "limitationIds": []
+      },
+      {
+        "sequence": 63,
+        "kind": "followup_committed",
+        "occurredAt": "2026-09-05T12:26:53.916Z",
+        "stateId": "follow_up-accepted",
+        "summary": {
+          "en": "The claim is directionally supported. Austin public operation would mark progress from demonstrations toward initial service, but it does not by itself establish paid demand, repeat usage, fleet scale, or utilization. Therefore, adding aggressively after the price rise is not yet justified; a staged approach over the next 2–4 quarters, contingent on sustained growth in paid rides, active vehicles, utilization, and repeat use, is more defensible.",
+          "ko": "해당 주장은 방향성 측면에서 타당합니다. 오스틴 공개 운행은 시연에서 초기 서비스 단계로의 진전을 의미하지만, 그 자체로 유료 수요·반복 이용·운행 차량 규모·가동률을 입증하지는 않습니다. 따라서 주가 상승 직후 공격적으로 추가 매수하기보다는, 향후 2~4개 분기 동안 유료 탑승 건수·운행 차량 수·가동률·재이용률의 지속 증가를 확인하면서 분할 접근하는 편이 더 타당합니다."
+        },
+        "actorId": "company",
+        "artifactId": "6bb4df08-543f-47ff-aa5d-0ea2d391021b",
+        "logicalArtifactId": "followup:company",
+        "participantIds": ["company"],
+        "claimIds": [],
+        "sourceIds": [
+          "a61692eb-6719-45e2-b2df-eeb1b247ba42",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d"
+        ],
+        "limitationIds": ["limitation:follow_up:9927c77a"]
+      },
+      {
+        "sequence": 64,
+        "kind": "followup_committed",
+        "occurredAt": "2026-09-05T12:26:57.731Z",
+        "stateId": "follow_up-accepted",
+        "summary": {
+          "en": "Partially supported. NHTSA’s FMVSS review outcome and disclosed Austin operating metrics are appropriate early-warning indicators, but they should be treated as monitoring triggers rather than proof that approval or commercialization will fail. The risk case becomes materially stronger if the review is delayed or adverse, investigations or enforcement expand, accident or remote-intervention rates worsen, or fleet deployment stalls. Until regulatory closure or measurable safety improvement, limiting and staging additional long-term purchases is a reasonable risk-control response, especially given the combination of low operating margins and high valuation.",
+          "ko": "부분적으로 타당하다. NHTSA의 FMVSS 검토 결과와 Austin 운영 지표 공개는 적절한 선행 경고 지표지만, 승인이나 상용화 실패의 증거라기보다 모니터링 기준으로 봐야 한다. 검토가 지연되거나 부정적 결론이 나오고, 조사·집행 조치가 확대되거나 사고·원격개입률이 악화되거나 차량 배치가 정체되면 규제 및 사업화 위험은 실질적으로 커진다. 규제기관의 종결 확인이나 측정 가능한 안전성 개선 전까지 장기 추가매수를 제한하고 분할하는 것은 합리적인 위험관리이며, 낮은 영업마진과 높은 밸류에이션이 결합된 상황에서는 특히 그렇다."
+        },
+        "actorId": "risk",
+        "artifactId": "65607e9e-d2dd-4523-a24d-6fda240aad05",
+        "logicalArtifactId": "followup:risk",
+        "participantIds": ["risk"],
+        "claimIds": [],
+        "sourceIds": [
+          "0328b6cb-4eba-4739-921a-9a32a1cad05a",
+          "55995392-811b-4308-9872-6678311846a5",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca"
+        ],
+        "limitationIds": ["limitation:follow_up:91681e55"]
+      },
+      {
+        "sequence": 65,
+        "kind": "owner_response_committed",
+        "occurredAt": "2026-09-05T12:27:02.721Z",
+        "stateId": "owner_response_ballot-accepted",
+        "summary": {
+          "en": "사이버캡 공개 직후 TSLA가 354.08달러로 5.92% 하락했고, 1시간봉 약세와 낮은 거래량 비율이 나타나 지속적인 상승 추세가 확인됐다고 보기 어렵다. 중기 추가매수는 350.94달러 지지 유지와 384.04달러 회복 및 거래량 동반 여부를 확인한 뒤 검토하는 것이 타당하다.",
+          "ko": "사이버캡 공개 직후 TSLA가 354.08달러로 5.92% 하락했고, 1시간봉 약세와 낮은 거래량 비율이 나타나 지속적인 상승 추세가 확인됐다고 보기 어렵다. 중기 추가매수는 350.94달러 지지 유지와 384.04달러 회복 및 거래량 동반 여부를 확인한 뒤 검토하는 것이 타당하다."
+        },
+        "actorId": "market",
+        "artifactId": "8f5edae8-e790-4e1d-b899-04c1bfbab692",
+        "logicalArtifactId": "response_ballot:market",
+        "participantIds": ["market", "risk"],
+        "claimIds": ["89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567"],
+        "sourceIds": [
+          "e76f5894-b717-4f1a-bd9d-e20649d6dc19",
+          "de03c94b-8a46-41c6-9380-39051cdd6612",
+          "25ceaa06-862b-4942-84e3-72c40756db1b",
+          "6a9f5c4d-7898-436a-ae58-d09df82da6e4"
+        ],
+        "limitationIds": [
+          "limitation:owner_response_ballot:d2a959d1",
+          "limitation:owner_response_ballot:89b12a89"
+        ]
+      },
+      {
+        "sequence": 66,
+        "kind": "followup_committed",
+        "occurredAt": "2026-09-05T12:27:03.884Z",
+        "stateId": "follow_up-accepted",
+        "summary": {
+          "en": "The counterpoint is directionally well supported: Q2 2026 operating margin of 1.4095% deteriorated from 4.2033% in Q1 and 4.5926% for FY2025, weakening the case for immediate additional buying. The stated valuation—approximately 328× TTM EPS and 178× NTM EPS—also implies that substantial earnings and margin improvement is already priced in. Accordingly, waiting for 2–4 quarters of EPS outperformance accompanied by margin recovery is a reasonable confirmation rule. This supports caution rather than proving that the stock is overvalued, because the conclusion depends on the quoted price, EPS definitions, forecast reliability, and whether the margin decline is temporary.",
+          "ko": "해당 반론은 방향성 측면에서 상당히 타당하다. 2026년 2분기 영업이익률 1.4095%는 1분기 4.2033%와 2025년 연간 4.5926%보다 악화되어 즉각적인 추가매수의 근거를 약화한다. 또한 TTM EPS 기준 약 328배, NTM EPS 기준 약 178배라는 밸류에이션은 상당한 이익·마진 개선이 이미 주가에 반영되어 있음을 의미한다. 따라서 향후 2~4개 분기 동안 EPS 추정치 상회와 마진 회복이 함께 나타나는지 확인한 뒤 매수 규모를 늘리자는 기준은 합리적이다. 다만 이는 신중론을 뒷받침할 뿐 주가가 고평가임을 확정하는 것은 아니다. 결론은 해당 주가, EPS 산정 방식, 전망치의 신뢰도, 마진 하락의 일시성에 좌우된다."
+        },
+        "actorId": "financial",
+        "artifactId": "ffd6022c-1da9-4d50-b100-6997f60b72fd",
+        "logicalArtifactId": "followup:financial",
+        "participantIds": ["financial"],
+        "claimIds": [],
+        "sourceIds": [
+          "8847842a-4854-4ef0-90ed-bf3cf41763a7",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d"
+        ],
+        "limitationIds": ["limitation:follow_up:6f577e4a"]
+      },
+      {
+        "sequence": 70,
+        "kind": "owner_response_committed",
+        "occurredAt": "2026-09-05T12:27:33.766Z",
+        "stateId": "owner_response_ballot-accepted",
+        "summary": {
+          "en": "오스틴 공개 운행은 초기 상용화 진전으로 볼 수 있지만, 유료 탑승·운행 차량 수·가동률·재이용률과 같은 핵심 채택 및 단위경제 지표가 아직 확인되지 않았다. 따라서 현재 주가 상승만으로 추가 매수하기보다 향후 2~4개 분기 동안 운영 규모와 반복 이용이 개선되는지 확인하며 분할 접근하는 조건이 타당하다.",
+          "ko": "오스틴 공개 운행은 초기 상용화 진전으로 볼 수 있지만, 유료 탑승·운행 차량 수·가동률·재이용률과 같은 핵심 채택 및 단위경제 지표가 아직 확인되지 않았다. 따라서 현재 주가 상승만으로 추가 매수하기보다 향후 2~4개 분기 동안 운영 규모와 반복 이용이 개선되는지 확인하며 분할 접근하는 조건이 타당하다."
+        },
+        "actorId": "company",
+        "artifactId": "cd5033bf-4cad-48e6-a5e5-dcc1d85d4662",
+        "logicalArtifactId": "response_ballot:company",
+        "participantIds": ["company", "financial"],
+        "claimIds": ["4f344769-ae00-4699-85d0-3ef4bbb38401"],
+        "sourceIds": [
+          "a61692eb-6719-45e2-b2df-eeb1b247ba42",
+          "9cae9944-4f5f-4c69-ab27-5e9c8344f493",
+          "62a5e821-e324-4caf-8864-0bbf44f83202",
+          "dd7f81ee-9400-423d-810e-ce7ac9a8c637",
+          "6bb4df08-543f-47ff-aa5d-0ea2d391021b"
+        ],
+        "limitationIds": ["limitation:owner_response_ballot:e24ab819"]
+      },
+      {
+        "sequence": 71,
+        "kind": "owner_response_committed",
+        "occurredAt": "2026-09-05T12:27:40.150Z",
+        "stateId": "owner_response_ballot-accepted",
+        "summary": {
+          "en": "규제 조사 확대가 출시·운행 승인 지연, 수익화 기대 약화, 밸류에이션 재평가로 이어질 수 있다는 방향은 타당하다. 다만 현재 실제 위반, 리콜·운행 중단, 조사 종결 일정이 확인되지 않았으므로 단정적 표현을 줄이고, NHTSA의 FMVSS 검토 결과와 Austin 운행 차량 수·사고·원격개입률을 선행 지표로 명시해야 한다. 추가매수 제한도 전면 중단보다 조사 결과와 안전성 데이터 확인 전까지 분할·제한한다는 조건부 권고가 적절하다.",
+          "ko": "규제 조사 확대가 출시·운행 승인 지연, 수익화 기대 약화, 밸류에이션 재평가로 이어질 수 있다는 방향은 타당하다. 다만 현재 실제 위반, 리콜·운행 중단, 조사 종결 일정이 확인되지 않았으므로 단정적 표현을 줄이고, NHTSA의 FMVSS 검토 결과와 Austin 운행 차량 수·사고·원격개입률을 선행 지표로 명시해야 한다. 추가매수 제한도 전면 중단보다 조사 결과와 안전성 데이터 확인 전까지 분할·제한한다는 조건부 권고가 적절하다."
+        },
+        "actorId": "risk",
+        "artifactId": "99b1ac44-ea6e-4238-a0f3-d43aaa441a59",
+        "logicalArtifactId": "response_ballot:risk",
+        "participantIds": ["risk", "company"],
+        "claimIds": ["38f809c7-622f-457e-8945-c254b0fcfe9e"],
+        "sourceIds": [
+          "0328b6cb-4eba-4739-921a-9a32a1cad05a",
+          "74f37977-5024-4371-b08e-a092eef47c7f",
+          "d32d10bb-ec11-4225-b092-48e46c9a519f",
+          "65607e9e-d2dd-4523-a24d-6fda240aad05"
+        ],
+        "limitationIds": [
+          "limitation:owner_response_ballot:8211d421",
+          "limitation:owner_response_ballot:5a542873",
+          "limitation:owner_response_ballot:3061d78d"
+        ]
+      },
+      {
+        "sequence": 72,
+        "kind": "owner_response_committed",
+        "occurredAt": "2026-09-05T12:27:43.672Z",
+        "stateId": "owner_response_ballot-accepted",
+        "summary": {
+          "en": "장기 투자 관점 자체는 유지할 수 있지만, 현재 수익성·현금흐름·밸류에이션을 고려하면 즉각적인 추가매수로 단정하기 어렵습니다. 다음 2~4개 분기 동안 EPS 추정치 상회, 영업마진 회복, 투자 대비 현금창출력 개선이 확인될 때 단계적으로 매수한다는 조건을 명시해야 합니다.",
+          "ko": "장기 투자 관점 자체는 유지할 수 있지만, 현재 수익성·현금흐름·밸류에이션을 고려하면 즉각적인 추가매수로 단정하기 어렵습니다. 다음 2~4개 분기 동안 EPS 추정치 상회, 영업마진 회복, 투자 대비 현금창출력 개선이 확인될 때 단계적으로 매수한다는 조건을 명시해야 합니다."
+        },
+        "actorId": "financial",
+        "artifactId": "5788bc8c-f561-4daa-b774-0d0e75c44045",
+        "logicalArtifactId": "response_ballot:financial",
+        "participantIds": ["financial", "market"],
+        "claimIds": ["b73e0aa2-1b65-4562-8bc9-da8596677479"],
+        "sourceIds": [
+          "8847842a-4854-4ef0-90ed-bf3cf41763a7",
+          "846f4ee4-8a40-470c-9d60-6fa0972beb9d",
+          "57854373-5cb6-499e-ac70-21cc0c7b0edd",
+          "cac16b0d-4f90-478a-bea8-cf3bb254e7ce",
+          "ffd6022c-1da9-4d50-b100-6997f60b72fd"
+        ],
+        "limitationIds": [
+          "limitation:owner_response_ballot:53aa414d",
+          "limitation:owner_response_ballot:9f3b9ca9",
+          "limitation:owner_response_ballot:fc5aeb59"
+        ]
+      },
+      {
+        "sequence": 73,
+        "kind": "structural_audit_completed",
+        "occurredAt": "2026-09-05T12:27:45.137Z",
+        "stateId": "structural-audit-completed",
+        "summary": {
+          "en": "Required evidence and source links have been verified for the report.",
+          "ko": "리포트에 필요한 근거와 출처 연결을 확인했습니다."
+        },
+        "artifactId": "c9031ddd-7be0-4c3f-a13b-4cd7bf7efc59",
+        "logicalArtifactId": "structural_audit:system",
+        "participantIds": [],
+        "claimIds": [
+          "a6860fbb-3cfa-4a83-80ec-d6f66dd748a3",
+          "99ba1154-468e-48d4-804b-8f895bb6b6b5",
+          "282527d2-e845-42dd-8fc9-b8451c9004b4",
+          "7c7f884a-5834-42c3-8dc6-2217cc18301c",
+          "02fc6e1a-c1c4-4198-8192-7f9cf4367788",
+          "1fa56c5b-1766-4535-896e-aa700821710a",
+          "cb2d3624-5dce-4768-80d1-cef76afbe95b",
+          "4f344769-ae00-4699-85d0-3ef4bbb38401",
+          "a46a1809-f309-422b-8f13-fccba6b46068",
+          "dfe335b1-b760-4c70-8d26-260d03b3a20b",
+          "a05f7686-93c1-496d-8345-0118bba94e5e",
+          "f558f366-99fc-44da-886f-caf269d75c53",
+          "eb22ba41-9dd6-4a7c-8e09-2a7b9b947015",
+          "5cb551d2-7b81-4be6-8e26-a5697a1352c9",
+          "89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567",
+          "0f723820-574d-46b9-8dda-c10d32b581c1",
+          "8134711c-e6dd-43c9-8d21-50503ef20f0d",
+          "8d879c42-18b8-44c5-8a32-949c161ad8f2",
+          "9f1585f0-8926-48c2-8937-36309cec2ec6",
+          "38f809c7-622f-457e-8945-c254b0fcfe9e",
+          "b25d4a93-608d-4da0-8593-e20ab662fffa",
+          "33a6a62a-2597-49ef-8351-4b0cbd78fbfd",
+          "d691b454-c0f8-48f8-8419-3eb954611d62",
+          "614492f3-6455-4ab3-895b-ffc572e83253",
+          "543540bf-ba17-4736-8455-c2ee597be6f3",
+          "b73e0aa2-1b65-4562-8bc9-da8596677479",
+          "2422cd6b-ada7-4c35-835f-ca4ed7b4de41"
+        ],
+        "sourceIds": [
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "4dd87e63-04e4-4a10-9634-d97bc8ffe8fb",
+          "5f47049e-bafa-4226-9407-9e26dbf899db",
+          "462abecf-4fe3-490f-9d4c-8ee6ce9cea6a",
+          "41a1bff4-dfd1-48bd-b564-64ce2d38e23e",
+          "a03a0455-70a1-4a6d-8405-34717fa15507",
+          "53b02183-9257-4e89-a5b1-ef91157dc96a",
+          "fb80ff05-d836-4e32-bc5f-762f7548ee39",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "e3c87c63-47fd-4632-87a8-95de32d6a2ef",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "00ec8431-2267-4981-8ce5-b6a1cea59ec5",
+          "504e3d92-963e-4305-94a4-a830b77b82d7",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "55995392-811b-4308-9872-6678311846a5",
+          "0872e7ec-a50b-4673-9262-ccae1bd0bd1c",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "4508439e-caad-4016-a1f2-65337c15a884",
+          "e7f4af82-8860-49ad-a5a1-b174a4927892",
+          "4005a93e-250e-48ac-b1d0-9f0cac4f60c8",
+          "1b0ef3a5-a071-4d7c-93e3-a86bfd58782e",
+          "ca99b4cb-034d-4eaf-946c-2a59410d7bfc",
+          "6429096e-ea1a-490f-8c8f-eff88ec14fdb",
+          "9c38f3b8-c191-4adf-8947-aa38d703b02e",
+          "6deab463-d4db-4bf4-b291-f913dd494d6b",
+          "0328b6cb-4eba-4739-921a-9a32a1cad05a",
+          "a61692eb-6719-45e2-b2df-eeb1b247ba42",
+          "8847842a-4854-4ef0-90ed-bf3cf41763a7",
+          "e76f5894-b717-4f1a-bd9d-e20649d6dc19",
+          "0556152f-5030-49bf-b460-435c8b1b8065",
+          "025613d0-28dc-4f40-bdfe-1929e4e841ce",
+          "aa582d60-fbae-4892-affb-757cf2badf5d",
+          "32deea68-20be-4338-b159-300e0028d300",
+          "de03c94b-8a46-41c6-9380-39051cdd6612",
+          "9cae9944-4f5f-4c69-ab27-5e9c8344f493",
+          "62a5e821-e324-4caf-8864-0bbf44f83202",
+          "dd7f81ee-9400-423d-810e-ce7ac9a8c637",
+          "846f4ee4-8a40-470c-9d60-6fa0972beb9d",
+          "57854373-5cb6-499e-ac70-21cc0c7b0edd",
+          "25ceaa06-862b-4942-84e3-72c40756db1b",
+          "6a9f5c4d-7898-436a-ae58-d09df82da6e4",
+          "74f37977-5024-4371-b08e-a092eef47c7f",
+          "d32d10bb-ec11-4225-b092-48e46c9a519f",
+          "cac16b0d-4f90-478a-bea8-cf3bb254e7ce",
+          "cd5033bf-4cad-48e6-a5e5-dcc1d85d4662",
+          "5788bc8c-f561-4daa-b774-0d0e75c44045",
+          "8f5edae8-e790-4e1d-b899-04c1bfbab692",
+          "99b1ac44-ea6e-4238-a0f3-d43aaa441a59"
+        ],
+        "limitationIds": []
+      },
+      {
+        "sequence": 75,
+        "kind": "semantic_audit_committed",
+        "occurredAt": "2026-09-05T12:28:56.493Z",
+        "stateId": "semantic_audit-accepted",
+        "summary": {
+          "en": "주가 354.08달러, 약 5.92% 하락, 1시간 약세, 지지·저항 수준이 근거와 일치합니다. 이벤트 기대의 되돌림이라는 해석과 매수 조건은 분석적 판단으로 제시되어 있습니다.",
+          "ko": "주가 354.08달러, 약 5.92% 하락, 1시간 약세, 지지·저항 수준이 근거와 일치합니다. 이벤트 기대의 되돌림이라는 해석과 매수 조건은 분석적 판단으로 제시되어 있습니다."
+        },
+        "artifactId": "7bf2f691-29ad-46f0-a0be-f693bba619ba",
+        "logicalArtifactId": "semantic_audit:system",
+        "participantIds": [],
+        "claimIds": [
+          "a6860fbb-3cfa-4a83-80ec-d6f66dd748a3",
+          "99ba1154-468e-48d4-804b-8f895bb6b6b5",
+          "282527d2-e845-42dd-8fc9-b8451c9004b4",
+          "7c7f884a-5834-42c3-8dc6-2217cc18301c",
+          "02fc6e1a-c1c4-4198-8192-7f9cf4367788",
+          "1fa56c5b-1766-4535-896e-aa700821710a",
+          "cb2d3624-5dce-4768-80d1-cef76afbe95b",
+          "4f344769-ae00-4699-85d0-3ef4bbb38401",
+          "a46a1809-f309-422b-8f13-fccba6b46068",
+          "dfe335b1-b760-4c70-8d26-260d03b3a20b",
+          "a05f7686-93c1-496d-8345-0118bba94e5e",
+          "f558f366-99fc-44da-886f-caf269d75c53",
+          "eb22ba41-9dd6-4a7c-8e09-2a7b9b947015",
+          "5cb551d2-7b81-4be6-8e26-a5697a1352c9",
+          "89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567",
+          "0f723820-574d-46b9-8dda-c10d32b581c1",
+          "8134711c-e6dd-43c9-8d21-50503ef20f0d",
+          "8d879c42-18b8-44c5-8a32-949c161ad8f2",
+          "9f1585f0-8926-48c2-8937-36309cec2ec6",
+          "38f809c7-622f-457e-8945-c254b0fcfe9e",
+          "b25d4a93-608d-4da0-8593-e20ab662fffa",
+          "33a6a62a-2597-49ef-8351-4b0cbd78fbfd",
+          "d691b454-c0f8-48f8-8419-3eb954611d62",
+          "614492f3-6455-4ab3-895b-ffc572e83253",
+          "543540bf-ba17-4736-8455-c2ee597be6f3",
+          "b73e0aa2-1b65-4562-8bc9-da8596677479",
+          "2422cd6b-ada7-4c35-835f-ca4ed7b4de41"
+        ],
+        "sourceIds": [
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "0872e7ec-a50b-4673-9262-ccae1bd0bd1c",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "4508439e-caad-4016-a1f2-65337c15a884",
+          "e7f4af82-8860-49ad-a5a1-b174a4927892",
+          "1b0ef3a5-a071-4d7c-93e3-a86bfd58782e",
+          "55995392-811b-4308-9872-6678311846a5",
+          "6429096e-ea1a-490f-8c8f-eff88ec14fdb",
+          "9c38f3b8-c191-4adf-8947-aa38d703b02e"
+        ],
+        "limitationIds": []
+      },
+      {
+        "sequence": 77,
+        "kind": "chair_synthesis_committed",
+        "occurredAt": "2026-09-05T12:30:05.911Z",
+        "stateId": "chair_synthesis-accepted",
+        "summary": {
+          "en": "사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다.",
+          "ko": "사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다."
+        },
+        "actorId": "chair",
+        "artifactId": "21eccc21-485c-4a04-a4ba-f4e10c9b6473",
+        "logicalArtifactId": "chair_synthesis:chair",
+        "participantIds": ["chair", "market", "company", "financial", "risk"],
+        "claimIds": [
+          "a6860fbb-3cfa-4a83-80ec-d6f66dd748a3",
+          "282527d2-e845-42dd-8fc9-b8451c9004b4",
+          "4f344769-ae00-4699-85d0-3ef4bbb38401",
+          "02fc6e1a-c1c4-4198-8192-7f9cf4367788",
+          "1fa56c5b-1766-4535-896e-aa700821710a",
+          "89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567",
+          "8d879c42-18b8-44c5-8a32-949c161ad8f2",
+          "dfe335b1-b760-4c70-8d26-260d03b3a20b",
+          "b73e0aa2-1b65-4562-8bc9-da8596677479",
+          "eb22ba41-9dd6-4a7c-8e09-2a7b9b947015",
+          "5cb551d2-7b81-4be6-8e26-a5697a1352c9",
+          "38f809c7-622f-457e-8945-c254b0fcfe9e",
+          "b25d4a93-608d-4da0-8593-e20ab662fffa",
+          "33a6a62a-2597-49ef-8351-4b0cbd78fbfd",
+          "d691b454-c0f8-48f8-8419-3eb954611d62",
+          "99ba1154-468e-48d4-804b-8f895bb6b6b5",
+          "2422cd6b-ada7-4c35-835f-ca4ed7b4de41",
+          "614492f3-6455-4ab3-895b-ffc572e83253",
+          "f558f366-99fc-44da-886f-caf269d75c53"
+        ],
+        "sourceIds": [
+          "c9031ddd-7be0-4c3f-a13b-4cd7bf7efc59",
+          "7bf2f691-29ad-46f0-a0be-f693bba619ba",
+          "aa582d60-fbae-4892-affb-757cf2badf5d",
+          "0556152f-5030-49bf-b460-435c8b1b8065",
+          "025613d0-28dc-4f40-bdfe-1929e4e841ce",
+          "32deea68-20be-4338-b159-300e0028d300",
+          "8f5edae8-e790-4e1d-b899-04c1bfbab692",
+          "cd5033bf-4cad-48e6-a5e5-dcc1d85d4662",
+          "5788bc8c-f561-4daa-b774-0d0e75c44045",
+          "99b1ac44-ea6e-4238-a0f3-d43aaa441a59",
+          "cac16b0d-4f90-478a-bea8-cf3bb254e7ce",
+          "d32d10bb-ec11-4225-b092-48e46c9a519f",
+          "de03c94b-8a46-41c6-9380-39051cdd6612",
+          "846f4ee4-8a40-470c-9d60-6fa0972beb9d",
+          "0328b6cb-4eba-4739-921a-9a32a1cad05a",
+          "a61692eb-6719-45e2-b2df-eeb1b247ba42",
+          "9cae9944-4f5f-4c69-ab27-5e9c8344f493",
+          "8847842a-4854-4ef0-90ed-bf3cf41763a7",
+          "e76f5894-b717-4f1a-bd9d-e20649d6dc19",
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "0872e7ec-a50b-4673-9262-ccae1bd0bd1c",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "4508439e-caad-4016-a1f2-65337c15a884",
+          "e7f4af82-8860-49ad-a5a1-b174a4927892",
+          "1b0ef3a5-a071-4d7c-93e3-a86bfd58782e",
+          "55995392-811b-4308-9872-6678311846a5",
+          "6429096e-ea1a-490f-8c8f-eff88ec14fdb",
+          "9c38f3b8-c191-4adf-8947-aa38d703b02e"
+        ],
+        "limitationIds": []
+      },
+      {
+        "sequence": 78,
+        "kind": "report_published",
+        "occurredAt": "2026-09-05T12:30:07.816Z",
+        "stateId": "report-published",
+        "summary": {
+          "en": "Research report published.",
+          "ko": "리서치 보고서가 발행됐습니다."
+        },
+        "artifactId": "9e9e575f-9bf8-4061-afb0-491b2a2857cf",
+        "reportId": "98fed1eb-a4a9-4cb8-9da2-95d907d3327a",
+        "reportVersionId": "1b36c229-1e42-40a7-b661-021f7da59e86",
+        "participantIds": [],
+        "claimIds": [
+          "a6860fbb-3cfa-4a83-80ec-d6f66dd748a3",
+          "99ba1154-468e-48d4-804b-8f895bb6b6b5",
+          "89e54e4a-b3ef-4c4f-8a9b-e20d5ab35567",
+          "9f1585f0-8926-48c2-8937-36309cec2ec6",
+          "614492f3-6455-4ab3-895b-ffc572e83253",
+          "2422cd6b-ada7-4c35-835f-ca4ed7b4de41"
+        ],
+        "sourceIds": [
+          "c4afa776-8271-4598-a059-799811fc35f4",
+          "0872e7ec-a50b-4673-9262-ccae1bd0bd1c",
+          "e63a3772-6af4-48e8-ab70-08f6a0c602ca",
+          "fab00330-ddea-4eaf-ab86-dc5a6c58e5f0",
+          "54e324e3-73d1-4c21-b8e1-a16d3afe2ce0",
+          "4b7d811b-f36d-4ec1-9bb2-dca9f0020085",
+          "8a3071d0-5641-4bc8-a0c7-1a37c6d0bc4d",
+          "4bf70c3f-d306-4950-80cc-e0fdedceb6e3",
+          "0d991231-6195-4ce5-a963-dcbb76cc2df5",
+          "e451b6d8-f4e4-4a9e-8d29-b19e1d8e2950",
+          "0fd4478a-279f-4866-9809-7036331370e0",
+          "4508439e-caad-4016-a1f2-65337c15a884",
+          "e7f4af82-8860-49ad-a5a1-b174a4927892",
+          "1b0ef3a5-a071-4d7c-93e3-a86bfd58782e",
+          "55995392-811b-4308-9872-6678311846a5",
+          "6429096e-ea1a-490f-8c8f-eff88ec14fdb",
+          "9c38f3b8-c191-4adf-8947-aa38d703b02e",
+          "aa582d60-fbae-4892-affb-757cf2badf5d",
+          "0556152f-5030-49bf-b460-435c8b1b8065",
+          "025613d0-28dc-4f40-bdfe-1929e4e841ce",
+          "32deea68-20be-4338-b159-300e0028d300",
+          "8f5edae8-e790-4e1d-b899-04c1bfbab692",
+          "cd5033bf-4cad-48e6-a5e5-dcc1d85d4662",
+          "5788bc8c-f561-4daa-b774-0d0e75c44045",
+          "99b1ac44-ea6e-4238-a0f3-d43aaa441a59",
+          "cac16b0d-4f90-478a-bea8-cf3bb254e7ce",
+          "d32d10bb-ec11-4225-b092-48e46c9a519f",
+          "de03c94b-8a46-41c6-9380-39051cdd6612",
+          "846f4ee4-8a40-470c-9d60-6fa0972beb9d",
+          "0328b6cb-4eba-4739-921a-9a32a1cad05a",
+          "a61692eb-6719-45e2-b2df-eeb1b247ba42",
+          "9cae9944-4f5f-4c69-ab27-5e9c8344f493",
+          "8847842a-4854-4ef0-90ed-bf3cf41763a7",
+          "e76f5894-b717-4f1a-bd9d-e20649d6dc19",
+          "c9031ddd-7be0-4c3f-a13b-4cd7bf7efc59"
+        ],
+        "limitationIds": [
+          "limitation:claim:282527d2-e845-42dd-8fc9-b8451c9004b4",
+          "limitation:claim:7c7f884a-5834-42c3-8dc6-2217cc18301c",
+          "limitation:claim:02fc6e1a-c1c4-4198-8192-7f9cf4367788",
+          "limitation:dissent_reduction",
+          "limitation:canonical_publication_reduction"
+        ]
+      }
+    ]
+  },
+  "backdrop": {
+    "thesis": {
+      "en": "사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다.",
+      "ko": "사이버캡 공개 직후 테슬라는 354.08달러로 하루 -5.92% 급락했고, 1시간 추세도 약세여서 현재 움직임은 지속적 상대강세보다 이벤트 기대의 되돌림에 가깝다; 추가 매수는 350.94달러 지지 유지와 384.04달러 회복을 확인한 뒤 검토하는 편이 낫다."
+    },
+    "sections": [
+      {
+        "title": {
+          "en": "근거 기반 분석",
+          "ko": "근거 기반 분석"
+        },
+        "summary": {
+          "en": "현재는 사이버캡의 공개 운행을 성장과 채택의 초기 진전으로 인정하되 추가 물량 확대는 보류하는 판단이 타당하다.",
+          "ko": "현재는 사이버캡의 공개 운행을 성장과 채택의 초기 진전으로 인정하되 추가 물량 확대는 보류하는 판단이 타당하다."
+        },
+        "detail": {
+          "en": "테슬라는 센서 비용과 기존 차량 기반의 잠재 우위가 있지만, 차량 약 45대와 사업별 유료 이용·단위경제 증거만으로는 Waymo보다 강한 해자를 입증하지 못했으며, 유료 운행과 차량당 수익성 개선이 확인되면 판단을 상향한다.",
+          "ko": "테슬라는 센서 비용과 기존 차량 기반의 잠재 우위가 있지만, 차량 약 45대와 사업별 유료 이용·단위경제 증거만으로는 Waymo보다 강한 해자를 입증하지 못했으며, 유료 운행과 차량당 수익성 개선이 확인되면 판단을 상향한다."
+        }
+      },
+      {
+        "title": {
+          "en": "밸류에이션과 기업 비교",
+          "ko": "밸류에이션과 기업 비교"
+        },
+        "summary": {
+          "en": "근거는 이 주장의 방향성을 뒷받침하지만, 명확히 연결되지 않은 비율은 표시하지 않았습니다.",
+          "ko": "근거는 이 주장의 방향성을 뒷받침하지만, 명확히 연결되지 않은 비율은 표시하지 않았습니다."
+        },
+        "detail": {
+          "en": "",
+          "ko": ""
+        }
+      },
+      {
+        "title": {
+          "en": "운영 시나리오",
+          "ko": "운영 시나리오"
+        },
+        "summary": {
+          "en": "매출: US$948.3억",
+          "ko": "매출: US$948.3억"
+        },
+        "detail": {
+          "en": "",
+          "ko": ""
+        }
+      }
+    ],
+    "sourceCount": 25,
+    "claimCount": 6,
+    "posture": "neutral",
+    "postureLabel": {
+      "en": "",
+      "ko": ""
+    },
+    "evidenceScore": {
+      "passed": 405,
+      "denominator": 405
+    }
+  },
+  "sourceUrl": "https://stocksembly.com/research-room/98fed1eb-a4a9-4cb8-9da2-95d907d3327a"
+}

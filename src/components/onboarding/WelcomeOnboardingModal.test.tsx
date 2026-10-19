@@ -98,7 +98,7 @@ beforeEach(() => {
 });
 
 describe("WelcomeOnboardingModal", () => {
-  it("collects discovery source before explaining credits and billing plans", async () => {
+  it("collects stock, question and survey before offering the sample or home", async () => {
     const onComplete = vi.fn();
     const onOpenPlans = vi.fn();
     render(
@@ -130,67 +130,29 @@ describe("WelcomeOnboardingModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "인스타그램" }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
-    expect(screen.getByText("가입 선물 5크레딧이 준비됐어요")).toBeVisible();
-    expect(screen.getByText("리서치룸 열람")).toBeVisible();
-    expect(screen.getByText("3크레딧")).toBeVisible();
-    expect(screen.getByText("전문 번역")).toBeVisible();
-    expect(screen.getByText("1크레딧")).toBeVisible();
-    expect(screen.getByText("개별 팀 리서치")).toBeVisible();
-    expect(screen.getByText("5크레딧")).toBeVisible();
-    expect(screen.getByText("전체 위원회 리서치")).toBeVisible();
-    expect(screen.getByText("10크레딧")).toBeVisible();
-
-    fireEvent.click(screen.getByRole("button", { name: "요금제 보기" }));
-
-    expect(
-      screen.getByRole("heading", { name: "더 깊게 볼 땐, 두 달을 아끼세요" }),
-    ).toBeVisible();
-    const pro = document.querySelector('[data-plan="pro"]');
-    const ultra = document.querySelector('[data-plan="ultra"]');
-    expect(pro).toHaveTextContent("$190 연간 결제");
-    expect(pro).toHaveTextContent("$15.83");
-    expect(pro).toHaveTextContent("150크레딧");
-    expect(ultra).toHaveTextContent("$390 연간 결제");
-    expect(ultra).toHaveTextContent("$32.5");
-    expect(ultra).toHaveTextContent("400크레딧");
-
-    fireEvent.click(screen.getByRole("button", { name: "월간" }));
-    expect(pro).toHaveTextContent("월간 결제");
-    expect(pro).toHaveTextContent("$19");
-    expect(ultra).toHaveTextContent("$39");
-
-    fireEvent.click(screen.getByRole("button", { name: /연간/u }));
-    expect(pro).toHaveTextContent("$190 연간 결제");
-
-    fireEvent.click(screen.getByRole("button", { name: "전체 요금제 비교" }));
-    expect(onOpenPlans).toHaveBeenCalledWith("instagram");
-
-    fireEvent.click(screen.getByRole("button", { name: "5크레딧으로 시작" }));
-    expect(onComplete).toHaveBeenCalledWith("instagram");
+    expect(screen.getByRole("heading", { name: "샘플 리서치" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /NVDA\s*재생/ })).toBeEnabled();
+    expect(screen.queryByText("10크레딧")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "홈으로" }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledWith("instagram"));
+    expect(onOpenPlans).not.toHaveBeenCalled();
   });
 
-  it("keeps the advertised annual prices visible while live plan data loads", async () => {
+  it("does not require pricing data before the sample", async () => {
     render(
       <WelcomeOnboardingModal
         locale="ko"
         plans={[]}
+        preview
         onComplete={vi.fn()}
         onOpenPlans={vi.fn()}
       />,
     );
     await chooseStock();
-
     fireEvent.click(screen.getByRole("button", { name: /실적 발표 전에/u }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
     fireEvent.click(screen.getByRole("button", { name: "구글" }));
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
-    fireEvent.click(screen.getByRole("button", { name: "요금제 보기" }));
-
-    expect(document.querySelector('[data-plan="pro"]')).toHaveTextContent(
-      "$190 연간 결제",
-    );
-    expect(document.querySelector('[data-plan="ultra"]')).toHaveTextContent(
-      "$390 연간 결제",
-    );
+    expect(screen.getByRole("button", { name: /NVDA\s*재생/ })).toBeEnabled();
   });
 });

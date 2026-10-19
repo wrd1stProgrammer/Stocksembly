@@ -48,6 +48,7 @@ type SceneMode =
   | "forum";
 
 type PendingRender = {
+  readonly playbackRate?: number;
   readonly snapshot: OfficeSimulationSnapshot | undefined;
   readonly previousSnapshot: OfficeSimulationSnapshot | undefined;
   readonly interpolation: number;
@@ -193,6 +194,7 @@ export function PixelOfficeGame({
   }, [currentEvent, locale, presentation]);
   const conversationParticipantIds = dialogue?.participantIds ?? [];
   const pendingRenderRef = useRef<PendingRender>({
+    playbackRate: presentation?.playbackRate ?? 1,
     snapshot,
     previousSnapshot: renderPreviousSnapshot,
     interpolation: renderInterpolationAlpha,
@@ -285,6 +287,7 @@ export function PixelOfficeGame({
       snapToProgress: presentation?.snapToProgress ?? false,
       preserveEntrance: presentation?.preserveEntrance ?? false,
       investigating: presentation?.investigating ?? false,
+      playbackRate: presentation?.playbackRate ?? 1,
     };
   }, [
     effectiveCameraMode,
@@ -298,6 +301,7 @@ export function PixelOfficeGame({
     presentation?.snapToProgress,
     presentation?.preserveEntrance,
     presentation?.investigating,
+    presentation?.playbackRate,
   ]);
 
   useEffect(() => {
@@ -344,6 +348,7 @@ export function PixelOfficeGame({
             snapToProgress: pending.snapToProgress ?? false,
             preserveEntrance: pending.preserveEntrance ?? false,
             investigating: pending.investigating ?? false,
+            playbackRate: pending.playbackRate ?? 1,
           });
         }
         controller.setPaused(pending.isPaused);
@@ -395,6 +400,7 @@ export function PixelOfficeGame({
         snapToProgress: presentation?.snapToProgress ?? false,
         preserveEntrance: presentation?.preserveEntrance ?? false,
         investigating: presentation?.investigating ?? false,
+        playbackRate: presentation?.playbackRate ?? 1,
       });
     }
     controller.setPaused(isPaused);
@@ -410,6 +416,7 @@ export function PixelOfficeGame({
     presentation?.snapToProgress,
     presentation?.preserveEntrance,
     presentation?.investigating,
+    presentation?.playbackRate,
   ]);
 
   return (

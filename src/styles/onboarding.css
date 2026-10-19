@@ -3,6 +3,49 @@
   margin: 28px auto;
   border-radius: 18px;
 }
+
+.onboarding-dev-trigger {
+  position: fixed;
+  right: 20px;
+  bottom: 85px;
+  z-index: 110;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid #77718e;
+  background: #24212e;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.onboarding-preview__controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.onboarding-preview__controls button {
+  white-space: nowrap;
+}
+.onboarding-preview[data-frozen="true"] .office-workbench {
+  filter: blur(9px);
+  user-select: none;
+  pointer-events: none;
+}
+.onboarding-demo__loading {
+  display: grid;
+  place-content: center;
+  min-height: 100dvh;
+  background: #09090b;
+  color: #eee;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .onboarding-preview .office-heading {
+    flex-wrap: wrap;
+  }
+  .onboarding-preview__controls {
+    margin-left: auto;
+  }
+}
 .onboarding-question {
   padding: 22px;
   border: 1px solid var(--color-border);
