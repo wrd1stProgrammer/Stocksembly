@@ -248,6 +248,11 @@ describe("official PostgreSQL specialist round", () => {
     expect(recovered.receipts.at(-1)?.outcome).toBe("accepted");
     expect(recovered.artifactIds).toHaveLength(specialistCount);
     expect(recovered.departmentStartAllowed).toBe(true);
+    expect(
+      once.codex.prompts.some((prompt) =>
+        prompt.includes("CORRECTIVE RETRY — OUTPUT CONTRACT"),
+      ),
+    ).toBe(true);
     expect(recovered.receipts.at(-1)?.ordinal).toBe(specialistCount + 1);
     expect(recovered.artifactIds).toHaveLength(specialistCount);
     expect(incomplete.departmentStartAllowed).toBe(false);

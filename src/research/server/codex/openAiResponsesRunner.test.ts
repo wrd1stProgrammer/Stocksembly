@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { TRUSTED_AGENT_RUNTIME_POLICY } from "../../application/commitAgentOutputContracts";
 import { repairDepartmentPublication } from "../../workflow/departmentPublicationRepair";
 import {
@@ -9,7 +10,9 @@ import {
   departmentRunnerOutputSchema,
 } from "../../workflow/departmentRoundContracts";
 import { SemanticAuditModelOutputSchema } from "../../workflow/semanticAuditContracts";
+import { SpecialistMemoOutputSchema } from "../../workflow/specialistRoundContracts";
 import { researchExecutionCapacity } from "../persistence/postgres/runExecutionRepository";
+import { schemaDocument } from "./codexArtifacts";
 import {
   createCodexPort,
   runProductionCodexWorkerAdmission,
@@ -49,6 +52,79 @@ function streamResponse(value: unknown) {
 }
 
 describe("direct OpenAI research", () => {
+  it("still rejects domain-invalid text when the API structure is valid", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "openai-memo-validation-"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const input = {
+        ...runInput(directory),
+        stage: "memo" as const,
+        outputSchema: z
+          .object({ message: z.string().refine((value) => value === "VALID") })
+          .strict(),
+      };
+      const transport = vi.fn(async () => completed);
+      const port = createOpenAiPort(
+        { readCommittedReservation: async () => committedReservation(input) },
+        transport,
+      );
+      await expect(port.run(input)).rejects.toMatchObject({
+        code: "output_invalid",
+      });
+      expect(transport).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("enforces the output schema for specialist memos in the first API request", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "openai-strict-memo-"));
+    try {
+      const input = { ...runInput(directory), stage: "memo" as const };
+      const transport = vi.fn(async () => completed);
+      const port = createOpenAiPort(
+        { readCommittedReservation: async () => committedReservation(input) },
+        transport,
+      );
+      await expect(port.run(input)).resolves.toMatchObject({
+        candidate: { message: "PONG" },
+      });
+      expect(transport).toHaveBeenCalledOnce();
+      expect(transport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: { format: expect.objectContaining({ strict: true }) },
+        }),
+        expect.anything(),
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each(["en", "ko"] as const)(
+    "keeps every object in the real %s memo schema closed and fully required",
+    (locale) => {
+      const visit = (value: unknown): void => {
+        if (Array.isArray(value)) {
+          value.forEach(visit);
+          return;
+        }
+        if (typeof value !== "object" || value === null) return;
+        const node = value as Record<string, unknown>;
+        if (node["type"] === "object") {
+          expect(node["additionalProperties"]).toBe(false);
+          const properties = node["properties"] as Record<string, unknown>;
+          expect(new Set(node["required"] as string[])).toEqual(
+            new Set(Object.keys(properties)),
+          );
+        }
+        Object.values(node).forEach(visit);
+      };
+      visit(schemaDocument(SpecialistMemoOutputSchema, locale));
+    },
+  );
+
   it.each(["not JSON", '{"acceptedClaimIds":[],"sourceArtifactIds":[]}'])(
     "recovers malformed department output (%s) in the same launch",
     async (text) => {

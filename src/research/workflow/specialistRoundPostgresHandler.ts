@@ -105,6 +105,12 @@ export function specialistValidationCorrectivePrompt(
   prompt: string,
   validationCode?: string,
 ): string {
+  if (validationCode === "invalid_model_output")
+    return `${prompt}
+
+CORRECTIVE RETRY — OUTPUT CONTRACT
+Your previous response did not match the supplied memo JSON schema. Return exactly one JSON object with every required property, no extra properties, no Markdown fences, and the exact types and enum values in the schema. Return 1–3 positions. chartCommentaryJson must be null unless you have a schema-compliant JSON string for the chart commentary; do not return an object in that field.
+Preserve the supplied claim, evidence and registered-value IDs. Use only authorized evidence and obey the output-language contract. Do not invent evidence, claims or numbers to fill a required field. All evidence-grounding and publication checks still apply.`;
   if (validationCode === "specialist_claim_numeric_metric_mismatch")
     return `${prompt}
 
@@ -140,6 +146,7 @@ export function specialistValidationFeedback(
 }
 
 const SPECIALIST_VALIDATION_REPAIR_CODES = [
+  "invalid_model_output",
   "specialist_claim_numeric_metric_mismatch",
   "specialist_claim_evidence_type_mismatch",
 ] as const;
@@ -165,7 +172,8 @@ export function specialistPromptForDurableInput(
   }
   if (
     requestedValidationCode !== undefined &&
-    requestedValidationCode.startsWith("specialist_claim_")
+    (requestedValidationCode === "invalid_model_output" ||
+      requestedValidationCode.startsWith("specialist_claim_"))
   )
     return {
       prompt: specialistValidationCorrectivePrompt(
@@ -298,7 +306,8 @@ Repair the specific claims above instead of regenerating the same invalid number
         : correctivePrompt(job.prompt, correction, validationCode);
     if (
       correction === undefined &&
-      validationCode?.startsWith("specialist_claim_") === true
+      (validationCode === "invalid_model_output" ||
+        validationCode?.startsWith("specialist_claim_") === true)
     ) {
       const correctedInputHash = codexInputHash({
         stage: "memo",

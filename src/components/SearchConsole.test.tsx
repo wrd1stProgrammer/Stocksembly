@@ -102,8 +102,8 @@ describe("SearchConsole durable research launch", () => {
     expect(menu).toHaveTextContent("실적·현금흐름·재무 품질·밸류에이션");
     expect(menu).toHaveTextContent("하방 시나리오·규제·경고 신호");
     expect(
-      screen.getByRole("group", { name: "설명 방식" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("group", { name: "설명 방식" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText("설명 방식", { selector: "span" }),
     ).not.toBeInTheDocument();
@@ -173,7 +173,7 @@ describe("SearchConsole durable research launch", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("confirms the single selected stock from an accessible results list", () => {
+  it("keeps ticker selection in the search field without a selected-stock banner", () => {
     render(<SearchConsole locale="en" />);
 
     fireEvent.change(screen.getByRole("searchbox"), {
@@ -184,15 +184,17 @@ describe("SearchConsole durable research launch", () => {
 
     fireEvent.click(option);
 
-    const selection = screen.getByRole("status");
-    expect(selection).toHaveTextContent("Selected · one stock at a time");
-    expect(selection).toHaveTextContent("NVDA");
+    expect(screen.getByRole("searchbox")).toHaveValue("NVDA");
+    expect(
+      screen.queryByText("Selected · one stock at a time"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear selected stock" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Clear selected stock" }),
-    );
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("searchbox"), { key: "Escape" });
+    expect(screen.getByRole("searchbox")).toHaveValue("");
   });
 
   it("explains that custom settings are subscriber-only for free users", async () => {
@@ -355,9 +357,14 @@ describe("SearchConsole durable research launch", () => {
     );
   });
 
-  it("launches easy explanation mode without reducing analysis depth", async () => {
+  it("launches professional explanation by default without explanation controls", async () => {
     render(<SearchConsole locale="ko" />);
-    fireEvent.click(screen.getByRole("button", { name: "쉽게 설명" }));
+    expect(
+      screen.queryByRole("button", { name: "쉽게 설명" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "전문 설명" }),
+    ).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox"), {
       target: { value: "NVDA" },
     });
@@ -376,7 +383,7 @@ describe("SearchConsole durable research launch", () => {
       expect.objectContaining({
         researchProfile: expect.objectContaining({
           analysisDepth: "standard",
-          explanationMode: "easy",
+          explanationMode: "professional",
         }),
       }),
     );
