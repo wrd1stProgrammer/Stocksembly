@@ -154,7 +154,7 @@ export function OnboardingStockPicker({
     setSearching(true);
     const timer = setTimeout(() => {
       void fetch(
-        `/api/research/tickers?q=${encodeURIComponent(query.trim())}`,
+        `${preview && process.env.NODE_ENV === "development" ? "/api/onboarding/tickers" : "/api/research/tickers"}?q=${encodeURIComponent(query.trim())}`,
         { signal: controller.signal },
       )
         .then(async (response) => {
@@ -175,7 +175,7 @@ export function OnboardingStockPicker({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, preview]);
 
   async function next() {
     const stock = selected[0];

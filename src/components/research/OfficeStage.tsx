@@ -16,6 +16,9 @@ import { CompletedResearchFile } from "./CompletedResearchFile";
 import { PixelOfficeGame } from "./PixelOfficeGame";
 
 type Props = {
+  readonly headingLabel?: string;
+  readonly headingActions?: ReactNode;
+  readonly headingDescription?: string;
   readonly progressTimeline?: ReactNode;
   readonly current: ResearchEvent;
   readonly presentation?: OfficePresentation;
@@ -39,6 +42,9 @@ type Props = {
 };
 
 export function OfficeStage({
+  headingLabel,
+  headingActions,
+  headingDescription,
   current,
   progressTimeline,
   presentation,
@@ -89,62 +95,64 @@ export function OfficeStage({
           {labels.aria.stage}
         </h2>
         {isComplete && hideCompleteHeadingLabel ? null : (
-          <span className="office-heading__label">
-            {isComplete
-              ? uiMessage(uiLocale, {
-                  en: "FINAL RESEARCH REPORT",
-                  ko: "최종 리서치 리포트",
-                  ja: "最終リサーチレポート",
-                  "zh-TW": "最終研究報告",
-                  es: "INFORME FINAL",
-                  "pt-BR": "RELATÓRIO FINAL",
-                  de: "FINALER RESEARCH-BERICHT",
-                  fr: "RAPPORT FINAL",
-                })
-              : uiMessage(uiLocale, {
-                  en: "LIVE RESEARCH ROOM",
-                  ko: "실시간 리서치 룸",
-                  ja: "ライブリサーチルーム",
-                  "zh-TW": "即時研究室",
-                  es: "SALA DE INVESTIGACIÓN EN VIVO",
-                  "pt-BR": "SALA DE PESQUISA AO VIVO",
-                  de: "LIVE RESEARCH-RAUM",
-                  fr: "SALLE DE RECHERCHE EN DIRECT",
-                })}
+          <span className="office-heading__label" title={headingDescription}>
+            {headingLabel ??
+              (isComplete
+                ? uiMessage(uiLocale, {
+                    en: "FINAL RESEARCH REPORT",
+                    ko: "최종 리서치 리포트",
+                    ja: "最終リサーチレポート",
+                    "zh-TW": "最終研究報告",
+                    es: "INFORME FINAL",
+                    "pt-BR": "RELATÓRIO FINAL",
+                    de: "FINALER RESEARCH-BERICHT",
+                    fr: "RAPPORT FINAL",
+                  })
+                : uiMessage(uiLocale, {
+                    en: "LIVE RESEARCH ROOM",
+                    ko: "실시간 리서치 룸",
+                    ja: "ライブリサーチルーム",
+                    "zh-TW": "即時研究室",
+                    es: "SALA DE INVESTIGACIÓN EN VIVO",
+                    "pt-BR": "SALA DE PESQUISA AO VIVO",
+                    de: "LIVE RESEARCH-RAUM",
+                    fr: "SALLE DE RECHERCHE EN DIRECT",
+                  }))}
           </span>
         )}
-        {isComplete ? null : (
-          <fieldset className="office-camera-modes">
-            <legend className="sr-only">
-              {uiMessage(uiLocale, {
-                en: "Camera movement mode",
-                ko: "카메라 무빙 모드",
-                ja: "カメラ移動モード",
-                "zh-TW": "鏡頭移動模式",
-              })}
-            </legend>
-            {cameraModes.map((mode) => (
-              <button
-                key={mode.id}
-                type="button"
-                aria-pressed={cameraControlMode === mode.id}
-                title={
-                  mode.id === "free"
-                    ? uiMessage(uiLocale, {
-                        en: "Drag to move and pinch to zoom",
-                        ko: "드래그로 이동하고 핀치로 확대·축소",
-                        ja: "ドラッグで移動、ピンチで拡大・縮小",
-                        "zh-TW": "拖曳移動，雙指縮放",
-                      })
-                    : undefined
-                }
-                onClick={() => setCameraControlMode(mode.id)}
-              >
-                {uiMessage(uiLocale, mode.label)}
-              </button>
-            ))}
-          </fieldset>
-        )}
+        {headingActions ??
+          (isComplete ? null : (
+            <fieldset className="office-camera-modes">
+              <legend className="sr-only">
+                {uiMessage(uiLocale, {
+                  en: "Camera movement mode",
+                  ko: "카메라 무빙 모드",
+                  ja: "カメラ移動モード",
+                  "zh-TW": "鏡頭移動模式",
+                })}
+              </legend>
+              {cameraModes.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  aria-pressed={cameraControlMode === mode.id}
+                  title={
+                    mode.id === "free"
+                      ? uiMessage(uiLocale, {
+                          en: "Drag to move and pinch to zoom",
+                          ko: "드래그로 이동하고 핀치로 확대·축소",
+                          ja: "ドラッグで移動、ピンチで拡大・縮小",
+                          "zh-TW": "拖曳移動，雙指縮放",
+                        })
+                      : undefined
+                  }
+                  onClick={() => setCameraControlMode(mode.id)}
+                >
+                  {uiMessage(uiLocale, mode.label)}
+                </button>
+              ))}
+            </fieldset>
+          ))}
       </div>
       {isComplete ? null : (
         <section

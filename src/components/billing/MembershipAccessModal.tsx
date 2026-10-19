@@ -18,6 +18,7 @@ type Props = {
     readonly title: string;
     readonly description: string;
     readonly dismiss: string;
+    readonly confirm?: string;
   };
   readonly closeOnOpenPlans?: boolean;
 };
@@ -156,7 +157,8 @@ export function MembershipAccessModal({
                       className="membership-access-modal__upgrade"
                       onClick={openPlans}
                     >
-                      {locale === "ko" ? "플랜 확인하기" : "View plans"}
+                      {content?.confirm ??
+                        (locale === "ko" ? "플랜 확인하기" : "View plans")}
                       <ArrowUpRight size={16} aria-hidden="true" />
                     </button>
                   </div>

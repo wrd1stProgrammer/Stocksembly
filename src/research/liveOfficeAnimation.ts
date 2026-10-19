@@ -77,6 +77,7 @@ export function useLiveOfficeAnimation(
   physicalMovement = false,
   snapToProgress = false,
   preserveEntrance = false,
+  playbackRate = 1,
 ) {
   const releaseOrderKey = departmentReleaseOrder.join("\u0000");
   const displayTargetTick =
@@ -149,7 +150,8 @@ export function useLiveOfficeAnimation(
                 frameRef.current,
                 displayTargetTick,
                 (timestamp - previousTimestamp) *
-                  (physicalMovement ? OFFICE_WALK_SPEED_MULTIPLIER : 1),
+                  (physicalMovement ? OFFICE_WALK_SPEED_MULTIPLIER : 1) *
+                  playbackRate,
               );
         if (next !== frameRef.current) {
           frameRef.current = next;
@@ -169,6 +171,7 @@ export function useLiveOfficeAnimation(
     physicalMovement,
     snapToProgress,
     preserveEntrance,
+    playbackRate,
   ]);
 
   return useMemo(

@@ -16,6 +16,7 @@ export type OfficeDialogueChange = {
   readonly status: "started" | "finished";
 };
 export type OfficePresentation = {
+  readonly playbackRate?: number;
   readonly event: ResearchEvent | undefined;
   readonly active: boolean;
   readonly snapToProgress?: boolean;

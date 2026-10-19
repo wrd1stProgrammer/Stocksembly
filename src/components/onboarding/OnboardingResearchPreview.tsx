@@ -5,37 +5,240 @@ import "../../styles/research-room.css";
 import "../../styles/onboarding.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type AppLocale, researchLocale } from "../../lib/i18n";
-import { fixtureData } from "../../research/compositions/fixture";
-import { OFFICE_ENTRY_TIMELINE } from "../../research/officeChoreographyV7Contract";
-import {
-  createOfficeSimulation,
-  officeSimulationSnapshot,
-  stepOfficeSimulation,
-} from "../../research/officeSimulation";
-import type { ResearchEvent } from "../../research/types";
+import { useLiveOfficeAnimation } from "../../research/liveOfficeAnimation";
+import { liveOfficeProjection } from "../../research/liveOfficeProjection";
+import { agents } from "../../research/mockResearch";
+import type { OfficeDialogueChange } from "../../research/officeDialogue";
 import { MembershipAccessModal } from "../billing/MembershipAccessModal";
 import { SidebarSubscriptionModal } from "../billing/SidebarSubscriptionModal";
 import { MeetingMinutes } from "../research/MeetingMinutes";
 import { OfficeStage } from "../research/OfficeStage";
+import { ResearchProgressTimeline } from "../research/ResearchProgressTimeline";
 import { ResearchSidebar } from "../research/ResearchSidebar";
+import { demoCopy } from "./demoCopy";
 import {
   ONBOARDING_RESEARCH_KEY,
   type OnboardingResearch,
-  onboardingJourneyCopy,
   onboardingResearchSchema,
 } from "./onboardingJourney";
+import {
+  demoReportFile,
+  isRecentDemo,
+  type ResearchDemo,
+  ResearchDemoSchema,
+} from "./researchDemo";
+
+function DemoPlayback({
+  demo,
+  locale,
+  draft,
+}: {
+  demo: ResearchDemo;
+  locale: AppLocale;
+  draft: OnboardingResearch;
+}) {
+  const copy = demoCopy(locale);
+  const [index, setIndex] = useState(0);
+  const [collapsed, setCollapsed] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(true);
+  const [rate, setRate] = useState(2);
+  const [paused, setPaused] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
+  const projection = useMemo(
+    () => liveOfficeProjection(demo.runDetail),
+    [demo],
+  );
+  const current = projection.events[index] ?? projection.current;
+  const visible = useMemo(
+    () => projection.events.slice(0, index + 1),
+    [projection, index],
+  );
+  const animation = useLiveOfficeAnimation(
+    current.tick ?? 0,
+    projection.departmentReleaseOrder,
+    ready && !paused && !finished,
+    true,
+    true,
+    false,
+    true,
+    rate,
+  );
+  const onReady = useCallback(() => setReady(true), []);
+  const onChange = useCallback(
+    (change: OfficeDialogueChange) => {
+      if (change.id !== current.id || change.status !== "finished") return;
+      if (index + 1 >= projection.events.length) setFinished(true);
+      else
+        setIndex((previous) => (previous === index ? previous + 1 : previous));
+    },
+    [current.id, index, projection.events.length],
+  );
+  const presentation = useMemo(
+    () => ({
+      event: current,
+      active: !finished,
+      preserveEntrance: true,
+      playbackRate: rate,
+      onChange,
+    }),
+    [current, finished, rate, onChange],
+  );
+  const report = useMemo(() => demoReportFile(demo), [demo]);
+  const progressSnapshot = useMemo(
+    () => ({
+      ...demo.runDetail,
+      run: {
+        ...demo.runDetail.run,
+        status: "running" as const,
+        reportId: undefined,
+      },
+      events: demo.runDetail.events.filter(
+        (event) => event.sequence <= Number(current.id.replace("durable-", "")),
+      ),
+    }),
+    [demo, current.id],
+  );
+  const contentLocale = demo.sourceLocale;
+  const home = () => window.location.assign(`/?lang=${locale}`);
+  return (
+    <>
+      <div
+        className="research-shell onboarding-preview"
+        lang={locale}
+        data-research-mode="official"
+        data-research-state={finished ? "published" : "live"}
+        data-sidebar-open={!collapsed}
+        data-transcript-open={transcriptOpen}
+        data-frozen={finished}
+        inert={finished}
+      >
+        <div className="research-layout">
+          <ResearchSidebar
+            company={demo.company}
+            agents={agents}
+            defaultAgentIds={[]}
+            history={[
+              {
+                symbol: demo.symbol,
+                company: demo.company.company,
+                runs: [
+                  {
+                    label: demo.question,
+                    date: demo.publishedAt.slice(0, 10),
+                    current: true,
+                  },
+                ],
+              },
+            ]}
+            locale={contentLocale}
+            collapsed={collapsed}
+            onCollapsedChange={setCollapsed}
+            onLocaleChange={() => undefined}
+            onProfileOpen={() => setPlansOpen(true)}
+          />
+          <OfficeStage
+            current={current}
+            events={visible}
+            presentation={presentation}
+            snapshot={animation.snapshot}
+            renderPreviousSnapshot={animation.previousSnapshot}
+            renderInterpolationAlpha={animation.interpolation}
+            locale={contentLocale}
+            uiLocale={locale}
+            isPaused={paused || finished}
+            isComplete={finished}
+            company={demo.company}
+            report={report}
+            reportVersion={1}
+            activeAgentIds={[current.agent]}
+            onReplay={() => undefined}
+            onOfficeReady={onReady}
+            progressTimeline={
+              <ResearchProgressTimeline
+                snapshot={progressSnapshot}
+                connection="live"
+                locale={locale}
+              />
+            }
+            headingLabel={`${copy.sample} · ${demo.publishedAt.slice(0, 10)}`}
+            headingDescription={`${copy.description} ${!isRecentDemo(demo.publishedAt) || demo.symbol !== draft.stock.symbol ? copy.fallback : ""}`}
+            headingActions={
+              <div className="onboarding-preview__controls">
+                <button
+                  type="button"
+                  className="meeting-minutes__cancel"
+                  onClick={() => setPaused(!paused)}
+                >
+                  {paused ? copy.play : copy.pause}
+                </button>
+                <button
+                  type="button"
+                  className="meeting-minutes__cancel"
+                  aria-label="Playback speed"
+                  onClick={() => setRate(rate === 1 ? 2 : rate === 2 ? 4 : 1)}
+                >
+                  {rate}×
+                </button>
+                <button
+                  type="button"
+                  className="meeting-minutes__cancel"
+                  onClick={() => setFinished(true)}
+                >
+                  {copy.results}
+                </button>
+              </div>
+            }
+          />
+          <MeetingMinutes
+            current={current}
+            events={visible}
+            agents={agents}
+            locale={contentLocale}
+            uiLocale={locale}
+            isComplete={false}
+            reportVersion={1}
+            panelOpen={transcriptOpen}
+            onPanelToggle={() => setTranscriptOpen(!transcriptOpen)}
+            chatEnabled={false}
+            questionsEnabled={false}
+            loadChatHistory={false}
+            pendingAgentIds={[]}
+          />
+        </div>
+      </div>
+      <MembershipAccessModal
+        locale={researchLocale(locale)}
+        open={finished && !plansOpen}
+        reason="recent-report"
+        content={{
+          title: copy.gateTitle,
+          description: `${draft.stock.symbol} · ${draft.question}\n\n${copy.gateDescription}`,
+          dismiss: copy.home,
+          confirm: copy.confirm,
+        }}
+        closeOnOpenPlans={false}
+        onClose={home}
+        onOpenPlans={() => setPlansOpen(true)}
+      />
+      <SidebarSubscriptionModal
+        open={plansOpen}
+        locale={researchLocale(locale)}
+        initialTier="free"
+        localPreview={process.env.NODE_ENV === "development"}
+        onClose={() => setPlansOpen(false)}
+      />
+    </>
+  );
+}
 
 export function OnboardingResearchPreview({ locale }: { locale: AppLocale }) {
   const [draft, setDraft] = useState<OnboardingResearch>();
-  const [scene, setScene] = useState(() => createOfficeSimulation());
-  const [collapsed, setCollapsed] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [plansOpen, setPlansOpen] = useState(false);
-  const frozen = scene.tick > OFFICE_ENTRY_TIMELINE.endTick;
-  const copy = onboardingJourneyCopy(locale);
-  const home = () => window.location.assign(`/?lang=${locale}`);
-  const room = () => window.location.assign(`/research-room?lang=${locale}`);
-  const onReady = useCallback(() => setReady(true), []);
+  const [demo, setDemo] = useState<ResearchDemo>();
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const copy = demoCopy(locale);
   useEffect(() => {
     try {
       const parsed = onboardingResearchSchema.safeParse(
@@ -51,128 +254,33 @@ export function OnboardingResearchPreview({ locale }: { locale: AppLocale }) {
     }
   }, [locale]);
   useEffect(() => {
-    if (!ready || frozen) return;
-    const timer = window.setInterval(
-      () => setScene((state) => stepOfficeSimulation(state)),
-      50,
+    if (!draft) return;
+    const controller = new AbortController();
+    setError(false);
+    void fetch(
+      `/api/onboarding/demo?symbol=${encodeURIComponent(draft.stock.symbol)}&attempt=${attempt}`,
+      { signal: controller.signal, cache: "no-store" },
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error("DEMO_UNAVAILABLE");
+        const parsed = ResearchDemoSchema.parse(await response.json());
+        if (!controller.signal.aborted) setDemo(parsed);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError(true);
+      });
+    return () => controller.abort();
+  }, [draft, attempt]);
+  if (!draft || !demo)
+    return (
+      <main className="onboarding-demo__loading">
+        <p role="status">{error ? copy.error : copy.loading}</p>
+        {error && (
+          <button type="button" onClick={() => setAttempt(attempt + 1)}>
+            {copy.retry}
+          </button>
+        )}
+      </main>
     );
-    return () => window.clearInterval(timer);
-  }, [ready, frozen]);
-  const event = useMemo<ResearchEvent>(
-    () => ({
-      id: "onboarding-preview",
-      phase: "briefing",
-      agent: "chair",
-      progress: 0,
-      summary: {
-        ko: "에이전트가 입장하고 있습니다.",
-        en: "Your agents are entering the research room.",
-      },
-      detail: { ko: draft?.question ?? "", en: draft?.question ?? "" },
-    }),
-    [draft],
-  );
-  if (!draft) return null;
-  const company = fixtureData.createCompany(
-    draft.stock.symbol,
-    draft.stock.company,
-    draft.stock.exchange,
-    "",
-  );
-  return (
-    <>
-      <div
-        className="research-shell onboarding-preview"
-        lang={locale}
-        data-research-mode="official"
-        data-research-state="live"
-        data-sidebar-open={!collapsed}
-        data-transcript-open="true"
-        data-frozen={frozen}
-        inert={frozen}
-      >
-        <div className="research-layout">
-          <ResearchSidebar
-            company={{ ...company, price: "—", change: "—" }}
-            agents={fixtureData.agents}
-            defaultAgentIds={[]}
-            history={[
-              {
-                symbol: draft.stock.symbol,
-                company: draft.stock.company,
-                runs: [
-                  {
-                    label: draft.question,
-                    date: new Date().toLocaleDateString(locale),
-                    current: true,
-                    live: true,
-                  },
-                ],
-              },
-            ]}
-            locale={researchLocale(locale)}
-            collapsed={collapsed}
-            onCollapsedChange={setCollapsed}
-            onLocaleChange={() => undefined}
-            onProfileOpen={() => setPlansOpen(true)}
-          />
-          <OfficeStage
-            current={event}
-            events={[event]}
-            snapshot={officeSimulationSnapshot(scene)}
-            locale={researchLocale(locale)}
-            uiLocale={locale}
-            isPaused={frozen}
-            isComplete={false}
-            company={company}
-            report={fixtureData.report}
-            reportVersion={1}
-            activeAgentIds={[]}
-            onReplay={() => undefined}
-            onOfficeReady={onReady}
-          />
-          <MeetingMinutes
-            current={event}
-            events={[event]}
-            agents={fixtureData.agents}
-            locale={researchLocale(locale)}
-            uiLocale={locale}
-            isComplete={false}
-            reportVersion={1}
-            panelOpen
-            chatEnabled={false}
-            questionsEnabled={false}
-            loadChatHistory={false}
-            pendingAgentIds={
-              scene.tick >= 25
-                ? fixtureData.agents
-                    .filter((agent) => agent.id !== "chair")
-                    .slice(0, 3)
-                    .map((agent) => agent.id)
-                : []
-            }
-          />
-        </div>
-      </div>
-      <MembershipAccessModal
-        locale={researchLocale(locale)}
-        open={frozen && !plansOpen}
-        reason="recent-report"
-        content={{
-          title: copy.gateTitle,
-          description: copy.gateDescription,
-          dismiss: copy.room,
-        }}
-        closeOnOpenPlans={false}
-        onClose={room}
-        onOpenPlans={() => setPlansOpen(true)}
-      />
-      <SidebarSubscriptionModal
-        open={plansOpen}
-        locale={researchLocale(locale)}
-        initialTier="free"
-        onClose={home}
-      />
-    </>
-  );
+  return <DemoPlayback demo={demo} draft={draft} locale={locale} />;
 }

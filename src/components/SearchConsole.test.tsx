@@ -1,5 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TickerSymbolSchema } from "../research/domain/ids";
+import {
+  HOME_PREFILL_EVENT,
+  HOME_PREFILL_KEY,
+  saveHomePrefill,
+} from "./onboarding/homePrefill";
 import { SearchConsole } from "./SearchConsole";
 
 const RUN_ID = "00000000-0000-4000-8000-000000000001";
@@ -39,6 +45,7 @@ vi.mock("../auth/researchSession", () => ({
 }));
 
 beforeEach(() => {
+  sessionStorage.clear();
   vi.clearAllMocks();
   testState.authConfigured = false;
   testState.authenticated = true;
@@ -57,6 +64,54 @@ afterEach(() => {
 });
 
 describe("SearchConsole durable research launch", () => {
+  it("preserves the onboarding draft on the landing page and consumes it only on the first signed-in home visit", () => {
+    saveHomePrefill({
+      stock: {
+        symbol: TickerSymbolSchema.parse("TSLA"),
+        providerCode: "NASDAQ:TSLA",
+        company: "Tesla",
+        exchange: "NASDAQ",
+      },
+      question: "What changed in margins?",
+    });
+    const guest = render(<SearchConsole locale="en" requireSignIn />);
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(sessionStorage.getItem(HOME_PREFILL_KEY)).not.toBeNull();
+    guest.unmount();
+    const home = render(<SearchConsole locale="en" prefillFromOnboarding />);
+    expect(screen.getByRole("searchbox")).toHaveValue("TSLA");
+    expect(
+      screen.getByRole("textbox", { name: "Investment question" }),
+    ).toHaveValue("What changed in margins?");
+    expect(sessionStorage.getItem(HOME_PREFILL_KEY)).toBeNull();
+    expect(testState.startRun).not.toHaveBeenCalled();
+    home.unmount();
+    render(<SearchConsole locale="en" prefillFromOnboarding />);
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(
+      screen.getByRole("textbox", { name: "Investment question" }),
+    ).toHaveValue("");
+  });
+
+  it("fills an already mounted home when onboarding finishes", () => {
+    render(<SearchConsole locale="en" prefillFromOnboarding />);
+    saveHomePrefill({
+      stock: {
+        symbol: TickerSymbolSchema.parse("TSLA"),
+        providerCode: "NASDAQ:TSLA",
+        company: "Tesla",
+        exchange: "NASDAQ",
+      },
+      question: "What changed in margins?",
+    });
+    fireEvent(window, new Event(HOME_PREFILL_EVENT));
+    expect(screen.getByRole("searchbox")).toHaveValue("TSLA");
+    expect(
+      screen.getByRole("textbox", { name: "Investment question" }),
+    ).toHaveValue("What changed in margins?");
+    expect(sessionStorage.getItem(HOME_PREFILL_KEY)).toBeNull();
+  });
+
   it("sends guests straight to login without creating a research run", () => {
     render(<SearchConsole locale="en" requireSignIn />);
     fireEvent.change(screen.getByRole("searchbox"), {

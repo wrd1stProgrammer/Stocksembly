@@ -4,25 +4,18 @@ import { trackProductMilestone } from "../analytics/ProductEngagement";
 import "../../styles/billing.css";
 import "../../styles/onboarding.css";
 import { BorderBeam } from "border-beam";
-import {
-  ArrowRight,
-  BarChart3,
-  Languages,
-  SearchCheck,
-  Sparkles,
-  Users,
-  X,
-} from "lucide-react";
+import { ArrowRight, Sparkles, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { OnboardingDiscoverySource } from "../../accounts/onboarding";
 import type { OnboardingStock } from "../../accounts/onboardingInterests";
 import { type AppLocale, researchLocale } from "../../lib/i18n";
 import type { WhopPricingPlan } from "../../lib/whop/contracts";
-import { CREDIT_COSTS } from "../../lib/whop/creditPolicy";
 import { PricingPlansGrid } from "../billing/PricingPlansGrid";
 import { subscriptionPlanCards } from "../billing/subscriptionPlanCards";
 import { CompanyLogo } from "../research/ResearchSidebar";
+import { demoCopy } from "./demoCopy";
+import { HOME_PREFILL_EVENT, saveHomePrefill } from "./homePrefill";
 import { OnboardingStockPicker } from "./OnboardingStockPicker";
 import {
   ONBOARDING_RESEARCH_KEY,
@@ -379,13 +372,6 @@ const onboardingCopy: Readonly<Record<AppLocale, OnboardingCopy>> = {
   },
 };
 
-const costItems = [
-  [SearchCheck, "room", CREDIT_COSTS.researchRoomView],
-  [Languages, "translation", CREDIT_COSTS.researchTranslation],
-  [BarChart3, "team", CREDIT_COSTS.departmentResearch],
-  [Users, "committee", CREDIT_COSTS.committeeResearch],
-] as const;
-
 export function WelcomeOnboardingModal({
   locale,
   plans,
@@ -403,6 +389,7 @@ export function WelcomeOnboardingModal({
   const [question, setQuestion] = useState("");
   const [questionStep, setQuestionStep] = useState(false);
   const journey = onboardingJourneyCopy(locale);
+  const demo = demoCopy(locale);
   const titleId = useId();
   const descriptionId = useId();
   const content = onboardingCopy[locale];
@@ -426,6 +413,10 @@ export function WelcomeOnboardingModal({
     try {
       const source = discoverySource ?? "prefer_not_to_say";
       await (openPlans ? onOpenPlans(source) : onComplete(source));
+      if (!preview && stock && question.trim()) {
+        saveHomePrefill({ stock, question: question.trim() });
+        window.dispatchEvent(new Event(HOME_PREFILL_EVENT));
+      }
     } catch {
       setSaving(false);
       setError(true);
@@ -460,10 +451,10 @@ export function WelcomeOnboardingModal({
             role="progressbar"
             aria-label={content.progress}
             aria-valuemin={1}
-            aria-valuemax={6}
+            aria-valuemax={5}
             aria-valuenow={questionStep ? 2 : step === -1 ? 1 : step + 3}
           >
-            {[-1, -0.5, 0, 1, 2, 3].map((index) => (
+            {[-1, -0.5, 0, 1, 2].map((index) => (
               <span
                 key={index}
                 className="welcome-onboarding__progress-segment"
@@ -630,34 +621,14 @@ export function WelcomeOnboardingModal({
 
           {step === 2 ? (
             <>
-              <p className="welcome-onboarding__eyebrow">
-                {content.creditEyebrow}
-              </p>
-              <h2 id={titleId}>{content.creditTitle}</h2>
+              <p className="welcome-onboarding__eyebrow">{stock?.symbol}</p>
+              <h2 id={titleId}>{demo.sample}</h2>
               <p id={descriptionId} className="welcome-onboarding__description">
-                {content.creditDescription}
+                {demo.description}
               </p>
-              <div className="welcome-onboarding__costs">
-                {costItems.map(([Icon, key, cost]) => (
-                  <article key={key}>
-                    <Icon aria-hidden="true" size={19} />
-                    <span className="welcome-onboarding__cost-label">
-                      {content[key]}
-                    </span>
-                    <strong>
-                      {cost}
-                      {locale === "en"
-                        ? cost === 1
-                          ? " credit"
-                          : " credits"
-                        : content.creditUnit}
-                    </strong>
-                  </article>
-                ))}
-              </div>
               <div className="welcome-onboarding__actions">
-                <button type="button" onClick={() => setStep(3)}>
-                  {content.plansAction}
+                <button type="button" onClick={() => void finish(false)}>
+                  {demo.home}
                   <ArrowRight aria-hidden="true" size={18} />
                 </button>
                 <button
@@ -674,6 +645,9 @@ export function WelcomeOnboardingModal({
                         JSON.stringify({ stock, question: question.trim() }),
                       );
                       await onComplete(discoverySource ?? "prefer_not_to_say");
+                      if (!preview) {
+                        saveHomePrefill({ stock, question: question.trim() });
+                      }
                       trackProductMilestone("onboarding_completed");
                       window.location.assign(
                         `/onboarding/research?lang=${locale}`,
@@ -690,7 +664,7 @@ export function WelcomeOnboardingModal({
                       <span>{stock.symbol}</span>
                     </span>
                   )}
-                  <span>{saving ? content.saving : journey.start}</span>
+                  <span>{saving ? content.saving : demo.play}</span>
                   <span className="onboarding-start__arrow">
                     <ArrowRight aria-hidden="true" size={18} />
                   </span>

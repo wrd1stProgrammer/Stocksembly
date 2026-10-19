@@ -177,7 +177,7 @@ export function SignedInHome(props: SignedInHomeProps) {
           <h1 id="signed-in-home-title">{content.title}</h1>
           <p>{content.description}</p>
         </div>
-        <SearchConsole {...searchConsoleProps} />
+        <SearchConsole {...searchConsoleProps} prefillFromOnboarding />
       </section>
       {activeRun ? (
         <HomeResearchActivity
