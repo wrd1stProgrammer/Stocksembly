@@ -2,6 +2,7 @@
 
 import posthog from "posthog-js";
 import { posthogEnabled } from "./config";
+import { trackGoogleProductEvent } from "./googleClient";
 
 export type ProductEvent =
   | "signup_confirmed"
@@ -23,7 +24,9 @@ export function analyticsConsent(): boolean {
 }
 
 export function trackProductEvent(event: ProductEvent): void {
-  if (posthogEnabled && analyticsConsent()) posthog.capture(event);
+  if (!analyticsConsent()) return;
+  if (posthogEnabled) posthog.capture(event);
+  trackGoogleProductEvent(event);
 }
 
 export function resetProductIdentity(): void {

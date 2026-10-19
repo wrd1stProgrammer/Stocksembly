@@ -199,12 +199,14 @@ function createCheckoutConfiguration(input: {
   readonly checkoutAttemptId?: string;
   readonly liveTest?: boolean;
   readonly metaAttribution?: MetaCheckoutAttribution;
+  readonly googleMetadata?: Readonly<Record<string, string>>;
 }) {
   return whopClient(input.configuration).checkoutConfigurations.create({
     account_id: input.configuration.companyId,
     mode: "payment",
     plan_id: input.planId,
     metadata: {
+      ...input.googleMetadata,
       stocksembly_principal_id: input.principalId,
       stocksembly_plan_key: input.planKey,
       ...(input.liveTest === true
@@ -237,6 +239,7 @@ export async function createWhopCheckout(input: {
   readonly idempotencyKey: string;
   readonly checkoutAttemptId?: string;
   readonly metaAttribution?: MetaCheckoutAttribution;
+  readonly googleMetadata?: Readonly<Record<string, string>>;
 }): Promise<WhopCheckout> {
   const configuration = whopConfiguration();
   const plan = (await getWhopPricing()).find(
@@ -250,6 +253,9 @@ export async function createWhopCheckout(input: {
     principalId: input.principalId,
     returnUrl: input.returnUrl,
     idempotencyKey: input.idempotencyKey,
+    ...(input.googleMetadata === undefined
+      ? {}
+      : { googleMetadata: input.googleMetadata }),
     ...(input.checkoutAttemptId === undefined
       ? {}
       : { checkoutAttemptId: input.checkoutAttemptId }),

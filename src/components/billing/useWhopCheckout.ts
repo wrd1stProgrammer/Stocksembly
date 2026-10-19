@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { currentAuthTokens } from "../../auth/researchSession";
 import { trackProductEvent } from "../../lib/analytics/client";
+import { googleCheckoutHeaders } from "../../lib/analytics/googleClient";
 import { trackMetaEvent } from "../../lib/meta/pixel";
 import type { WhopCheckoutLaunch } from "../../lib/whop/contracts";
 
@@ -41,6 +42,7 @@ export function useWhopCheckout() {
           credentials: "same-origin",
           cache: "no-store",
           headers: {
+            ...(await googleCheckoutHeaders()),
             accept: "application/json",
             authorization: `Bearer ${tokens.accessToken}`,
             ...(tokens.identityToken
