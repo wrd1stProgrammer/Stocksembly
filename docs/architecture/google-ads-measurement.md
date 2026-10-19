@@ -27,7 +27,8 @@ event imported once. Do not also count the legacy manual subscription action
 as a primary purchase conversion. Use purchase as the revenue goal and signup
 as a separate diagnostic or explicitly chosen temporary campaign goal.
 
-This change requires PR review, deployment and a real end-to-end validation.
+Changes to this integration require PR review and deployment. Real end-to-end
+attribution remains separate from code and schema validation.
 A local passing test or an HTTP 2xx from Measurement Protocol does not establish
 that Ads has received an attributed purchase. Delivery is best-effort (three
 second timeout), without a durable retry queue or refund reconciliation. Existing
@@ -80,3 +81,59 @@ References:
 - https://developers.google.com/analytics/devguides/collection/protocol/ga4/use-cases
 - https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference/events
 - https://developers.google.com/analytics/devguides/collection/protocol/ga4/validating-events
+
+## No-charge verification, October 20, 2026
+
+PR #127 was merged as `6bd9d6f608fd69cf7ae284400cc1a901491bbb89`; its production
+deployment workflow succeeded. This confirms deployment, not a received purchase.
+The additional PostHog changes below are local and still require review/deployment.
+
+The payment authority is the signature-verified Whop `payment.succeeded` webhook,
+not the checkout button, return page, or `membership.activated`. Fulfillment runs
+first. It does not depend on the buyer returning to Stocksembly or keeping the
+browser open. The webhook then sends GA4 `purchase` and PostHog
+`purchase_completed`. PostHog's `distinct_id` matches the application's hashed
+Cognito principal used by browser identification, allowing the purchase to join
+the identified user's funnel without sending an email address.
+
+PostHog now merges membership/payment metadata with payment metadata taking
+precedence, uses the Whop payment ID as its stable deduplication key and exposes
+that ID as `transaction_id` for reconciliation. Separate renewal payments retain
+separate IDs. Revenue uses the same subtotal-first convention as GA4. Sandbox,
+zero-value, internal billing-test and unconsented payments are excluded. The
+legacy `stocksembly_meta_consent` field is populated from analytics consent even
+when no Meta cookies exist; it does not require a Meta-ad referral.
+
+Run the non-recording Google schema check:
+
+```sh
+pnpm exec vite build --config vite.worker.config.ts --ssr scripts/validate-google-purchase.ts --outDir .stocksembly-verification/google-purchase-validation
+node .stocksembly-verification/google-purchase-validation/validate-google-purchase.js
+```
+
+It builds the real payload function with synthetic payment data, uses only
+`/debug/mp/collect` with `ENFORCE_RECOMMENDATIONS`, and never loads the server
+secret or sends to `/mp/collect`. Observed result: `validationMessages: []`.
+Google's validation endpoint does not authenticate the API secret and does not
+record events in reports. This is not proof of production ingestion or Ads credit.
+
+For PostHog, inspect the identified-user funnel from landing to signup,
+`checkout_started`, and `purchase_completed`, breaking down by the initial
+Google UTM campaign. Compare `transaction_id` and currency against Whop payments;
+do not aggregate different currencies as if they were one. PostHog browser
+blocking, consent refusal and switching browsers can prevent a complete funnel.
+UTM parameters do not automatically survive an App Store or cross-device flow.
+
+Use the existing GA4-imported Purchase as the single primary revenue conversion
+in Google Ads. A PostHog Google Ads destination is an alternative delivery path,
+not an additional primary conversion for the same purchase. PostHog funnel
+revenue is not the same measurement as Google's attributed conversion value.
+Never click the live advertisement solely to generate a test conversion.
+
+Remaining limits: transport delivery is best-effort without a durable retry
+queue; a successful HTTP response alone is not receipt/attribution proof; refunds
+are not reconciled; later consent withdrawal is not synchronized with checkout
+metadata. The first genuine customer payment should be reconciled by payment ID
+across Whop, PostHog and GA4, then Ads after processing. No real payment, synthetic
+production purchase, campaign publication or deployment was performed in this
+verification pass.
