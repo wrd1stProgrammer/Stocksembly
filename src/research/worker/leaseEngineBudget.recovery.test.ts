@@ -1,8 +1,41 @@
 import { describe, expect, it } from "vitest";
+import { AttemptIdSchema } from "../domain/ids";
 import { CodexRunnerError } from "../server/codex/codexErrors";
-import { createLeaseEngineFixture } from "./leaseEngine.testSupport";
+import { createLeaseEngineFixture, uuid } from "./leaseEngine.testSupport";
+import { PostgresLeaseEngineStore } from "./leaseEnginePostgres";
 
 describe("research recovery budget", () => {
+  it("declines a claimed launch after another attempt stops the run", async () => {
+    const fixture = await createLeaseEngineFixture();
+    const store = new PostgresLeaseEngineStore(fixture.pool);
+    try {
+      const seed = await fixture.seedResearchJob();
+      const now = fixture.clock.now();
+      await store.activateNextRun(uuid(9001), now);
+      const claim = await store.claim(
+        "stale-worker",
+        now,
+        "2026-07-22T00:01:00.000Z",
+      );
+      expect(claim).toBeDefined();
+      if (!claim) throw new Error("Expected claimed job");
+      await fixture.pool.query(
+        "UPDATE runs SET status = 'incomplete' WHERE run_id = $1",
+        [seed.runId],
+      );
+      await expect(
+        store.reserve({
+          claim,
+          attemptId: AttemptIdSchema.parse(uuid(9002)),
+          eventId: uuid(9003),
+          now,
+        }),
+      ).resolves.toEqual({ kind: "incomplete" });
+      expect(await fixture.launches(seed.runId)).toHaveLength(0);
+    } finally {
+      await fixture.cleanup();
+    }
+  });
   it("preserves artifact repair capacity after transient provider attempts", async () => {
     const fixture = await createLeaseEngineFixture();
     const seed = await fixture.seedResearchJob();

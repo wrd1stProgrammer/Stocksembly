@@ -12,6 +12,7 @@ import {
 import { SemanticAuditModelOutputSchema } from "../../workflow/semanticAuditContracts";
 import { SpecialistMemoOutputSchema } from "../../workflow/specialistRoundContracts";
 import { researchExecutionCapacity } from "../persistence/postgres/runExecutionRepository";
+import * as webEvidence from "../qa/questionWebEvidence";
 import { schemaDocument } from "./codexArtifacts";
 import {
   createCodexPort,
@@ -52,6 +53,52 @@ function streamResponse(value: unknown) {
 }
 
 describe("direct OpenAI research", () => {
+  it.each(["database_error", "stale_attempt"] as const)(
+    "classifies web registration %s separately from missing model output",
+    async (failure) => {
+      const directory = await mkdtemp(
+        join(tmpdir(), "openai-web-registration-"),
+      );
+      const capture = vi
+        .spyOn(webEvidence, "collectQuestionWebEvidence")
+        .mockRejectedValue(new Error("unavailable source"));
+      try {
+        const input = {
+          ...runInput(directory),
+          stage: "memo" as const,
+          captureWebEvidence: vi.fn(async () => {
+            if (failure === "database_error")
+              throw new Error("database unavailable");
+            return false;
+          }),
+        };
+        const port = createOpenAiPort(
+          {
+            readCommittedReservation: async () => committedReservation(input),
+          },
+          async () => ({
+            ...completed,
+            output: [
+              ...completed.output,
+              {
+                type: "web_search_call",
+                action: { sources: [{ url: "https://example.com/research" }] },
+              },
+            ],
+          }),
+        );
+        await expect(port.run(input)).rejects.toMatchObject({
+          code: failure === "database_error" ? "process_failed" : "cancelled",
+          executionBackend: "api",
+          phase: "web_evidence_registration",
+        });
+        expect(input.captureWebEvidence).toHaveBeenCalledOnce();
+      } finally {
+        capture.mockRestore();
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
   it("still rejects domain-invalid text when the API structure is valid", async () => {
     const directory = await mkdtemp(join(tmpdir(), "openai-memo-validation-"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

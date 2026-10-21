@@ -50,14 +50,15 @@ export async function registerAttemptWebEvidence(
     ).rows[0];
     if (active === undefined) return false;
     for (const artifact of input.artifacts) {
-      await database.query(
+      const inserted = await database.query<{ artifact_id: string }>(
         `INSERT INTO research.artifacts(
           artifact_id, run_id, snapshot_id, content_hash, byte_length,
           media_type, logical_key, input_hash, created_at
         ) VALUES (
           $1, $2, $3, $4, $5,
           $6, $7, $8, $9
-        )`,
+        ) ON CONFLICT (snapshot_id, content_hash) DO NOTHING
+        RETURNING artifact_id`,
         [
           artifact.descriptor.artifactId,
           artifact.descriptor.runId,
@@ -70,12 +71,28 @@ export async function registerAttemptWebEvidence(
           artifact.retrievedAt,
         ],
       );
+      // Parallel agents and retries often capture the same page. Keep one
+      // content artifact and bind each attempt to its canonical identity.
+      const artifactId =
+        inserted.rows[0]?.artifact_id ??
+        (
+          await database.query<{ artifact_id: string }>(
+            `SELECT artifact_id FROM research.artifacts
+          WHERE snapshot_id = $1 AND content_hash = $2 AND run_id = $3`,
+            [
+              artifact.descriptor.snapshotId,
+              artifact.descriptor.digest,
+              artifact.descriptor.runId,
+            ],
+          )
+        ).rows[0]?.artifact_id;
+      if (!artifactId) throw new Error("WEB_EVIDENCE_ARTIFACT_NOT_FOUND");
       await database.query(
         `INSERT INTO research.artifact_citation_metadata(
           artifact_id, locator_json
-        ) VALUES ($1, $2)`,
+        ) VALUES ($1, $2) ON CONFLICT (artifact_id) DO NOTHING`,
         [
-          artifact.descriptor.artifactId,
+          artifactId,
           JSON.stringify({
             kind: "captured_web",
             source: "captured_web",
@@ -92,10 +109,10 @@ export async function registerAttemptWebEvidence(
         ) VALUES (
           $1, $2, $3, $4,
           $5, $6, $7, $8
-        )`,
+        ) ON CONFLICT (attempt_id, artifact_id) DO NOTHING`,
         [
           input.claim.key.attemptId,
-          artifact.descriptor.artifactId,
+          artifactId,
           input.transcriptHash,
           artifact.url,
           artifact.title,

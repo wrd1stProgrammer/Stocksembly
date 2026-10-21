@@ -39,6 +39,7 @@ export type SafeCodexRunnerPhase =
   | "version_probe"
   | "model_probe"
   | "output_contract"
+  | "web_evidence_registration"
   | "launch_execution";
 
 const SAFE_MESSAGES = Object.freeze({
@@ -64,6 +65,7 @@ export class CodexRunnerError extends Error {
   readonly fallbackBackend?: "api";
   readonly process?: SafeProcessDiagnostics;
   readonly phase?: SafeCodexRunnerPhase;
+  readonly executionBackend?: "api";
 
   constructor(
     code: CodexFailureClass,
@@ -72,6 +74,7 @@ export class CodexRunnerError extends Error {
       readonly fallbackBackend?: "api";
       readonly process?: SafeProcessDiagnostics;
       readonly phase?: SafeCodexRunnerPhase;
+      readonly executionBackend?: "api";
     } = {},
   ) {
     super(SAFE_MESSAGES[code]);
@@ -82,6 +85,8 @@ export class CodexRunnerError extends Error {
     if (options.retryAt !== undefined) this.retryAt = options.retryAt;
     if (options.process !== undefined) this.process = options.process;
     if (options.phase !== undefined) this.phase = options.phase;
+    if (options.executionBackend !== undefined)
+      this.executionBackend = options.executionBackend;
   }
 }
 

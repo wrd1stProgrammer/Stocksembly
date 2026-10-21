@@ -290,6 +290,61 @@ async function createPostgresCommitFixture(
 }
 
 describe("commitAgentOutput", () => {
+  it("reuses duplicate web content across concurrent registrations and retries", async () => {
+    const fixture = await createPostgresCommitFixture(
+      "duplicate-web-",
+      80,
+      hash("9"),
+    );
+    const cas = new StrictArtifactCasFake();
+    try {
+      const descriptor = await cas.put({
+        artifactId: ArtifactIdSchema.parse(id(66)),
+        runId: ids.runId,
+        snapshotId: ids.snapshotId,
+        mediaType: "application/vnd.stocksembly.web-capture",
+        parentDigests: [],
+        bytes: new TextEncoder().encode("same captured page"),
+      });
+      const register = (artifactId: typeof descriptor.artifactId) =>
+        fixture.commitStore.registerAttemptWebEvidence({
+          claim: fixture.postgresCommand.claim,
+          transcriptHash: hash("9"),
+          now: "2026-07-23T00:00:02.750Z",
+          artifacts: [
+            {
+              descriptor: { ...descriptor, artifactId },
+              url: "https://example.com/research",
+              title: "Research",
+              publisher: "Example",
+              retrievedAt: "2026-07-23T00:00:02.700Z",
+              excerpt: "same captured page",
+            },
+          ],
+        });
+      expect(
+        await Promise.all([
+          register(descriptor.artifactId),
+          register(ArtifactIdSchema.parse(id(67))),
+        ]),
+      ).toEqual([true, true]);
+      expect(await register(ArtifactIdSchema.parse(id(68)))).toBe(true);
+      const artifacts = await fixture.database.query(
+        "SELECT artifact_id FROM artifacts WHERE snapshot_id = $1 AND content_hash = $2",
+        [ids.snapshotId, descriptor.digest],
+      );
+      expect(artifacts.rows).toHaveLength(1);
+      const bindings = await fixture.database.query(
+        "SELECT artifact_id FROM attempt_web_evidence WHERE attempt_id = $1",
+        [fixture.postgresCommand.claim.key.attemptId],
+      );
+      expect(bindings.rows).toEqual(artifacts.rows);
+    } finally {
+      await fixture.commitStore.close();
+      await fixture.close();
+    }
+  });
+
   it("commits a citation only when its web artifact is fenced to the attempt transcript", async () => {
     // Given
     const transcriptHash = hash("9");
