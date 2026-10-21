@@ -57,6 +57,13 @@ export function createOpenAiPort(
         });
       try {
         return await run(input, reservations, transport);
+      } catch (error) {
+        if (error instanceof CodexRunnerError)
+          throw new CodexRunnerError(error.code, {
+            ...error,
+            executionBackend: "api",
+          });
+        throw error;
       } finally {
         lease.release();
       }
@@ -76,12 +83,21 @@ async function run<Candidate>(
         ? CODEX_RUNTIME_POLICY.maxSynthesisPromptBytes
         : CODEX_RUNTIME_POLICY.maxPromptBytes)
   )
-    throw new CodexRunnerError("policy_violation");
+    throw new CodexRunnerError("policy_violation", {
+      phase: "input_validation",
+    });
   const reservation = await verifyLaunchReservation(
     input.reservation,
     reservations,
     codexInputHash(input),
-  );
+  ).catch((error: unknown) => {
+    if (error instanceof CodexRunnerError)
+      throw new CodexRunnerError(error.code, {
+        ...error,
+        phase: "reservation_validation",
+      });
+    throw error;
+  });
   if (input.signal?.aborted) throw new CodexRunnerError("cancelled");
   const locale = modelOutputLocale(input.prompt);
   const schema = schemaDocument(input.outputSchema, locale);
@@ -154,14 +170,22 @@ async function run<Candidate>(
         item.status === "fulfilled" ? [item.value] : [],
       );
       if (
-        !(await input.captureWebEvidence({
-          reservation: input.reservation,
-          transcriptHash,
-          searchedUrls: urls,
-          artifacts,
-        }))
+        !(await input
+          .captureWebEvidence({
+            reservation: input.reservation,
+            transcriptHash,
+            searchedUrls: urls,
+            artifacts,
+          })
+          .catch(() => {
+            throw new CodexRunnerError("process_failed", {
+              phase: "web_evidence_registration",
+            });
+          }))
       )
-        throw new CodexRunnerError("policy_violation");
+        throw new CodexRunnerError("cancelled", {
+          phase: "web_evidence_registration",
+        });
     }
     const text = response.output
       .filter((item) => item.type === "message")

@@ -1,7 +1,4 @@
-import type {
-  CodexFailureClass,
-  CodexRunnerError,
-} from "../server/codex/codexErrors";
+import type { CodexRunnerError } from "../server/codex/codexErrors";
 import type { AttemptOutcome } from "./leaseEngineTypes";
 
 type RunnerFailureContext = {
@@ -20,8 +17,8 @@ function retryDelayMs(failures: number, random: () => number): number {
   return Math.round(exponential * (0.75 + random() * 0.5));
 }
 
-function permanentCode(code: CodexFailureClass): string {
-  return `codex_${code}`;
+function permanentCode(error: CodexRunnerError): string {
+  return `${error.executionBackend === "api" ? "openai" : "codex"}_${error.code}`;
 }
 
 export function routeRunnerFailure(
@@ -63,7 +60,7 @@ export function routeRunnerFailure(
         };
       return {
         kind: "transient",
-        code: permanentCode(error.code),
+        code: permanentCode(error),
         ...runner,
         ...(error.process === undefined ? {} : { diagnostics: error.process }),
         retryAt:
@@ -79,7 +76,7 @@ export function routeRunnerFailure(
           retryAt: context.now,
           ...runner,
         };
-      return { kind: "permanent", code: permanentCode(error.code), ...runner };
+      return { kind: "permanent", code: permanentCode(error), ...runner };
     case "policy_violation":
     case "origin_untrusted":
     case "link_untrusted":
@@ -87,7 +84,7 @@ export function routeRunnerFailure(
     case "rights_denied":
       return {
         kind: "permanent",
-        code: permanentCode(error.code),
+        code: permanentCode(error),
         ...runner,
         ...(error.process === undefined ? {} : { diagnostics: error.process }),
       };

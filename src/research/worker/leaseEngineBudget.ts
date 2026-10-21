@@ -86,10 +86,9 @@ export async function reserveWithinRunBudget(
   database: ResearchDatabase,
   input: ReserveInput,
 ): Promise<boolean> {
-  const row = BudgetRowSchema.parse(
-    (
-      await database.query(
-        `SELECT runs.run_id, runs.status, runs.version,
+  const result = (
+    await database.query(
+      `SELECT runs.run_id, runs.status, runs.version,
         runs.remaining_base_calls, runs.requested_optional_calls,
         runs.requested_replacement_calls,
         (SELECT COUNT(*) FROM research_call_ordinals
@@ -101,11 +100,15 @@ export async function reserveWithinRunBudget(
           WHERE run_id = runs.run_id
           AND replacement_of_attempt_id IS NOT NULL
           AND logical_artifact_key = $1) AS logical_attempts
-      FROM runs WHERE runs.run_id = $2`,
-        [input.claim.logicalKey, input.claim.runId],
-      )
-    ).rows[0],
-  );
+      FROM runs WHERE runs.run_id = $2 AND runs.status = 'running'
+      FOR UPDATE OF runs`,
+      [input.claim.logicalKey, input.claim.runId],
+    )
+  ).rows[0];
+  // A sibling attempt can finish or stop the run after this job was claimed.
+  // Decline the stale launch instead of crashing the worker's polling loop.
+  if (result === undefined) return false;
+  const row = BudgetRowSchema.parse(result);
   if (
     row.remaining_base_calls > CALL_BUDGET_POLICY.mandatoryFirstAttempts ||
     row.requested_optional_calls > CALL_BUDGET_POLICY.maxOptionalFollowups ||
