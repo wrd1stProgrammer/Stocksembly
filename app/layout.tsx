@@ -83,6 +83,7 @@ type RootLayoutProps = {
 };
 
 export default async function RootLayout({ children }: RootLayoutProps) {
+  const tikTokPixelId = process.env["TIKTOK_PIXEL_ID"]?.trim();
   const requestHeaders = await headers();
   const requestCookies = await cookies();
   const country =
@@ -141,6 +142,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
             ? {}
             : { measurementId: googleAnalyticsMeasurementId })}
           {...(metaPixelId === undefined ? {} : { metaPixelId })}
+          {...(tikTokPixelId ? { tikTokPixelId } : {})}
         />
       </body>
     </html>

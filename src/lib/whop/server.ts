@@ -1,6 +1,7 @@
 import Whop from "@whop/sdk";
 import { z } from "zod";
 import type { MetaCheckoutAttribution } from "../meta/contracts";
+import type { TikTokCheckoutAttribution } from "../tiktok/server";
 import type {
   BillingPlanKey,
   BillingStatus,
@@ -199,6 +200,7 @@ function createCheckoutConfiguration(input: {
   readonly checkoutAttemptId?: string;
   readonly liveTest?: boolean;
   readonly metaAttribution?: MetaCheckoutAttribution;
+  readonly tikTokAttribution?: TikTokCheckoutAttribution;
   readonly googleMetadata?: Readonly<Record<string, string>>;
 }) {
   return whopClient(input.configuration).checkoutConfigurations.create({
@@ -207,6 +209,17 @@ function createCheckoutConfiguration(input: {
     plan_id: input.planId,
     metadata: {
       ...input.googleMetadata,
+      ...(input.tikTokAttribution === undefined
+        ? {}
+        : {
+            stocksembly_tiktok_consent: "granted",
+            ...(input.tikTokAttribution.ttclid
+              ? { stocksembly_tiktok_ttclid: input.tikTokAttribution.ttclid }
+              : {}),
+            ...(input.tikTokAttribution.ttp
+              ? { stocksembly_tiktok_ttp: input.tikTokAttribution.ttp }
+              : {}),
+          }),
       stocksembly_principal_id: input.principalId,
       stocksembly_plan_key: input.planKey,
       ...(input.liveTest === true
@@ -239,6 +252,7 @@ export async function createWhopCheckout(input: {
   readonly idempotencyKey: string;
   readonly checkoutAttemptId?: string;
   readonly metaAttribution?: MetaCheckoutAttribution;
+  readonly tikTokAttribution?: TikTokCheckoutAttribution;
   readonly googleMetadata?: Readonly<Record<string, string>>;
 }): Promise<WhopCheckout> {
   const configuration = whopConfiguration();
@@ -249,6 +263,9 @@ export async function createWhopCheckout(input: {
   const checkout = await createCheckoutConfiguration({
     configuration,
     planId: plan.planId,
+    ...(input.tikTokAttribution === undefined
+      ? {}
+      : { tikTokAttribution: input.tikTokAttribution }),
     planKey: input.planKey,
     principalId: input.principalId,
     returnUrl: input.returnUrl,

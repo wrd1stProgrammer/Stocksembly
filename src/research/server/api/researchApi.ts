@@ -39,6 +39,10 @@ import {
   metaCheckoutAttribution,
   sendMetaPurchaseEvent,
 } from "../../../lib/meta/server";
+import {
+  sendTikTokPurchaseEvent,
+  tikTokCheckoutAttribution,
+} from "../../../lib/tiktok/server";
 import type {
   BillingPlanKey,
   WhopBillingStatus,
@@ -1028,6 +1032,7 @@ export async function createResearchApi(
       const checkoutAttemptId = randomUUID();
       const returnUrl = billingReturnUrl(request);
       const metaAttribution = metaCheckoutAttribution(request);
+      const tikTokAttribution = tikTokCheckoutAttribution(request);
       await options.accountStore?.createCheckoutAttempt?.(
         authentication.principal.id,
         planKey,
@@ -1043,6 +1048,7 @@ export async function createResearchApi(
           checkoutAttemptId,
           ...(metaAttribution === undefined ? {} : { metaAttribution }),
           googleMetadata: googleCheckoutMetadata(request),
+          ...(tikTokAttribution === undefined ? {} : { tikTokAttribution }),
         });
         await options.accountStore?.markCheckoutAttemptReady?.(
           checkoutAttemptId,
@@ -1138,6 +1144,7 @@ export async function createResearchApi(
       await sendPostHogPurchase(event);
       await sendGooglePurchase(event);
       await sendMetaPurchaseEvent(event);
+      await sendTikTokPurchaseEvent(event);
     },
     async adminAnalyticsOverview(request, query) {
       if (!adminAnalyticsReadsEnabled()) return { kind: "disabled" };

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { stopProductAnalytics } from "../../lib/analytics/client";
 import { MetaPixel } from "../../lib/meta/pixel";
 import type { AppLocale } from "../../lib/supportedLocales";
+import { TikTokPixel } from "../../lib/tiktok/pixel";
 import { AggregateVisits } from "./AggregateVisits";
 import { consentCopy } from "./consentCopy";
 import { PostHogAnalytics } from "./PostHogAnalytics";
@@ -17,6 +18,7 @@ type Props = {
   readonly enabled: boolean;
   readonly measurementId?: string;
   readonly metaPixelId?: string;
+  readonly tikTokPixelId?: string;
   readonly locale?: AppLocale;
 };
 
@@ -111,6 +113,7 @@ export function AnalyticsConsent({
   enabled,
   measurementId,
   metaPixelId,
+  tikTokPixelId,
   locale = "ko",
 }: Props) {
   const content = consentCopy[locale];
@@ -123,7 +126,13 @@ export function AnalyticsConsent({
 
   useEffect(() => {
     if (!enabled) return;
-    const next = currentConsent();
+    const saved = currentConsent();
+    const tikTokConsent = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("stocksembly_tiktok_consent="))
+      ?.slice("stocksembly_tiktok_consent=".length);
+    const next = tikTokPixelId && tikTokConsent !== saved ? "unset" : saved;
     setConsent(next);
     // Acquisition attribution is first-party signup metadata, so capture it
     // even when the optional analytics consent is unset or denied.
@@ -135,19 +144,24 @@ export function AnalyticsConsent({
         "stocksembly:auth-session-ready",
         onSessionReady,
       );
-  }, [captureAttribution, enabled]);
+  }, [captureAttribution, enabled, tikTokPixelId]);
 
   if (!enabled) return null;
   const choose = (next: Exclude<Consent, "unset">) => {
     if (next === "denied") stopProductAnalytics();
     // biome-ignore lint/suspicious/noDocumentCookie: broad browser support is required for the server-readable consent gate.
     document.cookie = `${CONSENT_COOKIE}=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    if (tikTokPixelId)
+      document.cookie = `stocksembly_tiktok_consent=${next}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;
     setConsent(next);
     if (next === "granted") captureAttribution();
   };
   return (
     <>
       <AggregateVisits />
+      {consent === "granted" && tikTokPixelId ? (
+        <TikTokPixel pixelId={tikTokPixelId} />
+      ) : null}
       {consent !== "unset" ? (
         <button
           type="button"
@@ -180,6 +194,13 @@ export function AnalyticsConsent({
           <div>
             <strong>{content.title}</strong>
             <p>{content.description}</p>
+            {tikTokPixelId ? (
+              <p>
+                {locale === "ko"
+                  ? "동의하면 TikTok에 광고 클릭·브라우저 식별자, 해시 처리된 계정 식별자와 최초 구독 결제 금액·통화를 보내 광고 성과를 측정합니다."
+                  : "With consent, TikTok receives advertising click and browser identifiers, a hashed account identifier, and the value and currency of your initial paid subscription to measure advertising performance."}
+              </p>
+            ) : null}
             <p>
               {locale === "ko"
                 ? "선택 전에는 개인과 연결하지 않는 공개 페이지 방문·유입·체류·스크롤 통계를 집계합니다. 거절하면 이 추가 집계도 중단합니다."
