@@ -1,5 +1,6 @@
 import { AccountStoreUnavailableError } from "@/src/accounts/server/accountStore";
 import { MetaConversionsApiError } from "@/src/lib/meta/server";
+import { TikTokEventsApiError } from "@/src/lib/tiktok/server";
 import { unwrapWhopWebhook } from "@/src/lib/whop/server";
 import { getLiveResearchApi } from "@/src/research/server/api/liveResearchApi";
 
@@ -19,11 +20,13 @@ export async function POST(request: Request): Promise<Response> {
     console.error("Whop webhook rejected", error);
     const unavailable =
       error instanceof AccountStoreUnavailableError ||
-      error instanceof MetaConversionsApiError;
+      error instanceof MetaConversionsApiError ||
+      error instanceof TikTokEventsApiError;
     return new Response(
       error instanceof AccountStoreUnavailableError
         ? "Account store unavailable"
-        : error instanceof MetaConversionsApiError
+        : error instanceof MetaConversionsApiError ||
+            error instanceof TikTokEventsApiError
           ? "Conversion reporting unavailable"
           : "Webhook verification failed",
       { status: unavailable ? 503 : 400 },
