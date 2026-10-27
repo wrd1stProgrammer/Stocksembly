@@ -3,7 +3,8 @@
 import "../../styles/researchWorkspace";
 import "../../styles/research-room.css";
 import "../../styles/onboarding.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { trackOnboardingEvent } from "../../lib/analytics/client";
 import { type AppLocale, researchLocale } from "../../lib/i18n";
 import { useLiveOfficeAnimation } from "../../research/liveOfficeAnimation";
 import { liveOfficeProjection } from "../../research/liveOfficeProjection";
@@ -46,6 +47,12 @@ function DemoPlayback({
   const [ready, setReady] = useState(false);
   const [finished, setFinished] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
+  const [completionReason, setCompletionReason] = useState<
+    "completed" | "skipped"
+  >("completed");
+  const started = useRef(false);
+  const milestones = useRef(new Set<number>());
+  const paywallVisible = useRef(false);
   const projection = useMemo(
     () => liveOfficeProjection(demo.runDetail),
     [demo],
@@ -66,14 +73,67 @@ function DemoPlayback({
     rate,
   );
   const onReady = useCallback(() => setReady(true), []);
+  const analytics = useMemo(
+    () => ({ sample_symbol: demo.symbol, locale }),
+    [demo.symbol, locale],
+  );
+  useEffect(() => {
+    if (!ready || started.current) return;
+    started.current = true;
+    trackOnboardingEvent("onboarding_sample_started", analytics);
+  }, [ready, analytics]);
+  useEffect(() => {
+    if (!ready || finished) return;
+    const progress = Math.floor((index / projection.events.length) * 100);
+    for (const milestone of [25, 50, 75]) {
+      if (progress < milestone || milestones.current.has(milestone)) continue;
+      milestones.current.add(milestone);
+      trackOnboardingEvent("onboarding_sample_progress", {
+        ...analytics,
+        progress_percent: milestone,
+      });
+    }
+  }, [ready, finished, index, projection.events.length, analytics]);
+  useEffect(() => {
+    const visible = finished && !plansOpen;
+    if (visible && !paywallVisible.current) {
+      trackOnboardingEvent("onboarding_paywall_viewed", {
+        ...analytics,
+        completion_reason: completionReason,
+      });
+    }
+    paywallVisible.current = visible;
+  }, [finished, plansOpen, completionReason, analytics]);
+  const finish = useCallback(
+    (reason: "completed" | "skipped") => {
+      if (finished) return;
+      trackOnboardingEvent(
+        reason === "completed"
+          ? "onboarding_sample_completed"
+          : "onboarding_sample_skipped",
+        {
+          ...analytics,
+          progress_percent:
+            reason === "completed"
+              ? 100
+              : Math.floor((index / projection.events.length) * 100),
+          playback_rate: rate,
+          completion_reason: reason,
+        },
+      );
+      setCompletionReason(reason);
+      setFinished(true);
+    },
+    [finished, analytics, index, projection.events.length, rate],
+  );
   const onChange = useCallback(
     (change: OfficeDialogueChange) => {
       if (change.id !== current.id || change.status !== "finished") return;
-      if (index + 1 >= projection.events.length) setFinished(true);
+      if (index + 1 >= projection.events.length) finish("completed");
       else
         setIndex((previous) => (previous === index ? previous + 1 : previous));
     },
-    [current.id, index, projection.events.length],
+    [current.id, index, projection.events.length, finish],
   );
   const presentation = useMemo(
     () => ({
@@ -101,7 +161,13 @@ function DemoPlayback({
     [demo, current.id],
   );
   const contentLocale = demo.sourceLocale;
-  const home = () => window.location.assign(`/?lang=${locale}`);
+  const home = () => {
+    trackOnboardingEvent("onboarding_paywall_dismissed", {
+      ...analytics,
+      completion_reason: completionReason,
+    });
+    window.location.assign(`/?lang=${locale}`);
+  };
   return (
     <>
       <div
@@ -169,7 +235,15 @@ function DemoPlayback({
                 <button
                   type="button"
                   className="meeting-minutes__cancel"
-                  onClick={() => setPaused(!paused)}
+                  onClick={() => {
+                    trackOnboardingEvent(
+                      paused
+                        ? "onboarding_sample_resumed"
+                        : "onboarding_sample_paused",
+                      { ...analytics, playback_rate: rate },
+                    );
+                    setPaused(!paused);
+                  }}
                 >
                   {paused ? copy.play : copy.pause}
                 </button>
@@ -177,14 +251,21 @@ function DemoPlayback({
                   type="button"
                   className="meeting-minutes__cancel"
                   aria-label="Playback speed"
-                  onClick={() => setRate(rate === 1 ? 2 : rate === 2 ? 4 : 1)}
+                  onClick={() => {
+                    const next = rate === 1 ? 2 : rate === 2 ? 4 : 1;
+                    trackOnboardingEvent("onboarding_sample_speed_changed", {
+                      ...analytics,
+                      playback_rate: next,
+                    });
+                    setRate(next);
+                  }}
                 >
                   {rate}×
                 </button>
                 <button
                   type="button"
                   className="meeting-minutes__cancel"
-                  onClick={() => setFinished(true)}
+                  onClick={() => finish("skipped")}
                 >
                   {copy.results}
                 </button>
@@ -220,14 +301,23 @@ function DemoPlayback({
         }}
         closeOnOpenPlans={false}
         onClose={home}
-        onOpenPlans={() => setPlansOpen(true)}
+        onOpenPlans={() => {
+          trackOnboardingEvent("onboarding_paywall_plans_clicked", {
+            ...analytics,
+            completion_reason: completionReason,
+          });
+          setPlansOpen(true);
+        }}
       />
       <SidebarSubscriptionModal
         open={plansOpen}
         locale={researchLocale(locale)}
         initialTier="free"
         localPreview={process.env.NODE_ENV === "development"}
-        onClose={() => setPlansOpen(false)}
+        onClose={() => {
+          trackOnboardingEvent("onboarding_plans_closed", analytics);
+          setPlansOpen(false);
+        }}
       />
     </>
   );
@@ -257,6 +347,7 @@ export function OnboardingResearchPreview({ locale }: { locale: AppLocale }) {
     if (!draft) return;
     const controller = new AbortController();
     setError(false);
+    trackOnboardingEvent("onboarding_sample_requested", { locale, attempt });
     void fetch(
       `/api/onboarding/demo?symbol=${encodeURIComponent(draft.stock.symbol)}&attempt=${attempt}`,
       { signal: controller.signal, cache: "no-store" },
@@ -264,13 +355,26 @@ export function OnboardingResearchPreview({ locale }: { locale: AppLocale }) {
       .then(async (response) => {
         if (!response.ok) throw new Error("DEMO_UNAVAILABLE");
         const parsed = ResearchDemoSchema.parse(await response.json());
-        if (!controller.signal.aborted) setDemo(parsed);
+        if (!controller.signal.aborted) {
+          trackOnboardingEvent("onboarding_sample_loaded", {
+            locale,
+            attempt,
+            sample_symbol: parsed.symbol,
+          });
+          setDemo(parsed);
+        }
       })
       .catch(() => {
-        if (!controller.signal.aborted) setError(true);
+        if (!controller.signal.aborted) {
+          trackOnboardingEvent("onboarding_sample_load_failed", {
+            locale,
+            attempt,
+          });
+          setError(true);
+        }
       });
     return () => controller.abort();
-  }, [draft, attempt]);
+  }, [draft, attempt, locale]);
   if (!draft || !demo)
     return (
       <main className="onboarding-demo__loading">

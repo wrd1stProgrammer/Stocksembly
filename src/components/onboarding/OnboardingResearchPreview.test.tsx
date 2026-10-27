@@ -1,10 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { trackOnboardingEvent } from "../../lib/analytics/client";
 import type { OfficePresentation } from "../../research/officeDialogue";
 import sample from "../../research/server/onboarding/sample-research.json";
 import { OnboardingResearchPreview } from "./OnboardingResearchPreview";
 import { ONBOARDING_RESEARCH_KEY } from "./onboardingJourney";
+
+vi.mock("../../lib/analytics/client", () => ({
+  trackOnboardingEvent: vi.fn(),
+}));
 
 vi.mock("../../research/liveOfficeAnimation", () => ({
   useLiveOfficeAnimation: () => ({}),
@@ -15,13 +20,16 @@ vi.mock("../research/OfficeStage", () => ({
     isPaused,
     isComplete,
     headingActions,
+    onOfficeReady,
   }: {
     presentation: OfficePresentation;
     isPaused: boolean;
     isComplete: boolean;
     headingActions: ReactNode;
-  }) =>
-    isComplete ? (
+    onOfficeReady: () => void;
+  }) => {
+    useEffect(() => onOfficeReady(), [onOfficeReady]);
+    return isComplete ? (
       <div>Report backdrop</div>
     ) : (
       <>
@@ -41,7 +49,8 @@ vi.mock("../research/OfficeStage", () => ({
           Finish speech
         </button>
       </>
-    ),
+    );
+  },
 }));
 vi.mock("../research/MeetingMinutes", () => ({
   MeetingMinutes: () => <div>Minutes</div>,
@@ -54,6 +63,7 @@ vi.mock("../billing/SidebarSubscriptionModal", () => ({
     open ? <div>Plan choices</div> : null,
 }));
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.stubGlobal(
     "matchMedia",
     vi.fn(() => ({
@@ -104,6 +114,23 @@ it("plays the actual sample with pause and speed, then skips to the blurred repo
   );
   fireEvent.click(screen.getByRole("button", { name: "확인하기" }));
   expect(screen.getByText("Plan choices")).toBeVisible();
+  expect(trackOnboardingEvent).toHaveBeenCalledWith(
+    "onboarding_sample_skipped",
+    expect.objectContaining({ completion_reason: "skipped" }),
+  );
+  expect(trackOnboardingEvent).toHaveBeenCalledWith(
+    "onboarding_paywall_viewed",
+    expect.objectContaining({ completion_reason: "skipped" }),
+  );
+  expect(trackOnboardingEvent).toHaveBeenCalledWith(
+    "onboarding_paywall_plans_clicked",
+    expect.any(Object),
+  );
+  expect(
+    vi
+      .mocked(trackOnboardingEvent)
+      .mock.calls.filter(([event]) => event === "onboarding_paywall_viewed"),
+  ).toHaveLength(1);
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(fetch).toHaveBeenCalledWith(
     expect.stringContaining("/api/onboarding/demo?symbol=NVDA"),
@@ -121,6 +148,26 @@ it("reaches the paywall after every projected speech finishes without starting a
   }
   expect(completed).toBeGreaterThan(20);
   expect(completed).toBeLessThan(100);
+  expect(
+    vi
+      .mocked(trackOnboardingEvent)
+      .mock.calls.filter(([event]) => event === "onboarding_sample_started"),
+  ).toHaveLength(1);
+  for (const progress_percent of [25, 50, 75]) {
+    expect(trackOnboardingEvent).toHaveBeenCalledWith(
+      "onboarding_sample_progress",
+      expect.objectContaining({ progress_percent }),
+    );
+  }
+  expect(trackOnboardingEvent).toHaveBeenCalledWith(
+    "onboarding_sample_completed",
+    expect.objectContaining({ progress_percent: 100 }),
+  );
+  expect(
+    vi
+      .mocked(trackOnboardingEvent)
+      .mock.calls.some(([event]) => event === "onboarding_sample_skipped"),
+  ).toBe(false);
   expect(screen.getByText("내 질문으로 새 리서치를 시작하세요")).toBeVisible();
   expect(fetch).toHaveBeenCalledTimes(1);
 });
@@ -130,4 +177,12 @@ it("offers retry after a loading failure", async () => {
   render(<OnboardingResearchPreview locale="ko" />);
   fireEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
   expect(await screen.findByTestId("office")).toBeVisible();
+  expect(trackOnboardingEvent).toHaveBeenCalledWith(
+    "onboarding_sample_load_failed",
+    expect.objectContaining({ attempt: 0 }),
+  );
+  expect(trackOnboardingEvent).toHaveBeenCalledWith(
+    "onboarding_sample_loaded",
+    expect.objectContaining({ attempt: 1 }),
+  );
 });
