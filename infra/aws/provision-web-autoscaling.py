@@ -5,16 +5,17 @@ DNS alias cutover is deliberately separate, after HTTPS target health is checked
 """
 import base64
 import json
+import os
 import boto3
 
-REGION = 'us-east-1'
-ACCOUNT = '359463332817'
-VPC = 'vpc-003c697e0034f28e7'
-WEB = 'i-07b01a4145abcedd1'
-WEB_SG = 'sg-0dd370e525ead2903'
-SUBNETS = ['subnet-07e12ce381ada71f7', 'subnet-0763b161458e2bef8']
+REGION = os.environ.get('AWS_REGION', 'us-east-1')
+ACCOUNT = boto3.client('sts').get_caller_identity()['Account']
+VPC = os.environ['VPC_ID']
+WEB = os.environ['WEB_INSTANCE_ID']
+WEB_SG = os.environ['WEB_SECURITY_GROUP_ID']
+SUBNETS = os.environ['WEB_SUBNET_IDS'].split(',')
 GROUP = 'stocksembly-web'
-BUCKET = 'stocksembly-prod-359463332817-us-east-1'
+BUCKET = os.environ['OPERATIONS_BUCKET']
 e = boto3.client('ec2', region_name=REGION)
 lb = boto3.client('elbv2', region_name=REGION)
 auto = boto3.client('autoscaling', region_name=REGION)
@@ -40,7 +41,7 @@ lb.register_targets(TargetGroupArn=tg['TargetGroupArn'], Targets=[{'Id':WEB}])
 listeners = lb.describe_listeners(LoadBalancerArn=alb['LoadBalancerArn'])['Listeners']
 if not any(x['Port']==80 for x in listeners):
     lb.create_listener(LoadBalancerArn=alb['LoadBalancerArn'],Protocol='HTTP',Port=80,DefaultActions=[{'Type':'redirect','RedirectConfig':{'Protocol':'HTTPS','Port':'443','StatusCode':'HTTP_301'}}])
-cert = 'arn:aws:acm:us-east-1:359463332817:certificate/8ea1fbf2-d199-4aff-a4c4-5b58722a97fe'
+cert = os.environ['ACM_CERTIFICATE_ARN']
 if boto3.client('acm',region_name=REGION).describe_certificate(CertificateArn=cert)['Certificate']['Status']=='ISSUED' and not any(x['Port']==443 for x in listeners):
     lb.create_listener(LoadBalancerArn=alb['LoadBalancerArn'],Protocol='HTTPS',Port=443,Certificates=[{'CertificateArn':cert}],SslPolicy='ELBSecurityPolicy-TLS13-1-2-2021-06',DefaultActions=[{'Type':'forward','TargetGroupArn':tg['TargetGroupArn']}])
 

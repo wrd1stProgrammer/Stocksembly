@@ -389,6 +389,7 @@ async function proxyAuthenticatedRequest(
     "authorization",
     "cookie",
     "x-stocksembly-identity-token",
+    "origin",
   ]) {
     const value = request.headers.get(name);
     if (value !== null) headers.set(name, value);

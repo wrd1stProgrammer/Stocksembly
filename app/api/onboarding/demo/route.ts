@@ -1,3 +1,4 @@
+import { publicRequestBudget } from "@/src/lib/http/publicRequestBudget";
 import { TickerSymbolSchema } from "@/src/research/domain/ids";
 import {
   recordedResearchDemo,
@@ -6,6 +7,8 @@ import {
 
 export const runtime = "nodejs";
 export async function GET(request: Request) {
+  const rejected = publicRequestBudget(request, "onboarding-demo", 30);
+  if (rejected) return rejected;
   const symbol = TickerSymbolSchema.safeParse(
     new URL(request.url).searchParams.get("symbol"),
   );

@@ -135,7 +135,7 @@ The browser auth bundle expects these public build-time values:
 ```dotenv
 NEXT_PUBLIC_COGNITO_USER_POOL_ID=us-east-1_aBlbfohE8
 NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID=5njm1pei6ltopdks0g4a1m5cab
-NEXT_PUBLIC_COGNITO_DOMAIN=stocksembly-prod-359463332817.auth.us-east-1.amazoncognito.com
+NEXT_PUBLIC_COGNITO_DOMAIN=your-cognito-domain.auth.us-east-1.amazoncognito.com
 NEXT_PUBLIC_APP_ORIGIN=http://localhost:3000
 ```
 
