@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
-region=us-east-1
-bucket=stocksembly-prod-359463332817-us-east-1
+region="${AWS_REGION:-us-east-1}"
+account="$(aws sts get-caller-identity --query Account --output text)"
+bucket="${OPERATIONS_BUCKET:-stocksembly-prod-${account}-${region}}"
 export AWS_DEFAULT_REGION="$region"
 dnf install -y docker nginx
 systemctl enable --now docker amazon-ssm-agent
@@ -18,6 +19,10 @@ for key, name in [('awsEnv','aws.env'),('appEnv','app.env')]:
     path.chmod(0o600)
 pathlib.Path('/run/stocksembly-web-config.json').unlink()
 PY
+if grep -Eq '^(NODE_OPTIONS|NODE_PATH|LD_PRELOAD|LD_LIBRARY_PATH|PATH|BASH_ENV|ENV)=' /etc/stocksembly/aws.env /etc/stocksembly/app.env; then
+  echo 'Unexpected executable environment setting in bootstrap' >&2
+  exit 78
+fi
 aws s3 cp "s3://$bucket/operations/web/role-deploy.sh" /usr/local/bin/stocksembly-role-deploy --only-show-errors
 chmod 0755 /usr/local/bin/stocksembly-role-deploy
 aws s3 cp "s3://$bucket/operations/web/web-alb-nginx.conf" /etc/nginx/conf.d/stocksembly-alb.conf --only-show-errors

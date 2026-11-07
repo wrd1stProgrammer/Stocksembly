@@ -9,10 +9,13 @@ import {
   posthogHost,
   posthogToken,
 } from "@/src/lib/analytics/config";
+import { publicRequestBudget } from "@/src/lib/http/publicRequestBudget";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request): Promise<Response> {
+  const rejected = publicRequestBudget(request, "aggregate", 120);
+  if (rejected) return rejected;
   const origin = new URL(
     process.env["STOCKSEMBLY_PUBLIC_ORIGIN"] ?? request.url,
   ).origin;

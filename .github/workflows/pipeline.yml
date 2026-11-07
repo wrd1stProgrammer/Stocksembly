@@ -64,6 +64,8 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Test bootstrap configuration sanitization
+        run: python3 infra/aws/test_update_web_bootstrap.py
       - name: Verify deterministic research quality fixtures
         run: pnpm research:quality
       - name: Verify focused research contracts
@@ -181,8 +183,8 @@ jobs:
           COGNITO_USER_POOL_CLIENT_ID: ${{ vars.COGNITO_CLIENT_ID }}
           COGNITO_DOMAIN: ${{ vars.COGNITO_DOMAIN }}
           APP_ORIGIN: https://stocksembly.com
-          GA_MEASUREMENT_ID: G-YRQDC6R5TL
-          META_PIXEL_ID: "1941324473216410"
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
+          META_PIXEL_ID: ${{ vars.META_PIXEL_ID }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
@@ -237,7 +239,7 @@ jobs:
           META_CONVERSIONS_API_ACCESS_TOKEN: ${{ secrets.META_CONVERSIONS_API_ACCESS_TOKEN }}
           GA4_MEASUREMENT_PROTOCOL_API_SECRET: ${{ secrets.GA4_MEASUREMENT_PROTOCOL_API_SECRET }}
           META_GRAPH_API_VERSION: v25.0
-          META_PIXEL_ID: "1941324473216410"
+          META_PIXEL_ID: ${{ vars.META_PIXEL_ID }}
         run: python3 infra/aws/publish-provider-secret.py
       - name: Install daily Docker maintenance
         run: |
@@ -265,14 +267,27 @@ jobs:
           )"
           jq '. + {executionTimeout:["2400"]}' <<< "$parameters" > "$RUNNER_TEMP/deploy-parameters.json"
           bash infra/aws/run-ssm-fleet.sh "$RUNNER_TEMP/deploy-parameters.json" deploy
+      - name: Update web bootstrap configuration with the deployment role
+        if: matrix.role == 'web' && env.WEB_ASG_NAME != ''
+        env:
+          SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '0.1' }}
+          SENTRY_PROFILE_SESSION_SAMPLE_RATE: ${{ vars.SENTRY_PROFILE_SESSION_SAMPLE_RATE || '1' }}
+          SENTRY_METRICS_ENABLED: ${{ vars.SENTRY_METRICS_ENABLED || 'true' }}
+        run: |
+          python3 -m pip install boto3
+          python3 infra/aws/update-web-bootstrap.py
       - name: Advance the web bootstrap release after successful rollout
         if: matrix.role == 'web' && env.WEB_ASG_NAME != ''
+        env:
+          OPERATIONS_BUCKET: ${{ vars.OPERATIONS_BUCKET }}
         run: |
-          aws s3 cp infra/aws/role-deploy.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/role-deploy.sh --only-show-errors
-          aws s3 cp infra/aws/web-asg-bootstrap.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/web-asg-bootstrap.sh --only-show-errors
-          aws s3 cp infra/aws/docker-maintenance.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/docker-maintenance.sh --only-show-errors
-          aws s3 cp infra/aws/install-docker-maintenance.sh s3://stocksembly-prod-359463332817-us-east-1/operations/web/install-docker-maintenance.sh --only-show-errors
-          aws s3 cp infra/aws/web-alb-nginx.conf s3://stocksembly-prod-359463332817-us-east-1/operations/web/web-alb-nginx.conf --only-show-errors
+          : "${OPERATIONS_BUCKET:?Configure OPERATIONS_BUCKET}"
+          aws s3 cp infra/aws/role-deploy.sh s3://$OPERATIONS_BUCKET/operations/web/role-deploy.sh --only-show-errors
+          aws s3 cp infra/aws/web-asg-bootstrap.sh s3://$OPERATIONS_BUCKET/operations/web/web-asg-bootstrap.sh --only-show-errors
+          aws s3 cp infra/aws/docker-maintenance.sh s3://$OPERATIONS_BUCKET/operations/web/docker-maintenance.sh --only-show-errors
+          aws s3 cp infra/aws/install-docker-maintenance.sh s3://$OPERATIONS_BUCKET/operations/web/install-docker-maintenance.sh --only-show-errors
+          aws s3 cp infra/aws/web-alb-nginx.conf s3://$OPERATIONS_BUCKET/operations/web/web-alb-nginx.conf --only-show-errors
           aws ssm put-parameter --name /stocksembly/prod/web/image --type String --value "$image" --overwrite
 
   manual_web_image:
@@ -293,9 +308,9 @@ jobs:
             --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID="${{ vars.COGNITO_CLIENT_ID }}" \
             --build-arg NEXT_PUBLIC_COGNITO_DOMAIN="${{ vars.COGNITO_DOMAIN }}" \
             --build-arg NEXT_PUBLIC_APP_ORIGIN=https://stocksembly.com \
-            --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=G-YRQDC6R5TL \
+            --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID="${{ vars.GA_MEASUREMENT_ID }}" \
             --build-arg NEXT_PUBLIC_SENTRY_DSN="${NEXT_PUBLIC_SENTRY_DSN:-}" \
-            --build-arg NEXT_PUBLIC_META_PIXEL_ID=1941324473216410 \
+            --build-arg NEXT_PUBLIC_META_PIXEL_ID="${{ vars.META_PIXEL_ID }}" \
             --build-arg NEXT_PUBLIC_STATIC_ASSET_BASE_URL="$STATIC_CDN_ORIGIN/releases/$STATIC_ASSET_RELEASE" \
             -t "stocksembly-web:$GITHUB_SHA" .
           docker save "stocksembly-web:$GITHUB_SHA" | gzip > web-image.tar.gz

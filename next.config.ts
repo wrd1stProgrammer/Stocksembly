@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
           },
-          { key: "Strict-Transport-Security", value: "max-age=86400" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
         ],
       },
     ];

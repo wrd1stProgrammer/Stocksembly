@@ -21,7 +21,10 @@ const payload = googlePurchasePayload({
 if (!payload) throw new Error("Purchase payload was unexpectedly excluded");
 
 const url = new URL("https://www.google-analytics.com/debug/mp/collect");
-url.searchParams.set("measurement_id", "G-YRQDC6R5TL");
+url.searchParams.set(
+  "measurement_id",
+  process.env["NEXT_PUBLIC_GA_MEASUREMENT_ID"] ?? "",
+);
 // The validation API does not validate credentials; never load a real secret.
 url.searchParams.set("api_secret", "schema-validation-only");
 const response = await fetch(url, {

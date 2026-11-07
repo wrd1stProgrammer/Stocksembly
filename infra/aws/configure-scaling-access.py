@@ -12,18 +12,19 @@ base='arn:aws:'
 region=os.environ.get('AWS_REGION', 'us-east-1')
 account=boto3.client('sts').get_caller_identity()['Account']
 secret=os.environ['WEB_BOOTSTRAP_SECRET_ARN']
-objects=f"arn:aws:s3:::{os.environ['STATIC_ASSET_BUCKET']}/operations/web/*"
+objects=f"arn:aws:s3:::{os.environ['OPERATIONS_BUCKET']}/operations/web/*"
 parameters=f'arn:aws:ssm:{region}:{account}:parameter/stocksembly/prod/web/*'
-put('stocksembly-web-runtime','web-autoscaling-bootstrap',[
-    allow(['secretsmanager:GetSecretValue','secretsmanager:PutSecretValue'],secret),
-    allow(['s3:GetObject'],objects), allow(['ssm:GetParameter'],parameters),
-])
 put('stocksembly-github-deploy','web-autoscaling-deploy',[
+    allow(['secretsmanager:GetSecretValue','secretsmanager:PutSecretValue'],secret),
     allow(['autoscaling:DescribeAutoScalingGroups','elasticloadbalancing:DescribeTargetHealth'],'*'),
     allow(['ssm:SendCommand'],f'arn:aws:ec2:{region}:{account}:instance/*',Condition={'StringEquals':{'ssm:resourceTag/stocksembly:role':'web'}}),
     allow(['ssm:GetParameter','ssm:PutParameter'],parameters),
     allow(['s3:PutObject'],objects),
     allow(['elasticloadbalancing:RegisterTargets','elasticloadbalancing:DeregisterTargets'],f'arn:aws:elasticloadbalancing:{region}:{account}:targetgroup/stocksembly-web/*'),
+])
+put('stocksembly-web-runtime','web-autoscaling-bootstrap',[
+    allow(['secretsmanager:GetSecretValue'],secret),
+    allow(['s3:GetObject'],objects), allow(['ssm:GetParameter'],parameters),
 ])
 put(os.environ['WORKER_RUNTIME_ROLE'],'research-queue-metrics',[
     allow(['cloudwatch:PutMetricData'],'*',Condition={'StringEquals':{'cloudwatch:namespace':'Stocksembly/Research'}}),
