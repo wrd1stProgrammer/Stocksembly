@@ -307,6 +307,15 @@ describe("workflow-v3 PostgreSQL chair synthesis", { timeout: 30_000 }, () => {
         expect(prepared.codex.chairPrompts[0]).toContain(
           `"sourceLocale":"${sourceLocale}"`,
         );
+        const modelInput = JSON.parse(prepared.codex.chairPrompts[0]!);
+        const evidence = JSON.parse(modelInput.evidenceCatalog);
+        expect(evidence.publishableClaimIds).toBeInstanceOf(Array);
+        expect(evidence.sourceArtifactIds.length).toBeGreaterThan(0);
+        for (const sentence of evidence.sentences) {
+          expect(sentence.sourceArtifactIds).toBeInstanceOf(Array);
+          for (const id of sentence.sourceArtifactIds)
+            expect(evidence.sourceArtifactIds).toContain(id);
+        }
         const database = prepared.options.database;
         const row = (
           await database.query(

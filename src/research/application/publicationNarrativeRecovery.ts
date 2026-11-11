@@ -122,15 +122,11 @@ export function reconcilePublicationNarrative(input: {
     ]
       .slice(0, 2)
       .join(" ");
+    // Specific findings are useful to readers; generic audit status is not.
+    // Reasons originate in the authenticated semantic audit, not the model.
     const text =
-      reasons &&
-      reasons.length +
-        Math.max(LIMITATIONS[key].en.length, LIMITATIONS[key].ko.length) <
-        3_900
-        ? {
-            en: `${LIMITATIONS[key].en} Evidence review: ${reasons}`,
-            ko: `${LIMITATIONS[key].ko} 근거 검토: ${reasons}`,
-          }
+      reasons && reasons.length < 3_900
+        ? { en: reasons, ko: reasons }
         : LIMITATIONS[key];
     return unit(`${key}${suffix}`, text, [], [input.auditArtifactId]);
   };
@@ -151,6 +147,92 @@ export function reconcilePublicationNarrative(input: {
   ) => {
     if (survives(lineage)) return { text: { en: text, ko: text }, lineage };
     reduced = true;
+    // Preserve eligible sentences from this specific passage. One excluded
+    // supporting claim must not replace the entire answer with audit boilerplate.
+    const preferredId =
+      key === "ten_second_brief"
+        ? chair.decisionBrief.decisiveSentenceId
+        : chair.sections.find((section) => section.sectionKey === key)
+            ?.primarySentenceId;
+    const candidates = [
+      ...new Set([
+        ...lineage.sentenceIds,
+        ...(preferredId ? [preferredId] : []),
+      ]),
+    ]
+      .map((id) => catalog.get(id))
+      .filter(
+        (sentence): sentence is Sentence =>
+          sentence !== undefined &&
+          sentence.claimIds.length > 0 &&
+          sentence.claimIds.every((id) => ids.has(id)),
+      );
+    if (candidates.length > 0) {
+      const selected: Sentence[] = [];
+      for (const sentence of candidates) {
+        if (selected.length >= 3) break;
+        if (
+          ["en", "ko"].every(
+            (locale) =>
+              [...selected, sentence]
+                .map((item) => item.text[locale as "en" | "ko"])
+                .join(" ").length <= 3900,
+          )
+        )
+          selected.push(sentence);
+      }
+      if (selected.length === 0) return limited(key, suffix, lineage.claimIds);
+      const direction =
+        key === "ten_second_brief"
+          ? {
+              upside_skewed: {
+                en: "The outlook is bullish. ",
+                ko: "강세로 판단합니다. ",
+              },
+              downside_skewed: {
+                en: "The outlook is bearish. ",
+                ko: "약세로 판단합니다. ",
+              },
+              balanced: {
+                en: "The outlook is neutral. ",
+                ko: "중립으로 판단합니다. ",
+              },
+              insufficient_evidence: { en: "", ko: "" },
+            }[canonical.stance]
+          : { en: "", ko: "" };
+      const passage = (locale: "en" | "ko") =>
+        selected
+          .map((sentence) => {
+            const team =
+              /^(?:position|ballot):(market|company|financial|risk)$/.exec(
+                sentence.sentenceId,
+              )?.[1];
+            const labels: Record<string, { en: string; ko: string }> = {
+              market: { en: "Market team", ko: "시장팀" },
+              company: { en: "Company team", ko: "기업팀" },
+              financial: { en: "Financial team", ko: "재무팀" },
+              risk: { en: "Risk team", ko: "위험팀" },
+            };
+            const label = team ? labels[team] : undefined;
+            return label
+              ? `${label[locale]}: ${sentence.text[locale]}`
+              : sentence.text[locale];
+          })
+          .join(" ");
+      return unit(
+        `${key}${suffix}:retained`,
+        {
+          en: direction.en + passage("en"),
+          ko: direction.ko + passage("ko"),
+        },
+        [...new Set(selected.flatMap((sentence) => sentence.claimIds))],
+        [
+          ...new Set(
+            selected.flatMap((sentence) => sentence.sourceArtifactIds),
+          ),
+        ],
+      );
+    }
     return limited(key, suffix, lineage.claimIds);
   };
   // Prefer a surviving original primary, then a material verified claim.
@@ -271,7 +353,7 @@ export function reconcilePublicationNarrative(input: {
     return {
       ...view,
       position: next.text[canonical.sourceLocale],
-      rationale: LIMITATIONS.dissent_unknowns[canonical.sourceLocale],
+      rationale: next.text[canonical.sourceLocale],
       vote: "abstain" as const,
       lineage: next.lineage,
     };
