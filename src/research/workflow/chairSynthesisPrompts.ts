@@ -384,6 +384,7 @@ export function chairSynthesisModelPrompt(
     kind: prompt.kind,
     mandate: {
       question: prompt.mandate.question,
+      researchBrief: prompt.mandate.researchBrief,
       scope: prompt.mandate.scope,
       locale: prompt.mandate.locale,
       limitations: prompt.mandate.limitations,
@@ -396,18 +397,23 @@ export function chairSynthesisModelPrompt(
       vote,
     })),
     unknownIds: prompt.unknownIds,
-    sentences: prompt.sentences.map(({ sentenceId, kind, claimIds, text }) => ({
-      sentenceId,
-      kind,
-      claimIds,
-      text,
-      groundingAllowlist: {
-        enTokens: groundingTokens(text.en),
-        koTokens: groundingTokens(text.ko),
-        enNumbers: groundedNumbers(text.en),
-        koNumbers: groundedNumbers(text.ko),
-      },
-    })),
+    publishableClaimIds: prompt.publishableClaimIds,
+    sourceArtifactIds: prompt.sourceArtifactIds,
+    sentences: prompt.sentences.map(
+      ({ sentenceId, kind, claimIds, sourceArtifactIds, text }) => ({
+        sentenceId,
+        kind,
+        claimIds,
+        sourceArtifactIds,
+        text,
+        groundingAllowlist: {
+          enTokens: groundingTokens(text.en),
+          koTokens: groundingTokens(text.ko),
+          enNumbers: groundedNumbers(text.en),
+          koNumbers: groundedNumbers(text.ko),
+        },
+      }),
+    ),
     ownershipContract: {
       maxSectionsPerSentence: 1,
       ledger: prompt.sentences.map((sentence) => ({
@@ -553,6 +559,7 @@ export function chairSynthesisModelPrompt(
       requirements: [
         explanationInstruction(prompt.mandate.researchProfile),
         "The report must answer mandate.question rather than merely describe the company. Reuse the question's subject, not its wording, and make the relevance explicit in the ten-second brief and one supporting section only.",
+        "For a price-direction or investment-outlook question, lead with an explicit bullish, bearish or neutral assessment for the requested horizon, followed by the decisive evidence. Neutral requires a concrete balance of opposing forces; it is not a substitute for missing evidence. Do not describe internal verification procedures as the answer. Explain any unresolved fact by naming it and its effect on the conclusion. Never invent certainty or a return forecast.",
         "Answer the original question directly, then explain two or three distinct mechanisms. Separate disclosed facts, management expectations and calculated assumptions. State what is still unproven without turning every answer into a wait recommendation. A financial-health question requires a financial-health conclusion, not a mandatory trade verdict. The researchBrief identifies the actual subject and priority questions; never replace an unresolved product name with a similar-sounding topic.",
         "For short horizon, prioritize the next catalyst, price/estimate direction, and a near-term invalidation signal; do not let long-run optionality dominate the conclusion.",
         "For medium horizon, prioritize the next two-to-four reporting periods, estimate revisions, operating execution, and the valuation path required over that window.",

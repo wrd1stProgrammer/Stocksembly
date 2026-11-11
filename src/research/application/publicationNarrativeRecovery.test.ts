@@ -61,6 +61,51 @@ describe("publication evidence reconciliation", () => {
     ).toBe(true);
   });
 
+  it("preserves the direct answer when only an extra supporting sentence is excluded", () => {
+    const fixture = makeAuthoritativeReportInput();
+    const chair = ChairSynthesisOutputSchema.parse(fixture.chair);
+    const canonical = chair.canonicalNarrativeV3!;
+    const decisive = fixture.chairSentences.find(
+      (s) => s.sentenceId === chair.decisionBrief.decisiveSentenceId,
+    )!;
+    const excluded = "00000000-0000-4000-8000-000000009994";
+    const modified = ChairSynthesisOutputSchema.parse({
+      ...chair,
+      canonicalNarrativeV3: {
+        ...canonical,
+        decisionLineage: {
+          ...canonical.decisionLineage,
+          decisiveReason: {
+            ...canonical.decisionLineage.decisiveReason,
+            sentenceIds: [decisive.sentenceId, "excluded:extra"],
+            claimIds: [...decisive.claimIds, excluded],
+          },
+        },
+      },
+    });
+    const result = reconcilePublicationNarrative({
+      chair: modified,
+      sentences: fixture.chairSentences,
+      claims: fixture.editorialClaims,
+      registeredClaimIds: new Set([
+        ...chair.decisionBrief.primaryClaimIds,
+        excluded,
+      ]),
+      auditArtifactId: fixture.semanticAudit.artifactId,
+    });
+    expect(result.chair.decisionBrief.decisiveReason.ko).toContain(
+      decisive.text.ko,
+    );
+    expect(result.chair.decisionBrief.stance).toBe(chair.decisionBrief.stance);
+    expect(result.chair.decisionBrief.decisiveReason.ko).not.toContain(
+      "근거 검토",
+    );
+    expect(
+      result.chair.canonicalNarrativeV3!.decisionLineage.decisiveReason
+        .claimIds,
+    ).not.toContain(excluded);
+  });
+
   it("does not repair invented primary identities or manufacture a core answer without surviving evidence", () => {
     const fixture = makeAuthoritativeReportInput();
     const chair = ChairSynthesisOutputSchema.parse(fixture.chair);
@@ -107,6 +152,9 @@ describe("publication evidence reconciliation", () => {
           ...canonical.decisionLineage,
           invalidationCheckpoint: lineage(0),
         },
+        teamViews: canonical.teamViews.map((view, index) =>
+          index === 0 ? { ...view, lineage: lineage(0) } : view,
+        ),
         sections: canonical.sections.map((section) =>
           section.sectionKey === "change_conditions"
             ? { ...section, lineage: lineage(1) }
@@ -116,7 +164,13 @@ describe("publication evidence reconciliation", () => {
     });
     const recovered = reconcilePublicationNarrative({
       chair: inputChair,
-      sentences: fixture.chairSentences,
+      sentences: fixture.chairSentences.filter(
+        (sentence) =>
+          sentence.sentenceId !==
+          chair.sections.find(
+            (section) => section.sectionKey === "change_conditions",
+          )?.primarySentenceId,
+      ),
       claims: fixture.editorialClaims,
       registeredClaimIds: new Set([
         ...chair.decisionBrief.primaryClaimIds,
@@ -134,6 +188,19 @@ describe("publication evidence reconciliation", () => {
         },
       ],
     });
+    const repairedView = recovered.chair.canonicalNarrativeV3!.teamViews[0]!;
+    expect(repairedView.rationale).toBe(repairedView.position);
+    expect(repairedView.rationale).toContain("$8.87 billion");
+    expect(
+      publicTextIsValid(
+        { en: repairedView.rationale, ko: repairedView.rationale },
+        recovered.sentences.filter((sentence) =>
+          repairedView.lineage.sentenceIds.includes(sentence.sentenceId),
+        ),
+        4000,
+        canonical.sourceLocale,
+      ),
+    ).toBe(true);
     const generated = recovered.sentences.filter((sentence) =>
       sentence.sentenceId.startsWith("publication:change_conditions"),
     );
