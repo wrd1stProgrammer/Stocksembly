@@ -8893,7 +8893,7 @@
   .research-anticipated-qa__grid
   article {
   display: grid;
-  grid-template-columns: 56px minmax(230px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 20px 30px;
   align-items: start;
   min-height: 0;
@@ -8941,7 +8941,7 @@
 
 .research-team-qa-list article {
   display: grid;
-  grid-template-columns: 56px minmax(230px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 20px 30px;
   align-items: start;
   min-height: 0;
@@ -9063,7 +9063,7 @@
 
 .research-anticipated-qa__grid.is-compact article {
   display: grid;
-  grid-template-columns: 92px minmax(220px, 0.75fr) minmax(0, 1.25fr);
+  grid-template-columns: 92px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
   min-height: 0;
@@ -9198,14 +9198,30 @@
   font-size: 0.88rem;
   line-height: 1.65;
 }
+.research-anticipated-qa article > details {
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .research-anticipated-qa details summary {
   cursor: pointer;
   font-size: 1rem;
   line-height: 1.6;
   font-weight: 650;
   padding: 8px 0;
+  color: var(--editorial-ink);
+}
+.research-anticipated-qa details summary:focus-visible {
+  outline: 2px solid var(--editorial-accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+.research-anticipated-qa details[open] summary {
+  color: var(--editorial-accent);
 }
 .research-anticipated-qa details p {
+  margin: 12px 0 8px;
   font-size: 0.94rem;
   line-height: 1.75;
 }
