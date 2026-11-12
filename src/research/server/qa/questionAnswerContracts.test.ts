@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { GroundedAnswerSchema } from "../../domain/question";
 import { ResearchReportSchema } from "../../domain/report";
 import { reportTestIds, validReport } from "../../domain/report.testSupport";
 import { workflowV3PresentationFixture } from "../../workflowV3Presentation.testSupport";
-import { questionResearchContext } from "./questionAnswerContracts";
+import {
+  groundedClaims,
+  questionResearchContext,
+  questionRuntimeOverride,
+} from "./questionAnswerContracts";
 
 const supplyClaimId = "00000000-0000-4000-8000-000000000071";
 const unrelatedClaimIds = [
@@ -81,6 +86,32 @@ function consultation(
 }
 
 describe("questionResearchContext", () => {
+  it("uses GPT-6 Luna for ordinary and advanced chat", () => {
+    for (const question of [
+      { en: "What does EPS mean?", ko: "EPS가 뭐야?" },
+      consultation("보고서를 설명해줘"),
+    ]) {
+      expect(questionRuntimeOverride(question)).toEqual({
+        model: "gpt-6-luna",
+        reasoning: "low",
+      });
+    }
+  });
+
+  it.each(["ko", "en"] as const)(
+    "accepts source-language citations from a %s workflow-v3 report",
+    (locale) => {
+      const report = workflowV3PresentationFixture(locale);
+      const claims = groundedClaims(report);
+      const answer = GroundedAnswerSchema.parse({ elements: claims });
+      expect(answer.elements.length).toBeGreaterThan(0);
+      expect(answer.elements[0]?.text).toEqual({
+        en: report.claims[0]?.text,
+        ko: report.claims[0]?.text,
+      });
+    },
+  );
+
   it("uses the workflow-v3 source locale even when untrusted question text requests another locale", () => {
     const report = workflowV3PresentationFixture("en");
 

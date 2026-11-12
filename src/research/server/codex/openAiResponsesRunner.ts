@@ -12,7 +12,7 @@ import {
 } from "./codexArtifacts";
 import { CodexRunnerError } from "./codexErrors";
 import { createCodexHybridPool } from "./codexHybridPool";
-import { CODEX_RUNTIME_POLICY, CODEX_STAGES } from "./codexPolicy";
+import { CODEX_RUNTIME_POLICY, CODEX_STAGES, QA_RUNTIME } from "./codexPolicy";
 import {
   codexInputHash,
   type LaunchReservationReader,
@@ -103,8 +103,9 @@ async function run<Candidate>(
   const schema = schemaDocument(input.outputSchema, locale);
   const browsingPolicy = CODEX_RUNTIME_POLICY.browsingByStage[input.stage];
   const reasoning = CODEX_RUNTIME_POLICY.reasoningByStage[input.stage];
+  const model = input.stage === "qa" ? QA_RUNTIME.model : OPENAI_RESEARCH_MODEL;
   const body = {
-    model: OPENAI_RESEARCH_MODEL,
+    model,
     reasoning: { effort: reasoning },
     input: effectiveCodexPrompt(input.prompt, locale),
     max_output_tokens: 32768,
@@ -129,7 +130,7 @@ async function run<Candidate>(
     transport: OPENAI_RUNNER_VERSION,
     executionBackend: "api",
     ...reservation,
-    model: OPENAI_RESEARCH_MODEL,
+    model,
     stage: input.stage,
     reasoning,
     inputHash: codexInputHash(input),
@@ -264,7 +265,7 @@ async function run<Candidate>(
       executionBackend: "api",
       ordinal: reservation.ordinal,
       stage: input.stage,
-      model: OPENAI_RESEARCH_MODEL,
+      model,
       reasoning,
       browsingPolicy,
       toolTranscriptHash: transcriptHash,
@@ -278,7 +279,7 @@ async function run<Candidate>(
       environmentHash: sha256Value({
         endpoint: "https://api.openai.com/v1/responses",
       }),
-      argvHash: sha256Value({ model: OPENAI_RESEARCH_MODEL, reasoning }),
+      argvHash: sha256Value({ model, reasoning }),
       schemaHash: sha256Value(schema),
       eventTypes: ["response.completed"],
       exitCode: 0,

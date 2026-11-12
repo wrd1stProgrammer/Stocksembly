@@ -6,15 +6,11 @@ import type {
   WorkflowV2ResearchReport,
   WorkflowV3ResearchReport,
 } from "../../domain/report";
-import {
-  type CodexRuntimeOverride,
-  QA_ADVANCED_RUNTIME,
-} from "../codex/codexPolicy";
+import { type CodexRuntimeOverride, QA_RUNTIME } from "../codex/codexPolicy";
 import { codexInputHash } from "../codex/codexReservation";
 import {
   consultationRequest,
   questionResearchContext,
-  SpecialistConsultationSchema,
 } from "./questionResearchContext";
 
 export { questionResearchContext } from "./questionResearchContext";
@@ -59,16 +55,11 @@ type QuestionResearchReport =
   | WorkflowV2ResearchReport
   | WorkflowV3ResearchReport;
 
-export function questionRuntimeOverride(question: {
+export function questionRuntimeOverride(_question: {
   readonly en: string;
   readonly ko: string;
-}): CodexRuntimeOverride | undefined {
-  const parsed = SpecialistConsultationSchema.safeParse(
-    consultationRequest(question),
-  );
-  return parsed.success && parsed.data.advancedReasoning === true
-    ? QA_ADVANCED_RUNTIME
-    : undefined;
+}): CodexRuntimeOverride {
+  return QA_RUNTIME;
 }
 
 function claimText(
@@ -81,7 +72,8 @@ function claimText(
       report.narrative.sections.find((section) =>
         section.claimIds.includes(ClaimIdSchema.parse(claimId)),
       )?.body;
-    return text === undefined ? undefined : { [report.sourceLocale]: text };
+    // Citation excerpts preserve the source text; the answer summary is bilingual.
+    return text === undefined ? undefined : { en: text, ko: text };
   }
   const registered = report.claims.find(
     (claim) => claim.claimId === claimId,

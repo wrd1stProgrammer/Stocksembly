@@ -27,8 +27,8 @@ export type CodexRuntimeOverride = {
   readonly reasoning: CodexReasoning;
 };
 
-export const QA_ADVANCED_RUNTIME = Object.freeze({
-  model: "gpt-5.6-luna",
+export const QA_RUNTIME = Object.freeze({
+  model: "gpt-6-luna",
   reasoning: "low",
 } satisfies CodexRuntimeOverride);
 
@@ -92,8 +92,8 @@ export function isAllowedRuntimeOverride(
 ): boolean {
   return (
     (stage === "qa" &&
-      runtime.model === QA_ADVANCED_RUNTIME.model &&
-      runtime.reasoning === QA_ADVANCED_RUNTIME.reasoning) ||
+      runtime.model === QA_RUNTIME.model &&
+      runtime.reasoning === QA_RUNTIME.reasoning) ||
     (stage === "memo" &&
       runtime.model === SUPPORT_SPECIALIST_RUNTIME.model &&
       runtime.reasoning === SUPPORT_SPECIALIST_RUNTIME.reasoning)
