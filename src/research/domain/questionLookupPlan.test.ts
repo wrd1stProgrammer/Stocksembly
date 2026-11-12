@@ -2,6 +2,29 @@ import { describe, expect, it } from "vitest";
 import { questionLookupPlan } from "./questionLookupPlan";
 
 describe("question lookup plan", () => {
+  it.each([
+    "NTM EPS 가 뭐야?",
+    "What does NTM EPS mean?",
+    "잉여현금흐름의 뜻을 설명해줘",
+  ])("allows sourced financial definitions: %s", (text) => {
+    const encoded = JSON.stringify({
+      kind: "specialist_consultation_v1",
+      userQuestion: { en: text, ko: text },
+    });
+    expect(questionLookupPlan({ en: encoded, ko: encoded })).toEqual({
+      mode: "external",
+      useMarketApi: false,
+    });
+  });
+
+  it("keeps a report EPS comparison inside the report", () => {
+    const text = "보고서의 EPS 전망을 이전 분기와 비교해줘";
+    expect(questionLookupPlan({ en: text, ko: text })).toEqual({
+      mode: "report_only",
+      useMarketApi: false,
+    });
+  });
+
   it("keeps report interpretation questions inside the published report", () => {
     // Given
     const question = {

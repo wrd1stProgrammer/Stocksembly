@@ -143,7 +143,7 @@ describe("official grounded question answering", () => {
     // Then
     expect(handled).toMatchObject({ kind: "handled", committed: true });
     expect(codex.runtimeOverrides).toEqual([
-      { model: "gpt-5.6-luna", reasoning: "low" },
+      { model: "gpt-6-luna", reasoning: "low" },
     ]);
     await runtime.engine.shutdown();
     await runtime.official.close();

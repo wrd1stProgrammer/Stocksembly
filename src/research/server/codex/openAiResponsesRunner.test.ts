@@ -53,6 +53,31 @@ function streamResponse(value: unknown) {
 }
 
 describe("direct OpenAI research", () => {
+  it("sends chat requests to GPT-6 Luna", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "openai-chat-model-"));
+    try {
+      const input = { ...runInput(directory), stage: "qa" as const };
+      const transport = vi.fn(async () => completed);
+      const port = createOpenAiPort(
+        {
+          readCommittedReservation: async () => committedReservation(input),
+        },
+        transport,
+      );
+      const result = await port.run(input);
+      expect(transport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "gpt-6-luna",
+          reasoning: { effort: "low" },
+        }),
+        expect.anything(),
+      );
+      expect(result.evidence.model).toBe("gpt-6-luna");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it.each(["database_error", "stale_attempt"] as const)(
     "classifies web registration %s separately from missing model output",
     async (failure) => {
